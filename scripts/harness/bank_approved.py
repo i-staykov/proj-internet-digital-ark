@@ -19,6 +19,11 @@ makes an approval merged from a phone bank something:
     - journal: `data/raw/some/some.jsonl.gz`
     - refetch: https://host/path (then `uv run ark ingest some_spec <journal>`)
 
+A corpus the fleet read whole carries one line instead, naming the directory its journal
+parts were pulled into, and banks through the hostname ingest and then its registrable half:
+
+    - ingest: ark ingest-hostnames data/raw/fleet_read/<slug>/
+
 The journal path is the file the measured figures were computed from, so a reviewer
 who approved those figures approved that file. The refetch URL is the way back to
 those bytes when the priced journal never reached this machine, which is the normal
@@ -39,6 +44,7 @@ banking the other classes matters more than the exit status.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -68,6 +74,9 @@ _SPEC_LINE = re.compile(r"^- ingest specs?: (.+)$", re.M)
 # and an anchored pattern read those as having no journal line at all.
 _JOURNAL_LINE = re.compile(r"^- journals?: `?([^`\s]+)`?", re.M)
 _REFETCH_LINE = re.compile(r"^- refetch: (.+)$", re.M)
+_HOSTNAMES_LINE = re.compile(r"^- ingest: `?ark ingest-hostnames ([^`\s]+?)/?`?\s*$", re.M)
+# The parts a fleet read writes, one source per lead (`ark.hostnames.fleet_read_source`).
+READ_PARTS = "fleetread_*.jsonl.gz"
 _URL = re.compile(r"https?://[^\s`)]+")
 _BACKTICKED = re.compile(r"`([^`]+)`")
 
@@ -90,6 +99,7 @@ class Request:
     specs: tuple[str, ...] = ()
     journal: str = ""
     refetch: str = ""
+    hostnames_dir: str = ""
 
     @property
     def label(self) -> str:
@@ -107,6 +117,7 @@ class Plan:
 
     waiting: list[Request] = field(default_factory=list)
     ready: list[tuple[str, Path]] = field(default_factory=list)
+    reads: list[tuple[str, Path]] = field(default_factory=list)
     done: list[tuple[str, str]] = field(default_factory=list)
     refetch: list[tuple[str, str, Path]] = field(default_factory=list)
     blocked: list[tuple[str, str]] = field(default_factory=list)
@@ -141,13 +152,44 @@ def request_in(text: str, source_name: str, evidence_type: str) -> Request:
     journal = _JOURNAL_LINE.search(block)
     refetch = _REFETCH_LINE.search(block)
     url = _URL.search(refetch.group(1)) if refetch else None
+    hostnames = _HOSTNAMES_LINE.search(block)
     return Request(
         source_name=source_name,
         evidence_type=evidence_type,
         specs=spec_keys(specs.group(1)) if specs else (),
         journal=journal.group(1).strip() if journal else "",
         refetch=url.group(0) if url else "",
+        hostnames_dir=hostnames.group(1).strip() if hostnames else "",
     )
+
+
+def plan_read(request: Request, plan: Plan, root: Path, read: Callable[[str], set[str]]) -> None:
+    """A fleet read's directory: bankable while it holds a part the ledger has not read.
+
+    The pull writes a part only after its sha256 matched the receipt, and the receipt says
+    the read was complete, so a directory without one is refused rather than half banked.
+    """
+    path = under(root, request.hostnames_dir)
+    if path is None:
+        plan.blocked.append(
+            (request.label, f"read directory escapes the repository: {request.hostnames_dir}")
+        )
+        return
+    parts = sorted(path.glob(READ_PARTS)) if path.is_dir() else []
+    try:
+        complete = json.loads((path / "receipt.json").read_text(encoding="utf-8")).get("complete")
+    except (OSError, ValueError, AttributeError):
+        complete = False
+    if not parts or not complete:
+        plan.blocked.append(
+            (request.label, f"no complete read in {request.hostnames_dir} on this machine")
+        )
+        return
+    banked = read(request.source_name)
+    if all(part.name in banked for part in parts):
+        plan.done.append((request.label, f"{len(parts)} part(s) of {path.name}"))
+    else:
+        plan.reads.append((request.label, path))
 
 
 def under(root: Path, written: str) -> Path | None:
@@ -197,6 +239,9 @@ def plan_bank(
             plan.waiting.append(request)
             continue
         if approval.decision != "master":
+            continue
+        if request.hostnames_dir:
+            plan_read(request, plan, root, read)
             continue
 
         keys = [key for key in request.specs if key in specs]
@@ -301,6 +346,29 @@ def run_refetches(
     return lines
 
 
+def read_commands(path: Path) -> list[list[str]]:
+    """A whole read banks in three steps: its hostname records, then its registrable half,
+    converted by the exact-host converter, which leaves out error captures."""
+    rel = path.relative_to(ROOT)
+    tag = f"fleetread_{path.name}"
+    return [
+        ["uv", "run", "ark", "ingest-hostnames", f"{rel}/"],
+        [
+            "uv",
+            "run",
+            "python",
+            "scripts/engines/cdx_suffix_convert.py",
+            "--glob",
+            f"{rel}/{READ_PARTS}",
+            "--tag",
+            tag,
+            "--min-interval",
+            "0",
+        ],
+        ["uv", "run", "ark", "ingest", "cdx_snapshot", f"data/raw/cdx/cdx_suffix_{tag}.jsonl.gz"],
+    ]
+
+
 def report(plan: Plan, banner_limit: int = 10) -> None:
     """Everything the run decided, with the unbankable under a banner."""
     for request in plan.waiting:
@@ -309,6 +377,8 @@ def report(plan: Plan, banner_limit: int = 10) -> None:
         print(f"  already banked: {key}  {what}")
     for key, url, path in plan.refetch:
         print(f"  journal absent for {key}: {path.name}, refetching from {url}")
+    for label, path in plan.reads:
+        print(f"  whole read ready for {label}: {path.relative_to(ROOT)}")
     if plan.notes:
         names = ", ".join(label for label, _ in plan.notes[:6])
         more = f" and {len(plan.notes) - 6} more" if len(plan.notes) > 6 else ""
@@ -344,21 +414,26 @@ def main() -> None:
         plan = plan_bank(text, approvals, read=read)  # once: the bytes either came or did not
     report(plan)
 
-    if not plan.ready:
+    if not plan.ready and not plan.reads:
         print("nothing newly approved to bank.")
         if plan.blocked and args.strict:
             raise SystemExit(1)
         return
 
-    for key, path in plan.ready:
-        command = ["uv", "run", "ark", "ingest", key, str(path.relative_to(ROOT))]
-        if not args.write:
-            print("  would run: " + " ".join(command))
-            continue
-        print("== " + " ".join(command))
-        result = subprocess.run(command, cwd=ROOT, check=False)
-        if result.returncode != 0:
-            raise SystemExit(f"ingest failed for {key}; stopping before anything else runs")
+    jobs = [
+        (key, [["uv", "run", "ark", "ingest", key, str(path.relative_to(ROOT))]])
+        for key, path in plan.ready
+    ]
+    jobs += [(label, read_commands(path)) for label, path in plan.reads]
+    for key, commands in jobs:
+        for command in commands:
+            if not args.write:
+                print("  would run: " + " ".join(command))
+                continue
+            print("== " + " ".join(command))
+            result = subprocess.run(command, cwd=ROOT, check=False)
+            if result.returncode != 0:
+                raise SystemExit(f"ingest failed for {key}; stopping before anything else runs")
 
     if not args.write:
         print("\ndry run. Pass --write to refetch and ingest.")

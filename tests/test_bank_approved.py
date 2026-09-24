@@ -8,6 +8,7 @@ bytes a source was priced from live wherever it was priced.
 import email.message
 import hashlib
 import importlib.util
+import json
 import sys
 import urllib.error
 from pathlib import Path
@@ -315,3 +316,62 @@ def test_it_never_offers_to_bank_a_class_a_human_has_not_approved() -> None:
     # assertion is the shape of the data, not the count: a request block plus a
     # non-master decision is exactly the case the module reports and skips.
     assert all(d != "master" for _, _, d in offered)
+
+
+READ_BLOCK = (
+    "### fleet_x_hostnames / cdx_timestamp\n\n"
+    "- ingest: ark ingest-hostnames data/raw/fleet_read/x/\n"
+    "- journal sha256: " + "ab" * 32 + ", 2 part(s), 10 rows read whole from the artifact\n\n"
+    "Decision: master\n"
+)
+
+
+def _read_dir(root: Path, complete: bool = True) -> Path:
+    directory = root / "data/raw/fleet_read/x"
+    directory.mkdir(parents=True)
+    for n in (1, 2):
+        (directory / f"fleetread_bulk_cdx_file__x_000{n}.jsonl.gz").write_bytes(b"rows")
+    (directory / "receipt.json").write_text(json.dumps({"complete": complete}))
+    return directory
+
+
+def test_a_fleet_read_block_plans_as_ready_and_banks_in_three_steps(tmp_path: Path) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    request = bank.request_in(text, "fleet_x_hostnames", "cdx_timestamp")
+    assert request.hostnames_dir == "data/raw/fleet_read/x"
+    directory = _read_dir(tmp_path)
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)]
+    assert plan.blocked == [] and plan.ready == []
+    steps = bank.read_commands(bank.ROOT / "data/raw/fleet_read/x")
+    assert steps[0][-2:] == ["ingest-hostnames", "data/raw/fleet_read/x/"]
+    assert "cdx_suffix_convert.py" in steps[1][3] and steps[1][-2:] == ["--min-interval", "0"]
+    assert steps[2][-2:] == ["cdx_snapshot", "data/raw/cdx/cdx_suffix_fleetread_x.jsonl.gz"]
+
+
+def test_a_fleet_read_already_banked_is_done_and_an_incomplete_one_is_refused(
+    tmp_path: Path,
+) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    directory = _read_dir(tmp_path)
+    names = {p.name for p in directory.glob("fleetread_*")}
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: names, specs=SPECS)
+    assert plan.reads == [] and plan.done == [
+        ("fleet_x_hostnames / cdx_timestamp", "2 part(s) of x")
+    ]
+    (directory / "receipt.json").write_text('{"complete": false}')
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == []
+    assert "no complete read" in plan.blocked[0][1]
+
+
+def test_a_fleet_read_directory_that_never_arrived_is_refused_loudly(tmp_path: Path) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == []
+    assert plan.blocked == [
+        (
+            "fleet_x_hostnames / cdx_timestamp",
+            "no complete read in data/raw/fleet_read/x on this machine",
+        )
+    ]

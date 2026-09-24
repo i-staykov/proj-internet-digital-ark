@@ -23,6 +23,7 @@ Three subcommands, in order: the tick runs drain and validate, `just bank` runs 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -44,6 +45,12 @@ VPS_ITEMS = "/projects/ark-data/items"
 # What the leg has to leave beside its finding for the laptop to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
+# A corpus `read.yaml` read whole: its journal parts and `receipt.json` on the VPS, pulled
+# here per lead. The pull is the gate: only a complete read whose every part matches the
+# sha256 the receipt lists lands, so what the bank ingests is exactly what the read wrote.
+VPS_JOURNALS = "/projects/ark-data/journals"
+FLEET_READ = REPO / "data/raw/fleet_read"
+READ = "read.json"
 # Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
 NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
 # The spend record. `ARK_FLEET_LEDGER` moves it, so a drain under test never writes the real one.
@@ -256,6 +263,82 @@ def items_remote() -> str:
             if name.strip() == "ARK_VPS" and value.strip():
                 return f"{value.strip().strip(chr(34)).strip(chr(39))}:{VPS_ITEMS}"
     return ""
+
+
+def journals_remote() -> str:
+    """Where a read's journal parts live, the same host `items_remote` names."""
+    if os.environ.get("ARK_READ_REMOTE"):
+        return os.environ["ARK_READ_REMOTE"]
+    items = items_remote()
+    return items.removesuffix(VPS_ITEMS) + VPS_JOURNALS if items.endswith(VPS_ITEMS) else ""
+
+
+def _sha256(path: Path, whole=None) -> str:
+    """The file's sha256, feeding the same bytes to `whole` when one is passed."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            digest.update(chunk)
+            if whole is not None:
+                whole.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_read(directory: Path) -> str:
+    """ "" when the directory holds a complete read whose parts match its receipt, else why."""
+    try:
+        receipt = json.loads((directory / "receipt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "no readable receipt.json"
+    if receipt.get("complete") is not True:
+        return "the receipt does not say complete"
+    parts = receipt.get("parts") or []
+    if not parts:
+        return "the receipt lists no parts"
+    listed = {str(part.get("name")) for part in parts}
+    extra = sorted(p.name for p in directory.glob("fleetread_*") if p.name not in listed)
+    if extra:
+        return f"{extra[0]} is not in the receipt"
+    whole = hashlib.sha256()
+    for part in parts:
+        path = directory / str(part.get("name"))
+        if not path.is_file() or _sha256(path, whole) != part.get("sha256"):
+            return f"{path.name} is missing or does not match its sha256"
+    wanted = receipt.get("journal_sha256")
+    if wanted and whole.hexdigest() != wanted:
+        return "the parts together do not match journal_sha256"
+    return ""
+
+
+def fetch_read(lead: Path) -> Path | None:
+    """The lead's whole read in `data/raw/fleet_read/<slug>/`, pulled and verified.
+
+    A read already here and verified is not pulled again. A pull that does not verify is
+    removed, so a half-copied or incomplete read never reaches the bank.
+    """
+    target = FLEET_READ / lead.name
+    if target.is_dir() and not verify_read(target):
+        return target
+    remote = journals_remote()
+    if not remote:
+        print(f"reprice: no ARK_VPS in local.env, so {lead.name}'s read cannot be pulled")
+        return None
+    staging = FLEET_READ / f".{lead.name}.part"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    done = subprocess.run(
+        ["rsync", "-a", f"{remote}/{lead.name}/", f"{staging}/"], capture_output=True, text=True
+    )
+    why = done.stderr.strip() if done.returncode else verify_read(staging)
+    if why:
+        shutil.rmtree(staging, ignore_errors=True)
+        print(f"reprice: {lead.name}'s read not pulled: {why}")
+        return None
+    shutil.rmtree(target, ignore_errors=True)
+    staging.rename(target)
+    where = target.relative_to(REPO) if target.is_relative_to(REPO) else target
+    print(f"reprice: pulled {lead.name}'s whole read into {where}")
+    return target
 
 
 def fetch_items(lead: Path) -> Path | None:
