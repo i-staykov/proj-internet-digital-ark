@@ -13,16 +13,6 @@ the git log and, for sources, in `sources.md` with its measurement.
 
 A counter rather than a request, by your instruction of 2026-08-15. Nothing is blocked: a pending class cannot date a year, so `ark ingest` refuses it and collection continues.
 
-### Ask Ding whether the www/bare variant of a host he holds at 2001 may be scored as a candidate
-
-0918 lines 238, 246 and 284 send "automatically derived" variants to an exclusion-ready review set, not the scored pool; teammate B scored 16.9M of them on 8 Sep, before that text. One line from you to Ding decides it.
-Worth: 15,550,418.1 EE on the candidate track (27,580,190 variants in none of his files, private/v3/door1.out), zero requests; it cannot move the annual 5% gate, which PR 152 shows the candidate claim is nowhere near (about 75,113 EE).
-
-### Admit 4xx CDX captures to the hostname masters, or confirm ADR-011's 3xx line
-
-ADR-011 keeps 4xx out ("the server answered, not the host served"); XIII names "an exact-host IA CDX capture" with no status condition, and `early_web_nonok` banked every non-200 status at hostname grain on 2026-09-04, before ADR-011. Priced on files already on disk, nothing ingested, snapshot 78a795f2: node CDX 15,298 net-new host-years on the half streamed so far, Poland 7,934, Arquivo 1.
-Worth: 9,623.2 EE measured (node CDX whole file 8,773.6693, Poland 848.9380, Arquivo 0.6321); a yes is one local ingest per file and no archive request.
-
 ## CLOSED
 
 | | date | decision |
