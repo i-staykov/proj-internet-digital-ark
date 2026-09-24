@@ -87,10 +87,9 @@ def test_a_published_journal_is_gzipped(tmp_path) -> None:
 
 
 def test_a_live_journal_grows_on_disk_as_records_are_written(tmp_path) -> None:
-    """The watchdog decides a run has stalled by watching this size.
-    `scripts/engines/supervise_cdx_pool.sh` restarts the supervisor when journal bytes stop
-    moving, and gzip emits nothing until zlib fills a block: without a flush per record the
-    first block once took 12.7 minutes against a 10-minute window.
+    """A watchdog decides a run has stalled by watching this size, and gzip emits nothing
+    until zlib fills a block: without a flush per record the first block took 12.7 minutes
+    against a 10-minute window.
     """
     path = _journal(tmp_path)
     partial = in_flight_path(path)

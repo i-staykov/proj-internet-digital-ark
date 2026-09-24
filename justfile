@@ -13,7 +13,6 @@ help:
     echo "  just check <what>       all code data lint fmt test scan"
     echo "  just collect <source>   no source lists them"
     echo "  just collectors <what>  pause resume status"
-    echo "  just engines <what>     status start stop"
     echo "  just expand <what>      round loop"
     echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
@@ -894,56 +893,9 @@ rebuild dir="output/provenance":
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
 # never hold the store's write lock and can run concurrently with each other.
 
-# One queue over the gap pool and the candidate pool, sharded by content hash so no domain
-# is queried twice: the allocation between the two populations is the expensive decision and
-# it is made here rather than by hand. Rebuild after a large ingest, since new evidence
-# creates gaps as well as filling them. With no argument it passes the measured weights and
-# rates; `--dry-run` writes nothing.
-#
-# one queue from both populations, best expected equivalent-English first
-query-queue *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "{{args}}" ]; then
-        uv run python scripts/engines/build_query_queue.py --weights 78,22 --rates 916,262
-    else
-        uv run python scripts/engines/build_query_queue.py {{args}}
-    fi
-
-# The candidate pool instead of the gap pool: domains held with no year at all, so a
-# capture adds a name rather than a year. Best English yield first, and the supervisor runs
-# batches until the deadline epoch you give it.
-#
-# sweep the candidate pool at the archive, unattended until a deadline epoch
-cdx-pool until batch="1200" workers="8":
-    uv run python scripts/engines/build_pool_candidates.py
-    bash scripts/engines/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
-
-# The standing hostname lane in one command. Two archive clients, which is the maximum on
-# CDX: one walks the platforms we hold the FEWEST hosts under, one walks the high-weight
-# suffix namespaces, and the maintain loop folds both into the store as they write.
-# `--net-new` on the ranker is the point: ranking by the hosts we LACK asks what the query
-# will ADD, which is a different question from whether a platform is real.
-#
-# start the hostname lane: two sweeps and the fold loop, to an absolute deadline
-hostnames until:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    uv run python scripts/harness/bank_hygiene.py space
-    uv run python scripts/engines/rank_platform_parents.py --net-new \
-        --out data/raw/cdx/platform_queue_netnew.txt --top 40
-    nohup bash scripts/engines/platform_sweep.sh {{until}} \
-        data/raw/cdx/platform_queue_netnew.txt > data/logs/platform_netnew.log 2>&1 < /dev/null &
-    nohup bash scripts/engines/platform_sweep.sh {{until}} \
-        data/raw/cdx/suffix_queue_r9.txt > data/logs/suffix_sweep.log 2>&1 < /dev/null &
-    nohup bash scripts/harness/maintain.sh 420 24 > /dev/null 2>&1 < /dev/null &
-    sleep 5
-    echo "hostname lane started to $(date -r {{until}} '+%F %H:%M'); two clients, the maximum"
-    pgrep -f cdx_suffix_sweep.py | wc -l | xargs echo "  sweep processes:"
-
-# The laptop's launchd-supervised parent sweep (S9); `engines` below is the older per-host
-# pool. No start or stop, because launchd owns the process: `just schedule install` loads
-# the job and the pause flag is the only thing these three words touch.
+# The laptop's launchd-supervised parent sweep, a closed lane: `run` starts nothing. No start
+# or stop, because launchd owns the process, and the pause flag is the only thing these three
+# words touch.
 #
 #   pause    the sweeps finish the page in flight and idle, launchd stays loaded and does
 #            nothing. Survives sleep and reboot.
@@ -957,44 +909,6 @@ collectors what="status":
     case "{{what}}" in
     pause|resume|status) bash scripts/harness/collectors.sh {{what}} ;;
     *) echo "collectors: pause resume status" >&2; exit 2 ;;
-    esac
-
-#   status         what both engines are doing, and whether the VPS journals are home
-#   start UNTIL    this machine's collector and the ingest loop, both detached, to a
-#                  deadline epoch: `just engines start $(date -u -v+12d +%s)`
-#   stop           TERM lets the batch in flight publish its journal. Never `kill -9`:
-#                  that strands the `.part` and the work in it is unreachable.
-#
-# the CDX collectors: status start stop
-engines what="status" *args:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    set -- {{args}}
-    case "{{what}}" in
-    status) bash scripts/engines/engine_status.sh ;;
-    start)
-        if [ $# -lt 1 ]; then echo "engines start UNTIL [batch] [workers]" >&2; exit 2; fi
-        uv run python scripts/harness/bank_hygiene.py space || exit $?
-        ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
-            nohup caffeinate -i bash scripts/engines/supervise_cdx_pool.sh \
-            "$1" "${2:-600}" "${3:-8}" 900 > /dev/null 2>&1 < /dev/null &
-        nohup bash scripts/harness/maintain.sh 900 150 > /dev/null 2>&1 < /dev/null &
-        sleep 5
-        ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]" || true
-        ;;
-    stop)
-        pkill -TERM -f "supervise_cdx_pool[.]sh" 2>/dev/null || true
-        pkill -TERM -f "maintain[.]sh" 2>/dev/null || true
-        echo "waiting for the batch in flight to publish its journal"
-        until ! pgrep -f "[a]rk cdx " >/dev/null && ! pgrep -f "[a]rk ingest" >/dev/null; do
-            sleep 5
-        done
-        pkill -f "caffeinate -i bash scripts/supervise" 2>/dev/null || true
-        echo "stopped; nothing left running:"
-        ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]|ar[k] cdx" || echo "  confirmed idle"
-        ls data/raw/cdx/*.part 2>/dev/null && echo "WARNING: a .part was stranded" || echo "  no stranded .part files"
-        ;;
-    *) echo "engines: status start stop" >&2; exit 2 ;;
     esac
 
 # Page expansion, the outbound-link route (brief section VII).
