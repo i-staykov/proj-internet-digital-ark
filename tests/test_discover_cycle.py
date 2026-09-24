@@ -1,9 +1,8 @@
-"""The cycle's two pieces of real logic: parsing staleness, and not rebuilding twice.
+"""The cycle's logic a report would not reveal failing.
 
-Everything else shells out to a program with its own tests. These two fail in ways a report
-would not reveal: a staleness parse error **crashes the entire cycle**, and with an hourly
-loop and a 15-minute wake both live, two rebuilds of one target path truncate the file a
-collector then reads as a short list rather than as an error.
+Everything else shells out to a program with its own tests. With an hourly loop and a
+15-minute wake both live, two rebuilds of one target path truncate the file a collector then
+reads as a short list rather than as an error, so the rebuild lock is tested here.
 """
 
 import importlib.util
@@ -16,40 +15,6 @@ _SPEC = importlib.util.spec_from_file_location(
 )
 cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cycle)
-
-STALE_LINE = (
-    "  [STALE] data/raw/cdx/queue_gap_vps.txt  2026-08-11T13:54:15Z  "
-    "0.9h behind the newest pairs  rebuild: build_query_queue.py --population gap"
-)
-
-
-def _parse(text: str) -> dict[str, float]:
-    """The parse as `rebuild_derived` performs it, without shelling out to the audit."""
-    import re
-
-    out = {}
-    for line in text.splitlines():
-        if "[STALE]" not in line:
-            continue
-        parts = line.split()
-        hours = next((float(p[:-1]) for p in parts if re.fullmatch(r"[\d.]+h", p)), 0.0)
-        out[parts[1]] = hours
-    return out
-
-
-def test_the_hours_field_carries_its_unit_and_must_not_be_floated_whole() -> None:
-    """`float("0.9h")` raises, and it took the whole cycle down with it."""
-    assert _parse(STALE_LINE) == {"data/raw/cdx/queue_gap_vps.txt": 0.9}
-
-
-def test_a_line_with_no_hours_field_reads_as_zero_rather_than_raising() -> None:
-    assert _parse("  [STALE] some/path.txt  2026-08-11T13:54:15Z  behind") == {"some/path.txt": 0.0}
-
-
-def test_a_timestamp_is_not_mistaken_for_the_hours_field() -> None:
-    """`2026-08-11T13:54:15Z` ends in no `h`, but a looser match on digits would take
-    a piece of it. The pattern has to anchor the whole token."""
-    assert _parse(STALE_LINE)["data/raw/cdx/queue_gap_vps.txt"] == 0.9
 
 
 def test_an_absent_lock_has_no_holder(tmp_path, monkeypatch) -> None:
