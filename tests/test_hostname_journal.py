@@ -429,3 +429,83 @@ def test_a_stopped_write_resumes_and_a_same_second_capture_of_another_family_rep
     assert method == "early_web_hostgrain"
     assert ("a.example.com", 1999) in _shipped(conn)
     assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export"), audit=same))
+
+
+FLEET_APPROVAL = "## Decided\n\n### fleet_x_hostnames / cdx_timestamp\n\nDecision: master\n"
+
+
+def test_a_fleet_read_part_maps_to_its_lead_and_writes_hostname_years(tmp_path, monkeypatch):
+    """`fleetread_<method>__<slug>_NNNN.jsonl.gz` is one source per lead, by its web method,
+    and its records pass every check the store runs."""
+    from ark import approvals
+    from ark.hostnames import source_for
+
+    register = tmp_path / "approved.md"
+    register.write_text(FLEET_APPROVAL)
+    monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
+    name = "fleetread_bulk_cdx_file__x_0001.jsonl.gz"
+    assert source_for(Path(name)) == ("fleet_x_hostnames", "bulk_cdx_file")
+    assert writes_hostname_years("fleet_x_hostnames")
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    rows = [
+        ("http://www.example.com/", "19990301000000", "200"),
+        ("http://shop.example.com/", "20000101000000", "404"),
+        ("http://old.example.com/", "19950101000000", "200"),
+    ]
+    stats = ingest_hostname_journal(conn, write(tmp_path, rows, name))
+    assert stats["hostname_year_rows"] == 2 and stats["out_of_window"] == 1
+    method = conn.execute("SELECT DISTINCT acquisition_method FROM evidence").fetchall()
+    assert method == [("bulk_cdx_file",)]
+    assert _shipped(conn) == [("www.example.com", 1999)], "the 404 is a candidate only"
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
+
+
+def test_a_fleet_read_of_a_non_web_method_or_without_status_is_refused(tmp_path, monkeypatch):
+    from ark import approvals
+    from ark.hostnames import source_for
+
+    register = tmp_path / "approved.md"
+    register.write_text(FLEET_APPROVAL)
+    monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    dns = "fleetread_internic_zone_ns_target__x_0001.jsonl.gz"
+    try:
+        source_for(Path(dns))
+    except ValueError as exc:
+        assert "not a web method" in str(exc)
+    else:
+        raise AssertionError("a non-web method mapped to a source")
+    rows = [("http://www.example.com/", "19990301000000", "200")]
+    assert ingest_hostname_journal(conn, write(tmp_path, rows, dns))["refused"] is True
+    bare = write(tmp_path, CAPTURES, "fleetread_bulk_cdx_file__x_0002.jsonl.gz")
+    assert ingest_hostname_journal(conn, bare)["refused"] is True
+    for table in ("hostname_year", "evidence", "ingested_file"):
+        assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_a_fleet_source_record_from_a_non_web_method_fails_the_check() -> None:
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    from ark.ingest import ensure_source
+
+    source_id = ensure_source(conn, "fleet_x_hostnames", "timestamped")
+    conn.execute(
+        "INSERT INTO domain (domain, tld, discovered_source) VALUES ('example.com', 'com', ?)",
+        [source_id],
+    )
+    conn.execute(
+        "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value,"
+        " acquisition_method) VALUES ('example.com', ?, 1999, 'cdx_timestamp',"
+        " 'cdx capture 19990301000000 www.example.com', 'internic_zone_ns_target')",
+        [source_id],
+    )
+    evidence_id = conn.execute("SELECT max(evidence_id) FROM evidence").fetchone()[0]
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id)"
+        " VALUES ('www.example.com', 'example.com', 1999, ?)",
+        [evidence_id],
+    )
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
+    assert not results["hostname_observed_serving_web"]["ok"]
