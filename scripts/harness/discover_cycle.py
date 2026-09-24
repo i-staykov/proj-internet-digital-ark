@@ -5,8 +5,7 @@ project splits cleanly in two, and pretending otherwise is how autonomy turns in
 theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
-a journal is sitting on a remote disk unbanked, that a
-file on disk was never read, that a derived target list is older than the rows it
+a file on disk was never read, that a derived target list is older than the rows it
 should carry, that a hypothesis has been sitting half-priced for a day, and that the
 state document has gone stale. **That is this script**, and it is genuinely
 autonomous: every check has a right answer that needs no judgement.
@@ -110,11 +109,8 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
 def check_yield() -> tuple[list[str], list[str]]:
     """Are the collectors finding anything, not just running and writing?
 
-    The gap none of the other checks covered. The supervisor watches journal growth,
-    and **a journal full of misses grows exactly as fast as a journal full of hits.**
-    On 11 August a rebuilt queue sent the local engine 1,200 queries for zero captures
-    while every check here reported clean; the truth was in a `no_capture: 600` counter
-    nothing read. Reasoning and thresholds in `ark.yield_check`.
+    **A journal full of misses grows exactly as fast as one full of hits**, so growth says
+    nothing about yield. Reasoning and thresholds in `ark.yield_check`.
     """
     findings, attention = [], []
     for reading in measure_collectors(collectors()):
@@ -156,7 +152,7 @@ def check_residual() -> tuple[list[str], list[str]]:
                     # stale almost always, and an alarm on that condition fires every
                     # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
                     # the threshold and asks for a human only when it cannot act, which
-                    # is the VPS list or a failed rebuild. An alarm nobody can clear is
+                    # is a failed rebuild. An alarm nobody can clear is
                     # the same defect as the 982 MB the unreferenced check used to report.
     return findings, attention
 

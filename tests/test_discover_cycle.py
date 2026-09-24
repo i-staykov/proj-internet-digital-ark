@@ -1,8 +1,9 @@
-"""The cycle's logic a report would not reveal failing.
+"""The cycle's two pieces of real logic: parsing staleness, and not rebuilding twice.
 
-Everything else shells out to a program with its own tests. With an hourly loop and a
-15-minute wake both live, two rebuilds of one target path truncate the file a collector then
-reads as a short list rather than as an error, so the rebuild lock is tested here.
+Everything else shells out to a program with its own tests. These two fail in ways a report
+would not reveal: a staleness parse error **crashes the entire cycle**, and with an hourly
+loop and a 15-minute wake both live, two rebuilds of one target path truncate the file a
+collector then reads as a short list rather than as an error.
 """
 
 import importlib.util
@@ -15,6 +16,20 @@ _SPEC = importlib.util.spec_from_file_location(
 )
 cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cycle)
+
+
+def test_the_staleness_parse_takes_hours_with_their_unit(tmp_path, monkeypatch) -> None:
+    """`float("0.9h")` raises and took the whole cycle down; no hours field reads as zero."""
+    audit = (
+        "  [STALE] data/raw/rdap/pool_targets_measured.txt  2026-08-11T13:54:15Z  0.9h behind\n"
+        "  [STALE] some/path.txt  2026-08-11T13:54:15Z  behind\n"
+    )
+    monkeypatch.setattr(cycle, "run", lambda *a, **k: (audit, True))
+    monkeypatch.setattr(cycle, "REBUILD_LOCK", tmp_path / "rebuild.lock")
+    assert cycle.rebuild_derived()[0] == [
+        "derived: pool_targets_measured.txt 0.9h behind, under the threshold",
+        "derived: path.txt 0.0h behind, under the threshold",
+    ]
 
 
 def test_an_absent_lock_has_no_holder(tmp_path, monkeypatch) -> None:

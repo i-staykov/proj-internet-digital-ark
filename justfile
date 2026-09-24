@@ -141,7 +141,7 @@ brief:
 residual *args:
     uv run python scripts/harness/audit_residual.py {{args}}
 
-# One pass of the harness: both collectors, unbanked journals, derived lists the store has
+# One pass of the harness: collector yield, unbanked journals, derived lists the store has
 # outgrown, the hypothesis ledger, pending approvals, docs/ROUND.md. It ends with the items
 # no program can decide, which is the part worth reading. `--until EPOCH --every SECS`
 # loops; `--no-network` skips the re-probe, the only step that leaves the machine.
@@ -897,10 +897,9 @@ rebuild dir="output/provenance":
 # or stop, because launchd owns the process, and the pause flag is the only thing these three
 # words touch.
 #
-#   pause    the sweeps finish the page in flight and idle, launchd stays loaded and does
-#            nothing. Survives sleep and reboot.
-#   resume   the flag is removed and each parent continues from its own state file.
-#   status   running or paused, the current parent, the last journal time and the hit rate.
+#   pause    writes the flag a sweep checks between pages. Survives sleep and reboot.
+#   resume   the flag is removed.
+#   status   paused or not, clients on the channel, the last journal and its hit rate.
 #
 # the laptop CDX collectors: pause resume status
 collectors what="status":
@@ -1387,9 +1386,8 @@ hold what="on" name="":
 # without a session open, and reads the `ship-now` label (the header of
 # scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times a day and
 # reports rather than acts; scheduled_cycle.sh says why a restarting watchdog is the wrong
-# shape here. com.ark.collectors holds the CDX collector lane under `caffeinate -s`, KeepAlive
-# so it returns after a reboot, and `just collectors pause` stops it collecting without
-# unloading it.
+# shape here. com.ark.collectors is the closed CDX parent sweep lane: it runs once at load
+# and exits.
 #
 # **The checkout lives under ~/GitHub so that none of this needs Full Disk Access.** Under
 # ~/Documents, which macOS TCC protects, a launchd agent inherits no grant from the terminal
@@ -1463,7 +1461,7 @@ schedule what="install" job="":
             *" com.ark.sync "*) echo "com.ark.sync runs at :05 every hour and appends to data/logs/scheduled_sync.log" ;;
             esac
             case " $JOBS " in
-            *" com.ark.collectors "*) echo "com.ark.collectors holds the CDX lane; 'just collectors status' reads it" ;;
+            *" com.ark.collectors "*) echo "com.ark.collectors is the closed CDX lane: it runs once and exits" ;;
             esac
         else
             echo "FAILED: ${line:-$probe is not loaded}"
