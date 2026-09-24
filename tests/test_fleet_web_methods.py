@@ -1,17 +1,22 @@
 """The fleet refuses a hostname-grain lead at filing when its class is not a web method
 (ark-fleet `scripts/dealer.py`), reading a COPY of the allowlist from its own
 `schemas/web_methods.json` because a collect job has no public checkout. A copy drifts, so
-this pins it to the one allowlist that decides the claim. Skipped where the clone is absent.
+this pins it to the one allowlist that decides the claim. `$ARK_FLEET` names the
+fleet checkout, and the test skips where it is absent.
 """
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from ark.evidence_types import REDIRECT_METHOD, WEB_METHODS
 
-FLEET = Path.home() / "Documents/GitHub/ark-fleet" / "schemas" / "web_methods.json"
+FLEET_ROOT = Path(
+    os.environ.get("ARK_FLEET") or Path.home() / "Documents/GitHub/ark-fleet"
+).expanduser()
+FLEET = FLEET_ROOT / "schemas" / "web_methods.json"
 
 
 def test_the_fleet_copy_of_the_allowlist_is_the_allowlist() -> None:

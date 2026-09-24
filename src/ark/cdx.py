@@ -1,9 +1,9 @@
 """Internet Archive CDX lookups: which in-window years hold a capture.
 
 One request answers all six years for a domain. `url=*.domain` matches the domain and every
-subdomain, `from`/`to` bound the window, `filter=statuscode:200` keeps captures that served
-content, `fl=timestamp,original` returns the stamp and the captured URL, and
-`collapse=timestamp:4` asks the server to fold repeated years.
+subdomain, `from`/`to` bound the window, `filter=statuscode:[23][0-9][0-9]` keeps the captures
+the host answered 2xx or 3xx and never an error, `fl=timestamp,original` returns the stamp and
+the captured URL, and `collapse=timestamp:4` asks the server to fold repeated years.
 
 **Always ask for `original`, never `timestamp` alone.** A `www.` host is its own record
 (ADR-009), so keeping the URL turns a query about a domain we hold into a harvest of the
@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from threading import Lock
 
 CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx"
+# a capture dates a year only when the host answered 2xx or 3xx
+CAPTURE_FILTER = "statuscode:[23][0-9][0-9]"
 USER_AGENT = "internet-digital-ark/1.0"
 
 # (status_code, body); a status below 200 is a transport outcome, not a reply
@@ -74,7 +76,7 @@ def cdx_url(domain: str, first: int, last: int, limit: int = DEFAULT_LIMIT) -> s
             "url": f"*.{domain}",
             "from": str(first),
             "to": str(last),
-            "filter": "statuscode:200",
+            "filter": CAPTURE_FILTER,
             "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
@@ -186,7 +188,7 @@ def host_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
             "matchType": "host",
             "from": str(first),
             "to": str(last),
-            "filter": "statuscode:200",
+            "filter": CAPTURE_FILTER,
             "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
@@ -209,7 +211,7 @@ def root_url(host: str, first: int, last: int, limit: int = HOST_LIMIT) -> str:
             "url": host,
             "from": str(first),
             "to": str(last),
-            "filter": "statuscode:200",
+            "filter": CAPTURE_FILTER,
             "fl": "timestamp,original",
             "collapse": "timestamp:4",
             "limit": str(limit),
@@ -231,7 +233,7 @@ def year_probe_url(domain: str, year: int) -> str:
             "url": f"*.{domain}",
             "from": str(year),
             "to": str(year),
-            "filter": "statuscode:200",
+            "filter": CAPTURE_FILTER,
             "fl": "timestamp,original",
             "limit": "1",
         }
