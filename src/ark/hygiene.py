@@ -2,8 +2,8 @@
 
 `origin` is public and every branch but `main` may be pushed, so a secret, a machine address
 or a local path in a tracked file is published the moment the push lands. One scan covers
-all three; `tests/test_repo_hygiene.py` calls it and the pre-commit hook and CI run it as
-`uv run python -m ark.hygiene`.
+those and the house ban on em and en dashes; `tests/test_hygiene.py` proves it catches each,
+and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
 
 The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
 in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
@@ -75,6 +75,8 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     # default of that shape passes every guard: the class of the address is irrelevant and
     # the shape is what must be refused. No literal example here, this file being scanned.
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
+    # No em or en dash in any tracked file: a quoted 1999 artifact is transcribed with a hyphen.
+    ("dash", re.compile(r"[\u2013\u2014]"), True),
 )
 
 # Every pattern above is written so that its own source line does not match it, which is
@@ -150,7 +152,8 @@ def main() -> int:
     if findings:
         print(
             f"\n{len(findings)} finding(s). Read each in context: a real leak is fixed and never "
-            "committed, and an address that is a fixture or a public host joins KNOWN_ADDRESSES "
+            "committed, a dash becomes a hyphen, and an address that is a fixture or a public host "
+            "joins KNOWN_ADDRESSES "
             "in src/ark/hygiene.py with a comment saying why."
         )
         return 1
