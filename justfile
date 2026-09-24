@@ -15,6 +15,7 @@ help:
     echo "  just collectors <what>  pause resume status"
     echo "  just engines <what>     status start stop"
     echo "  just expand <what>      round loop"
+    echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
     echo "  just schedule <what>    install remove"
     echo "  just ship <stage>       all prep build package verify calculator docx draft"
@@ -171,6 +172,7 @@ cycle *args:
 sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
+    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
     # One lock, whoever started this: it lives here, where the work is, rather than around
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
@@ -1461,6 +1463,12 @@ ship stage="all" *args:
 
 # --- unattended ---------------------------------------------------------------
 
+# Long form: the header of scripts/harness/hold.sh and the runbook's hold row.
+#
+# stop every laptop job, flag and fleet workflow until lifted by hand: on off status
+hold what="on" name="":
+    bash scripts/harness/hold.sh {{what}} {{name}}
+
 # The launchd jobs. com.ark.sync runs `just sync` at five past every hour, so the round moves
 # without a session open, and reads the `ship-now` label (the header of
 # scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times a day and
@@ -1489,16 +1497,22 @@ schedule what="install" job="":
         *) echo "schedule: no such job {{job}}, one of: $JOBS" >&2; exit 2 ;;
         esac
     fi
+    DOMAIN="gui/$(id -u)"
     case "{{what}}" in
     install)
         set -euo pipefail
+        # A hold is lifted only by hand, and an install would lift it one job at a time.
+        if bash scripts/harness/hold.sh holds; then
+            echo "schedule: the laptop is held; lift it with 'just hold off' first" >&2
+            exit 1
+        fi
         mkdir -p "$HOME/Library/LaunchAgents" data/logs
         # The hourly job was com.ark.bank once. An installed plist outlives the rename and
         # names a script that no longer exists, firing a 127 every hour with `launchctl
         # list` looking normal, and `remove` cannot reach a name the list above has dropped.
         stale="$HOME/Library/LaunchAgents/com.ark.bank.plist"
         if [ -f "$stale" ]; then
-            launchctl unload "$stale" 2>/dev/null || true
+            launchctl bootout "$DOMAIN/com.ark.bank" 2>/dev/null || true
             rm -f "$stale"
             echo "removed the superseded com.ark.bank job"
         fi
@@ -1506,8 +1520,10 @@ schedule what="install" job="":
             plist="$HOME/Library/LaunchAgents/$job.plist"
             sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
                 "scripts/harness/$job.plist.template" > "$plist"
-            launchctl unload "$plist" 2>/dev/null || true
-            launchctl load "$plist"
+            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
+            launchctl enable "$DOMAIN/$job"
+            # A job still stopping from the bootout refuses the bootstrap once.
+            launchctl bootstrap "$DOMAIN" "$plist" || { sleep 2; launchctl bootstrap "$DOMAIN" "$plist"; }
             echo "loaded $job"
         done
         # The probe is the cycle job when it was loaded, because it exits rather than
@@ -1515,7 +1531,7 @@ schedule what="install" job="":
         probe=com.ark.cycle
         case " $JOBS " in *" com.ark.cycle "*) ;; *) probe="${JOBS%% *}" ;; esac
         echo "running $probe once to find out whether launchd can reach this directory"
-        launchctl kickstart -k "gui/$(id -u)/$probe" 2>/dev/null || true
+        launchctl kickstart -k "$DOMAIN/$probe" 2>/dev/null || true
         sleep 20
         # A job that RUNS for hours has no exit status yet, so a pid is its pass and an exit
         # of 0 is the pass for one that finishes. Reading only the status calls a healthy
@@ -1561,9 +1577,8 @@ schedule what="install" job="":
         ;;
     remove)
         for job in $JOBS; do
-            plist="$HOME/Library/LaunchAgents/$job.plist"
-            launchctl unload "$plist" 2>/dev/null || true
-            rm -f "$plist"
+            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
+            rm -f "$HOME/Library/LaunchAgents/$job.plist"
             echo "removed $job"
         done
         ;;

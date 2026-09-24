@@ -27,17 +27,17 @@ runbook.
 
 ## Collect unattended
 
-The CDX collectors are the laptop's standing lane, held by launchd under `caffeinate -s`, and
-three words steer them:
+The CDX collectors are the laptop's standing lane, held by launchd under `caffeinate -s`:
 
 ```bash
 just collectors status   # running or paused, the current parent, the last journal, the hit rate
 just collectors pause    # before travel or a shutdown: the sweeps stop after the page in flight
 just collectors resume   # after it: every parent continues from its own state file
+just hold                # every launchd job, both pause flags here and on the VPS, the workflows
 ```
 
-The pause is a flag file rather than a signal, so it survives sleep and a reboot, and nothing but
-`resume` clears it.
+The pause is a flag file rather than a signal, so it survives sleep and a reboot, and `resume`
+clears it. The hold survives a reboot too: only `just hold off` lifts it, and `resume` refuses.
 
 ## Take in what the fleet found
 
