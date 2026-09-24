@@ -54,6 +54,12 @@ def stores(root):
     return backup, store
 
 
+def credited(root, day="2026-09-05", percent="18.769714"):
+    """A `data/baseline.json` whose one round is dated `day` and awarded `percent`."""
+    rounds = [{"label": "8", "date": day, "awarded_percent": percent}]
+    file(root, "data/baseline.json", json.dumps({"rounds": rounds}).encode())
+
+
 def release(root, marker="merged261231"):
     tree = root / f"feedback/package/{marker}"
     for year in range(1996, 2002):
@@ -80,39 +86,55 @@ def test_no_receipt_preserves_backup_zip_and_graded_submission(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("write", [False, True])
-def test_checked_remote_backup_is_removed_only_with_write(tmp_path, monkeypatch, write):
+@pytest.mark.parametrize("day,percent", [("1970-01-01", "18.769714"), ("2026-09-05", "")])
+def test_a_backup_is_held_until_a_credited_round_follows_it(
+    tmp_path, monkeypatch, capsys, write, day, percent
+):
+    backup, _ = stores(tmp_path)
+    credited(tmp_path, day, percent)
+    calls = []
+    monkeypatch.setattr(prune.subprocess, "run", lambda *a, **kw: calls.append(a))
+    argv = ["--round", "--root", str(tmp_path)] + ["--write"] * write
+    assert prune.main(argv) == 1
+    assert "HELD data/ark.duckdb.pre-test.bak" in capsys.readouterr().out
+    assert backup.read_bytes() == b"previous" and not calls
+
+
+@pytest.mark.parametrize("write", [False, True])
+def test_a_later_credited_round_releases_the_backup_only_with_write(tmp_path, monkeypatch, write):
     backup, store = stores(tmp_path)
-    proofs(tmp_path, [backup], monkeypatch)
+    credited(tmp_path)
     calls = []
 
     def run(args, **kwargs):
         calls.append((args, kwargs))
+        with store.open("ab") as stream:
+            stream.write(b" metrics row")
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(prune.subprocess, "run", run)
     assert prune.round_cleanup(tmp_path, write=write)[0] == 0
     assert backup.exists() is not write
-    assert store.read_bytes() == b"current"
+    assert store.read_bytes().startswith(b"current")
     assert len(calls) == int(write)
     if write:
         assert calls[0][0] == ["uv", "run", "ark", "check"]
         assert calls[0][1]["cwd"] == tmp_path
 
 
-@pytest.mark.parametrize("failure", ["check", "store-change", "wal", "missing", "remote"])
-def test_failed_store_or_remote_check_keeps_backup(tmp_path, monkeypatch, failure):
+@pytest.mark.parametrize("failure", ["check", "store-change", "wal", "missing"])
+def test_failed_store_check_keeps_backup(tmp_path, monkeypatch, failure):
     backup, store = stores(tmp_path)
-    objects, _ = proofs(tmp_path, [backup], monkeypatch)
+    credited(tmp_path)
     if failure == "wal":
         file(tmp_path, "data/ark.duckdb.wal")
     if failure == "missing":
         store.unlink()
-    if failure == "remote":
-        objects.clear()
 
     def run(args, **kwargs):
         if failure == "store-change":
-            store.write_bytes(b"updated")
+            # another store moved into place while the check ran
+            file(tmp_path, "data/ark.duckdb.next", b"updated").replace(store)
         return SimpleNamespace(returncode=int(failure == "check"))
 
     monkeypatch.setattr(prune.subprocess, "run", run)
@@ -122,7 +144,7 @@ def test_failed_store_or_remote_check_keeps_backup(tmp_path, monkeypatch, failur
 
 def test_backup_changed_during_check_keeps_its_new_bytes(tmp_path, monkeypatch):
     backup, _ = stores(tmp_path)
-    proofs(tmp_path, [backup], monkeypatch)
+    credited(tmp_path)
 
     def run(args, **kwargs):
         backup.write_bytes(b"new local-only backup")
