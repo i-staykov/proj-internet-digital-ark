@@ -310,6 +310,15 @@ def test_a_second_upload_transfers_nothing(tmp_path: Path, capsys) -> None:
     assert "There was nothing to transfer" in text  # the second found the bytes already there
 
 
+def test_a_store_backup_never_enters_the_payload() -> None:
+    # the class and route verify_raw.py gives every data/*.bak
+    backup = offsite.prune.Entry(
+        "data/ark.duckdb.pre-stage-a.bak", "regenerable", 1, 8, "d7", "just reproduce", "row"
+    )
+    assert offsite.reason(backup) is None
+    assert offsite.payload([backup]) == ([], [], [])
+
+
 def test_the_table_keeps_regenerable_and_refetchable_bytes_local(tmp_path) -> None:
     table = build(tmp_path, [r for r in ROWS if r[0] != "data/raw/nosum"])
     entries = offsite.prune.read_table(table)

@@ -28,7 +28,7 @@ _SOURCE_SQL = f"""
 WITH per_source AS (
     SELECT s.name AS source,
            {_lineage_case_sql()} AS lineage,
-           any_value(e.evidence_type) AS evidence_type,
+           min(e.evidence_type) AS evidence_type,
            count(e.evidence_id) AS evidence_rows,
            count(DISTINCT e.domain) AS domains_touched
     -- Driven from `source`, not from `evidence`: a source that only ever fed the
