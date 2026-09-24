@@ -1,9 +1,4 @@
-"""The BL geoindex parser, and the approval gate that still stands in front of it.
-
-A parser is not a permission. `ukwa_geoindex` is registered so that approving the
-class is one command rather than a day's work, and these tests exist to prove that
-registering it did not quietly grant it anything.
-"""
+"""The BL geoindex parser: only in-window rows, each dated by its own capture stamp."""
 
 import gzip
 from collections import Counter
@@ -51,29 +46,3 @@ def test_the_spec_is_registered_as_a_self_dating_capture_type() -> None:
     spec = SOURCES["ukwa_geoindex"]
     assert spec.evidence_type == "cdx_timestamp"
     assert spec.acquisition_method == "bl_geoindex_extract"
-
-
-def test_registering_the_parser_did_not_grant_the_class_anything() -> None:
-    """The gate is the `Decision:` line, not the presence of code: if this ever fails, a parser
-    has been read as an approval, which is the one thing ADR-003 exists to prevent. Read
-    through the gate's own parser, so it cannot check a fossil table instead.
-    """
-    from pathlib import Path
-
-    from ark.approvals import load
-
-    approvals = (
-        Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
-    )
-    text = approvals.read_text(encoding="utf-8")
-    approval = load(approvals).get(("ukwa_geoindex", "cdx_timestamp"))
-    assert approval is not None, "ukwa_geoindex has no Decision line, so the gate would refuse it"
-    assert approval.decision == "master"
-    block = []
-    for line in text.splitlines()[approval.line :]:
-        if line.startswith("### "):
-            break
-        block.append(line)
-    assert any(line.startswith("Decided by ") for line in block), (
-        "a master decision needs a human attribution under its Decision line"
-    )

@@ -11,13 +11,17 @@ approval path (`standing_rule.py`, then `sync_approvals.py`) is the only thing t
 the store. Findings whose file lacks a parseable verdict are booked as BLOCKED with the
 file named, which is the fleet's fallback contract carried through.
 
-**The prose row is unchanged; the sidecar is what a program is allowed to believe.** Since
-S9 a leg arrives as a directory: `finding.md` in the register voice, `finding.json` in the
-fleet's schema, and `store_price.json` written by `fleet_findings.py reprice`. Where the
-sidecar disagrees with the prose about a verdict, a figure or a URL, the sidecar wins,
-because the prose is written to be read and the sidecar is written to be checked. **A fleet
-figure never reaches the register alone**: the EE cell carries the store's own re-price
-beside it, or says in words why there is none.
+**One row per slug.** A FIND gets a row in `sources.md`, anything else a row in
+`sources-closed.md`, each at the top of that page's one table. A slug already on either
+page is not written again, except that a FIND re-measuring its own FIND row replaces it.
+
+**The prose row is unchanged; the sidecar is what a program is allowed to believe.** A leg
+arrives as a directory: `finding.md` in the register voice, `finding.json` in the fleet's
+schema, and `store_price.json` written by `fleet_findings.py reprice`. Where the sidecar
+disagrees with the prose about a verdict, a figure or a URL, the sidecar wins, because the
+prose is written to be read and the sidecar is written to be checked. **A fleet figure
+never reaches the register alone**: the EE cell carries the store's own re-price beside it,
+or says in words why there is none.
 
     uv run python scripts/harness/bank_findings.py data/fleet_findings/incoming \\
         --hypotheses ~/Documents/GitHub/ark-fleet/hypotheses.md --run-label wave-123
@@ -34,7 +38,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 REGISTER = REPO / "docs/registers/sources.md"
 CLOSED = REPO / "docs/registers/sources-closed.md"
-TABLE_HEADING = "## Evaluated and rejected"
 REGISTER_HEADER = "| source | version or date | coverage period |"
 CLOSED_HEADING = "| source | date | measured | reason | link |"
 
@@ -43,6 +46,9 @@ _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
 # artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
 # link that does not open.
 _URL = re.compile(r"https?://[^\s`)>\"']+")
+_PIPE = re.compile(r"(?<!\\)\|")
+# The pages cite no decision number; a wave's prose sometimes does, and loses it here.
+_DECISION_NO = re.compile(r"\s*\((?:C-\d{1,3}|ADR-\d+)\)|\b(?:C-\d{1,3}|ADR-\d+)\b[:,]?\s*")
 
 
 def parse_finding(path: Path) -> dict:
@@ -74,7 +80,9 @@ def parse_finding(path: Path) -> dict:
             fields[current] = m.group(2).strip()
         elif current and (line.startswith(("  ", "\t")) or not line):
             fields[current] = (fields[current] + " " + line.strip()).strip()
-    verdict = fields.get("verdict", "").split()[0].upper() if fields.get("verdict") else "BLOCKED"
+    # The first word, whatever follows it: `CLOSED, 20.92 EE` and `FIND: 6,000 EE` both count.
+    word = re.match(r"\s*([A-Za-z]+)", fields.get("verdict", ""))
+    verdict = word.group(1).upper() if word else "BLOCKED"
     if verdict not in {"FIND", "CLOSED", "BLOCKED", "SKIPPED"}:
         verdict = "BLOCKED"
     # The figure, from the `ee:` field or from the verdict line that carries it instead:
@@ -138,24 +146,62 @@ def findings_in(incoming: Path) -> list[dict]:
     return out
 
 
-def booked_slugs() -> set[str]:
-    """Every slug either register already carries, so a re-drained run books nothing twice.
+def first_cell(line: str) -> str | None:
+    """A row's first cell, its slug on `sources.md`; None for a line that is not a row."""
+    if not line.startswith("| "):
+        return None
+    return _PIPE.split(line[2:], maxsplit=1)[0].strip()
 
-    Cheap and deliberately loose: the first cell of a row in `sources.md`, and the name
-    before the ` / ` in `sources-closed.md`. Both files are hundreds of kilobytes of prose
-    and are streamed a line at a time rather than parsed.
+
+def closed_key(line: str) -> str | None:
+    """The slug of a `sources-closed.md` row: its first cell before the ` / class`."""
+    cell = first_cell(line)
+    return None if cell is None else cell.split(" / ")[0].strip()
+
+
+def slugs(path: Path, key=first_cell) -> dict[str, str]:
+    """Each slug on one page to its row, the topmost where a slug repeats.
+
+    Deliberately loose, and streamed a line at a time: every `| ` line but a header counts,
+    so a slug in any table on the page is booked.
     """
-    out: set[str] = set()
-    for path, split in ((REGISTER, False), (CLOSED, True)):
-        if not path.is_file():
-            continue
-        with path.open(encoding="utf-8") as fh:
-            for line in fh:
-                if not line.startswith("| "):
-                    continue
-                cell = line[2:].split("|", 1)[0].strip()
-                out.add(cell.split(" / ")[0].strip() if split else cell)
+    out: dict[str, str] = {}
+    if not path.is_file():
+        return out
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            slug = key(line)
+            if slug and not line.startswith("| source |"):
+                out.setdefault(slug, line.rstrip("\n"))
     return out
+
+
+def _cells(row: str) -> list[str]:
+    return [cell.strip() for cell in _PIPE.split(row.strip())[1:-1]]
+
+
+def fate(f: dict, row: str, open_rows: dict[str, str], closed_rows: dict[str, str]) -> str:
+    """What writing this finding's row does: `new`, `replace` or `booked`.
+
+    A slug is written once. The one exception is a FIND re-measuring its own FIND row on
+    `sources.md`: a moved figure or verify status replaces that row. A row with any other
+    verdict was settled by a person or the loop and is left alone, and a closed slug is
+    never reopened from here. Only the figure and the verdict are compared, dates aside,
+    so a drain retried on another day writes nothing.
+    """
+    key = first_cell(row) if f["verdict"] == "FIND" else closed_key(row)
+    if key in closed_rows:
+        return "booked"
+    if key not in open_rows:
+        return "new"
+    old, new = _cells(open_rows[key]) + [""] * 11, _cells(row)
+    if f["verdict"] != "FIND" or not old[9].startswith("FIND"):
+        return "booked"
+
+    def measured(cells: list[str]) -> tuple[str, str]:
+        return re.sub(r"\s*\(\d{4}-\d{2}-\d{2}\)$", "", cells[6]), cells[9]
+
+    return "booked" if measured(old) == measured(new) else "replace"
 
 
 def one_per_slug(findings: list[dict]) -> list[dict]:
@@ -187,11 +233,17 @@ def first_clause(text: str, limit: int = 240) -> str:
     return text[:limit]
 
 
-def register_row(f: dict, run_label: str) -> str:
-    """One row in the eleven columns `convert_register.py` gave the register.
+def _tidy(cells: list[str]) -> list[str]:
+    """One line per cell, no decision number, and each `|` escaped exactly once."""
+    return [
+        _PIPE.sub(r"\\|", re.sub(r"\s+", " ", _DECISION_NO.sub("", cell))).strip() for cell in cells
+    ]
 
-    Cells the finding does not carry read `n/a`. The row is the whole entry: a
-    finding that needs more than this writes a `## Detail` section for it by hand.
+
+def register_row(f: dict, run_label: str) -> str:
+    """One row in the eleven columns of the `sources.md` table; the row is the whole entry.
+
+    Cells the finding does not carry read `n/a`.
     """
     day = dt.date.today().isoformat()
     dates = first_clause(f["fields"].get("what dates one item", ""), 140) or "n/a"
@@ -211,8 +263,7 @@ def register_row(f: dict, run_label: str) -> str:
         verdict,
         f"<{url.group(0)}>" if url else "n/a",
     ]
-    tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
-    return _within_limit(tidy)
+    return _within_limit(_tidy(cells))
 
 
 def ee_cell(f: dict) -> str:
@@ -231,17 +282,9 @@ def ee_cell(f: dict) -> str:
     return f"fleet {f['ee']} EE, store not re-priced: {store.get('status') or 'no store price'}"
 
 
-# The register's rows are read in a terminal and a test refuses one over 500 characters.
-# It fired three times on 2026-09-04 alone, always on the same cell: a wave writes its
-# REUSABLE finding into `method`, which had no cap while `dates` and `probe` did.
-#
-# **A long cell is TRUNCATED, and never replaced by a pointer.** It used to be cut to its
-# first clause and sent to the fleet's `hypotheses.md`, on the reasoning that the row could
-# index the ledger instead of repeating it. That ledger is gone, so 284 rows now read "see
-# the fleet hypothesis ledger" and there is nothing to see, and because the cut was by
-# CLAUSE a reason opening "lens foo." lost everything after the first full stop. Measured
-# three times on 2026-09-19. A row is an index entry, and 400 characters of the reason
-# indexes it where a pointer to a deleted file does not.
+# A row is an index entry read in a terminal, held to 500 characters. **A long cell is
+# TRUNCATED, and never replaced by a pointer** to another file: 400 characters of the
+# reason index the source where a pointer to a file that may go does not.
 ROW_LIMIT = 500
 _CUT = "..."
 
@@ -252,15 +295,11 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
     Method first and probe second, because those are the two a wave writes freely; every
     other cell is a slug, a figure, a verdict or a link, and a truncated link is worse than
     a long row. If both are down to the pointer and the row is still long, it is returned
-    long: that is a row worth a human looking at, not one worth mangling.
-
-    The closed row has one prose cell, its reason, and passes `(3,)`. It went without this
-    guard until 2026-09-13, when one 898-character reason failed the gate and the dirty
-    register refused every hourly sync for forty hours.
+    long: that is a row worth a human looking at, not one worth mangling. The closed row
+    has one prose cell, its reason, and passes `(3,)`.
 
     What survives is the START of the cell, cut at a character and not at a clause, because
-    a reason that opens with a short `lens foo.` sentence has its whole substance after that
-    full stop.
+    a reason that opens with a short sentence has its whole substance after that full stop.
     """
 
     def assemble() -> str:
@@ -285,21 +324,19 @@ def is_brief_audit(f: dict) -> bool:
 def closed_row(f: dict, run_label: str) -> str:
     """The five-column row a measured negative gets, in `sources-closed.md`.
 
-    **A negative does not belong in `sources.md`** (#74's floors, restated by Ivo on
-    2026-09-09): only a priced FIND and a banked source get a block there. A scout lead that
-    closed under the floor was reaching it as a row of eleven `n/a` cells, which is a row
-    that says a source was evaluated and records nothing about it. Here the lens, the figure
-    and the artifact are the row, and they come from `lead.json` and the prose beside it.
+    **A negative does not belong in `sources.md`**: only a priced FIND and a banked source
+    get a row there. The reason opens with its verdict word, then the lens and the probe;
+    the class, the figure and the artifact come from `lead.json` and the prose beside it.
     """
     day = dt.date.today().isoformat()
     lead = f.get("lead") or {}
-    # A class is a token like `link_source` and a lens a name like `registry-publications`.
-    # Both arrive as a wave wrote them, and 2026-09-15 they arrived as 490 characters of
-    # the scout's reasoning; the row is an index entry, so each is held to a clause.
+    # A class is a token like `link_source` and a lens a name like `registry-publications`,
+    # both as a wave wrote them, sometimes as paragraphs; each is held to a clause.
     etype = first_clause(
         lead.get("evidence_class") or f["fields"].get("evidence class") or "unclassified", 80
     )
     lens = first_clause(lead.get("lens") or f["fields"].get("lens") or "no lens recorded", 60)
+    lens = lens.rstrip(".")
     url = _URL.search(
         f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
     )
@@ -310,44 +347,50 @@ def closed_row(f: dict, run_label: str) -> str:
         or f["fields"].get("verdict", ""),
         300,
     )
+    # The verdict leads; a probe that opens with it again loses the repeat.
+    reason = re.sub(rf"^{f['verdict']}\b[\s,.:;]*", "", reason, flags=re.I)
     cells = [
         f"{f['slug']} / {etype}",
         f"{day}, fleet {run_label}",
         measured,
-        f"lens {lens}. {reason}".strip(),
-        url.group(0) if url else "",
+        f"{f['verdict']}. lens {lens}. {reason}".strip(),
+        f"<{url.group(0)}>" if url else "",
     ]
-    tidy = [re.sub(r"\s+", " ", cell).replace("|", r"\|").strip() for cell in cells]
-    return _within_limit(tidy, order=(3,))
+    return _within_limit(_tidy(cells), order=(3,))
 
 
-def append_closed(rows: list[str]) -> None:
-    text = CLOSED.read_text(encoding="utf-8")
-    at = text.index(CLOSED_HEADING)
-    sep = text.index("|---|", at)
-    line_end = text.index("\n", sep) + 1
-    CLOSED.write_text(text[:line_end] + "\n".join(rows) + "\n" + text[line_end:], "utf-8")
+def _insert(path: Path, header: str, rows: list[str], key) -> int:
+    """Write `rows` at the top of the table under `header`, dropping rows with their keys.
+
+    The table is the run of `|` lines after the header's separator; everything else on the
+    page is kept byte for byte. Returns how many old rows were replaced.
+    """
+    text = path.read_text(encoding="utf-8")
+    body = text.index("\n", text.index("|---|", text.index(header))) + 1
+    end = body
+    while end < len(text) and text.startswith("|", end):
+        end = text.find("\n", end) + 1 or len(text)
+    new = {key(row) for row in rows}
+    old = text[body:end].splitlines(keepends=True)
+    kept = [line for line in old if key(line) not in new]
+    written = "".join(row + "\n" for row in rows)
+    path.write_text(text[:body] + written + "".join(kept) + text[end:], "utf-8")
+    return len(old) - len(kept)
 
 
-def append_rows(rows: list[str]) -> None:
-    text = REGISTER.read_text(encoding="utf-8")
-    at = text.index(TABLE_HEADING)
-    # Anchor on the table's own header row, never on the first separator under the heading:
-    # a write-up with a table of its own sat between the two from 2026-09-04, and 248 rows
-    # were filed into the usenet pool table before anyone noticed (2026-09-10). Newest
-    # entries lead, matching how the scribe wrote them.
-    head = text.index(REGISTER_HEADER, at)
-    sep = text.index("|---|", head)
-    line_end = text.index("\n", sep) + 1
-    REGISTER.write_text(text[:line_end] + "\n".join(rows) + "\n" + text[line_end:], "utf-8")
+def append_rows(rows: list[str], path: Path | None = None) -> int:
+    return _insert(path or REGISTER, REGISTER_HEADER, rows, first_cell)
+
+
+def append_closed(rows: list[str], path: Path | None = None) -> int:
+    return _insert(path or CLOSED, CLOSED_HEADING, rows, closed_key)
 
 
 def write_result_lines(hypo: Path, findings: list[dict]) -> int:
     """Append a `result:` line to each finding's block in the fleet's hypothesis ledger.
 
-    The ledger left the fleet with v1 (ark-fleet #83, 2026-09-10): a lead's fate goes back
-    through `fleet_leads.py` into `leads/<slug>.json` now. A missing ledger is therefore the
-    normal case, and it writes nothing rather than stopping the sync in front of the scribe.
+    A lead's fate goes back through `fleet_leads.py` into `leads/<slug>.json`, so a missing
+    ledger is the normal case, and it writes nothing rather than stopping the sync.
     """
     if not hypo.is_file():
         return 0
@@ -381,6 +424,11 @@ def main() -> int:
         action="store_true",
         help="only the result lines, so the next pick sees them before the admitter runs",
     )
+    ap.add_argument(
+        "--registers",
+        type=Path,
+        help="the directory holding sources.md and sources-closed.md, to run on a copy",
+    )
     args = ap.parse_args()
 
     findings = one_per_slug(findings_in(args.incoming))
@@ -392,38 +440,52 @@ def main() -> int:
         print(f"{wrote} result lines written to {args.hypotheses}")
         return 0
 
-    already = booked_slugs()
-    fresh = [f for f in findings if f["slug"] not in already]
-    for f in findings:
-        if f["slug"] in already:
-            print(f"already booked: {f['slug']} has a row, not written again")
-    # A brief audit is a leg reading his brief against a rule of ours, and its verdict FIND
-    # means "a rule to decide", not a source with a figure. One reached `sources.md` on
-    # 2026-09-15 as a FIND row at 0 EE. It stays in the drain for a human and an issue.
-    audits = [f for f in fresh if is_brief_audit(f)]
-    for f in audits:
-        print(f"rule audit, not a source: {f['slug']} is left in the drain for a human to file")
-    fresh = [f for f in fresh if not is_brief_audit(f)]
+    register, closed_page = REGISTER, CLOSED
+    if args.registers:
+        register, closed_page = args.registers / REGISTER.name, args.registers / CLOSED.name
+    open_rows, closed_rows = slugs(register), slugs(closed_page, closed_key)
     # Two registers, and which one a finding goes to is its verdict. A FIND is a measurement
     # worth reading beside the others; everything else is a closed row so nobody re-tests it.
-    rows = [register_row(f, args.run_label) for f in fresh if f["verdict"] == "FIND"]
-    closed = [closed_row(f, args.run_label) for f in fresh if f["verdict"] != "FIND"]
+    rows: list[str] = []
+    closed: list[str] = []
+    counts = {"new": 0, "replace": 0, "booked": 0}
+    for f in findings:
+        # A brief audit reads his brief against a rule of ours, and its FIND means "a rule
+        # to decide", not a source with a figure. It stays in the drain for a human.
+        if is_brief_audit(f):
+            print(f"rule audit, not a source: {f['slug']} is left in the drain for a human to file")
+            continue
+        row = (
+            register_row(f, args.run_label)
+            if f["verdict"] == "FIND"
+            else closed_row(f, args.run_label)
+        )
+        what = fate(f, row, open_rows, closed_rows)
+        counts[what] += 1
+        if what == "booked":
+            print(f"already booked: {f['slug']} has a row, not written again")
+            continue
+        if what == "replace":
+            print(f"replaced: {f['slug']} was re-measured, so its row is rewritten")
+        (rows if f["verdict"] == "FIND" else closed).append(row)
     if args.dry_run:
         print("\n".join(rows + closed))
+        print(f"dry run: {len(rows) + len(closed)} rows, none written")
         return 0
     if rows:
-        append_rows(rows)
+        append_rows(rows, register)
     if closed:
-        append_closed(closed)
+        append_closed(closed, closed_page)
     wrote = write_result_lines(args.hypotheses, findings)
     print(
-        f"booked {len(rows)} FIND rows into {REGISTER.name} and {len(closed)} into "
-        f"{CLOSED.name}; {wrote} result lines written to {args.hypotheses}"
+        f"booked {len(rows)} FIND rows into {register.name} and {len(closed)} into "
+        f"{closed_page.name}; {wrote} result lines written to {args.hypotheses}"
     )
     # The line the recipe reads: a drain that booked nothing new is finished rather than
     # failed, and may be archived even though no commit came out of it.
     print(
-        f"scribe: {len(rows) + len(closed)} new rows, {len(findings) - len(fresh)} already booked"
+        f"scribe: {counts['new']} new rows, {counts['replace']} replaced, "
+        f"{counts['booked']} already booked"
     )
     return 0
 

@@ -25,7 +25,6 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
@@ -170,7 +169,8 @@ def closed_fields(block: Block, table: dict[str, list[str]]) -> dict[str, str]:
 
     The verdict is whatever follows the Decision line; when the writer put it above the
     line instead, the last bold bullet is the verdict, then the measured bullet. A block
-    with none of those falls back to its row in the section's legacy table.
+    with none of those falls back to its row in the section's legacy table. The reason
+    opens with REJECTED, the verdict word every closed row starts with.
     """
     head, _, tail = block.text.partition("\nDecision:")
     verdict = tail.partition("\n")[2].strip()
@@ -197,8 +197,8 @@ def closed_fields(block: Block, table: dict[str, list[str]]) -> dict[str, str]:
         "source": block.key,
         "date": max(stamps) if stamps else "",
         "measured": priced,
-        "reason": reason,
-        "link": link.group(0).rstrip(".,;") if link else "",
+        "reason": f"REJECTED. {reason}".strip(),
+        "link": f"<{link.group(0).rstrip('.,;')}>" if link else "",
     }
 
 
@@ -235,29 +235,26 @@ def existing_columns(text: str) -> tuple[str, ...] | None:
     return None
 
 
-def closed_page(existing: str | None, rows: list[dict[str, str]], today: str) -> str:
-    """The closed-sources page with the rows appended, created with our columns if absent."""
-    note = (
-        f"Rows split out of the triage section of `approved-sources-list.md` on {today} by "
-        f"`scripts/round/split_triage.py`. The date is the latest one the entry cites, the "
-        f"figure is what the entry reports as measured, and the full block is in that file's "
-        f"history before the split."
-    )
+def closed_page(existing: str | None, rows: list[dict[str, str]]) -> str:
+    """The closed-sources page with the rows added to the end of its one table.
+
+    The date is the latest one the entry cites, the figure is what the entry reports as
+    measured, and the full block is in the approved list's history before the split.
+    """
     columns = existing_columns(existing) if existing else None
-    if columns is None:
+    if existing is None or columns is None:
         page = (
             "# Closed sources\n\n"
-            "One row per source measured and closed, so nobody re-tests it. Grep it, never "
-            "read it whole.\n\n"
-            f"{note}\n\n| {' | '.join(CLOSED_COLUMNS)} |\n|{'---|' * len(CLOSED_COLUMNS)}\n"
+            "One row per source measured and closed, so nobody re-tests it. Look one up with "
+            "`just find <term>`.\n\n"
+            f"| {' | '.join(CLOSED_COLUMNS)} |\n|{'---|' * len(CLOSED_COLUMNS)}\n"
         )
         return page + "".join(closed_row(r, CLOSED_COLUMNS) + "\n" for r in rows)
-    body = (existing or "").rstrip("\n")
-    if not _TABLE_ROW.match(body.rsplit("\n", 1)[-1]):
-        # The table is not the last thing on the page, so a continued row would not join
-        # it: open a fresh table with the same columns.
-        body += f"\n\n{note}\n\n| {' | '.join(columns)} |\n|{'---|' * len(columns)}"
-    return body + "\n" + "".join(closed_row(r, columns) + "\n" for r in rows)
+    lines = existing.rstrip("\n").split("\n")
+    end = next(i for i, line in enumerate(lines) if _TABLE_RULE.match(line)) + 1
+    while end < len(lines) and _TABLE_ROW.match(lines[end]):
+        end += 1
+    return "\n".join([*lines[:end], *(closed_row(r, columns) for r in rows), *lines[end:]]) + "\n"
 
 
 def _blocks_text(blocks: list[Block]) -> str:
@@ -265,28 +262,18 @@ def _blocks_text(blocks: list[Block]) -> str:
 
 
 def rebuild_register(
-    text: str, masters: list[Block], rejected: list[Block], kept: list[Block], today: str
+    text: str, masters: list[Block], rejected: list[Block], kept: list[Block], preamble: str
 ) -> str:
     before, _body, after = split_section(text, TRIAGE_HEADING)
     decided_before, decided_body, decided_after = split_section(before, DECIDED_HEADING)
-    stubs = ""
-    if rejected:
-        stubs = (
-            f"**Rejected in triage, split out {today}.** One row each in `sources-closed.md`; "
-            "the stub keeps the rejection binding for `ark ingest` and the request generator.\n\n"
-            + "".join(f"### {b.key}\nDecision: rejected\n\n" for b in rejected)
-        )
+    # A rejected block leaves its stub, which keeps the rejection binding for `ark ingest`
+    # and the request generator; its row is in `sources-closed.md`.
+    stubs = "".join(f"### {b.key}\nDecision: rejected\n\n" for b in rejected)
     decided_body = decided_body.rstrip("\n") + "\n\n" + _blocks_text(masters) + stubs
-    # **The undecided blocks stay here.** They used to move to a second page, which was a
-    # second place to look for one queue; Ivo's ruling of 2026-09-19 is that it lives in
-    # one place. What is worth his time is ranked by measured EE in generated `queue.md`.
-    triage_body = (
-        f"\n\nSplit on {today} by `scripts/round/split_triage.py`: decided blocks moved to "
-        "Decided above, rejected ones to `sources-closed.md` behind a stub. Undecided blocks "
-        "stay below. New finds land here as `### key / etype` blocks carrying a "
-        "`- potential:` line and a pending decision; `just triage-rank` sorts them.\n\n"
-        + _blocks_text(kept)
-    )
+    # The undecided blocks stay here, under the section's own preamble: one queue in one
+    # place, ranked by measured EE in the generated `queue.md`.
+    intro = preamble.strip()
+    triage_body = "\n\n" + (f"{intro}\n\n" if intro else "") + _blocks_text(kept)
     # `split_section` keeps each heading at the end of its `before` part.
     return decided_before + decided_body.rstrip("\n") + "\n\n" + decided_after + triage_body + after
 
@@ -306,7 +293,6 @@ def main() -> int:
     parser.add_argument("--closed", type=Path, default=CLOSED)
     parser.add_argument("--dry-run", action="store_true", help="report the split, write nothing")
     args = parser.parse_args()
-    today = date.today().isoformat()
 
     text = args.path.read_text(encoding="utf-8")
     if TRIAGE_HEADING not in text or DECIDED_HEADING not in text:
@@ -323,9 +309,9 @@ def main() -> int:
 
     table = legacy_table(body)
     rows = [closed_fields(b, table) for b in rejected]
-    register = rebuild_register(text, masters, rejected, kept, today)
+    register = rebuild_register(text, masters, rejected, kept, preamble)
     closed = closed_page(
-        args.closed.read_text(encoding="utf-8") if args.closed.exists() else None, rows, today
+        args.closed.read_text(encoding="utf-8") if args.closed.exists() else None, rows
     )
 
     headings = re.findall(r"^## .*$", text, re.M)

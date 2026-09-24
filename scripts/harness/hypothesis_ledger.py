@@ -1,15 +1,15 @@
 """The hypothesis ledger: what the harness has proposed, priced, adopted or killed.
 
-**Why prose was not enough.** `docs/registers/sources.md` is the authoritative narrative and
-holds ~60 verdicts, which is what `just screen` parses to stop a dead lead. Prose
-cannot carry *status*, so it cannot answer the question an unattended run asks
-every time it wakes up: what did I propose on Tuesday that I never finished
-pricing? A loop with no working memory re-proposes its own ideas.
+**Why the register was not enough.** The register pages hold one row per source, which
+is what `just screen` parses to stop a dead lead. A row records a verdict, not *status*,
+so it cannot answer the question an unattended run asks every time it wakes up: what did
+I propose on Tuesday that I never finished pricing? A loop with no working memory
+re-proposes its own ideas.
 
 So this is a small tab-separated file, one row per hypothesis, tracked in git and
 readable without a tool. It is **not** a second copy of the register: a hypothesis
-leaves here for `sources.md` when it closes, and `close` prints the prose row to
-paste so the two cannot drift.
+leaves here for the register when it closes, and `close` prints the row to paste so
+the two cannot drift.
 
 **Screening is not optional.** `add` runs the collision check itself and refuses a
 hypothesis with no dating claim, because both gates are cheap and the expensive
@@ -48,7 +48,7 @@ COLUMNS = (
 STATUSES = ("screened", "fetching", "priced", "adopted", "rejected", "blocked")
 
 _SPEC = importlib.util.spec_from_file_location(
-    "screen_hypothesis", ROOT / "scripts" / "screen_hypothesis.py"
+    "screen_hypothesis", Path(__file__).resolve().parent / "screen_hypothesis.py"
 )
 screen = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(screen)
@@ -168,14 +168,16 @@ def cmd_update(args: argparse.Namespace) -> None:
 
 
 def cmd_close(args: argparse.Namespace) -> None:
-    """Print the prose row for `sources.md`, so the register stays authoritative."""
+    """Print the register row for a decided hypothesis, so the register stays authoritative.
+
+    An adopted one is a FIND row of `sources.md`; anything else is closed, a row of
+    `sources-closed.md` whose reason opens with its verdict word.
+    """
     for row in read():
         if row.get("id") != args.id:
             continue
         if row.get("status") not in ("rejected", "adopted"):
             print(f"warning: {args.id} is {row.get('status')}, not a closed verdict\n")
-        print("Paste this into the 'Evaluated and rejected' table in docs/registers/sources.md,")
-        print("then the screener will catch this lead by itself:\n")
         bits = []
         if row.get("pairs"):
             bits.append(f"{row['pairs']} net-new pairs")
@@ -186,22 +188,31 @@ def cmd_close(args: argparse.Namespace) -> None:
         if row.get("cost"):
             bits.append(f"cost {row['cost']}")
         measured = ", ".join(bits) if bits else "not priced"
-        # The eleven columns of the converted register. Cells the ledger does not
-        # hold read `n/a` rather than being guessed at here.
-        cells = [
-            row["title"],
-            row["updated"],
-            "n/a",
-            "n/a",
-            row.get("dating", "n/a") or "n/a",
-            "n/a",
-            f"{row.get('ee', 'n/a') or 'n/a'} EE ({row['updated']})",
-            f"{measured}. {row.get('verdict', '')}".strip(),
-            row.get("cost", "n/a") or "n/a",
-            row.get("status", "n/a") or "n/a",
-            "n/a",
-        ]
-        print("| " + " | ".join(re.sub(r"\s+", " ", c).strip() for c in cells) + " |")
+        reason = f"{measured}. {row.get('verdict', '')}".strip()
+        ee = f"{row['ee']} EE" if row.get("ee") else "not priced"
+        if row.get("status") == "adopted":
+            page = "docs/registers/sources.md"
+            # Cells the ledger does not hold read `n/a` rather than being guessed at here.
+            cells = [
+                row["title"],
+                row["updated"],
+                "n/a",
+                "n/a",
+                row.get("dating", "n/a") or "n/a",
+                "n/a",
+                f"{ee} ({row['updated']})",
+                reason,
+                row.get("cost", "n/a") or "n/a",
+                "FIND",
+                "n/a",
+            ]
+        else:
+            page = "docs/registers/sources-closed.md"
+            cells = [row["title"], row["updated"], ee, f"REJECTED. {reason}", "n/a"]
+        print(f"Paste this into the table in {page}, replacing any row for the same source,")
+        print("then the screener will catch this lead by itself:\n")
+        tidy = (re.sub(r"\s+", " ", c).replace("|", r"\|").strip() for c in cells)
+        print("| " + " | ".join(tidy) + " |")
         return
     raise SystemExit(f"no such hypothesis: {args.id}")
 
@@ -226,9 +237,7 @@ def main() -> None:
         upd.add_argument(f"--{field}")
     upd.set_defaults(func=cmd_update)
 
-    close = sub.add_parser(
-        "close", help="print the docs/registers/sources.md row for a decided hypothesis"
-    )
+    close = sub.add_parser("close", help="print the register row for a decided hypothesis")
     close.add_argument("id")
     close.set_defaults(func=cmd_close)
 

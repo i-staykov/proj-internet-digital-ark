@@ -612,8 +612,8 @@ def substitutions(f: dict) -> dict[str, str]:
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
-    # The ISC folder is a question and not a claim (C-70), so its size is counted from the
-    # files that actually ship rather than typed into the prose, where it would drift.
+    # The ISC folder ships beside the claim as a question, never inside it, so its size is
+    # counted from the files that actually ship rather than typed into the prose.
     isc = 0
     for year in range(1996, 2002):
         path = NETNEW_DIR / f"{year}-ISC.txt"
@@ -931,82 +931,43 @@ def pool_restricted() -> str:
     return f"{n:,}"
 
 
-def _register_rows(text: str, heading: str) -> int:
-    """Rows of one register table, by the heading it sits under.
-
-    Rows the register itself labels "Not a source" are notes about our own queue,
-    not families searched, and counting them overstated the headline by two.
-    """
-    if heading not in text:
+def _table_rows(path: Path) -> int:
+    """Data rows of a register page's source table, which holds one row per source."""
+    if not path.is_file():
         return 0
-    section = text.split(heading, 1)[1].split("\n## ", 1)[0]
-    return sum(
-        1
-        for line in section.splitlines()
-        if line.startswith("|")
-        and not line.startswith("|--")
-        and not line.lower().startswith("| source")
-        and "not a source" not in line.lower()
-    )
+    rows, inside = 0, False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            inside = False
+        elif line.lower().startswith("| source |"):
+            inside = True
+        elif inside and set(line) - set("|-: "):
+            rows += 1
+    return rows
 
 
 def datasets_searched(docs: Path | None = None) -> str:
     """The register of families searched, read from the register rather than retyped.
 
-    The reviewer asks for every external dataset and repository searched. That list
-    only stays true if it is derived from the register itself: a hand-written copy
-    omits whatever was added after it was written, and the omission is invisible.
-
-    The register has two halves and they are counted separately, because a prose
-    sentence that said "roughly sixty" sat directly above a generated "26" in the
-    first draft of this section. Developed sources get a `## ` heading each;
-    families evaluated and rejected are one table row each under a single heading.
-    Both are searches, and the second half is much the larger.
-
-    **Both files are counted.** The rejected half lives in two documents since
-    `convert_register.py` moved closed families to `sources-closed.md`, and counting
-    `sources.md` alone dropped the figure from 495 to 129, which would have
-    understated our own work to the reviewer fourfold.
+    The reviewer asks for every external dataset and repository searched, and that list
+    only stays true if it is derived from the register itself: a hand-written copy omits
+    whatever was added after it was written, and the omission is invisible. Each page is
+    one table with one row per source, `sources.md` for the developed ones and
+    `sources-closed.md` for the ones measured and closed, so the count is their rows.
     """
     docs = docs or Path(__file__).resolve().parents[2] / "docs/registers"
-    path = docs / "sources.md"
-    if not path.is_file():
+    if not (docs / "sources.md").is_file():
         return "_`sources.md` not found beside this report._"
 
-    text = path.read_text(encoding="utf-8")
-    closed = docs / "sources-closed.md"
-    closed_text = closed.read_text(encoding="utf-8") if closed.is_file() else ""
-
-    # Headings at this level that are prose about the file rather than a source.
-    skip = {
-        "Summary",
-        "Source names that are not separate sources",
-        "Evaluated and rejected",
-        "Measured, and each blocked on something other than work",
-        # the appendix `convert_register.py` writes: one `### ` block per row above
-        "Detail",
-    }
-    developed = [
-        line[3:].strip()
-        for line in text.splitlines()
-        if line.startswith("## ") and line[3:].strip() not in skip
-    ]
-
-    rejected = _register_rows(text, "## Evaluated and rejected") + _register_rows(
-        closed_text, "## Closed families, converted from the register"
-    )
-
-    if not developed and not rejected:
+    developed = _table_rows(docs / "sources.md")
+    closed = _table_rows(docs / "sources-closed.md")
+    if not developed and not closed:
         return "_No families recorded._"
 
-    # Counts only, and the names deliberately omitted. The reviewer's requirement is
-    # that every dataset searched be documented, not that it be documented twice: the
-    # register itself ships beside the report and is the place to read it. Naming all
-    # 26 developed families inline cost most of a page and told him nothing the file
-    # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
+    # Counts only: the register ships beside the report and is the place to read the names.
     return (
-        f"**{len(developed) + rejected} source families searched and recorded** in "
-        f"`sources.md` and `sources-closed.md`: {len(developed)} developed, {rejected} evaluated "
+        f"**{developed + closed:,} source families searched and recorded** in "
+        f"`sources.md` and `sources-closed.md`: {developed:,} developed, {closed:,} evaluated "
         "and closed with the measurement that closed them, so the same ground is not broken twice."
     )
 

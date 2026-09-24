@@ -75,7 +75,7 @@ def _reorder(page: str, order: list[int]) -> str:
 
 
 def test_the_ledger_is_byte_for_byte_what_the_register_says(tmp_path: Path) -> None:
-    """Every cell shape in one assertion: filled, `n/a`, detail-only, closed page."""
+    """Every cell shape in one assertion: filled, `n/a`, reopen in a cell, closed page."""
     assert _build(tmp_path) == _expected()
 
 

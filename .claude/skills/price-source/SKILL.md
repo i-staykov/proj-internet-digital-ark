@@ -10,14 +10,14 @@ the running order, and it deliberately restates neither.
 
 1. `docs/lore/laws.md` first. The two screens (density and authority), the held-and-missing-this-year
    screen and the adjacent-year rule decide whether the bytes are worth fetching at all.
-2. Check the family is not closed: `grep -n '<term>' docs/registers/sources-closed.md`, then
-   `grep -n '<term>' docs/registers/sources.md`. Both are grep-only, never read whole.
+2. Check the family is not closed: `just find <term>` searches both register pages.
 3. Turn the source into items (`item`, `year|date`, `text`) and measure:
    `just price --items <items.jsonl> --label '<source>'`. It writes nothing.
 4. Quote net-new post-split EE, never gross: they differ by more than 10x. Sample distinct
    domains, not `domain_year` rows.
-5. Log the result in `docs/registers/sources.md` whatever the answer, with the link and the sentence saying
-   what dates one item. Under 5,000 EE gets one line.
+5. Log the result as the source's one row whatever the answer: open in `docs/registers/sources.md`,
+   closed in `docs/registers/sources-closed.md`, with the link and the sentence saying what dates
+   one item. A new measurement replaces the row.
 
 More than two files to read, or any survey: hand it to the `pricer` subagent.
 
