@@ -182,6 +182,10 @@ cmd_pause() {
 }
 
 cmd_resume() {
+    if bash scripts/harness/hold.sh holds pause; then
+        echo "collectors: the hold lists pause; 'just hold off pause' lifts it" >&2
+        exit 1
+    fi
     if [ -e "$FLAG" ]; then
         rm -f "$FLAG"
         echo "resumed: $FLAG removed"
@@ -249,6 +253,8 @@ seed_shard() {
 }
 
 cmd_run() {
+    # A KeepAlive restart under a hold does nothing: only `just hold off` brings the lane back.
+    if bash scripts/harness/hold.sh holds com.ark.collectors; then echo held; exit 0; fi
     mkdir -p data/logs data/raw/cdx data/raw/cdx_suffix
     # mkdir is the atomic primitive macOS has without flock, and the convention here
     # (scheduled_sync.sh). A dead holder's lock is stale and taken over.
