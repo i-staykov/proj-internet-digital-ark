@@ -7,8 +7,9 @@ history. Verbosity is the enemy of quality: this is research for people with no 
 text is worth less. Say it once, as short as it can be said, then stop. **Never grow a file:** the
 edit that adds a rule deletes the rule it replaces. No restating, no preamble, no AI slop.
 
----
+**No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
+---
 Rebuild the domains that existed 1996-2001 for Prof. Ding, scored on **equivalent-English (EE)**:
 each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable
 is demonstrated research capability**, so a measured negative with a reason is a result and the
