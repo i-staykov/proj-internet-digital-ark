@@ -1,12 +1,12 @@
 """The three things an unattended bank has to get right besides banking.
 
-The bank runs hourly, pushes `live`, and nobody watches it. So its failures are the
-quiet kind:
+The tick runs hourly and the bank on change, both push `live`, and nobody watches
+them. So their failures are the quiet kind:
 
-1. **A dirty clone.** The recipe stages whole directories (`git add docs/ src/`),
-   which is how a 1.3 GB baseline copy once reached git history. A clone with
-   uncommitted tracked edits, or with untracked files under the paths the bank
-   stages, is refused BEFORE anything is written or fetched.
+1. **A dirty clone.** The tick and the bank stage the registers by path, and a
+   wholesale `git add docs/` is how a 1.3 GB baseline copy once reached git history.
+   A clone with uncommitted tracked edits, or with untracked files under the paths
+   the bank stages, is refused BEFORE anything is written or fetched.
 2. **A diverged clone.** Approvals now arrive as pull requests merged from a phone,
    so `live` moves without this machine. A fast-forward-only pull is the whole fix:
    it takes the merge and refuses to invent one.
@@ -47,23 +47,23 @@ BRIEF = ROOT / "data/brief.json"
 LATCH = ROOT / "data/logs/gate_notified.tsv"
 FLEET_REPO = "i-staykov/ark-fleet"
 
-# Paths the bank recipe stages wholesale. An untracked file under one of these is
-# fatal rather than a warning, because `git add docs/` would commit it. Kept in step
-# with the recipe's own `git add` line: widening that without widening this is how an
+# Paths the tick and the bank stage. An untracked file under one of these is fatal
+# rather than a warning, because their `git add` would commit it. Kept in step with
+# both recipes' `git add` line: widening that without widening this is how an
 # untracked file gets committed by a job nobody is watching.
-STAGED = ("docs/", "src/", "justfile")
+STAGED = ("docs/registers/", "docs/lore/key-decisions.md")
 # **Pages a program writes, which must never refuse the bank.** `discover_cycle.py`
 # rewrites these every cycle and commits neither, so a changed triage count left the clone
 # dirty, preflight refused, and banking stopped until a human noticed. Measured 2026-09-19:
 # one such counter moving 49 -> 50 stalled the bank for an hour. They are inside `STAGED`,
-# so the sync that follows commits them itself, which is the intended flow.
+# so the next commit the tick or the bank makes takes them, which is the intended flow.
 GENERATED = (
     "docs/lore/key-decisions.md",
     # `bank_findings.py` books every FIND and CLOSED here, mid-sync. Every commit this
     # file has ever had is a "Sync fleet findings" one. A sync that dies between writing
     # it and committing leaves the next sync refusing a line it wrote itself.
     "docs/registers/sources-closed.md",
-    # `lead_queue.py` rewrites this at step 6b of the sync, from lead files the same run
+    # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
     # pulled. It refused the 2026-09-19 04:05 bank while sitting one commit behind.
     "docs/registers/queue.md",
 )

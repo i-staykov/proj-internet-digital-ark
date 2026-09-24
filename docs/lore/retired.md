@@ -13,7 +13,7 @@ does not rebuild it. The code itself is in git.
   claimed.
 - **The local admitter** (`just bank`'s opt-in `claude -p` leg, `scripts/harness/admit_prompt.txt`):
   woke a model on the laptop, which bills the laptop's own Claude login at API rates.
-  `standing_rule.py` does the lookup instead and spends no tokens. `just bank` is now `just sync`.
+  `standing_rule.py` does the lookup instead and spends no tokens.
 - **The page-level English verification engine**: the reviewer replaced that standard with
   equivalent-English in August 2026. `domain_language` stays in `db.py` (documentation.md section 4).
 - **The VPS collector scripts** (`restart_sweeps.sh`, `make_vps_bundle.sh`, `vps_bootstrap.sh`,

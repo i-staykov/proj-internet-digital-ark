@@ -231,12 +231,12 @@ def test_wave_only_runs_the_check_alone_and_exits(monkeypatch, capsys):
 
 
 def test_the_sync_asks_for_the_wave_check_every_run():
-    """It sits before the findings branch, so a sync with nothing to bank still restarts a
-    dead chain, and it is never fatal: a dead chain must not take the bank down."""
+    """It sits before the findings branch and the bank, so a tick with nothing to bank still
+    restarts a dead chain, and it is never fatal: a dead chain must not take the bank down."""
     recipe = (Path(__file__).resolve().parents[1] / "justfile").read_text(encoding="utf-8")
     line = next(ln for ln in recipe.splitlines() if "--wave-only" in ln)
     assert line.strip().endswith("|| true")
-    assert recipe.index("--wave-only") < recipe.index("Steps 3 to 7 need findings")
+    assert recipe.index("--wave-only") < recipe.index("bank_trigger.py check")
 
 
 def test_the_wave_check_is_bounded_for_its_hourly_caller(monkeypatch):
