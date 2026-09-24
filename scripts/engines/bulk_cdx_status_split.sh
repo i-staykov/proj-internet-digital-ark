@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Stream one bulk IA CDX file once and split its in-window rows by HTTP status.
 #
-# The node CDX and the Dartmouth items were banked from their 200 rows only, while the sweep has
-# taken 2xx and 3xx since ADR-011. This reads a `CDX N b a m s ...` file from a URL without
-# storing it (57.6 GB would break the disk floor) and writes three things under <out>:
-#   <prefix>_3xx.jsonl.gz   `{url, timestamp}` journals of in-window 3xx rows, ingestable
-#   <prefix>_4xx.jsonl.gz   the same for 4xx, priced only: ADR-011 keeps them out
-#   <prefix>_status.tsv     the in-window status histogram and the row counts
+# A 3xx dates a host's year as a 200 does; a 4xx or 5xx reaches the candidate track only. This
+# reads a `CDX N b a m s ...` file from a URL without storing it (57.6 GB would break the disk
+# floor) and writes three things under <out>:
+#   <prefix>_3xx_status.jsonl.gz   `{url, timestamp, status}` rows of in-window 3xx captures
+#   <prefix>_4xx_status.jsonl.gz   the same for 4xx and 5xx, which reach the candidate track only
+#   <prefix>_status.tsv            the in-window status histogram and the row counts
 # Each is written as `.part` and renamed only after the stream ends cleanly, so a dropped
 # connection leaves nothing an ingest could mistake for a whole file.
 #
@@ -45,8 +45,8 @@ fetch() {
 }
 
 fetch | gzip -cd | awk \
-    -v j3="gzip > '$OUT/${PREFIX}_3xx.jsonl.gz.part'" \
-    -v j4="gzip > '$OUT/${PREFIX}_4xx.jsonl.gz.part'" \
+    -v j3="gzip > '$OUT/${PREFIX}_3xx_status.jsonl.gz.part'" \
+    -v j4="gzip > '$OUT/${PREFIX}_4xx_status.jsonl.gz.part'" \
     -v hist="$OUT/${PREFIX}_status.tsv.part" '
     { rows++ }
     length($2) == 14 && substr($2, 1, 4) >= "1996" && substr($2, 1, 4) <= "2001" {
@@ -54,9 +54,9 @@ fetch | gzip -cd | awk \
         if ($1 ~ /^[0-9]/) { ip++; next }
         inwin++
         s[$5]++
-        line = sprintf("{\"url\": \"%s\", \"timestamp\": \"%s\"}", $3, $2)
+        line = sprintf("{\"url\": \"%s\", \"timestamp\": \"%s\", \"status\": \"%s\"}", $3, $2, $5)
         if ($5 ~ /^3[0-9][0-9]$/) print line | j3
-        else if ($5 ~ /^4[0-9][0-9]$/) print line | j4
+        else if ($5 ~ /^[45][0-9][0-9]$/) print line | j4
     }
     END {
         printf "rows\t%d\nin_window\t%d\nip_literal_in_window\t%d\n", rows, inwin, ip > hist
@@ -68,7 +68,7 @@ if [ "${status[0]}" != 0 ] || [ "${status[1]}" != 0 ] || [ "${status[2]}" != 0 ]
     echo "stream failed (fetch ${status[0]}, gzip ${status[1]}, awk ${status[2]}); .part files left" >&2
     exit 1
 fi
-for f in "$OUT/${PREFIX}_3xx.jsonl.gz" "$OUT/${PREFIX}_4xx.jsonl.gz" "$OUT/${PREFIX}_status.tsv"; do
+for f in "$OUT/${PREFIX}_3xx_status.jsonl.gz" "$OUT/${PREFIX}_4xx_status.jsonl.gz" "$OUT/${PREFIX}_status.tsv"; do
     # awk opens a pipe only when it writes a row, so a status with no rows has no part yet
     [ -e "$f.part" ] || gzip -c < /dev/null > "$f.part"
     mv "$f.part" "$f"

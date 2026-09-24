@@ -593,6 +593,7 @@ reproduce stage="all":
         # (`early_web_hostgrain.py`, `usfedgov_hostgrain.py`).
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/sources/early_web/early_web_hostgrain.py | tail -1
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
         uv run python scripts/harness/bank_hygiene.py space

@@ -3,13 +3,15 @@
 Both registrable domains and valid hostnames are annual database records; registrables stay
 prioritised as query seeds and every distinct evidence-backed hostname beneath them is
 retained. This module fills `hostname_year` from raw CDX capture journals, one JSON object
-per capture row (`{"url": ..., "timestamp": ...}`), the shape
-`scripts/engines/cdx_suffix_sweep.py` writes.
+per capture row (`{"url": ..., "timestamp": ..., "status": ...}`), the shape
+`scripts/engines/cdx_platform_walk.py` writes.
 
 The evidence wall is the registrable unit's, unchanged:
 
 - what dates one item is the row's own 14-digit capture timestamp (`cdx_timestamp`),
   quoted in the evidence row;
+- only a capture the exact host answered 2xx or 3xx dates a master year. A 4xx or 5xx keeps
+  its status in the evidence row and reaches the candidate track only;
 - every `hostname_year` row foreign-keys one `evidence` row;
 - the hostname must reduce to its parent registrable through the same `to_registrable`
   funnel, and a hostname that IS its own registrable is refused here, because that record
@@ -42,6 +44,7 @@ import duckdb
 from loguru import logger
 
 from ark.canonical import to_registrable
+from ark.evidence_types import ERROR_STATUS
 from ark.ingest import ensure_source
 
 SOURCE_NAME = "ia_cdx_hostnames"
@@ -114,6 +117,28 @@ def source_for(path: Path) -> tuple[str, str]:
     if path.name.startswith("hostcdx_"):
         return HOSTCDX_SOURCE, HOSTCDX_METHOD
     return SOURCE_NAME, SWEEP_METHOD
+
+
+# **Capture status.** A row carries its capture's `status` where the raw CDX has one. The
+# families cut from such CDX must write it, so a `nypw_` or `early_web_` journal whose rows
+# carry none is refused, and so is an error lane whose rows cannot show they are errors. An
+# error lane is named the way its writers name it, `early_web_nonok_*` or `*_4xx.jsonl.gz`
+# and `*_4xx_status.jsonl.gz`, never by a token that a swept domain's name could carry. The
+# error captures behind the journals ingested before rows carried a status are listed by
+# `scripts/round/status_audit.py`.
+_STATUS_FAMILIES = ("nypw_", "early_web_")
+_ERROR_LANE = re.compile(r"^early_web_nonok_|_[45]xx(_status)?\.jsonl(\.gz)?$")
+_CAPTURE_STATUS = re.compile(r"[2-5][0-9][0-9]")
+
+
+def error_lane(path: Path) -> bool:
+    """Whether a journal holds only error captures, by its name."""
+    return bool(_ERROR_LANE.search(path.name))
+
+
+def status_required(path: Path) -> bool:
+    """Whether every row of this journal must carry a capture status."""
+    return path.name.startswith(_STATUS_FAMILIES) or error_lane(path)
 
 
 # The lanes whose observation shows the host IN USE in the year. Only these write
@@ -236,8 +261,9 @@ def ingest_hostname_journal(
     approvals.check(source_name, "cdx_timestamp")
 
     counts: Counter[str] = Counter()
-    # first seen capture per (host, year); the earliest stamp is the quoted evidence
-    seen: dict[tuple[str, int], str] = {}
+    # the capture quoted per (host, year): any 2xx or 3xx before any error, then the earliest
+    seen: dict[tuple[str, int], tuple[bool, str, str | None]] = {}
+    strict, errors_only, refused = status_required(path), error_lane(path), False
     opener = gzip.open if path.suffix == ".gz" else open
     try:
         with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
@@ -251,6 +277,19 @@ def ingest_hostname_journal(
                 except ValueError:
                     counts["unparseable"] += 1
                     continue
+                status = None
+                if "status" in row:
+                    status = str(row["status"]).strip()
+                    if not _CAPTURE_STATUS.fullmatch(status):
+                        counts["bad_status"] += 1
+                        continue
+                elif strict:
+                    refused = True
+                    break
+                error = status is not None and status[0] in "45"
+                if errors_only and not error:
+                    counts["status_mismatch"] += 1
+                    continue
                 ts = str(row.get("timestamp", ""))
                 if len(ts) != 14 or not ts.isdigit():
                     counts["bad_timestamp"] += 1
@@ -263,12 +302,19 @@ def ingest_hostname_journal(
                 if host is None:
                     counts["no_host"] += 1
                     continue
+                if error:
+                    counts["error_status"] += 1
                 key = (host, year)
-                if key not in seen or ts < seen[key]:
-                    seen[key] = ts
+                if key not in seen or (error, ts) < seen[key][:2]:
+                    seen[key] = (error, ts, status if error else None)
     except (EOFError, OSError):
         # a journal cut mid-write; what was read is real, the tail returns next sweep
         counts["truncated_tail"] += 1
+    if refused:
+        # before any write and before the ledger, so a re-emitted file is read next time
+        stats["refused"] = True
+        logger.warning(f"{path.name}: a row carries no capture status, journal refused")
+        return stats
 
     # the registrable funnel, once per distinct host
     parents: dict[str, str] = {}
@@ -281,21 +327,30 @@ def ingest_hostname_journal(
         else:
             parents[host] = reg
 
+    # An error capture quotes its status before the host, which stays the value's last token.
     rows = [
-        (host, parents[host], year, ts)
-        for (host, year), ts in sorted(seen.items())
+        (
+            host,
+            parents[host],
+            year,
+            ts,
+            status,
+            f"cdx capture {ts} status {status} {host}" if error else f"cdx capture {ts} {host}",
+        )
+        for (host, year), (error, ts, status) in sorted(seen.items())
         if host in parents
     ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
+    stats["error_hostname_years"] = sum(1 for row in rows if row[4])
     if rows:
         source_id = ensure_source(conn, source_name, "timestamped")
         conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS hostage "
-            "(hostname TEXT, parent TEXT, year INTEGER, ts TEXT)"
+            "(hostname TEXT, parent TEXT, year INTEGER, ts TEXT, status TEXT, value TEXT)"
         )
         conn.execute("DELETE FROM hostage")
-        conn.executemany("INSERT INTO hostage VALUES (?, ?, ?, ?)", rows)
+        conn.executemany("INSERT INTO hostage VALUES (?, ?, ?, ?, ?, ?)", rows)
         conn.execute(
             r"""
             INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
@@ -309,16 +364,19 @@ def ingest_hostname_journal(
             """
             INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
                                   evidence_value, evidence_url, acquisition_method)
-            SELECT h.parent, ?, h.year, 'cdx_timestamp',
-                   'cdx capture ' || h.ts || ' ' || h.hostname,
+            SELECT h.parent, ?, h.year, 'cdx_timestamp', h.value,
                    'https://web.archive.org/web/' || h.ts || '/http://' || h.hostname || '/',
                    ?
             FROM hostage h
             LEFT JOIN hostname_year hy
               ON hy.hostname = h.hostname AND hy.assigned_year = h.year
+            LEFT JOIN evidence held ON held.evidence_id = hy.evidence_id
             WHERE hy.hostname IS NULL
+               OR (h.status IS NULL AND regexp_matches(held.evidence_value, ?)
+                   AND NOT EXISTS (SELECT 1 FROM evidence x WHERE x.domain = h.parent
+                                   AND x.evidence_year = h.year AND x.evidence_value = h.value))
             """,
-            [source_id, method],
+            [source_id, method, ERROR_STATUS],
         )
         conn.execute(
             """
@@ -327,12 +385,34 @@ def ingest_hostname_journal(
             SELECT h.hostname, h.parent, h.year, e.evidence_id
             FROM hostage h
             JOIN evidence e
-              ON e.domain = h.parent AND e.evidence_year = h.year
-             AND e.evidence_value = 'cdx capture ' || h.ts || ' ' || h.hostname
+              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
             """,
         )
         after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
         stats["hostname_year_rows"] = after - before
+        # A 2xx or 3xx takes a host-year that an earlier journal gave to an error capture.
+        conn.execute(
+            """
+            CREATE OR REPLACE TEMP TABLE repoint AS
+            SELECT hy.hostname, hy.assigned_year, min(e.evidence_id) AS evidence_id
+            FROM hostage h
+            JOIN hostname_year hy ON hy.hostname = h.hostname AND hy.assigned_year = h.year
+            JOIN evidence held ON held.evidence_id = hy.evidence_id
+            JOIN evidence e
+              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
+            WHERE h.status IS NULL AND regexp_matches(held.evidence_value, ?)
+            GROUP BY hy.hostname, hy.assigned_year
+            """,
+            [ERROR_STATUS],
+        )
+        conn.execute(
+            """
+            UPDATE hostname_year SET evidence_id = r.evidence_id FROM repoint r
+            WHERE hostname_year.hostname = r.hostname
+              AND hostname_year.assigned_year = r.assigned_year
+            """
+        )
+        stats["repointed"] = conn.execute("SELECT count(*) FROM repoint").fetchone()[0]
         # A capture under the domain evidences the parent registrable in that year too, in
         # the same cdx_timestamp class: one row per (parent, year).
         #
@@ -340,7 +420,8 @@ def ingest_hostname_journal(
         # the bare parent does not automatically establish the www hostname, nor does the
         # presence of www automatically establish the bare hostname". Letting it through
         # ships one observation as two records, in `additions/` and in `hostnames/`. Any
-        # OTHER subdomain still dates the parent, so the exclusion names that one shape.
+        # OTHER subdomain still dates the parent, so the exclusion names that one shape. An
+        # error capture dates no parent: it would hold the key against a later 2xx or 3xx.
         dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
         conn.execute(
             """
@@ -348,8 +429,8 @@ def ingest_hostname_journal(
             SELECT e.domain, e.evidence_year, min(e.evidence_id)
             FROM evidence e
             JOIN hostage h ON e.domain = h.parent AND e.evidence_year = h.year
-             AND e.evidence_value = 'cdx capture ' || h.ts || ' ' || h.hostname
-            WHERE h.hostname <> 'www.' || h.parent
+             AND e.evidence_value = h.value
+            WHERE h.hostname <> 'www.' || h.parent AND h.status IS NULL
             GROUP BY e.domain, e.evidence_year
             """,
         )
@@ -394,6 +475,8 @@ def ingest_hostname_dir(
                 totals[key] += value
             elif key == "skipped" and value:
                 totals["files_skipped"] += 1
+            elif key == "refused" and value:
+                totals["files_refused"] += 1
         if not stats.get("skipped") or i % 2000 == 0 or i == len(files):
             logger.info(f"[{i}/{len(files)}] {path.name} done")
     totals["files_seen"] = len(files)
