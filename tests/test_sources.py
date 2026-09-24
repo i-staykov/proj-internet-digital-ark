@@ -700,7 +700,7 @@ def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
 def test_usenet_reads_a_date_header_that_is_not_a_string():
     """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047 encoded,
     and `Header` has no `.strip()`. The splitter parses a batch in one call, so one
-    archive in 8,258 aborts all 2,500 of them and the maintain loop retries for ever."""
+    archive in 8,258 aborts all 2,500 of them and every bank retries them."""
     from email.header import Header
 
     from ark.usenet import message_year

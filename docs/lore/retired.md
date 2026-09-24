@@ -21,7 +21,7 @@ does not rebuild it. The code itself is in git.
   lane is the laptop's since 2026-09-09 (C-84), so a script whose purpose is to start a client on
   that host is a trap. Counting clients by the journal they hold open rather than by process
   survives as `local_clients()` in `scripts/harness/collectors.sh`; `just sync` pulls `cdx_suffix`
-  and `maintain.sh` ingests it.
+  and `just bank` ingests it.
 - **The laptop agent fan-out and the overnight hunt** (`agent_fanout.sh`, `agent_watchdog.sh`,
   `just hunt-overnight`, `just agent-loop`): drove unattended sessions from a local shell before the
   fleet existed. The fleet does it on a schedule with per-run telemetry.

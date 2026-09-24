@@ -101,18 +101,13 @@ def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
 
 def test_fold_covers_every_glob_the_bank_ingests():
     """A journal whose glob FOLD misses is folded only when something unrelated triggers."""
-    texts = []
-    maintain = ROOT / "scripts/harness/maintain.sh"
-    if maintain.is_file():
-        texts.append(maintain.read_text(encoding="utf-8"))
     recipe = re.search(
         r"^bank\b[^\n]*:\n((?:[ \t][^\n]*\n|\n)*)",
         (ROOT / "justfile").read_text(encoding="utf-8"),
         re.M,
     )
-    if recipe:
-        texts.append(recipe.group(1))
-    assert texts, "neither maintain.sh nor a justfile bank recipe exists"
+    assert recipe, "the justfile has no bank recipe"
+    texts = [recipe.group(1)]
 
     # A directory is read with its reader's globs, and these readers take plain `.jsonl` too.
     both = ("ingest-usenet-hostnames", "ingest-maillist-hostnames", "ingest-enron-hostnames")

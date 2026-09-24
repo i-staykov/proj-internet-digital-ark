@@ -33,9 +33,9 @@ from ark.expand import split_by_corroboration  # noqa: E402
 from ark.journal import journal_writer, open_journal, write_journal_line  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
-# DuckDB takes one writer at a time and the maintain loop takes it every few
-# seconds, so an unretried read here fails whenever a round is actually running,
-# which is exactly when this script gets used. Cost of waiting is seconds.
+# DuckDB takes one writer at a time and a bank holds it for minutes, so an
+# unretried read here fails whenever a bank is running, which is exactly when
+# this script gets used. Cost of waiting is seconds.
 LOCK_ATTEMPTS = 120
 LOCK_PAUSE = 5.0
 

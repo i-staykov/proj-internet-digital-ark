@@ -1099,12 +1099,6 @@ expand what="" *args:
     *) echo "expand: round loop" >&2; exit 2 ;;
     esac
 
-# One loop rather than several, because DuckDB takes a single writer.
-# fold everything the collectors have finished into the store, on a loop
-maintain iterations="26" pause="900":
-    uv run python scripts/harness/bank_hygiene.py space
-    bash scripts/harness/maintain.sh {{iterations}} {{pause}}
-
 # --- the per-source collectors ------------------------------------------------
 
 # One source per invocation. Each is collect-then-split: the collector writes a journal and
@@ -1152,8 +1146,8 @@ collect source="" *args:
         uv run ark ingest attrition_dated data/raw/attrition/attrition_dated.jsonl.gz
         uv run ark seed data/raw/attrition/attrition_out_of_window_hosts.txt
         ;;
-    # Pause `maintain` first: the extraction runs for minutes before it writes, and
-    # it has no store-lock retry, so a maintain pass landing mid-run loses the work.
+    # Take the sync lock first: the extraction runs for minutes before it writes, and
+    # it has no store-lock retry, so a bank landing mid-run loses the work.
     enron)
         uv run python scripts/sources/mail_corpora/collect_enron.py --write
         uv run python scripts/harness/bank_hygiene.py space

@@ -17,7 +17,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-# **Machine-local config, the same file `collectors.sh` and `maintain.sh` read.** Without
+# **Machine-local config, the same file `collectors.sh` and the recipes read.** Without
 # it this wrapper ran on the packaged defaults, and `build_round_state.py` died on
 # 2026-09-19 at the 40% cap: `Out of Memory Error: could not allocate block of size
 # 256.0 KiB (13.0 GiB/13.0 GiB used)` inside `stats.py::_corroboration`. That cap was

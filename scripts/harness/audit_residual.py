@@ -157,7 +157,7 @@ def read_only_store(path: Path, patience_s: int = 900) -> duckdb.DuckDBPyConnect
     """Open for reading, waiting out a writer.
 
     Patience is 15 minutes, not the 2 minutes this first shipped with. That was
-    sized against `just maintain`, which holds the write lock for seconds, and it
+    sized against a writer that holds the write lock for seconds, and it
     failed the first time it met a real writer: `ark seed` over 29,432 names holds
     the lock for more than twenty minutes, so a read-only audit gave up at
     exactly the moment the audit was worth running. A writer that outlasts even
