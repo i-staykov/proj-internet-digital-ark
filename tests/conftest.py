@@ -19,3 +19,9 @@ def _permissive_approvals(tmp_path, monkeypatch):
     # check is stubbed rather than fed a file listing every invented test name.
     monkeypatch.setattr(approvals, "check", lambda *a, **k: None)
     return path
+
+
+@pytest.fixture(autouse=True)
+def _scratch_fleet_ledger(tmp_path, monkeypatch):
+    """The fleet ledger is the real spend record, so a drain under test writes a scratch one."""
+    monkeypatch.setenv("ARK_FLEET_LEDGER", str(tmp_path / "fleet_ledger.tsv"))
