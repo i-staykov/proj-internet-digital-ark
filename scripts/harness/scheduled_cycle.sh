@@ -23,8 +23,6 @@ LOG="data/logs/scheduled_cycle.log"
 {
     printf '\n===== scheduled cycle %s =====\n' "$(date -u '+%F %T UTC')"
     just cycle 2>&1
-    printf -- '----- engines -----\n'
-    bash scripts/engines/engine_status.sh 2>&1
 } >> "$LOG"
 
 # Keep the log readable rather than complete: the store and the journals are the
