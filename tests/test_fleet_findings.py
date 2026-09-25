@@ -384,3 +384,24 @@ def test_a_banked_read_part_is_acked_by_its_sha256(tmp_path, monkeypatch):
     assert ingest_hostname_journal(conn, part)["hostname_year_rows"] == 1
     conn.close()
     assert (part.name, hashlib.sha256(part.read_bytes()).hexdigest()) in ack.acks(store)
+
+
+def test_a_read_lead_is_priced_on_its_pulled_parts_at_hostname_grain(tmp_path, monkeypatch):
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    (lead / "read.json").write_text("{}")
+    parts = tmp_path / "fleet_read" / "a-lead"
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: parts)
+    ran = []
+
+    def fake_run(cmd, **_kwargs):
+        ran.append(cmd)
+        out = "NET-NEW hostname years 1,234  567.8 EE\n"
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    result = module.price(lead, {"verdict": "FIND"})
+    assert ran == [["uv", "run", "python", "scripts/pricing/price_hostnames.py", str(parts)]]
+    assert (result["status"], result["grain"], result["netnew"]) == ("priced", "hostname", 1234)
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: None)
+    assert module.price(lead, {"verdict": "FIND"})["ee"] is None

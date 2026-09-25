@@ -53,6 +53,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -346,11 +347,12 @@ def run_refetches(
     return lines
 
 
-def read_commands(path: Path) -> list[list[str]]:
+def read_commands(path: Path, tag: str) -> list[list[str]]:
     """A whole read banks in three steps: its hostname records, then its registrable half,
-    converted by the exact-host converter, which leaves out error captures."""
+    converted by the exact-host converter, which leaves out error captures. The last step
+    runs only when the converter wrote a file, since a read may hold no exact-host
+    registrable at all."""
     rel = path.relative_to(ROOT)
-    tag = f"fleetread_{path.name}"
     return [
         ["uv", "run", "ark", "ingest-hostnames", f"{rel}/"],
         [
@@ -362,11 +364,14 @@ def read_commands(path: Path) -> list[list[str]]:
             f"{rel}/{READ_PARTS}",
             "--tag",
             tag,
-            "--min-interval",
-            "0",
         ],
-        ["uv", "run", "ark", "ingest", "cdx_snapshot", f"data/raw/cdx/cdx_suffix_{tag}.jsonl.gz"],
+        ["uv", "run", "ark", "ingest", "cdx_snapshot", converted(tag)],
     ]
+
+
+def converted(tag: str) -> str:
+    """Where the converter writes a tag's registrables."""
+    return f"data/raw/cdx/cdx_suffix_{tag}.jsonl.gz"
 
 
 def report(plan: Plan, banner_limit: int = 10) -> None:
@@ -424,11 +429,18 @@ def main() -> None:
         (key, [["uv", "run", "ark", "ingest", key, str(path.relative_to(ROOT))]])
         for key, path in plan.ready
     ]
-    jobs += [(label, read_commands(path)) for label, path in plan.reads]
+    # The ingest ledger keys on a file's name, so each run's converted file gets its own.
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    jobs += [
+        (label, read_commands(path, f"fleetread_{path.name}_{stamp}")) for label, path in plan.reads
+    ]
     for key, commands in jobs:
         for command in commands:
             if not args.write:
                 print("  would run: " + " ".join(command))
+                continue
+            if command[-2] == "cdx_snapshot" and not (ROOT / command[-1]).is_file():
+                print(f"  {key}: the read holds no exact-host registrable, nothing to convert")
                 continue
             print("== " + " ".join(command))
             result = subprocess.run(command, cwd=ROOT, check=False)

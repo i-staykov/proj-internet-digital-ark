@@ -343,10 +343,16 @@ def test_a_fleet_read_block_plans_as_ready_and_banks_in_three_steps(tmp_path: Pa
     plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
     assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)]
     assert plan.blocked == [] and plan.ready == []
-    steps = bank.read_commands(bank.ROOT / "data/raw/fleet_read/x")
+    steps = bank.read_commands(bank.ROOT / "data/raw/fleet_read/x", "fleetread_x_t")
     assert steps[0][-2:] == ["ingest-hostnames", "data/raw/fleet_read/x/"]
-    assert "cdx_suffix_convert.py" in steps[1][3] and steps[1][-2:] == ["--min-interval", "0"]
-    assert steps[2][-2:] == ["cdx_snapshot", "data/raw/cdx/cdx_suffix_fleetread_x.jsonl.gz"]
+    assert "cdx_suffix_convert.py" in steps[1][3]
+    assert steps[1][-4:] == [
+        "--glob",
+        f"data/raw/fleet_read/x/{bank.READ_PARTS}",
+        "--tag",
+        "fleetread_x_t",
+    ]
+    assert steps[2][-2:] == ["cdx_snapshot", "data/raw/cdx/cdx_suffix_fleetread_x_t.jsonl.gz"]
 
 
 def test_a_fleet_read_already_banked_is_done_and_an_incomplete_one_is_refused(

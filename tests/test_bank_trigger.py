@@ -139,3 +139,12 @@ def test_fold_covers_every_glob_the_bank_ingests():
                         missed.append(sample)
     assert checked, "no ingest line names a data/raw path"
     assert not missed, f"FOLD misses what the bank ingests: {missed}"
+
+
+def test_a_drained_whole_read_is_a_reason(tmp_path):
+    root = _tree(tmp_path)
+    lead = root / bt.INCOMING / "a-read"
+    lead.mkdir(parents=True)
+    (lead / "read.json").write_text("{}")
+    code, why = bt.check(root)
+    assert code == 0 and "bank: read a-read" in why

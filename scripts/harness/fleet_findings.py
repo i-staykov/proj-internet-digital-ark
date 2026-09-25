@@ -386,13 +386,24 @@ def grain_of(slug: str, finding: dict, lead_dir: Path) -> str:
 
 
 def price(lead: Path, finding: dict) -> dict:
-    """Run the store pricer over the leg's own items and return what it measured."""
-    items = fetch_items(lead)
-    if items is None:
-        return {"status": "no items to price, see the run log", "ee": None}
-    grain = grain_of(lead.name, finding, lead)
-    script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
-    cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
+    """Run the store pricer over the leg's own items and return what it measured.
+
+    A lead the fleet read whole is priced on its pulled journal parts, at hostname grain,
+    where error captures date no year.
+    """
+    if (lead / READ).is_file():
+        parts = fetch_read(lead)
+        if parts is None:
+            return {"status": "the read was not pulled, see the run log", "ee": None}
+        grain, script = "hostname", "price_hostnames.py"
+        cmd = ["uv", "run", "python", f"scripts/pricing/{script}", str(parts)]
+    else:
+        items = fetch_items(lead)
+        if items is None:
+            return {"status": "no items to price, see the run log", "ee": None}
+        grain = grain_of(lead.name, finding, lead)
+        script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
+        cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
     # C-86: a listing or a registry record is a delimited field, and takes no split.
     lead_doc = load(lead / LEAD)
     if script == "price_items.py" and lead_doc.get("evidence_class") in NO_SPLIT_CLASSES:
