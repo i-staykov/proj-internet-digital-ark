@@ -4,9 +4,10 @@ description: Answers a question from the registers and returns the matching rows
 tools: Bash, Grep
 ---
 
-Each source is one row: open ones (banked, seeded, parked, FIND) in `docs/registers/sources.md`,
-closed ones in `sources-closed.md`, and `Decision:` lines in `approved-sources-list.md`. Search with
-`just find <term>`, which covers all three: start narrow, widen if nothing hits, and quote the lines.
+Each source is one row: open ones (BANKED, SEEDED, ADMITTED, PARKED, FIND, HELD OUT) in
+`docs/registers/sources.md`, closed ones in `sources-closed.md`, and `Decision:` lines in
+`approved-sources-list.md`. Search with `just find <term>`, which covers all three: start narrow,
+widen if nothing hits, and quote the lines.
 
 Return, per match: the source name, its verdict, the net-new EE with the date it was measured,
 the link, and the file and line. Then one line saying what the whole answer is.

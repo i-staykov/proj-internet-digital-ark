@@ -7,7 +7,8 @@ from the register at packaging time, never hand-maintained, and each row points 
 at the register entry that carries the full measurement.
 
 Read over both register pages, one table each: `docs/registers/sources.md` for what is
-banked, seeded, parked or a FIND, and `docs/registers/sources-closed.md` for what is closed.
+banked, seeded, admitted, parked, held out or a FIND, and `docs/registers/sources-closed.md`
+for what is closed.
 One ledger row per register row, so one per source.
 
 Every cell is located by its header NAME, never by position, so a column added or moved
@@ -43,6 +44,24 @@ URL_RE = re.compile(r"https?://[^\s<>()\[\]]+")
 VERDICTS = ("BLOCKED", "REOPENED", "FIND", "CLOSED")
 OPEN_VERDICTS = ("BANKED", "SEEDED", "ADMITTED", "HELD OUT", "PARKED", "FIND", "REOPENED")
 LEADING_RE = re.compile(r"^\W*(" + "|".join((*OPEN_VERDICTS, *VERDICTS)) + r")\b")
+# The words a `sources-closed.md` reason opens with. That page has no verdict column and every
+# row on it is closed by the page it sits on, so a row whose reason opens otherwise is `closed`.
+CLOSED_VERDICTS = (
+    "CLOSED",
+    "BLOCKED",
+    "REJECTED",
+    "WITHDRAWN",
+    "RETIRED",
+    "SATURATED",
+    "UNRETRIEVABLE",
+    "UNAVAILABLE",
+    "SUPERSEDED",
+    "SKIPPED",
+    "ZERO",
+)
+CLOSED_RE = re.compile(r"^\W*(" + "|".join(CLOSED_VERDICTS) + r")\b")
+# The verdict word a cell opens with: the row's verdict, not a reason to revisit it.
+OWN_WORD_RE = re.compile(r"^\W*(?:" + "|".join((*OPEN_VERDICTS, *CLOSED_VERDICTS)) + r")\b")
 
 # Ledger field <- the register header names that carry it, best first. The open page
 # spells eleven columns out; the closed page keeps five shorter names for the same
@@ -171,13 +190,17 @@ def rows_from_register(
         # not name yet, so a new column still feeds the fallbacks below.
         extra = [cells[i] for i in range(len(cells)) if i not in set(index.values())]
         body = " ".join(value for value in [*(cell[f] for f in BODY_ORDER), *extra] if value)
-        said = (cell["status"] or body[:120]).upper()
-        leading = LEADING_RE.match(said)
-        verdict = (
-            leading.group(1).lower()
-            if leading
-            else next((token.lower() for token in VERDICTS if token in said), "closed")
-        )
+        if "status" not in index:
+            leading = CLOSED_RE.match(cell["quality_limitations"])
+            verdict = leading.group(1).lower() if leading else "closed"
+        else:
+            said = (cell["status"] or body[:120]).upper()
+            leading = LEADING_RE.match(said)
+            verdict = (
+                leading.group(1).lower()
+                if leading
+                else next((token.lower() for token in VERDICTS if token in said), "closed")
+            )
         ee = EE_RE.search(cell["coverage_ee"] or body)
         quality = _clean(cell["quality_limitations"] or body)[:300]
         # The closed page's five columns have no dating column, so it is read out of
@@ -186,13 +209,17 @@ def rows_from_register(
         if dates in ("", "n/a"):
             clause = DATES_RE.search(body)
             dates = clause.group(1) if clause else ""
-        # Within one cell, so the clause never runs on into the link and its host tokens.
-        prose = [cell[f] for f in BODY_ORDER if f != "source_link"] + extra
+        # Within one cell, so the clause never runs on into the link and its host tokens, and
+        # never in the date cell, which may repeat the verdict (`2026-09-19, retired`). A cell's
+        # leading verdict word is passed over first and read only when nothing else says why.
+        prose = [cell[f] for f in BODY_ORDER if f not in ("version_or_date", "source_link")]
+        prose += extra
         reopen = next(
             (
                 _clean(text[text.lower().find(marker) :][:220])
+                for texts in ([OWN_WORD_RE.sub("", p, count=1) for p in prose], prose)
                 for marker in ("reopen", "do not re-test", "revisit", "retire")
-                for text in prose
+                for text in texts
                 if marker in text.lower()
             ),
             "",

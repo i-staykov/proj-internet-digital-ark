@@ -2,7 +2,7 @@
 
 **One line per page: what it is and when to read it.** `docs/` is five directories by what a page
 IS rather than what it is about: `lore/` standing knowledge we wrote, `brief/` the task as the
-reviewer stated it, `registers/` the append-only ledgers, `round/` the inputs to one delivery,
+reviewer stated it, `registers/` the current-state ledgers, `round/` the inputs to one delivery,
 `ops/` how to run the thing. The report cluster and this page stay at the root: they are the
 entry points.
 
@@ -36,9 +36,9 @@ the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
-| [sources.md](registers/sources.md) | Every source tried, admitted or closed, with what dates one item and its link; grep it, never read it whole | before proposing, pricing or briefing anything |
+| [sources.md](registers/sources.md) | One row per source not closed (BANKED, SEEDED, ADMITTED, PARKED, FIND, HELD OUT), with what dates one item and its link; search it with `just find <term>`, never read it whole | before proposing, pricing or briefing anything |
 | [approved-sources-list.md](registers/approved-sources-list.md) | One `Decision:` line per (source, evidence type); `ark ingest` enforces it | before an ingest, and when writing a `Decision:` line |
-| [sources-closed.md](registers/sources-closed.md) | One row per source measured and closed, with the date, the figure and the reason; grep it before proposing | before proposing or briefing a lens |
+| [sources-closed.md](registers/sources-closed.md) | One row per source measured and closed, with the date, the figure and the reason; `just find <term>` before proposing | before proposing or briefing a lens |
 | [queue.md](registers/queue.md) | Generated. **The one list Ivo decides from**: only what he alone can settle, above the 5,000 EE floor, at its measured figure where one exists. A download or an ingest is not his, and is counted at the foot | when he has a moment to rule |
 | [hypotheses.tsv](registers/hypotheses.tsv) | The hypothesis ledger (*generated*: appended by `scripts/harness/hypothesis_ledger.py`) | when opening or closing a hypothesis |
 | [releases.md](registers/releases.md) | Every reviewer release: date, whether received, per-year line counts, sha256 of his zip or of our zstd copy (`just releases` fills it) | before deleting or trusting a release tree |

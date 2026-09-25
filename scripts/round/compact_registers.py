@@ -6,10 +6,11 @@ table of what was measured and closed, each reason opening with its verdict word
 `docs/registers/approved-sources-list.md` keeps each `### source / type` block as its
 heading, its `- ` facts and its `Decision:` line.
 
-A source is one row. Its newest dated row wins, a closed row wins a tie, then the first in
-the file. Every URL and hostname its old text named follows in the link cell, so a search
-for a host still finds the row. On pages already in this shape nothing changes, which is
-what `--check` guards.
+A source is one row. Its newest dated row wins. On one date a settled row beats a closed
+row and a closed row beats a FIND or PARKED one, a table row beats a heading, then the first
+row in the file wins. Every URL and hostname its old text named follows in the link cell, so
+a search for a host still finds the row. On pages already in this shape nothing changes,
+which is what `--check` guards.
 
     uv run python scripts/round/compact_registers.py                  # rewrite what differs
     uv run python scripts/round/compact_registers.py --check          # counts, exit 1 on a failure
@@ -19,7 +20,9 @@ what `--check` guards.
 from __future__ import annotations
 
 import argparse
+import functools
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,7 +31,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts/harness"))
 
-from bank_findings import CLOSED_HEADING, REGISTER_HEADER  # noqa: E402
+from bank_findings import CLOSED_HEADING, REGISTER_HEADER, ROW_LIMIT  # noqa: E402
 
 from ark.approvals import parse as parse_approvals  # noqa: E402
 
@@ -69,8 +72,8 @@ earlier one. Look a source up with `just find <term>`.
 CLOSED_PREAMBLE = """# Closed sources
 
 One row per source measured and closed, so nobody re-tests it. The reason opens with its verdict
-word, and the link cell names every URL and host the source was read at. A new measurement
-replaces its row, and git holds every earlier one. Look a source up with `just find <term>`.
+word; the link cell holds every URL the source's text gave, then the hosts it names. A new
+measurement replaces its row, and git holds every earlier one. Look one up with `just find <term>`.
 """
 APPROVED_PREAMBLE = """# Approved sources
 
@@ -195,11 +198,53 @@ REWORD: tuple[tuple[str, str], ...] = (
     (r" \(Ivo(?:, \d{4}-\d\d-\d\d)?\)", ""),
     (r"under Ivo's floor ruling of \d{4}-\d\d-\d\d", "under the 5,000 EE floor"),
     (r"\s*\[detail\]\(#[^)]*\)", ""),
+    # The pages are public, so they point at no private file.
+    (
+        r"the reviewer accepted hostnames as annual records on \d{4}-\d\d-\d\d"
+        r" \(his reply, verbatim, in [^)]*\)",
+        "hostnames are annual records",
+    ),
+    (r"\s*\(his reply, verbatim, in [^)]*\)", ""),
+    (r"nothing under `data/raw` or `[^`]+` holds the bytes", "we hold no copy of the bytes"),
 )
 DECISION_NUMBER = re.compile(r"\b(?:C-\d{1,3}|ADR-\d+)\b")
 
 # Links for live rows whose old entry wrote its artifact without a scheme, or only on the
 # approved page, by the row's normalised slug.
+# What dates one item for settled rows whose text never marks it: six say it in plain prose,
+# condensed here, and four record a recovery or an audit dated by the rows it re-read.
+DATING = {
+    "nominet-rdap-over-held-uk-banked": (
+        "the registry's machine-written `registration` event, with a full timestamp, in each "
+        "RDAP answer"
+    ),
+    "1999-internic-zones-on-the-jpnic-mirror": (
+        "the SOA serial inside each zone file (`1999111901`, `1999112000`), not the mirror's "
+        "2002 file date"
+    ),
+    "the-frozen-mirror-rule-applied-a-second-time": (
+        "the register file's own `Last-Modified: Fri, 30 Apr 1999 04:43:08 GMT`"
+    ),
+    "the-1999-ripe-database-on-a-document-mirror": (
+        "the frozen mirror's `Last-Modified: Tue, 03 Aug 1999 21:27:00 GMT` on `ripe.db.gz`"
+    ),
+    "common-crawl-domain-vertices-as-rdap-candidate-supply": (
+        "not a dating source: each name is dated by the registration event our RDAP query returns"
+    ),
+    "link-target-as-a-ranking-signal-for-the-archive-queue": (
+        "not a dating source: the capture it leads to is dated by its `cdx_timestamp`"
+    ),
+    "the-2001-2003-frozen-mirror-sweep": (
+        "each whois record's own creation date, as in the Edelman transcriptions it re-found"
+    ),
+    "promotion-tranche-and-holdings-audit": (
+        "each promoted row's own date, from the mention class it was banked under"
+    ),
+    "abandoned-part-journals-local-half": ("each journal row's CDX capture timestamp"),
+    "stranded-rdap-journals-on-the-vps": (
+        "each RDAP answer's registration event and each CDX row's capture timestamp"
+    ),
+}
 LINKS = {
     "dartmouth-nber-captures": "https://archive.org/download/"
     "DARTMOUTH-NBER-RESEARCH-2017-metadata/domain-year-captures.txt",
@@ -300,10 +345,14 @@ _HEADING = re.compile(r"^(#{1,3}) (.*)$")
 _SPLIT = re.compile(r"(?<!\\)\|")
 _ISO = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
 _URL = re.compile(r"https?://[^\s`)>\]<\"'|,\\]+")
-_BARE = re.compile(
-    r"\b((?:[a-z0-9-]+\.)+(?:com|net|org|edu|gov|uk|de|au|nz|ca|ie|za|jp|fr|nl|se|dk|no|fi|pl"
-    r"|pt|it|es|ch|at|be|us|info|int|mil))\b"
+_TLDS = (
+    r"(?:com|net|org|edu|gov|uk|de|au|nz|ca|ie|za|jp|fr|nl|se|dk|no|fi|pl|pt|it|es|ch|at|be|us"
+    r"|info|int|mil)"
 )
+_BARE = re.compile(rf"\b((?:[a-z0-9-]+\.)+{_TLDS})\b")
+# A dotted name that ends in a TLD, underscores allowed, so a file name can be told from a host.
+_NAMED = re.compile(rf"(?:[a-z0-9_-]+\.)+{_TLDS}")
+_EXAMPLE = re.compile(r"(?:^|\.)example\.(?:com|org|net)$")
 _EE = re.compile(r"([\d,]*\d(?:\.\d+)?)\s*(?:net-new\s+)?(?:post-split\s+)?(?:candidate\s+)?EE\b")
 _STORE_EE = re.compile(r"store\s+([\d,]*\d(?:\.\d+)?)\s*EE", re.I)
 # In prose a bare "N EE" is as often a floor or a ceiling as a measurement, so the body of an
@@ -314,11 +363,17 @@ _UPPER = re.compile(r"\b(" + "|".join(_WORDS) + r")\b")
 _LOWER_CLOSED = re.compile(r"\b(" + "|".join(CLOSED_WORDS) + r")\b", re.I)
 _OPENS_CLOSED = re.compile(r"(" + "|".join(CLOSED_WORDS) + r")\b")
 _OPENS_OPEN = re.compile(r"(" + "|".join(OPEN_WORDS) + r")\b")
+_LENS = re.compile(r"^lens\b[^.]*\.+\s*")
+# Read with the bold markers dropped: `What dates one item: ...`, `**Dating: ...**` and
+# `**Dating.** ...`, each to the end of its sentence, list item or paragraph.
+_END = r"(?:\.\s|\.?\s*\n\s*-\s|\.?$)"
 _DATES = (
-    re.compile(r"[Ww]hat dates one item[*:\s]*(.{8,400}?)(?:\.\s|;\s|\.$|$)", re.S),
-    re.compile(r"\*\*Dating[.:]?\*\*[:\s]*(.{8,400}?)(?:\.\s|$)", re.S),
-    re.compile(r"\bDating:\s*(.{8,400}?)(?:\.\s|$)", re.S),
+    re.compile(
+        r"[Ww]hat\s+dates\s+(?:one|each)\s+\w+[:\s]+(?:is\s+)?(.{8,}?)(?:;\s|" + _END + ")", re.S
+    ),
+    re.compile(r"\bDating[.:]\s*(.{8,}?)" + _END, re.S),
 )
+_PARAGRAPH = re.compile(r"\n\s*\n")
 _DECISION_LINE = re.compile(r"^\s*Decision:\s*[a-z-]+\s*$", re.I)
 _SPEC_FACT = re.compile(r"^- ingest specs?:")
 _LEADING_SLUG = re.compile(r"^\s*((`[^`]*`|[a-z0-9]+(_[a-z0-9]+)+)( / \S+)?[\s,]*(and\s+)?)+")
@@ -346,12 +401,13 @@ def slug_key(cell: str) -> str:
     return norm(cell.split(" / ")[0].strip("`* "))
 
 
-def tidy(text: str, limit: int = 0) -> str:
-    """One line; cut at a space when over `limit`, so no URL or host is left half written."""
-    text = re.sub(r"\s+", " ", text).strip()
-    if limit and len(text) > limit:
-        text = text[: limit - 3].rsplit(" ", 1)[0].rstrip(" ,;:") + "..."
-    return text
+def tidy(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def unbold(cell: str) -> str:
+    """The cell with its `**` dropped when one of them is left unmatched."""
+    return cell.replace("**", "") if cell.count("**") % 2 else cell
 
 
 def reword(text: str) -> str:
@@ -368,6 +424,24 @@ def hosts(text: str) -> set[str]:
     return set(_BARE.findall(text.lower()))
 
 
+@functools.cache
+def tracked_names() -> frozenset[str]:
+    """The file names this repository tracks, which read like hosts in prose."""
+    found = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True, text=True)
+    return frozenset(Path(p).name.lower() for p in found.stdout.splitlines())
+
+
+def not_a_host(token: str) -> bool:
+    """An RFC 2606 example host, a file of this repository, or a name with an underscore."""
+    bare = token.strip("<>`,;").lower()
+    host = re.sub(r"^[a-z]+://", "", bare).split("/")[0].split(":")[0]
+    if _EXAMPLE.search(host):
+        return True
+    if "://" in bare:
+        return False
+    return bare in tracked_names() or ("_" in bare and _NAMED.fullmatch(bare) is not None)
+
+
 def dated(text: str, span: tuple[str, str]) -> str:
     """The newest date in `text` inside `span`, the register's own first and last."""
     return max((d for d in _ISO.findall(text) if span[0] <= d <= span[1]), default="")
@@ -379,11 +453,34 @@ def ee_of(text: str, prose: bool = False) -> str:
 
 
 def dates_of(text: str) -> str:
+    """The sentence saying what dates one item, whole."""
+    paragraphs = _PARAGRAPH.split(text.replace("**", ""))
     for pattern in _DATES:
-        found = pattern.search(text)
-        if found:
-            return tidy(found.group(1), 200)
+        for paragraph in paragraphs:
+            found = pattern.search(paragraph)
+            if found:
+                return tidy(found.group(1))
     return ""
+
+
+def uncut(cell: str, text: str) -> str:
+    """A cell an old writer cut short, completed from the paragraph of `text` it opens.
+
+    Its cut sentence is finished, then whole sentences follow while it is under a row's
+    length, so a figure or a refusal the next sentence gives is kept.
+    """
+    start = tidy(cell.replace("**", "")).removesuffix("...").rstrip()
+    if len(start) < 60:
+        return cell
+    for paragraph in _PARAGRAPH.split(text):
+        flat = tidy(paragraph.replace("**", ""))
+        if flat.startswith(start) and len(flat) > len(start):
+            end = len(start)
+            while end < len(flat) and (end == len(start) or end < ROW_LIMIT):
+                stop = flat.find(". ", end)
+                end = len(flat) if stop < 0 else stop + 1
+            return flat[:end]
+    return cell
 
 
 def heading_slug(title: str) -> str:
@@ -402,7 +499,7 @@ def heading_slug(title: str) -> str:
 def remainder(title: str) -> str:
     """What a heading says after the source it names."""
     _, sep, rest = title.partition(":")
-    return tidy(_LEADING_SLUG.sub("", rest if sep else title), 200)
+    return tidy(_LEADING_SLUG.sub("", rest if sep else title))
 
 
 def verdict_word(text: str, lowercase: bool = True) -> str:
@@ -450,7 +547,11 @@ class Row:
 
 @dataclass
 class Unit:
-    """One source: every row, heading and line of prose the old pages gave it."""
+    """One source: every row, heading and line of prose the old pages gave it.
+
+    `own` holds the lines from the open page. Only they say what dates one item: a closed row
+    that a slug or a detail anchor pulls in speaks for another measurement.
+    """
 
     key: str
     slug: str
@@ -458,6 +559,12 @@ class Unit:
     rows: list[Row] = field(default_factory=list)
     heads: list[tuple[int, str]] = field(default_factory=list)
     texts: list[str] = field(default_factory=list)
+    own: list[str] = field(default_factory=list)
+
+    def note(self, page: str, line: str) -> None:
+        self.texts.append(line)
+        if page == OPEN_PAGE:
+            self.own.append(line)
 
 
 def match_detail(key: str, units: dict[str, Unit]) -> str:
@@ -517,7 +624,7 @@ def read_units(pages: dict[str, str]) -> dict[str, Unit]:
                 else:
                     current = section
                 if current is not None:
-                    current.texts.append(line)
+                    current.note(page, line)
                 continue
             if line.startswith("|") and not fence:
                 if _RULE.match(line):
@@ -534,10 +641,10 @@ def read_units(pages: dict[str, str]) -> dict[str, Unit]:
                     if key and not norm(cells[0]).startswith("brief-audit"):
                         found = unit(key, cells[0])
                         found.rows.append(Row(page, order, cells, shape))
-                        found.texts.append(line)
+                        found.note(page, line)
                     continue
             if current is not None:
-                current.texts.append(line)
+                current.note(page, line)
     return units
 
 
@@ -637,50 +744,107 @@ def open_verdict(cell: str, word: str) -> str:
     return f"{word}, {cell}"
 
 
+def closed_word_of(word: str) -> str:
+    """The closed verdict a word states in any case, or empty."""
+    said = SYNONYMS.get(word.upper(), word.upper())
+    return said if said in CLOSED_WORDS else ""
+
+
 def closed_reason(text: str, word: str) -> str:
-    """The reason, opening with its verdict word in capitals."""
-    text = text.strip()
-    if _OPENS_CLOSED.match(text):
-        return text
-    if text.lower().startswith(word.lower()) and not text[len(word) : len(word) + 1].isalpha():
-        return word + text[len(word) :]
+    """The reason, stating its verdict once, first and in capitals; the rest as written.
+
+    The fleet's `lens <name>.` opening is dropped, and a sentence of the text that opens with
+    the verdict moves to the front instead of the verdict being said twice.
+    """
+    text = re.sub(r"^\*\*([A-Za-z]+)\*\*", r"\1", _LENS.sub("", text.strip()))
+    while first := re.match(r"[A-Za-z]+\b", text):
+        said = closed_word_of(first[0])
+        if not said:
+            break
+        rest = text[first.end() :]
+        again = re.match(r"[.:,]?\s+([A-Za-z]+)\b", rest)
+        if not (again and closed_word_of(again[1])):
+            return said + rest
+        text = rest.lstrip(".:, ")
+    later = re.search(rf"(?<=[.;] ){word}\b", text)
+    if later:
+        moved, head = text[later.start() :].rstrip(), text[: later.start()].rstrip()
+        return moved + (" " if moved.endswith((".", ")", ";", ":")) else ". ") + head
     return f"{word}. {text}" if text else word
 
 
 def link_cell(old: str, source: str, row: list[str]) -> str:
-    """What the link cell held, then every URL the source named, then its hosts the row lacks."""
+    """What the link cell held, then every URL the source named, then its hosts the row lacks.
+
+    Tokens that are not hosts (`not_a_host`) are left out.
+    """
     have = "" if old.strip().lower() in ("", "n/a", "-", "none") else old.strip()
+    tokens = [t for t in have.split() if not not_a_host(t)]
+    if len(tokens) < len(have.split()):
+        have = old = " ".join(tokens)
     held = set(urls(have))
-    fresh = [f"<{u}>" for u in urls(source) if u not in held]
-    tokens = have.split()
+    fresh = [f"<{u}>" for u in urls(source) if u not in held and not not_a_host(u)]
     if all(re.fullmatch(r"<?https?://\S+", t) or _BARE.fullmatch(t.lower()) for t in tokens):
         linked = [t for t in tokens if "://" in t] + fresh
         named = [t for t in tokens if "://" not in t]
     else:
         linked, named = ([have] if have else []) + fresh, []
     present = hosts(join_cells([*row, " ".join(linked + named)]))
-    named += sorted(hosts(source) - present)
+    named += sorted(h for h in hosts(source) - present if not not_a_host(h))
     return " ".join(linked + named) or old
 
 
-def open_row(unit: Unit, choice: Choice, base: Row | None, source: str) -> list[str]:
+def approved_dating(approved: str) -> dict[str, str]:
+    """Each source's first `- what dates one item:` fact on the compacted approved page."""
+    found: dict[str, str] = {}
+    name = ""
+    for line in approved.splitlines():
+        if line.startswith("### "):
+            name = line[4:].split(" / ")[0].strip("` ")
+        elif name and line.startswith("- what dates one item:"):
+            found.setdefault(name, line.partition(":")[2].strip())
+    return found
+
+
+def dating(unit: Unit, base: Row | None, approved: dict[str, str]) -> str:
+    """What dates one item, from the unit's own open rows and prose, else its approved fact.
+
+    The winning row's cell comes first, then the unit's other open rows, then its Detail or
+    heading prose, then the approved page's fact for a source the unit names.
+    """
+    for row in [base, *(r for r in unit.rows if r is not base)] if base else unit.rows:
+        said = row.cell("what dates one item") if row.page == OPEN_PAGE else ""
+        if said.lower() not in ("", "n/a", "-"):
+            return reword(said)
+    said = dates_of("\n".join(unit.own))
+    names = (name.strip("` ") for name in unit.slug.split(","))
+    # A fleet request without a stamp writes a placeholder, which is not a dating sentence.
+    stated = (approved.get(n, "") for n in names)
+    stated = (s for s in stated if s and not s.startswith("not recorded"))
+    said = said or next(stated, "") or DATING.get(unit.key, "")
+    return reword(said) or "n/a"
+
+
+def open_row(
+    unit: Unit, choice: Choice, base: Row | None, source: str, approved: dict[str, str]
+) -> list[str]:
     """Eleven cells: the winning row's own, or what its heading and prose say."""
     if base is not None and base.page == OPEN_PAGE:
         # A row with a stray pipe keeps its overflow in the link cell rather than losing it.
         width = len(OPEN_COLUMNS)
         cells = [reword(c) for c in base.cells[: width - 1]]
         cells += ["n/a"] * (width - 1 - len(cells)) + [reword(" ".join(base.cells[width - 1 :]))]
+        cells[4] = dating(unit, base, approved)
     else:
         ee = ee_of(choice.title) or ee_of(source, prose=True)
         figure = f"{ee} ({choice.date})" if ee and choice.date else ee or "not priced"
         slug = unit.slug if base is None else base.cells[0]
-        dates = reword(dates_of(source)) or "n/a"
         cells = [
             slug,
             choice.date or "n/a",
             "n/a",
             "n/a",
-            dates,
+            dating(unit, base, approved),
             "n/a",
             figure,
             "n/a",
@@ -705,9 +869,11 @@ def closed_row(
     """Five cells, the reason opening with its verdict word."""
     row = choice.row
     if row is not None and row.page == CLOSED_PAGE:
-        cells = [reword(c) for c in row.cells[:5]] + [""] * (5 - len(row.cells[:5]))
+        cells = row.cells[:5] + [""] * (5 - len(row.cells[:5]))
+        cells[3] = uncut(cells[3], source)
+        cells = [reword(c) for c in cells]
     elif row is not None:
-        verdict, quality = row.cell("verdict"), row.cell("quality issues")
+        verdict, quality = row.cell("verdict"), uncut(row.cell("quality issues"), source)
         parts = (
             [verdict] if verdict_word(verdict) not in ("", "CLOSED") or len(verdict) > 12 else []
         )
@@ -723,7 +889,7 @@ def closed_row(
         cells = [reword(tidy(c)) for c in cells]
     else:
         ee = ee_of(choice.title) or ee_of(source, prose=True)
-        why = remainder(choice.title) if choice.title else tidy(re.sub(r"[#*`]", "", source), 200)
+        why = remainder(choice.title) if choice.title else tidy(re.sub(r"[#*`]", "", source))
         slug = unit.slug if base is None else base.cells[0]
         cells = [reword(tidy(c)) for c in (slug, choice.date or "n/a", ee or "not priced", why, "")]
     reason = REASONS.get(unit.key) if migrating else None
@@ -741,6 +907,7 @@ def compact_sources(pages: dict[str, str]) -> tuple[str, str]:
     stamps = [d for u in units.values() for r in u.rows for d in _ISO.findall(row_date(r))]
     span = (min(stamps, default=""), max(stamps, default="9999-12-31"))
     migrating = any(line.startswith("## ") for line in pages[OPEN_PAGE].splitlines())
+    approved = approved_dating(compact_approved(pages[APPROVED_PAGE]))
     open_rows: list[list[str]] = []
     closed_rows: list[list[str]] = []
     for unit in units.values():
@@ -751,11 +918,13 @@ def compact_sources(pages: dict[str, str]) -> tuple[str, str]:
         if choice.closed:
             closed_rows.append(closed_row(unit, choice, base, source, migrating))
         else:
-            open_rows.append(open_row(unit, choice, base, source))
+            open_rows.append(open_row(unit, choice, base, source, approved))
     if migrating:
         keys = {slug_key(c[0]) for c in open_rows + closed_rows}
         open_rows[:0] = [list(c) for c in NEW_OPEN_ROWS if slug_key(c[0]) not in keys]
         closed_rows[:0] = [list(c) for c in NEW_CLOSED_ROWS if slug_key(c[0]) not in keys]
+    open_rows = [[unbold(c) for c in cells] for cells in open_rows]
+    closed_rows = [[unbold(c) for c in cells] for cells in closed_rows]
     open_text = f"{OPEN_PREAMBLE}\n{OPEN_HEADER}\n|{'---|' * len(OPEN_COLUMNS)}\n"
     closed_text = f"{CLOSED_PREAMBLE}\n{CLOSED_HEADING}\n|{'---|' * len(CLOSED_COLUMNS)}\n"
     open_text += "".join(join_cells(c) + "\n" for c in open_rows)
@@ -864,12 +1033,15 @@ def measures(pages: dict[str, str], current: dict[str, str]) -> list[tuple[str, 
     total = sum(lines.values())
     everything = "\n".join(pages.values())
     keys = [c[0].strip("`*").split(" / ")[0].strip() for c in rows]
-    decisions = sum(bool(_DECISION_LINE.match(x)) for x in pages[APPROVED_PAGE].splitlines())
-    numbers = len(DECISION_NUMBER.findall(everything))
+    approved = pages[APPROVED_PAGE].splitlines()
+    decisions = sum(bool(_DECISION_LINE.match(x)) for x in approved)
+    blocks = sum(x.startswith("### ") for x in approved)
+    numbers = len(DECISION_NUMBER.findall(_URL.sub("", everything)))
     unlinked = sum(c[9].startswith(LINKED_WORDS) and not _URL.search(c[10]) for c in open_rows)
     unlinked_find = sum(
         c[9].startswith(("FIND", "PARKED")) and not _URL.search(c[10]) for c in open_rows
     )
+    undated = sum(c[9].startswith(LINKED_WORDS) and c[4].lower() in ("", "n/a") for c in open_rows)
     verdictless = sum(not _OPENS_CLOSED.match(c[3]) for c in closed_rows)
     not_open = sum(len(c) != len(OPEN_COLUMNS) or not _OPENS_OPEN.match(c[9]) for c in open_rows)
     audits = sum(norm(k).startswith("brief-audit") for k in keys)
@@ -881,10 +1053,11 @@ def measures(pages: dict[str, str], current: dict[str, str]) -> list[tuple[str, 
         ("rows open", len(open_rows), True),
         ("rows closed", len(closed_rows), True),
         ("rows total", len(rows), True),
-        ("Decision lines", decisions, True),
+        (f"Decision lines, one per ### block ({blocks})", decisions, decisions == blocks),
         ("Decided by lines", everything.count("Decided by"), "Decided by" not in everything),
         ("decision numbers", numbers, not numbers),
         ("unlinked live rows", unlinked, not unlinked),
+        ("settled rows without a dating cell", undated, not undated),
         ("FIND or PARKED rows without a link", unlinked_find, True),
         ("verdictless closed rows", verdictless, not verdictless),
         (f"non-open rows in {OPEN_PAGE}", not_open, not not_open),

@@ -389,8 +389,8 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # The gate issue, once per crossing, read off the brief just written.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
 
-# The only route into the three register pages: `.claude/settings.json` denies a `grep` or a
-# `sed` on them. One truncated line per hit: page and line, source key, verdict, net-new EE,
+# The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
+# `sed` of sources*.md. One truncated line per hit: page and line, source key, verdict, net-new EE,
 # the shape the term sat in, and the text; `--detail` prints one approved-page entry whole.
 # Nothing prints over 40 lines without `--all`. Exit 1 is "not in the register", exit 2 is
 # "the search did not run": different answers.
@@ -522,7 +522,7 @@ reproduce stage="all":
     #
     # `arquivo_ia` is deliberately absent: `data/raw/arquivo/IA.cdxj` is 47 GB and was deleted
     # once its 28,247 evidence rows were in the store, so a live line would abort this whole
-    # stage on a missing file. Download it first (the command is in docs/registers/sources.md)
+    # stage on a missing file. Download it first from its link in docs/registers/sources.md
     # and run the commented line by hand. Same reason checksums.sha256 verifies 234, not 235.
     sources)
         uv run python scripts/harness/bank_hygiene.py space

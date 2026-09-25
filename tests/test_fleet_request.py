@@ -24,7 +24,6 @@ REGISTER = """# Approved sources
 ## Pending requests
 
 ### old_source / cdx_timestamp
-
 Decision: pending
 """
 
@@ -80,8 +79,10 @@ def test_the_rest_of_the_register_survives_the_insert(tmp_path):
     # The insert once truncated the file at the heading it wrote under, which loses every
     # block below it: the whole pending queue.
     text = write(*world(tmp_path))
-    assert "### old_source / cdx_timestamp" in text
-    assert text.count("Decision: pending") == 2
+    # Newest first, no blank line inside a block and one between: the compactor's shape.
+    new, old = text.split("## Pending requests\n\n")[1].split("\n\n")
+    assert new.startswith("### a_lead / cdx_timestamp\n- ingest spec:")
+    assert old == "### old_source / cdx_timestamp\nDecision: pending\n"
 
 
 def test_the_block_carries_the_store_figure_and_names_the_fleets_as_the_other_one(tmp_path):

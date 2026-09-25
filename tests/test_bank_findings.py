@@ -23,7 +23,7 @@ verdict: FIND
 ee: 9,999
 what dates one item: Tue, 4 May 1999 in the Received header
 artifact: https://example.invalid/list
-method: read one month, extracted the relay hosts
+method: read one month of http://example.invalid/archive, extracted the relay hosts
 """
 
 SIDECAR = {
@@ -69,6 +69,7 @@ def test_a_find_nobody_could_reprice_says_why_rather_than_looking_measured(tmp_p
 def test_the_verify_status_is_in_the_verdict_cell(tmp_path):
     text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 1.0}))
     assert "FIND (confirmed)" in text
+    assert text.endswith("| <https://example.invalid/list> <http://example.invalid/archive> |")
 
 
 def test_a_closed_finding_keeps_one_plain_figure(tmp_path):
@@ -102,12 +103,13 @@ def test_a_lead_directory_with_only_a_sidecar_is_still_booked(tmp_path):
 # --- which register a finding goes to, and how often -----------------------------
 
 
-CLOSED_PROSE = """# a-scout-lead
+NUMBER = "C" + "-95"  # built, so this file quotes no decision number
+CLOSED_PROSE = f"""# a-scout-lead
 verdict: CLOSED, 20.92 EE (22 net-new pairs of 553) against a 5,000 EE floor
 lens: academic-datasets
 what dates one item: the origin server's own HTTP `Date:` header
 artifact: <http://example.invalid/webkb-data.gtar.gz>, the CMU data set
-probe: 5,802 of 8,282 members carry a Date line; the rest are undated
+probe: 5,802 of 8,282 carry a Date line per {NUMBER}, read at http://example.invalid/{NUMBER}/r
 """
 
 
@@ -128,7 +130,8 @@ def test_a_measured_negative_gets_a_closed_row_not_an_all_na_row(tmp_path):
     # The reason opens with its verdict word, read off `verdict: CLOSED, 20.92 EE ...`.
     assert "| CLOSED. lens academic-datasets. 5,802 of 8,282" in row
     assert "20.92 EE" in row
-    assert "http://example.invalid/webkb-data.gtar.gz" in row
+    assert f"Date line, read at http://example.invalid/{NUMBER}/r |" in row
+    assert row.endswith(f"gtar.gz> <http://example.invalid/{NUMBER}/r> |")
     assert "n/a" not in row
 
 
@@ -218,24 +221,25 @@ def test_the_recipe_never_stages_the_ledger_unconditionally():
 
 
 def test_a_closed_row_never_exceeds_the_register_line_limit():
-    """The reason is trimmed, never the slug or the link."""
-    # The lead's `lens` can swallow the scout's whole verdict.
+    """The reason is trimmed after its verdict word, never the slug or the link."""
+    # The lead's `lens` can swallow the scout's whole verdict, and a CDX query is long.
     lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
+    url = "http://example.invalid/cdx?url=*.example.org/*&" + "fl=original&" * 30
     finding = {
         "slug": "a-lead",
         "verdict": "CLOSED",
         "ee": "0",
-        "fields": {"artifact": "http://example.invalid/data.gz"},
+        "fields": {"artifact": url},
         "lead": {"lens": lens},
     }
     row = scribe.closed_row(finding, "wave-1")
     assert len(row) <= scribe.ROW_LIMIT
     assert row.startswith("| a-lead / unclassified |")
-    assert row.endswith("| <http://example.invalid/data.gz> |")
+    assert row.endswith(f"| CLOSED. | <{url}> |")
 
 
 def test_a_trimmed_reason_keeps_its_substance_and_points_at_no_dead_file():
-    """A long reason is cut at a character, never at its first clause or into a pointer."""
+    """A long reason is cut inside its prose, never at its first clause or into a pointer."""
     cells = [
         "a-lead / link_target",
         "2026-09-19, laptop",

@@ -182,10 +182,11 @@ date or whether it is candidate-only material for the CDX engine to date.`,
 directly whether previously successful methods can produce further additions, and the two largest
 gains of one round were both of this kind: a parser that had been reading 6.76% of a file we already
 held, and a survey filed as unrecoverable that was intact under a successor hostname.
-Read docs/registers/sources.md for what each developed source says REMAINS unexhausted, and
-docs/registers/sources-closed.md for rows closed because something could not be REACHED rather
-than because it was measured and found poor. A closure about one copy of an artifact is not a closure about the
-artifact. Propose specific unexhausted material, naming the file or date range, not general ideas.`,
+Run \`just find <source>\` on each developed source for its verdict and figure; what it left unread
+is yours to find in the artifact. Run \`just find BLOCKED\` and \`just find UNRETRIEVABLE\` for rows
+on sources-closed.md closed because something could not be REACHED rather than because it was
+measured and found poor. A closure about one copy of an artifact is not a closure about the artifact.
+Propose specific unexhausted material, naming the file or date range, not general ideas.`,
   },
   {
     key: 'uncrawled-subscribers',

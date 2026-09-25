@@ -57,7 +57,7 @@ Decision: master
   (https://archive.org/download/nypw_timemaps/, CC BY 4.0, the `nypw_timemaps` artifact
   above) re-emitted at hostname grain by `scripts/sources/nypw/nypw_hostgrain.py`
 - what dates one item: the row's own 14-digit capture timestamp, quoted in the evidence value beside the hostname it dates
-- unit: the reviewer accepted hostnames as annual records on 2026-09-01 (his reply, verbatim, in private/personal-context.md); registrables stay prioritized, hostnames ship as separate per-year files he can merge or discard
+- unit: hostnames are annual records; registrables stay prioritized, hostnames ship as separate per-year files he can merge or discard
 - admitted under the standing rule: the class (cdx_timestamp on the IA CDX API) is master-eligible and approved twice above, the stamp is machine-written inside the artifact, the terms are the ones the collectors already honour, and `ark check` gates the ingest with two hostname-wall checks
 Decision: master
 
@@ -495,7 +495,7 @@ Decision: master
 ### fac_single_audit / dated_directory
 - measured: **CLOSED ON ACCESS, not on evidence, 2026-08-31.** The primary source is `https://www.fac.gov/data/download/historic/` and the four in-window files are `https://app.fac.gov/dissemination/public-data/census/csv/census-{1998,1999,2000,2001}.zip`. **`https://app.fac.gov/robots.txt` is exactly `User-agent: *` / `Disallow: /`**, so every data file is behind a blanket refusal; only the landing page and dictionary sit on `www.fac.gov`, which permits everything. `harvester.census.gov` now 302s to a maintenance page. No open mirror: data.gov's package API 404s and archive.org holds only the application's source code
 - the claim is structurally correct and the dictionary confirms it: `AUDITEEEMAIL` "Auditee Email address, 60 characters max" and `AUDITEEDATESIGNED` "Date of auditee signature, mm/dd/yyyy", across every form revision in the window. The dataset also **begins at 1998**, so 1996 and 1997 are unreachable through it regardless
-- the 2,406.69 EE of 2026-08-24 is not reproducible by us: nothing under `data/raw` or `private/` holds the bytes, and the only route to them breaches the `Disallow: /`. One route remains and it is a letter to GSA, not a fetch
+- the 2,406.69 EE of 2026-08-24 is not reproducible by us: we hold no copy of the bytes, and the only route to them breaches the `Disallow: /`. One route remains and it is a letter to GSA, not a fetch
 - one word here decides `fac_sfsac_historic_1998_2001` as well: that entry is the same corpus under a second class name, established 2026-08-27
 - what it is: e-mail domains on Federal Audit Clearinghouse Single Audit filings, 1998-2001
 - what dates one item: that row's own `AUDITEEDATESIGNED` or `CPADATESIGNED`, the date a human wrote the address down

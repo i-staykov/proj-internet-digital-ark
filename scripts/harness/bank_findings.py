@@ -46,9 +46,20 @@ _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
 # artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
 # link that does not open.
 _URL = re.compile(r"https?://[^\s`)>\"']+")
+# `compact_registers.py` reads URLs with this pattern and copies every one a row names into
+# its link cell, less RFC 2606 example hosts, which name no source. A row whose link cell
+# already holds them all is one it leaves as written.
+_LINKED = re.compile(r"https?://[^\s`)>\]<\"'|,\\]+")
+_EXAMPLE = re.compile(r"https?://(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
 _PIPE = re.compile(r"(?<!\\)\|")
-# The pages cite no decision number; a wave's prose sometimes does, and loses it here.
-_DECISION_NO = re.compile(r"\s*\((?:C-\d{1,3}|ADR-\d+)\)|\b(?:C-\d{1,3}|ADR-\d+)\b[:,]?\s*")
+# The pages cite no decision number; a wave's prose sometimes does, and loses it here with
+# the words that only pointed at it: the brackets round a list of them, a `per` before one.
+_NO = r"(?:C-\d{1,3}|ADR-\d+)"
+_DECISION_NO = re.compile(
+    rf"\s*\((?:(?:per|under|see)\s+)?{_NO}(?:\s*[,/;]\s*(?:and\s+)?{_NO})*\)"
+    rf"|[\s,]*\b(?:per|under|see)\s+{_NO}(?:\s*[,/]\s*(?:and\s+)?{_NO})*\b"
+    rf"|\b{_NO}(?:\s*[,/]\s*(?:and\s+)?{_NO})*\b[:,]?\s*"
+)
 
 
 def parse_finding(path: Path) -> dict:
@@ -225,30 +236,60 @@ def one_per_slug(findings: list[dict]) -> list[dict]:
     return [best[slug] for slug in sorted(best)]
 
 
+def _clip(text: str, limit: int) -> str:
+    """The first `limit` characters, less a URL the cut would leave half written."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    head, _, tail = cut.rpartition(" ")
+    return head if "://" in tail and not text[limit].isspace() else cut
+
+
 def first_clause(text: str, limit: int = 240) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     for stop in (". ", "; "):
         if stop in text[:limit]:
             return text[: text.index(stop) + 1]
-    return text[:limit]
+    return _clip(text, limit)
+
+
+def drop_decision_numbers(text: str) -> str:
+    """The text without decision numbers; a URL is kept whole, because a cut one does not open."""
+    parts = re.split(r"(https?://\S+)", text)
+    return "".join(p if i % 2 else _DECISION_NO.sub("", p) for i, p in enumerate(parts))
 
 
 def _tidy(cells: list[str]) -> list[str]:
-    """One line per cell, no decision number, and each `|` escaped exactly once."""
-    return [
-        _PIPE.sub(r"\\|", re.sub(r"\s+", " ", _DECISION_NO.sub("", cell))).strip() for cell in cells
-    ]
+    """One line per cell, each `|` escaped exactly once, and no decision number before the link."""
+    cells = [drop_decision_numbers(cell) for cell in cells[:-1]] + cells[-1:]
+    return [_PIPE.sub(r"\\|", re.sub(r"\s+", " ", cell)).strip() for cell in cells]
+
+
+def links(artifact: str, texts: list[str]) -> str:
+    """The link cell: the artifact first, then every other URL the texts name."""
+    first = _URL.search(artifact)
+    cell = [first.group(0)] if first and not _EXAMPLE.match(first.group(0)) else []
+    held = {u.rstrip(".;:") for u in _LINKED.findall(" ".join(cell))}
+    for text in texts:
+        for url in (u.rstrip(".;:") for u in _LINKED.findall(str(text))):
+            if url not in held and not _EXAMPLE.match(url):
+                held.add(url)
+                cell.append(url)
+    return " ".join(f"<{u}>" for u in cell)
 
 
 def register_row(f: dict, run_label: str) -> str:
     """One row in the eleven columns of the `sources.md` table; the row is the whole entry.
 
-    Cells the finding does not carry read `n/a`.
+    Cells the finding does not carry read `n/a`. The link cell holds the artifact, then every
+    other URL the finding names.
     """
     day = dt.date.today().isoformat()
-    dates = first_clause(f["fields"].get("what dates one item", ""), 140) or "n/a"
+    # The lead's stamp when the prose gives none, the one its request block quotes.
+    lead = f.get("lead") or {}
+    stamp = f["fields"].get("what dates one item") or str(lead.get("what_dates_one_item") or "")
+    dates = first_clause(stamp, 140) or "n/a"
     probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 200)
-    url = _URL.search(f["fields"].get("artifact", ""))
     verdict = f["verdict"] + (f" ({f['verify']})" if f.get("verify") else "")
     cells = [
         f["slug"],
@@ -261,8 +302,8 @@ def register_row(f: dict, run_label: str) -> str:
         probe or "n/a",
         "n/a",
         verdict,
-        f"<{url.group(0)}>" if url else "n/a",
     ]
+    cells.append(links(f["fields"].get("artifact", ""), [*f["fields"].values(), *cells]) or "n/a")
     return _within_limit(_tidy(cells))
 
 
@@ -289,16 +330,17 @@ ROW_LIMIT = 500
 _CUT = "..."
 
 
-def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
+def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7), keep: int = 0) -> str:
     """The row, trimming the prose cells in `order` until the whole row fits.
 
     Method first and probe second, because those are the two a wave writes freely; every
     other cell is a slug, a figure, a verdict or a link, and a truncated link is worse than
     a long row. If both are down to the pointer and the row is still long, it is returned
     long: that is a row worth a human looking at, not one worth mangling. The closed row
-    has one prose cell, its reason, and passes `(3,)`.
+    has one prose cell, its reason, and passes `(3,)` and its verdict prefix as `keep`, the
+    characters no trim removes.
 
-    What survives is the START of the cell, cut at a character and not at a clause, because
+    What survives is the START of the cell, cut inside the prose and not at a clause, because
     a reason that opens with a short sentence has its whole substance after that full stop.
     """
 
@@ -308,12 +350,10 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7)) -> str:
     for index in order:
         if len(assemble()) <= ROW_LIMIT:
             break
-        overhead = len(assemble()) - len(cells[index])
-        budget = ROW_LIMIT - overhead - len(_CUT)
-        if budget < 40:
-            cells[index] = _CUT
-        else:
-            cells[index] = cells[index][:budget].rstrip() + _CUT
+        head, rest = cells[index][:keep], cells[index][keep:]
+        budget = ROW_LIMIT - (len(assemble()) - len(rest)) - len(_CUT)
+        kept = _clip(rest, budget).rstrip() if budget >= 40 else ""
+        cells[index] = head + kept + _CUT if kept or not head else head.rstrip()
     return assemble()
 
 
@@ -327,6 +367,7 @@ def closed_row(f: dict, run_label: str) -> str:
     **A negative does not belong in `sources.md`**: only a priced FIND and a banked source
     get a row there. The reason opens with its verdict word, then the lens and the probe;
     the class, the figure and the artifact come from `lead.json` and the prose beside it.
+    The link cell holds the artifact, then every other URL the finding names.
     """
     day = dt.date.today().isoformat()
     lead = f.get("lead") or {}
@@ -337,9 +378,7 @@ def closed_row(f: dict, run_label: str) -> str:
     )
     lens = first_clause(lead.get("lens") or f["fields"].get("lens") or "no lens recorded", 60)
     lens = lens.rstrip(".")
-    url = _URL.search(
-        f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
-    )
+    artifact = f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
     measured = f"{f['ee']} EE" if f["ee"] not in ("0", "0.0") else "not priced"
     reason = first_clause(
         f["fields"].get("probe", "")
@@ -354,9 +393,9 @@ def closed_row(f: dict, run_label: str) -> str:
         f"{day}, fleet {run_label}",
         measured,
         f"{f['verdict']}. lens {lens}. {reason}".strip(),
-        f"<{url.group(0)}>" if url else "",
     ]
-    return _within_limit(_tidy(cells), order=(3,))
+    cells.append(links(artifact, [*f["fields"].values(), *cells]))
+    return _within_limit(_tidy(cells), order=(3,), keep=len(f["verdict"]) + 2)
 
 
 def _insert(path: Path, header: str, rows: list[str], key) -> int:

@@ -58,7 +58,7 @@
 
 ## Registers
 
-- One row per source: open ones (banked, seeded, parked, FIND) in `docs/registers/sources.md`, closed ones in `docs/registers/sources-closed.md`. Every result gets its row, positive or negative, so nobody re-tests it. A new measurement replaces the row; git holds every earlier one. Look a source up with `just find <term>`.
+- One row per source: open ones (BANKED, SEEDED, ADMITTED, PARKED, FIND, HELD OUT) in `docs/registers/sources.md`, closed ones in `docs/registers/sources-closed.md`. Every result gets its row, positive or negative, so nobody re-tests it. A new measurement replaces the row; git holds every earlier one. Look a source up with `just find <term>`.
 - Every source gets an http(s) link in its row before it is ingested, beside the sentence saying what dates one item and why it clears the bar.
 - A master-eligible class needs a human `Decision:` line in `docs/registers/approved-sources-list.md`; candidate-only needs nothing.
 - The loop may write the `Decision:` line itself when all four hold: the evidence type is already master-eligible, a machine-written stamp inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after the ingest (Ivo, 2026-08-29); failing any one parks the source as `pending`.
