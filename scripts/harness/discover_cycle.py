@@ -25,8 +25,8 @@ So a cycle does all of the first and **ends by naming exactly what of the second
 waiting**. That list is the handover, and it is written where a human will see it
 rather than buried in a log.
 
-**Nothing here writes to the store.** The ingest loop (`scripts/harness/maintain.sh`) owns
-the write lock, and a second writer would simply block it. This reports.
+**Nothing here writes to the store.** `just bank` owns the write lock, and a second writer
+would simply block it. This reports.
 
     uv run python scripts/harness/discover_cycle.py
     uv run python scripts/harness/discover_cycle.py --until 1786536000 --every 1800

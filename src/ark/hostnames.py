@@ -25,8 +25,8 @@ The evidence wall is the registrable unit's, unchanged:
 - **`www.<parent>` is its own record** (ADR-009/ADR-010) and neither form establishes the
   other, so a `www.` capture dates that host and NOT the bare parent.
 
-The registrable half of the same journal is `cdx_suffix_convert.py`'s job, collapsing
-capture rows into per-domain year sets for the `cdx_snapshot` ingest.
+The registrable half of the same journal is `cdx_suffix_convert.py`'s job: captures whose host
+IS the registrable, collapsed into per-domain year sets for the `cdx_snapshot` ingest.
 """
 
 from __future__ import annotations
@@ -192,8 +192,8 @@ def writes_hostname_years(source_name: str) -> bool:
 # His structural rule, verbatim: "A valid annual hostname must have dot-separated labels, use
 # letters, digits, and interior hyphens only, and end in an alphabetic TLD label."
 #
-# The era's archives carry underscore NT-server names; those are refused here and the capture
-# still evidences the parent registrable through the registrable path.
+# The era's archives carry underscore NT-server names; those are refused here and by the
+# exact-host registrable converter, so such a capture dates nothing.
 #
 # **The final `\.[a-z]+` is the alphabetic TLD label.** `to_registrable` also consults the
 # public suffix list, so this catches nothing today, but "no violations today" and "cannot
@@ -240,8 +240,8 @@ def ingest_hostname_journal(
     # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
     # journal under the journal's FINAL name, one batch per index page, for hours. A name-only
     # ledger marks a live journal done at whatever length it happened to have, and every row
-    # written afterwards is never read. The `.part`-then-rename convention `maintain.sh`
-    # relies on does not cover an append-style collector; this does, for every lane at once.
+    # written afterwards is never read. The `.part`-then-rename convention does not cover an
+    # append-style collector; this does, for every lane at once.
     digest = _sha256(path)
     # **One query for the whole directory, not one per file.** The check itself is cheap;
     # asking the store 24,664 times is not, and at ~60ms of round trip each that was 24

@@ -10,8 +10,8 @@ lookup: the class is in the approved list already or it is not, the lead's stamp
 in it or it does not, the terms URL and the robots verdict were recorded at scout time or
 they were not. A model asked to weigh them adds nothing except the chance of talking itself
 into a yes. What it cannot decide is condition 4, because that is a fact about a run that has
-not happened, so this writes the line, `just sync` ingests and gates, and **a red gate parks
-the line back to `pending`**. That ordering is the fourth condition, enforced rather than
+not happened, so this writes the line, `just bank` ingests and gates, and **a red gate takes
+the line and the rows back**. That ordering is the fourth condition, enforced rather than
 asserted.
 
 Nothing here approves a class nobody has approved before. The first source of a class always

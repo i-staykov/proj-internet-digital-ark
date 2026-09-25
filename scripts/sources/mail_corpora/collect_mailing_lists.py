@@ -143,7 +143,7 @@ def read_messages(path: Path) -> list[str]:
 
 
 def open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Open the store read-only, waiting out the maintain loop's write lock."""
+    """Open the store read-only, waiting out a bank's write lock."""
     for attempt in range(attempts):
         try:
             return duckdb.connect(str(STORE), read_only=True)

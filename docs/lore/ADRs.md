@@ -13,7 +13,7 @@ because frozen submissions and code comments cite these numbers.
 net-new equivalent-English**: banking a collector's finished journal first, then pricing and
 measurement, then seeding, which yields and may be interrupted. Enforced by asymmetric patience
 rather than by prose: `ark ingest` waits 2400s (`INGEST_LOCK_PATIENCE_S`, `src/ark/cli.py`),
-`ark seed` waits 20s and says it is yielding, and `maintain.sh` calls `ark ingest` once per SOURCE,
+`ark seed` waits 20s and says it is yielding, and `just bank` calls `ark ingest` once per SOURCE,
 never once per file.
 
 The cause and the fix are in `db.add_candidates`' docstring: `executemany` is not a batch, and a

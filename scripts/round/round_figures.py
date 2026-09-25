@@ -99,14 +99,13 @@ NOT_BASELINE = """
 
 
 def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
-    """Wait out the maintain loop rather than failing the whole measurement.
+    """Wait out a bank rather than failing the whole measurement.
 
     The shared helper rather than a fourth hand-written retry loop, which is what this was:
     `ark.db.connect_read_only_patiently` exists precisely because the same loop had been
-    written twice and omitted twice. 45 minutes of patience, not 10, because the fold loop
-    runs every 7 minutes and a single pass over 500 sweep journals can hold the writer for
-    longer than that: measured 2026-09-04, this command died on the lock while the round-9
-    lanes were running, which is exactly when the figures are wanted.
+    written twice and omitted twice. 45 minutes of patience, not 10, because a bank that
+    folds 500 sweep journals holds the writer for longer than that, which is exactly when the
+    figures are wanted.
     """
     from ark.db import connect_read_only_patiently
 

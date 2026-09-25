@@ -18,7 +18,7 @@ in it runs, so a module called `queue.py` here shadows the standard library's an
 import of `urllib3` below it dies on `queue.LifoQueue`. That took the hourly sync down on
 2026-09-19 and stopped banking for a cycle.
 
-    uv run python scripts/round/lead_queue.py --fleet ~/Documents/GitHub/ark-fleet [--write]
+    uv run python scripts/round/lead_queue.py [--fleet DIR] [--cached] [--write]
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "docs/registers/queue.md"
 STORE = REPO / "data/ark.duckdb"
 DECISIONS = REPO / "docs/lore/key-decisions.md"
-# Written whenever the store can be read, so a locked store costs freshness and not the
-# check itself. The hourly sync holds the write lock about half of every hour, and a
-# silently skipped check puts banked sources back in front of Ivo.
+# Written whenever the store is read, and the only list the hourly tick reads, since the
+# tick opens no store. A stale list costs freshness, but a silently skipped check puts
+# banked sources back in front of Ivo.
 CACHE = REPO / "data/banked_slugs.txt"
 REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
 FLOOR = 5000.0
@@ -64,23 +64,31 @@ def ask_of(blocked: str) -> str:
     return "review"
 
 
-def banked(store: Path) -> set[str]:
-    """Slugs the store already holds, from the names its own ingest wrote.
+def _cached() -> tuple[set[str], bool]:
+    if CACHE.is_file():
+        return set(CACHE.read_text(encoding="utf-8").split()), True
+    return set(), False
+
+
+def banked(store: Path, cached: bool = False) -> tuple[set[str], bool]:
+    """Slugs the store already holds, from the names its own ingest wrote, and whether any
+    list was read at all.
 
     **The reason this reads the store and not the lead file.** A lead reaches `verified`
     in the fleet, the laptop ingests it, and nothing writes `banked` back unless the class
     also carries a `Decision:` line. Four leads worth about 94,000 EE sat in this queue on
     2026-09-19 having been ingested days earlier, which is a queue that spends Ivo's
-    attention on finished work. Read-only, and a held lock just means no check this run.
+    attention on finished work. Read-only, and a held lock falls back to CACHE. `cached`
+    reads CACHE alone and never imports duckdb, so the hourly tick opens no store.
     """
+    if cached:
+        return _cached()
     try:
         import duckdb
 
         conn = duckdb.connect(str(store), read_only=True)
     except Exception:
-        if CACHE.is_file():
-            return set(CACHE.read_text(encoding="utf-8").split())
-        return set()
+        return _cached()
     out: set[str] = set()
     try:
         for table, column in (
@@ -91,12 +99,12 @@ def banked(store: Path) -> set[str]:
                 if name:
                     out.add(re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-"))
     except Exception:
-        return out
+        return out, bool(out)
     finally:
         conn.close()
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     CACHE.write_text("\n".join(sorted(out)) + "\n", encoding="utf-8")
-    return out
+    return out, True
 
 
 def held_state(slug: str, held: set[str]) -> str:
@@ -414,15 +422,18 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fleet", type=Path, default=Path.home() / "Documents/GitHub/ark-fleet")
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--cached", action="store_true")
     args = ap.parse_args()
     if not (args.fleet / "leads").is_dir():
         print(f"no leads/ under {args.fleet}")
         return 1
+    held, checked = banked(STORE, cached=args.cached)
     page = render(
         sorted(
-            leads(args.fleet, banked(STORE)) + decisions(DECISIONS),
+            leads(args.fleet, held) + decisions(DECISIONS),
             key=lambda r: (-r["low"], -r["high"]),
-        )
+        ),
+        checked,
     )
     if args.write:
         OUT.write_text(page, encoding="utf-8")
