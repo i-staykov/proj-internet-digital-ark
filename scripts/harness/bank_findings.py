@@ -49,7 +49,7 @@ _URL = re.compile(r"https?://[^\s`)>\"']+")
 # `compact_registers.py` reads URLs with this pattern and copies every one a row names into
 # its link cell, less RFC 2606 example hosts, which name no source. A row whose link cell
 # already holds them all is one it leaves as written.
-_LINKED = re.compile(r"https?://[^\s`)>\]<\"'|,\\]+")
+_LINKED = re.compile(r"https?://(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
 _EXAMPLE = re.compile(r"https?://(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
 _PIPE = re.compile(r"(?<!\\)\|")
 # The pages cite no decision number; a wave's prose sometimes does, and loses it here with

@@ -344,7 +344,7 @@ _RULE = re.compile(r"^\|[\s:|-]+\|\s*$")
 _HEADING = re.compile(r"^(#{1,3}) (.*)$")
 _SPLIT = re.compile(r"(?<!\\)\|")
 _ISO = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
-_URL = re.compile(r"https?://[^\s`)>\]<\"'|,\\]+")
+_URL = re.compile(r"https?://(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
 _TLDS = (
     r"(?:com|net|org|edu|gov|uk|de|au|nz|ca|ie|za|jp|fr|nl|se|dk|no|fi|pl|pt|it|es|ch|at|be|us"
     r"|info|int|mil)"
@@ -417,7 +417,9 @@ def reword(text: str) -> str:
 
 
 def urls(text: str) -> list[str]:
-    return list(dict.fromkeys(u.rstrip(".;:") for u in _URL.findall(text)))
+    # A host with no dot is a URL an old writer cut short, not an address to keep.
+    found = (u.rstrip(".;:") for u in _URL.findall(text))
+    return list(dict.fromkeys(u for u in found if "." in u.split("/")[2]))
 
 
 def hosts(text: str) -> set[str]:
