@@ -15,10 +15,10 @@ each `(domain, year)` counts its TLD's English share. **EE and speed are the PRO
 is demonstrated research capability**, so a measured negative with a reason is a result and the
 METHOD outranks the source.
 
-**The annual masters are a WEBSITE-evidence product** (spec XIII, C-90). Only exact-host year-specific
-web evidence enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot, a dated web link-graph
-record, or a custodian's per-host/year web-capture extract. DNS, registry, RDAP, WHOIS, mail and
-Usenet headers and textual mentions are CANDIDATES, which are scored separately at the same rate.
+**The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that
+answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph
+record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry,
+RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate.
 
 **The 5% gate is a floor on sending and nothing ships under it** (C-78, C-89). We may ASK Ding to
 accept less when the research side carries it; he decides. Never package a short round unasked.
