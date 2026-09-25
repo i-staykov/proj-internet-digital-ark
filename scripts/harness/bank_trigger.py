@@ -1,10 +1,11 @@
 """Say whether `just bank` has anything to do, and remember what it last banked.
 
-The hourly tick opens no store and calls the bank only when `check` exits 0. Four things
+The hourly tick opens no store and calls the bank only when `check` exits 0. Five things
 count as arrived: a confirmed FIND in the drained findings (the ones `fleet_findings.py
-reprice` prices), a changed approvals page, a new baseline marker, or the fold globs moved in
-count, bytes or newest mtime. Journals land all day, so a move alone waits until the last bank
-is ARK_BANK_JOURNAL_HOURS old (default 3). When the bank runs for another reason it folds them
+reprice` prices), a changed approvals page, a new baseline marker, the fold globs moved in
+count, bytes or newest mtime, or an approved block the last bank could not ingest. Journals
+land all day, so a move or a retry alone waits until the last bank is ARK_BANK_JOURNAL_HOURS
+old (default 3). When the bank runs for another reason it folds them
 anyway, because the stamp it writes afterwards records them as seen.
 
 A red bank writes `data/logs/bank_red.json`, and nothing banks until someone reads it and runs
@@ -34,6 +35,8 @@ APPROVALS = "docs/registers/approved-sources-list.md"
 BASELINE = "data/baseline.json"
 STAMP = "data/logs/bank_stamp.json"
 RED = "data/logs/bank_red.json"
+# Written by the bank while an approved block could not bank; paced like the journals.
+RETRY = "data/logs/bank_approvals_retry"
 # What the bank's journal step reads, as its readers glob it. A new ingest line in the bank
 # adds its glob here in the same commit, or its journals wait for an unrelated trigger.
 FOLD = (
@@ -148,6 +151,8 @@ def check(root: Path = ROOT, find_only: bool = False) -> tuple[int, str]:
         reasons.append(f"bank: baseline {current}")
 
     moved = []
+    if (root / RETRY).exists():
+        moved.append("bank: approvals not yet banked, retried")
     if not seen:
         moved.append("bank: journals, no stamp yet")
     else:
@@ -166,7 +171,8 @@ def check(root: Path = ROOT, find_only: bool = False) -> tuple[int, str]:
         if reasons or due is None or datetime.now(UTC) >= due:
             reasons += moved
         else:
-            return 1, f"bank: journals moved, held until {due:%H:%MZ}"
+            what = "journals moved" if moved[-1].startswith("bank: journals") else "a retry"
+            return 1, f"bank: {what}, held until {due:%H:%MZ}"
     if reasons:
         return 0, "\n".join(reasons)
     return 1, "bank: nothing arrived"

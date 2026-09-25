@@ -1,4 +1,4 @@
-"""Flatten, validate and re-price the findings `just sync` drains out of the fleet.
+"""Flatten, validate and re-price the findings the hourly tick drains out of the fleet.
 
 **A fleet figure never reaches the register alone.** The leg that measured a corpus priced
 it against the pushed snapshot, which is a copy of the store's exports and his baseline and
@@ -8,7 +8,7 @@ priced a second time HERE, by `price_items.py` or `price_hostnames.py`, against 
 store, and the scribe books both numbers side by side. A FIND that ships no items cannot be
 re-priced, and that says so in the register rather than passing as measured.
 
-Three subcommands, in the order `just sync` runs them:
+Three subcommands, in order: the tick runs drain and validate, `just bank` runs reprice.
 
     drain     the downloaded run directories become one directory per lead
     validate  every sidecar against the fleet's own schema, via the fleet's own validator

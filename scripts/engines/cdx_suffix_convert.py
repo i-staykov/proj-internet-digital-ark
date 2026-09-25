@@ -26,6 +26,7 @@ import glob
 import gzip
 import json
 import os
+import re
 import sys
 import time
 import zlib
@@ -39,6 +40,7 @@ from ark.hostnames import YEARS, host_of  # noqa: E402
 from ark.journal import open_journal_for_write  # noqa: E402
 
 STATE_NAME = "cdx_suffix_convert.state.tsv"
+AUTHORITY_END = re.compile(r"[/?#]")
 
 
 def load_state(path: Path) -> dict[str, tuple[int, int, str]]:
@@ -81,7 +83,9 @@ def read_journal(path: str, years: defaultdict[str, set[int]]) -> tuple[int, str
                 # only the platform walk records a status; its query keeps 2xx and 3xx already
                 if "status" in d and str(d["status"])[:1] not in ("2", "3"):
                     continue
-                authority = url.split("://", 1)[-1].split("/", 1)[0]
+                # the authority ends at the path, query or fragment; userinfo is not the host
+                authority = AUTHORITY_END.split(url.split("://", 1)[-1], 1)[0]
+                authority = authority.rsplit("@", 1)[-1].lstrip(".")
                 if authority not in exact:
                     host = host_of(authority)
                     exact[authority] = host if host and to_registrable(host) == host else None

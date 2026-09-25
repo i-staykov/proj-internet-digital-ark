@@ -188,7 +188,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | query health | `uv run python scripts/harness/query_health.py --write`, and inside `just cycle` | the failure-state ledger of his section XI, derived from what the collectors already print rather than by changing them, so it works while they run. Three signals: failure rate, throttles per query (the early warning, since the archive slows us before refusing) and a run of batches answering nothing at all. Found on 2026-09-04 that past batches had been failing at 24% to 43% with the delay pinned at its ceiling, unrecorded |
 | dataset discovery | `uv run python scripts/harness/dataset_discovery.py --out private/discovery.tsv` | asks six open-repository catalogues for the artifact shape that pays and screens every hit against the three registers; metadata only, and a hit is a lead to price, not a source |
 | what a run has added | `just added [--by-source]` | the store query a long collection run wants every half hour: what the lanes have added since `round_since`, priced, through the export's own predicates so a row counted is a row that would ship. Seconds, and read-only, against the 20 minutes `just state` needs. Records are hostname-YEARS, which is the unit he counts |
-| hostname lane | `just hostnames <epoch>` | **the standing priority in one command, and leave it running.** Ranks platforms by the hosts we LACK rather than the hosts that exist, starts two sweeps (the maximum) and the fold loop, and needs no hand between starting and reading the figures. Measured 2026-09-04: 22.5M capture rows in three and a half hours, 886,216 net-new shippable records, 552,782 equivalent-English, 48% of the 5% gate. At about 750 times the yield of a gap query an idle hour costs more here than anywhere else, so give it a deadline days out and restart it whenever a session ends |
+| hostname lane | `just hostnames <epoch>` | **the standing priority in one command, and leave it running.** Ranks platforms by the hosts we LACK rather than the hosts that exist, starts two sweeps (the maximum), and needs no hand between starting and reading the figures. Measured 2026-09-04: 22.5M capture rows in three and a half hours, 886,216 net-new shippable records, 552,782 equivalent-English, 48% of the 5% gate. At about 750 times the yield of a gap query an idle hour costs more here than anywhere else, so give it a deadline days out and restart it whenever a session ends |
 | gap hostnames | `uv run python scripts/engines/cdx_gap_hostgrain.py`, then `uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain` | the gap engine's own answers one level down, and `just bank` runs both whenever their journals move, so it needs no hand. Free: the archive already named the host in a response we had already paid for. Journals written before 2026-09-04 yield NOTHING, because the query asked `fl=timestamp` and kept `{domain, years}`: 2,984,321 answers across 1,163 journals record no host, which is the measured cost of journalling a conclusion instead of a response |
 | re-split | `bash scripts/engines/compound_splits.sh <epoch>` | **the largest single lever measured in round 7, and it reads nothing new.** The corroboration split promotes a mention to a dated record only when some other source already places that domain in a year, and that test is re-evaluated every time the split runs, so the same journals are worth more as the store grows. On 2026-08-27 re-splitting the address journals paid 30,645.6 equivalent-English against roughly 700 pairs from the 60 new archives that triggered it, and the bare journals paid 11,447.7 against 128.17 for their 400 new archives: ratios of about 40:1 and 90:1 in favour of re-splitting over reading. Loops the promotion tranche and both corpora to a deadline, and skips a pass rather than queueing when the store's single writer is busy |
 | usenet seams | `bash scripts/sources/usenet/work_usenet_addresses.sh <epoch> [batch] [workers] [addresses\|headers]`, `bash scripts/sources/usenet/work_usenet_bare.sh <epoch>` | the three extractors that read what `usenet_announce` does not: `ftp://` and `mailto:` and typed body addresses, the message headers, and the bare `foo.com` written in prose. **All three read `data/raw/usenet`, which was reclaimed once processed and now holds zero archives, so all three had silently become no-ops** over the 16,797 archives that are on disk in `usenet_bulk` and `usenet_new`. Pass a deadline; they batch, stage each batch as symlinks so no bytes move, and bank every eighth batch because the split is O(all journals) while the extraction is O(this batch). Worth 38,639 and 13,955 equivalent-English respectively in round 7 |
@@ -532,9 +532,6 @@ publish what it already has. A stopped batch still writes its journal, so the on
 queries it had not made yet. **Never `kill -9` a collector**: that strands the `.part`, and since the
 ingest ledger keys on the finished name, the work inside it becomes unreachable.
 
-Stopping the ingest loop is safe and loses nothing, but `ark stats` understates the round until the
-loop runs again.
-
 `just engines` prints the tier mix, which is how a run's health reads at a glance: `host` is the cheap
 per-host query answering on its own, `root` is a domain so heavily archived that the archive gave up
 and the apex rescued it, `scan` is the wildcard fallback. Drifting toward `root` means a clogged
@@ -621,10 +618,8 @@ just collectors resume    # after it
 `com.ark.collectors`, loaded by `just schedule install com.ark.collectors`, runs
 `scripts/harness/scheduled_collectors.sh`, which re-execs itself under **`caffeinate -s`** and then
 supervises the lane in the foreground: two `platform_sweep_loop.sh` shards to a rolling six hour
-deadline, plus one fold loop whose iteration count is derived from that window, and it waits on them
-rather than detaching. Both halves of that shape matter. Without `caffeinate` an idle-sleeping laptop
-stops the lane with no error line at all, because the sweep is not killed, it simply stops being
-scheduled. And because the job is `KeepAlive`, a program that returned immediately would be restarted
+deadline, waited on rather than detached. Both halves matter. Without `caffeinate` an idle-sleeping
+laptop stops the lane with no error line at all: the sweep is not killed, it stops being scheduled. And because the job is `KeepAlive`, a program that returned immediately would be restarted
 immediately, and every restart would detach another pair of archive clients; the supervisor therefore
 never returns while a window is open.
 
@@ -790,8 +785,8 @@ next refresh, and packaging refuses outright if the two disagree.
 ## Approving a source from a phone
 
 A source the loop cannot decide sits at `Decision: pending` in
-`docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `standing_rule.py` and then `sync_approvals.py`,
-both inside `just bank`, split them in two. The standing rule writes the `Decision:` line itself
+`docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `standing_rule.py` in
+`just bank`, then `sync_approvals.py` in the tick and the bank, split them in two. The standing rule writes the `Decision:` line itself
 where Ivo's rule of 2026-08-29 already authorises it; everything else at or above the 5,000 EE bar
 becomes two things: a pull request on `live` that flips only that source's `Decision:` line, and an
 issue in the private fleet repository labelled `approval` that links to it and carries the

@@ -56,11 +56,19 @@ def test_a_new_journal_waits_out_the_window_unless_the_bank_runs_anyway(tmp_path
     assert bt.check(root) == (0, "bank: journals data/raw/cdx/cdx_*.jsonl.gz (+1 files, +1 bytes)")
 
 
-def test_an_edited_approvals_page_is_a_reason(tmp_path):
+def test_an_edited_approvals_page_or_an_unbanked_approval_is_a_reason(tmp_path, monkeypatch):
     root = _tree(tmp_path)
     with (root / bt.APPROVALS).open("a") as page:
         page.write("\n### b / rdap_snapshot\nDecision: master\n")
     assert bt.check(root) == (0, "bank: approvals changed")
+
+    # An approval whose journal did not come stays a reason, at the journals' pace.
+    bt.stamp(root)
+    (root / bt.RETRY).write_text("  refetch FAILED for b: HTTP 503\n")
+    monkeypatch.delenv("ARK_BANK_JOURNAL_HOURS", raising=False)
+    assert bt.check(root)[1].startswith("bank: a retry, held until ")
+    monkeypatch.setenv("ARK_BANK_JOURNAL_HOURS", "0")
+    assert bt.check(root) == (0, "bank: approvals not yet banked, retried")
 
 
 def test_only_a_confirmed_find_is_a_reason(tmp_path):

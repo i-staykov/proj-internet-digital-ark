@@ -72,6 +72,7 @@ def test_only_an_exact_host_dates_a_registrable_and_the_increments_add_up(tmp_pa
             ("http://x.com/later", "20050101000000"),
             ("https://www.y.com/", "19990101000000"),
             ("http://sub.z.com:80/a", "20000101000000"),
+            ("http://q.com?id=1", "19990101000000"),
         ],
     )
     _run(tmp_path, "one")
@@ -81,7 +82,14 @@ def test_only_an_exact_host_dates_a_registrable_and_the_increments_add_up(tmp_pa
 
     _run(tmp_path, "full", out="fresh", state="fresh.tsv")
 
-    assert _claim(tmp_path / "out") == _claim(tmp_path / "fresh") == {"x.com": {1996, 1998, 2001}}
+    assert (
+        _claim(tmp_path / "out")
+        == _claim(tmp_path / "fresh")
+        == {
+            "x.com": {1996, 1998, 2001},
+            "q.com": {1999},
+        }
+    )
 
 
 def test_a_corrupt_journal_is_named_and_the_others_convert(tmp_path, capsys):

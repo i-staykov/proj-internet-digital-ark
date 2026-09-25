@@ -284,8 +284,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     fi
     # 10. The gate issue, once per crossing, read off the brief the last bank wrote; then a
     #     snapshot push the last bank could not make, without the ack, its one store read.
+    #     Never while a red stands: output/ then holds the export that failed its check.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
-    if [ -f data/logs/.push_pending ]; then
+    if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
+        echo "push: held while BANK RED stands"
+    elif [ -f data/logs/.push_pending ]; then
         if bash scripts/harness/sync_fleet.sh --no-ack; then
             rm -f data/logs/.push_pending
             echo "push: the pending snapshot reached the VPS"
@@ -429,6 +432,7 @@ bank *args:
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes
+        touch data/logs/.push_pending
         CHECK_RC=0
         uv run ark check 2>&1 | tee "$CHECK_LOG" || CHECK_RC=$?
         if [ -n "$C_FAIL" ] || [ "$CHECK_RC" -ne 0 ]; then
@@ -464,6 +468,13 @@ bank *args:
         RC=${PIPESTATUS[0]}
         set -e
         INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
+        # An approval that could not bank, its journal absent or its refetch refused, stays a
+        # reason for the trigger until a bank ingests it.
+        if grep -qE 'refetch FAILED|APPROVED AND NOT BANKED' "$BANK_LOG"; then
+            grep -E 'refetch FAILED|^!! ' "$BANK_LOG" > data/logs/bank_approvals_retry
+        else
+            rm -f data/logs/bank_approvals_retry
+        fi
         if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ] && [ "$DECIDED" -eq 0 ]; then
             echo "bank: nothing newly approved to ingest"
         else
@@ -471,9 +482,12 @@ bank *args:
                 uv run python scripts/harness/bank_hygiene.py space
                 uv run ark export >/dev/null || RC=$?
                 EXPORTED=yes
+                touch data/logs/.push_pending
             fi
             if [ "$RC" -eq 0 ]; then uv run ark check 2>&1 | tee "$CHECK_LOG" || RC=$?; fi
-            if [ "$RC" -eq 0 ]; then
+            if [ "$RC" -eq 0 ] && [ -f data/logs/bank_approvals_retry ]; then
+                echo "bank: green; an approved journal is still absent, so the next bank retries it"
+            elif [ "$RC" -eq 0 ]; then
                 echo "bank: green after the ingest, so $DECIDED standing-rule decision(s) stand"
             else
                 # The rows come out, and the registers go back to HEAD rather than the index:
@@ -513,9 +527,10 @@ bank *args:
         echo "the registers are unchanged, so nothing is committed"
     else
         git commit -q -m "Sync fleet findings $LABEL"
-        git push -q origin live
         COMMITTED=yes
     fi
+    # A commit an earlier bank could not push goes with this one.
+    if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
     if [ "$RAN_A" = yes ]; then
         uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
         bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
@@ -525,16 +540,14 @@ bank *args:
             echo "nothing was committed, so the drain stays in $IN"
         fi
     fi
-    # e. The snapshot the fleet prices against, when this bank exported one. A failed push
-    #    leaves data/logs/.push_pending, and the next tick retries it.
+    # e. The snapshot the fleet prices against, when this bank exported one. The export set
+    #    data/logs/.push_pending, which only a push that reached the VPS removes.
     if [ "$EXPORTED" = no ]; then
         echo "push: nothing was exported, so the fleet's snapshot stands"
     elif bash scripts/harness/sync_fleet.sh; then
         rm -f data/logs/.push_pending
     else
-        rc=$?
-        touch data/logs/.push_pending
-        echo "push pending: sync_fleet.sh exited $rc, the next tick retries"
+        echo "push pending: sync_fleet.sh exited $?, the next tick retries"
     fi
 
 # The only route into the four register pages: `.claude/settings.json` denies a `grep` or a

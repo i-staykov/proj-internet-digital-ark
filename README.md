@@ -43,14 +43,13 @@ clears it. The hold survives a reboot too: only `just hold off` lifts it, and `r
 
 ```bash
 just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
-just bank        # what the tick calls when something arrived; --force banks regardless
+just bank        # what the tick runs when something arrived; --force runs it anyway, never on red
 ```
 
-The fleet measures; `just bank` alone writes the store, and the tick calls it only when a confirmed
-FIND, a merged approval, a new baseline or new journals arrived. **No fleet figure is booked on its
-own**: the bank re-prices every confirmed FIND on the live store, writes the register row with both
-numbers, decides what the standing rule covers and raises an approval for the rest, ingests, gates,
-pushes and refreshes the fleet's snapshot. The runbook has each step.
+The fleet measures; `just bank` is the automatic store writer, run only when a FIND, an approval, a
+baseline or journals arrived. **No fleet figure is booked on its own**: the bank re-prices every
+confirmed FIND on the live store, books both numbers, decides what the standing rule covers, asks
+about the rest, ingests, gates and pushes the fleet's snapshot. The runbook has each step.
 
 Nothing the fleet downloads bypasses one program:
 
