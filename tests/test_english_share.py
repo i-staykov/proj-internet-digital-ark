@@ -109,8 +109,7 @@ def test_our_table_agrees_with_his_model_on_every_tld() -> None:
 
 def test_no_second_copy_of_the_table_exists() -> None:
     """Every weight in code comes from `english_weights()`, or the pin above guards nothing. Two
-    copies are caught: a literal mapping a TLD to its share, and a private parse of his
-    JSON, which is how `build_pool_candidates.py` once carried its own table.
+    copies are caught: a literal mapping a TLD to its share, and a private parse of his JSON.
     """
     weights = english_weights()
     copies: list[str] = []

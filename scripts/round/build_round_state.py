@@ -15,8 +15,6 @@ than restating any of it:
 
     ark stats              the scoreboard and the two outcomes
     round_figures.py       the five fields and the per-source split
-    engine_status.sh       what both collectors are doing, and UNKNOWN when it
-                           could not reach the VPS to ask
     audit_residual.py      what is on disk that nothing has read
     key-decisions.md       what is waiting on a human
 
@@ -31,7 +29,7 @@ the store has moved since the file was written. That is the honest guarantee: no
 The same run writes `data/brief.json`, the snapshot `just brief` reads. That
 reader must never touch the store (900 s lock wait) or ssh, since it runs from a
 session-start hook, so everything it needs is copied out here while the store is
-open anyway. The VPS address stays out of it: the collectors are keyed by role.
+open anyway.
 
     uv run python scripts/round/build_round_state.py           # write docs/ROUND.md
     uv run python scripts/round/build_round_state.py --check    # exit 1 if it is stale
@@ -72,7 +70,6 @@ BRIEF = ROOT / "data/brief.json"
 DECISIONS = ROOT / "docs/lore/key-decisions.md"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
-SECTION_RE = re.compile(r"^== (.*?) ==$", re.MULTILINE)
 GATE_PCT = Decimal(5)
 
 
@@ -99,8 +96,8 @@ def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
 
 def run(cmd: list[str], timeout: int) -> str:
     """Capture a producer's own output. A producer that fails says so in the
-    document rather than aborting the build, because a state file missing its
-    collector section is still worth having."""
+    document rather than aborting the build, because a state file missing one
+    section is still worth having."""
     try:
         done = subprocess.run(
             cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=False
@@ -133,25 +130,6 @@ def open_decisions() -> list[str]:
     return open_titles(DECISIONS)
 
 
-def collector_lines(engines: str) -> dict[str, str]:
-    """One line per machine out of `engine_status.sh`: the first line under its
-    `local` and `VPS (...)` sections, which is `up ...`, `NOT RUNNING` or
-    `unreachable`. Keyed by role so the address never enters the brief. A run that
-    produced no sections (timed out, no output) leaves both UNKNOWN, which is the
-    honest reading: not asked is not idle."""
-    lines = {"local": "UNKNOWN", "vps": "UNKNOWN"}
-    heads = list(SECTION_RE.finditer(engines))
-    for i, head in enumerate(heads):
-        role = "vps" if head.group(1).startswith("VPS") else head.group(1)
-        if role not in lines:
-            continue
-        end = heads[i + 1].start() if i + 1 < len(heads) else len(engines)
-        body = [ln.strip() for ln in engines[head.end() : end].splitlines() if ln.strip()]
-        if body:
-            lines[role] = body[0][:120]
-    return lines
-
-
 def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     """Rows of the amendments ledger with a cell still reading `pending`: a brief
     change intake transcribed that nobody has classified or landed yet."""
@@ -170,7 +148,6 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
 
 def brief(
     head: dict,
-    engines: str,
     approvals: int,
     decisions: int,
     hostnames: tuple[int, Decimal] | None = None,
@@ -214,7 +191,6 @@ def brief(
         "round_ee": round(float(round_ee), 4),
         "round_percent": round(float(round_ee / REVIEWER_BASELINE_EE * 100), 4),
         "round_distance_to_gate_ee": round(float(gate_ee - round_ee), 4),
-        "collectors": collector_lines(engines),
         "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
         "pending_amendments": pending_amendments(),
     }
@@ -234,7 +210,6 @@ def build() -> tuple[str, dict, dict]:
     # Producers run after the store connection is closed, because two of them open
     # it themselves and DuckDB allows many readers only when no writer is waiting.
     figures = run(["uv", "run", "python", "scripts/round/round_figures.py"], timeout=900)
-    engines = run(["bash", "scripts/engines/engine_status.sh"], timeout=120)
     residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
 
     decisions = open_decisions()
@@ -267,15 +242,6 @@ def build() -> tuple[str, dict, dict]:
         "",
         "```",
         figures,
-        "```",
-        "",
-        "## The collectors, right now",
-        "",
-        "**`UNKNOWN` is not `nothing to fetch`.** It means the VPS could not be reached",
-        "to ask, and a journal left on its disk is work already paid for and not banked.",
-        "",
-        "```",
-        engines,
         "```",
         "",
         "## What is on disk that nothing has read",
@@ -318,7 +284,7 @@ def build() -> tuple[str, dict, dict]:
         f"ee={head['ee']} evidence={head['evidence']} -->",
         "",
     ]
-    return "\n".join(parts), head, brief(head, engines, len(waiting), len(decisions), window=window)
+    return "\n".join(parts), head, brief(head, len(waiting), len(decisions), window=window)
 
 
 def parse_state(text: str) -> dict[str, str] | None:
