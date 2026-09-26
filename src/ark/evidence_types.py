@@ -41,7 +41,6 @@ WEB_METHODS = frozenset(
         "ia_cdx_domain_sweep",
         "ia_cdx_year_query",
         "ia_cdx_gap_hostgrain",
-        "ia_domain_year_census",
         "bulk_cdx_file",
         "wayback_availability",
         # TimeMap, the same index read through Memento. `nypw_timemap_non_200` is NOT
@@ -79,6 +78,10 @@ WEB_METHODS = frozenset(
 # 4xx and 5xx stay candidates: a wildcard vhost can answer 404 for any name pointed at it.
 REDIRECT_METHOD = "nypw_timemap_non_200"
 _STATUS_IN_VALUE = r"status (\d{3})"
+# **A capture enters the masters only when the exact host answered 2xx or 3xx.** An error
+# capture keeps its status in `evidence_value` (`cdx capture <ts> status 404 <host>`), so it
+# stays a candidate whatever its method. Python's `re` and DuckDB read the pattern alike.
+ERROR_STATUS = r"(^| )status [45][0-9][0-9]( |$)"
 
 
 def web_evidence_sql(alias: str = "e") -> str:
@@ -86,6 +89,7 @@ def web_evidence_sql(alias: str = "e") -> str:
     allowed = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
     return (
         f"({alias}.acquisition_method IN ({allowed})"
+        f" AND NOT regexp_matches({alias}.evidence_value, '{ERROR_STATUS}')"
         f" OR ({alias}.acquisition_method = '{REDIRECT_METHOD}'"
         f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1) LIKE '3%'))"
     )
