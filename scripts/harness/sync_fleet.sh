@@ -33,10 +33,10 @@ MARKER=$(uv run python -c "import json; print(json.load(open('data/baseline.json
 
 # --delete per subtree rather than at the root: /projects/ark-data also holds the journal
 # ACKs and whatever else the fleet keeps there, and a root-level delete would take them.
-# A subtree the staging step left out is skipped rather than failing the sync: all three
-# candidate files are optional, so `candidates/` need not exist. Nothing stale survives
+# A subtree the staging step left out is skipped rather than failing the sync: every
+# candidate file is optional, so `candidates/` need not exist. Nothing stale survives
 # that, because the pricer refuses a file the manifest does not list.
-for sub in "$MARKER" netnew candidates; do
+for sub in "$MARKER" netnew candidates calculator; do
     if [ ! -d "$STAGE/$sub" ]; then
         echo "sync_fleet: $sub is not in the snapshot, not pushed"
         continue
