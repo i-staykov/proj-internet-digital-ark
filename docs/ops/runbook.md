@@ -787,7 +787,7 @@ next refresh, and packaging refuses outright if the two disagree.
 A source the loop cannot decide sits at `Decision: pending` in
 `docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `standing_rule.py` in
 `just bank`, then `sync_approvals.py` in the tick and the bank, split them in two. The standing rule writes the `Decision:` line itself
-where Ivo's rule of 2026-08-29 already authorises it; everything else at or above the 5,000 EE bar
+where the Autonomy rule already authorises it; everything else at or above the 5,000 EE bar
 becomes two things: a pull request on `live` that flips only that source's `Decision:` line, and an
 issue in the private fleet repository labelled `approval` that links to it and carries the
 measurement.

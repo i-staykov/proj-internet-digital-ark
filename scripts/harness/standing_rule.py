@@ -1,6 +1,6 @@
 """Write the `Decision:` line the standing approval rule already authorises, and no other.
 
-**The rule, verbatim in its four parts** (Ivo, 2026-08-29, CLAUDE.md rule 7): the loop writes
+**The rule, in its four parts** (CLAUDE.md, Autonomy): the loop writes
 the decision itself, citing the rule, when the class is already master-eligible, a
 machine-written stamp inside the artifact dates one item and is quoted, the terms permit it,
 and `ark check` passes after the ingest. Failing any one parks it `pending`.
@@ -43,7 +43,7 @@ from ark.evidence_types import MASTER_TYPES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 CITATION = (
-    "Decided by the loop under the standing approval rule (CLAUDE.md rule 7, Ivo 2026-08-29): "
+    "Decided by the loop under the standing approval rule (CLAUDE.md, Autonomy): "
     "the class is already master-eligible, the stamp {stamp} dates one item, the terms at "
     "{terms} permit it, and the ingest this line releases is gated by `ark check`, which parks "
     "the line back to pending if it fails. Fleet run {run}, store re-price {ee:,.1f} EE."
