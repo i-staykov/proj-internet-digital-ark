@@ -3,9 +3,9 @@
 The hourly tick opens no store and calls the bank only when `check` exits 0. Five things
 count as arrived: a confirmed FIND in the drained findings (the ones `fleet_findings.py
 reprice` prices), a changed approvals page, a new baseline marker, the fold globs moved in
-count, bytes or newest mtime, or an approved block the last bank could not ingest. Journals
-land all day, so a move or a retry alone waits until the last bank is ARK_BANK_JOURNAL_HOURS
-old (default 3). When the bank runs for another reason it folds them
+count, bytes or newest mtime, or an approved journal the last bank could not find or fetch.
+Journals land all day, so a move or a retry alone waits until the last bank is
+ARK_BANK_JOURNAL_HOURS old (default 3). When the bank runs for another reason it folds them
 anyway, because the stamp it writes afterwards records them as seen.
 
 A red bank writes `data/logs/bank_red.json`, and nothing banks until someone reads it and runs
@@ -35,7 +35,8 @@ APPROVALS = "docs/registers/approved-sources-list.md"
 BASELINE = "data/baseline.json"
 STAMP = "data/logs/bank_stamp.json"
 RED = "data/logs/bank_red.json"
-# Written by the bank while an approved block could not bank; paced like the journals.
+# Written by the bank while an approved journal is absent or its refetch failed; paced like
+# the journals.
 RETRY = "data/logs/bank_approvals_retry"
 # What the bank's journal step reads, as its readers glob it. A new ingest line in the bank
 # adds its glob here in the same commit, or its journals wait for an unrelated trigger.
