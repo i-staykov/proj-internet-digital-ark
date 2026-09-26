@@ -8,15 +8,26 @@ were relaunched on 2026-09-01 when result lines were written late.
 
 Two terminal statuses, and the schema has no third:
 
-    banked   the register has decided it, master or candidate-only, so the store either
-             holds it or will on the next ingest
+    banked   the store holds it: the fleet ledger holds an outcome line for the slug whose
+             `banked` is true, which the bank appends once the source's rows are ingested,
+             often after its drain has left `incoming/`, so every lead in `leads/` with
+             such a line is set `banked`, drained or not
     closed   a measured negative: a CLOSED finding, or a FIND its own verify lane disputed
 
 Everything else is left exactly as it is. A confirmed FIND still waiting on Ivo is not
 settled, and a BLOCKED leg is a leg to run again, not a lead to bury.
 
+**Banked is read off the ledger, not the register.** A register block is keyed on the name
+it was written under, which is a lead's slug only when the block was written from it, so a
+register match never banked a source named by hand or by a tool. An outcome line carries
+the lead's own slug. Only a JSON `true` counts: a line whose `banked` is the string "true"
+books nothing.
+
 The file is rewritten key by key, never regenerated, so a field this laptop knows nothing
-about survives; the fleet's own validator is then asked whether the result is still a lead.
+about survives. **Only a lead the fleet's own validator passes is written**: the result is
+checked in-process against the clone's `schemas/lead.json` before the write, and one that
+fails, or a clone with no validator, is named and left as it was. No history entry is
+added, because the lead schema has no laptop lane.
 
     uv run python scripts/harness/fleet_leads.py data/fleet_findings/incoming \\
         --fleet ~/Documents/GitHub/ark-fleet [--write]
@@ -25,18 +36,18 @@ about survives; the fleet's own validator is then asked whether the result is st
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
-import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ark import approvals  # noqa: E402
+import fleet_ledger  # noqa: E402
 
-REGISTER = REPO / "docs/registers/approved-sources-list.md"
+CONTRACT = "scripts/contract.py"
 
 
 def slugify(name: str) -> str:
@@ -51,11 +62,13 @@ def _json(path: Path) -> dict:
     return doc if isinstance(doc, dict) else {}
 
 
-def banked_slugs(register: Path) -> set[str]:
-    """Every source the register has decided one way or the other, as slugs."""
+def banked_slugs(fleet: Path) -> set[str]:
+    """Every slug the fleet ledger holds an outcome line for whose `banked` is true."""
     return {
-        slugify(a.source_name) for a in approvals.load(register).values() if a.decision != "pending"
-    }
+        slugify(str(line.get("slug") or ""))
+        for line in fleet_ledger.lines(fleet, "outcome")
+        if line.get("banked") is True
+    } - {""}
 
 
 def status_for(finding: dict, banked: set[str], slug: str) -> str | None:
@@ -71,24 +84,31 @@ def status_for(finding: dict, banked: set[str], slug: str) -> str | None:
     return None
 
 
-def validate(fleet: Path, lead_file: Path) -> str:
-    """Ask the fleet's own validator whether what we wrote is still a lead."""
-    contract = fleet / "scripts/contract.py"
-    if not contract.is_file():
-        return "not validated, the fleet clone has no validator"
-    done = subprocess.run(
-        [sys.executable, str(contract), "validate", str(lead_file), "--schema", "lead"],
-        capture_output=True,
-        text=True,
-    )
-    return "valid" if done.returncode == 0 else f"INVALID: {done.stdout.strip()}"
+def validator(fleet: Path) -> Callable[[dict], list[str]] | None:
+    """The fleet's own lead check, loaded from the clone's `scripts/contract.py`, or None.
+
+    Loaded by path, not run on a written file, so a lead is checked before it is written
+    and a failing one never reaches the clone. The check is the command line's own:
+    `check_schema` against `schemas/lead.json`, then `check_semantics`.
+    """
+    path = fleet / CONTRACT
+    if not path.is_file():
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location("fleet_contract", path)
+        contract = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(contract)
+        schema = json.loads((contract.SCHEMAS / "lead.json").read_text(encoding="utf-8"))
+    except Exception as exc:  # a clone's validator that will not load checks nothing
+        print(f"leads: the fleet's validator did not load ({exc})", file=sys.stderr)
+        return None
+    return lambda lead: contract.check_schema(lead, schema) + contract.check_semantics(lead)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("incoming", type=Path)
     ap.add_argument("--fleet", type=Path, required=True)
-    ap.add_argument("--register", type=Path, default=REGISTER)
     ap.add_argument("--write", action="store_true", help="without it, say what it would write")
     args = ap.parse_args(argv)
 
@@ -96,33 +116,50 @@ def main(argv: list[str] | None = None) -> int:
     if not incoming.is_dir():
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
-    banked = banked_slugs(args.register)
-    written = 0
+    banked = banked_slugs(fleet)
+    check = validator(fleet)
+    written = refused = 0
+    settled: list[tuple[str, str]] = []
+    drained = set()
     for lead_dir in sorted(p for p in incoming.iterdir() if p.is_dir()):
         finding = _json(lead_dir / "finding.json")
         if not finding:
             continue
         slug = slugify(str(finding.get("slug") or lead_dir.name))
+        drained.add(slug)
         status = status_for(finding, banked, slug)
         if status is None:
             print(f"leads: {slug} is not settled here, left as the fleet has it")
             continue
+        settled.append((slug, status))
+    # The drain's own verdict decides its slugs; the ledger decides every other lead.
+    settled += [(slug, "banked") for slug in sorted(banked - drained)]
+    for slug, status in settled:
         lead_file = fleet / "leads" / f"{slug}.json"
         lead = _json(lead_file)
         if not lead:
-            print(f"leads: {slug} has no lead file in the fleet clone, nothing written")
+            if slug in drained:
+                print(f"leads: {slug} has no lead file in the fleet clone, nothing written")
             continue
         if lead.get("status") == status:
+            continue
+        lead = dict(lead, status=status)
+        bad = ["the fleet clone has no validator"] if check is None else check(lead)
+        if bad:
+            refused += 1
+            said = "not written" if args.write else "would not be written"
+            why = "; ".join(bad[:3])
+            print(f"leads: {slug} {said} as {status}, it fails the fleet's lead check: {why}")
             continue
         if not args.write:
             print(f"would write: {slug} is {status}")
             continue
-        lead["status"] = status
         lead_file.write_text(json.dumps(lead, indent=2) + "\n", encoding="utf-8")
         written += 1
-        print(f"leads: {slug} is {status} ({validate(fleet, lead_file)})")
+        print(f"leads: {slug} is {status}")
     if args.write:
-        print(f"leads: {written} statuses written to {fleet / 'leads'}")
+        tail = f", {refused} refused by the fleet's lead check" if refused else ""
+        print(f"leads: {written} statuses written to {fleet / 'leads'}{tail}")
     return 0
 
 

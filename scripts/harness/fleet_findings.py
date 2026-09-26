@@ -9,16 +9,22 @@ numbers side by side. The program a leg runs prices the same items against the s
 last push staged, and how far it agrees with the store goes beside them in `store_price.json`.
 A FIND that ships no items cannot be re-priced, and that says so in the register.
 
-Three subcommands, in order: the tick runs drain and validate, `just bank` runs reprice.
+Four subcommands, in order: the tick runs drain and validate, `just bank` runs reprice and,
+once its commit has landed, outcome over this drain and every drain banked before it.
 
-    drain     the downloaded run directories become one directory per lead
+    drain     the downloaded run directories become one directory per lead, and the old
+              TSV ledger becomes the fleet ledger's legacy lines, once
     validate  every sidecar against the fleet's own schema, via the fleet's own validator
     reprice   every confirmed FIND against the live store and by the program
+    outcome   one fleet ledger line per confirmed FIND: both figures, the decision, banked
 
-    uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming
+    uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming \\
+        --fleet ~/Documents/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py validate data/fleet_findings/incoming \\
         --fleet ~/Documents/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming
+    uv run python scripts/harness/fleet_findings.py outcome data/fleet_findings/incoming \\
+        data/fleet_findings/banked/*/ --fleet ~/Documents/GitHub/ark-fleet [--register R] [--db D]
 """
 
 from __future__ import annotations
@@ -37,6 +43,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import fleet_ledger  # noqa: E402
+
 SIDECAR = "finding.json"
 PROSE = "finding.md"
 LEAD = "lead.json"
@@ -51,8 +61,6 @@ ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
 # What the program prices against: the snapshot the last push staged. Relative to REPO, so
 # no local path reaches store_price.json.
 SNAPSHOT = Path("output/fleet_snapshot")
-# The program agrees with the store when its figure is within this share of the store's.
-WITHIN = 0.01
 # A corpus `read.yaml` read whole: its journal parts and `receipt.json` on the VPS, pulled
 # here per lead. The pull is the gate: only a complete read whose every part matches the
 # sha256 the receipt lists lands, so what the bank ingests is exactly what the read wrote.
@@ -61,11 +69,21 @@ FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
 PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
-# The spend record. `ARK_FLEET_LEDGER` moves it, so a drain under test never writes the real one.
+# The old spend record, converted once into legacy lines and then deleted. `ARK_FLEET_LEDGER`
+# moves it, so a drain under test never deletes the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
+# The store whose ingested files say which sources are banked, read only, under the bank's lock.
+DB = REPO / "data/ark.duckdb"
+# The decisions that let a source's rows into the store at all.
+INGESTIBLE = frozenset({"master", "candidate-only"})
 
 _ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
 _HOST_EE = re.compile(r"NET-NEW hostname years ([\d,]+)\s+([\d,]+\.?\d*) EE")
+# The old ledger's first field: the drain's minute, as the tick's run label writes it.
+_STAMP = re.compile(r"\d{8}T\d{4}Z")
+# A row a test drain wrote into the live TSV: 5 tokens and no window. #171 drops these by
+# this shape; converted first, they would stand in the fleet ledger for good.
+_TEST_ROW = re.compile(r"\d{8}T\d{4}Z\t5\t\?")
 
 
 def _number(text: str) -> float:
@@ -102,7 +120,7 @@ def freshness(lead: Path) -> tuple[int, int]:
     return (1 if settled else 0, int(run_id) if run_id.isdigit() else 0)
 
 
-def drain(incoming: Path) -> int:
+def drain(incoming: Path, fleet: Path | None = None) -> int:
     """One directory per lead at the top, whatever shape the artifact arrived in.
 
     An S3 artifact is `leads/<slug>.json` beside `leads/<slug>/{finding.json,finding.md,
@@ -111,10 +129,18 @@ def drain(incoming: Path) -> int:
     lead file moves INTO it as `lead.json`, because the grain and the dating stamp are read
     from the lead and the fleet clone here is never pulled, so the artifact's copy is the
     only one that is certainly the one the leg saw.
+
+    **A scout lead takes the same path.** A lead closed at filing ships `leads/<slug>/scout.md`
+    and its lead file, and no `finding.json`. Moved by bare name, every `scout.md` would
+    collide on `incoming/scout.md`, and the negative would be booked under the word `scout`
+    or not at all. It scores the lowest freshness, so it never replaces a copy with a
+    finding, and a second scout copy of the same slug is dropped. What `.md` is left after
+    that is loose prose with a name of its own, such as `_scout/`'s lead-less negatives.
     """
+    convert_ledger(fleet)
     moved = leads = 0
     for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
-        for lead in sorted(p for p in run.rglob("*") if p.is_dir() and (p / SIDECAR).is_file()):
+        for lead in sorted(p for p in run.rglob("*") if p.is_dir() and _lead_dir(p)):
             # **The slug in the sidecar names the directory, never the directory's own name.**
             # A leg artifact's root directory is called `findings`, so a copy of one banked
             # beside its lead directory as a second lead, and the same finding went into the
@@ -141,11 +167,17 @@ def drain(incoming: Path) -> int:
                 continue
             shutil.move(str(prose), str(target))
             moved += 1
-        ledger_rows(run)
         keep_leftovers(incoming, run)
         shutil.rmtree(run, ignore_errors=True)
     print(f"drain: {leads} lead directories, {moved} loose findings")
     return 0
+
+
+def _lead_dir(path: Path) -> bool:
+    """A directory holding a finding, or a scout lead's directory holding only its prose."""
+    if (path / SIDECAR).is_file():
+        return True
+    return path.parent.name == "leads" and (path / "scout.md").is_file()
 
 
 def keep_leftovers(incoming: Path, run: Path) -> None:
@@ -154,7 +186,8 @@ def keep_leftovers(incoming: Path, run: Path) -> None:
     The run directory is removed once it is drained, so a file no rule matched (a rejected
     lead, a leg's extractor, a shape a later wave invents) would go with it silently. They
     are few and small, and a corpus nobody can re-read is the failure this whole lane exists
-    to avoid, so they move rather than vanish.
+    to avoid, so they move rather than vanish. The run's `telemetry.json` is not one: the
+    fleet ledger's leg lines hold each leg's spend, so it dies with the run.
     """
     left = [p for p in run.rglob("*") if p.is_file() and p.name != "telemetry.json"]
     if not left:
@@ -167,27 +200,49 @@ def keep_leftovers(incoming: Path, run: Path) -> None:
     print(f"drain: {len(left)} unrecognised files from {run.name} kept in {keep}")
 
 
-def ledger_rows(run: Path) -> None:
-    """One ledger line per leg, so the window's spend survives the tidy.
+def convert_ledger(fleet: Path | None) -> None:
+    """The old TSV ledger, once, as the fleet ledger's legacy lines, and deleted only then.
 
-    The artifact's `telemetry.json` is `{"legs": [row, ...]}`, one row per leg. Reading the
-    top level as a row logged a zero for every wave, which is the shape of a ledger that is
-    being written and not read.
+    Each row becomes `{"row", "line", "at"}`: its 1-based line number, its text, and its own
+    stamp as the line's time. The fleet keys a legacy line on the row and the text together,
+    because the old ledger repeats identical rows, so a rerun over a fresh copy adds none.
+    Anything short of every row in the fleet ledger keeps the file for the next tick: a fleet
+    clone that predates `scripts/ledger.py`, which the sync never pulls, a row with no stamp
+    to date it, or a test drain's row still waiting for #171's drop. None stops the tick.
     """
-    label = datetime.now(UTC).strftime("%Y%m%dT%H%MZ")
-    ledger = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
-    for telemetry in sorted(run.rglob("telemetry.json")):
-        doc = load(telemetry)
-        rows = doc.get("legs") if isinstance(doc.get("legs"), list) else [doc]
-        for row in rows:
-            if not isinstance(row, dict) or not row:
-                continue
-            ledger.parent.mkdir(parents=True, exist_ok=True)
-            with ledger.open("a", encoding="utf-8") as out:
-                out.write(
-                    f"{label}\t{row.get('tokens_in_plus_out', 0)}\t"
-                    f"{row.get('seven_day_pct', '?')}\n"
-                )
+    tsv = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
+    if not tsv.is_file():
+        return
+    if not fleet_ledger.available(fleet):
+        where = "no --fleet was given" if fleet is None else f"{fleet} has no scripts/ledger.py"
+        print(f"drain: {tsv.name} kept, {where} to convert it into")
+        return
+    body = tsv.read_text(encoding="utf-8")
+    lines = body.removesuffix("\n").split("\n") if body else []
+    tests = sum(1 for line in lines if _TEST_ROW.fullmatch(line))
+    if tests:
+        print(
+            f"drain: {tsv.name} kept, {tests} rows are a test drain's (5 tokens, no window):"
+            " #171's drop must run before the conversion"
+        )
+        return
+    rows = []
+    for number, line in enumerate(lines, 1):
+        stamp = line.split("\t", 1)[0]
+        try:
+            if not _STAMP.fullmatch(stamp):
+                raise ValueError(stamp)
+            at = datetime.strptime(stamp, "%Y%m%dT%H%MZ").strftime("%Y-%m-%dT%H:%M:00Z")
+        except ValueError:
+            print(f"drain: {tsv.name} kept, row {number} has no stamp to date it: {line[:60]!r}")
+            return
+        rows.append({"row": number, "line": line, "at": at})
+    ok, said = fleet_ledger.append(fleet, "legacy", rows)
+    if not ok:
+        print(f"drain: {tsv.name} kept, the fleet ledger refused it: {said}")
+        return
+    tsv.unlink()
+    print(f"drain: {tsv.name} converted, {len(rows)} rows as legacy lines ({said}), and deleted")
 
 
 # --- validate -----------------------------------------------------------------
@@ -441,18 +496,6 @@ def price(lead: Path, finding: dict) -> dict:
     }
 
 
-def _positive(value) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value) if math.isfinite(value) and value > 0 else None
-
-
-def agreement_pct(store_ee, program_ee) -> float | None:
-    """The program's figure as a percentage of the store's, or None without both."""
-    store, program = _positive(store_ee), _positive(program_ee)
-    return None if store is None or program is None else round(100 * program / store, 2)
-
-
 def _program(
     lead: Path, items: Path, track: str, evidence_class, keys=("ee", "netnew_pairs")
 ) -> tuple:
@@ -499,22 +542,22 @@ def program_price(lead: Path, finding: dict, items: Path) -> dict:
 
 def streak(incoming: Path) -> int:
     """How many finds in a row, newest first, the program and the store agree on within
-    WITHIN, over every store price in `incoming` and the drains banked beside it. A find
-    counts once, at its latest price; one the program did not price breaks the run, so an
+    `fleet_ledger.WITHIN`, over every store price in `incoming` and the drains banked beside
+    it. A find counts once, at its latest price; one the program did not price breaks the run, so an
     outage or a zero cannot keep it alive."""
     latest: dict[str, dict] = {}
     banked = (incoming.parent / "banked").glob(f"*/*/{STORE_PRICE}")
     for path in [*banked, *incoming.glob(f"*/{STORE_PRICE}")]:
         doc = load(path)
-        if _positive(doc.get("ee")) is None:
+        if fleet_ledger.positive(doc.get("ee")) is None:
             continue
         slug = path.parent.name
         if slug not in latest or str(doc.get("at") or "") >= str(latest[slug].get("at") or ""):
             latest[slug] = doc
     run = 0
     for doc in sorted(latest.values(), key=lambda d: str(d.get("at") or ""), reverse=True):
-        store, program = float(doc["ee"]), _positive(doc.get("fleet_program_ee"))
-        if program is None or abs(program - store) > WITHIN * store:
+        store, program = float(doc["ee"]), fleet_ledger.positive(doc.get("fleet_program_ee"))
+        if program is None or abs(program - store) > fleet_ledger.WITHIN * store:
             break
         run += 1
     return run
@@ -542,7 +585,8 @@ def reprice(incoming: Path) -> int:
         items = items_file(lead)
         if items is not None:
             result.update(program_price(lead, finding, items))
-            result["agreement_pct"] = agreement_pct(result["ee"], result["fleet_program_ee"])
+            program_ee = result["fleet_program_ee"]
+            result["agreement_pct"] = fleet_ledger.agreement_pct(result["ee"], program_ee)
         (lead / STORE_PRICE).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if result["ee"] is None:
             print(f"reprice: {lead.name} NOT re-priced, {result['status']}")
@@ -559,30 +603,170 @@ def reprice(incoming: Path) -> int:
             of = f", {share}% of the store's" if share is not None else ""
             print(f"reprice: {lead.name} is worth {program:,.1f} EE by the program{of}")
     print(
-        f"reprice: the program agrees with the store within {WITHIN:.0%} "
+        f"reprice: the program agrees with the store within {fleet_ledger.WITHIN:.0%} "
         f"on the last {streak(incoming)} finds in a row"
     )
     return 0
 
 
+# --- outcome ------------------------------------------------------------------
+
+
+def _figure(value) -> float | None:
+    """A figure as JSON can carry it: a finite number, else None."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value) if math.isfinite(value) else None
+
+
+def decision_of(decided: dict, source: str, etype) -> str:
+    """The register's decision for a find's source and class, or `pending` while no block
+    exists. A lead that names no class takes its source's block."""
+    if (source, etype) in decided:
+        return decided[(source, etype)].decision
+    if not etype:
+        for (name, _), approval in decided.items():
+            if name == source:
+                return approval.decision
+    return "pending"
+
+
+def ingested(db: Path) -> set[str] | None:
+    """Every source name the store's ingest wrote, or None when the store cannot be read.
+    Read only and capped through `ark.db`: `just bank` holds the lock that keeps any writer out."""
+    try:
+        from ark.db import connect_read_only_patiently
+
+        conn = connect_read_only_patiently(db, patience_s=60)
+    except Exception as exc:
+        print(f"outcome: the store could not be opened ({exc}), so nothing is banked")
+        return None
+    try:
+        rows = conn.execute("SELECT DISTINCT source_name FROM ingested_file").fetchall()
+    except Exception as exc:
+        print(f"outcome: the store's ingested files could not be read ({exc}), nothing is banked")
+        return None
+    finally:
+        conn.close()
+    return {str(name) for (name,) in rows if name}
+
+
+def outcome(roots: list[Path], fleet: Path, register: Path | None, db: Path = DB) -> int:
+    """One outcome line per confirmed FIND with a store price under `roots`, in one append.
+
+    The line carries both figures and how far they agree, so the streak that hands the
+    decision to the program's figure is read from the fleet ledger and not from a count kept
+    here. **`banked` is the store's say, not the bank's**: true only once the source the
+    register block names is among the store's ingested files under a decision that admits
+    rows. A standing-rule master over a source with no ingest spec banks nothing, and a
+    master a previous bank committed and ingested is banked whenever this runs next. It is a
+    JSON bool: the fleet keys a line on slug, decision and banked, and the string `"true"`
+    would key as another line.
+
+    The bank passes this drain and every drain banked before it, so a find the owner
+    approves later, or one ingested later, gains its banked line then; a line the ledger
+    holds already is kept, not added. A slug under several roots is booked from its most
+    settled copy. Exits 1 when the lines did not land, so the bank keeps its drain.
+    """
+    # Imported here: the register is read through the store package, which the drain the
+    # tick runs every hour has no need of.
+    import fleet_request
+
+    from ark import approvals
+
+    decided = approvals.load(register or fleet_request.REGISTER)
+    finds: dict[str, Path] = {}
+    for root in roots:
+        for path in sidecars(root):
+            finding = load(path)
+            lead = path.parent
+            if finding.get("verdict") != "FIND":
+                continue
+            if (finding.get("verify") or {}).get("status") != "confirmed":
+                continue
+            if not (lead / STORE_PRICE).is_file():
+                continue
+            if lead.name not in finds or freshness(lead) > freshness(finds[lead.name]):
+                finds[lead.name] = lead
+    if not finds:
+        print("outcome: no confirmed FIND with a store price, nothing to book")
+        return 0
+    # The source is named the way the request block names it.
+    sources = {slug: fleet_request.source_key(slug) for slug in finds}
+    decisions = {
+        slug: decision_of(decided, sources[slug], load(lead / LEAD).get("evidence_class"))
+        for slug, lead in finds.items()
+    }
+    held: set[str] = set()
+    if INGESTIBLE & set(decisions.values()):
+        held = {fleet_request.source_key(name) for name in ingested(db) or ()}
+    rows = []
+    for slug, lead in finds.items():
+        store = load(lead / STORE_PRICE)
+        store_ee = _figure(store.get("ee"))
+        program_ee = _figure(store.get("fleet_program_ee"))
+        rows.append(
+            {
+                "slug": slug,
+                "store_ee": store_ee,
+                "program_ee": program_ee,
+                "agreement_pct": fleet_ledger.agreement_pct(store_ee, program_ee),
+                "decision": decisions[slug],
+                "banked": decisions[slug] in INGESTIBLE and sources[slug] in held,
+            }
+        )
+    ok, said = fleet_ledger.append(fleet, "outcome", rows)
+    banked = sum(row["banked"] for row in rows)
+    said = said if ok else f"not booked: {said}"
+    print(f"outcome: {len(rows)} confirmed finds, {banked} banked in the store, {said}")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("command", choices=["drain", "validate", "reprice"])
-    ap.add_argument("incoming", type=Path)
-    ap.add_argument("--fleet", type=Path, help="the fleet clone, for its schema (validate only)")
+    ap.add_argument("command", choices=["drain", "validate", "reprice", "outcome"])
+    ap.add_argument(
+        "incoming",
+        type=Path,
+        nargs="+",
+        help="the drain; outcome also takes the drains banked before it",
+    )
+    ap.add_argument(
+        "--fleet",
+        type=Path,
+        help="the fleet clone: its ledger for drain and outcome, its schema for validate",
+    )
+    ap.add_argument(
+        "--register",
+        type=Path,
+        help="outcome: the approvals register, by default docs/registers/approved-sources-list.md",
+    )
+    ap.add_argument(
+        "--db",
+        type=Path,
+        default=DB,
+        help="outcome: the store whose ingested files say what is banked, read only",
+    )
     args = ap.parse_args(argv)
 
-    incoming = args.incoming.expanduser()
+    roots = [root.expanduser() for root in args.incoming]
+    if args.command != "outcome" and len(roots) > 1:
+        ap.error(f"{args.command} takes one directory")
+    incoming = roots[0]
     if not incoming.is_dir():
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
+    fleet = args.fleet.expanduser() if args.fleet is not None else None
     if args.command == "drain":
-        return drain(incoming)
+        return drain(incoming, fleet)
     if args.command == "reprice":
         return reprice(incoming)
-    if args.fleet is None:
-        ap.error("validate needs --fleet")
-    return validate(incoming, args.fleet.expanduser())
+    if fleet is None:
+        ap.error(f"{args.command} needs --fleet")
+    if args.command == "outcome":
+        # An unmatched glob of banked drains arrives as its own pattern: nothing to book there.
+        return outcome([root for root in roots if root.is_dir()], fleet, args.register, args.db)
+    return validate(incoming, fleet)
 
 
 if __name__ == "__main__":

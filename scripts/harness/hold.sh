@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# The hold: every laptop job, both pause flags and the fleet's scheduled workflows stop, stay
-# stopped across a reboot, and start again only when a human lifts them. `just hold` is the
-# interface.
+# The hold: every laptop job, both pause flags and the fleet's Leg, Read and Improver workflows
+# stop, stay stopped across a reboot, and start again only when a human lifts them. `just hold`
+# is the interface.
 #
 # A reboot undoes a bootout, because launchd loads every plist in ~/Library/LaunchAgents at
 # login. `launchctl disable` is what persists, so `on` disables a job before booting it out and
@@ -28,7 +28,7 @@ AGENTS="$HOME/Library/LaunchAgents"
 DOMAIN="gui/$(id -u)"
 JOBS="com.ark.sync com.ark.collectors com.ark.cycle com.ark.digest"
 FLAGS="pause pause-platform"
-WORKFLOWS="wave.yaml improver.yaml"
+WORKFLOWS="leg.yaml read.yaml improver.yaml"
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
 # On the VPS the flags follow that machine's own ARK_STATE_DIR.

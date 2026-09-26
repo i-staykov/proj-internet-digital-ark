@@ -15,7 +15,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 JOBS = ["com.ark.sync", "com.ark.collectors", "com.ark.cycle", "com.ark.digest"]
 FLAGS = ["pause", "pause-platform"]
-NAMES = [*JOBS, *FLAGS, "wave.yaml", "improver.yaml"]
+WORKFLOWS = ["leg.yaml", "read.yaml", "improver.yaml"]
+NAMES = [*JOBS, *FLAGS, *WORKFLOWS]
 PLISTS = ["com.ark.sync", "com.ark.collectors"]
 JUST = shutil.which("just")
 UID = os.getuid()
@@ -136,7 +137,7 @@ def test_on_disables_before_bootout_and_writes_both_flags_here_and_on_the_vps(bo
     assert hold[0] == "human" and hold[2:] == NAMES
     log = box.log.read_text()
     assert "ssh -o ConnectTimeout=15 -o BatchMode=yes vps.test " in log
-    for wf in ("wave.yaml", "improver.yaml"):
+    for wf in WORKFLOWS:
         assert f"gh workflow disable {wf} --repo i-staykov/ark-fleet" in log
         assert box.workflow(wf) == "disabled_manually"
     status = box.hold("status")
@@ -146,14 +147,15 @@ def test_on_disables_before_bootout_and_writes_both_flags_here_and_on_the_vps(bo
     (box.shim / "launchd" / "disabled" / "com.ark.cycle").unlink()
     (box.shim / "launchd" / "loaded" / "com.ark.digest").touch()
     (box.vps_state / "pause-platform").unlink()
-    (box.shim / "workflows" / "wave.yaml").write_text("active\n")
+    (box.shim / "workflows" / "leg.yaml").write_text("active\n")
     status = box.hold("status")
     assert status.returncode == 1
     for line in (
         "NOT HELD  com.ark.cycle: not disabled",
         "NOT HELD  com.ark.digest: loaded",
         "NOT HELD  pause-platform: no flag on the VPS",
-        "NOT HELD  wave.yaml: active",
+        "NOT HELD  leg.yaml: active",
+        "HELD      read.yaml",
         "HELD      improver.yaml",
     ):
         assert line in status.stdout.splitlines(), line
@@ -208,14 +210,15 @@ def test_bare_off_enables_before_bootstrap_and_removes_everything(box):
     assert not (box.state / "hold").exists()
     for home in (box.state, box.vps_state):
         assert not any((home / flag).exists() for flag in FLAGS), home
-    assert box.workflow("wave.yaml") == box.workflow("improver.yaml") == "active"
+    assert [box.workflow(wf) for wf in WORKFLOWS] == ["active"] * len(WORKFLOWS)
 
 
 def test_an_unreachable_vps_and_gh_leave_the_local_hold_whole(box):
     (box.shim / "offline").touch()
     out = box.hold("on")
     assert out.returncode == 0, out.stdout + out.stderr
-    assert out.stdout.count("unconfirmed") == 3
+    # The VPS, and each workflow gh could not be asked about.
+    assert out.stdout.count("unconfirmed") == 1 + len(WORKFLOWS) == 4
     assert all((box.state / flag).is_file() for flag in FLAGS)
     assert not list((box.shim / "launchd" / "loaded").iterdir())
     status = box.hold("status")

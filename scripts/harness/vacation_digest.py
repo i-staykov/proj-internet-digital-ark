@@ -56,9 +56,13 @@ SYNC_STALL_HOURS = 3.0
 
 # The fleet repository is private, so it is named here and never in what gets posted.
 FLEET = "i-staykov/ark-fleet"
-# Three hours is eight scheduled waves. Fewer would alarm on a queue; more would repeat
+# Three hours is nine watchdog starts. Fewer would alarm on a queue; more would repeat
 # 2026-09-11, when the plan job died for 36 hours and this page reported green throughout.
 FLEET_STALL_HOURS = 3.0
+# The Leg runs asked for. The watchdog's three an hour are among them and are skipped.
+LEG_RUNS = 50
+# The title `leg.yaml` gives its scheduled runs, which only start idle slots.
+WATCHDOG = "Leg watchdog"
 
 
 def hours_since(stamp: float, now: float) -> float:
@@ -123,12 +127,15 @@ def queue_top(limit: int = 5, page: Path | None = None) -> tuple[int, list[str]]
     return len(rows), header + rows[:limit]
 
 
-def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
-    """(hours since the last wave that worked, failures newer than it), or None if unknown.
+def waves(now: float, limit: int = LEG_RUNS) -> tuple[float | None, int] | None:
+    """(hours since the last Leg run that worked, failures newer than it), or None if unknown.
 
     **Why the digest asks GitHub rather than a file.** The fleet writes nothing to this
-    laptop until a wave collects, so a fleet that never gets as far as dealing a leg is
+    laptop until a leg collects, so a fleet that never gets as far as dealing a leg is
     invisible in exactly the way a dead collector is not. Asking costs one API call.
+
+    **The watchdog's runs are skipped.** `Leg watchdog` runs on the schedule and succeeds
+    whether or not a slot is alive, so counting it would read a dead fleet as green.
 
     Unknown is not an alarm: a laptop off the network must still post the rest of the page.
     """
@@ -139,11 +146,11 @@ def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
             "--repo",
             FLEET,
             "--workflow",
-            "wave.yaml",
+            "leg.yaml",
             "--limit",
             str(limit),
             "--json",
-            "conclusion,createdAt",
+            "conclusion,createdAt,displayTitle",
         ]
     )
     if code:
@@ -153,7 +160,7 @@ def waves(now: float, limit: int = 20) -> tuple[float | None, int] | None:
     except ValueError:
         return None
     failures = 0
-    for row in rows:  # newest first
+    for row in (row for row in rows if row.get("displayTitle") != WATCHDOG):  # newest first
         if row.get("conclusion") == "success":
             good = datetime.fromisoformat(row["createdAt"].replace("Z", "+00:00"))
             return hours_since(good.timestamp(), now), failures
@@ -228,14 +235,14 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
 
 
 def fleet_line(fleet: tuple[float | None, int] | None) -> str:
-    """One line about the waves, in the same voice as the collector line above it."""
+    """One line about the Leg runs, in the same voice as the collector line above it."""
     if fleet is None:
         return "could not be asked from here"
     since, failed = fleet
     late = (
-        "no wave has worked in the last 20"
+        f"no leg has worked in the last {LEG_RUNS} runs"
         if since is None
-        else f"last good wave {since:.1f} h ago"
+        else f"last good leg {since:.1f} h ago"
     )
     return late + (f", {failed} failed since" if failed else ", nothing failed since")
 

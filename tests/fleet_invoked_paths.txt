@@ -2,5 +2,4 @@
 # tests/test_hygiene.py fails when one of them is moved or deleted.
 scripts/harness/pick_hypotheses.py
 scripts/harness/researcher_brief.py
-scripts/harness/cdx_slot.sh
 scripts/harness/fetch.py

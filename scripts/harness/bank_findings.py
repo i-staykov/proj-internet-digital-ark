@@ -14,6 +14,13 @@ file named, which is the fleet's fallback contract carried through.
 **One row per slug.** A FIND gets a row in `sources.md`, anything else a row in
 `sources-closed.md`, each at the top of that page's one table. A slug already on either
 page is not written again, except that a FIND re-measuring its own FIND row replaces it.
+A closed row is also keyed by its artifact: one whose URL a closed row already names (or,
+with no URL, its host) is booked under that row's slug and not written a second time.
+
+**A scout negative is a lead directory holding `scout.md` and a `lead.json` the fleet
+closed at filing**, and no finding. Its verdict is the lead's status, never the prose, and
+its link is the lead's artifact URL. A whole read's FIND row names its standing clauses and
+its journal sha256 in the verdict cell.
 
 **The prose row is unchanged; the sidecar is what a program is allowed to believe.** A leg
 arrives as a directory: `finding.md` in the register voice, `finding.json` in the fleet's
@@ -34,23 +41,29 @@ import datetime as dt
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[2]
 REGISTER = REPO / "docs/registers/sources.md"
 CLOSED = REPO / "docs/registers/sources-closed.md"
 REGISTER_HEADER = "| source | version or date | coverage period |"
 CLOSED_HEADING = "| source | date | measured | reason | link |"
+SCOUT = "scout.md"
+READ = "read.json"
 
 _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
+# Any `scheme://host`: an ftp artifact is a URL, and keying it by its host alone books every
+# other artifact on a mirror host under it.
+_SCHEME = r"(?<![\w+.-])[a-z][a-z0-9+.-]*://"
 # `>` and a trailing comma end a URL as often as a space does, because the prose writes
 # artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
 # link that does not open.
-_URL = re.compile(r"https?://[^\s`)>\"']+")
-# `compact_registers.py` reads URLs with this pattern and copies every one a row names into
-# its link cell, less RFC 2606 example hosts, which name no source. A row whose link cell
-# already holds them all is one it leaves as written.
-_LINKED = re.compile(r"https?://(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
-_EXAMPLE = re.compile(r"https?://(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
+_URL = re.compile(_SCHEME + r"[^\s/`)>\"']+[^\s`)>\"']*")
+# `compact_registers.py` reads http(s) URLs with this pattern's http(s) form and copies every
+# one a row names into its link cell, less RFC 2606 example hosts, which name no source. A row
+# whose link cell already holds them all is one it leaves as written, an ftp link beside them.
+_LINKED = re.compile(_SCHEME + r"(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
+_EXAMPLE = re.compile(_SCHEME + r"(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
 _PIPE = re.compile(r"(?<!\\)\|")
 # The pages cite no decision number; a wave's prose sometimes does, and loses it here with
 # the words that only pointed at it: the brackets round a list of them, a `per` before one.
@@ -119,6 +132,8 @@ def overlay(finding: dict, lead: Path) -> dict:
     # The lead travelled with the artifact, so a closed row can name the lens, the class and
     # the URL even when the prose beside it is three lines of refusal.
     finding["lead"] = _json(lead / "lead.json")
+    if (lead / READ).is_file():
+        finding["read"] = _json(lead / READ)
     sidecar = _json(lead / "finding.json")
     if not sidecar:
         return finding
@@ -129,7 +144,8 @@ def overlay(finding: dict, lead: Path) -> dict:
     pricing = sidecar.get("pricing") or {}
     if isinstance(pricing.get("ee"), int | float):
         finding["ee"] = f"{pricing['ee']:,.1f}"
-    artifact = sidecar.get("artifact") or {}
+    artifact = sidecar.get("artifact") if isinstance(sidecar.get("artifact"), dict) else {}
+    finding["artifact"] = artifact
     if artifact.get("url"):
         finding["fields"].setdefault("artifact", str(artifact["url"]))
     if sidecar.get("reason"):
@@ -139,12 +155,87 @@ def overlay(finding: dict, lead: Path) -> dict:
     return finding
 
 
+_VERDICT_WORD = re.compile(r"(?:FIND|CLOSED|BLOCKED|SKIPPED)\b[\s,.:;]*", re.I)
+
+
+def verdict_paragraph(path: Path) -> str:
+    """The scout's `verdict:` line and the lines it runs on to, less its verdict word.
+
+    A scout wraps its verdict sentence without indenting it, so the first line alone ends
+    mid-clause (`against a 5,000` with `floor` on the next line).
+    """
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("verdict:"):
+            said = [line.partition(":")[2].strip()]
+            for more in lines[i + 1 :]:
+                if not more.strip() or more.startswith("#") or _FIELD.match(more):
+                    break
+                said.append(more.strip())
+            return _VERDICT_WORD.sub("", " ".join(said), count=1).strip()
+    return ""
+
+
+_NUMBER = r"[\d,]*\d(?:\.\d+)?"
+_STATED = re.compile(rf"(?<![\w.])({_NUMBER})\s*((?:(?:net-new|post-split|candidate)\s+)*)EE\b")
+# `a 5,000 EE floor`, `the 5,000 EE candidate floor`, `a 1,000 EE ceiling`; `family ceiling
+# ~1,000 EE`, `a floor of 5,000 EE`.
+_BOUND_AFTER = re.compile(r"\s*(?:(?:annual|candidate)(?:[\s-]track)?\s+)?(?:floor|ceiling)\b")
+_BOUND_BEFORE = re.compile(r"(?:(?:ceiling|~)[^,;]{0,12}|\bfloor\s+of\s+)$")
+
+
+def scout_figure(path: Path) -> str:
+    """The figure a scout states for its own source, "0" (not priced) when it states none.
+
+    Its `ee:` line, else a figure in its verdict paragraph that is not a floor or a ceiling.
+    A figure beside `measured` or `net-new` wins over the others. Nothing else in the file
+    counts, because a scout quotes other sources' figures in its indented blocks, and
+    `parse_finding` runs those on into the verdict.
+    """
+    line = re.search(r"^ee:(.*)$", path.read_text(encoding="utf-8", errors="replace"), re.M)
+    stated = re.search(_NUMBER, line.group(1)) if line else None
+    if stated:
+        return stated.group(0).replace(",", "")
+    said, figures = verdict_paragraph(path), []
+    for m in _STATED.finditer(said):
+        before, after = said[: m.start()], said[m.end() :]
+        if _BOUND_AFTER.match(after) or _BOUND_BEFORE.search(before):
+            continue
+        beside = (
+            "net-new" in m.group(2)
+            or re.search(r"\b(?:measured|net-new)(?:\s+at)?\s*$", before)
+            or re.match(r"\s*measured\b", after)
+        )
+        figures.append((0 if beside else 1, m.group(1).replace(",", "")))
+    return min(figures, key=lambda f: f[0])[1] if figures else "0"
+
+
+def scout_negative(lead: Path) -> dict | None:
+    """A lead the fleet closed at filing: `scout.md` and `lead.json`, and no finding.
+
+    **The verdict is the lead's status, never the prose**: a scout that wrote FIND lands
+    closed when its own high estimate misses half the floor or the fleet refuses its class,
+    and routing on its prose put such a lead in `sources.md` as a FIND. The slug is the
+    directory's name, because a scout's heading is not always its slug, and the figure is
+    the one the scout states for this source (`scout_figure`). A lead the fleet has not
+    closed is still in its queue, and books nothing yet.
+    """
+    if _json(lead / "lead.json").get("status") != "closed":
+        return None
+    finding = parse_finding(lead / SCOUT)
+    finding.update(slug=lead.name, verdict="CLOSED", scout=verdict_paragraph(lead / SCOUT))
+    finding["ee"] = scout_figure(lead / SCOUT)
+    return overlay(finding, lead)
+
+
 def findings_in(incoming: Path) -> list[dict]:
     """Every finding in the drained directory, one per lead directory and per loose file."""
     out: list[dict] = []
     for lead in sorted(p for p in incoming.iterdir() if p.is_dir()):
         prose, sidecar = lead / "finding.md", lead / "finding.json"
         if not prose.is_file() and not sidecar.is_file():
+            scout = scout_negative(lead) if (lead / SCOUT).is_file() else None
+            out += [scout] if scout else []
             continue
         base = (
             parse_finding(prose)
@@ -191,19 +282,106 @@ def _cells(row: str) -> list[str]:
     return [cell.strip() for cell in _PIPE.split(row.strip())[1:-1]]
 
 
-def fate(f: dict, row: str, open_rows: dict[str, str], closed_rows: dict[str, str]) -> str:
+def artifact_of(f: dict) -> tuple[str, str]:
+    """The artifact a finding names, as its URL and its host, the JSON before the prose.
+
+    The sidecar's URL is what the leg fetched and the lead's is what the scout filed. The
+    prose `artifact:` field is written to be read, and a scout often writes a sentence there
+    with no URL in it, so it never shadows a URL the JSON gives.
+    """
+    lead = (f.get("lead") or {}).get("artifact")
+    lead = lead if isinstance(lead, dict) else {}
+    side = f.get("artifact") or {}
+    url = ""
+    for text in (side.get("url"), lead.get("url"), f["fields"].get("artifact")):
+        found = _URL.search(str(text or ""))
+        if found:
+            url = found.group(0)
+            break
+    host = str(side.get("host") or lead.get("host") or "") or _host(url)
+    return url, host.lower()
+
+
+def _host(url: str) -> str:
+    try:
+        return (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def _url_key(url: str) -> str:
+    """A URL as the closed page is keyed on it: brackets, trailing punctuation and a final
+    slash dropped, the scheme and host in lower case."""
+    url = url.strip("<>").rstrip(".;:,")
+    scheme, sep, rest = url.partition("://")
+    host, slash, path = rest.partition("/")
+    return f"{scheme.lower()}{sep}{host.lower()}{slash}{path}".rstrip("/")
+
+
+_HOST_NAME = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}")
+
+
+def artifacts(closed_rows: dict[str, str]) -> dict[str, str]:
+    """Each URL a closed row's link cell names, and each host, to the row's slug.
+
+    Hosts are keyed `host:<name>`: a bare host token in the cell, and the host of each URL.
+    The first row to name one keeps it.
+    """
+    named: dict[str, str] = {}
+    for slug, row in closed_rows.items():
+        note_artifacts(named, slug, (_cells(row) or [""])[-1])
+    return named
+
+
+def note_artifacts(named: dict[str, str], slug: str, cell: str) -> None:
+    """Add what one link cell names to `named`, under `slug`, unless a row named it first.
+
+    Read with the pattern `artifact_of` reads a URL with, its pipes unescaped, so a URL with
+    a comma or a pipe in it keys the same on both sides.
+    """
+    for url in _URL.findall(cell.replace("\\|", "|")):
+        named.setdefault(_url_key(url), slug)
+        named.setdefault(f"host:{_host(url)}", slug)
+    for token in cell.split():
+        if _HOST_NAME.fullmatch(token.lower()):
+            named.setdefault(f"host:{token.lower()}", slug)
+
+
+def named_by(f: dict, named: dict[str, str]) -> str | None:
+    """The slug of the closed row that already names this finding's artifact, if any.
+
+    Its URL when it has one, and only with no URL its host: `web.archive.org` is the host of
+    dozens of unrelated artifacts.
+    """
+    url, host = artifact_of(f)
+    if url:
+        return named.get(_url_key(url))
+    return named.get(f"host:{host}") if host else None
+
+
+def fate(
+    f: dict,
+    row: str,
+    open_rows: dict[str, str],
+    closed_rows: dict[str, str],
+    named: dict[str, str] | None = None,
+) -> str:
     """What writing this finding's row does: `new`, `replace` or `booked`.
 
     A slug is written once. The one exception is a FIND re-measuring its own FIND row on
     `sources.md`: a moved figure or verify status replaces that row. A row with any other
     verdict was settled by a person or the loop and is left alone, and a closed slug is
     never reopened from here. Only the figure and the verdict are compared, dates aside,
-    so a drain retried on another day writes nothing.
+    so a drain retried on another day writes nothing. A closed row is also keyed on its
+    artifact (`named`, from `artifacts`): an artifact a closed row already names is booked
+    under that row's slug, which stays.
     """
     key = first_cell(row) if f["verdict"] == "FIND" else closed_key(row)
     if key in closed_rows:
         return "booked"
     if key not in open_rows:
+        if f["verdict"] != "FIND" and named_by(f, named or {}):
+            return "booked"
         return "new"
     old, new = _cells(open_rows[key]) + [""] * 11, _cells(row)
     if f["verdict"] != "FIND" or not old[9].startswith("FIND"):
@@ -255,7 +433,7 @@ def first_clause(text: str, limit: int = 240) -> str:
 
 def drop_decision_numbers(text: str) -> str:
     """The text without decision numbers; a URL is kept whole, because a cut one does not open."""
-    parts = re.split(r"(https?://\S+)", text)
+    parts = re.split(rf"({_SCHEME}\S+)", text)
     return "".join(p if i % 2 else _DECISION_NO.sub("", p) for i, p in enumerate(parts))
 
 
@@ -291,6 +469,8 @@ def register_row(f: dict, run_label: str) -> str:
     dates = first_clause(stamp, 140) or "n/a"
     probe = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 200)
     verdict = f["verdict"] + (f" ({f['verify']})" if f.get("verify") else "")
+    note = read_note(f)
+    verdict += f"; {note}" if note else ""
     cells = [
         f["slug"],
         f"{day}, fleet {run_label}",
@@ -305,6 +485,37 @@ def register_row(f: dict, run_label: str) -> str:
     ]
     cells.append(links(f["fields"].get("artifact", ""), [*f["fields"].values(), *cells]) or "n/a")
     return _within_limit(_tidy(cells))
+
+
+def read_note(f: dict) -> str:
+    """What a whole read adds to its FIND's verdict cell: its standing clauses and journal.
+
+    The verdict cell is the one `fate` compares and `_within_limit` never trims, so the read
+    rewrites the FIND row its verify leg booked, and the sha256 is never cut. A read is a
+    lead the fleet set `read` with its `read.json` beside it, which the fleet's `read.py
+    combine` writes as `{slug, source, receipt, annual, candidate}`. The receipt is the one
+    the fleet's `schemas/read.json` describes, and its `journal_sha256` is the sha256 of the
+    parts the read fetched, in order; a flat `read.json` carrying it at the top is read too.
+    """
+    if (f.get("lead") or {}).get("status") != "read" or not f.get("read"):
+        return ""
+    head, said = "whole read", []
+    standing = f["lead"].get("standing")
+    if isinstance(standing, dict):
+        clauses = standing.get("clauses") if isinstance(standing.get("clauses"), dict) else {}
+        held = [n for n, c in clauses.items() if isinstance(c, dict) and c.get("ok") is True]
+        unheld = [n for n in clauses if n not in held]
+        version = standing.get("policy_version")
+        head += " admitted" if standing.get("admitted") is True else " not admitted"
+        head += f" under standing policy {version}" if version not in (None, "") else ""
+        head += f": {', '.join(held)} held" if held else ""
+        said += [f"{', '.join(unheld)} not held"] if unheld else []
+    read = f["read"]
+    receipt = read.get("receipt") if isinstance(read.get("receipt"), dict) else {}
+    sha = receipt.get("journal_sha256", read.get("journal_sha256"))
+    if isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{64}", sha):
+        said.append(f"journal sha256 {sha}")
+    return "; ".join([head, *said])
 
 
 def ee_cell(f: dict) -> str:
@@ -367,7 +578,9 @@ def closed_row(f: dict, run_label: str) -> str:
     **A negative does not belong in `sources.md`**: only a priced FIND and a banked source
     get a row there. The reason opens with its verdict word, then the lens and the probe;
     the class, the figure and the artifact come from `lead.json` and the prose beside it.
-    The link cell holds the artifact, then every other URL the finding names.
+    The link cell holds the artifact, then every other URL the finding names. A scout
+    negative's reason is the fleet's `closed_reason`, else its own verdict sentence, else
+    the lens alone.
     """
     day = dt.date.today().isoformat()
     lead = f.get("lead") or {}
@@ -378,14 +591,14 @@ def closed_row(f: dict, run_label: str) -> str:
     )
     lens = first_clause(lead.get("lens") or f["fields"].get("lens") or "no lens recorded", 60)
     lens = lens.rstrip(".")
-    artifact = f["fields"].get("artifact", "") or str((lead.get("artifact") or {}).get("url") or "")
+    artifact, host = artifact_of(f)
     measured = f"{f['ee']} EE" if f["ee"] not in ("0", "0.0") else "not priced"
-    reason = first_clause(
-        f["fields"].get("probe", "")
-        or f["fields"].get("reason", "")
-        or f["fields"].get("verdict", ""),
-        300,
-    )
+    fields = f["fields"]
+    if "scout" in f:
+        said = str(lead.get("closed_reason") or f["scout"])
+    else:
+        said = fields.get("probe", "") or fields.get("reason", "") or fields.get("verdict", "")
+    reason = first_clause(said, 300)
     # The verdict leads; a probe that opens with it again loses the repeat.
     reason = re.sub(rf"^{f['verdict']}\b[\s,.:;]*", "", reason, flags=re.I)
     cells = [
@@ -394,7 +607,9 @@ def closed_row(f: dict, run_label: str) -> str:
         measured,
         f"{f['verdict']}. lens {lens}. {reason}".strip(),
     ]
-    cells.append(links(artifact, [*f["fields"].values(), *cells]))
+    link = links(artifact, [*f["fields"].values(), *cells])
+    # An artifact with no URL is found and keyed by its host.
+    cells.append(f"{link} {host}".strip() if host and not artifact and host not in link else link)
     return _within_limit(_tidy(cells), order=(3,), keep=len(f["verdict"]) + 2)
 
 
@@ -483,6 +698,7 @@ def main() -> int:
     if args.registers:
         register, closed_page = args.registers / REGISTER.name, args.registers / CLOSED.name
     open_rows, closed_rows = slugs(register), slugs(closed_page, closed_key)
+    named = artifacts(closed_rows)
     # Two registers, and which one a finding goes to is its verdict. A FIND is a measurement
     # worth reading beside the others; everything else is a closed row so nobody re-tests it.
     rows: list[str] = []
@@ -499,13 +715,20 @@ def main() -> int:
             if f["verdict"] == "FIND"
             else closed_row(f, args.run_label)
         )
-        what = fate(f, row, open_rows, closed_rows)
+        what = fate(f, row, open_rows, closed_rows, named)
         counts[what] += 1
         if what == "booked":
-            print(f"already booked: {f['slug']} has a row, not written again")
+            on_page = f["slug"] in open_rows or f["slug"] in closed_rows
+            first = None if on_page or f["verdict"] == "FIND" else named_by(f, named)
+            said = f"its artifact is {first}'s, which keeps it" if first else "has a row"
+            print(f"already booked: {f['slug']} {said}, not written again")
             continue
         if what == "replace":
             print(f"replaced: {f['slug']} was re-measured, so its row is rewritten")
+        if f["verdict"] != "FIND":
+            # A second lead naming the same artifact in this drain is a keep too.
+            closed_rows[f["slug"]] = row
+            note_artifacts(named, f["slug"], _cells(row)[-1])
         (rows if f["verdict"] == "FIND" else closed).append(row)
     if args.dry_run:
         print("\n".join(rows + closed))

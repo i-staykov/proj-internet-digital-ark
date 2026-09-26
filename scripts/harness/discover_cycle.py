@@ -33,6 +33,7 @@ would simply block it. This reports.
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -167,9 +168,14 @@ REBUILD_AFTER_HOURS = 1.5
 # truncated queue, which a collector then reads as a short list rather than as an error.
 # A stale lock is ignored after this long, since a rebuild is minutes and a crashed
 # holder must not block rebuilds forever.
-FLEET_REPO = "i-staykov/ark-fleet"
 REBUILD_LOCK = ROOT / "data/logs/derived_rebuild.lock"
 REBUILD_LOCK_STALE_S = 3600
+
+FLEET_REPO = "i-staykov/ark-fleet"
+# The fleet clone the justfile names, for its `policy.json`.
+DEFAULT_FLEET = Path.home() / "Documents/GitHub/ark-fleet"
+# The title `leg.yaml` gives a dispatched run; the watchdog's runs are `Leg watchdog`.
+LEG_TITLE = re.compile(r"Leg slot (0|[1-9][0-9]*)")
 
 
 def rebuild_lock_holder() -> str | None:
@@ -286,29 +292,37 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
     return findings, attention
 
 
-def check_wave_chain() -> tuple[list[str], list[str]]:
-    """Restart the fleet's wave chain when it has stopped, which it does on its own.
+def leg_slot_bound(fleet: Path) -> int:
+    """`wave.max_parallel` in the fleet clone's `policy.json`: the slots Leg may hold."""
+    policy = json.loads((fleet / "policy.json").read_text(encoding="utf-8"))
+    wave = policy.get("wave") if isinstance(policy, dict) else None
+    value = wave.get("max_parallel") if isinstance(wave, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"wave.max_parallel is {json.dumps(value)}, not a whole number")
+    return value
 
-    **The chain ends where the budget does, by design.** `collect` dispatches the next
-    wave, so waves follow each other while the pacer deals legs; a wave given zero legs
-    never reaches `collect` and the chain stops. The workflow's own comment says "the cron
-    is what starts it again".
 
-    The cron is `11,31,51 * * * *` and it does not reliably fire. Measured 2026-09-19:
-    the chain stopped at 05:21Z on a zero-leg wave and the cron missed seven consecutive
-    slots, so the fleet scouted nothing for two and a half hours on a night when discovery
-    was the bottleneck. Only 2 of the 12 waves before that came from the schedule at all.
+def check_leg_slots(fleet: Path = DEFAULT_FLEET) -> tuple[list[str], list[str]]:
+    """Report each Leg slot the fleet's policy allows that no run holds. It dispatches nothing.
 
-    A wave the pacer then gives zero legs costs one cheap runner minute and no model spend,
-    so asking is close to free and not asking costs a whole discovery lane.
+    A slot is a chain of `leg.yaml` runs titled `Leg slot N`, each dispatching its successor
+    last, and a slot at or above `policy.json` `wave.max_parallel` ends its chain. A slot is
+    idle while no run titled for it is queued, waiting or running, the definition the fleet's
+    own `slots.py idle` uses. **`leg.yaml`'s schedule is the watchdog** and starts every idle
+    slot, so this laptop only says what it saw: a slot idle tick after tick is a watchdog that
+    is not firing, or a held `leg.yaml`.
     """
-    quiet_minutes = 40
-    # **A short timeout, because this now runs inside the hourly sync.** `STEP_TIMEOUT` is
-    # an hour, which is right for a cycle step and wrong here: a slow GitHub would hold the
-    # bank for the whole window and the next sync would land on top of it. Not knowing
-    # whether the chain is quiet costs one wave; not banking costs the hour.
+    # **A short timeout, because this runs inside the hourly sync.** `STEP_TIMEOUT` is an
+    # hour, which is right for a cycle step and wrong here: a slow GitHub would hold the bank
+    # for the whole window and the next sync would land on top of it.
     ask = 60
-    newest, ran = run(
+    try:
+        bound = leg_slot_bound(fleet)
+    except (OSError, ValueError) as exc:
+        return [f"leg slots: COULD NOT CHECK, policy.json: {str(exc)[:80]}"], []
+    if bound == 0:
+        return ["leg slots: policy.json wave.max_parallel is 0, so no slot runs"], []
+    said, ran = run(
         [
             "gh",
             "run",
@@ -316,35 +330,32 @@ def check_wave_chain() -> tuple[list[str], list[str]]:
             "--repo",
             FLEET_REPO,
             "--workflow",
-            "wave.yaml",
+            "leg.yaml",
             "--limit",
-            "1",
+            "50",
             "--json",
-            "createdAt",
-            "--jq",
-            ".[0].createdAt",
+            "displayTitle,status",
         ],
         timeout=ask,
     )
-    if not ran or not newest.strip():
-        return ["wave chain: COULD NOT CHECK"], []
     try:
-        last = datetime.strptime(newest.strip(), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        runs = json.loads(said) if ran else None
     except ValueError:
-        return ["wave chain: COULD NOT CHECK"], []
-    idle = (datetime.now(UTC) - last).total_seconds() / 60
-    if idle < quiet_minutes:
-        return [f"wave chain: last wave {idle:.0f} min ago"], []
-    said, ran = run(
-        ["gh", "workflow", "run", "wave.yaml", "--repo", FLEET_REPO, "--ref", "main"],
-        timeout=ask,
-    )
-    if ran:
-        return [f"wave chain: {idle:.0f} min quiet, restarted it"], []
-    return [f"wave chain: {idle:.0f} min quiet and the restart failed: {said[:80]}"], [
-        f"the fleet has dealt no wave for {idle:.0f} minutes and this laptop could not "
-        "start one. The pacer may be holding the budget, or the dispatch may be refused"
-    ]
+        runs = None
+    if not isinstance(runs, list):
+        return [f"leg slots: COULD NOT CHECK, gh said: {said[:80]}"], []
+    held = set()
+    for leg in (leg for leg in runs if isinstance(leg, dict)):
+        title = LEG_TITLE.fullmatch(str(leg.get("displayTitle", "")))
+        if title and leg.get("status") != "completed":
+            held.add(int(title.group(1)))
+    idle = [slot for slot in range(bound) if slot not in held]
+    if not idle:
+        return [f"leg slots: all {bound} held by a run"], []
+    named = ", ".join(str(slot) for slot in idle)
+    return [
+        f"leg slots: {len(idle)} of {bound} idle (slot {named}), for leg.yaml's watchdog to start"
+    ], []
 
 
 def check_ledger() -> tuple[list[str], list[str]]:
@@ -543,7 +554,7 @@ def check_state() -> tuple[list[str], list[str]]:
     ]
 
 
-def cycle(number: int, with_network: bool) -> list[str]:
+def cycle(number: int, with_network: bool, fleet: Path = DEFAULT_FLEET) -> list[str]:
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"\n{'=' * 78}\ncycle {number} at {stamp}\n{'=' * 78}")
     findings: list[str] = []
@@ -553,7 +564,7 @@ def cycle(number: int, with_network: bool) -> list[str]:
         ("residual", check_residual),
         ("derived", rebuild_derived),
         ("ledger", check_ledger),
-        ("wave", check_wave_chain),
+        ("slots", lambda: check_leg_slots(fleet)),
         ("approvals", check_approvals),
         ("state", check_state),
     ):
@@ -597,21 +608,25 @@ def main() -> None:
         action="store_true",
         help="skip the re-probe, which is the only step that leaves the machine",
     )
-    # **The wave check needs an hourly caller and this script has a six-hourly one.**
-    # `com.ark.cycle` fires at 01, 07, 13 and 19, so a chain that stops on a zero-leg wave
-    # sits dead for up to six hours: measured 2026-09-19, it stopped at 17:49Z, the cycle
-    # had already run at 17:00Z, and the GitHub cron missed every slot after it. The hourly
-    # sync calls this flag so the gap is an hour at worst, and the check itself is not
-    # duplicated anywhere.
+    # **The slot check wants an hourly caller and this script has a six-hourly one.**
+    # `com.ark.cycle` fires at 01, 07, 13 and 19, so the hourly sync calls this flag, and the
+    # check itself is not duplicated anywhere.
     ap.add_argument(
-        "--wave-only",
+        "--slots-only",
         action="store_true",
-        help="run only the wave-chain check and exit, for an hourly caller",
+        help="run only the Leg slot check and exit, for an hourly caller",
+    )
+    ap.add_argument(
+        "--fleet",
+        type=Path,
+        default=DEFAULT_FLEET,
+        help="the fleet clone, for policy.json wave.max_parallel",
     )
     args = ap.parse_args()
+    fleet = args.fleet.expanduser()
 
-    if args.wave_only:
-        notes, fixes = check_wave_chain()
+    if args.slots_only:
+        notes, fixes = check_leg_slots(fleet)
         for line in notes + fixes:
             print(line)
         return
@@ -621,7 +636,7 @@ def main() -> None:
         # the re-probe asks external hosts, so it runs on the first cycle and then
         # every fourth: a host that came back does not come back twice an hour
         with_network = not args.no_network and (number == 1 or number % 4 == 0)
-        cycle(number, with_network)
+        cycle(number, with_network, fleet)
         if args.until is None:
             return
         remaining = args.until - time.time()

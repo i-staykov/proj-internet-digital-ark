@@ -283,3 +283,344 @@ def test_a_brief_audit_is_not_booked_in_either_register():
     }
     assert scribe.is_brief_audit(audit)
     assert not scribe.is_brief_audit({"slug": "a-lead", "verdict": "FIND", "ee": "0", "fields": {}})
+
+
+# --- scout negatives and whole reads, on a copy of the real pages ----------------
+
+
+PAGES = ("sources.md", "sources-closed.md", "approved-sources-list.md")
+CR_SPEC = importlib.util.spec_from_file_location(
+    "compact_registers", ROOT / "scripts/round/compact_registers.py"
+)
+compactor = importlib.util.module_from_spec(CR_SPEC)
+sys.modules["compact_registers"] = compactor
+CR_SPEC.loader.exec_module(compactor)
+FF_SPEC = importlib.util.spec_from_file_location(
+    "fleet_findings", ROOT / "scripts/harness/fleet_findings.py"
+)
+drainer = importlib.util.module_from_spec(FF_SPEC)
+FF_SPEC.loader.exec_module(drainer)
+
+SCOUTS = {
+    # A heading that is not the slug, and a sentence where the artifact's URL belongs.
+    "fixture-scout-robots-register": (
+        "# the robots register\n\nverdict: CLOSED, 25.14 EE on the candidate track (40 net-new"
+        "\nnames of 6,032) against a 5,000 floor\nlens: academic-datasets\n\n"
+        "artifact: the Web Robots Database, one text file\n",
+        {"url": "https://robots.invalid/db/all.txt", "host": "robots.invalid"},
+        None,
+    ),
+    # The fleet refused the class, so its reason is the fleet's, not the scout's FIND.
+    "fixture-scout-howto-editions": (
+        "verdict: FIND (unpriced; one edition read)\nlens: candidate-bulk\n",
+        {"url": "https://howto.invalid/editions/", "host": "howto.invalid"},
+        "hostname-grain class 'url_mention' is not a web method",
+    ),
+    # No verdict line and an ftp artifact: the lens is the reason, and the ftp URLs are links.
+    "fixture-scout-netfind-seed": (
+        "# fixture-scout-netfind-seed\n\n## artifact\n\nnothing fetched\n\n"
+        "probe: listed at ftp://netfind.invalid/pub/netfind/README, one file\n",
+        {"url": "ftp://netfind.invalid/pub/netfind/", "host": "netfind.invalid"},
+        None,
+    ),
+}
+
+
+def scout(root: Path, slug: str, prose: str, artifact: dict, filed=False, **lead) -> None:
+    """A closed scout lead, drained, or `filed` as a run artifact carries it."""
+    d = root / slug
+    d.mkdir(parents=True)
+    (d / "scout.md").write_text(prose, "utf-8")
+    doc = {"slug": slug, "lens": "fixture-lens", "status": "closed", "artifact": artifact}
+    doc.update(evidence_class="dated_directory", **lead)
+    (root / f"{slug}.json" if filed else d / "lead.json").write_text(json.dumps(doc), "utf-8")
+
+
+def pages_copy(tmp_path) -> Path:
+    pages = tmp_path / "registers"
+    pages.mkdir()
+    for name in PAGES:
+        (pages / name).write_text((ROOT / "docs/registers" / name).read_text("utf-8"), "utf-8")
+    return pages
+
+
+def bank(incoming: Path, pages: Path, monkeypatch, capsys) -> str:
+    argv = ["bank", str(incoming), "--hypotheses", str(pages / "gone.md")]
+    monkeypatch.setattr(sys, "argv", [*argv, "--registers", str(pages), "--run-label", "r1"])
+    assert scribe.main() == 0
+    return capsys.readouterr().out
+
+
+def check(pages: Path, capsys) -> tuple[set[str], str]:
+    """`compact_registers.py --check` on the copy: its failing lines, and its whole output."""
+    compactor.main(["--check", "--registers", str(pages)])
+    out = capsys.readouterr().out
+    return {line for line in out.splitlines() if line.endswith("FAIL")}, out
+
+
+def closed_table(pages: Path) -> list[str]:
+    return (pages / "sources-closed.md").read_text("utf-8").split("|---|\n")[1].splitlines()
+
+
+def test_three_scout_leads_closed_at_filing_book_three_compacted_rows(
+    tmp_path, monkeypatch, capsys
+):
+    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
+    for slug, (prose, artifact, why) in SCOUTS.items():
+        extra = {"closed_reason": why} if why else {}
+        scout(incoming / "run_1/leads", slug, prose, artifact, filed=True, **extra)
+    assert drainer.drain(incoming) == 0
+    for slug in SCOUTS:
+        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
+    assert not (incoming / "_unread").exists()
+    before, _ = check(pages, capsys)
+    assert "scribe: 3 new rows, 0 replaced, 0 already booked" in bank(
+        incoming, pages, monkeypatch, capsys
+    )
+    rows = {row.split(" / ")[0][2:]: row for row in closed_table(pages)[:3]}
+    assert sorted(rows) == sorted(SCOUTS)
+    day = scribe.dt.date.today().isoformat()
+    robots = rows["fixture-scout-robots-register"]
+    assert robots == (
+        f"| fixture-scout-robots-register / dated_directory | {day}, fleet r1 | 25.14 EE | "
+        "CLOSED. lens fixture-lens. 25.14 EE on the candidate track (40 net-new names of 6,032) "
+        "against a 5,000 floor | <https://robots.invalid/db/all.txt> |"
+    )
+    assert (
+        "| CLOSED. lens fixture-lens. hostname-grain class 'url_mention' is not"
+        in (rows["fixture-scout-howto-editions"])
+    )
+    assert rows["fixture-scout-netfind-seed"].endswith(
+        "| not priced | CLOSED. lens fixture-lens. | <ftp://netfind.invalid/pub/netfind/> "
+        "<ftp://netfind.invalid/pub/netfind/README> |"
+    )
+    # The pages stay the compactor's fixed point, and booking adds no failing count.
+    after, out = check(pages, capsys)
+    assert after <= before
+    assert "fixed point: yes" in out and "pages that would change: 0" in out
+    # A re-run books nothing and leaves every page byte for byte.
+    written = {name: (pages / name).read_bytes() for name in PAGES}
+    said = bank(incoming, pages, monkeypatch, capsys)
+    assert "scribe: 0 new rows, 0 replaced, 3 already booked" in said
+    assert {name: (pages / name).read_bytes() for name in PAGES} == written
+
+
+def test_a_scout_that_says_find_with_a_closed_lead_books_closed(tmp_path, monkeypatch, capsys):
+    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
+    prose = "verdict: FIND, 12,000 EE projected from one page\nlens: web-link-graphs\n"
+    scout(incoming, "fixture-scout-says-find", prose, {"url": "https://find.invalid/a"})
+    (finding,) = scribe.findings_in(incoming)
+    assert finding["verdict"] == "CLOSED"
+    open_page = (pages / "sources.md").read_text("utf-8")
+    assert "scribe: 1 new rows" in bank(incoming, pages, monkeypatch, capsys)
+    assert (pages / "sources.md").read_text("utf-8") == open_page
+    assert closed_table(pages)[0].startswith("| fixture-scout-says-find / dated_directory |")
+    assert (
+        "| CLOSED. lens fixture-lens. 12,000 EE projected from one page |"
+        in (closed_table(pages)[0])
+    )
+
+
+def test_a_scouted_lead_books_nothing(tmp_path):
+    incoming = tmp_path / "incoming"
+    scout(incoming, "fixture-scout-open", "verdict: FIND\n", {"url": "https://open.invalid/"})
+    lead = json.loads((incoming / "fixture-scout-open/lead.json").read_text("utf-8"))
+    for status in ("scouted", "priced", "read"):
+        lead["status"] = status
+        (incoming / "fixture-scout-open/lead.json").write_text(json.dumps(lead), "utf-8")
+        assert scribe.findings_in(incoming) == []
+
+
+def test_a_scout_negatives_figure_is_its_own_never_a_bound_or_another_sources(tmp_path):
+    cases = {
+        # A bare verdict, then an indented block quoting another source's figure.
+        "fixture-scout-bare": (
+            "verdict: CLOSED\n\n## next\n\n    dk-hostmaster domains.txt, 9,702 EE pending\n",
+            "not priced",
+        ),
+        # A projection, then the figure it measured, which wins.
+        "fixture-scout-measured": (
+            "verdict: CLOSED, about 3,000 EE projected, at 276.23 net-new EE measured, against"
+            " a\n5,000 EE floor\n",
+            "276.23 EE",
+        ),
+        # Ceilings and floors, and nothing measured.
+        "fixture-scout-bounds": (
+            "verdict: CLOSED under a 4,000 EE ceiling, family ceiling ~1,000 EE, against the\n"
+            "5,000 EE floor and the 2,500 EE candidate floor\n",
+            "not priced",
+        ),
+        # An `ee:` line says it outright.
+        "fixture-scout-ee": (
+            "verdict: CLOSED, 39.7 EE on one month\nee: 16.8469 candidate, 28 net-new pairs\n",
+            "16.8469 EE",
+        ),
+    }
+    for slug, (prose, _) in cases.items():
+        scout(tmp_path / "incoming", slug, prose, {"url": f"https://{slug}.invalid/"})
+    found = scribe.findings_in(tmp_path / "incoming")
+    measured = {f["slug"]: scribe._cells(scribe.closed_row(f, "r1"))[2] for f in found}
+    assert measured == {slug: figure for slug, (_, figure) in cases.items()}
+
+
+def test_the_leads_artifact_url_wins_over_the_prose(tmp_path):
+    incoming = tmp_path / "incoming"
+    prose = "verdict: CLOSED\nartifact: <http://prose.invalid/other.gz>, the mirror's copy\n"
+    scout(incoming, "fixture-scout-link", prose, {"url": "https://lead.invalid/list.txt"})
+    row = scribe.closed_row(scribe.findings_in(incoming)[0], "r1")
+    assert row.endswith("| <https://lead.invalid/list.txt> <http://prose.invalid/other.gz> |")
+
+
+def test_two_leads_with_one_artifact_url_book_one_row(tmp_path, monkeypatch, capsys):
+    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
+    # A comma and a pipe, which the link cell escapes, still key one URL.
+    url = "https://shared.invalid/cdx?fl=original,timestamp&filter=a|b"
+    for slug in ("fixture-scout-b-second", "fixture-scout-a-first"):
+        scout(incoming, slug, "verdict: CLOSED\n", {"url": url, "host": "shared.invalid"})
+    # A closed row already on the page names this one's URL, with a slash and brackets.
+    scout(incoming, "fixture-scout-c-late", "verdict: CLOSED\n", {"url": "https://old.invalid/x"})
+    old = "| fixture-old-row / x | 2026-09-01 | 0 EE | CLOSED. | <https://OLD.invalid/x/> |"
+    text = (pages / "sources-closed.md").read_text("utf-8")
+    at = text.index("\n", text.index("|---|")) + 1
+    (pages / "sources-closed.md").write_text(text[:at] + old + "\n" + text[at:], "utf-8")
+    said = bank(incoming, pages, monkeypatch, capsys)
+    assert "scribe: 1 new rows, 0 replaced, 2 already booked" in said
+    assert "fixture-scout-b-second its artifact is fixture-scout-a-first's" in said
+    assert "fixture-scout-c-late its artifact is fixture-old-row's" in said
+    table = closed_table(pages)
+    assert table[0].startswith("| fixture-scout-a-first / ") and table[1] == old
+    assert sum(url.replace("|", "\\|") in row for row in table) == 1
+
+
+def test_the_url_the_leg_fetched_keys_the_row_over_the_one_the_scout_filed(
+    tmp_path, monkeypatch, capsys
+):
+    pages, first = pages_copy(tmp_path), tmp_path / "first"
+    fetched, filed = "https://fetched.invalid/1999/issue.html", "https://filed.invalid/index.html"
+    lead = first / "fixture-leg-closed"
+    lead.mkdir(parents=True)
+    prose = "verdict: CLOSED\nartifact: the weekly issue, one page\n"
+    (lead / "finding.md").write_text(prose, "utf-8")
+    artifact = {"url": fetched, "host": "fetched.invalid"}
+    sidecar = dict(SIDECAR, slug=lead.name, verdict="CLOSED", artifact=artifact)
+    (lead / "finding.json").write_text(json.dumps(sidecar), "utf-8")
+    filed_by = {"slug": lead.name, "status": "closed", "artifact": {"url": filed}}
+    (lead / "lead.json").write_text(json.dumps(filed_by), "utf-8")
+    (finding,) = scribe.findings_in(first)
+    assert scribe.named_by(finding, {scribe._url_key(fetched): "by-url"}) == "by-url"
+    assert "scribe: 1 new rows" in bank(first, pages, monkeypatch, capsys)
+    assert scribe._cells(closed_table(pages)[0])[-1].startswith(f"<{fetched}>")
+    # A later scout naming the fetched URL is a keep, not a second row.
+    scout(tmp_path / "later", "fixture-scout-names-it", "verdict: CLOSED\n", artifact)
+    said = bank(tmp_path / "later", pages, monkeypatch, capsys)
+    assert "fixture-scout-names-it its artifact is fixture-leg-closed's" in said
+    assert "scribe: 0 new rows, 0 replaced, 1 already booked" in said
+
+
+def test_a_loose_finding_headed_slug_and_class_keys_on_its_slug_in_the_same_drain(
+    tmp_path, monkeypatch, capsys
+):
+    """A loose finding headed the register's way, `slug / class`, beside that slug's lead."""
+    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
+    scout(incoming, "fixture-scout-dup", "verdict: CLOSED\n", {"url": "https://dup.invalid/a"})
+    prose = (
+        "# fixture-scout-dup / link_source\nverdict: CLOSED\nartifact: <https://dup.invalid/b>\n"
+    )
+    (incoming / "fixture-scout-dup.md").write_text(prose, "utf-8")
+    assert "scribe: 1 new rows, 0 replaced, 1 already booked" in bank(
+        incoming, pages, monkeypatch, capsys
+    )
+    rows = [row for row in closed_table(pages) if scribe.closed_key(row) == "fixture-scout-dup"]
+    assert len(rows) == 1 and "<https://dup.invalid/a>" in rows[0]
+
+
+def test_an_artifact_is_keyed_by_its_url_of_any_scheme_and_only_with_none_by_its_host():
+    mirror = "| mirror / x | d | 0 EE | CLOSED. | <ftp://ftp.mirror.invalid/pub/netinfo/> |"
+    old = "| old / x | d | 0 EE | CLOSED. | ftp.gone.invalid |"
+    named = scribe.artifacts({"old": old, "mirror": mirror})
+    finding = {"slug": "new", "verdict": "CLOSED", "ee": "0", "fields": {}}
+    finding["lead"] = {"artifact": {"host": "ftp.gone.invalid"}}
+    assert scribe.named_by(finding, named) == "old"
+    assert scribe.closed_row(finding, "r1").endswith("| ftp.gone.invalid |")
+    # With a URL, only the URL keys it, ftp too: one host serves many artifacts.
+    for url in ("ftp://ftp.gone.invalid/pub/", "https://ftp.gone.invalid/pub/"):
+        finding["lead"]["artifact"]["url"] = url
+        assert scribe.named_by(finding, named) is None
+    other = "ftp://ftp.mirror.invalid/pub/doc/rfc-index.txt"
+    finding["lead"]["artifact"] = {"url": other, "host": "ftp.mirror.invalid"}
+    assert scribe.named_by(finding, named) is None
+    assert scribe.closed_row(finding, "r1").endswith(f"| <{other}> |")
+    finding["lead"]["artifact"]["url"] = "ftp://FTP.mirror.invalid/pub/netinfo"
+    assert scribe.named_by(finding, named) == "mirror"
+
+
+JOURNAL = "0123456789abcdef" * 4
+STANDING = {
+    "admitted": True,
+    "policy_version": 3,
+    "clauses": {
+        name: {"ok": True, "evidence": f"{name} held on the fixture"}
+        for name in ("size", "terms", "robots", "class", "window")
+    },
+}
+# `leads/<slug>/read.json` as the fleet's `read.py combine` writes it: the sha256 is the
+# receipt's, never a top-level key.
+PRICE = {"netnew_pairs": 2, "ee": 1.5, "by_year": {"1999": 1}, "manifest_sha": "d" * 64}
+READ_JSON = {
+    "slug": "a-lead",
+    "source": "program",
+    "receipt": {
+        "slug": "a-lead",
+        "url": "https://example.invalid/list",
+        "complete": True,
+        "journal_sha256": JOURNAL,
+        "reason": "read whole",
+    },
+    "annual": dict(PRICE, track="annual"),
+    "candidate": dict(PRICE, track="candidate"),
+}
+
+
+def test_a_standing_reads_row_names_its_clauses_and_journal_sha256(tmp_path, monkeypatch, capsys):
+    pages = pages_copy(tmp_path)
+    incoming = lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5})
+    long = PROSE.replace("method: read", "method: " + "a long method sentence " * 40 + "read")
+    (incoming / "a-lead/finding.md").write_text(long, "utf-8")
+    lead = {"slug": "a-lead", "status": "confirmed", "what_dates_one_item": "the capture id"}
+    (incoming / "a-lead/lead.json").write_text(json.dumps(lead), "utf-8")
+    assert "scribe: 1 new rows" in bank(incoming, pages, monkeypatch, capsys)
+    before, _ = check(pages, capsys)
+    # The read lands: the lead is `read` and carries its standing admission and read.json.
+    lead.update(status="read", standing=STANDING)
+    (incoming / "a-lead/lead.json").write_text(json.dumps(lead), "utf-8")
+    (incoming / "a-lead/read.json").write_text(json.dumps(READ_JSON), "utf-8")
+    assert "scribe: 0 new rows, 1 replaced, 0 already booked" in bank(
+        incoming, pages, monkeypatch, capsys
+    )
+    table = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1].splitlines()
+    assert table[0].startswith("| a-lead |") and sum(r.startswith("| a-lead |") for r in table) == 1
+    verdict = scribe._cells(table[0])[9]
+    assert verdict == (
+        "FIND (confirmed); whole read admitted under standing policy 3: size, terms, robots, "
+        f"class, window held; journal sha256 {JOURNAL}"
+    )
+    assert len(table[0]) <= scribe.ROW_LIMIT, "the method is trimmed, never the verdict"
+    after, out = check(pages, capsys)
+    assert after <= before and "fixed point: yes" in out
+    assert "scribe: 0 new rows, 0 replaced, 1 already booked" in bank(
+        incoming, pages, monkeypatch, capsys
+    )
+
+
+def test_a_clause_that_did_not_hold_is_named_as_such():
+    clauses = dict(STANDING["clauses"], robots={"ok": False, "evidence": "robots.txt refused"})
+    lead = {"status": "read", "standing": dict(STANDING, admitted=False, clauses=clauses)}
+    finding = {"lead": lead, "read": READ_JSON}
+    note = (
+        "whole read not admitted under standing policy 3: size, terms, class, window held; "
+        f"robots not held; journal sha256 {JOURNAL}"
+    )
+    assert scribe.read_note(finding) == note
+    # A flat read.json carrying the sha256 at the top still names it.
+    assert scribe.read_note(dict(finding, read={"journal_sha256": JOURNAL})) == note
+    assert scribe.read_note(dict(finding, read={})) == ""

@@ -1,9 +1,11 @@
-"""The drain, the schema check and the second pricing `just sync` runs over a finding.
+"""The drain, the schema check, the second pricing and the outcome line over a finding.
 
 The quiet failures. A drain that loses the items beside a sidecar makes every FIND
 unpriceable and says nothing; a validator that passes a sidecar the fleet would reject lets
 prose into a row that reads like a measurement; a re-price that cannot find the pricer's own
-answer would report zero, the one wrong answer that looks like a result.
+answer would report zero, the one wrong answer that looks like a result; a conversion that
+deletes the old ledger before every row is in the fleet's loses the spend record for good; an
+outcome line that says banked before the store holds the rows can never be taken back.
 """
 
 import gzip
@@ -11,15 +13,46 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+import duckdb
 import pytest
+from test_fleet_ledger import STAND_IN
+
+from ark.db import init_db
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/harness/fleet_findings.py"
 FLEET = Path.home() / "Documents/GitHub/ark-fleet"
+# Where the fleet's own ledger script may be, for the one test that runs it: copied out and
+# run over a scratch root, never inside the clone. `ARK_FLEET` names a clone ahead of main.
+LEDGER_CLONES = (os.environ.get("ARK_FLEET"), FLEET)
+REAL_FLEET = next(
+    (
+        Path(root)
+        for root in LEDGER_CLONES
+        if root and all((Path(root) / f"scripts/{n}").is_file() for n in ("ledger.py", "pacer.py"))
+    ),
+    None,
+)
+# The old ledger's shape, identical rows included: the drain's minute, tokens, the window.
+ROWS = (
+    "20260901T1037Z\t432\t68.0\n"
+    "20260901T1037Z\t432\t68.0\n"
+    "20260923T0706Z\t0\t?\n"
+    "20260923T0706Z\t0\t?\n"
+)
+REGISTER = """## Pending requests
+
+### a_find / artifact_listing
+Decision: master
+
+### b_find / artifact_listing
+Decision: candidate-only
+"""
 
 _SPEC = importlib.util.spec_from_file_location("fleet_findings", SCRIPT)
 module = importlib.util.module_from_spec(_SPEC)
@@ -98,14 +131,16 @@ def test_a_slug_already_drained_is_dropped_rather_than_rebooked(tmp_path):
     assert kept["verdict"] == "FIND"
 
 
-def test_telemetry_becomes_a_ledger_row_and_the_run_directory_goes(tmp_path):
+def test_the_telemetry_dies_with_the_run_and_the_old_ledger_takes_no_row(tmp_path):
+    # Each leg's spend is its leg line in the fleet ledger, written by the fleet's collect.
     incoming = tmp_path / "incoming"
     incoming.mkdir()
     lead = artifact(incoming, "3", "a-lead", finding())
-    (lead.parent.parent / "telemetry.json").write_text('{"tokens_in_plus_out": 5}', "utf-8")
+    (lead.parent.parent / "telemetry.json").write_text('{"legs": [{"tokens_in_plus_out": 5}]}')
     assert run("drain", str(incoming)).returncode == 0
     assert not list(incoming.glob("run_*"))
-    assert Path(os.environ["ARK_FLEET_LEDGER"]).read_text().split("\t")[1:] == ["5", "?\n"]
+    assert not (incoming / "_unread").exists()
+    assert not Path(os.environ["ARK_FLEET_LEDGER"]).exists()
 
 
 @pytest.mark.skipif(not (FLEET / "scripts/contract.py").is_file(), reason="no fleet clone here")
@@ -217,29 +252,6 @@ def test_two_settled_copies_keep_the_later_run(tmp_path):
     assert json.loads((incoming / "a-lead" / "finding.json").read_text())["run_id"] == "91"
 
 
-def test_every_leg_gets_a_ledger_row_not_the_wrapper(tmp_path, monkeypatch):
-    # The artifact's telemetry is {"legs": [...]}. Read as one row it logged a zero a wave.
-    incoming = tmp_path / "incoming"
-    incoming.mkdir()
-    lead = artifact(incoming, "3", "a-lead", finding())
-    (lead.parent.parent / "telemetry.json").write_text(
-        json.dumps(
-            {
-                "legs": [
-                    {"tokens_in_plus_out": 111, "seven_day_pct": 4},
-                    {"tokens_in_plus_out": 222, "seven_day_pct": 5},
-                ]
-            }
-        ),
-        encoding="utf-8",
-    )
-    ledger = tmp_path / "ledger.tsv"
-    monkeypatch.setenv("ARK_FLEET_LEDGER", str(ledger))
-    module.drain(incoming)
-    rows = [line.split("\t") for line in ledger.read_text().splitlines()]
-    assert [r[1] for r in rows] == ["111", "222"]
-
-
 def test_the_items_come_from_the_box_that_has_them(tmp_path, monkeypatch):
     # The artifact carries no data: a price leg leaves its items on the VPS so the verify
     # leg's re-run finds them. rsync over a local path is the same code path as over ssh.
@@ -295,6 +307,299 @@ def test_an_unrecognised_file_is_kept_rather_than_deleted_with_the_run(tmp_path)
     module.drain(incoming)
     kept = list((incoming / "_unread").rglob("bad.lead.json"))
     assert kept, "an unrecognised file went with the run directory"
+
+
+# --- the old ledger -----------------------------------------------------------
+
+
+def stand_in(tmp_path: Path) -> Path:
+    """A fleet clone whose `scripts/ledger.py` keys and keeps lines as the real one does."""
+    root = tmp_path / "fleet"
+    (root / "scripts").mkdir(parents=True)
+    (root / "scripts/ledger.py").write_text(STAND_IN, encoding="utf-8")
+    return root
+
+
+def drained(tmp_path: Path, *flags: str) -> subprocess.CompletedProcess:
+    incoming = tmp_path / "incoming"
+    incoming.mkdir(exist_ok=True)
+    done = run("drain", str(incoming), *flags)
+    assert done.returncode == 0, done.stderr
+    return done
+
+
+def test_the_old_tsv_becomes_one_legacy_line_per_row_and_goes(tmp_path):
+    # The old ledger repeats identical rows: keyed on the text alone, it would keep one of each.
+    root = stand_in(tmp_path)
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    lines = module.fleet_ledger.lines(root, "legacy")
+    assert [(line["row"], line["line"]) for line in lines] == list(enumerate(ROWS.splitlines(), 1))
+    assert [line["at"] for line in lines[1:3]] == ["2026-09-01T10:37:00Z", "2026-09-23T07:06:00Z"]
+    assert not tsv.exists()
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    assert len(module.fleet_ledger.lines(root, "legacy")) == 4, "a rerun adds none"
+    assert not tsv.exists()
+
+
+def test_a_drain_with_no_fleet_ledger_to_write_keeps_the_tsv(tmp_path):
+    # The tick runs under `set -e`, and the laptop's clone gains the script only when pulled.
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    tsv.write_text(ROWS, encoding="utf-8")
+    assert "no --fleet" in drained(tmp_path).stdout
+    old = tmp_path / "old-clone"
+    old.mkdir()
+    assert "has no scripts/ledger.py" in drained(tmp_path, "--fleet", str(old)).stdout
+    (old / "scripts").mkdir()
+    (old / "scripts/ledger.py").write_text("raise SystemExit('ledger: refused')\n")
+    assert "refused" in drained(tmp_path, "--fleet", str(old)).stdout
+    assert tsv.read_text(encoding="utf-8") == ROWS
+
+
+def test_a_row_with_no_stamp_keeps_the_tsv_and_appends_nothing(tmp_path):
+    root = stand_in(tmp_path)
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    tsv.write_text(ROWS + "2026092T1000Z\t5\t?\n", encoding="utf-8")
+    assert "row 5 has no stamp" in drained(tmp_path, "--fleet", str(root)).stdout
+    assert tsv.read_text(encoding="utf-8").startswith(ROWS)
+    assert module.fleet_ledger.lines(root, "legacy") == []
+
+
+def test_a_test_drains_row_keeps_the_tsv_until_its_drop_has_run(tmp_path):
+    """Five tokens and no window is the row a test drain wrote into the live file. Converted,
+    it would stand in the append-only fleet ledger for good."""
+    root = stand_in(tmp_path)
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    body = ROWS + "20260924T2058Z\t5\t?\n20260925T1254Z\t5\t?\n"
+    tsv.write_text(body, encoding="utf-8")
+    said = drained(tmp_path, "--fleet", str(root)).stdout
+    assert "2 rows are a test drain's" in said and "#171's drop must run" in said
+    assert tsv.read_text(encoding="utf-8") == body
+    assert module.fleet_ledger.lines(root, "legacy") == []
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    assert len(module.fleet_ledger.lines(root, "legacy")) == 4, "once dropped, it converts"
+
+
+@pytest.mark.skipif(REAL_FLEET is None, reason="no fleet clone with scripts/ledger.py here")
+def test_the_fleets_own_ledger_script_takes_both_kinds_of_line(tmp_path):
+    root = tmp_path / "fleet"
+    (root / "scripts").mkdir(parents=True)
+    for name in ("ledger.py", "pacer.py"):
+        shutil.copy(REAL_FLEET / "scripts" / name, root / "scripts" / name)
+
+    def count(kind: str) -> str:
+        script = str(root / "scripts/ledger.py")
+        done = subprocess.run(
+            [sys.executable, script, "count", "--kind", kind, "--root", str(root)],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "ARK_TELEMETRY_DIR": "/nonexistent"},
+        )
+        return done.stdout.strip()
+
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    for _ in range(2):
+        tsv.write_text(ROWS, encoding="utf-8")
+        drained(tmp_path, "--fleet", str(root))
+        assert (count("legacy"), tsv.exists()) == ("4", False)
+    confirmed(tmp_path / "incoming", "a-find", {"ee": 1000.0, "fleet_program_ee": 995.0})
+    (tmp_path / "approved.md").write_text(REGISTER, encoding="utf-8")
+    done = run(
+        "outcome",
+        str(tmp_path / "incoming"),
+        "--fleet",
+        str(root),
+        "--register",
+        str(tmp_path / "approved.md"),
+        "--db",
+        str(store(tmp_path / "ark.duckdb", "a_find")),
+    )
+    assert "1 appended" in done.stdout, done.stdout + done.stderr
+    assert count("outcome") == "1"
+
+
+# --- scout leads --------------------------------------------------------------
+
+
+def scout(incoming: Path, run_id: str, slug: str) -> None:
+    """A lead closed at filing, as the fleet ships it: prose and a lead file, no finding."""
+    leads = incoming / f"run_{run_id}" / f"findings-{run_id}" / "leads"
+    (leads / slug).mkdir(parents=True)
+    (leads / slug / "scout.md").write_text(f"# {slug}, a roster\nverdict: CLOSED\n", "utf-8")
+    lead = {"slug": slug, "status": "closed", "artifact": {"url": f"http://{slug}.invalid/"}}
+    (leads / f"{slug}.json").write_text(json.dumps(lead), encoding="utf-8")
+
+
+def test_three_scout_leads_closed_at_filing_arrive_as_three_lead_directories(tmp_path):
+    # Moved by bare name, all three would collide on `incoming/scout.md`.
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    slugs = ["about-com-roster", "dmoz-dump-1998", "weblogs-changes"]
+    for slug in slugs:
+        scout(incoming, "5", slug)
+    (incoming / "run_5/findings-5/telemetry.json").write_text('{"legs": []}', encoding="utf-8")
+    assert run("drain", str(incoming)).returncode == 0
+    for slug in slugs:
+        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
+        assert json.loads((incoming / slug / "lead.json").read_text())["slug"] == slug
+    assert not (incoming / "scout.md").exists()
+    assert not (incoming / "_unread").exists()
+
+
+def test_a_scout_copy_never_replaces_a_copy_with_a_finding(tmp_path):
+    incoming = tmp_path / "incoming"
+    incoming.mkdir()
+    # The least settled finding there is: pending, and no run id to rank it by.
+    artifact(incoming, "1", "a-lead", finding(run_id="", verify={"status": "pending"}))
+    scout(incoming, "2", "a-lead")
+    module.drain(incoming)
+    assert sorted(p.name for p in (incoming / "a-lead").iterdir()) == ["finding.json", "finding.md"]
+    # The other way round, the finding replaces the scout copy.
+    scout(incoming, "3", "b-lead")
+    artifact(incoming, "4", "b-lead", finding("b-lead", run_id="10", verify={"status": "pending"}))
+    module.drain(incoming)
+    assert (incoming / "b-lead" / "finding.json").is_file()
+    assert not (incoming / "b-lead" / "scout.md").exists()
+
+
+# --- outcome ------------------------------------------------------------------
+
+
+def confirmed(incoming: Path, slug: str, store: dict | None, **over) -> None:
+    lead = incoming / slug
+    lead.mkdir(parents=True)
+    (lead / "finding.json").write_text(json.dumps(finding(slug, **over)), encoding="utf-8")
+    lead_doc = {"slug": slug, "evidence_class": "artifact_listing"}
+    (lead / "lead.json").write_text(json.dumps(lead_doc), encoding="utf-8")
+    if store is not None:
+        (lead / "store_price.json").write_text(json.dumps(store), encoding="utf-8")
+
+
+def store(path: Path, *sources: str) -> Path:
+    """A tiny store whose ingest has written one file under each of `sources`."""
+    conn = duckdb.connect(str(path))
+    init_db(conn)
+    for n, source in enumerate(sources):
+        conn.execute(
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows)"
+            " VALUES (?, ?, ?, 1)",
+            [source, f"{source}_{n}.jsonl.gz", "0" * 64],
+        )
+    conn.close()
+    return path
+
+
+def booked(
+    tmp_path: Path, fleet: Path, *roots: Path, ingested: tuple[str, ...] = ()
+) -> tuple[subprocess.CompletedProcess, dict[str, dict]]:
+    """What `outcome` did, and the outcome lines it leaves, by slug and banked. Never the
+    live store: `--db` is a tiny one that has ingested `ingested`."""
+    incoming = tmp_path / "incoming"
+    if not incoming.exists():
+        confirmed(incoming, "a-find", {"status": "priced", "ee": 1000.0, "fleet_program_ee": 995.0})
+        confirmed(incoming, "b-find", {"status": "no items to price", "ee": None})
+        confirmed(incoming, "c-find", {"status": "priced", "ee": 50.0})
+        confirmed(incoming, "unconfirmed", {"ee": None}, verify={"status": "pending"})
+        confirmed(incoming, "unpriced", None)
+        confirmed(incoming, "negative", {"ee": 5.0}, verdict="CLOSED")
+    register = tmp_path / "approved.md"
+    register.write_text(REGISTER, encoding="utf-8")
+    db = tmp_path / "ark.duckdb"
+    db.unlink(missing_ok=True)
+    store(db, *ingested)
+    done = run(
+        "outcome",
+        str(incoming),
+        *map(str, roots),
+        "--fleet",
+        str(fleet),
+        "--register",
+        str(register),
+        "--db",
+        str(db),
+    )
+    lines = module.fleet_ledger.lines(fleet, "outcome")
+    return done, {f"{line['slug']}:{line['banked']}": line for line in lines}
+
+
+def test_each_confirmed_find_with_a_store_price_books_one_outcome_line(tmp_path):
+    root = stand_in(tmp_path)
+    done, lines = booked(tmp_path, root)
+    assert done.returncode == 0, done.stderr
+    assert sorted(lines) == ["a-find:False", "b-find:False", "c-find:False"]
+    a = lines["a-find:False"]
+    assert (a["store_ee"], a["program_ee"], a["agreement_pct"]) == (1000.0, 995.0, 99.5)
+    assert a["decision"] == "master", "not banked until the store holds its rows"
+    b, c = lines["b-find:False"], lines["c-find:False"]
+    assert (b["store_ee"], b["agreement_pct"], b["decision"]) == (None, None, "candidate-only")
+    assert (c["program_ee"], c["decision"]) == (None, "pending"), "no block is pending"
+    assert len(booked(tmp_path, root)[1]) == 3, "a rerun adds none"
+
+
+def test_banked_is_the_stores_ingested_files_and_a_json_bool(tmp_path):
+    """No bank's commit makes a line banked, only the source's rows in the store, under a
+    decision that admits them. A pending source's name in the store banks nothing."""
+    root = stand_in(tmp_path)
+    done, lines = booked(tmp_path, root, ingested=("a_find", "b_find", "c_find"))
+    assert done.returncode == 0, done.stderr
+    assert sorted(lines) == ["a-find:True", "b-find:True", "c-find:False"]
+    assert lines["a-find:True"]["banked"] is True
+    assert lines["b-find:True"]["decision"] == "candidate-only"
+    assert '"banked": true' in (root / "ledger/2026-09.jsonl").read_text()
+    assert "2 banked in the store" in done.stdout
+
+
+def test_a_master_decision_the_store_holds_no_rows_for_is_not_banked(tmp_path):
+    """The standing rule decides a source with no ingest spec master, and the bank ingests
+    nothing. A banked line then would stand for good; a later ingest adds the banked one."""
+    root = stand_in(tmp_path)
+    _, lines = booked(tmp_path, root, ingested=("some_other_source",))
+    assert "a-find:False" in lines and "a-find:True" not in lines
+    _, lines = booked(tmp_path, root, ingested=("a_find",))
+    assert {"a-find:False", "a-find:True"} <= set(lines), "the ingest books its banked line"
+
+
+def test_a_store_that_cannot_be_read_banks_nothing_and_says_so(tmp_path):
+    root = stand_in(tmp_path)
+    incoming = tmp_path / "incoming"
+    confirmed(incoming, "a-find", {"ee": 1000.0})
+    (tmp_path / "approved.md").write_text(REGISTER, encoding="utf-8")
+    done = run(
+        "outcome",
+        str(incoming),
+        "--fleet",
+        str(root),
+        "--register",
+        str(tmp_path / "approved.md"),
+        "--db",
+        str(tmp_path / "no-store.duckdb"),
+    )
+    assert "could not be opened" in done.stdout, done.stdout + done.stderr
+    assert [line["banked"] for line in module.fleet_ledger.lines(root, "outcome")] == [False]
+
+
+def test_the_drains_banked_before_are_booked_too_from_their_most_settled_copy(tmp_path):
+    """A find whose drain left `incoming/` gains its banked line whenever the store holds it."""
+    root = stand_in(tmp_path)
+    old = tmp_path / "banked" / "20260920T0105Z"
+    later = tmp_path / "banked" / "20260921T0105Z"
+    confirmed(old, "d-find", {"ee": 70.0}, run_id="5")
+    confirmed(later, "d-find", {"ee": 80.0}, run_id="6")
+    done, lines = booked(tmp_path, root, old, later, tmp_path / "banked/*/", ingested=("a_find",))
+    assert done.returncode == 0, done.stderr
+    assert lines["d-find:False"]["store_ee"] == 80.0, "the later run's copy"
+    assert "a-find:True" in lines
+
+
+def test_an_outcome_that_did_not_land_exits_1_and_says_so(tmp_path):
+    done, lines = booked(tmp_path, tmp_path / "old-clone")
+    assert done.returncode == 1
+    assert "not booked" in done.stdout
+    assert lines == {}
+    assert booked(tmp_path, stand_in(tmp_path))[0].returncode == 0
 
 
 def _remote_read(root, slug="a-lead", complete=True, tamper=False, extra="", rename=""):
