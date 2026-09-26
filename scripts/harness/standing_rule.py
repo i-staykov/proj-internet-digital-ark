@@ -1,6 +1,6 @@
 """Write the `Decision:` line the standing approval rule already authorises, and no other.
 
-**The rule, verbatim in its four parts** (Ivo, 2026-08-29, CLAUDE.md rule 7): the loop writes
+**The rule, in its four parts** (CLAUDE.md, Autonomy): the loop writes
 the decision itself, citing the rule, when the class is already master-eligible, a
 machine-written stamp inside the artifact dates one item and is quoted, the terms permit it,
 and `ark check` passes after the ingest. Failing any one parks it `pending`.
@@ -10,8 +10,8 @@ lookup: the class is in the approved list already or it is not, the lead's stamp
 in it or it does not, the terms URL and the robots verdict were recorded at scout time or
 they were not. A model asked to weigh them adds nothing except the chance of talking itself
 into a yes. What it cannot decide is condition 4, because that is a fact about a run that has
-not happened, so this writes the line, `just sync` ingests and gates, and **a red gate parks
-the line back to `pending`**. That ordering is the fourth condition, enforced rather than
+not happened, so this writes the line, `just bank` ingests and gates, and **a red gate takes
+the line and the rows back**. That ordering is the fourth condition, enforced rather than
 asserted.
 
 Nothing here approves a class nobody has approved before. The first source of a class always
@@ -43,7 +43,7 @@ from ark.evidence_types import MASTER_TYPES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 CITATION = (
-    "Decided by the loop under the standing approval rule (CLAUDE.md rule 7, Ivo 2026-08-29): "
+    "Decided by the loop under the standing approval rule (CLAUDE.md, Autonomy): "
     "the class is already master-eligible, the stamp {stamp} dates one item, the terms at "
     "{terms} permit it, and the ingest this line releases is gated by `ark check`, which parks "
     "the line back to pending if it fails. Fleet run {run}, store re-price {ee:,.1f} EE."

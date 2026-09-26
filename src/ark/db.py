@@ -20,10 +20,9 @@ from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
 
 
-# **DuckDB takes 80% of the machine by default, and this store is 52 GB**: one
-# `build_round_state.py` at 28 GB resident on a 36 GB laptop, swapping, while `just sync`,
-# `just state` and `just cycle` each spawn one. These are aggregations over a few wide
-# tables and DuckDB spills to `temp_directory`, so a cap costs disk and no correctness.
+# **DuckDB takes 80% of the machine by default**, and several processes open the store at
+# once. These are aggregations over a few wide tables and DuckDB spills to `temp_directory`,
+# so a cap costs disk and no correctness.
 # ARK_DB_MEMORY_LIMIT overrides it, the VPS and CI being much smaller.
 def _default_memory_limit() -> str:
     """40% of physical memory, floored at 2 GB.
@@ -173,11 +172,11 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
 def connect_patiently(
     db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
 ) -> duckdb.DuckDBPyConnection:
-    """Wait out a writer instead of crashing against one, for a reporting command.
+    """Wait out a writer instead of crashing against one, for a command that writes.
 
-    For `ark check` and `ark stats`, which need the write lock themselves to record a
-    metrics row. ADR-001 puts banking a collector's journal above measuring, so the
-    reporting side yields rather than emitting a traceback a scheduled run reads as broken.
+    For export, ingest and `ark stats`, which records a metrics row. Banking a collector's
+    journal comes before measuring, so a reporting command yields rather than emitting a
+    traceback a scheduled run reads as broken.
     """
     deadline = time.monotonic() + patience_s
     while True:
@@ -195,7 +194,7 @@ def connect_read_only_patiently(
     """Read-only, and waits out a writer instead of crashing against one.
 
     **DuckDB's single writer excludes readers too**, so even a read-only reporting
-    command meets the lock every few minutes while the ingest loop banks journals. Use
+    command meets the lock while a bank writes. Use
     this for anything that must not write; `connect_patiently` for the rest.
     """
     deadline = time.monotonic() + patience_s

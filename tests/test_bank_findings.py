@@ -214,10 +214,10 @@ def test_a_missing_hypothesis_ledger_writes_nothing_and_does_not_stop_the_sync(t
     assert not gone.exists()
 
 
-def test_the_recipe_never_stages_the_ledger_unconditionally():
-    recipe = (ROOT / "justfile").read_text(encoding="utf-8")
-    assert "git add hypotheses.md leads" not in recipe
-    assert "[ -f hypotheses.md ] && git add hypotheses.md" in recipe
+def test_the_fleet_push_never_stages_the_ledger_unconditionally():
+    script = (ROOT / "scripts/harness/push_fleet.sh").read_text(encoding="utf-8")
+    assert "git add hypotheses.md leads" not in script
+    assert "[ -f hypotheses.md ] && git add hypotheses.md" in script
 
 
 def test_a_closed_row_never_exceeds_the_register_line_limit():

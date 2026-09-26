@@ -1,9 +1,13 @@
 """The queue must not put a measured lead in front of Ivo at its guessed price."""
 
+import contextlib
+import io
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts/round"))
 
@@ -144,6 +148,53 @@ class MeasuredTest(unittest.TestCase):
     def test_an_empty_foot_says_everything_is_priced(self):
         page = lead_queue.render([])
         self.assertIn("None. Every live lead has been read and priced.", page)
+
+
+class CachedTest(unittest.TestCase):
+    def test_cached_reads_only_the_slug_list_and_says_when_it_is_missing(self):
+        """The hourly tick opens no store: `--cached` drops what the slug list names even
+        with a store beside it naming others, and with no list the page says so."""
+        import duckdb
+
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            store, cache = tmp / "ark.duckdb", tmp / "banked_slugs.txt"
+            conn = duckdb.connect(str(store))
+            conn.execute("CREATE TABLE ingested_file AS SELECT 'store_only' AS source_name")
+            conn.execute("CREATE TABLE evidence AS SELECT 'store_only' AS acquisition_method")
+            conn.close()
+            (tmp / "leads").mkdir()
+            for slug in ("t-banked", "t-live", "store-only"):
+                (tmp / "leads" / f"{slug}.json").write_text(
+                    json.dumps({"slug": slug, "status": "scouted"}), encoding="utf-8"
+                )
+            cache.write_text("t-banked\n", encoding="utf-8")
+
+            def page() -> str:
+                out = io.StringIO()
+                argv = ["lead_queue.py", "--fleet", str(tmp), "--cached"]
+                with patch.object(sys, "argv", argv), contextlib.redirect_stdout(out):
+                    self.assertEqual(lead_queue.main(), 0)
+                return out.getvalue()
+
+            with (
+                patch.object(lead_queue, "STORE", store),
+                patch.object(lead_queue, "CACHE", cache),
+                patch.object(lead_queue, "DECISIONS", tmp / "none.md"),
+                patch.object(lead_queue, "measured", lambda *a, **k: {}),
+            ):
+                self.assertEqual(lead_queue.banked(store, cached=True), ({"t-banked"}, True))
+                text = page()
+                self.assertNotIn("`t-banked`", text)
+                self.assertIn("`store-only`", text, "the store was never read")
+                self.assertNotIn("could not be read", text)
+                self.assertEqual(cache.read_text(encoding="utf-8"), "t-banked\n")
+                cache.unlink()
+                text = page()
+                self.assertIn("`t-banked`", text)
+                self.assertIn("**The store could not be read this run**", text)
+                # The store would have dropped `store-only`, had it been read.
+                self.assertEqual(lead_queue.banked(store), ({"store-only"}, True))
 
 
 if __name__ == "__main__":

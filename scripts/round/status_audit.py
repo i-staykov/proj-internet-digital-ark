@@ -13,6 +13,8 @@ the URL, so a same-second 200 of another page on the host still backs it.
 It writes under `data/audit/`:
 
     status_errors.tsv.gz   hostname, ts, status, family: every error capture, sorted
+    status_repoint.tsv.gz  hostname, year, ts, family: the earliest 2xx or 3xx capture of
+                           every host-year that has an error capture, one row per group
     status_shipped.tsv     each shipped record resting on one: repoint it to the earliest
                            2xx or 3xx of its host-year, or retract it when there is none
     status_audit.json      the summary it prints
@@ -149,7 +151,7 @@ def shipped_rows(netnew: Path) -> list[dict[str, str]]:
     return out
 
 
-def audit_family(
+def first_pass(
     fam: Family, files: list[Path], want: set[Key], seen_at: dict, ok_year: dict
 ) -> dict:
     """The error captures of one family, and what its raw says about the shipped keys."""
@@ -174,16 +176,29 @@ def audit_family(
                 key = (valid.encode(), ts) if valid else None
                 if key and (key not in errors or status < errors[key]):
                     errors[key] = status
-    # a same-second 2xx or 3xx of the host backs the evidence row, so it is no error capture
-    error_hosts = {h for h, _ in errors}
+    return {"files": len(files), "rows": dict(counts), "errors": errors}
+
+
+def second_pass(
+    name: str, files: list[Path], errors: dict[Key, bytes], need: set[Key], found: dict
+) -> int:
+    """Drop the error captures a same-second 2xx or 3xx of the host backs, and keep the
+    earliest 2xx or 3xx of every host-year in `need`. Returns how many were backed."""
+    need_hosts = {h for h, _ in need}
     shadowed = 0
     for path in files:
-        for ts, url, status in rows(path, fam.cols):
-            if status_class(status) in ("2xx", "3xx"):
-                host = cheap_host(url)
-                if host in error_hosts and errors.pop((host, ts), None) is not None:
-                    shadowed += 1
-    return {"files": len(files), "rows": dict(counts), "errors": errors, "shadowed": shadowed}
+        for ts, url, status in rows(path, FAMILIES[name].cols):
+            if status_class(status) not in ("2xx", "3xx"):
+                continue
+            host = cheap_host(url)
+            if host not in need_hosts:
+                continue
+            if errors.pop((host, ts), None) is not None:
+                shadowed += 1
+            hy = (host, ts[:4])
+            if hy in need and (hy not in found or ts < found[hy][0]):
+                found[hy] = (ts, name)
+    return shadowed
 
 
 def journal_hits(fam: Family, errors: dict[Key, bytes]) -> dict:
@@ -229,6 +244,15 @@ def carried_shipped(path: Path, groups: set[str]) -> list[str]:
     return [line for line in lines if FAMILIES[line.split("\t")[4]].group in groups]
 
 
+def carried_repoint(path: Path, groups: set[str]) -> list[str]:
+    """The repoint rows the last audit wrote for groups this run did not read whole."""
+    if not path.is_file():
+        return []
+    with gzip.open(path, "rt", encoding="utf-8") as fh:
+        lines = fh.read().splitlines(keepends=True)[1:]
+    return [line for line in lines if FAMILIES[line.rstrip("\n").split("\t")[3]].group in groups]
+
+
 def write_gz(path: Path, lines: list[str]) -> None:
     part = path.with_name(path.name + ".part")
     with part.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:
@@ -256,6 +280,7 @@ def main() -> int:
     summary: dict[str, dict] = {"families": {}, "shipped": {}}
     errors: dict[str, dict[Key, bytes]] = {}
     read: set[str] = set()
+    files_of: dict[str, list[Path]] = {}
     for name, fam in FAMILIES.items():
         files = sorted(p for pattern in fam.raw for p in RAW.glob(pattern))
         if name not in names or not files:
@@ -269,20 +294,38 @@ def main() -> int:
         for pattern in fam.raw:
             if not any(True for _ in RAW.glob(pattern)):
                 print(f"{name}: no raw file matches {pattern}, read without it")
-        got = audit_family(fam, files, want, seen_at[fam.group], ok_year[fam.group])
-        read.add(name)
-        errors[name] = got.pop("errors")
-        got["error_captures"] = len(errors[name])
-        got["journals"] = journal_hits(fam, errors[name])
-        summary["families"][name] = got
-        print(
-            f"{name}: {got['files']} raw files, in window {got['rows']}; "
-            f"{got['error_captures']:,} error captures ({got['shadowed']:,} backed by a "
-            f"same-second 2xx or 3xx); journal rows on one: {got['journals']['rows']:,} "
-            f"({got['journals']['host_years']:,} host-years)"
-        )
-        for line in got["journals"]["named"]:
-            print(f"    {line}")
+        files_of[name] = files
+
+    # One group at a time: the first pass finds every family's error captures, the second
+    # drops those a same-second 2xx or 3xx backs and finds each host-year's earliest one.
+    repoint: dict[str, dict[tuple[bytes, bytes], tuple[bytes, str]]] = {}
+    for group in GROUPS:
+        members = [n for n in files_of if FAMILIES[n].group == group]
+        for name in members:
+            got = first_pass(FAMILIES[name], files_of[name], want, seen_at[group], ok_year[group])
+            errors[name] = got.pop("errors")
+            summary["families"][name] = got
+        need = {(h, ts[:4]) for n in members for h, ts in errors[n]}
+        found: dict[tuple[bytes, bytes], tuple[bytes, str]] = {}
+        for name in members:
+            summary["families"][name]["shadowed"] = second_pass(
+                name, files_of[name], errors[name], need, found
+            )
+            read.add(name)
+        left = {(h, ts[:4]) for n in members for h, ts in errors[n]}
+        repoint[group] = {hy: v for hy, v in found.items() if hy in left}
+        for name in members:
+            got = summary["families"][name]
+            got["error_captures"] = len(errors[name])
+            got["journals"] = journal_hits(FAMILIES[name], errors[name])
+            print(
+                f"{name}: {got['files']} raw files, in window {got['rows']}; "
+                f"{got['error_captures']:,} error captures ({got['shadowed']:,} backed by a "
+                f"same-second 2xx or 3xx); journal rows on one: {got['journals']['rows']:,} "
+                f"({got['journals']['host_years']:,} host-years)"
+            )
+            for line in got["journals"]["named"]:
+                print(f"    {line}")
 
     lines = ["hostname\tts\tstatus\tfamily\n"]
     body = [
@@ -292,9 +335,19 @@ def main() -> int:
     ]
     write_gz(errors_path, lines + sorted(body))
 
-    report = ["hostname\tyear\tts\tstatus\tfamily\tmethod\tgrain\taction\trepoint_ts\n"]
     # a group is classified only when every family of it was read, or it keeps the last audit's
     whole = {g for g in GROUPS if all(n in read for n, f in FAMILIES.items() if f.group == g)}
+    repoint_path = args.out / "status_repoint.tsv.gz"
+    kept = carried_repoint(repoint_path, set(GROUPS) - whole)
+    fresh = [
+        f"{h.decode()}\t{y.decode()}\t{ts.decode()}\t{n}\n"
+        for group, rows in repoint.items()
+        if group in whole
+        for (h, y), (ts, n) in rows.items()
+    ]
+    write_gz(repoint_path, ["hostname\tyear\tts\tfamily\n"] + sorted(kept + fresh))
+
+    report = ["hostname\tyear\tts\tstatus\tfamily\tmethod\tgrain\taction\trepoint_ts\n"]
     report += carried_shipped(args.out / "status_shipped.tsv", set(GROUPS) - whole)
     for group, pairs in GROUPS.items():
         mine = [r for r in shipped if r["group"] == group]

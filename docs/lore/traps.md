@@ -71,12 +71,6 @@ pairs and 479.4256 EE under `.arpa` or dated before their TLD existed, which no 
 credited for. `ark.delegation.shipping_filter` is the one predicate; every count that claims to
 be what ships takes it, and a new counter that does not is wrong by construction.
 
-**A figure is comparable only to a figure over the same window, and an exported file has no
-window.** Quote the cumulative for a submission, because that is what he merges, and ask
-`scripts/round/added_since.py` what a session added. `round_figures.py` still takes its hostname
-half by reading the exported `*_hostnames.txt` files, which carry no timestamps, so the two halves
-of its increment disagree whenever a round opens before his feedback lands.
-
 **A hostname-grain figure is not a figure until the `www.` alias share is measured.** `ukwa` came
 back at 20,916.90 EE of which 99.5% was `www.<a name already held that year>`, and
 `nypw_firstcdx` at 7,074.09 EE of which 100.0% was. Both WERE banked: ADR-008 admits the alias as
@@ -228,7 +222,8 @@ from the archive, only a reshaping of bytes already held, and its absence from t
 exactly as much as a collector's would.
 
 The rule: **a lane is not finished when its ingest works, it is finished when a loop calls it.**
-Add the `maintain.sh` line in the same commit that adds the ingest. Three of the five instances
+Add its line to `just bank` step c and its glob to `bank_trigger.py` FOLD in the commit that adds
+the ingest. Three of the five instances
 above were written on the day the pattern was named, by someone who had just named it, which is
 why this is a trap and not a reminder.
 
@@ -267,10 +262,9 @@ names the probe's own PID while suggesting read-only mode, which points the read
     IO Error: Could not set lock on file "data/ark.duckdb": Conflicting lock is held in
     .../python3.12 (PID 4700) ... you would be able to open this database in read-only mode
 
-So before anything that writes, stop the loops that ingest. The order that works is: stop
-`pull_suffix_loop.sh` and `maintain.sh`, run the write, run `ark export` then `ark check`, then
-restart the loops. `ark check` is a reader and conflicts with an ingest exactly the same way, which
-is why the gate cannot be run while a collection loop is folding.
+So before anything that writes, take the sync lock, because `just bank` is the only other writer:
+run the write, then `ark export` then `ark check`, then drop the lock. `ark check` is a reader and
+conflicts with an ingest exactly the same way, which is why the gate cannot run while a bank folds.
 
 A long read against the live store is also worth avoiding for its own sake: it holds the lock for
 its whole duration, and the collectors are what earn.

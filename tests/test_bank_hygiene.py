@@ -1,4 +1,4 @@
-"""The bank runs hourly and unwatched, so its hygiene has to be a program.
+"""The tick and the bank run unwatched, so their hygiene has to be a program.
 
 Four properties: a dirty clone is refused **before** anything is fetched or written, a
 diverged clone is fast-forwarded rather than merged, the gate issue is opened once per
@@ -141,20 +141,24 @@ def test_a_dirty_clone_is_refused_before_anything_is_fetched(tmp_path: Path) -> 
     assert (ours / "src/page.txt").read_text(encoding="utf-8") == "mine\n"
 
 
-def test_an_untracked_file_is_fatal_only_where_the_bank_stages_by_directory(
-    tmp_path: Path,
-) -> None:
-    """`git add docs/` is how a 1.3 GB copy once reached history; a scratch file is not."""
+def test_an_untracked_file_is_fatal_only_where_the_bank_stages(tmp_path: Path) -> None:
+    """The bank's `git add` names the registers, so a draft there would be committed; a
+    scratch file at the root or under src/ is nobody's business but its author's."""
     _, ours = _clones(tmp_path)
     (ours / "scratch.txt").write_text("notes\n", encoding="utf-8")
-    code, lines = preflight_in(ours)
-    assert code == 0
-    assert any("untracked, not staged by the bank" in line for line in lines)
-
     (ours / "src/new.txt").write_text("draft\n", encoding="utf-8")
     code, lines = preflight_in(ours)
+    assert code == 0
+    assert sum("untracked, not staged by the bank" in line for line in lines) == 2
+
+    (ours / "docs/registers").mkdir(parents=True)
+    (ours / "docs/registers/sources.md").write_text("rows\n", encoding="utf-8")
+    _git(ours, "add", "docs/registers/sources.md")
+    _git(ours, "commit", "-m", "registers")
+    (ours / "docs/registers/new.txt").write_text("draft\n", encoding="utf-8")
+    code, lines = preflight_in(ours)
     assert code == 2
-    assert any("src/new.txt" in line for line in lines)
+    assert any("docs/registers/new.txt" in line for line in lines)
 
 
 def test_a_diverged_clone_is_refused_rather_than_merged(tmp_path: Path) -> None:
@@ -230,7 +234,7 @@ def test_verified_old_staging_can_be_pruned(tmp_path: Path, monkeypatch) -> None
 def test_the_gate_does_nothing_below_the_threshold(tmp_path: Path) -> None:
     calls = []
     lines = hyg.gate(
-        {"percent": 4.9312, "gate_pct": 5.0, "round": "8", "baseline": "m1"},
+        {"field5_percent": "4.931200", "gate_pct": 5.0, "round": "8", "baseline": "m1"},
         latch_path=tmp_path / "latch.tsv",
         call=lambda args: calls.append(args) or (0, ""),
         write=True,
@@ -239,16 +243,15 @@ def test_the_gate_does_nothing_below_the_threshold(tmp_path: Path) -> None:
     assert "not crossed" in lines[0]
 
 
-def test_the_gate_reads_this_rounds_window_and_not_the_total(tmp_path: Path) -> None:
-    """The total carries the round already sent to him, so it cannot decide a crossing: his
-    release lags our submission by days, and the morning a round opens the total net-new
-    against the newest baseline is still the last round's.
-    """
+def test_the_gate_quotes_field_5_and_no_other_percent(tmp_path: Path) -> None:
+    """Field 5 is the figure ROUND.md prints, so the gate quotes its string and a stray
+    percent in the brief decides nothing."""
     calls = []
     lines = hyg.gate(
         {
             "percent": 5.3597,
-            "round_percent": 0.0412,
+            "round_percent": 5.3597,
+            "field5_percent": "0.252400",
             "gate_pct": 5.0,
             "round": "10",
             "baseline": "m1",
@@ -258,12 +261,22 @@ def test_the_gate_reads_this_rounds_window_and_not_the_total(tmp_path: Path) -> 
         write=True,
     )
     assert calls == []
-    assert "at 0.0412%" in lines[0]
+    assert lines == ["at 0.252400%, gate at 5%: not crossed"]
+
+
+def test_a_brief_without_field_5_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+    from ark.baseline import CURRENT_BASELINE_MARKER
+
+    brief = {"percent": 5.5, "gate_pct": 5.0, "round": "8", "baseline": CURRENT_BASELINE_MARKER}
+    (tmp_path / "brief.json").write_text(json.dumps(brief), encoding="utf-8")
+    monkeypatch.setattr(hyg, "BRIEF", tmp_path / "brief.json")
+    assert hyg._brief() is None
+    assert "no field5_percent" in capsys.readouterr().out
 
 
 def test_the_gate_issue_is_opened_once_per_crossing(tmp_path: Path) -> None:
     """Opened once it is information. Opened hourly it is noise, and gets muted."""
-    brief = {"percent": 5.0104, "gate_pct": 5.0, "round": "8", "baseline": "m1"}
+    brief = {"field5_percent": "5.010400", "gate_pct": 5.0, "round": "8", "baseline": "m1"}
     latch = tmp_path / "latch.tsv"
     calls = []
 
@@ -274,7 +287,7 @@ def test_the_gate_issue_is_opened_once_per_crossing(tmp_path: Path) -> None:
     now = datetime(2026, 9, 3, 14, 3, tzinfo=UTC)
     first = hyg.gate(brief, released="2026-09-02", latch_path=latch, now=now, call=call, write=True)
     assert "opened the gate issue" in first[0]
-    assert "Round 8 at 5.0104% against m1 (released 2026-09-02) at 14:03 UTC" in first[0]
+    assert "Round 8 at 5.010400% against m1 (released 2026-09-02) at 14:03 UTC" in first[0]
     created = [args for args in calls if args[:2] == ["issue", "create"]]
     assert len(created) == 1
 
@@ -290,7 +303,7 @@ def test_an_issue_already_open_is_latched_rather_than_duplicated(tmp_path: Path)
     """The ledger cannot see an issue somebody opened by hand, so the query is asked too."""
     calls = []
     lines = hyg.gate(
-        {"percent": 5.5, "gate_pct": 5.0, "round": "8", "baseline": "m1"},
+        {"field5_percent": "5.500000", "gate_pct": 5.0, "round": "8", "baseline": "m1"},
         latch_path=tmp_path / "latch.tsv",
         call=lambda args: calls.append(args) or (0, "12"),
         write=True,
@@ -307,7 +320,7 @@ def test_two_consecutive_banks_with_no_new_data_change_nothing(tmp_path: Path, m
     _staging(tmp_path)
     verified_staging(tmp_path, monkeypatch)
     latch = tmp_path / "data/logs/gate_notified.tsv"
-    brief = {"percent": 5.0104, "gate_pct": 5.0, "round": "8", "baseline": "m1"}
+    brief = {"field5_percent": "5.010400", "gate_pct": 5.0, "round": "8", "baseline": "m1"}
     calls = []
 
     def call(args):

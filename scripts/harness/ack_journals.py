@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import duckdb
+from ark.db import connect_read_only_patiently
 
 REPO = Path(__file__).resolve().parents[2]
 STORE = REPO / "data/ark.duckdb"
@@ -31,8 +31,9 @@ JOURNAL_SUFFIXES = (".jsonl.gz", ".jsonl")
 
 
 def acks(store: Path = STORE) -> list[tuple[str, str]]:
-    """Every ingested journal as (file name, sha256), newest ingest first."""
-    conn = duckdb.connect(str(store), read_only=True)
+    """Every ingested journal as (file name, sha256), newest ingest first. A writer held
+    past a minute raises, which the sync reads as a skipped ack."""
+    conn = connect_read_only_patiently(store, patience_s=60)
     try:
         clause = " OR ".join(f"file_name LIKE '%{s}'" for s in JOURNAL_SUFFIXES)
         return conn.execute(

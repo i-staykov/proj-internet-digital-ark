@@ -6,6 +6,8 @@ prose into a row that reads like a measurement; a re-price that cannot find the 
 answer would report zero, the one wrong answer that looks like a result.
 """
 
+import gzip
+import hashlib
 import importlib.util
 import json
 import os
@@ -293,3 +295,125 @@ def test_an_unrecognised_file_is_kept_rather_than_deleted_with_the_run(tmp_path)
     module.drain(incoming)
     kept = list((incoming / "_unread").rglob("bad.lead.json"))
     assert kept, "an unrecognised file went with the run directory"
+
+
+def _remote_read(root, slug="a-lead", complete=True, tamper=False, extra="", rename=""):
+    """A read as `read.yaml` leaves it on the VPS: parts plus the receipt that lists them."""
+    directory = root / "journals" / slug
+    directory.mkdir(parents=True)
+    parts, whole = [], hashlib.sha256()
+    for n in (1, 2):
+        name = f"fleetread_bulk_cdx_file__{slug}_000{n}.jsonl.gz"
+        body = gzip.compress(
+            f'{{"url": "http://h{n}.example.com/", "timestamp": "1999"}}\n'.encode()
+        )
+        (directory / name).write_bytes(body)
+        parts.append({"name": name, "sha256": hashlib.sha256(body).hexdigest(), "rows": 1})
+        whole.update(body)
+    if tamper:
+        (directory / parts[0]["name"]).write_bytes(b"changed on the way")
+    if extra:
+        (directory / extra).write_bytes(b"not the read's")
+    if rename:
+        parts[1]["name"] = rename
+    receipt = {"complete": complete, "parts": parts, "journal_sha256": whole.hexdigest()}
+    (directory / "receipt.json").write_text(json.dumps(receipt))
+    return root / "journals"
+
+
+def test_a_complete_read_is_pulled_whole_and_verified(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARK_READ_REMOTE", str(_remote_read(tmp_path)))
+    monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    got = module.fetch_read(lead)
+    assert got == tmp_path / "fleet_read" / "a-lead"
+    assert sorted(p.name for p in got.glob("fleetread_*")) == [
+        "fleetread_bulk_cdx_file__a-lead_0001.jsonl.gz",
+        "fleetread_bulk_cdx_file__a-lead_0002.jsonl.gz",
+    ]
+    assert module.verify_read(got) == ""
+    monkeypatch.setenv("ARK_READ_REMOTE", str(tmp_path / "nowhere"))
+    assert module.fetch_read(lead) == got, "a verified read here is not pulled again"
+
+
+def test_an_incomplete_or_mismatched_read_pulls_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    cases = (
+        ("incomplete", {"complete": False}),
+        ("tampered", {"tamper": True}),
+        ("unlisted", {"extra": "notes.jsonl.gz"}),
+        ("escaping", {"rename": "../fleetread_bulk_cdx_file__a-lead_0002.jsonl.gz"}),
+    )
+    for case, kwargs in cases:
+        remote = _remote_read(tmp_path / case, **kwargs)
+        monkeypatch.setenv("ARK_READ_REMOTE", str(remote))
+        assert module.fetch_read(lead) is None, case
+        assert not (tmp_path / "fleet_read" / "a-lead").exists(), case
+        assert list((tmp_path / "fleet_read").iterdir()) == [], f"{case}: staging left behind"
+    out = capsys.readouterr().out
+    assert "does not say complete" in out and "does not match its sha256" in out
+    assert "notes.jsonl.gz is not in the receipt" in out
+    assert "is not a fleet read part name" in out
+
+
+def test_a_banked_read_part_is_acked_by_its_sha256(tmp_path, monkeypatch):
+    """The VPS frees a part once `journal_acks.tsv` holds its sha256, which the ingest wrote."""
+    import duckdb
+
+    from ark import approvals
+    from ark.db import init_db
+    from ark.hostnames import ingest_hostname_journal
+
+    spec = importlib.util.spec_from_file_location(
+        "ack_journals", ROOT / "scripts/harness/ack_journals.py"
+    )
+    ack = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ack)
+    register = tmp_path / "approved.md"
+    register.write_text(
+        "## Decided\n\n### fleet_a_lead_hostnames / cdx_timestamp\n\nDecision: master\n"
+    )
+    monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
+    part = _remote_read(tmp_path) / "a-lead" / "fleetread_bulk_cdx_file__a-lead_0001.jsonl.gz"
+    part.write_bytes(
+        gzip.compress(
+            json.dumps(
+                {
+                    "url": "http://www.h1.example.com/",
+                    "timestamp": "19990101000000",
+                    "status": "200",
+                }
+            ).encode()
+            + b"\n"
+        )
+    )
+    store = tmp_path / "store.duckdb"
+    conn = duckdb.connect(str(store))
+    init_db(conn)
+    assert ingest_hostname_journal(conn, part)["hostname_year_rows"] == 1
+    conn.close()
+    assert (part.name, hashlib.sha256(part.read_bytes()).hexdigest()) in ack.acks(store)
+
+
+def test_a_read_lead_is_priced_on_its_pulled_parts_at_hostname_grain(tmp_path, monkeypatch):
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    (lead / "read.json").write_text("{}")
+    parts = tmp_path / "fleet_read" / "a-lead"
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: parts)
+    ran = []
+
+    def fake_run(cmd, **_kwargs):
+        ran.append(cmd)
+        out = "NET-NEW hostname years 1,234  567.8 EE\n"
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    result = module.price(lead, {"verdict": "FIND"})
+    assert ran == [["uv", "run", "python", "scripts/pricing/price_hostnames.py", str(parts)]]
+    assert (result["status"], result["grain"], result["netnew"]) == ("priced", "hostname", 1234)
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: None)
+    assert module.price(lead, {"verdict": "FIND"})["ee"] is None

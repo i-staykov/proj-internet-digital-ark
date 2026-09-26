@@ -1,12 +1,12 @@
 """The three things an unattended bank has to get right besides banking.
 
-The bank runs hourly, pushes `live`, and nobody watches it. So its failures are the
-quiet kind:
+The tick runs hourly and the bank on change, both push `live`, and nobody watches
+them. So their failures are the quiet kind:
 
-1. **A dirty clone.** The recipe stages whole directories (`git add docs/ src/`),
-   which is how a 1.3 GB baseline copy once reached git history. A clone with
-   uncommitted tracked edits, or with untracked files under the paths the bank
-   stages, is refused BEFORE anything is written or fetched.
+1. **A dirty clone.** The tick and the bank stage the registers by path, and a
+   wholesale `git add docs/` is how a 1.3 GB baseline copy once reached git history.
+   A clone with uncommitted tracked edits, or with untracked files under the paths
+   the bank stages, is refused BEFORE anything is written or fetched.
 2. **A diverged clone.** Approvals now arrive as pull requests merged from a phone,
    so `live` moves without this machine. A fast-forward-only pull is the whole fix:
    it takes the merge and refuses to invent one.
@@ -47,16 +47,16 @@ BRIEF = ROOT / "data/brief.json"
 LATCH = ROOT / "data/logs/gate_notified.tsv"
 FLEET_REPO = "i-staykov/ark-fleet"
 
-# Paths the bank recipe stages wholesale. An untracked file under one of these is
-# fatal rather than a warning, because `git add docs/` would commit it. Kept in step
-# with the recipe's own `git add` line: widening that without widening this is how an
+# Paths the tick and the bank stage. An untracked file under one of these is fatal
+# rather than a warning, because their `git add` would commit it. Kept in step with
+# both recipes' `git add` line: widening that without widening this is how an
 # untracked file gets committed by a job nobody is watching.
-STAGED = ("docs/", "src/", "justfile")
+STAGED = ("docs/registers/", "docs/lore/key-decisions.md")
 # **Pages a program writes, which must never refuse the bank.** `discover_cycle.py`
 # rewrites these every cycle and commits neither, so a changed triage count left the clone
 # dirty, preflight refused, and banking stopped until a human noticed. Measured 2026-09-19:
 # one such counter moving 49 -> 50 stalled the bank for an hour. They are inside `STAGED`,
-# so the sync that follows commits them itself, which is the intended flow.
+# so the next commit the tick or the bank makes takes them, which is the intended flow.
 GENERATED = (
     "docs/lore/key-decisions.md",
     # `bank_findings.py` books every FIND in the first and every CLOSED in the second,
@@ -64,7 +64,7 @@ GENERATED = (
     # sync refusing a row it wrote itself.
     "docs/registers/sources.md",
     "docs/registers/sources-closed.md",
-    # `lead_queue.py` rewrites this at step 6b of the sync, from lead files the same run
+    # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
     # pulled. It refused the 2026-09-19 04:05 bank while sitting one commit behind.
     "docs/registers/queue.md",
 )
@@ -306,26 +306,23 @@ def gate(
 ) -> list[str]:
     """Open the gate issue on a crossing, once, and say what it did.
 
-    The figure comes from `data/brief.json`, which `build_round_state.py` writes at
-    the end of the bank, so this reads the number the bank itself measured rather
-    than opening the store a second time.
+    The figure is field 5 from `data/brief.json`, which `build_round_state.py` writes at
+    the end of the bank, quoted as ROUND.md prints it rather than measured a second time.
     """
     now = now or datetime.now(UTC)
-    # **This round's window, not the total.** His current release lacks the round already
-    # sent to him, so the total carries that round inside it and would report a crossing
-    # on the day the next window opened, with nothing collected. A brief written before
-    # the window figures existed still answers on the total.
-    percent = float(brief.get("round_percent", brief.get("percent", 0.0)))
+    # Field 5 counts against his release, so a shipped round reads over the gate until the
+    # next release, and the latch below keys on the release alone: one crossing per release.
+    percent = brief["field5_percent"]
     target = float(brief.get("gate_pct", 5.0))
     label = str(brief.get("round", "?"))
     # The brief carries Ivo's numbering as a bare label ("8"), and the open-issue
     # query keys on the title, so the word belongs here and only here.
     round_name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))
-    if percent < target:
-        return [f"at {percent:.4f}%, gate at {target:g}%: not crossed"]
-    if (label, marker) in latched(latch_path):
-        return [f"gate already notified for {round_name} against {marker}: nothing to do"]
+    if float(percent) < target:
+        return [f"at {percent}%, gate at {target:g}%: not crossed"]
+    if marker in {m for _, m in latched(latch_path)}:
+        return [f"gate already notified against {marker}: nothing to do"]
 
     code, out = call(
         [
@@ -353,11 +350,11 @@ def gate(
 
     stamp = now.strftime("%H:%M UTC")
     since = f" (released {released})" if released else ""
-    title = f"{round_name} at {percent:.4f}% against {marker}{since} at {stamp}"
+    title = f"{round_name} at {percent}% against {marker}{since} at {stamp}"
     body = "\n".join(
         [
-            f"{round_name} crossed the {target:g}% gate: {percent:.4f}% against `{marker}`"
-            f"{since}, measured by the hourly bank at {now.isoformat(timespec='seconds')}.",
+            f"{round_name} crossed the {target:g}% gate: field 5 is {percent}% against "
+            f"`{marker}`{since}, read off the last bank at {now.isoformat(timespec='seconds')}.",
             "",
             "Next: merge any open approval PR, then run `just ship` where the store is.",
             "Opened once per crossing, and closed on a verified package.",
@@ -387,6 +384,9 @@ def _brief() -> dict | None:
             f"brief is against {brief.get('baseline')}, the current release is "
             f"{CURRENT_BASELINE_MARKER}: refresh it before the gate is read"
         )
+        return None
+    if "field5_percent" not in brief:
+        print("brief carries no field5_percent: docs/ROUND.md says why; gate not checked")
         return None
     return brief
 

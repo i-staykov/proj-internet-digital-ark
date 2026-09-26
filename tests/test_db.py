@@ -201,21 +201,93 @@ def test_read_only_patient_connect_reraises_anything_that_is_not_the_lock(tmp_pa
         connect_read_only_patiently(tmp_path / "x.duckdb", patience_s=60)
 
 
-def test_a_connection_is_capped_and_can_spill() -> None:
-    """**DuckDB takes 80% of the machine unless told otherwise**, and this store is 52 GB.
-    Measured 2026-09-08 on a 36 GB laptop: one `build_round_state.py` sat at 28 GB resident
-    while `just sync`, `just state` and `just cycle` each start one, and the machine
-    swapped. The cap keeps a reporting query from evicting everything else; the spill
-    directory keeps the cap from turning into an error.
+def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, monkeypatch) -> None:
+    """**DuckDB takes 80% of the machine unless told otherwise**, and the store is tens of GB,
+    so every opener goes through `ark.db` for the cap. `ark check` is a reader: it moves
+    neither the store file nor its metrics rows.
     """
-    conn = connect(":memory:")
-    settings = {
-        name: conn.execute(f"SELECT current_setting('{name}')").fetchone()[0]
-        for name in ("memory_limit", "threads", "temp_directory")
-    }
-    assert settings["memory_limit"] != "0 bytes"
-    # 10GB reads back as "9.3 GiB", so compare the number rather than the string
-    gib = float(settings["memory_limit"].split()[0])
-    assert 0 < gib <= 32, settings["memory_limit"]
-    assert int(settings["threads"]) <= 8, settings["threads"]
-    assert settings["temp_directory"], "no spill directory: a capped query would fail"
+    import importlib.util
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from typer.testing import CliRunner
+
+    import ark.db
+    from ark.cli import app
+    from ark.metrics import record_metrics
+
+    probe = "import ark.db; print(ark.db.DB_MEMORY_LIMIT)"
+    env = {**os.environ, "ARK_DB_MEMORY_LIMIT": "3GiB"}
+    done = subprocess.run(
+        [sys.executable, "-c", probe], env=env, capture_output=True, text=True, check=True
+    )
+    assert done.stdout.strip() == "3GiB"
+
+    # DuckDB reads the limit back rounded, so the expected value is its own readback
+    raw = duckdb.connect(":memory:")
+    raw.execute("SET memory_limit='3GiB'")
+    expected = raw.execute("SELECT current_setting('memory_limit')").fetchone()[0]
+    raw.close()
+    monkeypatch.setattr(ark.db, "DB_MEMORY_LIMIT", "3GiB")
+    seen = []
+    real = ark.db._tune
+
+    def spy(conn):
+        conn = real(conn)
+        seen.append(conn.execute("SELECT current_setting('memory_limit')").fetchone()[0])
+        return conn
+
+    monkeypatch.setattr(ark.db, "_tune", spy)
+
+    monkeypatch.chdir(tmp_path)
+    store = tmp_path / "data/ark.duckdb"
+    conn = ark.db.connect(store)
+    init_db(conn)
+    record_metrics(conn, "seed", "fixture", {})
+    conn.close()
+
+    # Each script gets the tmp store: its own STORE and CACHE sit under the live data/.
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+
+    def load(rel: str):
+        spec = importlib.util.spec_from_file_location(Path(rel).stem, scripts / rel)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    audit_residual = load("harness/audit_residual.py")
+    price_items = load("pricing/price_items.py")
+    ack_journals = load("harness/ack_journals.py")
+    lead_queue = load("round/lead_queue.py")
+    monkeypatch.setattr(price_items, "STORE", store)
+    monkeypatch.setattr(lead_queue, "CACHE", tmp_path / "banked_slugs.txt")
+
+    # one at a time: a read-write open fails while a read-only one lives in this process
+    ark.db.connect_patiently(store).close()
+    ark.db.connect_read_only_patiently(store).close()
+    audit_residual.read_only_store(store).close()
+    price_items.read_only_store().close()
+    assert ack_journals.acks(store) == []
+    assert lead_queue.banked(store) == (set(), True)
+
+    st = store.stat()
+    before = (st.st_size, st.st_mtime_ns)
+    result = CliRunner().invoke(app, ["check"])
+    assert result.exit_code == 0 and "ALL PASS" in result.output, result.output
+    st = store.stat()
+    assert (st.st_size, st.st_mtime_ns) == before
+    reader = duckdb.connect(str(store), read_only=True)
+    assert reader.execute("SELECT command FROM run_metrics").fetchall() == [("seed",)]
+    reader.close()
+
+    assert len(seen) == 8 and set(seen) == {expected}, seen
+    for rel in (
+        "harness/audit_residual.py",
+        "harness/ack_journals.py",
+        "pricing/price_items.py",
+        "round/lead_queue.py",
+        "round/package_delivery.sh",
+    ):
+        assert "duckdb.connect(" not in (scripts / rel).read_text(encoding="utf-8"), rel

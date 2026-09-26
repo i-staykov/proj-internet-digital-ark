@@ -7,9 +7,12 @@ These pin that rule and record why the alternatives were rejected.
 
 import importlib.util
 import re
+import sys
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+
+import pytest
 
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS, awarded_score_of
 from ark.figures import (
@@ -223,3 +226,122 @@ def test_the_round_since_total_is_bound_once_in_main() -> None:
             f"{name} is bound {bound.count(name)} times in main(); the mean weight line "
             "reads whatever was assigned last"
         )
+
+
+def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatch, capsys) -> None:
+    """The bank quotes field 5 while it may hold the writer, so the default mode reads only
+    files. A `www.` host counts as an alias only when its bare name is held that same year.
+    """
+    import duckdb
+
+    spec = importlib.util.spec_from_file_location(
+        "round_figures_default", ROOT / "scripts/round/round_figures.py"
+    )
+    rf = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rf)
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("the default figures opened the store")
+
+    netnew, his = tmp_path / "output/netnew", tmp_path / "his"
+    netnew.mkdir(parents=True)
+    his.mkdir()
+    for year in range(1996, 2002):
+        for path in (netnew / f"{year}.txt", netnew / f"{year}_hostnames.txt", his / f"{year}.txt"):
+            path.write_text("")
+    (netnew / "2001.txt").write_text("d.com\n")
+    (netnew / "2001_hostnames.txt").write_text("www.a.com\nwww.b.com\nwww.c.net\n")
+    (netnew / "attested_registrables.txt").write_text("2000\tb.com\n2001\tc.net\n")
+    (his / "2000.txt").write_text("b.com\n")
+    (his / "2001.txt").write_text("a.com\n")
+    monkeypatch.setattr(rf, "open_store", refuse)
+    monkeypatch.setattr(duckdb, "connect", refuse)
+    monkeypatch.setattr(
+        rf, "english_weights", lambda: {"com": Decimal("0.5"), "net": Decimal("0.25")}
+    )
+    monkeypatch.setattr(rf, "REPO", tmp_path)
+    monkeypatch.setattr(rf, "NETNEW", netnew)
+    monkeypatch.setattr(rf, "ATTESTED", netnew / "attested_registrables.txt")
+    monkeypatch.setattr(rf, "MERGED_BASELINE", his)
+    monkeypatch.setattr(sys, "argv", ["round_figures.py"])
+
+    rf.main()
+    out = capsys.readouterr().out
+    field = dict(re.findall(r"^([345])\. .*: (.+)$", out, re.M))
+    assert field["3"] == "4 records"
+    assert field["4"] == "1.7500"
+    assert field["5"] == f"{Decimal('1.75') / rf.BASELINE_EE * 100:.6f}%"
+    assert "| 2001 | 4 | 1.7500 |" in out
+    # a.com is his 2001 and c.net is attested 2001; b.com is held only in 2000
+    assert ": 2 records  0.7500  (60.0% of the hostname half)" in out
+
+    (netnew / "attested_registrables.txt").unlink()
+    rf.main()
+    assert "not measured, output/netnew lacks attested_registrables.txt" in capsys.readouterr().out
+    (netnew / "1996.txt").unlink()
+    with pytest.raises(SystemExit, match="lacks 1996.txt: run ark export --claim"):
+        rf.main()
+
+
+def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The bank writes ROUND.md while it holds the writer, so the default build runs
+    round_figures once, opens no store, and the brief carries the field 5 ROUND.md prints."""
+    import json
+
+    import duckdb
+
+    spec = importlib.util.spec_from_file_location(
+        "build_round_state", ROOT / "scripts/round/build_round_state.py"
+    )
+    brs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(brs)
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("the default build opened the store")
+
+    figures = (
+        "3. Increment                                  : 1,234 records\n"
+        "4. Equivalent-English increment               : 3,456.7800\n"
+        "5. Equivalent-English growth rate             : 0.252350%\n"
+    )
+    calls = []
+    monkeypatch.setattr(brs, "run", lambda cmd, timeout: calls.append(cmd) or figures)
+    monkeypatch.setattr("ark.db.connect_read_only_patiently", refuse)
+    monkeypatch.setattr(duckdb, "connect", refuse)
+    monkeypatch.setattr(brs, "pending_approvals", lambda: [])
+    monkeypatch.setattr(brs, "open_decisions", lambda: [])
+    monkeypatch.setattr(brs, "ROOT", tmp_path)
+    monkeypatch.setattr(brs, "OUT", tmp_path / "docs/ROUND.md")
+    monkeypatch.setattr(brs, "BRIEF", tmp_path / "data/brief.json")
+    (tmp_path / "docs").mkdir()
+    netnew = tmp_path / "output/netnew"
+    netnew.mkdir(parents=True)
+    (netnew / "2001.txt").write_text("d.com\n")
+    stamp = netnew / "export_stamp.json"
+    stamp.write_text(json.dumps({"baseline": brs.CURRENT_BASELINE_MARKER}))
+
+    monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
+    brs.main()
+    text = brs.OUT.read_text()
+    brief = json.loads(brs.BRIEF.read_text())
+    assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
+    assert brief["field5_percent"] == "0.252350"
+    assert re.search(r"^5\. .*: (.+)$", text, re.M).group(1) == brief["field5_percent"] + "%"
+    assert "## The scoreboard" not in text and "## What is on disk" not in text
+
+    monkeypatch.setattr(sys, "argv", ["build_round_state.py", "--check"])
+    brs.main()
+    assert "is current" in capsys.readouterr().out
+    (netnew / "2001.txt").write_text("e.com\n")
+    with pytest.raises(SystemExit, match="is stale"):
+        brs.main()
+    assert "netnew/2001.txt: changed" in capsys.readouterr().out
+
+    # An export with no stamp, crashed or older than stamps, is never quoted.
+    stamp.unlink()
+    monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
+    with pytest.raises(SystemExit, match="no export stamp"):
+        brs.main()
+    assert "field5_percent" not in json.loads(brs.BRIEF.read_text())

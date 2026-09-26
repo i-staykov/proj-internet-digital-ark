@@ -20,7 +20,7 @@ answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated sna
 record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry,
 RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate.
 
-**The 5% gate is a floor on sending and nothing ships under it** (C-78, C-89). We may ASK Ding to
+**The 5% gate is a floor on sending and nothing ships under it.** We may ASK Ding to
 accept less when the research side carries it; he decides. Never package a short round unasked.
 Past the floor, submit at once. **Where the round stands is in `docs/ROUND.md`, generated.**
 
@@ -42,8 +42,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 1. `just cycle`. Fix anything it flags that a program cannot decide.
 2. **GATHER CANDIDATES.** Both tracks score at the same rate and a candidate costs no dating
    argument, approval or evidence class. Both ship net-new against HIS files, diffed at export.
-3. **Hunt a bulk dated HOSTNAME corpus that meets the XIII standard**; `just hostnames <epoch>`.
-   The sweep's 193,000 EE/client-hour is a peak, not a rate: 210 EE/hour two nights on.
+3. **Hunt a bulk dated HOSTNAME corpus that meets the XIII standard.**
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
    confirmed FIND, writes the `Decision:` line or raises the approval, and pushes.
@@ -53,19 +52,18 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 
 1. **Any branch but `main` may be pushed; `main` only by PR.** `origin` is PUBLIC, so a commit
    message names no host, IP, email body or personal context.
-2. Gate before every commit, never through a pipe:
-   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`,
-   with `ark export` before `ark check`.
+2. The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
 3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
 4. `private/` never ships.
 5. **Big data must never reach git.**
-6. **Three archive clients maximum** (C-97): all three hold `web.archive.org/cdx`, two on the
+6. **Three archive clients maximum**: all three hold `web.archive.org/cdx`, two on the
    laptop and one on the VPS, and no agent may query it. The rest of archive.org is open to a
    research lane; no lane pauses a collector. Honest User-Agent, honour `Retry-After`. **On
    throttling, retire a client, never add one.**
-7. **The loop writes its own `Decision:` line when all four hold**: the class is master-eligible
-   under XIII, a machine-written stamp in the artifact dates one item and is quoted, the terms
-   permit it, and `ark check` passes after the ingest. Any one failing parks it `pending`.
+7. **Autonomy.** A lead inside the standing size, terms, robots and class bounds gets its
+   `Decision:` line from the loop and proceeds without approval; its register row and ledger line
+   document it for review with the submission. Outside any bound it parks `pending`. The owner
+   approves a new evidence class and every send. The bounds live once, in ark-fleet `policy.json` `standing`.
 8. **Every source gets one register row with a LINK before ingest**, beside the sentence saying
    what dates one item. A new measurement replaces the row; git keeps the old ones.
 9. No AI attribution in commits.

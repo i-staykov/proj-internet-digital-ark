@@ -20,7 +20,7 @@ evidence row and that row is going. The next ingest of the other source re-deriv
 is a real if small loss, and it is the price of not leaving a red store behind.
 
 It is not a general undo: it refuses unless `--write` is given, it names every count before
-and after, and `just sync` calls it only on the red-gate path.
+and after, and `just bank` calls it only on the red-gate path.
 
     uv run python scripts/harness/unbank_source.py isc_survey --write
 """

@@ -110,23 +110,17 @@ verify what="" *args:
 
 # --- where the round stands ---------------------------------------------------
 
-# Assembled from the programs that own each figure, so no number in it is a second copy
-# and it cannot drift. `--check` exits 1 when the store has moved past the file's footer.
+# Assembled from the claim files and the programs that own each figure, so no number in it
+# is a second copy. No store unless `--full`; `--check` exits 1 when a claim file has changed
+# since the file's footer.
 #
 # regenerate docs/ROUND.md, the generated statement of where the round stands
 state *args:
     uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py {{args}}
 
-# What the lanes have added since the round opened, in seconds and from the store:
-# `just state` needs a 20-minute export and `just brief` reads the last snapshot.
-#
-# what this round has added so far, priced, without an export
-added *args:
-    uv run python scripts/round/added_since.py {{args}}
-
-# Reads the data/brief.json snapshot `just state` leaves, plus private/handoff.md. Never
-# opens the store or runs ssh, so a session-start hook can call it inside its timeout.
+# Reads the data/brief.json snapshot the bank and `just state` leave, plus private/handoff.md.
+# Never opens the store or runs ssh, so a session-start hook can call it inside its timeout.
 #
 # where the round stands, read from the last snapshot rather than the store
 brief:
@@ -157,17 +151,17 @@ cycle *args:
     echo ""
     uv run python scripts/harness/query_health.py --write --tail 3 || true
 
-# Drain the fleet's findings, price them again on the live store, book, decide, ingest,
-# gate, push `live`, refresh the VPS pricing snapshot, and hand the fleet its lead statuses
-# back. The laptop is the only writer of the store (S9) and this is the whole of what it
-# writes: run it whenever the laptop is open, and launchd runs it hourly while it is awake.
+# The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
+# suffix sweep's finished journals home, and call `just bank` only when `bank_trigger.py`
+# names something that arrived. It opens no store itself, so a quiet hour holds no writer.
+# launchd runs it hourly while the laptop is awake, and it is safe to run by hand.
 #
-# Idempotent by construction: an unfinished run is re-downloaded, a drained slug is dropped
-# rather than re-booked, and every ingest is keyed on its journal's sha256.
-# `data/logs/.sync.lock` is taken first, so a hand run and the hourly job cannot meet in the
-# store, and the one that arrives second says who has it and stops.
+# Idempotent by construction: an unfinished run is re-downloaded and a drained slug is dropped
+# rather than re-booked. `data/logs/.sync.lock` is taken first and handed to the bank, so a
+# hand run and the hourly job cannot meet in the store, and the one that arrives second says
+# who has it and stops.
 #
-# drain the fleet's findings, re-price, book, decide, ingest, gate, push `live`
+# drain and book the fleet's findings, then bank only what arrived
 sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -176,9 +170,8 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
     trap 'bash scripts/harness/sync_lock.sh drop' EXIT
-    # The store outgrew the 40% default, so the laptop sets the limit in local.env and
-    # scheduled_sync.sh exports it. A sync started BY HAND skipped that and ran the round
-    # state at the default, where `_corroboration` dies out of memory on a 61 GB store.
+    # ARK_VPS for the journals below, and the store's memory limit, which local.env assigns
+    # without `export` and the bank's children need.
     [ -f local.env ] && . ./local.env
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
     FLEET=$(eval echo {{fleet}})
@@ -187,16 +180,9 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
     # 0. Refuse a dirty or diverged clone, then fast-forward the approvals merged from a
-    #    phone and bank them. An ingest moves the store and no tracked file, so it is
-    #    exported here and needs no commit.
+    #    phone. A changed approvals page is one of the things that calls the bank.
     uv run python scripts/harness/bank_hygiene.py preflight
     uv run python scripts/harness/bank_hygiene.py space
-    BANKED=$(uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr | awk '/^== uv run ark ingest/ {n++} END {print n+0}')
-    if [ "$BANKED" -gt 0 ]; then
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export >/dev/null
-        uv run ark check
-    fi
     # Anything still waiting on Ivo, first, so a sync never buries a decision.
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
@@ -216,178 +202,356 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # One directory per lead at the top of the drain, the telemetry rows in the ledger.
     uv run python scripts/harness/fleet_findings.py drain "$IN"
     uv run python scripts/harness/bank_hygiene.py prune --write
-    # 2. The fleet's schema, then the live store. Neither is optional: a sidecar nobody
-    #    validated is prose with braces, and an un-repriced figure was measured elsewhere,
-    #    against a copy of this store.
+    # 2. The fleet's schema: a sidecar nobody validated is prose with braces. The second
+    #    price, on the live store, is the bank's.
     uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
-    #    The items are not in the artifact: a price leg leaves them on the box under
-    #    /projects/ark-data/items, so the re-price fetches each slug's file first.
-    uv run python scripts/harness/fleet_findings.py reprice "$IN"
-    # A wave picks its slugs from fleet MAIN, so a result line pushed to a feature branch
-    # strands the verdict and the next wave re-deals settled slugs. `git push -q` with no
-    # refspec pushes whatever branch the clone is on, so name the branch and refuse.
-    push_fleet() {
-        BR="$(git -C "$FLEET" branch --show-current)"
-        if [ "$BR" != main ]; then
-            echo "fleet clone is on $BR, not main: result lines and lead statuses left uncommitted."
-            echo "  A wave picks from main, so a stranded verdict re-deals a settled slug."
-            echo "  Check the clone out on main and re-run the sync."
-            return 0
-        fi
-        # **A rejected push must never be swallowed**: a queue that still reports settled
-        # leads as open keeps the generator from refilling it. Fetch, replay our writes onto
-        # the remote's files, retry, and SHOUT if it never lands. The replay re-runs the
-        # writer, which reads the drain and not the clone, so a hard reset is safe.
-        ROOT_FOR_MERGE="$(pwd)"
-        (
-            cd "$FLEET" || exit 1
-            git add leads 2>/dev/null || true
-            [ -f hypotheses.md ] && git add hypotheses.md || true
-            git commit -q -m "Result lines $1" || true
-            for attempt in 1 2 3; do
-                git push -q origin main 2>/dev/null && exit 0
-                echo "fleet push rejected on attempt $attempt, replaying onto the remote"
-                # The hypothesis ledger left the fleet with v1 (ark-fleet #83); the replay of
-                # its result lines runs only where the file still exists.
-                [ -f hypotheses.md ] && cp hypotheses.md "$TMPDIR/ark_result_lines.md" || true
-                git fetch -q origin main && git reset -q --hard origin/main
-                if [ -f hypotheses.md ] && [ -f "$TMPDIR/ark_result_lines.md" ]; then
-                    (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
-                        "$TMPDIR/ark_result_lines.md" "$FLEET/hypotheses.md")
-                fi
-                (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/fleet_leads.py \
-                    data/fleet_findings/incoming --fleet "$FLEET" --write) || true
-                git add leads 2>/dev/null || true
-            [ -f hypotheses.md ] && git add hypotheses.md || true
-                git commit -q -m "Result lines $1" || true
-                sleep $(( attempt * 3 ))
-            done
-            echo "RESULT LINES NOT PUSHED after three attempts. The fleet queue will over-report"
-            echo "  open leads until they land, so the dealer will re-deal settled work."
-            exit 1
-        ) || true
-    }
     # 2b. Restart the fleet's wave chain if it has stopped. It stops by design on a zero-leg
-    #     wave, and the GitHub cron meant to restart it does not reliably fire: on 2026-09-19
-    #     the chain died at 17:49Z and no scheduled run came at all. `discover_cycle.py` holds
-    #     the check but its own caller is six-hourly, so this hourly one bounds the gap.
-    #     Never fatal: a dead chain must not take the bank down with it.
+    #     wave, and the GitHub cron meant to restart it does not reliably fire.
+    #     `discover_cycle.py` holds the check but its own caller is six-hourly, so this hourly
+    #     one bounds the gap. Never fatal: a dead chain must not take the bank down with it.
     uv run python scripts/harness/discover_cycle.py --wave-only || true
-    # Steps 3 to 7 need findings; 8 to 11 run on every sync, because the collectors fill
-    # journals and the round can cross the gate with no fleet finding at all. The two shapes
-    # are tested separately: `ls` over both globs fails when EITHER is unmatched.
+    # 3 to 7 need findings. A confirmed FIND needs the live store for its second price, so its
+    # whole drain goes to the bank; any other drain is booked here. The two shapes are tested
+    # separately: `ls` over both globs fails when EITHER is unmatched.
     if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null; then
-        echo "nothing new to bank"
+        echo "nothing new to book"
     else
         # 3. Result lines first and pushed at once: a wave that picks while the rest of this
         #    recipe is still running relaunches settled slugs.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-        push_fleet "$LABEL"
-        # 4. The deterministic scribe: one row per slug, a FIND into sources.md with both
-        #    figures and every measured negative into sources-closed.md. A FIND re-measuring
-        #    its own FIND row replaces it; a re-drained run writes nothing.
+        bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+        if uv run python scripts/harness/bank_trigger.py check --find; then
+            echo "a confirmed FIND: the bank books this whole drain"
+        else
+            # 4. The deterministic scribe: one row per slug, a FIND into sources.md with both
+            #    figures and every measured negative into sources-closed.md. A FIND re-measuring
+            #    its own FIND row replaces it; a re-drained run writes nothing.
+            SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
+                --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+            NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
+            # 5. Pending approvals as one issue and one mergeable pull request each, and the
+            #    lead queue, rebuilt against the banked slugs the last bank cached.
+            uv run python scripts/harness/sync_approvals.py || true
+            uv run python scripts/round/lead_queue.py --fleet "$FLEET" --cached --write || true
+            # 6. One commit and one push, **only when the registers moved**: an empty commit
+            #    says a wave was booked when none was.
+            git add docs/registers/ docs/lore/key-decisions.md
+            COMMITTED=no
+            if git diff --cached --quiet; then
+                echo "the registers are unchanged, so nothing is committed"
+            else
+                git commit -q -m "Sync fleet findings $LABEL"
+                git push -q origin live
+                COMMITTED=yes
+            fi
+            # 7. What became of each lead, back into the fleet's queue, with the result lines.
+            #    **A run leaves `incoming/` only once its rows are committed**; anything else
+            #    keeps it here for the next tick, which is safe because every step is keyed on
+            #    the slug.
+            uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
+            bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+            if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
+                mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+            else
+                echo "nothing was committed, so the drain stays in $IN for the next tick"
+            fi
+        fi
+    fi
+    # 8. The suffix sweep's finished journals, home from the VPS. Skip the journals a sweep
+    #    still holds open: a half-copied one ledgers at a fraction of its rows. Every remote
+    #    call is bounded, so an unreachable VPS costs seconds rather than the hour.
+    : "${ARK_VPS:?set ARK_VPS}"
+    BUSY=$(ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" \
+        'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' \
+        </dev/null 2>/dev/null | sort -u) || true
+    rsync -a --ignore-existing --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        $(for b in $BUSY; do echo "--exclude=$b"; done) \
+        "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    # 9. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
+    #    runs under this lock; a red bank exits 1 and so does this tick.
+    BANK_RC=0
+    if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
+        ARK_FLEET="$FLEET" ARK_LOCK_HELD=$$ just bank || BANK_RC=$?
+    else
+        echo "$WHY"
+    fi
+    # 10. The gate issue, once per crossing, read off the brief the last bank wrote; then a
+    #     snapshot push the last bank could not make, without the ack, its one store read.
+    #     Never while a red stands: output/ then holds the export that failed its check.
+    uv run python scripts/harness/bank_hygiene.py gate --write || true
+    if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
+        echo "push: held while BANK RED stands"
+    elif [ -f data/logs/.push_pending ]; then
+        if bash scripts/harness/sync_fleet.sh --no-ack \
+            && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+                --publish-expected "$FLEET" \
+            && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+            && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+                | cmp -s - "$FLEET/snapshot.json"; then
+            rm -f data/logs/.push_pending
+            echo "push: the pending snapshot reached the VPS, and fleet main expects its claim"
+        else
+            echo "push: still pending, the next tick retries"
+        fi
+    fi
+    exit "$BANK_RC"
+
+# The store's only writer. It runs what arrived: new journals and a new baseline (c), a
+# confirmed FIND (a), a changed approvals page or a standing-rule decision (b); then the round
+# state, the stamp, one commit and the fleet's queue (d), and the snapshot push (e). Journals
+# go first, so a FIND is priced on a store that holds them and a red there leaves no
+# `Decision:` line behind. A red writes data/logs/bank_red.json, and nothing banks until
+# `uv run python scripts/harness/bank_trigger.py clear`. The tick hands it the lock through
+# ARK_LOCK_HELD; by hand it takes the lock and runs the preflight itself.
+#
+# bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
+bank *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
+    # ARK_LOCK_HELD names the pid that holds the lock and is trusted only while the lock
+    # agrees, so a value some later shell inherits takes the lock like anyone else.
+    if [ -n "${ARK_LOCK_HELD:-}" ] \
+        && [ "$(bash scripts/harness/sync_lock.sh holder 2>/dev/null || true)" = "$ARK_LOCK_HELD" ]; then
+        CALLED=yes
+    else
+        CALLED=no
+        if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    fi
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+    FORCE=no
+    for a in {{args}}; do
+        case "$a" in
+            --force) FORCE=yes ;;
+            *) echo "bank: unknown argument $a"; exit 2 ;;
+        esac
+    done
+    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    IN=data/fleet_findings/incoming
+    mkdir -p "$IN" data/fleet_findings/banked data/logs
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    # By hand, the clone gets the check the tick gave it: a red resets the registers to HEAD,
+    # which loses nothing only when this bank's writes are the only uncommitted ones.
+    [ "$CALLED" = yes ] || uv run python scripts/harness/bank_hygiene.py preflight
+    # A red holds even under --force: someone reads it and clears it first.
+    if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
+        :
+    elif printf '%s\n' "$WHY" | grep -q 'BANK RED'; then
+        echo "$WHY"; exit 1
+    elif [ "$FORCE" = yes ]; then
+        WHY="bank: forced"
+    else
+        echo "$WHY"; exit 0
+    fi
+    echo "$WHY"
+    has() { printf '%s\n' "$WHY" | grep -q "^bank: $1"; }
+    want() { [ "$FORCE" = yes ] || has "$1"; }
+    RAN_A=no; RAN_B=no; EXPORTED=no; DECIDED=0; NEW_ROWS=""
+    CHECK_LOG=$(mktemp)
+    # c. Journals, then the export a new baseline needs too. Every ingest is keyed on its
+    #    journal's sha256, so a folded journal costs a hash. A failed ingest is red like a
+    #    failed gate, and nothing is taken back: a journal carries no `Decision:` line.
+    if want journals || want baseline; then
+        C_RAN=""; C_FAIL=""
+        if want journals; then
+            uv run python scripts/harness/bank_hygiene.py space
+            bash scripts/sources/usenet/ingest_new_usenet.sh auto || C_FAIL="$C_FAIL usenet_auto"
+            if compgen -G "data/raw/usenet/usenet_dated_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN usenet_dated"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest usenet_dated data/raw/usenet/usenet_dated_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_dated"
+            fi
+            if compgen -G "data/raw/usenet/usenet_candidates_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN usenet_candidates"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest usenet_candidates data/raw/usenet/usenet_candidates_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_candidates"
+            fi
+            # A partial nothing has written to for 90 minutes is a dead run's work, not a live
+            # run's file, so it takes its final name before the ingest looks.
+            for part in data/raw/cdx/*.jsonl.gz.part data/raw/rdap/*.jsonl.gz.part; do
+                [ -e "$part" ] || continue
+                final="${part%.part}"
+                [ -e "$final" ] && continue
+                if [ -z "$(find "$part" -mmin +90 2>/dev/null)" ]; then continue; fi
+                cp "$part" "$final" && echo "promoted abandoned partial $(basename "$final")"
+            done
+            # The suffix sweep's exact-host registrables, as cdx_snapshot journals under
+            # data/raw/cdx, so the one glob below folds both. It reads new or grown journals only.
+            uv run python scripts/engines/cdx_suffix_convert.py || C_FAIL="$C_FAIL cdx_suffix_convert"
+            if compgen -G "data/raw/cdx/cdx_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_snapshot"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL cdx_snapshot"
+            fi
+            # The hosts beneath a domain a gap query already asked about, at no extra request.
+            uv run python scripts/engines/cdx_gap_hostgrain.py || C_FAIL="$C_FAIL cdx_gap_hostgrain"
+            if compgen -G "data/raw/cdx_gap_hostgrain/*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_gap_hostgrain"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain | tail -1 \
+                    || C_FAIL="$C_FAIL cdx_gap_hostgrain"
+            fi
+            if compgen -G "data/raw/cdx_suffix/*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_suffix"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || C_FAIL="$C_FAIL cdx_suffix"
+            fi
+            # The body-URL lanes, each with its own approved ingest, each shard skipped on content.
+            for pool in data/raw/usenet_*_items; do
+                [ -d "$pool" ] || continue
+                C_RAN="$C_RAN $pool"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-usenet-hostnames "$pool" | tail -1 || C_FAIL="$C_FAIL $pool"
+            done
+            if [ -d data/raw/maillists_items ]; then
+                C_RAN="$C_RAN maillists_items"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-maillist-hostnames data/raw/maillists_items | tail -1 \
+                    || C_FAIL="$C_FAIL maillists_items"
+            fi
+            if [ -d data/raw/enron_items ]; then
+                C_RAN="$C_RAN enron_items"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-enron-hostnames data/raw/enron_items | tail -1 \
+                    || C_FAIL="$C_FAIL enron_items"
+            fi
+            if compgen -G "data/raw/rdap/rdap_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN rdap_snapshot"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL rdap_snapshot"
+            fi
+        fi
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
+        EXPORTED=yes
+        touch data/logs/.push_pending
+        CHECK_RC=0
+        uv run ark check 2>&1 | tee "$CHECK_LOG" || CHECK_RC=$?
+        if [ -n "$C_FAIL" ] || [ "$CHECK_RC" -ne 0 ]; then
+            uv run python scripts/harness/bank_trigger.py red --step c \
+                --ingested "$C_RAN" --failed "$C_FAIL" --check "$CHECK_LOG"
+            echo "BANK RED at the journals, failed:${C_FAIL:- ark check}. Nothing banks until it is cleared."
+            exit 1
+        fi
+    fi
+    # a. A confirmed FIND, priced a second time on the live store, booked with both figures,
+    #    asked for, and decided where the standing rule covers it. A FIND is always a reason,
+    #    so --force adds nothing here.
+    if has find; then
+        RAN_A=yes
+        uv run python scripts/harness/fleet_findings.py reprice "$IN"
         SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
         NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
-        # 5. The ask, then the decision. A confirmed FIND has no `Decision:` line until
-        #    something writes one, and nothing else does.
         uv run python scripts/harness/fleet_request.py "$IN" --write
-        #    The standing rule's fourth condition is that `ark check` passes AFTER the
-        #    ingest, so a red gate takes BOTH back: the rows come out with
-        #    `unbank_source.py` and the line returns to pending. Reverting only the line
-        #    would leave the store red and every later sync would refuse at the preflight.
         DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --write \
             | tee /dev/stderr | grep -c '^decided:' || true)
-        if [ "$DECIDED" -gt 0 ]; then
-            uv run python scripts/harness/bank_hygiene.py space
-            #    A failed ingest takes the same road as a red gate: a Decision line over an
-            #    ingest that did not happen reads exactly like one that did.
-            BANK_LOG=$(mktemp)
-            set +e
-            uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
-            BANK_RC=${PIPESTATUS[0]}
-            set -e
-            INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
-            if [ "$BANK_RC" -eq 0 ] && uv run ark export >/dev/null && uv run ark check; then
-                echo "the standing rule's fourth condition holds: $DECIDED decisions stand"
+    fi
+    # b. Approvals merged, or the standing rule just decided: ingest, export, gate. The rule's
+    #    fourth condition is `ark check` after the ingest, and a failed ingest takes the same
+    #    road as a red gate: a `Decision:` line over an ingest that did not happen reads
+    #    exactly like one that did.
+    if want approvals || [ "$DECIDED" -gt 0 ]; then
+        RAN_B=yes
+        uv run python scripts/harness/bank_hygiene.py space
+        BANK_LOG=$(mktemp)
+        set +e
+        uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
+        RC=${PIPESTATUS[0]}
+        set -e
+        INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
+        # An approval whose journal is absent or whose refetch was refused stays a reason for the
+        # trigger until a bank ingests it. One that lacks a line in its block waits for the edit,
+        # which the trigger sees as a changed approvals page.
+        if ! grep -E 'refetch FAILED|is not on this machine' "$BANK_LOG" > data/logs/bank_approvals_retry; then
+            rm -f data/logs/bank_approvals_retry
+        fi
+        if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ] && [ "$DECIDED" -eq 0 ]; then
+            echo "bank: nothing newly approved to ingest"
+        else
+            if [ "$RC" -eq 0 ]; then
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark export --claim >/dev/null || RC=$?
+                EXPORTED=yes
+                touch data/logs/.push_pending
+            fi
+            if [ "$RC" -eq 0 ]; then uv run ark check 2>&1 | tee "$CHECK_LOG" || RC=$?; fi
+            if [ "$RC" -eq 0 ] && [ -f data/logs/bank_approvals_retry ]; then
+                echo "bank: green; an approved journal is still absent, so the next bank retries it"
+            elif [ "$RC" -eq 0 ]; then
+                echo "bank: green after the ingest, so $DECIDED standing-rule decision(s) stand"
             else
-                echo "GATE RED after a standing-rule ingest: taking the rows and the lines back"
+                # The rows come out, and the registers go back to HEAD rather than the index:
+                # the scribe's rows are this bank's too, and a dirty register refuses every
+                # later tick at the preflight.
+                echo "GATE RED after an approved ingest: taking the rows and the lines back"
                 if [ -n "$INGESTED" ]; then
                     uv run python scripts/harness/unbank_source.py $INGESTED --write
                 fi
-                git checkout -- docs/registers/approved-sources-list.md
+                git checkout HEAD -- docs/registers/ docs/lore/key-decisions.md
+                uv run python scripts/harness/bank_trigger.py red --step b \
+                    --ingested "$INGESTED" --check "$CHECK_LOG"
                 uv run python scripts/harness/bank_hygiene.py space
-                uv run ark export >/dev/null
+                uv run ark export --claim >/dev/null || true
                 if uv run ark check; then
                     echo "the store is green again; the sources are pending and nothing was banked"
                 else
                     echo "STILL RED after the rollback, so the red was not this ingest's:"
-                    echo "  read 'uv run ark check' before running the sync again."
+                    echo "  read 'uv run ark check' before clearing the red."
                 fi
                 exit 1
             fi
         fi
-        # 6. Everything the standing rule did not settle reaches Ivo as one issue and one
-        #    mergeable pull request, because merging is something he can do from a phone.
+    fi
+    # d. The pages the store feeds, the stamp, one commit, the fleet's queue. The round state
+    #    rewrites docs/ROUND.md, which git ignores because it names the collecting machine.
+    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
         uv run python scripts/harness/sync_approvals.py || true
-        # 6b. The one list he decides from, rebuilt from the leads this drain just settled.
-        #     It goes stale the moment a lead moves, so it is written here and never by hand.
         uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
-        # 7. The gate, then one commit and one push, and **a commit only when the tree
-        #    moved**: an empty commit says a wave was banked when none was.
-        uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export
-        uv run ark check
-        git add docs/ src/ justfile 2>/dev/null || true
-        COMMITTED=no
-        if git diff --cached --quiet; then
-            echo "the registers are unchanged, so nothing is committed"
-        else
-            git commit -q -m "Sync fleet findings $LABEL"
-            git push -q origin live
-            COMMITTED=yes
-        fi
-        # 8. What became of each lead, back into the fleet's queue, with the result lines.
+    fi
+    uv run python scripts/harness/bank_hygiene.py space
+    uv run python scripts/round/build_round_state.py | tail -1 || true
+    uv run python scripts/harness/bank_trigger.py stamp
+    git add docs/registers/ docs/lore/key-decisions.md
+    COMMITTED=no
+    if git diff --cached --quiet; then
+        echo "the registers are unchanged, so nothing is committed"
+    else
+        git commit -q -m "Sync fleet findings $LABEL"
+        COMMITTED=yes
+    fi
+    # A commit an earlier bank could not push goes with this one.
+    if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
+    if [ "$RAN_A" = yes ]; then
         uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
-        push_fleet "$LABEL"
-        # **A run leaves `incoming/` only once its rows are committed.** Anything else
-        # keeps it here and the next sync drains it again, which is safe because every step
-        # of this recipe is keyed on the slug or the journal's sha256.
+        bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
         if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
             mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
         else
-            echo "nothing was committed, so the drain stays in $IN for the next sync"
+            echo "nothing was committed, so the drain stays in $IN"
         fi
     fi
-    # 9. Bring the VPS collectors' journals home and bank them.
-    ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
-    : "${ARK_VPS:?set ARK_VPS}"
-    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
-    uv run python scripts/harness/bank_hygiene.py space
-    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
-    # the platform sweep's raw capture journals become hostname records, the second accepted
-    # unit; idempotent per file. The registrable half goes through cdx_suffix_convert.py by
-    # hand when a sweep completes, because it re-emits everything under a fresh tag. Skip the
-    # journals a sweep still holds open: a half-copied one ledgers at a fraction of its rows.
-    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
-    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
-    uv run python scripts/harness/bank_hygiene.py space
-    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
-    # 10. Refresh the VPS pricing snapshot so the next wave prices against today; a wave
-    # refuses a snapshot older than the newest release in releases.md.
-    uv run python scripts/harness/bank_hygiene.py space
-    uv run ark export >/dev/null
-    uv run ark check
-    uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
-    bash scripts/harness/sync_fleet.sh
-    uv run python scripts/round/round_figures.py | sed -n '5,7p'
-    # 11. Disk refusal stops the sync; other brief refresh failures remain non-fatal.
-    uv run python scripts/harness/bank_hygiene.py space
-    uv run python scripts/round/build_round_state.py | tail -1 || true
-    # The gate issue, once per crossing, read off the brief just written.
-    uv run python scripts/harness/bank_hygiene.py gate --write || true
+    # e. The snapshot the fleet prices against, when this bank exported one, then its claim in
+    #    the fleet's snapshot.json. data/logs/.push_pending goes once fleet main holds that.
+    if [ "$EXPORTED" = no ]; then
+        echo "push: nothing was exported, so the fleet's snapshot stands"
+    elif bash scripts/harness/sync_fleet.sh \
+        && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+            --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json"; then
+        rm -f data/logs/.push_pending
+    else
+        echo "push pending: the VPS or fleet main did not take the snapshot, the next tick retries"
+    fi
 
 # The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
 # `sed` of sources*.md. One truncated line per hit: page and line, source key, verdict, net-new EE,
@@ -949,12 +1113,6 @@ expand what="" *args:
     *) echo "expand: round loop" >&2; exit 2 ;;
     esac
 
-# One loop rather than several, because DuckDB takes a single writer.
-# fold everything the collectors have finished into the store, on a loop
-maintain iterations="26" pause="900":
-    uv run python scripts/harness/bank_hygiene.py space
-    bash scripts/harness/maintain.sh {{iterations}} {{pause}}
-
 # --- the per-source collectors ------------------------------------------------
 
 # One source per invocation. Each is collect-then-split: the collector writes a journal and
@@ -1002,8 +1160,8 @@ collect source="" *args:
         uv run ark ingest attrition_dated data/raw/attrition/attrition_dated.jsonl.gz
         uv run ark seed data/raw/attrition/attrition_out_of_window_hosts.txt
         ;;
-    # Pause `maintain` first: the extraction runs for minutes before it writes, and
-    # it has no store-lock retry, so a maintain pass landing mid-run loses the work.
+    # Take the sync lock first: the extraction runs for minutes before it writes, and
+    # it has no store-lock retry, so a bank landing mid-run loses the work.
     enron)
         uv run python scripts/sources/mail_corpora/collect_enron.py --write
         uv run python scripts/harness/bank_hygiene.py space
@@ -1174,7 +1332,16 @@ intake *args:
     set -euo pipefail
     uv run python scripts/round/intake.py {{args}}
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
-    case "{{args}}" in *--dry-run*) ;; *) bash scripts/harness/sync_fleet.sh ;; esac
+    case "{{args}}" in *--dry-run*) exit 0 ;; esac
+    bash scripts/harness/sync_fleet.sh
+    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+        --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json" \
+        || { touch data/logs/.push_pending; echo "push pending: the next tick retries"; }
 
 # Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
 # figures parsed, S and t computed from the two stamps rather than read off the mail, and a
@@ -1199,9 +1366,9 @@ prune *args:
 # The round-end sequence, in the one order that works, as one recipe. The stages, and what
 # each one runs: `just ship --help`, which prints the chain and runs none of it.
 #
-# `package_delivery.sh` refuses unless output/ matches the store EXACTLY, so only the INGEST
-# loop has to pause: collectors writing journals do not move the store, and a re-offered
-# journal is skipped in milliseconds on its content hash.
+# The store moves only inside `just bank`, and ship holds the sync lock from its bank to the
+# package, so no tick banks in between. `package_delivery.sh` refuses unless the export stamp
+# is a full export whose ledger matches the store and whose claim equals the bank's.
 #
 # **Safe to rehearse with nothing decided.** `bank_approved.py` reports and SKIPS anything
 # still pending, and `just ship draft` prints the mail it would send without writing it.
@@ -1211,16 +1378,9 @@ ship stage="all" *args:
     #!/usr/bin/env bash
     set -uo pipefail
     set -- {{args}}
-
-    # Restart only a previously running ingest loop, with sufficient disk space.
-    WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
-    restore() {
-        if [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null; then
-            uv run python scripts/harness/bank_hygiene.py space || exit $?
-            nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 &
-            echo "== ingest loop restarted =="
-        fi
-    }
+    # The store's memory limit, as the bank has it, for the full export and the round state.
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
     newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
 
@@ -1232,49 +1392,69 @@ ship stage="all" *args:
         just prune --round --write
     }
 
+    # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
+    # The drop trap goes in only after our own take, because drop removes the lock whoever holds it.
+    LOCKED=no
+    hold_lock() {
+        [ "$LOCKED" = yes ] && return 0
+        if ! bash scripts/harness/sync_lock.sh take $$; then
+            echo "ship: the sync lock is held, so nothing ran; run it again after that one" >&2
+            exit 1
+        fi
+        LOCKED=yes
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    }
+
     stage_prep() {
         set -e
-        source local.env
-        # skip the journals a sweep still holds open: a half-copied one ledgers short
-        BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
-        rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
-        rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
-        uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export | tail -1
-        uv run ark check
-        uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
+        if bash scripts/harness/hold.sh holds com.ark.sync; then
+            echo "ship prep: the hold is on, so the bank would not run" >&2
+            exit 1
+        fi
+        hold_lock
+        # A bank handed the lock skips its preflight, so ship runs it, as a bank by hand does.
+        uv run python scripts/harness/bank_hygiene.py preflight
+        BEFORE=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        ARK_LOCK_HELD=$$ just bank --force
+        AFTER=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        if [ "$AFTER" = "$BEFORE" ] || ! grep -q '"mode": "claim"' <<<"$AFTER"; then
+            echo "ship prep: the bank wrote no claim export" >&2
+            exit 1
+        fi
+        # The promotion tranche, measured and never banked: without --write it writes nothing.
+        uv run python scripts/engines/build_promotion_journals.py --tag "dryrun$(date -u +%Y%m%d)"
         uv run python scripts/round/merge_against_baseline.py | tail -3
         uv run python scripts/round/round_figures.py | sed -n '1,13p'
     }
 
     stage_build() {
-        trap restore EXIT
         set -e
-        echo "== pausing the ingest loop so the store stops moving =="
-        pkill -f 'maintain[.]sh' 2>/dev/null || true
-        until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
-        echo "== exporting =="
+        hold_lock
+        # The bank's claim, set aside where packaging compares it with the full export's.
+        if ! grep -q '"mode": "claim"' output/netnew/export_stamp.json 2>/dev/null; then
+            echo "== the claim export =="
+            uv run python scripts/harness/bank_hygiene.py space
+            uv run ark export --claim
+        fi
+        mkdir -p data/exports/claim
+        cp output/netnew/candidate_additions.txt output/netnew/export_stamp.json data/exports/claim/
+        echo "== the full export =="
         uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export
+        uv run ark export --provenance
         echo "== the data invariants =="
         uv run ark check
-        # `package_delivery.sh` regenerates the report and refuses if it changed, so a human
-        # reviews the diff. Doing it here makes this a single pass: the diff is by
-        # construction nothing but regenerated figures.
-        echo "== regenerating the round report =="
+        echo "== the round state, with the store sections =="
+        uv run python scripts/round/build_round_state.py --full
+        # `package_delivery.sh` regenerates the report and refuses a dirty tree or a report that
+        # changed, so a human reviews the diff. Rebuilding and committing the report and its
+        # .docx here makes this one pass: the diff is nothing but regenerated figures.
+        echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
-        if ! git diff --quiet -- docs/report.md; then
-            git --no-pager diff --stat -- docs/report.md
-            git add docs/report.md
-            git commit -q -m "Regenerate docs/report.md from the store before packaging"
-            echo "== committed the regenerated report =="
+        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
+        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
+            git add docs/report.md docs/report.docx docs/report-sendable.md
+            git commit -q -m "Regenerate the round report and its .docx before packaging"
+            echo "== committed the regenerated report artifacts =="
         fi
         echo "== packaging =="
         bash scripts/round/package_delivery.sh "${1:-}"
@@ -1304,12 +1484,12 @@ ship stage="all" *args:
     case "{{stage}}" in
     -h|--help|help)
         echo "just ship <stage> [args]"
-        echo "  all [round]      bank the approved, regenerate the report and the .docx,"
-        echo "                   pause ingestion, export, the invariants, package, verify"
-        echo "                   the delivery, the reviewer's calculator, the mail draft,"
-        echo "                   then close the gate issue"
-        echo "  prep             drain the sweeps, ingest, export, gate, merge audit, figures"
-        echo "  build [round]    pause ingestion, export, invariants, report, package, verify"
+        echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
+        echo "                   draft, and closing the gate issue"
+        echo "  prep             take the sync lock, bank --force, promotion dry run, merge"
+        echo "                   audit, figures"
+        echo "  build [round]    take the sync lock, full export, invariants, round state,"
+        echo "                   report and .docx, package, verify"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
@@ -1324,12 +1504,14 @@ ship stage="all" *args:
     build) stage_build "${1:-}" ;;
     package)
         set -e
+        hold_lock
         bash scripts/round/package_delivery.sh "${1:-}"
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
     verify)
         set -e
+        hold_lock
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
@@ -1348,20 +1530,7 @@ ship stage="all" *args:
     all)
         set -e
         round="${1:-}"
-        echo "== banking newly approved classes =="
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run python scripts/harness/bank_approved.py --write
-        # Regenerate and COMMIT the report artifacts BEFORE packaging: `package_delivery.sh`
-        # refuses a dirty tree, correctly, and docs/report.docx and docs/report-sendable.md
-        # are tracked and rebuilt from docs/report.md. Order, not tidiness.
-        echo "== regenerating the report and the .docx he asks for =="
-        uv run python scripts/round/fill_report.py
-        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
-            git commit -q -m "Regenerate the round report and its .docx before packaging"
-            echo "== committed the regenerated report artifacts =="
-        fi
+        stage_prep
         stage_build "$round"
         echo "== the reviewer's own calculator =="
         uv run python scripts/round/round_figures.py --verify
@@ -1380,8 +1549,8 @@ ship stage="all" *args:
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
-# The launchd jobs. com.ark.sync runs `just sync` at five past every hour, so the round moves
-# without a session open, and reads the `ship-now` label (the header of
+# The launchd jobs. com.ark.sync runs `just sync` at five past every hour, which banks what
+# arrived without a session open, and reads the `ship-now` label (the header of
 # scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times a day and
 # reports rather than acts; scheduled_cycle.sh says why a restarting watchdog is the wrong
 # shape here. com.ark.collectors is the closed CDX parent sweep lane: it runs once at load

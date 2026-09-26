@@ -10,7 +10,7 @@
 # 11,447.7 EE against 128.17 EE for its 400 new archives. Ratios of about 40:1 and 90:1
 # in favour of re-splitting over reading.
 #
-# `maintain.sh` already MEASURES the promotion tranche every pass and deliberately does
+# `build_promotion_journals.py` without `--write` MEASURES the promotion tranche and does
 # not bank it, because banking is a judgement. The judgement is made: these classes are
 # all already `master` or `candidate-only`, so the tranche is a re-derivation of evidence
 # we hold rather than a new source, and it needs no further decision.

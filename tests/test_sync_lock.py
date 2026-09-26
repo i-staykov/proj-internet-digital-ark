@@ -74,12 +74,24 @@ def test_an_unknown_word_is_refused(tmp_path):
     assert run("unlock", lock=tmp_path / "sync.lock").returncode == 2
 
 
-def test_the_recipe_takes_the_lock_before_it_touches_anything():
-    body = RECIPE[RECIPE.index("\nsync fleet=") :]
-    take = body.index("sync_lock.sh take")
-    for step in ("bank_hygiene.py preflight", "gh run list", "ark export"):
-        assert take < body.index(step), step
-    assert "sync_lock.sh drop" in body[: body.index("bank_hygiene.py preflight")]
+def test_the_tick_takes_the_lock_before_it_touches_anything_and_opens_no_store():
+    tick = RECIPE[RECIPE.index("\nsync fleet=") : RECIPE.index("\nbank ")]
+    take = tick.index("sync_lock.sh take")
+    for step in ("bank_hygiene.py preflight", "gh run list"):
+        assert take < tick.index(step), step
+    assert "sync_lock.sh drop" in tick[: tick.index("bank_hygiene.py preflight")]
+    assert "uv run ark " not in tick
+    assert "ARK_LOCK_HELD=$$ just bank" in tick
+
+
+def test_the_bank_obeys_the_hold_then_takes_the_lock_unless_its_caller_holds_it():
+    start = RECIPE.index("\nbank ")
+    bank = RECIPE[start : RECIPE.index("\n\n", start + 1)]
+    take = bank.index("sync_lock.sh take")
+    assert bank.index("hold.sh holds com.ark.sync") < take < bank.index("uv run ark ")
+    assert bank.index("ARK_LOCK_HELD") < take
+    assert "sync_lock.sh holder" in bank[:take]
+    assert "sync_lock.sh drop" in bank[take : bank.index("uv run ")]
 
 
 def test_the_wrapper_holds_no_second_lock():

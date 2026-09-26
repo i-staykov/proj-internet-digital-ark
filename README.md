@@ -43,12 +43,13 @@ clears it. The hold survives a reboot too: only `just hold off` lifts it, and `r
 
 ```bash
 just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
+just bank        # what the tick runs when something arrived; --force runs it anyway, never on red
 ```
 
-The fleet measures; the laptop is the only thing that writes the store. **No fleet figure is booked
-on its own**: `just sync` re-prices every confirmed FIND on the live store, writes the register row
-with both numbers, decides what Ivo's standing rule covers and asks him about the rest, ingests,
-gates, pushes, and refreshes the snapshot the fleet prices against. The runbook has each step.
+The fleet measures; `just bank` is the automatic store writer, run only when a FIND, an approval, a
+baseline or journals arrived. **No fleet figure is booked on its own**: the bank re-prices every
+confirmed FIND on the live store, books both numbers, decides what the standing rule covers, asks
+about the rest, ingests, gates and pushes the fleet's snapshot. The runbook has each step.
 
 Nothing the fleet downloads bypasses one program:
 
@@ -63,7 +64,7 @@ decision. `docs/lore/rules.md` states the rule it enforces.
 
 ## Where the round stands
 
-In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
+In `docs/ROUND.md`, written by the bank and `just state` from the claim files. It is generated
 and untracked, because the figures move daily and the page names the machine that collects them.
 This page states no round figure, so it cannot go stale.
 

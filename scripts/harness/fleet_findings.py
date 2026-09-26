@@ -1,18 +1,19 @@
-"""Flatten, validate and re-price the findings `just sync` drains out of the fleet.
+"""Flatten, validate and re-price the findings the hourly tick drains out of the fleet.
 
 **A fleet figure never reaches the register alone.** The leg that measured a corpus priced
 it against the pushed snapshot, which is a copy of the store's exports and his baseline and
-not the store; it can be hours stale, it holds no corroboration split, and it was produced by
-the same agent that wants the answer to be large. So a FIND its own verify lane confirmed is
-priced a second time HERE, by `price_items.py` or `price_hostnames.py`, against the live
-store, and the scribe books both numbers side by side. A FIND that ships no items cannot be
-re-priced, and that says so in the register rather than passing as measured.
+not the store; it can be hours stale, and it was produced by the same agent that wants the
+answer to be large. So a FIND its own verify lane confirmed is priced a second time HERE, by
+`price_items.py` or `price_hostnames.py`, against the live store, and the scribe books both
+numbers side by side. The program a leg runs prices the same items against the snapshot the
+last push staged, and how far it agrees with the store goes beside them in `store_price.json`.
+A FIND that ships no items cannot be re-priced, and that says so in the register.
 
-Three subcommands, in the order `just sync` runs them:
+Three subcommands, in order: the tick runs drain and validate, `just bank` runs reprice.
 
     drain     the downloaded run directories become one directory per lead
     validate  every sidecar against the fleet's own schema, via the fleet's own validator
-    reprice   every confirmed FIND against the live store
+    reprice   every confirmed FIND against the live store and by the program
 
     uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming
     uv run python scripts/harness/fleet_findings.py validate data/fleet_findings/incoming \\
@@ -23,7 +24,9 @@ Three subcommands, in the order `just sync` runs them:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -33,6 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 SIDECAR = "finding.json"
 PROSE = "finding.md"
 LEAD = "lead.json"
@@ -44,8 +48,19 @@ VPS_ITEMS = "/projects/ark-data/items"
 # What the leg has to leave beside its finding for the laptop to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
-# Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
-NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
+# What the program prices against: the snapshot the last push staged. Relative to REPO, so
+# no local path reaches store_price.json.
+SNAPSHOT = Path("output/fleet_snapshot")
+# The program agrees with the store when its figure is within this share of the store's.
+WITHIN = 0.01
+# A corpus `read.yaml` read whole: its journal parts and `receipt.json` on the VPS, pulled
+# here per lead. The pull is the gate: only a complete read whose every part matches the
+# sha256 the receipt lists lands, so what the bank ingests is exactly what the read wrote.
+VPS_JOURNALS = "/projects/ark-data/journals"
+FLEET_READ = REPO / "data/raw/fleet_read"
+READ = "read.json"
+# A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
+PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
 # The spend record. `ARK_FLEET_LEDGER` moves it, so a drain under test never writes the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
 
@@ -258,6 +273,85 @@ def items_remote() -> str:
     return ""
 
 
+def journals_remote() -> str:
+    """Where a read's journal parts live, the same host `items_remote` names."""
+    if os.environ.get("ARK_READ_REMOTE"):
+        return os.environ["ARK_READ_REMOTE"]
+    items = items_remote()
+    return items.removesuffix(VPS_ITEMS) + VPS_JOURNALS if items.endswith(VPS_ITEMS) else ""
+
+
+def _sha256(path: Path, whole=None) -> str:
+    """The file's sha256, feeding the same bytes to `whole` when one is passed."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            digest.update(chunk)
+            if whole is not None:
+                whole.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_read(directory: Path) -> str:
+    """ "" when the directory holds a complete read whose parts match its receipt, else why."""
+    try:
+        receipt = json.loads((directory / "receipt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "no readable receipt.json"
+    if receipt.get("complete") is not True:
+        return "the receipt does not say complete"
+    parts = receipt.get("parts") or []
+    if not parts:
+        return "the receipt lists no parts"
+    listed = {str(part.get("name")) for part in parts}
+    stray = sorted(n for n in listed if not PART.fullmatch(n))
+    if stray:
+        return f"{stray[0]} is not a fleet read part name"
+    extra = sorted(p.name for p in directory.iterdir() if p.name not in listed | {"receipt.json"})
+    if extra:
+        return f"{extra[0]} is not in the receipt"
+    whole = hashlib.sha256()
+    for part in parts:
+        path = directory / str(part.get("name"))
+        if not path.is_file() or _sha256(path, whole) != part.get("sha256"):
+            return f"{path.name} is missing or does not match its sha256"
+    wanted = receipt.get("journal_sha256")
+    if wanted and whole.hexdigest() != wanted:
+        return "the parts together do not match journal_sha256"
+    return ""
+
+
+def fetch_read(lead: Path) -> Path | None:
+    """The lead's whole read in `data/raw/fleet_read/<slug>/`, pulled and verified.
+
+    A read already here and verified is not pulled again. A pull that does not verify is
+    removed, so a half-copied or incomplete read never reaches the bank.
+    """
+    target = FLEET_READ / lead.name
+    if target.is_dir() and not verify_read(target):
+        return target
+    remote = journals_remote()
+    if not remote:
+        print(f"reprice: no ARK_VPS in local.env, so {lead.name}'s read cannot be pulled")
+        return None
+    staging = FLEET_READ / f".{lead.name}.part"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    done = subprocess.run(
+        ["rsync", "-a", f"{remote}/{lead.name}/", f"{staging}/"], capture_output=True, text=True
+    )
+    why = done.stderr.strip() if done.returncode else verify_read(staging)
+    if why:
+        shutil.rmtree(staging, ignore_errors=True)
+        print(f"reprice: {lead.name}'s read not pulled: {why}")
+        return None
+    shutil.rmtree(target, ignore_errors=True)
+    staging.rename(target)
+    where = target.relative_to(REPO) if target.is_relative_to(REPO) else target
+    print(f"reprice: pulled {lead.name}'s whole read into {where}")
+    return target
+
+
 def fetch_items(lead: Path) -> Path | None:
     """The leg's items, from beside the finding or from the box that has them."""
     here = items_file(lead)
@@ -303,14 +397,28 @@ def grain_of(slug: str, finding: dict, lead_dir: Path) -> str:
 
 
 def price(lead: Path, finding: dict) -> dict:
-    """Run the store pricer over the leg's own items and return what it measured."""
-    items = fetch_items(lead)
-    if items is None:
-        return {"status": "no items to price, see the run log", "ee": None}
-    grain = grain_of(lead.name, finding, lead)
-    script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
-    cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
-    # C-86: a listing or a registry record is a delimited field, and takes no split.
+    """Run the store pricer over the leg's own items and return what it measured.
+
+    A lead the fleet read whole is priced on its pulled journal parts, at hostname grain,
+    where error captures date no year.
+    """
+    if (lead / READ).is_file():
+        parts = fetch_read(lead)
+        if parts is None:
+            return {"status": "the read was not pulled, see the run log", "ee": None}
+        grain, script = "hostname", "price_hostnames.py"
+        cmd = ["uv", "run", "python", f"scripts/pricing/{script}", str(parts)]
+    else:
+        items = fetch_items(lead)
+        if items is None:
+            return {"status": "no items to price, see the run log", "ee": None}
+        grain = grain_of(lead.name, finding, lead)
+        script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
+        cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
+    # A listing or a registry record is a delimited field, and takes no split. Imported
+    # here: the drain the tick runs every hour has no need of the pricer.
+    from ark.price_snapshot import NO_SPLIT_CLASSES
+
     lead_doc = load(lead / LEAD)
     if script == "price_items.py" and lead_doc.get("evidence_class") in NO_SPLIT_CLASSES:
         cmd.append("--no-split")
@@ -333,8 +441,88 @@ def price(lead: Path, finding: dict) -> dict:
     }
 
 
+def _positive(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value) if math.isfinite(value) and value > 0 else None
+
+
+def agreement_pct(store_ee, program_ee) -> float | None:
+    """The program's figure as a percentage of the store's, or None without both."""
+    store, program = _positive(store_ee), _positive(program_ee)
+    return None if store is None or program is None else round(100 * program / store, 2)
+
+
+def _program(
+    lead: Path, items: Path, track: str, evidence_class, keys=("ee", "netnew_pairs")
+) -> tuple:
+    """One `ark price-snapshot` run on one track: the EE and net-new count its `keys` name,
+    and a status. Its stderr goes beside the store pricer's output, so the status never
+    carries a path."""
+    out = lead / f"program_{track}.json"
+    out.unlink(missing_ok=True)
+    cmd = ["uv", "run", "ark", "price-snapshot", "--snapshot", str(SNAPSHOT)]
+    cmd += ["--items", str(items), "--track", track, "--out", str(out)]
+    if evidence_class:
+        cmd += ["--class", str(evidence_class)]
+    done = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
+    (lead / f"program_{track}.txt").write_text(done.stderr, encoding="utf-8")
+    try:
+        doc = json.loads(out.read_text(encoding="utf-8"))
+        rule = str(doc["split"]).split(":")[0]
+        return float(doc[keys[0]]), int(doc[keys[1]]), f"priced, {track}, split {rule}"
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, None, f"price-snapshot exited {done.returncode}, see program_{track}.txt"
+
+
+def program_price(lead: Path, finding: dict, items: Path) -> dict:
+    """The items priced again by the command a leg runs, against the snapshot the last push
+    staged, with the program's own split. `fleet_program_ee` is the annual track in the unit
+    the store's figure measures, on hostname grain its hostname years; a finding that claims
+    the candidate track gets that figure too, under its own key."""
+    evidence_class = load(lead / LEAD).get("evidence_class")
+    grain = grain_of(lead.name, finding, lead)
+    tracks = ["annual"]
+    claimed = (finding.get("pricing") or {}).get("track")
+    if grain == "candidate" or claimed == "candidate":
+        tracks.append("candidate")
+    result: dict = {}
+    for track in tracks:
+        name = "program" if track == "annual" else f"program_{track}"
+        keys = ("ee", "netnew_pairs")
+        if grain == "hostname" and track == "annual":
+            keys = ("ee_hostname_years", "netnew_hostname_years")
+        ee, netnew, status = _program(lead, items, track, evidence_class, keys)
+        result.update({f"fleet_{name}_ee": ee, f"{name}_netnew": netnew, f"{name}_status": status})
+    return result
+
+
+def streak(incoming: Path) -> int:
+    """How many finds in a row, newest first, the program and the store agree on within
+    WITHIN, over every store price in `incoming` and the drains banked beside it. A find
+    counts once, at its latest price; one the program did not price breaks the run, so an
+    outage or a zero cannot keep it alive."""
+    latest: dict[str, dict] = {}
+    banked = (incoming.parent / "banked").glob(f"*/*/{STORE_PRICE}")
+    for path in [*banked, *incoming.glob(f"*/{STORE_PRICE}")]:
+        doc = load(path)
+        if _positive(doc.get("ee")) is None:
+            continue
+        slug = path.parent.name
+        if slug not in latest or str(doc.get("at") or "") >= str(latest[slug].get("at") or ""):
+            latest[slug] = doc
+    run = 0
+    for doc in sorted(latest.values(), key=lambda d: str(d.get("at") or ""), reverse=True):
+        store, program = float(doc["ee"]), _positive(doc.get("fleet_program_ee"))
+        if program is None or abs(program - store) > WITHIN * store:
+            break
+        run += 1
+    return run
+
+
 def reprice(incoming: Path) -> int:
-    """Every confirmed FIND, priced again on the live store beside the fleet's figure."""
+    """Every confirmed FIND, priced again on the live store and by the program, beside the
+    fleet's figure."""
     for path in sidecars(incoming):
         finding = load(path)
         lead = path.parent
@@ -350,13 +538,30 @@ def reprice(incoming: Path) -> int:
             continue
         result = price(lead, finding)
         result["fleet_ee"] = (finding.get("pricing") or {}).get("ee")
+        # the items price() found or fetched, when there were any
+        items = items_file(lead)
+        if items is not None:
+            result.update(program_price(lead, finding, items))
+            result["agreement_pct"] = agreement_pct(result["ee"], result["fleet_program_ee"])
         (lead / STORE_PRICE).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if result["ee"] is None:
             print(f"reprice: {lead.name} NOT re-priced, {result['status']}")
+        else:
+            fleet_ee = result["fleet_ee"]
+            gap = f", the fleet said {fleet_ee:,.1f}" if isinstance(fleet_ee, int | float) else ""
+            print(f"reprice: {lead.name} is worth {result['ee']:,.1f} EE on the store{gap}")
+        if items is None:
             continue
-        fleet_ee = result["fleet_ee"]
-        gap = f", the fleet said {fleet_ee:,.1f}" if isinstance(fleet_ee, int | float) else ""
-        print(f"reprice: {lead.name} is worth {result['ee']:,.1f} EE on the store{gap}")
+        program, share = result["fleet_program_ee"], result["agreement_pct"]
+        if program is None:
+            print(f"reprice: {lead.name} NOT priced by the program, {result['program_status']}")
+        else:
+            of = f", {share}% of the store's" if share is not None else ""
+            print(f"reprice: {lead.name} is worth {program:,.1f} EE by the program{of}")
+    print(
+        f"reprice: the program agrees with the store within {WITHIN:.0%} "
+        f"on the last {streak(incoming)} finds in a row"
+    )
     return 0
 
 

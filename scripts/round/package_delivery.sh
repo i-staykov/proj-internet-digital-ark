@@ -16,6 +16,17 @@ set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJ"
 
+# The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
+# writes only the claim, so the masters, manifests and ISC files beside it are whatever the
+# last full export left; only a full export with provenance, against the current release and
+# with the bank's claim set aside, ships.
+PROBLEMS=$(uv run python -c 'from ark.export import stamp_problems; print("\n".join(stamp_problems()))')
+if [ -n "$PROBLEMS" ]; then
+    echo "refusing to package:" >&2
+    printf '%s\n' "$PROBLEMS" >&2
+    exit 1
+fi
+
 ROUND="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 if [ "$ROUND" = "HEAD" ] || [ -z "$ROUND" ]; then
     echo "refusing to package: detached HEAD gives no round name. Pass one:" >&2
@@ -54,39 +65,21 @@ fi
 # the store. Shipping a stale one understates the result and contradicts the
 # report, which quotes the store. Caught this way once, 1,513 pairs behind.
 SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
-# Retried, and not silenced. `2>/dev/null` here turned a busy store into an empty
-# STORED, which then failed the comparison below and told the operator the export
-# was stale when it was current. A guard that misreports why it fired is worse
-# than no guard: it sends you to fix the wrong thing.
-# `|| true` is load-bearing. `set -e` is on, so a bare `STORED=$(cmd)` whose
-# command fails aborts the script instantly: the retry below never ran, the
-# diagnostic below never printed, and packaging exited 1 in silence. That went
-# unnoticed while nothing else held the store, and surfaced the moment the ingest
-# loop began running continuously beside two collectors.
-STORED=""
-for _ in $(seq 1 60); do
-    # Counted through the SAME shipping filter the export applies, not the raw
-    # store total. Those two were equal until the export learned to drop a pair
-    # whose TLD did not exist in its year, and from then on the guard compared a
-    # pre-filter number with a post-filter one and refused a perfectly current
-    # export forever: 726,344 in the store against 726,336 on disk, a difference
-    # that is the filter working rather than the export being stale.
-    STORED=$(uv run python -c "
-import duckdb
-from ark.export import netnew_shipped_pairs
-print(netnew_shipped_pairs(duckdb.connect('data/ark.duckdb', read_only=True)))
-" 2>&1 | tail -1) || true
-    case "$STORED" in
-        ''|*[!0-9]*) sleep 5 ;;
-        *) break ;;
-    esac
-done
-case "$STORED" in
-    ''|*[!0-9]*)
-        echo "refusing to package: could not read the store's net-new count" >&2
-        echo "$STORED" >&2
-        exit 1 ;;
-esac
+# Read-only and patient, so a bank holding the writer is a wait and never a refusal that
+# names the wrong cause. The stamps' ledgers must equal the store's, the bank's claim must
+# equal the full export's, and the count goes through the export's own shipping filter.
+STORED=$(uv run python -c "
+import sys
+from ark.db import connect_read_only_patiently
+from ark.export import netnew_shipped_pairs, stamp_problems
+conn = connect_read_only_patiently('data/ark.duckdb')
+conn.execute('SET enable_progress_bar = false')
+problems = stamp_problems(conn)
+if problems:
+    print('\n'.join(problems), file=sys.stderr)
+    sys.exit(3)
+print(netnew_shipped_pairs(conn))
+") || { echo "refusing to package: the export does not match the store (above)" >&2; exit 1; }
 if [ "$SHIPPED" != "$STORED" ]; then
     echo "refusing to package: output/ holds $SHIPPED net-new pairs, the store holds $STORED" >&2
     echo "run 'uv run ark export --provenance' first, then re-run." >&2
@@ -104,7 +97,7 @@ fi
 # Regenerating is cheap and idempotent, so this rebuilds the report and refuses
 # if that changed anything. A report that is already current is a no-op here.
 # The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while the maintain loop holds the write lock,
+# read-only connection still fails while a bank holds the write lock,
 # and this guard went in without one and refused to package for that reason
 # alone. Swallowing the error made it look like the report was broken when the
 # store was merely busy, so the failure is printed now rather than hidden.

@@ -10,8 +10,8 @@ from pathlib import Path
 
 import duckdb
 
-from ark.evidence_types import CANDIDATE_ONLY_TYPES
-from ark.hostnames import WEB_FACING_HOST_SOURCES
+from ark.evidence_types import CANDIDATE_ONLY_TYPES, WEB_METHODS
+from ark.hostnames import AUDITED_FAMILIES, FLEETREAD_SOURCE, WEB_FACING_HOST_SOURCES
 
 _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
@@ -19,6 +19,10 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 # constant inside the SQL: a hardcoded path would make the test suite assert
 # against the real deliverable, which is the same trap `export_all` documents.
 NETNEW_DIR = Path("output/netnew")
+# The error captures `scripts/round/status_audit.py` read out of the raw CDX. `ark check`
+# passes it; a caller that passes none skips the check that reads it.
+AUDIT_PATH = Path("data/audit/status_errors.tsv.gz")
+_AUDITED = ", ".join(f"('{f}', '{s}', '{m}')" for f, (s, m, _) in AUDITED_FAMILIES.items())
 
 # The first four-digit run inside an evidence value is that value's own year, for
 # every type whose value names a single year: a CDX timestamp (19981212033831), a
@@ -44,6 +48,7 @@ _SPAN_SOURCES = "'afnic_fr'"
 _DOMAIN_RE = r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
 _MAX_HOST_LEN = 253
 _WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
+_WEB_METHOD_LIST = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
 
 # name, human description, SQL returning a single count of offending rows (0 = pass)
 CHECKS: list[tuple[str, str, str]] = [
@@ -224,15 +229,17 @@ CHECKS: list[tuple[str, str, str]] = [
     (
         "hostname_observed_serving_web",
         "every hostname record comes from a lane whose observation shows the host IN USE that "
-        "year: a capture, a URL listing, or the `Received: ... by <host>` clause a receiving "
-        "MTA wrote about itself (ADR-012, C-83). DNS listings still date the parent only, on "
-        "his ruling of 2026-09-06, because a machine answering is not a host in use. The check "
-        "name predates the wider wording and is kept so a failing gate stays greppable",
+        "year: a capture, a URL listing, the `Received: ... by <host>` clause a receiving MTA "
+        "wrote about itself, or a fleet read whose method is a web method. DNS listings date "
+        "the parent only, because a machine answering is not a host in use. The check name "
+        "predates the wider wording and is kept so a failing gate stays greppable",
         f"""
         SELECT count(*) FROM hostname_year hy
         JOIN evidence e ON e.evidence_id = hy.evidence_id
         JOIN source s ON s.source_id = e.source_id
         WHERE s.name NOT IN ({_WEB_FACING_LIST})
+          AND NOT (regexp_matches(s.name, '{FLEETREAD_SOURCE.pattern}')
+                   AND e.acquisition_method IN ({_WEB_METHOD_LIST}))
         """,
     ),
     (
@@ -284,12 +291,30 @@ CHECKS: list[tuple[str, str, str]] = [
           )
         """,
     ),
+    (
+        "no_master_record_points_to_an_error_capture",
+        "no hostname or domain year rests on a capture the status audit lists as 4xx or 5xx",
+        """
+        WITH bad AS (
+            SELECT e.evidence_id
+            FROM read_csv('{audit}', delim = '\t', header = true, all_varchar = true) a
+            JOIN (VALUES {audited}) f(family, source, method) ON f.family = a.family
+            JOIN source s ON s.name = f.source
+            JOIN evidence e
+              ON e.source_id = s.source_id AND e.acquisition_method = f.method
+             AND e.evidence_value = 'cdx capture ' || a.ts || ' ' || a.hostname
+        )
+        SELECT (SELECT count(*) FROM hostname_year WHERE evidence_id IN (SELECT * FROM bad))
+             + (SELECT count(*) FROM domain_year WHERE evidence_id IN (SELECT * FROM bad))
+        """,
+    ),
 ]
 
 
 def collect_checks(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
+    audit: Path | None = None,
 ) -> list[dict]:
     """Run every integrity check; return one result dict per check.
 
@@ -300,6 +325,20 @@ def collect_checks(
     """
     results = []
     for name, description, template in CHECKS:
+        if "{audit}" in template:
+            if audit is None or not audit.is_file():
+                results.append(
+                    {
+                        "name": name,
+                        "description": description,
+                        "offending": 0,
+                        "ok": True,
+                        "skipped": f"no status audit at {audit}; run scripts/round/status_audit.py",
+                    }
+                )
+                continue
+            # replaced, not formatted: the SQL carries regex braces
+            template = template.replace("{audit}", str(audit)).replace("{audited}", _AUDITED)
         needs_export = "{netnew_dir}" in template
         sql = template.format(netnew_dir=netnew_dir) if needs_export else template
         try:

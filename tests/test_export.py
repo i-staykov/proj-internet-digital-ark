@@ -2,14 +2,25 @@
 
 import csv
 import json
+import shutil
 from decimal import Decimal
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.english_share import weight_of
-from ark.export import ISC_SOURCE, export_all
+from ark.export import (
+    ATTESTED_NAME,
+    ISC_SOURCE,
+    STAMP_NAME,
+    claim_files,
+    export_all,
+    read_stamp,
+    stamp_problems,
+)
+from ark.ingest import YEARS
 
 
 def _populated_db() -> duckdb.DuckDBPyConnection:
@@ -64,6 +75,8 @@ def test_export_all(tmp_path: Path) -> None:
     # net-new 1997 holds only the cdx-evidenced domain
     assert (tmp_path / "netnew" / "1997.txt").read_text() == "new.com\n"
     assert stats["netnew_1997"] == 1
+    # the count is the written file's lines, and an empty year is an empty file
+    assert stats["netnew_1996"] == 0
     # the merged master holds baseline + addition, deduped and sorted
     assert (tmp_path / "masters" / "1997.txt").read_text() == "base.com\nnew.com\n"
     assert stats["master_1997"] == 2
@@ -546,6 +559,7 @@ def test_the_provenance_graph_is_off_unless_asked_for() -> None:
     import ark.export as ex
 
     assert inspect.signature(ex.export_all).parameters["with_provenance"].default is False
+    assert inspect.signature(ex.export_all).parameters["claim_only"].default is False
 
 
 def test_the_masters_keep_every_row_of_his_and_filter_only_ours(tmp_path: Path) -> None:
@@ -584,3 +598,173 @@ def test_the_masters_keep_every_row_of_his_and_filter_only_ours(tmp_path: Path) 
     assert "his-early.info" in masters
     assert "our-early.info" not in masters
     assert "our-early.info" not in (tmp_path / "netnew" / "1997.txt").read_text().split()
+
+
+def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
+    """The same rows in either insertion order, as a store rewrite lays them down again: his
+    pair, ours, a web hostname, header-only hosts, a candidate and two ISC survey editions."""
+    news = "https://archive.org/download/usenet-alt/alt.test.mbox.zip"
+    zone = "http://nw.com/zone/WWW/9901/isc.hosts/net.gz"
+    listing = "artifact_listing"
+    headers = (("news.example.org", 2000), ("news.example.org", 2001), ("mail.example.org", 1998))
+    surveys = (("1999-01", "Mail.isc.net"), ("1999-07", "mail.isc.net"))
+    rows = [
+        ("prior_task", "base.com", 1997, "prior_reused", "1997.txt", None, None),
+        ("ia_cdx", "new.com", 1997, "cdx_timestamp", "19970101000000", None, None),
+        ("ia_cdx", "web.com", 1999, "cdx_timestamp", "19990101000000", None, "www2.web.com"),
+        # a second type for one source, whose reported type must not follow the row order
+        ("ia_cdx", "dir.com", 1998, "dated_directory", "1998/05 dir.com", None, None),
+        *(("usenet", "example.org", y, listing, f"a#{y} {h}", news, h) for h, y in headers),
+        *(
+            (ISC_SOURCE, "isc.net", 1999, listing, f"isc survey {e} host {h}", zone, None)
+            for e, h in surveys
+        ),
+        ("ia_cdx", "cand.org", None, None, None, None, None),
+    ]
+    methods = {"ia_cdx": "ia_cdx_domain_sweep", "usenet": "usenet_server_written_header"}
+    conn = connect(":memory:")
+    init_db(conn)
+    for source, domain, year, kind, value, url, host in rows[::-1] if reverse else rows:
+        sid = ensure_source(conn, source, "timestamped")
+        add_candidate(conn, domain, sid)
+        if year is None:
+            continue
+        method = methods.get(source, source)
+        eid = record_evidence(conn, domain, sid, year, kind, value, url, acquisition_method=method)
+        if source == ISC_SOURCE:
+            continue
+        assign_year(conn, eid)
+        if host:
+            conn.execute(
+                "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+                "VALUES (?, ?, ?, ?)",
+                [host, domain, year, eid],
+            )
+    return conn
+
+
+def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path, monkeypatch) -> None:
+    """A store swaps in only when its export matches the old one byte for byte, so the files
+    depend on the rows and never on their physical order. `hostname_year`'s key already makes
+    header provenance unique on hostname and year; its ORDER BY names every column anyway."""
+    import hashlib
+
+    baseline = _fake_baseline(tmp_path)
+    # the hostname half reads baseline_dir(), which is his real release in a checkout
+    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
+
+    def export(conn: duckdb.DuckDBPyConnection, name: str) -> dict[str, str]:
+        out = tmp_path / name
+        export_all(
+            conn,
+            netnew_dir=out / "netnew",
+            candidates_path=out / "candidates.txt",
+            masters_dir=out / "exports",
+            report_dir=out / "reports",
+            provenance_dir=out / "provenance",
+            baseline=baseline,
+        )
+        # the stamp carries its own write time
+        return {
+            str(p.relative_to(out)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(out.rglob("*"))
+            if p.is_file() and p.name != STAMP_NAME
+        }
+
+    forward = _one_logical_store(reverse=False)
+    first = export(forward, "first")
+    assert export(forward, "second") == first
+    assert export(_one_logical_store(reverse=True), "reversed") == first
+    netnew = tmp_path / "first" / "netnew"
+    summary = json.loads((netnew / "candidate_additions_summary.json").read_text())
+    assert list(summary["by_unit"]) == ["hostname", "registrable"]
+    assert len((netnew / "header_candidates_provenance.csv").read_text().splitlines()) == 4
+    assert len((netnew / "isc_survey_provenance.csv").read_text().splitlines()) == 3
+
+
+@pytest.mark.parametrize("his_isc", [False, True], ids=["isc-name-ours", "isc-name-his"])
+def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
+    tmp_path: Path, monkeypatch, his_isc: bool
+) -> None:
+    """The bank writes only the claim and ROUND.md quotes it, so the full export that ships
+    must write the same bytes. The ISC reduction runs in both modes: an ISC name of his is
+    counted in the summary's held names, and one of ours joins the candidate pool."""
+    baseline = _fake_baseline(tmp_path)
+    if his_isc:
+        (baseline / "isc_survey_hostnames").mkdir()
+        (baseline / "isc_survey_hostnames" / "1999-ISC.txt").write_text("mail.isc.net\n")
+    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
+    conn = _one_logical_store(reverse=False)
+    for mode in ("claim", "full"):
+        out = tmp_path / mode
+        export_all(
+            conn,
+            netnew_dir=out / "netnew",
+            candidates_path=out / "candidates.txt",
+            masters_dir=out / "exports",
+            report_dir=out / "reports",
+            provenance_dir=out / "provenance",
+            baseline=baseline,
+            claim_only=mode == "claim",
+        )
+    claim, full = (
+        claim_files(tmp_path / m / "netnew", tmp_path / m / "candidates.txt")
+        for m in ("claim", "full")
+    )
+    assert [p.read_bytes() for p in claim] == [p.read_bytes() for p in full]
+    # no masters, manifests, ISC files, reports or provenance
+    written = {p for p in (tmp_path / "claim").rglob("*") if p.is_file()}
+    assert written == {*claim, tmp_path / "claim" / "netnew" / STAMP_NAME}
+    claim_stamp, full_stamp = (read_stamp(tmp_path / m / "netnew") for m in ("claim", "full"))
+    assert (claim_stamp.pop("mode"), full_stamp.pop("mode")) == ("claim", "full")
+    assert {**claim_stamp, "written_at": ""} == {**full_stamp, "written_at": ""}
+
+    netnew = tmp_path / "claim" / "netnew"
+    attested = (netnew / ATTESTED_NAME).read_text()
+    # example.org is dated only by headers, which the annual files refuse and this does not
+    assert attested == (
+        "1997\tbase.com\n1997\tnew.com\n1998\tdir.com\n1998\texample.org\n"
+        "1999\tweb.com\n2000\texample.org\n2001\texample.org\n"
+    )
+    for year in YEARS:
+        block = {line.split("\t")[1] for line in attested.splitlines() if line[:4] == str(year)}
+        assert set((netnew / f"{year}.txt").read_text().split()) <= block
+
+
+def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Only a full export of the store as it stands ships, and the bank's candidate claim set
+    aside before it must equal the full export's byte for byte."""
+    baseline = _fake_baseline(tmp_path)
+    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
+    conn = _populated_db()
+    netnew, claim = tmp_path / "netnew", tmp_path / "claim"
+
+    def export(**mode: bool) -> None:
+        export_all(
+            conn,
+            netnew_dir=netnew,
+            candidates_path=tmp_path / "candidates.txt",
+            masters_dir=tmp_path / "exports",
+            report_dir=tmp_path / "reports",
+            provenance_dir=tmp_path / "provenance",
+            baseline=baseline,
+            **mode,
+        )
+
+    export(claim_only=True)
+    assert "data/exports/1996.txt" in stamp_problems(netnew_dir=netnew, claim_dir=claim)[0]
+    claim.mkdir()
+    for name in ("candidate_additions.txt", STAMP_NAME):
+        shutil.copy(netnew / name, claim)
+    export(with_provenance=True)
+    assert stamp_problems(conn, netnew, claim) == []
+    (claim / "candidate_additions.txt").write_text("other.com\n")
+    assert any("differ" in p for p in stamp_problems(conn, netnew, claim))
+    # A seed moves neither ingested files nor evidence, only candidates.
+    conn.execute(
+        "INSERT INTO domain (domain, discovered_source) "
+        "SELECT 'seeded.com', min(source_id) FROM source"
+    )
+    assert any("the store moved" in p for p in stamp_problems(conn, netnew, claim))

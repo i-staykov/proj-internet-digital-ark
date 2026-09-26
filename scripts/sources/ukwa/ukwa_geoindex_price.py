@@ -1,6 +1,6 @@
 """Price a geoindex slice: how many of its in-window (domain, year) pairs are net-new?
 
-Read-only against the store, with a retry loop because `maintain.sh` holds the
+Read-only against the store, with a retry loop because a bank holds the
 single writer lock for minutes at a time and a measurement that dies on the lock
 looks exactly like a measurement that found nothing.
 
