@@ -267,8 +267,8 @@ a figure has reached the register without being checked.
    `lead.json`; a scout lead with a `scout.md` and no finding moves the same way. Where one slug
    arrives twice, the settled copy wins and then the later run. A file no rule matched moves to
    `incoming/_unread/<run>/`. Once, it appends `data/logs/fleet_ledger.tsv` to the fleet's ledger
-   as `legacy` lines, keyed on each row's number and text, and deletes the TSV only once every
-   line is in. A test drain's row (5 tokens, no window) keeps the TSV until it is dropped.
+   as `legacy` lines, keyed on each row's number and text, and renames the TSV `.converted` once
+   fleet main holds every row. A test drain's row (5 tokens, no window) keeps the TSV.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.

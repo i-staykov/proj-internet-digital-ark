@@ -69,8 +69,8 @@ FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
 PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
-# The old spend record, converted once into legacy lines and then deleted. `ARK_FLEET_LEDGER`
-# moves it, so a drain under test never deletes the real one.
+# The old spend record, converted into legacy lines and then set aside. `ARK_FLEET_LEDGER`
+# moves it, so a drain under test never moves the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
 # The store whose ingested files say which sources are banked, read only, under the bank's lock.
 DB = REPO / "data/ark.duckdb"
@@ -201,14 +201,16 @@ def keep_leftovers(incoming: Path, run: Path) -> None:
 
 
 def convert_ledger(fleet: Path | None) -> None:
-    """The old TSV ledger, once, as the fleet ledger's legacy lines, and deleted only then.
+    """The old TSV ledger as the fleet ledger's legacy lines, set aside once fleet main has them.
 
     Each row becomes `{"row", "line", "at"}`: its 1-based line number, its text, and its own
     stamp as the line's time. The fleet keys a legacy line on the row and the text together,
-    because the old ledger repeats identical rows, so a rerun over a fresh copy adds none.
-    Anything short of every row in the fleet ledger keeps the file for the next tick: a fleet
-    clone that predates `scripts/ledger.py`, which the sync never pulls, a row with no stamp
-    to date it, or a test drain's row still waiting for #171's drop. None stops the tick.
+    because the old ledger repeats identical rows, so each tick's rerun adds none. Anything
+    short of every row on the clone's `origin/main` keeps the file for the next tick, since
+    push_fleet.sh's replay can drop an unpushed line: a fleet clone that predates
+    `scripts/ledger.py`, a row with no stamp to date it, a test drain's row still waiting for
+    #171's drop, or a push not landed yet. None stops the tick. The file is renamed
+    `.converted`, beside any earlier one, never deleted.
     """
     tsv = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
     if not tsv.is_file():
@@ -241,8 +243,18 @@ def convert_ledger(fleet: Path | None) -> None:
     if not ok:
         print(f"drain: {tsv.name} kept, the fleet ledger refused it: {said}")
         return
-    tsv.unlink()
-    print(f"drain: {tsv.name} converted, {len(rows)} rows as legacy lines ({said}), and deleted")
+    landed = fleet_ledger.lines(fleet, "legacy", ref="origin/main")
+    held = {(line.get("row"), line.get("line")) for line in landed}
+    found = sum((row["row"], row["line"]) in held for row in rows)
+    if found != len(rows):
+        print(f"drain: {tsv.name} kept, fleet main holds {found} of its {len(rows)} rows ({said})")
+        return
+    aside, n = tsv.with_name(f"{tsv.name}.converted"), 1
+    while aside.exists():
+        n += 1
+        aside = tsv.with_name(f"{tsv.name}.converted.{n}")
+    tsv.rename(aside)
+    print(f"drain: {tsv.name} converted, {len(rows)} legacy lines ({said}), now {aside.name}")
 
 
 # --- validate -----------------------------------------------------------------
@@ -691,12 +703,13 @@ def outcome(roots: list[Path], fleet: Path, register: Path | None, db: Path = DB
     if not finds:
         print("outcome: no confirmed FIND with a store price, nothing to book")
         return 0
-    # The source is named the way the request block names it.
-    sources = {slug: fleet_request.source_key(slug) for slug in finds}
-    decisions = {
-        slug: decision_of(decided, sources[slug], load(lead / LEAD).get("evidence_class"))
-        for slug, lead in finds.items()
+    # Source and class as the request block names them: a whole read's block is its own
+    # hostname source in the capture class, whatever class the scout recorded.
+    classes = {
+        slug: fleet_request.request_class(lead, load(lead / LEAD)) for slug, lead in finds.items()
     }
+    sources = {slug: source for slug, (source, _) in classes.items()}
+    decisions = {slug: decision_of(decided, *classes[slug]) for slug in finds}
     held: set[str] = set()
     if INGESTIBLE & set(decisions.values()):
         held = {fleet_request.source_key(name) for name in ingested(db) or ()}
