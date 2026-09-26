@@ -5,7 +5,7 @@ faster than anyone updates prose, and a stale statement of it reads as authorita
 assembles the answer from the programs that own each piece rather than restating any of it:
 
     round_figures.py       the five fields, from the claim export's files
-    key-decisions.md       what is waiting on a human
+    ark.approvals          what is waiting on a human: the pending register rows
     ark stats              the scoreboard, with --full
     audit_residual.py      what is on disk that nothing has read, with --full
 
@@ -48,12 +48,10 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
-from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
-DECISIONS = ROOT / "docs/lore/key-decisions.md"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 GATE_PCT = Decimal(5)
@@ -128,16 +126,6 @@ def parse_fields(figures: str) -> dict[str, str] | None:
     return {key: m.group(1) for key, m in found.items()}
 
 
-def open_decisions() -> list[str]:
-    """The OPEN headings, via the module that owns that block.
-
-    Parsed in one place rather than two: this file and the cycle both need it, and a
-    second copy of the parser would eventually disagree with the first about what
-    counts as open, which is the failure `sources.md` already carries a scar from.
-    """
-    return open_titles(DECISIONS)
-
-
 def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     """Rows of the amendments ledger with a cell still reading `pending`: a brief
     change intake transcribed that nobody has classified or landed yet."""
@@ -154,7 +142,7 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(fields: dict[str, str] | None, approvals: int, decisions: int) -> dict:
+def brief(fields: dict[str, str] | None, approvals: int) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields it carries no
     `field5_percent`, and every reader refuses rather than quote a figure of its own."""
     snapshot = {
@@ -173,7 +161,7 @@ def brief(fields: dict[str, str] | None, approvals: int, decisions: int) -> dict
         }
     return snapshot | {
         "gate_pct": float(GATE_PCT),
-        "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
+        "waiting_on_human": {"approvals": approvals},
         "pending_amendments": pending_amendments(),
     }
 
@@ -198,7 +186,6 @@ def build(full: bool = False) -> tuple[str, dict]:
     if full:
         residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
 
-    decisions = open_decisions()
     waiting = pending_approvals()
     parts = [
         "# Where the round stands",
@@ -243,10 +230,10 @@ def build(full: bool = False) -> tuple[str, dict]:
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
         "on disk untouched until a `Decision:` line in",
         "`docs/registers/approved-sources-list.md` says",
-        "otherwise. Each one is also raised under `## OPEN` in",
-        "`docs/lore/key-decisions.md`, which is",
-        "the only surface Ivo reads. Nothing is lost by leaving them; nothing enters an annual",
-        "file while they wait.",
+        "otherwise. Each one at or above the filing floor, unless it waits only on work, is also",
+        "an issue labelled `needs-owner` with a one-line pull request, which",
+        "`scripts/harness/sync_approvals.py` files. Nothing is lost by leaving them; nothing",
+        "enters an annual file while they wait.",
         "",
     ]
     if waiting:
@@ -256,12 +243,6 @@ def build(full: bool = False) -> tuple[str, dict]:
         ]
     else:
         parts += ["Nothing pending in `docs/registers/approved-sources-list.md`."]
-    parts += ["", "**Open decisions.**", ""]
-    if decisions:
-        parts += [f"- {d}" for d in decisions]
-        parts += ["", "Full context in `docs/lore/key-decisions.md`."]
-    else:
-        parts += ["Nothing open in `docs/lore/key-decisions.md`."]
     parts += [
         "",
         "---",
@@ -271,7 +252,7 @@ def build(full: bool = False) -> tuple[str, dict]:
         f"<!-- ark-round-state: {' '.join(f'{k}={v}' for k, v in state.items())} -->",
         "",
     ]
-    return "\n".join(parts), brief(parse_fields(figures), len(waiting), len(decisions))
+    return "\n".join(parts), brief(parse_fields(figures), len(waiting))
 
 
 def parse_state(text: str) -> dict[str, str] | None:

@@ -78,59 +78,20 @@ Decision: master
 Decision: pending
 """
 
-DECISIONS_FIXTURE = """# Key decisions
 
----
-
-## OPEN
-
-Nothing needs your input.
-
----
-
-## CLOSED
-"""
-
-
-def test_a_pending_approval_is_mirrored_into_the_one_surface(tmp_path, monkeypatch) -> None:
-    """The wiring, not the convention: a `pending` line in a file Ivo does not open is a
-    journal waiting on a human who was never told, which the harness reports as the queue
-    working (ADR-005).
-    """
+def test_a_pending_class_is_reported_and_nothing_is_written(tmp_path, monkeypatch) -> None:
+    """The priced class is counted and named for the owner. The register's pending block is
+    the ask, so the check leaves the register as it was and writes no other file."""
     approvals = tmp_path / "approved-sources-list.md"
     approvals.write_text(APPROVALS_FIXTURE, encoding="utf-8")
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(DECISIONS_FIXTURE, encoding="utf-8")
     monkeypatch.setattr(cycle, "APPROVALS", approvals)
-    monkeypatch.setattr(cycle, "DECISIONS_DOC", decisions)
+    before = sorted(tmp_path.rglob("*"))
 
     findings, attention = cycle.check_approvals()
-    assert cycle.key_decisions.is_open("new_source / artifact_listing", decisions)
-    assert any("mirrored into" in f for f in findings)
-    assert any("new_source/artifact_listing" in a for a in attention)
-
-    # Idempotent: the cycle runs every fifteen minutes.
-    findings2, _ = cycle.check_approvals()
-    assert any("already open in key-decisions" in f for f in findings2)
-    assert len(cycle.key_decisions.open_titles(decisions)) == 1
-
-
-def test_an_open_entry_left_behind_after_a_decision_is_flagged(tmp_path, monkeypatch) -> None:
-    """The other direction. An OPEN entry for a class that has since been decided makes
-    the surface lie about what is waiting, which costs it the trust that makes it work.
-    """
-    approvals = tmp_path / "approved-sources-list.md"
-    approvals.write_text("### settled / artifact_listing\n\nDecision: master\n", encoding="utf-8")
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(DECISIONS_FIXTURE, encoding="utf-8")
-    monkeypatch.setattr(cycle, "APPROVALS", approvals)
-    monkeypatch.setattr(cycle, "DECISIONS_DOC", decisions)
-    cycle.key_decisions.raise_open(
-        "Approve, refuse or downgrade settled / artifact_listing", "Stale.", decisions
-    )
-
-    _findings, attention = cycle.check_approvals()
-    assert any("no longer pending" in a for a in attention)
+    assert "approvals: 1 priced class(es) awaiting classification" in findings
+    assert len(attention) == 1 and "new_source/artifact_listing" in attention[0]
+    assert sorted(tmp_path.rglob("*")) == before
+    assert approvals.read_text(encoding="utf-8") == APPROVALS_FIXTURE
 
 
 def test_unfinished_hypotheses_are_not_raised_at_the_human(tmp_path, monkeypatch) -> None:

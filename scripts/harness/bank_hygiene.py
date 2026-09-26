@@ -46,26 +46,25 @@ sys.path.insert(0, str(ROOT / "src"))
 BRIEF = ROOT / "data/brief.json"
 LATCH = ROOT / "data/logs/gate_notified.tsv"
 FLEET_REPO = "i-staykov/ark-fleet"
+# The label the fleet's asks for the owner carry, the gate issue among them.
+LABEL = "needs-owner"
 
 # Paths the tick and the bank stage. An untracked file under one of these is fatal
 # rather than a warning, because their `git add` would commit it. Kept in step with
 # both recipes' `git add` line: widening that without widening this is how an
 # untracked file gets committed by a job nobody is watching.
-STAGED = ("docs/registers/", "docs/lore/key-decisions.md")
-# **Pages a program writes, which must never refuse the bank.** `discover_cycle.py`
-# rewrites these every cycle and commits neither, so a changed triage count left the clone
-# dirty, preflight refused, and banking stopped until a human noticed. Measured 2026-09-19:
-# one such counter moving 49 -> 50 stalled the bank for an hour. They are inside `STAGED`,
-# so the next commit the tick or the bank makes takes them, which is the intended flow.
+STAGED = ("docs/registers/",)
+# **Pages a program writes mid-run, which must never refuse the bank.** Each is nobody's
+# work in progress, and each sits inside `STAGED`, so the next commit the tick or the bank
+# makes takes it.
 GENERATED = (
-    "docs/lore/key-decisions.md",
     # `bank_findings.py` books every FIND in the first and every CLOSED in the second,
     # mid-sync. A sync that dies between writing one and committing it leaves the next
     # sync refusing a row it wrote itself.
     "docs/registers/sources.md",
     "docs/registers/sources-closed.md",
     # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
-    # pulled. It refused the 2026-09-19 04:05 bank while sitting one commit behind.
+    # pulled, so a run that stops before its commit leaves it changed.
     "docs/registers/queue.md",
 )
 
@@ -156,10 +155,9 @@ def unsafe(status: str) -> tuple[list[str], list[str]]:
         if not line.strip():
             continue
         # **The code is split off, never sliced at a fixed offset.** `git()` strips its
-        # output, so the FIRST porcelain line arrives without its leading status space
-        # and `line[3:]` read `cs/lore/key-decisions.md`. That matched nothing in
-        # GENERATED, so the first generated page to go dirty refused the bank every
-        # time: measured twice on 2026-09-19, at 04:05 and 05:05 UTC, banking nothing.
+        # output, so the FIRST porcelain line arrives without its leading status space,
+        # and `line[3:]` drops the first letter of its path. That path matches nothing in
+        # GENERATED, so a generated page first in the status would refuse the bank.
         code, _, rest = line.strip().partition(" ")
         path = rest.strip().strip('"')
         if path in GENERATED:
@@ -362,7 +360,9 @@ def gate(
     )
     if not write:
         return [f"would open the gate issue: {title}"]
-    code, out = call(["issue", "create", "--repo", repo, "--title", title, "--body", body])
+    code, out = call(
+        ["issue", "create", "--repo", repo, "--title", title, "--label", LABEL, "--body", body]
+    )
     if code != 0:
         return [f"gate issue not opened: `gh issue create` failed: {out or code}"]
     latch(label, marker, now.isoformat(timespec="seconds"), latch_path)

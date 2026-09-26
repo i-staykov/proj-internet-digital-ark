@@ -114,11 +114,11 @@ ACCOUNTED = {
     # nothing reads", which is why this needs saying here rather than being rediscovered.
     "cdx_suffix": "raw sweep input; converted incrementally, state in "
     "data/raw/cdx/cdx_suffix_convert.state.tsv",
-    # Deliberately unreachable, and it must stay that way until Ivo rules. Nominet's
+    # Deliberately unreachable, and it must stay that way until the owner rules. Nominet's
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
     # collection, so these three journals are held where no ingest or bank glob matches
-    # them. See docs/lore/key-decisions.md.
+    # them.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
     # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in

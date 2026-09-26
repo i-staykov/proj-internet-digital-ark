@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -45,9 +46,13 @@ Decision: master
 """
 
 
+def register_text(*blocks: str) -> str:
+    return "# Approvals\n\n" + "\n".join(blocks)
+
+
 def register(tmp_path: Path, *blocks: str) -> Path:
     path = tmp_path / "approved-sources-list.md"
-    path.write_text("# Approvals\n\n" + "\n".join(blocks), encoding="utf-8")
+    path.write_text(register_text(*blocks), encoding="utf-8")
     return path
 
 
@@ -84,8 +89,8 @@ def test_a_decided_source_is_not_a_request() -> None:
 def test_the_pull_request_flips_exactly_one_line() -> None:
     """The merge IS the approval, so it must change the decision and nothing else."""
     request = next(r for r in sa.requests(floor=5_000))
-    after = sa.approve_line(request)
     before = sa.REGISTER.read_text(encoding="utf-8")
+    after = sa.approve_line(request, before)
     assert after.count("Decision: master") == before.count("Decision: master") + 1
     assert after.count("Decision: pending") == before.count("Decision: pending") - 1
     changed = [
@@ -94,7 +99,138 @@ def test_the_pull_request_flips_exactly_one_line() -> None:
     assert changed == [("Decision: pending", "Decision: master")]
 
 
+def test_a_block_live_does_not_hold_yet_is_filed_on_a_later_run(monkeypatch, capsys) -> None:
+    """A bank writes a block and runs this before it pushes. The approval branch starts from
+    live, so until live holds the block there is no one line to flip: no branch, no issue.
+    """
+    calls = []
+
+    def fake_gh(args, check=True):
+        calls.append(args)
+        return "[]"
+
+    monkeypatch.setattr(sa, "gh", fake_gh)
+    monkeypatch.setattr(sa, "live_register", lambda: register_text(DECIDED))
+    monkeypatch.setattr(sa.subprocess, "run", lambda *a, **k: pytest.fail(f"ran {a}"))
+    assert sa.main([]) == 0
+    assert "not on live yet: Approve hostlist? 40,000 EE" in capsys.readouterr().out
+    assert not [args for args in calls if args[:2] in (["pr", "create"], ["issue", "create"])]
+
+
+def test_a_block_as_request_approval_writes_it_is_filed() -> None:
+    """`just approve` writes the potential among the head lines, then tables and reasons
+    before the decision; the figure is still read, so the block reaches an issue."""
+    block = """### sampled / artifact_listing
+- ingest spec: `sampled`
+- source: https://example.org/list
+- journal: `data/raw/sampled/items.jsonl`
+- potential: 12345
+
+| class | net-new | EE |
+|---|---|---|
+| master | 9,000 | **12,345.0** |
+
+- reasons: the terms page names no licence
+
+Decision: pending
+"""
+    sa.REGISTER.write_text(register_text(block), encoding="utf-8")
+    (request,) = sa.requests(floor=5_000)
+    assert (request.source, request.potential) == ("sampled", 12345.0)
+    assert request.failed == "not stated in the block"
+
+
+def test_a_parked_block_is_filed_naming_why_it_was_parked(monkeypatch) -> None:
+    """A clause park is still an ask; the owner's issue says what its yes would approve."""
+    parked = """### robotslist / artifact_listing
+- refetch: https://example.org/list
+- parked: the robots clause is not ok: robots.txt disallows /data/
+- potential: 7000
+Decision: pending
+"""
+    sa.REGISTER.write_text(register_text(parked), encoding="utf-8")
+    (request,) = sa.requests(floor=5_000)
+    why = "parked by the standing rule: the robots clause is not ok: robots.txt disallows /data/"
+    assert request.failed == why
+    calls = []
+    monkeypatch.setattr(sa, "gh", lambda args, check=True: calls.append(args) or "#1")
+    sa.raise_issue(request, "https://example.org/pull/1", dry_run=False)
+    assert f"Blocked on: {why}" in calls[0][calls[0].index("--body") + 1]
+
+
+def test_a_block_priced_again_is_not_filed_a_second_time(monkeypatch, capsys) -> None:
+    """The title carries the potential, so the open issue is found by its source."""
+    calls = []
+
+    def fake_gh(args, check=True):
+        calls.append(args)
+        if args[:2] == ["issue", "list"]:
+            return json.dumps([{"number": 5, "title": "Approve hostlist? 38,500 EE"}])
+        return "[]"
+
+    monkeypatch.setattr(sa, "gh", fake_gh)
+    assert sa.main([]) == 0
+    assert "open already: Approve hostlist? 38,500 EE" in capsys.readouterr().out
+    assert not [args for args in calls if args[:2] in (["pr", "create"], ["issue", "create"])]
+
+
 def test_the_branch_name_is_stable_per_source() -> None:
     request = next(r for r in sa.requests(floor=5_000))
     assert request.branch == "approve/hostlist"
     assert request.title == "Approve hostlist? 40,000 EE"
+
+
+def test_the_dry_run_names_the_label_on_every_issue_it_would_file(monkeypatch, capsys) -> None:
+    """A dry run asks gh nothing, and each issue it would file says the label it carries."""
+
+    def no_gh(args, check=True):
+        raise AssertionError(f"a dry run called gh {args}")
+
+    monkeypatch.setattr(sa, "gh", no_gh)
+    assert sa.main(["--dry-run", "--floor", "100"]) == 0
+    filed = [line for line in capsys.readouterr().out.splitlines() if "would file" in line]
+    assert filed == [
+        "issue: would file, labelled needs-owner: Approve hostlist? 40,000 EE",
+        "issue: would file, labelled needs-owner: Approve tinylist? 900 EE",
+    ]
+
+
+def test_the_issue_is_filed_under_needs_owner(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(sa, "gh", lambda args, check=True: calls.append(args) or "issue #4")
+    request = next(r for r in sa.requests(floor=5_000))
+    sa.raise_issue(request, "https://example.org/pull/1", dry_run=False)
+    (args,) = calls
+    assert args[:2] == ["issue", "create"]
+    label = args.index("--label")
+    assert args[label : label + 2] == ["--label", "needs-owner"]
+
+
+def test_only_its_own_titles_are_closed_under_the_shared_label(monkeypatch) -> None:
+    """Other asks carry `needs-owner` too. One whose title begins like an approval and names
+    a decided source stays open: only a title this script writes is its to close.
+    """
+    listed = [
+        {"number": 3, "title": "Approve donelist? 50,000 EE"},
+        {"number": 5, "title": "Approve hostlist? 40,000 EE"},
+        {"number": 8, "title": "Approve donelist? The terms page names no licence"},
+        {"number": 9, "title": "Rules: asks carry needs-owner"},
+    ]
+    calls = []
+
+    def fake_gh(args, check=True):
+        calls.append(args)
+        if args[:2] == ["pr", "list"]:
+            return json.dumps([{"number": 11, "headRefName": "approve/hostlist"}])
+        if args[:2] == ["issue", "list"]:
+            return json.dumps(listed)
+        return ""
+
+    monkeypatch.setattr(sa, "gh", fake_gh)
+    assert sa.main([]) == 0
+    listing = next(args for args in calls if args[:2] == ["issue", "list"])
+    label = listing.index("--label")
+    assert listing[label : label + 2] == ["--label", "needs-owner"]
+    closed = [args[2] for args in calls if args[:2] == ["issue", "close"]]
+    assert closed == ["3"]
+    assert not [args for args in calls if args[:2] == ["issue", "create"]]
