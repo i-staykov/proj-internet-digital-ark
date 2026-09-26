@@ -73,46 +73,10 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 # Derived artifacts, each with the thing that makes it stale. Every one is
 # regenerable, so a finding is "rebuild this", never "you have lost something".
 #
-# **The `against` column is the fix for a real miss.** This check first compared every
-# artifact to the baseline load and nothing else, and reported the candidate-pool queue
-# as fine while 4,333 freshly seeded UDRP names, 88% of them absent from the store and
-# all of them parties to real legal proceedings, sat in the pool where the running
-# engine could never see them. A queue is stale relative to **the newest row that
-# should be in it**, which for a pool queue is the newest candidate and for a gap queue
-# is the newest assigned pair, because a new pair both creates and closes brackets.
-#
 #   baseline    the reviewer's release: a bigger merged corpus creates new gaps
 #   candidates  the newest domain with no year, which a pool queue should carry
 #   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
-    # The operative lists since the two-machine split of 2026-08-11: the VPS works
-    # bracketed gaps, the local engine works the candidate pool.
-    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap", "pairs"),
-    # Two marks, and the second one is not in the store at all. A pool queue goes stale
-    # when new candidates arrive, and ALSO when new journals arrive, because its
-    # ordering is `measured hit rate x English share` and the rate is measured out of
-    # the journals. On 11 August at 22:20 the queue was two hours old and correctly
-    # reported fresh against candidates, while three of the four sources at its head had
-    # had their (source, TLD) cells measured in the meantime: 0.086, 0.111 and 0.536
-    # against the 0.874 they had been inheriting. The population had not changed and the
-    # ranking was out of date, which no store mark can see.
-    (
-        "data/raw/cdx/queue_pool_local.txt",
-        "build_query_queue.py --population pool",
-        ("candidates", "journals"),
-    ),
-    # **The list the local engine reads since 2026-08-20.** C-24 kept the local engine on
-    # the candidate pool and left one explicit contingency: "the edge queue is available
-    # for whenever the pool runs thin." It has. Measured per journal in run order rather
-    # than over a window that reaches back into better ones, the pool's last fifteen runs
-    # gave 15.8% and 0.110 equivalent-English per query, against 0.6075 expected for the
-    # best 250,000 edge targets. The pool list above is kept and kept fresh, because a
-    # population that has run thin is not a population that is finished.
-    (
-        "data/raw/cdx/queue_edge_local.txt",
-        "build_query_queue.py --population edge",
-        ("candidates", "journals"),
-    ),
     # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
     # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
     # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
@@ -125,11 +89,6 @@ DERIVED = (
         "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
         "candidates",
     ),
-    # The mixed queue, kept because a shard of it may still be in flight on a
-    # machine that has not been re-pointed yet.
-    ("data/raw/cdx/queue_shard0.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_shard1.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue", "baseline"),
 )
 
 # Directories whose contents are inputs to a collector rather than to an ingest,
@@ -148,20 +107,17 @@ ACCOUNTED = {
     "texts": "trade-press OCR cache, read by scripts/sources/trade_press/reextract_trade_press.py",
     "webbase": "rejected on measurement: 99.99% already held, and re-tested 2026-08-27 "
     "on the held-and-missing-2001 screen at exactly 0 pairs",
-    # 806 MB that reads as the largest unexplained block on disk and is fully processed
-    # INPUT, checked 2026-08-27. `cdx_suffix_convert.py` collapses these capture rows
-    # into `cdx_snapshot` shape under `data/raw/cdx/cdx_suffix_*.jsonl.gz`, 46 of which
-    # are in the ledger, and the newest converted journal (2026-08-27 02:36) postdates
-    # the newest raw one (2026-08-24 10:51) with no stranded `.part`. So every capture
-    # has been banked. `unreferenced` cannot tell "raw input already converted" from
-    # "bytes nothing reads", which is why this needs saying here rather than being
-    # rediscovered.
-    "cdx_suffix": "raw sweep input; converted to cdx_snapshot journals, all banked",
+    # The largest block on disk, and INPUT: `ark ingest-hostnames` reads these capture rows
+    # and `cdx_suffix_convert.py` turns their exact-host registrables into `cdx_snapshot`
+    # journals under `data/raw/cdx/`. `unreferenced` cannot tell "raw input" from "bytes
+    # nothing reads", which is why this needs saying here rather than being rediscovered.
+    "cdx_suffix": "raw sweep input; converted incrementally, state in "
+    "data/raw/cdx/cdx_suffix_convert.state.tsv",
     # Deliberately unreachable, and it must stay that way until Ivo rules. Nominet's
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
-    # collection, so these three journals are held where no ingest glob matches them
-    # and `maintain.sh` cannot bank them. See docs/lore/key-decisions.md.
+    # collection, so these three journals are held where no ingest or bank glob matches
+    # them. See docs/lore/key-decisions.md.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
     # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
@@ -201,7 +157,7 @@ def read_only_store(path: Path, patience_s: int = 900) -> duckdb.DuckDBPyConnect
     """Open for reading, waiting out a writer.
 
     Patience is 15 minutes, not the 2 minutes this first shipped with. That was
-    sized against `just maintain`, which holds the write lock for seconds, and it
+    sized against a writer that holds the write lock for seconds, and it
     failed the first time it met a real writer: `ark seed` over 29,432 names holds
     the lock for more than twenty minutes, so a read-only audit gave up at
     exactly the moment the audit was worth running. A writer that outlasts even

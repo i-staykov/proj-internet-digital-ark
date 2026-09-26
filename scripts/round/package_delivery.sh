@@ -104,7 +104,7 @@ fi
 # Regenerating is cheap and idempotent, so this rebuilds the report and refuses
 # if that changed anything. A report that is already current is a no-op here.
 # The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while the maintain loop holds the write lock,
+# read-only connection still fails while a bank holds the write lock,
 # and this guard went in without one and refused to package for that reason
 # alone. Swallowing the error made it look like the report was broken when the
 # store was merely busy, so the failure is printed now rather than hidden.

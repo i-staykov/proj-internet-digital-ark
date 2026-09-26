@@ -45,7 +45,7 @@ def _open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConne
     """Open the store read-only, waiting out a writer rather than dying on one.
 
     The store query happens AFTER every archive has been parsed, which over the
-    full corpus is hours of work, and `maintain.sh` holds a write lock
+    full corpus is hours of work, and a bank holds the write lock
     whenever it is mid-ingest. Failing here throws all of that away, which has
     already happened once tonight to a measurement script.
     """
@@ -73,8 +73,8 @@ def parse_one(path: Path) -> tuple[str, bool, list[tuple[str, int, str]], dict]:
 
     **One archive may not take the batch down with it.** A batch is split in a
     single call and its archives are only marked processed if that call succeeds,
-    so an exception here unmarks every archive in the batch and the maintain loop
-    then re-offers exactly the same batch on its next pass. On 6 August one message
+    so an exception here unmarks every archive in the batch and the next bank
+    then re-offers exactly the same batch. On 6 August one message
     with an RFC 2047 encoded Date header did that 145 times between 23:47 and 05:50
     and the night's second half produced nothing. The parser bug was one line; the
     all-or-nothing shape was the expensive part, so failure is now per archive and
@@ -106,9 +106,9 @@ def main() -> None:
         type=Path,
         default=OUT_DIR,
         help="Where to write the journals. Point this at a staging folder when the output is "
-        "meant to be filtered before it is ingested: `maintain.sh` globs "
-        "`data/raw/usenet/usenet_{dated,candidates}_*.jsonl.gz` every cycle and ingests what "
-        "it finds, so a journal written there is in the store within minutes whether or not "
+        "meant to be filtered before it is ingested: `just bank` globs "
+        "`data/raw/usenet/usenet_{dated,candidates}_*.jsonl.gz` and ingests what it finds, "
+        "so a journal written there reaches the store at the next bank whether or not "
         "anyone has looked at it.",
     )
     parser.add_argument(

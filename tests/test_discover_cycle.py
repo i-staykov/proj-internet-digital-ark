@@ -17,39 +17,19 @@ _SPEC = importlib.util.spec_from_file_location(
 cycle = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cycle)
 
-STALE_LINE = (
-    "  [STALE] data/raw/cdx/queue_gap_vps.txt  2026-08-11T13:54:15Z  "
-    "0.9h behind the newest pairs  rebuild: build_query_queue.py --population gap"
-)
 
-
-def _parse(text: str) -> dict[str, float]:
-    """The parse as `rebuild_derived` performs it, without shelling out to the audit."""
-    import re
-
-    out = {}
-    for line in text.splitlines():
-        if "[STALE]" not in line:
-            continue
-        parts = line.split()
-        hours = next((float(p[:-1]) for p in parts if re.fullmatch(r"[\d.]+h", p)), 0.0)
-        out[parts[1]] = hours
-    return out
-
-
-def test_the_hours_field_carries_its_unit_and_must_not_be_floated_whole() -> None:
-    """`float("0.9h")` raises, and it took the whole cycle down with it."""
-    assert _parse(STALE_LINE) == {"data/raw/cdx/queue_gap_vps.txt": 0.9}
-
-
-def test_a_line_with_no_hours_field_reads_as_zero_rather_than_raising() -> None:
-    assert _parse("  [STALE] some/path.txt  2026-08-11T13:54:15Z  behind") == {"some/path.txt": 0.0}
-
-
-def test_a_timestamp_is_not_mistaken_for_the_hours_field() -> None:
-    """`2026-08-11T13:54:15Z` ends in no `h`, but a looser match on digits would take
-    a piece of it. The pattern has to anchor the whole token."""
-    assert _parse(STALE_LINE)["data/raw/cdx/queue_gap_vps.txt"] == 0.9
+def test_the_staleness_parse_takes_hours_with_their_unit(tmp_path, monkeypatch) -> None:
+    """`float("0.9h")` raises and took the whole cycle down; no hours field reads as zero."""
+    audit = (
+        "  [STALE] data/raw/rdap/pool_targets_measured.txt  2026-08-11T13:54:15Z  0.9h behind\n"
+        "  [STALE] some/path.txt  2026-08-11T13:54:15Z  behind\n"
+    )
+    monkeypatch.setattr(cycle, "run", lambda *a, **k: (audit, True))
+    monkeypatch.setattr(cycle, "REBUILD_LOCK", tmp_path / "rebuild.lock")
+    assert cycle.rebuild_derived()[0] == [
+        "derived: pool_targets_measured.txt 0.9h behind, under the threshold",
+        "derived: path.txt 0.0h behind, under the threshold",
+    ]
 
 
 def test_an_absent_lock_has_no_holder(tmp_path, monkeypatch) -> None:
@@ -251,12 +231,12 @@ def test_wave_only_runs_the_check_alone_and_exits(monkeypatch, capsys):
 
 
 def test_the_sync_asks_for_the_wave_check_every_run():
-    """It sits before the findings branch, so a sync with nothing to bank still restarts a
-    dead chain, and it is never fatal: a dead chain must not take the bank down."""
+    """It sits before the findings branch and the bank, so a tick with nothing to bank still
+    restarts a dead chain, and it is never fatal: a dead chain must not take the bank down."""
     recipe = (Path(__file__).resolve().parents[1] / "justfile").read_text(encoding="utf-8")
     line = next(ln for ln in recipe.splitlines() if "--wave-only" in ln)
     assert line.strip().endswith("|| true")
-    assert recipe.index("--wave-only") < recipe.index("Steps 3 to 7 need findings")
+    assert recipe.index("--wave-only") < recipe.index("bank_trigger.py check")
 
 
 def test_the_wave_check_is_bounded_for_its_hourly_caller(monkeypatch):

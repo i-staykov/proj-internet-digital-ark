@@ -10,8 +10,8 @@
 # acted on. A rule that depends on noticing is not a rule, it is a hope.
 #
 # Deliberately the CODE gate only. `ark check` validates the DATA over a store that
-# takes one writer and is busy every few minutes, so putting it here would make
-# committing wait on the ingest loop and the hook would be disabled within a day. Data
+# takes one writer, so putting it here would make committing wait on a bank and the
+# hook would be disabled within a day. Data
 # invariants belong in `just ship` and in the cron checklist, where they already are.
 #
 # The security scan runs here for the opposite reason: the repository is public and every

@@ -195,7 +195,7 @@ def connect_read_only_patiently(
     """Read-only, and waits out a writer instead of crashing against one.
 
     **DuckDB's single writer excludes readers too**, so even a read-only reporting
-    command meets the lock every few minutes while the ingest loop banks journals. Use
+    command meets the lock while a bank writes. Use
     this for anything that must not write; `connect_patiently` for the rest.
     """
     deadline = time.monotonic() + patience_s

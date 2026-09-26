@@ -397,7 +397,8 @@ def export_header_candidates(
     provenance_path = netnew_dir / "header_candidates_provenance.csv"
     conn.execute(f"""
         COPY (SELECT * FROM header_provenance
-              ORDER BY hostname, target_year, source, record_location)
+              ORDER BY hostname, target_year, source, record_location,
+                       acquisition_method, evidence_type, source_url)
         TO '{provenance_path}' (HEADER true)
     """)
     # The exclusion ledger XIII asks of every validation run, for this collection: the rows
@@ -635,7 +636,7 @@ def export_all(
     counts = conn.execute(
         """
         SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
-        FROM candidate_pool GROUP BY 1, 2
+        FROM candidate_pool GROUP BY 1, 2 ORDER BY 1, 2
         """
     ).fetchall()
     by_unit: dict[str, tuple[int, Decimal]] = {}

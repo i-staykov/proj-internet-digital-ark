@@ -121,8 +121,8 @@ def message_year(raw_date: str) -> int | None:
         return None
     # `Message.get` returns a `Header`, not a `str`, on an RFC 2047 encoded value, and
     # `Header` has no `.strip()`. Rare (one archive in 8,258) and costly: the splitter
-    # does a batch in one call, so one bad archive aborts 2,500 and the maintain loop
-    # retries the identical batch forever.
+    # does a batch in one call, so one bad archive aborts 2,500 and every bank retries
+    # the identical batch.
     text = str(raw_date).strip()
     year: int | None = None
     try:
