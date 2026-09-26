@@ -468,11 +468,10 @@ bank *args:
         RC=${PIPESTATUS[0]}
         set -e
         INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
-        # An approval that could not bank, its journal absent or its refetch refused, stays a
-        # reason for the trigger until a bank ingests it.
-        if grep -qE 'refetch FAILED|APPROVED AND NOT BANKED' "$BANK_LOG"; then
-            grep -E 'refetch FAILED|^!! ' "$BANK_LOG" > data/logs/bank_approvals_retry
-        else
+        # An approval whose journal is absent or whose refetch was refused stays a reason for the
+        # trigger until a bank ingests it. One that lacks a line in its block waits for the edit,
+        # which the trigger sees as a changed approvals page.
+        if ! grep -E 'refetch FAILED|is not on this machine' "$BANK_LOG" > data/logs/bank_approvals_retry; then
             rm -f data/logs/bank_approvals_retry
         fi
         if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ] && [ "$DECIDED" -eq 0 ]; then
