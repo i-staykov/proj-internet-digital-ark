@@ -15,7 +15,7 @@ import typer
 from loguru import logger
 from tqdm import tqdm
 
-from ark import approvals
+from ark import approvals, held
 from ark.audit import write_audit
 from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
 from ark.bulk import ingest_files
@@ -126,6 +126,27 @@ def ingest_legacy_cmd(
     logger.info(
         f"done: {len(ingested)} files ingested, {len(all_stats) - len(ingested)} skipped, "
         f"{total_rows} year rows added, {total_rejected} lines rejected"
+    )
+
+
+@app.command()
+def intake(
+    baseline: Annotated[
+        Path | None,
+        typer.Option(
+            help="His release folder. Defaults to wherever the current release actually is: "
+            "the repository path, or `baseline/<marker>/` in an unpacked delivery."
+        ),
+    ] = None,
+) -> None:
+    """Check his current release and write its sorted name sets under `data/held/<marker>/`.
+
+    Opens no store, and never writes a file of his.
+    """
+    his = held.prepare(baseline)
+    logger.info(
+        f"{his.marker}: {his.counts['all']:,} names in {his.all}, "
+        f"{his.counts['candidates']:,} in {his.candidates}"
     )
 
 

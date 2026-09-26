@@ -6,10 +6,14 @@ CHECK constraint is generated from these sets, so code and schema cannot
 drift apart.
 """
 
+# His rows in the store: their evidence type and their source.
+HIS_TYPE = "prior_reused"
+HIS_SOURCE = "prior_task"
+
 # master-eligible: a row of this type may create a domain_year assignment
 MASTER_TYPES = frozenset(
     {
-        "prior_reused",
+        HIS_TYPE,
         "cdx_timestamp",
         "artifact_listing",
         "link_source",

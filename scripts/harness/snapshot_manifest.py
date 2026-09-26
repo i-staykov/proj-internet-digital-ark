@@ -10,7 +10,7 @@ What lands, and why each piece is there:
     netnew/{year}{,_hostnames,-ISC}.txt   our last export, optional per family
     candidates/candidate_pool.txt         his candidate pool
     candidates/<the rest he holds>        his ISC collection and unparsed names, outside the
-                                          pool (`export.his_held_candidate_files`)
+                                          pool (`held.candidate_files`)
     candidates/candidate_unverified.txt   ours
     candidates/isc_candidates.txt         the ISC collection names, the class he refused
                                           for the annual files and which still scores as
@@ -44,7 +44,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 from ark.baseline import calculator_path  # noqa: E402
-from ark.export import ATTESTED_NAME, claim_files, his_held_candidate_files  # noqa: E402
+from ark.export import ATTESTED_NAME, claim_files  # noqa: E402
+from ark.held import candidate_files  # noqa: E402
 from ark.ingest import YEARS  # noqa: E402
 from ark.price_snapshot import (  # noqa: E402
     ATTESTED,
@@ -99,7 +100,7 @@ def sources(baseline: Path, marker: str) -> tuple[dict[str, Path], set[str], lis
             optional.add(rel)
     pool = baseline / "candidate_pool.txt"
     # what he holds outside the pool, so a name he keeps there never prices as net-new
-    outside = [path for path in his_held_candidate_files(baseline) if path != pool]
+    outside = [path for path in candidate_files(baseline) if path != pool]
     for rel, path in (
         (f"{CANDIDATES_DIR}/candidate_pool.txt", pool),
         *((f"{CANDIDATES_DIR}/{path.relative_to(baseline)}", path) for path in outside),

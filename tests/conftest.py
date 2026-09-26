@@ -6,7 +6,7 @@ names. `tests/test_approvals.py` is where the gate itself is exercised.
 
 import pytest
 
-from ark import approvals, db
+from ark import approvals, db, held
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +25,14 @@ def _permissive_approvals(tmp_path, monkeypatch):
 def _scratch_fleet_ledger(tmp_path, monkeypatch):
     """A drain converts the old TSV ledger, then deletes it, so a test drain sees a scratch one."""
     monkeypatch.setenv("ARK_FLEET_LEDGER", str(tmp_path / "fleet_ledger.tsv"))
+
+
+@pytest.fixture(autouse=True)
+def _held_stays_in_tmp(tmp_path, monkeypatch):
+    """No test writes the live `data/held/`, and `held` never finds his real release: a test
+    that wants his files stages them and passes the folder."""
+    monkeypatch.setattr(held, "HELD_ROOT", tmp_path / "held")
+    monkeypatch.setattr(held, "his_dir", lambda: tmp_path / "no-release-here")
 
 
 @pytest.fixture(autouse=True, scope="session")

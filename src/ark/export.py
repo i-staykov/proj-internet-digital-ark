@@ -23,6 +23,7 @@ from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
+from ark.held import candidate_files, his_lines
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -99,19 +100,6 @@ NOT_IN_BASELINE_HOSTNAME = """
 # and the hostname half refused neither until 2026-09-03: `bust.web.site` at 1996 and
 # `comp.domaine.name` at 2000 were shipping. Same rule, same module, different column name.
 HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year")
-
-
-# **Every line of a file of his, as every diff reads it.** No dialect sniffing, which refuses a
-# file whose line endings are mixed, and no quote, escape or comment character, so no line of
-# his is ever parsed away; a carriage return is dropped from the name, and a blank line reads
-# as NULL, which matches nothing.
-def his_lines(source: str = "?") -> str:
-    """SQL selecting `name`, one per line of the file `source` names (a `?` or a literal)."""
-    return (
-        "SELECT lower(trim(replace(column0, chr(13), ''))) AS name FROM read_csv("
-        f"{source}, header=false, delim='\x01', quote='', escape='', auto_detect=false, "
-        "strict_mode=false, new_line='\\n', columns={'column0': 'VARCHAR'})"
-    )
 
 
 def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
@@ -357,30 +345,15 @@ def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None
         )
 
 
-def his_held_candidate_files(baseline: Path) -> list[Path]:
-    """Every file of his release naming a candidate he holds, in the active pool or outside it.
-
-    **The pool is not all he holds.** His release keeps the ISC survey hostnames as a
-    reference collection beside the pool and the names he could not parse in a third file.
-    Diffed against the pool alone, the claim hands his own ISC names back to him: 98% of it.
-    """
-    files = [baseline / "candidate_pool.txt", baseline / "candidate_pool_unparsed_format.txt"]
-    isc_dir = baseline / "isc_survey_hostnames"
-    if baseline.is_dir() and not isc_dir.is_dir():
-        logger.warning(f"no ISC collection at {isc_dir}: the candidate claim is not diffed on it")
-    files += sorted(isc_dir.glob("*.txt"))
-    return [path for path in files if path.is_file()]
-
-
 def _drop_names_he_holds(
     conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path, note: bool = True
 ) -> None:
-    """Delete from `table` every name in any of `his_held_candidate_files`, noting each one in
+    """Delete from `table` every name in any of `held.candidate_files`, noting each one in
     `held_by_him` when `note`, so the summary can say how many names his files took out of
     the claim."""
     conn.execute("CREATE TEMP TABLE IF NOT EXISTS held_by_him (name VARCHAR)")
     held = f"{column} IN (SELECT name FROM ({his_lines('?')}))"
-    for path in his_held_candidate_files(baseline):
+    for path in candidate_files(baseline):
         if note:
             conn.execute(
                 f"INSERT INTO held_by_him SELECT DISTINCT {column} FROM {table} WHERE {held}",
@@ -647,7 +620,7 @@ def export_all(
     # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
     # rate as annual records, so this is held to the same net-new standard: every candidate
     # collection we hold, unioned, minus every name his release holds as a candidate
-    # (`his_held_candidate_files`) or lists in any of his six annual files.
+    # (`held.candidate_files`) or lists in any of his six annual files.
     #
     # One file, not one per collection: provenance belongs in `provenance/` and
     # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
@@ -735,7 +708,7 @@ def export_all(
         # what his release already held, and so what the claim is net of
         "held_by_him": {
             "names": conn.execute("SELECT count(DISTINCT name) FROM held_by_him").fetchone()[0],
-            "files": [str(p.relative_to(baseline)) for p in his_held_candidate_files(baseline)],
+            "files": [str(p.relative_to(baseline)) for p in candidate_files(baseline)],
         },
     }
     (netnew_dir / "candidate_additions_summary.json").write_text(

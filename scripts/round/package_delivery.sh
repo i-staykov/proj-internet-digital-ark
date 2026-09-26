@@ -456,7 +456,7 @@ mkdir -p "$STAGE/baseline/$MARKER"
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
     cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
-    # the rest of what the candidate claim is diffed against (`export.his_held_candidate_files`),
+    # the rest of what the candidate claim is diffed against (`held.candidate_files`),
     # or a reproduce from this archive hands his ISC names back to him
     cp "$MERGED/candidate_pool_unparsed_format.txt" "$STAGE/baseline/$MARKER/"
     mkdir -p "$STAGE/baseline/$MARKER/isc_survey_hostnames"
