@@ -128,7 +128,10 @@ def test_dump_refuses_what_is_not_our_sorted_lowercase_names(tmp_path: Path) -> 
         held.dump(conn, "SELECT n FROM t ORDER BY n", tmp_path / "upper")
     with pytest.raises(held.HeldError, match="not LC_ALL=C sorted"):
         held.dump(conn, "SELECT n FROM t WHERE n <> 'C.com' ORDER BY n DESC", tmp_path / "desc")
-    assert not [*tmp_path.glob("upper*"), *tmp_path.glob("desc*")]
+    blank = tmp_path / "b"
+    with pytest.raises(held.HeldError, match="not a lowercase name"):
+        held.dump(conn, "SELECT NULL AS n UNION ALL SELECT 'a.com' ORDER BY 1 NULLS FIRST", blank)
+    assert not [p for p in tmp_path.iterdir() if p.name.startswith(("upper", "desc", "b"))]
     assert held.dump(conn, "SELECT n FROM t WHERE false", tmp_path / "empty") == 0
 
 

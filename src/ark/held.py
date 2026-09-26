@@ -323,14 +323,14 @@ def intersect(names: Path, against: Path, out: Path) -> int:
 
 def dump(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     """Write a one-column `query` one name per line, and refuse it unless it is sorted, unique
-    and made of the bytes our names are made of: an upper-case or padded name would pass `comm`
-    and match nothing of his."""
+    and made of the bytes our names are made of: an upper-case, padded or empty name would pass
+    `comm` and match nothing of his."""
     path.parent.mkdir(parents=True, exist_ok=True)
     part = path.with_name(path.name + ".part")
     try:
         _copy_to(conn, query, part)
         check_sorted(part)
-        found = subprocess.run(["grep", "-q", _NOT_OUR_NAME, str(part)], env=_C)
+        found = subprocess.run(["grep", "-q", "-e", _NOT_OUR_NAME, "-e", "^$", str(part)], env=_C)
         if found.returncode != 1:
             raise HeldError(f"{path}: a line is not a lowercase name (grep {found.returncode})")
         os.replace(part, path)
