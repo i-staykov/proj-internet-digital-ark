@@ -53,10 +53,10 @@ paid 18,769.9 EE because a single computing service regenerated one register ont
 tree; \`.za\` paid almost nothing because eleven second levels were separately administered, most
 accepting applications by e-mail to a named individual, so there was no single machine to regenerate.
 
-READ THESE FIRST, by grep and not whole:
-- docs/registers/sources.md   every source developed plus roughly 110 families already REJECTED, each with the
-                    measurement that closed it. Anything already in here is worthless. Grep by NAME and
-                    by POPULATION: the same population closed under another name is still dead.
+READ THESE FIRST, the registers through \`just find <term>\` and the rest by grep, never whole:
+- docs/registers/sources.md and sources-closed.md   one row per source: every source developed, and every
+                    family already CLOSED with the measurement that closed it. Anything here is worthless.
+                    Search by NAME and by POPULATION: the same population closed under another name is dead.
 - docs/lore/discovery.md the pricing bar and the three laws in full.
 - docs/brief/ding/project-brief.md sections V, VI and IX, the reviewer's own list of what to try, which
                     names ready-made historical datasets, bulk dated corpora, national web-archive link
@@ -99,7 +99,7 @@ const CANDIDATES = {
           evidence_type: { type: 'string', enum: ['cdx_timestamp', 'artifact_listing', 'link_source', 'dated_directory', 'whois_creation', 'link_target', 'none'] },
           size_estimate: { type: 'string', description: 'order of magnitude of in-window domains, and HOW you got that number' },
           english_share_note: { type: 'string', description: 'which TLDs dominate and what that does to the metric' },
-          already_in_register: { type: 'string', description: 'what you found grepping docs/registers/sources.md by name AND by population' },
+          already_in_register: { type: 'string', description: 'what `just find` returned by name AND by population' },
           killers_survived: { type: 'string', description: 'which of the seven it survives, and which one is its biggest risk' },
           years_reached: { type: 'string', description: 'which of 1996-2001 it can actually date' },
         },
@@ -122,7 +122,7 @@ const VERDICTS = {
           survives: { type: 'boolean' },
           reason: { type: 'string', description: 'why it dies, or what specifically you could not refute' },
           retrievable_in_2026: { type: 'string', description: 'what the URL actually returned, with the HTTP status and byte count' },
-          closest_closed_family: { type: 'string', description: 'nearest entry in the rejected register, and why it is or is not the same population' },
+          closest_closed_family: { type: 'string', description: 'nearest row on docs/registers/sources-closed.md, and why it is or is not the same population' },
           corrected_size: { type: 'string', description: 'your own in-window net-new EE estimate, and how you got it' },
           which_killer: { type: 'string', description: 'the numbered killer it dies on, if it dies' },
         },
@@ -159,7 +159,7 @@ queries you ran and the hit counts, so the sweep is reproducible, and name DOIs 
     prompt: `LENS: registries for the HIGHEST-weight namespaces publishing their own historical registration
 record. Weights make these worth 1.5x a .com pair: .au 0.9904, .nz 0.9895, .uk 0.9813, .ie, .za, .ca
 0.8365, .sg, .in. The .au family (AUNIC, auDA, AARNet) is already closed here and .uk zone data was
-never published, so grep before proposing either. What is wanted: any registry, registrar association,
+never published, so run \`just find\` before proposing either. What is wanted: any registry, registrar association,
 national research network or national library that published a LIST of names with dates, an annual
 report with a machine-readable annex, a deposited dataset, or an academic study of its own namespace
 that deposited the name list. Consider second-level registries with their own records (.ac.uk,
@@ -182,10 +182,11 @@ date or whether it is candidate-only material for the CDX engine to date.`,
 directly whether previously successful methods can produce further additions, and the two largest
 gains of one round were both of this kind: a parser that had been reading 6.76% of a file we already
 held, and a survey filed as unrecoverable that was intact under a successor hostname.
-Read docs/registers/sources.md for what each developed source says REMAINS unexhausted, and the
-rejected register for entries closed because something could not be REACHED rather than because it
-was measured and found poor. A closure about one copy of an artifact is not a closure about the
-artifact. Propose specific unexhausted material, naming the file or date range, not general ideas.`,
+Run \`just find <source>\` on each developed source for its verdict and figure; what it left unread
+is yours to find in the artifact. Run \`just find BLOCKED\` and \`just find UNRETRIEVABLE\` for rows
+on sources-closed.md closed because something could not be REACHED rather than because it was
+measured and found poor. A closure about one copy of an artifact is not a closure about the artifact.
+Propose specific unexhausted material, naming the file or date range, not general ideas.`,
   },
   {
     key: 'uncrawled-subscribers',
@@ -264,7 +265,7 @@ const results = await pipeline(
       `${BRIEF}\n\nYou are the SCEPTIC for the "${lens.key}" lens. Another agent proposed these:\n\n` +
       JSON.stringify(list, null, 2) +
       `\n\nRefute each one. Default to survives=false when unsure. Four tests, all DONE rather than reasoned:
-      1. Grep docs/registers/sources.md by NAME and by POPULATION. Roughly 110 families are already closed there.
+      1. Run \`just find <term>\` by NAME and by POPULATION. Every closed family is a row on sources-closed.md.
       2. Actually fetch the URL. Report the HTTP status and byte count you got. A 404, a login wall, a
          Cloudflare interstitial or a 159-byte stub is dead however good the description sounds. Prove any
          zero against a positive control fetched in the same minute, because nothing-found and

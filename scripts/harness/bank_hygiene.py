@@ -59,9 +59,10 @@ STAGED = ("docs/registers/", "docs/lore/key-decisions.md")
 # so the next commit the tick or the bank makes takes them, which is the intended flow.
 GENERATED = (
     "docs/lore/key-decisions.md",
-    # `bank_findings.py` books every FIND and CLOSED here, mid-sync. Every commit this
-    # file has ever had is a "Sync fleet findings" one. A sync that dies between writing
-    # it and committing leaves the next sync refusing a line it wrote itself.
+    # `bank_findings.py` books every FIND in the first and every CLOSED in the second,
+    # mid-sync. A sync that dies between writing one and committing it leaves the next
+    # sync refusing a row it wrote itself.
+    "docs/registers/sources.md",
     "docs/registers/sources-closed.md",
     # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
     # pulled. It refused the 2026-09-19 04:05 bank while sitting one commit behind.

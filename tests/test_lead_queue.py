@@ -56,6 +56,16 @@ class MeasuredTest(unittest.TestCase):
             lead_queue.verdict_of("spacekookie", lead_queue.measured((path,)))[1], "closed"
         )
 
+    def test_a_closed_page_row_is_closed_whatever_word_its_reason_opens_with(self):
+        path = self.tmp / "sources-closed.md"
+        path.write_text(
+            "| source | date | measured | reason | link |\n|---|---|---|---|---|\n"
+            "| relay-hosts / received | d | 445.1 EE | RETIRED. Under the floor. |  |\n",
+            encoding="utf-8",
+        )
+        reg = lead_queue.measured((path,))
+        self.assertEqual(lead_queue.verdict_of("relay-hosts", reg), (445.1, "closed"))
+
     def test_a_shorter_name_never_speaks_for_a_longer_lead(self):
         """`usenet` must not answer for `usenet-path-relay-hops`: a prefix match either way
         lets one closed row silently retire every lead that starts with the same word."""

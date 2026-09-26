@@ -279,13 +279,15 @@ a figure has reached the register without being checked.
    leg leaves them on the VPS under `/projects/ark-data/items/<slug>.jsonl` so the verify leg's
    re-run finds them, so this fetches each one first and is loud when there is nothing to fetch or
    no `ARK_VPS` to fetch from. A FIND with no items is not re-priced and the row says so in words.
-4. `bank_findings.py` writes the row, once per slug, into the register the verdict belongs to.
+4. `bank_findings.py` writes one row per source into the register the verdict belongs to.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
    the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
    line quotes, the artifact URL. A scout lead that closed under the floor used to reach
    `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
-   nothing about it. A slug either register already carries is skipped and said so.
+   nothing about it. A FIND replaces its own unsettled FIND row when the figure or verify status
+   moved; any other slug either register already carries is skipped and said so. Where two rows
+   of one source meet, `scripts/round/compact_registers.py` keeps the newest.
 
 A drain leaves `incoming/` only once its rows are committed. Two waves were archived under
 `banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
@@ -364,7 +366,7 @@ wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
 ```
 
 **The bulk sources** go in `data/raw/<source>/`, one folder per source.
-**[sources.md](../registers/sources.md) has the download command for each**, since the routes differ:
+**[sources.md](../registers/sources.md) links each one's download address**, since the routes differ:
 several survive only as web-archive captures, and one address answers HTTP 200 with a stub.
 
 ```bash

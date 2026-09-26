@@ -6,13 +6,15 @@ a measured figure, and open hypotheses nobody has priced. The gate reads a `Deci
 line wherever it sits, so moving a block changes no decision:
 
 - `master` blocks move into `## Decided, ...` unchanged;
-- `rejected` blocks become one row each in `docs/registers/sources-closed.md` and leave a two-line
-  stub (heading and `Decision: rejected`) in Decided, so `ark ingest` and the request
-  generator keep refusing them; the full block stays in this file's history;
+- `rejected` blocks become one row each in `docs/registers/sources-closed.md`, replacing the
+  source's old row there, and leave a two-line stub (heading and `Decision: rejected`) in
+  Decided, so `ark ingest` and the request generator keep refusing them; the full block stays
+  in this file's history;
 - everything else, the pending blocks with whatever prose sits inside them, stays in
   triage. One queue, one place; `queue.md` ranks what is worth deciding.
 
-Safe to run again when decided blocks accumulate in triage: rows and blocks are appended.
+Safe to run again when decided blocks accumulate in triage: blocks are appended, and a row
+replaces the one its source already has.
 
     uv run python scripts/round/split_triage.py --dry-run
     uv run python scripts/round/split_triage.py
@@ -25,10 +27,12 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts/harness"))
+
+from bank_findings import drop_decision_numbers, links  # noqa: E402
 
 from ark.approvals import parse as parse_approvals  # noqa: E402
 
@@ -37,6 +41,7 @@ CLOSED = Path("docs/registers/sources-closed.md")
 TRIAGE_HEADING = "## Found, awaiting triage"
 DECIDED_HEADING = "## Decided, with the request that was reviewed"
 CLOSED_COLUMNS = ("source", "date", "measured", "reason", "link")
+VERDICT = "REJECTED"
 # The hygiene limit for table pages; a longer row is one nobody reads.
 ROW_LIMIT = 500
 REASON_LIMIT = 280
@@ -54,6 +59,7 @@ _MEASURED = re.compile(r"^- measured:\s*(.+?)(?=\n- |\n\n|\Z)", re.M | re.S)
 _BOLD_BULLET = re.compile(r"^- \*\*(.+?)(?=\n- |\n\n|\Z)", re.M | re.S)
 _TABLE_ROW = re.compile(r"^\|.*\|\s*$")
 _TABLE_RULE = re.compile(r"^\|[\s:|-]+\|\s*$")
+_PIPE = re.compile(r"(?<!\\)\|")
 _LEGACY_ROW = re.compile(r"^\|\s*\d+\s*\|\s*(?P<slug>\S+)")
 # A figure in this company is a bound or a projection, not what the source paid.
 _NOT_MEASURED = re.compile(r"ceiling|floor|gross|pre-split|band|estimate|project|about", re.I)
@@ -170,7 +176,9 @@ def closed_fields(block: Block, table: dict[str, list[str]]) -> dict[str, str]:
 
     The verdict is whatever follows the Decision line; when the writer put it above the
     line instead, the last bold bullet is the verdict, then the measured bullet. A block
-    with none of those falls back to its row in the section's legacy table.
+    with none of those falls back to its row in the section's legacy table. The reason
+    opens with REJECTED, the verdict word every closed row starts with, and cites no
+    decision number.
     """
     head, _, tail = block.text.partition("\nDecision:")
     verdict = tail.partition("\n")[2].strip()
@@ -187,6 +195,7 @@ def closed_fields(block: Block, table: dict[str, list[str]]) -> dict[str, str]:
         # Legacy table: #, source, what dates an item, type, net-new pairs, EE, evidence, decision
         reason = f"{row[2]}; net-new pairs {row[4]}; evidence {row[6]}"
         figure = row[5] if re.fullmatch(r"[\d,.]+", row[5]) else None
+    reason = " ".join(drop_decision_numbers(reason).split())
     if _DUPLICATE.search(reason):
         priced = "duplicate"
     else:
@@ -197,8 +206,13 @@ def closed_fields(block: Block, table: dict[str, list[str]]) -> dict[str, str]:
         "source": block.key,
         "date": max(stamps) if stamps else "",
         "measured": priced,
-        "reason": reason,
-        "link": link.group(0).rstrip(".,;") if link else "",
+        # A reason that already opens with the verdict keeps its own words after it.
+        "reason": (
+            VERDICT + reason[len(VERDICT) :]
+            if re.match(rf"{VERDICT}\b", reason, re.I)
+            else f"{VERDICT}. {reason}".strip()
+        ),
+        "artifact": link.group(0).rstrip(".,;") if link else "",
     }
 
 
@@ -218,12 +232,23 @@ def _pick(fields: dict[str, str], column: str) -> str:
 
 
 def closed_row(fields: dict[str, str], columns: tuple[str, ...]) -> str:
-    """One table row in the page's own column order; the reason gives way first over the limit."""
+    """One table row in the page's own column order.
+
+    Over the limit the reason gives way first, after its verdict word. The link cell holds the
+    artifact, then each URL the reason names, which is what the compactor would make of it.
+    """
+    fields = {**fields, "link": links(fields["artifact"], [fields["reason"]])}
     row = "| " + " | ".join(_pick(fields, c).replace("|", "\\|") for c in columns) + " |"
-    if len(row) > ROW_LIMIT and len(fields["reason"]) > 40:
-        shorter = {**fields, "reason": _sentences(fields["reason"], len(fields["reason"]) - 40)}
+    head, why = fields["reason"][: len(VERDICT) + 1].rstrip(), fields["reason"][len(VERDICT) + 1 :]
+    if len(row) > ROW_LIMIT and len(why) > 40:
+        shorter = {**fields, "reason": f"{head} {_sentences(why, len(why) - 40)}"}
         return closed_row(shorter, columns)
     return row
+
+
+def source_key(cell: str) -> str:
+    """The key a source cell files under, as the compactor reads it: its name before ` / type`."""
+    return re.sub(r"[^a-z0-9]+", "-", cell.split(" / ")[0].strip("`* ").lower()).strip("-")
 
 
 def existing_columns(text: str) -> tuple[str, ...] | None:
@@ -235,29 +260,38 @@ def existing_columns(text: str) -> tuple[str, ...] | None:
     return None
 
 
-def closed_page(existing: str | None, rows: list[dict[str, str]], today: str) -> str:
-    """The closed-sources page with the rows appended, created with our columns if absent."""
-    note = (
-        f"Rows split out of the triage section of `approved-sources-list.md` on {today} by "
-        f"`scripts/round/split_triage.py`. The date is the latest one the entry cites, the "
-        f"figure is what the entry reports as measured, and the full block is in that file's "
-        f"history before the split."
-    )
+def closed_page(existing: str | None, rows: list[dict[str, str]]) -> str:
+    """The closed-sources page with the rows in its one table: one row per source, so a row
+    replaces the one its source already has, and a new source's row goes at the end.
+
+    The date is the latest one the entry cites, the figure is what the entry reports as
+    measured, and the full block is in the approved list's history before the split.
+    """
     columns = existing_columns(existing) if existing else None
-    if columns is None:
+    if existing is None or columns is None:
         page = (
             "# Closed sources\n\n"
-            "One row per source measured and closed, so nobody re-tests it. Grep it, never "
-            "read it whole.\n\n"
-            f"{note}\n\n| {' | '.join(CLOSED_COLUMNS)} |\n|{'---|' * len(CLOSED_COLUMNS)}\n"
+            "One row per source measured and closed, so nobody re-tests it. Look one up with "
+            "`just find <term>`.\n\n"
+            f"| {' | '.join(CLOSED_COLUMNS)} |\n|{'---|' * len(CLOSED_COLUMNS)}\n"
         )
         return page + "".join(closed_row(r, CLOSED_COLUMNS) + "\n" for r in rows)
-    body = (existing or "").rstrip("\n")
-    if not _TABLE_ROW.match(body.rsplit("\n", 1)[-1]):
-        # The table is not the last thing on the page, so a continued row would not join
-        # it: open a fresh table with the same columns.
-        body += f"\n\n{note}\n\n| {' | '.join(columns)} |\n|{'---|' * len(columns)}"
-    return body + "\n" + "".join(closed_row(r, columns) + "\n" for r in rows)
+    lines = existing.rstrip("\n").split("\n")
+    start = next(i for i, line in enumerate(lines) if _TABLE_RULE.match(line)) + 1
+    end = start
+    while end < len(lines) and _TABLE_ROW.match(lines[end]):
+        end += 1
+    table = lines[start:end]
+    where = next((i for i, c in enumerate(columns) if re.search(r"\b(source|name)\b", c, re.I)), 0)
+    keys = [source_key((_PIPE.split(line.strip()[1:]) + [""] * where)[where]) for line in table]
+    for fields in rows:
+        key, row = source_key(fields["source"]), closed_row(fields, columns)
+        if key in keys:
+            table[keys.index(key)] = row
+        else:
+            table.append(row)
+            keys.append(key)
+    return "\n".join([*lines[:start], *table, *lines[end:]]) + "\n"
 
 
 def _blocks_text(blocks: list[Block]) -> str:
@@ -265,30 +299,21 @@ def _blocks_text(blocks: list[Block]) -> str:
 
 
 def rebuild_register(
-    text: str, masters: list[Block], rejected: list[Block], kept: list[Block], today: str
+    text: str, masters: list[Block], rejected: list[Block], kept: list[Block], preamble: str
 ) -> str:
     before, _body, after = split_section(text, TRIAGE_HEADING)
     decided_before, decided_body, decided_after = split_section(before, DECIDED_HEADING)
-    stubs = ""
-    if rejected:
-        stubs = (
-            f"**Rejected in triage, split out {today}.** One row each in `sources-closed.md`; "
-            "the stub keeps the rejection binding for `ark ingest` and the request generator.\n\n"
-            + "".join(f"### {b.key}\nDecision: rejected\n\n" for b in rejected)
-        )
+    # A rejected block leaves its stub, which keeps the rejection binding for `ark ingest`
+    # and the request generator; its row is in `sources-closed.md`.
+    stubs = "".join(f"### {b.key}\nDecision: rejected\n\n" for b in rejected)
     decided_body = decided_body.rstrip("\n") + "\n\n" + _blocks_text(masters) + stubs
-    # **The undecided blocks stay here.** They used to move to a second page, which was a
-    # second place to look for one queue; Ivo's ruling of 2026-09-19 is that it lives in
-    # one place. What is worth his time is ranked by measured EE in generated `queue.md`.
-    triage_body = (
-        f"\n\nSplit on {today} by `scripts/round/split_triage.py`: decided blocks moved to "
-        "Decided above, rejected ones to `sources-closed.md` behind a stub. Undecided blocks "
-        "stay below. New finds land here as `### key / etype` blocks carrying a "
-        "`- potential:` line and a pending decision; `just triage-rank` sorts them.\n\n"
-        + _blocks_text(kept)
-    )
+    # The undecided blocks stay here, under the section's own preamble: one queue in one
+    # place, ranked by measured EE in the generated `queue.md`.
+    intro = preamble.strip()
+    triage_body = "\n\n" + (f"{intro}\n\n" if intro else "") + _blocks_text(kept)
     # `split_section` keeps each heading at the end of its `before` part.
-    return decided_before + decided_body.rstrip("\n") + "\n\n" + decided_after + triage_body + after
+    text = decided_before + decided_body.rstrip("\n") + "\n\n" + decided_after + triage_body + after
+    return text.rstrip("\n") + "\n"
 
 
 def decisions_by_value(text: str) -> Counter:
@@ -306,7 +331,6 @@ def main() -> int:
     parser.add_argument("--closed", type=Path, default=CLOSED)
     parser.add_argument("--dry-run", action="store_true", help="report the split, write nothing")
     args = parser.parse_args()
-    today = date.today().isoformat()
 
     text = args.path.read_text(encoding="utf-8")
     if TRIAGE_HEADING not in text or DECIDED_HEADING not in text:
@@ -323,10 +347,10 @@ def main() -> int:
 
     table = legacy_table(body)
     rows = [closed_fields(b, table) for b in rejected]
-    register = rebuild_register(text, masters, rejected, kept, today)
-    closed = closed_page(
-        args.closed.read_text(encoding="utf-8") if args.closed.exists() else None, rows, today
-    )
+    register = rebuild_register(text, masters, rejected, kept, preamble)
+    existing = args.closed.read_text(encoding="utf-8") if args.closed.exists() else None
+    closed = closed_page(existing, rows)
+    columns = (existing_columns(existing) if existing else None) or CLOSED_COLUMNS
 
     headings = re.findall(r"^## .*$", text, re.M)
     if re.findall(r"^## .*$", register, re.M) != headings:
@@ -359,9 +383,10 @@ def main() -> int:
     if was["pending"] != now["pending"]:
         print("a pending Decision line went missing", file=sys.stderr)
         return 1
-    long_rows = [r for r in closed.splitlines() if len(r) > ROW_LIMIT]
+    # Only the rows this run writes: a row already on the page is not this run's to refuse.
+    long_rows = [r for r in (closed_row(f, columns) for f in rows) if len(r) > ROW_LIMIT]
     if long_rows:
-        print(f"{len(long_rows)} closed rows exceed {ROW_LIMIT} chars", file=sys.stderr)
+        print(f"{len(long_rows)} new closed rows exceed {ROW_LIMIT} chars", file=sys.stderr)
         return 1
     if args.dry_run:
         for fields in rows:

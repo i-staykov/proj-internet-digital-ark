@@ -230,9 +230,9 @@ sync fleet="~/Documents/GitHub/ark-fleet":
         if uv run python scripts/harness/bank_trigger.py check --find; then
             echo "a confirmed FIND: the bank books this whole drain"
         else
-            # 4. The deterministic scribe: one row per finding, keyed on the slug so a
-            #    re-drained run books nothing twice, a FIND into sources.md and every measured
-            #    negative into sources-closed.md rather than as a row of `n/a` cells.
+            # 4. The deterministic scribe: one row per slug, a FIND into sources.md with both
+            #    figures and every measured negative into sources-closed.md. A FIND re-measuring
+            #    its own FIND row replaces it; a re-drained run writes nothing.
             SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
                 --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
             NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
@@ -550,21 +550,18 @@ bank *args:
         echo "push pending: sync_fleet.sh exited $?, the next tick retries"
     fi
 
-# The only route into the four register pages: `.claude/settings.json` denies a `grep` or a
-# `sed` on them, and reading one whole spends the session's context on prose it never asked
-# for. One truncated line per hit: page and line, source key, verdict, net-new EE, the shape
-# the term sat in, and the text. A row is a projection of its entry, so a `detail` hit says
-# the row does not carry what you asked about, and `--detail` is the only way to get that
-# entry whole. Nothing prints over 40 lines without `--all`. Exit 1 is "not in the register",
-# exit 2 is "the search did not run": different answers.
+# The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
+# `sed` of sources*.md. One truncated line per hit: page and line, source key, verdict, net-new EE,
+# the shape the term sat in, and the text; `--detail` prints one approved-page entry whole.
+# Nothing prints over 40 lines without `--all`. Exit 1 is "not in the register", exit 2 is
+# "the search did not run": different answers.
 #
-#   just find iedr                            every hit, over all four pages
-#   just find iedr_register --detail          that entry whole, capped at 40 lines
+#   just find iedr                            every hit, over all three pages
+#   just find iedr_register --detail          that approved-page entry, whole
 #   just find blocklist squidguard            hits under one source key
-#   just find sources#ukwa_geoindex --detail  when one key names two entries
 #   uv run python scripts/round/find.py "ftp listing"   multi-word: `just` splits arguments
 #
-# search the four register pages, one truncated line per hit
+# search the three register pages, one truncated line per hit
 find *args:
     uv run python scripts/round/find.py {{args}}
 
@@ -586,20 +583,20 @@ context-report *args:
 
 # --- proposing and pricing a source -------------------------------------------
 
-# The harness's working memory across sessions: `docs/registers/sources.md` is the
-# authoritative narrative but prose cannot carry STATUS, so it cannot answer what an
-# unattended run asks on every wake, which is what it proposed and never finished pricing.
-# `add` screens first and refuses a hypothesis with no dating claim; `close` prints the
-# sources.md row to paste. A multi-word --verdict or --cost goes to
-# scripts/harness/hypothesis_ledger.py directly, since `just` splits arguments.
+# The harness's working memory across sessions: a register row records a measured source,
+# not a hypothesis in flight, so the registers cannot answer what an unattended run asks on
+# every wake, which is what it proposed and never finished pricing. `add` screens first and
+# refuses a hypothesis with no dating claim; `close` prints the register row to paste. A
+# multi-word --verdict or --cost goes to scripts/harness/hypothesis_ledger.py directly, since
+# `just` splits arguments.
 #
 # the hypothesis ledger: proposed, priced, adopted or killed
 hypo *args:
     uv run python scripts/harness/hypothesis_ledger.py {{args}}
 
 # Does the proposal collide with a family already closed with a measurement, and what dates
-# ONE of its items. The register is parsed out of docs/registers/sources.md at run time
-# rather than copied, so it cannot drift. Exits 2 if no dating claim is made: a source whose
+# ONE of its items. Both register pages are parsed at run time rather than copied, so it
+# cannot drift. Exits 2 if no dating claim is made: a source whose
 # items carry no date is seed-only, and that decides what it can ever be.
 #
 # screen a source proposal against the closed register before it costs a request
@@ -686,7 +683,7 @@ reproduce stage="all":
     #
     # `arquivo_ia` is deliberately absent: `data/raw/arquivo/IA.cdxj` is 47 GB and was deleted
     # once its 28,247 evidence rows were in the store, so a live line would abort this whole
-    # stage on a missing file. Download it first (the command is in docs/registers/sources.md)
+    # stage on a missing file. Download it first from its link in docs/registers/sources.md
     # and run the commented line by hand. Same reason checksums.sha256 verifies 234, not 235.
     sources)
         uv run python scripts/harness/bank_hygiene.py space
@@ -757,6 +754,7 @@ reproduce stage="all":
         # (`early_web_hostgrain.py`, `usfedgov_hostgrain.py`).
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/sources/early_web/early_web_hostgrain.py | tail -1
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
         uv run python scripts/harness/bank_hygiene.py space

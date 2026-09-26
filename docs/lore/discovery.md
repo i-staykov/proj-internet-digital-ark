@@ -2,11 +2,13 @@
 
 **How to decide whether something is worth ingesting, before spending a night on it.** This is the
 discipline the project has actually paid to learn, written down so it does not have to be relearned.
-[sources.md](sources.md) is the register of what has been tried; this is the method.
+The registers ([sources.md](../registers/sources.md) and
+[sources-closed.md](../registers/sources-closed.md)) hold what has been tried; this is the method.
 
-Read this before proposing a source, and read `sources.md`'s rejected table before proposing one that
-sounds obvious. Source families that have been evaluated and rejected are all in the register, each with the
-measurement that killed it, and rediscovering one is the single most likely way to waste a session.
+Read this before proposing a source, and look it up with `just find <term>` before proposing one
+that sounds obvious. Source families that have been evaluated and rejected are all rows on
+`sources-closed.md`, each with the measurement that killed it, and rediscovering one is the single
+most likely way to waste a session.
 
 ---
 
@@ -315,7 +317,7 @@ maximum index is not a count. Ask the whole file.
 
 ## 5. Before proposing a source, check it is not already dead
 
-`sources.md` has a rejected register: each entry names the measurement that closed it and, where one
+`sources-closed.md` is the rejected register: each row names the measurement that closed it and, where one
 exists, the condition that would reopen it. It includes several leads that look obvious and are not:
 DMOZ pre-2002 dumps (archive.org holds exactly one ODP item, from 2015), IRCache and NLANR proxy
 traces (domain squatted, FTP dead, zero archive.org items), the Internet Traffic Archive (the ideal
@@ -325,8 +327,8 @@ web rings (a prefix query returns zero because the member lists are query string
 and the Australian Web Archive (works, and is redundant with the Internet Archive: zero
 AWA-only pairs).
 
-An automated discovery agent will walk straight back into all of these unless it reads that register
-first. Reading it is the cheapest step in the process.
+An automated discovery agent will walk straight back into all of these unless it runs `just find` on
+that register first. The lookup is the cheapest step in the process.
 
 **But a closed verdict is a measurement, not a wall, and for the hypothesis generator it does not
 veto** (Ivo, 2026-09-08, C-77). Every entry was closed against the screen, the store and the grain

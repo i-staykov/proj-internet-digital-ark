@@ -15,10 +15,10 @@ each `(domain, year)` counts its TLD's English share. **EE and speed are the PRO
 is demonstrated research capability**, so a measured negative with a reason is a result and the
 METHOD outranks the source.
 
-**The annual masters are a WEBSITE-evidence product** (spec XIII). Only exact-host year-specific
-web evidence enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot, a dated web link-graph
-record, or a custodian's per-host/year web-capture extract. DNS, registry, RDAP, WHOIS, mail and
-Usenet headers and textual mentions are CANDIDATES, which are scored separately at the same rate.
+**The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that
+answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph
+record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry,
+RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate.
 
 **The 5% gate is a floor on sending and nothing ships under it.** We may ASK Ding to
 accept less when the research side carries it; he decides. Never package a short round unasked.
@@ -33,7 +33,7 @@ Past the floor, submit at once. **Where the round stands is in `docs/ROUND.md`, 
 | an ingest or a commit | [docs/lore/rules.md](docs/lore/rules.md) |
 | running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
 | quoting a round figure | `docs/ROUND.md` |
-| proposing a lens | [docs/registers/sources-closed.md](docs/registers/sources-closed.md), then grep [docs/registers/sources.md](docs/registers/sources.md) |
+| proposing a lens | `just find <term>` over [sources.md](docs/registers/sources.md) and [sources-closed.md](docs/registers/sources-closed.md) |
 
 Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/key-decisions.md](docs/lore/key-decisions.md).
 
@@ -46,7 +46,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
    confirmed FIND, writes the `Decision:` line or raises the approval, and pushes.
-6. Log the result in `docs/registers/sources.md` whatever the answer, so nobody re-tests it.
+6. Log the result as the source's one register row whatever the answer; closed goes to `sources-closed.md`.
 
 ## The ten rules
 
@@ -64,8 +64,8 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
    `Decision:` line from the loop and proceeds without approval; its register row and ledger line
    document it for review with the submission. Outside any bound it parks `pending`. The owner
    approves a new evidence class and every send. The bounds live once, in ark-fleet `policy.json` `standing`.
-8. **Every source gets a LINK in `docs/registers/sources.md` before ingest**, beside the sentence
-   saying what dates one item.
+8. **Every source gets one register row with a LINK before ingest**, beside the sentence saying
+   what dates one item. A new measurement replaces the row; git keeps the old ones.
 9. No AI attribution in commits.
 10. **No em-dashes or en-dashes.**
 

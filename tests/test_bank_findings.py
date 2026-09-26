@@ -23,7 +23,7 @@ verdict: FIND
 ee: 9,999
 what dates one item: Tue, 4 May 1999 in the Received header
 artifact: https://example.invalid/list
-method: read one month, extracted the relay hosts
+method: read one month of http://example.invalid/archive, extracted the relay hosts
 """
 
 SIDECAR = {
@@ -54,16 +54,11 @@ def row(incoming: Path) -> str:
     return scribe.register_row(findings[0], "wave-1")
 
 
-def test_the_sidecar_wins_over_the_prose_on_the_figure(tmp_path):
+def test_the_sidecar_wins_over_the_prose_and_the_store_figure_sits_beside_it(tmp_path):
     # The prose says 9,999 and the JSON says 4,786. The JSON is the one a program checked.
     text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5}))
-    assert "fleet 4,786.0 EE" in text
+    assert "fleet 4,786.0 EE, store 4,102.5 EE" in text
     assert "9,999" not in text
-
-
-def test_the_store_figure_sits_beside_the_fleets(tmp_path):
-    text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5}))
-    assert "store 4,102.5 EE" in text
 
 
 def test_a_find_nobody_could_reprice_says_why_rather_than_looking_measured(tmp_path):
@@ -74,6 +69,7 @@ def test_a_find_nobody_could_reprice_says_why_rather_than_looking_measured(tmp_p
 def test_the_verify_status_is_in_the_verdict_cell(tmp_path):
     text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 1.0}))
     assert "FIND (confirmed)" in text
+    assert text.endswith("| <https://example.invalid/list> <http://example.invalid/archive> |")
 
 
 def test_a_closed_finding_keeps_one_plain_figure(tmp_path):
@@ -107,12 +103,13 @@ def test_a_lead_directory_with_only_a_sidecar_is_still_booked(tmp_path):
 # --- which register a finding goes to, and how often -----------------------------
 
 
-CLOSED_PROSE = """# a-scout-lead
+NUMBER = "C" + "-95"  # built, so this file quotes no decision number
+CLOSED_PROSE = f"""# a-scout-lead
 verdict: CLOSED, 20.92 EE (22 net-new pairs of 553) against a 5,000 EE floor
 lens: academic-datasets
 what dates one item: the origin server's own HTTP `Date:` header
 artifact: <http://example.invalid/webkb-data.gtar.gz>, the CMU data set
-probe: 5,802 of 8,282 members carry a Date line; the rest are undated
+probe: 5,802 of 8,282 carry a Date line per {NUMBER}, read at http://example.invalid/{NUMBER}/r
 """
 
 
@@ -130,9 +127,11 @@ def test_a_measured_negative_gets_a_closed_row_not_an_all_na_row(tmp_path):
     findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path)))
     row = scribe.closed_row(findings[0], "wave-1")
     assert row.startswith("| a-scout-lead / ")
-    assert "lens academic-datasets" in row
+    # The reason opens with its verdict word, read off `verdict: CLOSED, 20.92 EE ...`.
+    assert "| CLOSED. lens academic-datasets. 5,802 of 8,282" in row
     assert "20.92 EE" in row
-    assert "http://example.invalid/webkb-data.gtar.gz" in row
+    assert f"Date line, read at http://example.invalid/{NUMBER}/r |" in row
+    assert row.endswith(f"gtar.gz> <http://example.invalid/{NUMBER}/r> |")
     assert "n/a" not in row
 
 
@@ -176,34 +175,35 @@ def test_a_find_outranks_a_measured_negative_for_the_same_slug(tmp_path):
     assert len(kept) == 1 and kept[0]["verdict"] == "FIND"
 
 
-def test_a_slug_already_in_a_register_is_not_booked_again(tmp_path, monkeypatch):
-    register = tmp_path / "sources.md"
-    register.write_text("## Evaluated and rejected\n\n|---|\n| a-lead | x |\n", "utf-8")
-    closed = tmp_path / "sources-closed.md"
-    closed.write_text("| source | date |\n|---|---|\n| a-scout-lead / x | y |\n", "utf-8")
-    monkeypatch.setattr(scribe, "REGISTER", register)
-    monkeypatch.setattr(scribe, "CLOSED", closed)
-    assert {"a-lead", "a-scout-lead"} <= scribe.booked_slugs()
-
-
-def test_a_row_lands_under_the_register_table_not_the_first_table_below_the_heading(
-    tmp_path, monkeypatch
+def test_two_drains_leave_one_row_per_slug_and_the_second_writes_nothing(
+    tmp_path, monkeypatch, capsys
 ):
-    register = tmp_path / "sources.md"
-    register.write_text(
-        "## Evaluated and rejected\n\nA write-up with a table of its own.\n\n"
-        "| pool | GB |\n|---|---|\n| news | 5.5 |\n\n"
-        f"{scribe.REGISTER_HEADER} verdict | link |\n|---|---|---|---|---|\n"
-        "| older | 2026-09-01 | n/a | n/a | n/a |\n",
-        "utf-8",
-    )
-    monkeypatch.setattr(scribe, "REGISTER", register)
-    scribe.append_rows(["| newer | 2026-09-10 | n/a | n/a | n/a |"])
-    lines = register.read_text("utf-8").split("\n")
-    assert lines.index("| newer | 2026-09-10 | n/a | n/a | n/a |") + 1 == lines.index(
-        "| older | 2026-09-01 | n/a | n/a | n/a |"
-    )
-    assert lines[lines.index("| news | 5.5 |") - 1] == "|---|---|"
+    # A FIND re-measuring its own FIND row replaces it at the top of the table; a settled
+    # row and a closed slug are left alone, and a retried drain books nothing.
+    pages = tmp_path / "registers"
+    pages.mkdir()
+    old = [
+        f"| {s} | d | n/a | n/a | n/a | n/a | 1 EE (d) | n/a | n/a | {v} | n/a |"
+        for s, v in (("a-lead", "FIND (pending)"), ("kept", "BANKED"))
+    ]
+    (pages / "sources.md").write_text(f"{scribe.REGISTER_HEADER}\n|---|\n" + "\n".join(old))
+    shut = "| shut / x | d | 0 EE | CLOSED. |  |\n"
+    (pages / "sources-closed.md").write_text(f"# Closed\n\n{scribe.CLOSED_HEADING}\n|---|\n{shut}")
+    incoming = lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5})
+    for slug, verdict in (("kept", "FIND"), ("shut", "FIND"), ("new", "FIND"), ("neg", "CLOSED")):
+        (incoming / slug).mkdir()
+        sidecar = json.dumps(dict(SIDECAR, slug=slug, verdict=verdict))
+        (incoming / slug / "finding.json").write_text(sidecar, "utf-8")
+    hypo = str(tmp_path / "gone.md")
+    argv = ["bank", str(incoming), "--hypotheses", hypo, "--registers", str(pages)]
+    monkeypatch.setattr(sys, "argv", argv)
+    for said in ("2 new rows, 1 replaced, 2 already booked", "0 new rows, 0 replaced, 5 already"):
+        scribe.main()
+        assert f"scribe: {said}" in capsys.readouterr().out
+    table = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1]
+    assert table.startswith("| a-lead |") and table.count("| a-lead |") == 1
+    assert table.endswith(old[1])
+    assert "| neg / unclassified |" in (pages / "sources-closed.md").read_text("utf-8")
 
 
 def test_a_missing_hypothesis_ledger_writes_nothing_and_does_not_stop_the_sync(tmp_path):
@@ -221,29 +221,25 @@ def test_the_fleet_push_never_stages_the_ledger_unconditionally():
 
 
 def test_a_closed_row_never_exceeds_the_register_line_limit():
-    """2026-09-13: one 898-character reason failed the gate and the dirty register refused
-    every hourly sync for forty hours. The reason is trimmed, never the slug or the link."""
-    # The real row: the lead's `lens` had swallowed the scout's whole verdict, and that
-    # cell had no cap of its own.
+    """The reason is trimmed after its verdict word, never the slug or the link."""
+    # The lead's `lens` can swallow the scout's whole verdict, and a CDX query is long.
     lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
+    url = "http://example.invalid/cdx?url=*.example.org/*&" + "fl=original&" * 30
     finding = {
         "slug": "a-lead",
         "verdict": "CLOSED",
         "ee": "0",
-        "fields": {"artifact": "http://example.invalid/data.gz"},
+        "fields": {"artifact": url},
         "lead": {"lens": lens},
     }
     row = scribe.closed_row(finding, "wave-1")
     assert len(row) <= scribe.ROW_LIMIT
     assert row.startswith("| a-lead / unclassified |")
-    assert row.endswith("| http://example.invalid/data.gz |")
+    assert row.endswith(f"| CLOSED. | <{url}> |")
 
 
 def test_a_trimmed_reason_keeps_its_substance_and_points_at_no_dead_file():
-    """The reason used to be cut to its FIRST CLAUSE and sent to the fleet's hypotheses.md.
-    That ledger left the fleet with v1, so 284 register rows say "see the fleet hypothesis
-    ledger" about a file that does not exist, and a reason opening with a short `lens foo.`
-    sentence lost everything after the full stop. Measured three times on 2026-09-19."""
+    """A long reason is cut inside its prose, never at its first clause or into a pointer."""
     cells = [
         "a-lead / link_target",
         "2026-09-19, laptop",
@@ -260,15 +256,14 @@ def test_a_trimmed_reason_keeps_its_substance_and_points_at_no_dead_file():
 
 
 def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
-    """2026-09-15: `evidence_class` arrived as 490 characters of the scout's reasoning and
-    the slug cell alone was over the register's limit."""
+    """A wave can write a paragraph where the class and the lens belong."""
     finding = {
         "slug": "a-lead",
         "verdict": "CLOSED",
         "ee": "0",
         "fields": {"artifact": "http://example.invalid/data.gz"},
         "lead": {
-            "evidence_class": "link_source (C-83: mail relay host, the Received: clause " * 12,
+            "evidence_class": "link_source (mail relay host, the Received: clause " * 12,
             "lens": "server-written-headers, " + "which is to say " * 20,
         },
     }
@@ -279,7 +274,7 @@ def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
 
 
 def test_a_brief_audit_is_not_booked_in_either_register():
-    """2026-09-15: a rule audit's `verdict: FIND` made a FIND row at 0 EE in sources.md."""
+    """A rule audit's `verdict: FIND` is a rule to decide, not a source."""
     audit = {
         "slug": "brief-audit-1-leg-1-2",
         "verdict": "FIND",

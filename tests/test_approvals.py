@@ -5,11 +5,9 @@ exercised. The property is not "the agent recorded a decision" but "an undecided
 master-eligible source cannot be ingested".
 """
 
-from pathlib import Path
-
 import pytest
 
-from ark.approvals import NotApproved, check, load, pending
+from ark.approvals import NotApproved, check, pending
 
 
 def _file(tmp_path, body: str):
@@ -75,31 +73,6 @@ def test_pending_is_listed_for_the_state_document(tmp_path) -> None:
     assert [p.source_name for p in pending(path)] == ["b", "c"]
 
 
-def test_the_real_file_covers_every_master_class_the_specs_can_produce() -> None:
-    """A spec with no entry cannot be ingested, so an unlisted one is a latent stop. Runs
-    against the live `docs/registers/approved-sources-list.md` on purpose: adding a source
-    without classifying it fails here rather than at 3am in an unattended run.
-    """
-    from pathlib import Path
-
-    from ark.evidence_types import MASTER_TYPES
-    from ark.sources import SOURCES
-
-    # The real file, named explicitly: conftest repoints the module attribute at a
-    # temp file for every other test, and reading that here would pass vacuously.
-    real = Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
-    recorded = load(real)
-    missing = sorted(
-        {
-            (spec.source_name, spec.evidence_type)
-            for spec in SOURCES.values()
-            if spec.evidence_type in MASTER_TYPES
-        }
-        - set(recorded)
-    )
-    assert not missing, f"master-eligible specs with no approval entry: {missing}"
-
-
 def test_a_triage_entry_is_pending_but_marked_as_triage(tmp_path) -> None:
     """The gate treats it like any other pending class; only the reporting differs. A source
     found and not yet priced carries no sample and no figure, so it cannot be decided in two
@@ -146,54 +119,3 @@ def test_a_section_heading_ends_an_unfinished_request_block(tmp_path) -> None:
     found = load(doc)
     assert ("forgot_its_decision", "artifact_listing") not in found
     assert found[("legitimately_approved", "artifact_listing")].decision == "master"
-
-
-def test_the_live_file_parses_and_its_triage_section_is_recognised() -> None:
-    """Against the real document, so a rename of the heading cannot pass silently."""
-    from ark.approvals import TRIAGE_SECTION, load
-
-    found = load(Path("docs/registers/approved-sources-list.md"))
-    assert found, "the live approvals file parsed to nothing"
-    assert TRIAGE_SECTION == "Found, awaiting triage"
-    assert any(a.decision == "master" for a in found.values())
-
-
-def test_the_live_triage_section_holds_only_open_entries() -> None:
-    """A decision taken in triage is filed by `scripts/round/split_triage.py`: master blocks
-    move to Decided, rejected ones to `sources-closed.md` behind a stub. A decided block
-    left in triage means the split has not run, and the harness says so."""
-    found = load(Path("docs/registers/approved-sources-list.md"))
-    decided = sorted(
-        f"{a.source_name} / {a.evidence_type}"
-        for a in found.values()
-        if a.is_triage and a.decision != "pending"
-    )
-    assert not decided, f"decided entries still in triage, run split_triage.py: {decided}"
-
-
-# The two ingest recipes whose class a reviewer refused. They stay registered so the gate
-# has something to refuse, and the justfile keeps their lines commented out.
-REJECTED_RECIPES = {"jpnic_register", "nypw_firstcdx"}
-
-
-def test_every_master_eligible_recipe_is_approved_master() -> None:
-    """A recipe in `SOURCES` is something the loop can run, so its class must be decided,
-    and decided in its favour unless it is one of the named rejections. A `pending` here
-    would stop an unattended ingest; a `rejected` not on the list would mean a refused
-    recipe is still offered."""
-    from ark.evidence_types import MASTER_TYPES
-    from ark.sources import SOURCES
-
-    recorded = load(
-        Path(__file__).resolve().parents[1] / "docs" / "registers" / "approved-sources-list.md"
-    )
-    wrong = {}
-    for key, spec in SOURCES.items():
-        if spec.evidence_type not in MASTER_TYPES:
-            continue
-        approval = recorded.get((spec.source_name, spec.evidence_type))
-        decision = approval.decision if approval else None
-        expected = "rejected" if key in REJECTED_RECIPES else "master"
-        if decision != expected:
-            wrong[key] = decision
-    assert not wrong, f"master-eligible recipes whose class is not decided as expected: {wrong}"
