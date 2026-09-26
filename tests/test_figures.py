@@ -311,7 +311,6 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     monkeypatch.setattr("ark.db.connect_read_only_patiently", refuse)
     monkeypatch.setattr(duckdb, "connect", refuse)
     monkeypatch.setattr(brs, "pending_approvals", lambda: [])
-    monkeypatch.setattr(brs, "open_decisions", lambda: [])
     monkeypatch.setattr(brs, "ROOT", tmp_path)
     monkeypatch.setattr(brs, "OUT", tmp_path / "docs/ROUND.md")
     monkeypatch.setattr(brs, "BRIEF", tmp_path / "data/brief.json")
@@ -328,6 +327,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     brief = json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
     assert brief["field5_percent"] == "0.252350"
+    assert brief["waiting_on_human"] == {"approvals": 0}
     assert re.search(r"^5\. .*: (.+)$", text, re.M).group(1) == brief["field5_percent"] + "%"
     assert "## The scoreboard" not in text and "## What is on disk" not in text
 

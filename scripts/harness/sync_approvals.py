@@ -36,10 +36,15 @@ from ark import approvals  # noqa: E402
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 PROJECT = "i-staykov/proj-internet-digital-ark"
 FLEET = "i-staykov/ark-fleet"
-LABEL = "approval"
-# The standing bar for a lead worth a decision (Ivo, 2026-09-04).
+# The fleet's other asks for the owner carry this label too, so an open issue under it is
+# this script's only when its title is one `Request.title` writes, which `_TITLE` matches.
+LABEL = "needs-owner"
+_TITLE = re.compile(r"^Approve (.+)\? [\d,]+ EE$")
+# The standing bar for a lead worth a decision.
 DEFAULT_FLOOR = 5_000.0
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
+# The reasons `fleet_request.py` writes into a block the standing rule parks.
+_PARKED = re.compile(r"^-\s*parked:\s*(.+)$", re.M)
 # Which of the four conditions of the standing rule a human can actually settle. 1 is the
 # evidence class and 3 is the terms: both are judgements only Ivo makes. 2 is a missing stamp
 # and 4 is a missing ingest, which are WORK, and an issue asking him to approve work he has
@@ -102,6 +107,7 @@ def requests(floor: float) -> list[Request]:
         if potential < floor:
             continue
         reason = _FAILED.search(block)
+        parked = _PARKED.search(block)
         numbers = failed_conditions(block)
         if numbers and not numbers & set(HUMAN_CONDITIONS):
             continue
@@ -111,7 +117,13 @@ def requests(floor: float) -> list[Request]:
                 etype=approval.evidence_type,
                 line=approval.line,
                 potential=potential,
-                failed=reason.group(0).strip(" *") if reason else "not stated in the block",
+                failed=(
+                    f"parked by the standing rule: {parked.group(1).strip()}"
+                    if parked
+                    else reason.group(0).strip(" *")
+                    if reason
+                    else "not stated in the block"
+                ),
                 block=block,
             )
         )
@@ -148,7 +160,12 @@ def open_prs() -> dict[str, str]:
 
 
 def open_issues() -> dict[str, str]:
-    """Issue title to number, for the approval issues already out."""
+    """Issue title to number, for every open issue under the label, this script's and others'.
+
+    The limit sits far past the open asks, because the label is shared. A title search would
+    narrow it, but it reads GitHub's index, which can lag an issue just filed, and a run that
+    misses its own issue files it twice.
+    """
     rows = json.loads(
         gh(
             [
@@ -163,7 +180,7 @@ def open_issues() -> dict[str, str]:
                 "--json",
                 "number,title",
                 "--limit",
-                "100",
+                "1000",
             ]
         )
         or "[]"
@@ -171,24 +188,48 @@ def open_issues() -> dict[str, str]:
     return {r["title"]: str(r["number"]) for r in rows}
 
 
-def approve_line(request: Request) -> str:
-    """The register with this one source's decision flipped, as text."""
-    lines = REGISTER.read_text(encoding="utf-8").splitlines(keepends=True)
-    for index in range(request.line - 1, len(lines)):
+def live_register() -> str:
+    """The register as `origin/live` holds it, which is what an approval branch starts from."""
+    rel = REGISTER.relative_to(REPO).as_posix()
+    return subprocess.run(
+        ["git", "show", f"origin/live:{rel}"], cwd=REPO, check=True, capture_output=True, text=True
+    ).stdout
+
+
+def approve_line(request: Request, text: str) -> str | None:
+    """`text`, a register, with this one source's pending decision flipped, or None when the
+    source has no pending block in it.
+
+    The text is live's copy, never the checkout's. A bank writes a block and runs this before
+    it pushes, so the checkout's copy holds that block and the bank's other register edits,
+    and a pull request built from it would carry all of them rather than one line.
+    """
+    lines = text.splitlines(keepends=True)
+    head = re.compile(rf"###\s+{re.escape(request.source)}\s+/\s+{re.escape(request.etype)}\s*")
+    start = next((i for i, line in enumerate(lines) if head.fullmatch(line.rstrip("\n"))), None)
+    if start is None:
+        return None
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("### "):
+            break
         if lines[index].startswith("Decision: pending"):
             lines[index] = "Decision: master\n"
             return "".join(lines)
-    raise ValueError(f"no pending decision line under {request.source}")
+    return None
 
 
-def raise_pr(request: Request, dry_run: bool) -> str:
-    """One branch, one line changed, one pull request whose merge is the approval.
+def raise_pr(request: Request, dry_run: bool) -> str | None:
+    """One branch, one line changed, one pull request whose merge is the approval. None when
+    live holds no pending block for the source yet: the run after the push files it.
 
     Built in a throwaway worktree so the checkout this runs in is never touched: the fleet
     calls this from a clone it is also using for other work.
     """
     if dry_run:
         return f"would open {request.branch}"
+    flipped = approve_line(request, live_register())
+    if flipped is None:
+        return None
     with tempfile.TemporaryDirectory() as tmp:
         tree = Path(tmp) / "approve"
         subprocess.run(
@@ -198,7 +239,7 @@ def raise_pr(request: Request, dry_run: bool) -> str:
             capture_output=True,
         )
         try:
-            (tree / REGISTER.relative_to(REPO)).write_text(approve_line(request), encoding="utf-8")
+            (tree / REGISTER.relative_to(REPO)).write_text(flipped, encoding="utf-8")
             subprocess.run(["git", "add", str(REGISTER.relative_to(REPO))], cwd=tree, check=True)
             subprocess.run(
                 [
@@ -257,7 +298,7 @@ def raise_issue(request: Request, pr_url: str, dry_run: bool) -> str:
         f"```\n{request.block.strip()}\n```\n\n</details>\n"
     )
     if dry_run:
-        return f"would file: {request.title}"
+        return f"would file, labelled {LABEL}: {request.title}"
     return gh(
         [
             "issue",
@@ -285,17 +326,26 @@ def main(argv: list[str] | None = None) -> int:
     wanted = requests(args.floor)
     prs, issues = ({}, {}) if args.dry_run else (open_prs(), open_issues())
     decided = {a.source_name for a in approvals.load(REGISTER).values() if a.decision != "pending"}
+    # Keyed on the source, not the whole title: the title carries the potential, and a block
+    # re-priced since its issue was filed is still the one ask.
+    asked = {own.group(1): title for title in issues if (own := _TITLE.match(title))}
 
     for request in wanted:
-        if request.title in issues:
-            print(f"open already: {request.title}")
+        if request.source in asked:
+            print(f"open already: {asked[request.source]}")
             continue
         pr = prs.get(request.branch) or raise_pr(request, args.dry_run)
+        if pr is None:
+            print(f"not on live yet: {request.title}, filed on the run after the push")
+            continue
         print(f"pull request: {pr}")
         print(f"issue: {raise_issue(request, pr, args.dry_run)}")
 
     for title, number in issues.items():
-        source = title.removeprefix("Approve ").split("?")[0].strip()
+        own = _TITLE.match(title)
+        if not own:
+            continue  # another ask under the shared label, never this script's to close
+        source = own.group(1)
         if source in decided:
             if args.dry_run:
                 print(f"would close #{number}: {source} is decided")

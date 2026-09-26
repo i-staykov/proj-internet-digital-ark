@@ -1,7 +1,6 @@
 # Files that stay in the repository but must not travel in the delivery.
 # `git archive` builds the shipped source snapshot, so anything tracked ends up
-# in front of the reader unless it is marked here. A session log reached the
-# submission this way once, and the decision log would have followed it.
+# in front of the reader unless it is marked here.
 .gitattributes export-ignore
 # Every round's plan, by pattern rather than one line per round. `phase6-plan.md`
 # shipped on 2026-08-18 while the identical phase-5 file was withheld, because the rule
@@ -15,12 +14,11 @@ docs/phase*-plan.md export-ignore
 # fails if the shape reappears.
 submissions/*/email-draft.md export-ignore
 docs/report-sendable.md export-ignore
-# The agent's short review surface for open and closed decisions. Working
-# document about how to approach the round, same class as notes.md.
-docs/lore/key-decisions.md export-ignore
-# The handoff documents, by pattern rather than one line each. Same class as the plans
-# and the decision log: working documents about how to approach the round, and
-# corrections owed. Neither is a deliverable and neither is his business.
+# The lore's page of open and closed asks, a working document, until the rules absorb it.
+docs/lore/key-*.md export-ignore
+# The handoff documents, by pattern rather than one line each. Same class as the plans:
+# working documents about how to approach the round, and corrections owed. Neither is a
+# deliverable and neither is his business.
 handoff-*.md export-ignore
 # The round email prose, read by fill_report. Working document, not a deliverable.
 docs/round/email-sections.md export-ignore

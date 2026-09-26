@@ -208,13 +208,16 @@ def decide(text: str, approval, citation: str) -> str:
     """The register with this one source's pending line flipped and the rule cited above it.
 
     As a `- standing rule:` fact, the shape the compactor keeps for a loop decision: it drops
-    a `Decided by` line, and the record of what decided with it.
+    a `Decided by` line, and the record of what decided with it. A `- parked:` line an earlier
+    bank wrote is answered now, so it goes.
     """
     lines = text.splitlines(keepends=True)
     for index in range(approval.line - 1, len(lines)):
         if lines[index].startswith("Decision: pending"):
             lines[index] = citation + "\nDecision: master\n"
-            return "".join(lines)
+            start = approval.line - 1
+            own = [line for line in lines[start:index] if not line.startswith("- parked:")]
+            return "".join(lines[:start] + own + lines[index:])
     raise ValueError(f"no pending decision line under {approval.source_name}")
 
 

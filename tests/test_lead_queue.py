@@ -96,12 +96,12 @@ class MeasuredTest(unittest.TestCase):
         self.assertEqual([r["slug"] for r in rows], ["alive"])
         self.assertEqual((rows[0]["low"], rows[0]["high"]), (12000.0, 12000.0))
 
-    def test_only_a_measured_figure_is_a_row_and_a_ruling_heads_its_group(self):
-        """A class ruling is a heading, the measured stranded leads sit under the outlet
-        heading with their own shares, and a lead a scout only estimated is named in one line
-        rather than asked about. Nothing is marked as the laptop's to do."""
+    def test_only_a_measured_figure_is_a_row_and_the_outlet_is_worth_its_leads(self):
+        """The measured stranded leads sit under the outlet heading with their own shares, the
+        heading is worth what they sum to, and a lead a scout only estimated is named in one
+        line rather than asked about. Nothing is marked as the laptop's to do."""
 
-        def lead(slug, ask, low, track="ships", measured=False, cls="c"):
+        def lead(slug, ask, low, track="ships", measured=False):
             return {
                 "slug": slug,
                 "low": low,
@@ -109,7 +109,7 @@ class MeasuredTest(unittest.TestCase):
                 "ask": ask,
                 "track": track,
                 "measured": measured,
-                "class": cls,
+                "class": "c",
                 "status": "scouted",
                 "url": f"https://example.org/{slug}",
                 "dates": "Received: ... ; Tue, 4 May 1999 11:02:13 -0700",
@@ -117,16 +117,8 @@ class MeasuredTest(unittest.TestCase):
                 "said": "parked (outlet), measured on 2.8%",
             }
 
-        outlet = lead(
-            "Give the XIII-excluded hostnames a candidate outlet",
-            "class",
-            26370.0,
-            measured=True,
-            cls=lead_queue.DECISION,
-        )
         page = lead_queue.render(
             [
-                outlet,
                 lead("relay-hosts", "", 445.1, track="stranded", measured=True),
                 lead("guessed", "", 80000.0, track="stranded"),
             ],
@@ -135,7 +127,7 @@ class MeasuredTest(unittest.TestCase):
         heading = page.index("### Give the XIII-excluded hostnames")
         foot = page.index("on a scout's estimate alone")
         group = page[heading:foot]
-        self.assertIn("26,815 EE", group, "the ruling's worth is the store plus its sources")
+        self.assertIn("**445 EE**", group, "the outlet is worth its measured leads alone")
         self.assertIn("[`relay-hosts`](https://example.org/relay-hosts)", group)
         self.assertIn("445.1", group)
         self.assertNotIn("guessed", group, "an estimate is not a row")
@@ -145,7 +137,7 @@ class MeasuredTest(unittest.TestCase):
 
     def test_an_empty_page_asks_for_no_class(self):
         page = lead_queue.render([], send="Nothing to send.")
-        self.assertIn("None. No measured lead and no open decision asks for a new evidence", page)
+        self.assertIn("None. No measured lead asks for a new evidence class.", page)
 
 
 class NoStore(types.ModuleType):
@@ -172,13 +164,11 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
         self.fleet = self.tmp / "fleet"
         self.store = NoStore()
         self.brief = self.tmp / "brief.json"
-        self.decisions = self.tmp / "key-decisions.md"
         self.out = self.tmp / "queue.md"
         self.reg: dict = {}
         for target, value in (
             ("REPO", self.tmp),
             ("BRIEF", self.brief),
-            ("DECISIONS", self.decisions),
             ("OUT", self.out),
             ("measured", lambda *a, **k: self.reg),
         ):
@@ -251,16 +241,6 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
             f"t-{name}": (9000.0, "FIND")
             for name in ("class", "download", "terms", "rerun", "plain")
         }
-        self.decisions.write_text(
-            "## OPEN\n\n"
-            "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
-            "### Pick a typeface for the report\n\nWorth: 50000 EE.\n\n"
-            # A park in an approved class: its reasons name a rule, and it is still no class.
-            "### Outside the standing bounds: t_parked / cdx_x\n\nParked by the standing rule: "
-            "the robots clause is not ok: robots.txt disallows /data/.\n\nWorth: 40000 EE.\n\n"
-            "## CLOSED\n",
-            encoding="utf-8",
-        )
         self.brief.write_text(
             json.dumps({"round": "11", "baseline": "b1", "field5_percent": 5.2, "gate_pct": 5.0}),
             encoding="utf-8",
@@ -271,31 +251,10 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
         sections = [line for line in page.splitlines() if line.startswith("## ")]
         self.assertEqual(sections, ["## The send", "## New evidence classes, biggest first"])
         self.assertIn("**Round 11 crossed the 5% gate** at 5.2000% against `b1`", page)
+        self.assertIn("### Admit `cdx_x`", page)
         self.assertIn("[`t-class`](https://example.org/t-class)", page)
-        self.assertIn("### Approve t_source / cdx_x", page)
-        for other in (
-            "`t-download`",
-            "`t-terms`",
-            "`t-rerun`",
-            "`t-plain`",
-            "typeface",
-            "t_parked",
-        ):
+        for other in ("`t-download`", "`t-terms`", "`t-rerun`", "`t-plain`"):
             self.assertNotIn(other, page)
-
-    def test_an_open_send_entry_is_listed_under_the_send_and_nowhere_else(self):
-        self.decisions.write_text(
-            "## OPEN\n\n### Send round 11\n\nWorth: 30000 EE.\n\n"
-            "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
-            "## CLOSED\n",
-            encoding="utf-8",
-        )
-        self.run_main("--write")
-        page = self.out.read_text(encoding="utf-8")
-        send, classes = page.split("## New evidence classes, biggest first")
-        self.assertIn("- Send round 11: **30,000 EE**", send.split("## The send")[1])
-        self.assertIn("### Approve t_source / cdx_x", classes)
-        self.assertNotIn("Send round 11", classes)
 
     def test_cached_is_gone_and_no_caller_passes_it(self):
         with self.assertRaises(SystemExit) as refused, contextlib.redirect_stderr(io.StringIO()):

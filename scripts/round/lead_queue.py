@@ -1,4 +1,4 @@
-"""Generate `docs/registers/queue.md`, the one list Ivo decides from.
+"""Generate `docs/registers/queue.md`, the new classes and the send the owner decides.
 
 **Why a generated page and not a register.** `approved-sources-list.md` binds `ark ingest`
 and `sources-closed.md` stops a re-test; neither is a queue. The queue is what is still
@@ -38,7 +38,6 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "docs/registers/queue.md"
-DECISIONS = REPO / "docs/lore/key-decisions.md"
 # Written by the bank from the store it measured, so the send is read here without opening it.
 BRIEF = REPO / "data/brief.json"
 REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
@@ -47,7 +46,6 @@ _EE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
 # `store 3,681.7 EE` beside `fleet 35,429.9 EE` means the fleet counted rows the store
 # already holds, so the store figure is the one that is net-new and it wins.
 _STORE_EE = re.compile(r"store\s+([\d,]+(?:\.\d+)?)\s*EE", re.I)
-_WORTH = re.compile(r"^Worth:\s*[^\d-]*(-?[\d,]+(?:\.\d+)?)\s*EE", re.M)
 # The ISC survey is the one hostname collection the candidate claim admits by name, so it
 # is the single exception to the grain rule in `_track`.
 _ISC = re.compile(r"\bisc\b|isc_survey", re.I)
@@ -63,12 +61,6 @@ ASKS = (
     ),
     ("send", re.compile(r"\bsend\b|\bsubmi(t|ssion)\b|5% gate", re.I)),
 )
-DECISION = "decision in key-decisions.md"
-# The OPEN entries `fleet_request.py` raises for a source the standing rule parks: `Approve`
-# when its class is new, the class ask by another name, and `Outside the standing bounds` when
-# only its admission or a clause failed, which is no class ask whatever its reasons say.
-_APPROVE = re.compile(r"^Approve \S+ / \S+")
-_OUTSIDE = re.compile(r"^Outside the standing bounds: \S+ / \S+")
 
 _SPEC = importlib.util.spec_from_file_location(
     "fleet_ledger", REPO / "scripts/harness/fleet_ledger.py"
@@ -278,53 +270,6 @@ def leads(fleet: Path, held: set[str], reg: dict | None = None) -> list[dict]:
     return sorted(live, key=lambda r: (-r["low"], -r["high"]))
 
 
-def decisions(path: Path) -> list[dict]:
-    """The repository's own open asks, read from the OPEN block of `key-decisions.md`.
-
-    They belong in the same list as the fleet's leads because they compete for the same
-    thing, which is one person's attention, and some of them are worth more than any lead.
-    Each carries its own `Worth: <n> EE` line; one without a figure is not ranked here. Its
-    ask is read like a lead's, except `fleet_request.py`'s, which its heading names.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return []
-    start = text.find("## OPEN")
-    if start < 0:
-        return []
-    body = text[start : text.find("## CLOSED", start) if "## CLOSED" in text else len(text)]
-    out = []
-    for block in re.split(r"\n(?=### )", body)[1:]:
-        title = block.split("\n", 1)[0].removeprefix("### ").strip()
-        found = _WORTH.search(block)
-        if not found:
-            continue
-        worth = abs(float(found.group(1).replace(",", "")))
-        out.append(
-            {
-                "slug": title,
-                "status": "open",
-                "low": worth,
-                "high": worth,
-                "ask": ask_of_entry(title, block),
-                "class": DECISION,
-                "measured": True,
-                "track": "ships",
-            }
-        )
-    return out
-
-
-def ask_of_entry(title: str, block: str) -> str:
-    """The ask an OPEN entry puts to Ivo: `fleet_request.py`'s by heading, others by text."""
-    if _APPROVE.match(title):
-        return "class"
-    if _OUTSIDE.match(title):
-        return ""
-    return ask_of(block)
-
-
 def _cell(text: str, width: int) -> str:
     """One table cell: pipes escaped, whitespace collapsed, cut at `width`."""
     flat = " ".join(text.split()).replace("|", "\\|")
@@ -367,13 +312,10 @@ def render(rows: list[dict], send: str = "", missing: str = "") -> str:
     priced before it is asked about. A lead whose class the loop can bank, or whose blocker
     is the loop's to settle, is not on the page at all.
     """
-    decisions = [r for r in rows if r["class"] == DECISION]
-    leads = [r for r in rows if r["class"] != DECISION]
     # A stranded lead's class reaches neither file, so what it waits on is a class outlet.
-    asked = [r for r in leads if r["ask"] == "class" or r["track"] == "stranded"]
+    asked = [r for r in rows if r["ask"] == "class" or r["track"] == "stranded"]
     measured = [r for r in asked if r.get("measured")]
     unmeasured = [r for r in asked if not r.get("measured")]
-    outlet = next((d for d in decisions if "outlet" in d["slug"].lower()), None)
     stranded = [r for r in measured if r["track"] == "stranded"]
     classes: dict[str, list[dict]] = {}
     for r in measured:
@@ -383,63 +325,47 @@ def render(rows: list[dict], send: str = "", missing: str = "") -> str:
         "# Queue",
         "",
         "Generated by `scripts/round/lead_queue.py` from the fleet's `leads/*.json` and ledger,",
-        "the OPEN block of `key-decisions.md`, the register rows that priced each lead and",
-        "`data/brief.json`. Never hand-edit. You approve a new evidence class and every send, and",
-        "nothing else is asked here: a lead inside the standing bounds is read without asking.",
-        "Every figure was measured against the store after reading the artifact. Letters are off",
-        "the table. One yes unlocks everything under its heading.",
+        "the register rows that priced each lead and `data/brief.json`. Never hand-edit. You",
+        "approve a new evidence class and every send, and nothing else is asked here: a lead",
+        "inside the standing bounds is read without asking. Every figure was measured against",
+        "the store after reading the artifact. Letters are off the table. One yes unlocks",
+        "everything under its heading.",
         "",
         "## The send",
         "",
         send or send_line(),
         "",
+        "## New evidence classes, biggest first",
+        "",
     ]
-    sends = [d for d in decisions if d["ask"] == "send"]
-    if sends:
-        out += [f"- {d['slug']}: **{d['low']:,.0f} EE**" for d in sends] + [""]
-    out += ["## New evidence classes, biggest first", ""]
     if missing:
         out += [missing, ""]
     groups: list[tuple[str, float, list[dict]]] = []
-    if outlet or stranded:
-        title = outlet["slug"] if outlet else "Give the XIII-excluded hostnames a candidate outlet"
-        worth = (outlet["low"] if outlet else 0.0) + sum(r["low"] for r in stranded)
-        groups.append((title, worth, stranded))
-    for d in decisions:
-        if d is not outlet and d["ask"] == "class":
-            groups.append((d["slug"], d["low"], []))
+    if stranded:
+        title = "Give the XIII-excluded hostnames a candidate outlet"
+        groups.append((title, sum(r["low"] for r in stranded), stranded))
     for name, members in classes.items():
         groups.append((f"Admit `{_cell(name, 80)}`", sum(r["low"] for r in members), members))
     for title, worth, members in sorted(groups, key=lambda g: -g[1]):
-        out.append(f"### {title}")
-        out.append("")
-        if members and outlet and title == outlet["slug"]:
+        out += [
+            f"### {title}",
+            "",
+            f"**{worth:,.0f} EE**",
+            "",
+            "| EE | source | measured on | what dates one item | terms |",
+            "|---:|---|---|---|---|",
+        ]
+        for r in sorted(members, key=lambda r: -r["low"]):
+            name = f"[`{r['slug']}`]({r['url']})" if r.get("url") else f"`{r['slug']}`"
             out.append(
-                f"**{worth:,.0f} EE**: {outlet['low']:,.0f} EE of hostname-years already in the "
-                f"store and {sum(r['low'] for r in members):,.0f} EE measured in the "
-                f"{len(members)} sources below, each read on this laptop. All hostname grain, "
-                "all classes XIII keeps out of the annual files, none in the candidate claim "
-                "until you rule."
+                f"| {r['low']:,.1f} | {name} | "
+                f"{_cell(r.get('said') or 'the register row', 90)} | "
+                f"{_cell(r.get('dates') or 'not quoted', 140)} | "
+                f"{_cell(r.get('terms') or 'none recorded', 70)} |"
             )
-        else:
-            out.append(f"**{worth:,.0f} EE**")
-        if members:
-            out += [
-                "",
-                "| EE | source | measured on | what dates one item | terms |",
-                "|---:|---|---|---|---|",
-            ]
-            for r in sorted(members, key=lambda r: -r["low"]):
-                name = f"[`{r['slug']}`]({r['url']})" if r.get("url") else f"`{r['slug']}`"
-                out.append(
-                    f"| {r['low']:,.1f} | {name} | "
-                    f"{_cell(r.get('said') or 'the register row', 90)} | "
-                    f"{_cell(r.get('dates') or 'not quoted', 140)} | "
-                    f"{_cell(r.get('terms') or 'none recorded', 70)} |"
-                )
         out.append("")
     if not groups and not missing:
-        out += ["None. No measured lead and no open decision asks for a new evidence class.", ""]
+        out += ["None. No measured lead asks for a new evidence class.", ""]
     if unmeasured:
         out.append(
             f"{len(unmeasured)} lead(s) ask for a class on a scout's estimate alone and are "
@@ -456,16 +382,17 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
     fleet = args.fleet.expanduser()
-    rows, missing = decisions(DECISIONS), ""
+    rows: list[dict] = []
+    missing = ""
     if (fleet / "leads").is_dir():
-        rows += leads(fleet, banked(fleet))
+        rows = leads(fleet, banked(fleet))
     else:
         print(f"no leads/ under {fleet}: the page says the fleet queue is not there")
         missing = (
             "The fleet queue is not there: the fleet clone has no `leads/`, so no lead is "
             "listed this run."
         )
-    page = render(sorted(rows, key=lambda r: (-r["low"], -r["high"])), send_line(BRIEF), missing)
+    page = render(rows, send_line(BRIEF), missing)
     if args.write:
         OUT.write_text(page, encoding="utf-8")
         print(f"wrote {OUT.relative_to(REPO)}, {len(page.splitlines())} lines")

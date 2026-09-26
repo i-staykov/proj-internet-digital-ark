@@ -36,7 +36,6 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts/harness"))
 
 from ark.approvals import pending as pending_approvals  # noqa: E402
-from ark.key_decisions import open_titles  # noqa: E402
 
 REPO = "i-staykov/proj-internet-digital-ark"
 TITLE_PREFIX = "Unattended status"
@@ -102,16 +101,12 @@ def queue_top(limit: int = 5, page: Path | None = None) -> tuple[int, list[str]]
     """(how many items the queue lists, the best `limit` rows of it).
 
     **Read out of `queue.md` rather than ranked here.** That page is generated from the
-    fleet's lead files and the repository's own open decisions, ranked on measured or
-    low-estimate EE, and it is the one list Ivo decides from (his ruling of 2026-09-19).
-    A second ranking on this surface would be a second list, which is the thing he asked
-    to stop having.
+    fleet's lead files, ranked on measured EE: the new classes and the send the owner decides.
+    A second ranking on this surface would be a second list.
 
-    **The header comes off the page too, never from a copy here.** This held its own
-    `| EE low | EE high | ...` header and skipped the page's by matching that same text, so
-    when `queue.md` moved to one measured `EE` column on 2026-09-19 the copy would have
-    rendered a five-column header over four-column rows, and the page's own header would
-    have arrived as the first row of data.
+    **The header comes off the page too, never from a copy here.** A copy goes stale the
+    day the page's columns change: it would sit over rows of another width, and the page's
+    own header would arrive as the first row of data.
     """
     page = page or ROOT / "docs/registers/queue.md"
     try:
@@ -209,7 +204,7 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
         + (f"{since_sync:.1f} h ago" if since_sync is not None else "none yet")
         + f", last bank: {brief_age:.1f} h ago. Free space: {free_gib:,.0f} GiB.",
         "- fleet: " + fleet_line(fleet),
-        f"- waiting on you: {len(priced)} priced classes, {len(open_titles())} open decisions.",
+        f"- waiting on you: {len(approvals)} pending register rows, {len(priced)} of them priced.",
         "",
     ]
     if priced:

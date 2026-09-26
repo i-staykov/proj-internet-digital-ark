@@ -48,12 +48,8 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
         f"round {snapshot['round']} against {snapshot['baseline']}: "
         f"field 3 {snapshot['netnew_pairs']:,} records, field 4 {snapshot['netnew_ee']:,.4f} EE, "
         f"field 5 {snapshot['field5_percent']}%, {standing}",
+        f"waiting on a human: {snapshot['waiting_on_human']['approvals']} approvals pending",
     ]
-    waiting = snapshot["waiting_on_human"]
-    lines.append(
-        f"waiting on a human: {waiting['approvals']} approvals pending, "
-        f"{waiting['open_decisions']} open decisions"
-    )
     pending = snapshot["pending_amendments"]
     if pending:
         lines.append(f"pending in docs/brief/brief_amendments.md ({len(pending)}):")

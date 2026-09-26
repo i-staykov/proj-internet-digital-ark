@@ -290,6 +290,8 @@ def test_the_gate_issue_is_opened_once_per_crossing(tmp_path: Path) -> None:
     assert "Round 8 at 5.010400% against m1 (released 2026-09-02) at 14:03 UTC" in first[0]
     created = [args for args in calls if args[:2] == ["issue", "create"]]
     assert len(created) == 1
+    label = created[0].index("--label")
+    assert created[0][label : label + 2] == ["--label", "needs-owner"]
 
     second = hyg.gate(
         brief, released="2026-09-02", latch_path=latch, now=now, call=call, write=True
@@ -381,15 +383,12 @@ def test_output_on_another_full_filesystem_is_refused(tmp_path, monkeypatch):
 
 
 def test_a_page_a_program_wrote_warns_and_does_not_refuse() -> None:
-    """`discover_cycle.py` rewrites these every cycle and commits neither.
-
-    Measured 2026-09-19: a triage counter moving 49 -> 50 left the clone dirty, preflight
-    refused, and the bank stopped for an hour while the collectors kept writing journals
-    nobody was banking. They sit inside STAGED, so the sync that follows commits them,
-    which is the flow the refusal was interrupting.
+    """`bank_findings.py` and `lead_queue.py` rewrite these mid-run, and a run that stops
+    before its commit leaves them changed. They sit inside STAGED, so the run that follows
+    commits them, which a refusal would stop.
     """
     fatal, warn = hyg.unsafe(
-        " M docs/lore/key-decisions.md\n M docs/registers/sources-closed.md"
+        " M docs/registers/sources.md\n M docs/registers/sources-closed.md"
         "\n M docs/registers/queue.md"
     )
     assert fatal == [], "a machine-written page is nobody's work in progress"
@@ -403,16 +402,15 @@ def test_a_page_a_program_wrote_warns_and_does_not_refuse() -> None:
 def test_a_generated_page_is_spared_even_as_the_first_status_line() -> None:
     """`git()` strips its output, so the first porcelain line loses its leading space.
 
-    Slicing `line[3:]` then read `cs/lore/key-decisions.md`, which is in no list, so the
-    first generated page to go dirty refused the bank every time. It cost two banking
-    cycles on 2026-09-19 before anyone reproduced it, because every earlier test passed a
-    status string that still had its leading space.
+    Slicing `line[3:]` then drops the first letter of the path, which is in no list, so a
+    generated page first in the status would refuse the bank. Only a status string with its
+    first line stripped shows it, which is why both shapes are passed here.
     """
-    spaced = " M docs/lore/key-decisions.md\n M docs/registers/queue.md"
+    spaced = " M docs/registers/sources-closed.md\n M docs/registers/queue.md"
     assert hyg.unsafe(spaced)[0] == []
     # The same status as `git()` hands it over, first line stripped.
     assert hyg.unsafe(spaced.strip())[0] == []
     # And the protection is intact: a human's file first in the list still refuses.
-    assert hyg.unsafe("M docs/lore/laws.md\n M docs/lore/key-decisions.md")[0] == [
+    assert hyg.unsafe("M docs/lore/laws.md\n M docs/registers/sources-closed.md")[0] == [
         "M docs/lore/laws.md"
     ]
