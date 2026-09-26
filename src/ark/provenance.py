@@ -27,9 +27,8 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
-from ark.evidence_types import CANDIDATE_ONLY_TYPES
-
-_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
+from ark.evidence_types import HIS_TYPE
+from ark.held import OUR_DOMAIN_YEAR_SQL
 
 PROVENANCE_DIR = Path("output/provenance")
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
@@ -85,33 +84,10 @@ ORDER BY dy.assigned_year;
 # reference into nothing, and the archive's own `verify.sh` refuses that. Everything else
 # goes whole, because the tables are small and a reader guessing at gaps is worse than a
 # reader holding the lot.
-# **An assignment citing one of HIS evidence rows is re-pointed before it is dropped.** A
-# pair he already held was assigned against his marker only because his release was ingested
-# first, and many of those we can prove ourselves; dropping them left 32,432,586 of our own
-# observations unassigned, which `nothing_earned_is_left_unassigned` correctly reads as a
-# domain in the candidate pool holding proof of a year.
-#
-# **The row it is re-pointed at must be one the assigner would have accepted**, so
-# candidate-only types and `www.`-only captures are excluded here, the same two rules
-# `no_candidate_leakage` and `a_bare_record_is_not_inferred_from_www` read. A pair with
-# nothing left is dropped rather than re-pointed: we cannot prove it, and he can.
+# `domain_year` ships as `held.OUR_DOMAIN_YEAR_SQL`, which says why and how it re-points.
 SHIPPED = {
-    "evidence": "SELECT * FROM evidence WHERE evidence_type <> 'prior_reused'",
-    "domain_year": f"""
-        WITH ours AS (
-            SELECT domain, evidence_year, min(evidence_id) AS evidence_id
-            FROM evidence
-            WHERE evidence_type <> 'prior_reused'
-              AND evidence_type NOT IN ({_CANDIDATE_LIST})
-              AND evidence_value NOT LIKE 'cdx capture % www.' || domain
-            GROUP BY 1, 2
-        )
-        SELECT dy.* REPLACE (COALESCE(o.evidence_id, dy.evidence_id) AS evidence_id)
-        FROM domain_year dy
-        JOIN evidence e ON e.evidence_id = dy.evidence_id
-        LEFT JOIN ours o ON o.domain = dy.domain AND o.evidence_year = dy.assigned_year
-        WHERE e.evidence_type <> 'prior_reused' OR o.evidence_id IS NOT NULL
-    """,
+    "evidence": f"SELECT * FROM evidence WHERE evidence_type <> '{HIS_TYPE}'",
+    "domain_year": OUR_DOMAIN_YEAR_SQL,
 }
 
 
