@@ -271,13 +271,13 @@ a figure has reached the register without being checked.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
-3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time,
-   here, with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never
-   reaches the register alone**: it was measured against the pushed snapshot, which is a copy, by
-   the agent that wanted the answer to be large. The items are not in the artifact, because a price
-   leg leaves them on the VPS under `/projects/ark-data/items/<slug>.jsonl` so the verify leg's
-   re-run finds them, so this fetches each one first and is loud when there is nothing to fetch or
-   no `ARK_VPS` to fetch from. A FIND with no items is not re-priced and the row says so in words.
+3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time, here,
+   with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never reaches
+   the register alone**: it was measured against the pushed snapshot, which is a copy, by the agent
+   that wanted the answer to be large. It fetches the leg's items from `/projects/ark-data/items/`
+   on the VPS, loudly when it cannot; a FIND with none is not re-priced. `ark price-snapshot` prices
+   them again against `output/fleet_snapshot`, beside the store's figure as `fleet_program_ee` and
+   `agreement_pct`, and the run ends with how many finds in a row agree within 1%.
 4. `bank_findings.py` writes the row, once per slug, into the register the verdict belongs to.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
@@ -795,14 +795,14 @@ because that is work rather than a decision.
 
 ## What the fleet prices against
 
-The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline under
-`merged<marker>/`, our last export under `netnew/`, both candidate pools under `candidates/`, and
-`manifest.json`, which carries the marker, a `built_at` and the line count and sha256 of every file.
-`scripts/harness/sync_fleet.sh` pushes all of it, reading the marker from `data/baseline.json` so it
-can never name a stale release, and removes superseded baselines on the VPS once the new one holds
-all six year files. It runs at the end of a `just bank` that exported, from the tick with `--no-ack`
-while `data/logs/.push_pending` says the last push failed, and after every non-dry `just intake`; a
-wave priced before the next push sees a ceiling, which its brief makes it say.
+The VPS holds no store. It prices against `/projects/ark-data`: his baseline, our last export and
+`attested_registrables.txt`, the candidate pools, his calculator, and `manifest.json`, which carries
+the marker, `built_at`, a `claim_sha256` over our staged claim and each file's lines and sha256.
+`scripts/harness/sync_fleet.sh` pushes all of it under the marker `data/baseline.json` names, and
+removes superseded baselines on the VPS once the new one holds all six year files. It runs after a
+`just bank` that exported, from the tick with `--no-ack` while `data/logs/.push_pending` stands, and
+after a non-dry `just intake`; `push_fleet.sh` then commits the marker and `claim_sha256` to fleet
+main as `snapshot.json`, and only its landing clears the flag. A wave priced sooner sees a ceiling.
 
 `scripts/harness/snapshot_manifest.py` stages what gets pushed, with hard links so a 1.5 GB baseline
 costs no disk, and **refuses to build a snapshot holding a zero-line file**: an empty held-set
