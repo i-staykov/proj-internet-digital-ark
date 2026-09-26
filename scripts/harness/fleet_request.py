@@ -1,11 +1,11 @@
 """Write the pending request block a fleet FIND needs, so there is something to decide.
 
-**Nothing else writes one.** `standing_rule.py` and `sync_approvals.py` both iterate blocks
-that already exist in `docs/registers/approved-sources-list.md`; the only writer was
-`request_approval.py` behind `just approve`, run by a human, and before that the model
-admitter this replaced. So a confirmed FIND from the fleet used to reach the register as a
-row and stop: no block, no `Decision:` line, nothing for the standing rule to flip and
-nothing for Ivo to merge.
+**Nothing else writes one for a fleet find.** `standing_rule.py` and `sync_approvals.py` both
+iterate blocks that already exist in `docs/registers/approved-sources-list.md`, and the other
+writer, `request_approval.py` behind `just approve`, runs only when a human or this script
+calls it. Without a block, a confirmed FIND from the fleet reaches the register as a row and
+stops: no `Decision:` line, nothing for the standing rule to flip and nothing for the owner
+to merge.
 
 **The registered spec gets the good block.** When the slug names a spec `ark ingest` knows,
 `request_approval.py` writes the request, with a seeded-random sample of real records and
@@ -19,11 +19,13 @@ the items file the figures came from, and asks for the decision anyway, because 
 is what unblocks writing the collector. `bank_approved.py` is loud about a block it cannot
 bank, which is the behaviour wanted here rather than a silent yes.
 
-**The standing rule's finds, by its figure, and an ask only where it parks.** The candidates
-are `standing_rule.confirmed_finds`, so every block written here is one the standing rule
-reads, and the block quotes the figure that decides. A source the standing rule would decide
-gets its block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank.
-A source it parks, a new class above all, gets its OPEN entry, the ask the owner reads.
+**The standing rule's finds, by its figure, and the block is the ask.** The candidates are
+`standing_rule.confirmed_finds`, so every block written here is one the standing rule reads,
+and the block quotes the figure that decides. A source the standing rule admits gets its
+block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank. A source
+it parks, a new class above all, keeps its block pending, and that block is the ask: once its
+`- potential:` is at or above the floor, `sync_approvals.py` files it as a `needs-owner`
+issue with a one-line pull request.
 
     uv run python scripts/harness/fleet_request.py INCOMING [--fleet FLEET] [--write]
 """
@@ -49,13 +51,17 @@ import standing_rule  # noqa: E402
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.hostnames import fleet_read_source_name  # noqa: E402
-from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 SECTION = "## Pending requests"
 FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
+# What happens to a block the standing rule parks: it stays pending, and it is the ask.
+ASK = (
+    "at or above the floor, sync_approvals.py files the block as a needs-owner issue with a "
+    "one-line pull request"
+)
 # Where `fleet_findings.py` pulls a lead's whole read, one directory of journal parts.
 FLEET_READ = REPO / "data/raw/fleet_read"
 READ_CLASS = "cdx_timestamp"
@@ -183,28 +189,6 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     return "".join(" ".join(line.split()) + "\n" for line in lines)
 
 
-def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None = None) -> bool:
-    """The OPEN entry in `key-decisions.md`, which is the one surface the owner reads.
-
-    A pending block with no OPEN entry is a request nobody was told about, and the gate
-    refuses it (`test_every_pending_approval_is_surfaced_in_the_live_files`). The tool
-    path writes its own; this is the short path's, for a source the standing rule parks.
-    """
-    body = (
-        f"Found and priced by the fleet under the {lead.get('lens', 'unrecorded')} lens, "
-        f"confirmed by a second leg: {figure_said(find)}. The block is under `## Pending "
-        f"requests` in `approved-sources-list.md`; merge the approval pull request to say yes, "
-        f"close it to leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
-    )
-    if decisions is not None and not Path(decisions).is_file():
-        # A register somewhere else, as in a test, has no decisions document beside it.
-        # Writing to the real one from there is what put a fake entry into the live
-        # `key-decisions.md` on 2026-09-15 and had the hourly sync refuse a dirty clone.
-        print(f"request: no decisions document at {decisions}, OPEN entry not written")
-        return False
-    return raise_open(f"Approve {key} / {etype}", body, decisions)
-
-
 def append(register: Path, text: str) -> None:
     """Insert above the section's first block, so the newest ask is the first one read.
 
@@ -271,12 +255,6 @@ def main(argv: list[str] | None = None) -> int:
         help="the fleet clone whose ledger holds the outcome lines; without it the store "
         "re-price decides",
     )
-    ap.add_argument(
-        "--decisions",
-        type=Path,
-        default=None,
-        help="key-decisions.md; by default the one beside the register, docs/lore/key-decisions.md",
-    )
     args = ap.parse_args(argv)
 
     incoming = args.incoming.expanduser()
@@ -297,11 +275,11 @@ def main(argv: list[str] | None = None) -> int:
             print(f"request: {key} / {etype} already has a block, left alone")
             continue
         # The standing rule's own test, on the register as it stands and the lead it will
-        # read, so a source it decides in this bank is not asked about first.
-        ask = standing_rule.reasons_to_park(
+        # read, so the message says whether it decides this block in this bank or parks it.
+        parked = standing_rule.reasons_to_park(
             SimpleNamespace(source_name=key, evidence_type=etype), lead, decided
         )
-        said = "and ask" if ask else NO_ASK
+        said = f"parked: {'; '.join(parked)}; {ASK}" if parked else NO_ASK
         if not args.write:
             by = FIGURE[find["figure"]]
             print(f"would write: {key} / {etype}, {find['ee']:,.1f} EE by {by}, {said}")
@@ -309,14 +287,7 @@ def main(argv: list[str] | None = None) -> int:
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
         if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
             append(args.register, block(lead_dir, finding, lead, find))
-            if ask:
-                decisions = (
-                    args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
-                )
-                surface(key, etype, lead, find, decisions)
-                print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
-            else:
-                print(f"request: wrote a pending block for {key} / {etype}, {NO_ASK}")
+            print(f"request: wrote a pending block for {key} / {etype}, {said}")
         written += 1
     if args.write:
         print(f"request: {written} blocks written; the standing rule decides them next")

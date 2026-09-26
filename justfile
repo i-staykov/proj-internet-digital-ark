@@ -183,9 +183,12 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     #    phone. A changed approvals page is one of the things that calls the bank.
     uv run python scripts/harness/bank_hygiene.py preflight
     uv run python scripts/harness/bank_hygiene.py space
-    # Anything still waiting on Ivo, first, so a sync never buries a decision.
-    gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
-        --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
+    # The approvals still waiting on the owner, first, so a sync never buries a decision: the
+    # issues `sync_approvals.py` files, picked by title from the asks that share their label.
+    gh issue list --repo i-staykov/ark-fleet --state open --label needs-owner --limit 1000 \
+        --json title \
+        --jq '.[] | select(.title | test("^Approve .+\\? [0-9,]+ EE$")) | "AWAITING IVO: " + .title' \
+        2>/dev/null || true
     # 1. Pull every unprocessed Leg and Read run's `findings-*` artifact from ark-fleet. **A
     #    run uploads it before it ends**, so in-progress runs are taken too and a run is marked
     #    PROCESSED only once it has completed. Name each workflow: `gh run list` with none lists
@@ -241,7 +244,7 @@ sync fleet="~/Documents/GitHub/ark-fleet":
             uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
             # 6. One commit and one push, **only when the registers moved**: an empty commit
             #    says a drain was booked when none was.
-            git add docs/registers/ docs/lore/key-decisions.md
+            git add docs/registers/
             COMMITTED=no
             if git diff --cached --quiet; then
                 echo "the registers are unchanged, so nothing is committed"
@@ -496,7 +499,7 @@ bank *args:
                 if [ -n "$INGESTED" ]; then
                     uv run python scripts/harness/unbank_source.py $INGESTED --write
                 fi
-                git checkout HEAD -- docs/registers/ docs/lore/key-decisions.md
+                git checkout HEAD -- docs/registers/
                 uv run python scripts/harness/bank_trigger.py red --step b \
                     --ingested "$INGESTED" --check "$CHECK_LOG"
                 uv run python scripts/harness/bank_hygiene.py space
@@ -520,7 +523,7 @@ bank *args:
     uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py | tail -1 || true
     uv run python scripts/harness/bank_trigger.py stamp
-    git add docs/registers/ docs/lore/key-decisions.md
+    git add docs/registers/
     COMMITTED=no
     if git diff --cached --quiet; then
         echo "the registers are unchanged, so nothing is committed"

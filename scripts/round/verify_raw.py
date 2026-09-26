@@ -68,10 +68,8 @@ KEEP_UNTIL_PRICED: dict[str, str | None] = {
     "internic_zones": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/",
 }
 
-# Priced, and the bytes are what a yes would be ingested from, so neither `prune` nor the
-# off-site rule may treat them as spent. `ukwa` waits on whether `www.<a name already held
-# that year>` is a record at all (`key-decisions.md`, 2026-09-03); the two Usenet pools wait
-# on the `usenet_body_url_hostnames` class, 64,840.4 EE measured over both read whole.
+# Priced, and the bytes are what the `ukwa_*` sources and the `usenet_body_url_hostnames`
+# journals were built from, so neither `prune` nor the off-site rule may treat them as spent.
 KEEP_UNTIL_DECIDED: dict[str, str] = {
     "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "usenet_bulk": "https://archive.org/details/usenet-alt",
@@ -79,9 +77,9 @@ KEEP_UNTIL_DECIDED: dict[str, str] = {
 }
 
 # The item journals a priced Usenet pool leaves behind: `{item, year, text}` shards, one per
-# extraction worker, a few tens of MB against tens of GB of archives. They are what a yes on
-# `usenet_body_url_hostnames` would be ingested from, and the archives themselves are
-# refetchable by name from `data/raw/usenet_catalog.json`, so the zips go back and these stay.
+# extraction worker, a few tens of MB against tens of GB of archives. They are what the bank's
+# `usenet_body_url_hostnames` lane ingests, and the archives themselves are refetchable by
+# name from `data/raw/usenet_catalog.json`, so the zips go back and these stay.
 KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = dict.fromkeys(
     (
         f"usenet_{h}_items"

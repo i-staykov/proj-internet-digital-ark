@@ -1,10 +1,10 @@
 """The block a fleet FIND needs before anything can decide it.
 
 Without it the loop stops one step short and looks complete: a row in `sources.md`, a
-confirmed FIND and no `Decision:` line, so the standing rule finds nothing to flip and Ivo is
-asked nothing. The tests pin what the block must not do: no invented spec, no invented terms,
-no second block for a source already decided, and no ask for a source the standing rule
-decides in the same bank.
+confirmed FIND and no `Decision:` line, so the standing rule finds nothing to flip and the
+owner is asked nothing. The tests pin what the block must not do: no invented spec, no
+invented terms, no second block for a source already decided, and no ask for a source the
+standing rule decides in the same bank.
 """
 
 import importlib.util
@@ -22,6 +22,8 @@ request = importlib.util.module_from_spec(_SPEC)
 sys.modules["fleet_request"] = request
 _SPEC.loader.exec_module(request)
 standing_rule = request.standing_rule
+# `fleet_request` put scripts/harness on the path, so its neighbour imports by name.
+import sync_approvals  # noqa: E402
 
 REGISTER = """# Approved sources
 
@@ -60,8 +62,6 @@ STANDING = {
         for name in ("size", "terms", "robots", "class", "window")
     },
 }
-
-DECISIONS = "# Decisions\n\n## OPEN\n\n## CLOSED\n\n| | date | decision |\n|---|---|---|\n"
 
 # Ten finds whose program figure agreed with the store within 1%: the program decides.
 AGREEING = [
@@ -215,73 +215,54 @@ def test_a_drain_outside_the_checkout_still_writes_a_block(tmp_path):
     assert "- journal: `" in write(incoming, register)
 
 
-def test_a_short_block_also_gets_an_open_entry(tmp_path):
-    """2026-09-15: the Danish zone list's block was written, its OPEN entry was not, and
-    the sync that raised the request refused its own gate."""
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(
-        "# Decisions\n\n## OPEN\n\n## CLOSED\n\n| | date | decision |\n|---|---|---|\n"
-    )
-    lead = {"lens": "registry-publications"}
-    store = {"ee": 9702.6, "netnew": 56707, "pricer": "price_items.py"}
-    find = {"store": store, "figure": "store", "ee": 9702.6}
-    assert request.surface("dk_zone", "artifact_listing", lead, find, decisions)
-    text = decisions.read_text()
-    assert "### Approve dk_zone / artifact_listing" in text
-    assert "9,702.6 EE net-new on the live store" in text
-    assert not request.surface("dk_zone", "artifact_listing", lead, find, decisions), "once"
+# The ask: the block the standing rule leaves pending.
 
 
-# The ask: only for a source the standing rule parks.
+def ask(tmp_path, capsys, *, register, lead) -> tuple[str, str]:
+    """Write one lead's block: the register afterwards and what the request said.
 
-
-def asks(tmp_path, monkeypatch, *, register, lead, extra=()) -> tuple[list, str, str]:
-    """Run the request with a scratch decisions file; what surface() was called with, the
-    decisions file and the register afterwards."""
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(DECISIONS, encoding="utf-8")
-    called = []
-    real = request.surface
-    monkeypatch.setattr(request, "surface", lambda *a, **k: called.append(a[:2]) or real(*a, **k))
+    The block is the whole ask, so the run leaves nothing under tmp_path but the incoming
+    tree and the register.
+    """
     incoming, path = world(tmp_path, lead=lead, register=register)
-    text = write(incoming, path, "--decisions", str(decisions), *extra)
-    return called, decisions.read_text(encoding="utf-8"), text
+    before = sorted(tmp_path.rglob("*"))
+    text = write(incoming, path)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["approvals.md", "incoming"]
+    assert sorted(tmp_path.rglob("*")) == before
+    return text, capsys.readouterr().out
 
 
-def test_a_standing_rule_source_gets_its_block_and_no_ask(tmp_path, monkeypatch, capsys):
+def block_of(text: str, head: str = "a_lead / cdx_timestamp") -> list[str]:
+    return text.split(f"### {head}\n", 1)[1].split("\n\n", 1)[0].splitlines()
+
+
+def test_a_standing_rule_source_gets_its_block_and_no_ask(tmp_path, capsys):
     lead = dict(LEAD, standing=STANDING)
-    called, decisions, text = asks(tmp_path, monkeypatch, register=APPROVED_CLASS, lead=lead)
-    assert called == []
-    assert decisions == DECISIONS
+    text, said = ask(tmp_path, capsys, register=APPROVED_CLASS, lead=lead)
     assert "### a_lead / cdx_timestamp" in text
-    assert "no ask: the standing rule decides it" in capsys.readouterr().out
-
-
-def test_a_new_class_is_asked_about_once(tmp_path, monkeypatch, capsys):
-    lead = dict(LEAD, standing=STANDING)
-    called, decisions, text = asks(tmp_path, monkeypatch, register=REGISTER, lead=lead)
-    assert called == [("a_lead", "cdx_timestamp")]
-    assert decisions.count("### Approve a_lead / cdx_timestamp") == 1
-    assert "### a_lead / cdx_timestamp" in text
-    assert "and its OPEN entry" in capsys.readouterr().out
+    assert "no ask: the standing rule decides it" in said
+    assert "sync_approvals.py" not in said
 
 
 @pytest.mark.parametrize(
-    "lead",
+    "register, lead",
     [
-        LEAD,
-        dict(LEAD, standing=dict(STANDING, admitted=False)),
-        dict(LEAD, standing=dict(STANDING, clauses={})),
+        (REGISTER, dict(LEAD, standing=STANDING)),
+        (APPROVED_CLASS, LEAD),
+        (APPROVED_CLASS, dict(LEAD, standing=dict(STANDING, admitted=False))),
+        (APPROVED_CLASS, dict(LEAD, standing=dict(STANDING, clauses={}))),
     ],
-    ids=["no-standing", "not-admitted", "no-clauses"],
+    ids=["new-class", "no-standing", "not-admitted", "no-clauses"],
 )
-def test_a_lead_outside_the_standing_bounds_is_asked_about(tmp_path, monkeypatch, lead):
-    called, decisions, _ = asks(tmp_path, monkeypatch, register=APPROVED_CLASS, lead=lead)
-    assert called == [("a_lead", "cdx_timestamp")]
-    assert "### Approve a_lead / cdx_timestamp" in decisions
+def test_a_parked_source_gets_a_pending_block_with_its_potential(tmp_path, capsys, register, lead):
+    text, said = ask(tmp_path, capsys, register=register, lead=lead)
+    block = block_of(text)
+    assert block[-2:] == ["- potential: 7000", "Decision: pending"]
+    assert "parked: " in said
+    assert "sync_approvals.py files the block as a needs-owner issue" in said
 
 
-def test_the_dry_run_says_whether_it_would_ask(tmp_path, capsys):
+def test_the_dry_run_says_whether_the_standing_rule_parks_it(tmp_path, capsys):
     incoming, register = world(
         tmp_path, lead=dict(LEAD, standing=STANDING), register=APPROVED_CLASS
     )
@@ -289,16 +270,19 @@ def test_the_dry_run_says_whether_it_would_ask(tmp_path, capsys):
     assert "no ask: the standing rule decides it" in capsys.readouterr().out
     (tmp_path / "approvals.md").write_text(REGISTER, encoding="utf-8")
     request.main([str(incoming), "--register", str(register)])
-    assert "and ask" in capsys.readouterr().out
+    said = capsys.readouterr().out
+    assert "parked: no other cdx_timestamp source is approved as master" in said
+    assert "sync_approvals.py files the block" in said
 
 
-def test_every_block_left_pending_after_the_standing_rule_has_its_ask(tmp_path):
-    """The live gate's invariant on a scratch register: the request writes a block with no
-    ask only where the standing rule then decides it, so nothing pending goes unsurfaced."""
+def test_every_block_left_pending_after_the_standing_rule_carries_a_potential(
+    tmp_path, monkeypatch
+):
+    """Every block the standing rule leaves pending carries a `- potential:` line, so
+    `sync_approvals.py` reads its figure and files it at or above the floor. A block without
+    one reads as 0 EE and never reaches the owner."""
     from ark import approvals
 
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(DECISIONS, encoding="utf-8")
     world(tmp_path, lead=dict(LEAD, standing=STANDING), register=APPROVED_CLASS)
     world(tmp_path, lead=dict(LEAD, slug="b-lead"), register=APPROVED_CLASS, slug="b-lead")
     world(
@@ -308,12 +292,18 @@ def test_every_block_left_pending_after_the_standing_rule_has_its_ask(tmp_path):
         slug="c-lead",
     )
     incoming, register = tmp_path / "incoming", tmp_path / "approvals.md"
-    write(incoming, register, "--decisions", str(decisions))
+    write(incoming, register)
     standing_rule.main([str(incoming), "--register", str(register), "--write"])
     assert approvals.load(register)[("a_lead", "cdx_timestamp")].decision == "master"
     left = [f"{a.source_name} / {a.evidence_type}" for a in approvals.pending(register)]
     assert left == ["b_lead / cdx_timestamp"]
-    assert all(f"### Approve {name}" in decisions.read_text() for name in left)
+    text = register.read_text(encoding="utf-8")
+    assert all(
+        any(line.startswith("- potential: ") for line in block_of(text, name)) for name in left
+    )
+    monkeypatch.setattr(sync_approvals, "REGISTER", register)
+    filed = sync_approvals.requests(sync_approvals.DEFAULT_FLOOR)
+    assert [(r.source, r.potential) for r in filed] == [("b_lead", 7000.0)]
 
 
 @pytest.mark.parametrize(
@@ -321,7 +311,8 @@ def test_every_block_left_pending_after_the_standing_rule_has_its_ask(tmp_path):
 )
 def test_a_block_written_with_no_ask_is_the_one_the_standing_rule_decides(tmp_path, slug, sidecar):
     """The block is named after the directory, so the standing rule finds it and reads the
-    lead there, whatever the sidecar calls the find; else it would stay pending, unasked."""
+    lead there, whatever the sidecar calls the find; else it would stay pending and reach the
+    owner as an ask the standing rule already answers."""
     from ark import approvals
 
     incoming, register = world(
@@ -364,17 +355,6 @@ def test_under_the_streak_the_block_carries_the_program_figure(tmp_path):
     assert "The live store re-price by `price_items.py` said no figure" in text
     assert "the program's figure is the one to read" in text
     assert "- potential: 7020" in text
-
-
-def test_the_open_entry_carries_the_deciding_figure(tmp_path):
-    fleet = ledger(tmp_path, AGREEING)
-    decisions = tmp_path / "key-decisions.md"
-    decisions.write_text(DECISIONS, encoding="utf-8")
-    incoming, register = world(tmp_path, program=7020.0)
-    write(incoming, register, "--fleet", str(fleet), "--decisions", str(decisions))
-    text = decisions.read_text(encoding="utf-8")
-    assert "7,020.0 EE net-new by the program on the pushed snapshot" in text
-    assert "Worth: 7020 EE." in text
 
 
 def read_world(tmp_path, monkeypatch, receipt=True):
