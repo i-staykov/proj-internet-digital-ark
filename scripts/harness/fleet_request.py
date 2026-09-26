@@ -19,7 +19,13 @@ the items file the figures came from, and asks for the decision anyway, because 
 is what unblocks writing the collector. `bank_approved.py` is loud about a block it cannot
 bank, which is the behaviour wanted here rather than a silent yes.
 
-    uv run python scripts/harness/fleet_request.py data/fleet_findings/incoming [--write]
+**The standing rule's finds, by its figure, and an ask only where it parks.** The candidates
+are `standing_rule.confirmed_finds`, so every block written here is one the standing rule
+reads, and the block quotes the figure that decides. A source the standing rule would decide
+gets its block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank.
+A source it parks, a new class above all, gets its OPEN entry, the ask the owner reads.
+
+    uv run python scripts/harness/fleet_request.py INCOMING [--fleet FLEET] [--write]
 """
 
 from __future__ import annotations
@@ -31,9 +37,14 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import fleet_ledger  # noqa: E402
+import standing_rule  # noqa: E402
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
@@ -42,6 +53,8 @@ from ark.sources import SOURCES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 SECTION = "## Pending requests"
+FIGURE = {"store": "the store", "program": "the program"}
+NO_ASK = "no ask: the standing rule decides it"
 
 
 def _json(path: Path) -> dict:
@@ -57,24 +70,31 @@ def source_key(slug: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", slug.lower()).strip("_")
 
 
-def candidates(incoming: Path) -> list[tuple[Path, dict, dict, dict]]:
-    """Every confirmed FIND the laptop re-priced, with its lead and its store figure."""
-    out = []
-    for lead_dir in sorted(p for p in incoming.iterdir() if p.is_dir()):
-        finding = _json(lead_dir / "finding.json")
-        store = _json(lead_dir / "store_price.json")
-        lead = _json(lead_dir / "lead.json")
-        if finding.get("verdict") != "FIND":
-            continue
-        if (finding.get("verify") or {}).get("status") != "confirmed":
-            continue
-        if not isinstance(store.get("ee"), int | float) or store["ee"] <= 0:
-            continue
-        out.append((lead_dir, finding, lead, store))
-    return out
+def candidates(incoming: Path, outcomes: list[dict]) -> list[tuple[Path, dict, dict, dict]]:
+    """The standing rule's confirmed FINDs, each with its lead and its deciding figure.
+
+    The same finds by the same figure, so a block written here is never one the standing
+    rule cannot see: `find` is its entry, with the re-price, `figure` and `ee`.
+    """
+    return [
+        (find["dir"], find["finding"], _json(find["dir"] / "lead.json"), find)
+        for find in standing_rule.confirmed_finds(incoming, outcomes).values()
+    ]
 
 
-def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
+def figure_said(find: dict) -> str:
+    """The deciding figure, in bold, and what it was measured on."""
+    store = find["store"]
+    if find["figure"] == "program":
+        return (
+            f"**{find['ee']:,.1f} EE net-new by the program on the pushed snapshot**, which "
+            f"agreed with the live store within 1% on the last {fleet_ledger.STREAK} finds"
+        )
+    netnew = store.get("netnew") or 0
+    return f"**{find['ee']:,.1f} EE net-new on the live store** over {netnew:,} records"
+
+
+def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     """The short block, built from the sidecar, the lead and the re-price. No prose invented.
 
     Every line is a fact one of those three files carries. Where one of them says nothing,
@@ -83,10 +103,13 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
     """
     key = source_key(lead_dir.name)
     spec = SOURCES.get(key)
+    store = find["store"]
     stamp = str(lead.get("what_dates_one_item") or "not recorded in the lead")
     artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
     fleet_ee = (finding.get("pricing") or {}).get("ee")
     fleet_said = f"{fleet_ee:,.1f}" if isinstance(fleet_ee, int | float) else "no figure"
+    store_ee = store.get("ee")
+    store_said = f"{store_ee:,.1f} EE" if isinstance(store_ee, int | float) else "no figure"
     items = lead_dir / "items.jsonl"
     # Relative when it is under the checkout, which is where the drain puts it, and absolute
     # when someone points this at a directory elsewhere rather than crashing on the block.
@@ -107,33 +130,34 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
         f"robots {artifact.get('robots') or 'unrecorded'}",
         f"- what dates one item: {stamp}",
         (
-            f"- measured {dt.date.today().isoformat()}: **{store['ee']:,.1f} EE net-new on the "
-            f"live store** over {store.get('netnew', 0):,} records, by `{store.get('pricer')}`. "
-            f"The fleet said {fleet_said} EE against the pushed snapshot; the store figure is "
-            f"the one to read"
+            f"- measured {dt.date.today().isoformat()}: {figure_said(find)}, by "
+            f"`{store.get('pricer')}`. The fleet said {fleet_said} EE against the pushed "
+            f"snapshot; the store figure is the one to read"
+            if find["figure"] == "store"
+            else f"- measured {dt.date.today().isoformat()}: {figure_said(find)}. The live "
+            f"store re-price by `{store.get('pricer')}` said {store_said}, and the fleet said "
+            f"{fleet_said} EE; the program's figure is the one to read"
         ),
         f"- fleet run {finding.get('run_id', 'unknown')}, lens {lead.get('lens', 'unrecorded')}, "
         f"grain {lead.get('grain', 'unrecorded')}, verified by a second leg",
-        f"- potential: {store['ee']:.0f}",
+        f"- potential: {find['ee']:.0f}",
         "Decision: pending",
     ]
     return "".join(" ".join(line.split()) + "\n" for line in lines)
 
 
-def surface(key: str, etype: str, lead: dict, store: dict, decisions: Path | None = None) -> bool:
-    """The OPEN entry in `key-decisions.md`, which is the one surface Ivo reads.
+def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None = None) -> bool:
+    """The OPEN entry in `key-decisions.md`, which is the one surface the owner reads.
 
     A pending block with no OPEN entry is a request nobody was told about, and the gate
     refuses it (`test_every_pending_approval_is_surfaced_in_the_live_files`). The tool
-    path writes its own; this is the short path's, written on 2026-09-15 after the Danish
-    zone list's request refused the sync that raised it.
+    path writes its own; this is the short path's, for a source the standing rule parks.
     """
     body = (
         f"Found and priced by the fleet under the {lead.get('lens', 'unrecorded')} lens, "
-        f"confirmed by a second leg: **{store['ee']:,.1f} EE net-new on the live store** over "
-        f"{store.get('netnew', 0):,} records. The block is under `## Pending requests` in "
-        f"`approved-sources-list.md`; merge the approval pull request to say yes, close it to "
-        f"leave the source pending.\n\nWorth: {store['ee']:.0f} EE."
+        f"confirmed by a second leg: {figure_said(find)}. The block is under `## Pending "
+        f"requests` in `approved-sources-list.md`; merge the approval pull request to say yes, "
+        f"close it to leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
     )
     if decisions is not None and not Path(decisions).is_file():
         # A register somewhere else, as in a test, has no decisions document beside it.
@@ -204,6 +228,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--register", type=Path, default=REGISTER)
     ap.add_argument("--write", action="store_true", help="without it, say what it would write")
     ap.add_argument(
+        "--fleet",
+        type=Path,
+        default=None,
+        help="the fleet clone whose ledger holds the outcome lines; without it the store "
+        "re-price decides",
+    )
+    ap.add_argument(
         "--decisions",
         type=Path,
         default=None,
@@ -216,8 +247,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
 
+    fleet = args.fleet.expanduser() if args.fleet else None
+    outcomes = fleet_ledger.lines(fleet, "outcome")
     written = 0
-    for lead_dir, finding, lead, store in candidates(incoming):
+    for lead_dir, finding, lead, find in candidates(incoming, outcomes):
         key = source_key(lead_dir.name)
         etype = lead.get("evidence_class")
         if etype not in MASTER_TYPES:
@@ -227,15 +260,27 @@ def main(argv: list[str] | None = None) -> int:
         if (key, etype) in decided:
             print(f"request: {key} / {etype} already has a block, left alone")
             continue
+        # The standing rule's own test, on the register as it stands and the lead it will
+        # read, so a source it decides in this bank is not asked about first.
+        ask = standing_rule.reasons_to_park(
+            SimpleNamespace(source_name=key, evidence_type=etype), lead, decided
+        )
+        said = "and ask" if ask else NO_ASK
         if not args.write:
-            print(f"would write: {key} / {etype}, {store['ee']:,.1f} EE on the store")
+            by = FIGURE[find["figure"]]
+            print(f"would write: {key} / {etype}, {find['ee']:,.1f} EE by {by}, {said}")
             continue
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
         if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
-            append(args.register, block(lead_dir, finding, lead, store))
-            decisions = args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
-            surface(key, etype, lead, store, decisions)
-            print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
+            append(args.register, block(lead_dir, finding, lead, find))
+            if ask:
+                decisions = (
+                    args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
+                )
+                surface(key, etype, lead, find, decisions)
+                print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
+            else:
+                print(f"request: wrote a pending block for {key} / {etype}, {NO_ASK}")
         written += 1
     if args.write:
         print(f"request: {written} blocks written; the standing rule decides them next")

@@ -192,37 +192,42 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     # Anything still waiting on Ivo, first, so a sync never buries a decision.
     gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
         --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
-    # 1. Pull every unprocessed run's `findings-*` artifact from ark-fleet. **A finished
-    #    SHARD is bankable before its wave is**, so in-progress runs are taken too and a run
-    #    is marked PROCESSED only once it has completed. Name the wave workflow: `gh run
-    #    list` with none lists CI too, fifty empty downloads an hour hiding the two that matter.
-    gh run list --repo i-staykov/ark-fleet --workflow wave.yaml --limit 50 \
-        --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' \
-        | while IFS=$'\t' read -r RID STATUS; do
-        grep -qx "$RID" "$PROCESSED" && continue
-        gh run download "$RID" --repo i-staykov/ark-fleet --pattern 'findings-*' \
-            --dir "$IN/run_$RID" >/dev/null 2>&1 || true
-        [ "$STATUS" = "completed" ] && echo "$RID" >> "$PROCESSED"
+    # 1. Pull every unprocessed Leg and Read run's `findings-*` artifact from ark-fleet. **A
+    #    run uploads it before it ends**, so in-progress runs are taken too and a run is marked
+    #    PROCESSED only once it has completed. Name each workflow: `gh run list` with none lists
+    #    CI too. A workflow not on the fleet's main answers 404, which skips it, not the tick.
+    for WF in leg.yaml read.yaml; do
+        RUNS=$(gh run list --repo i-staykov/ark-fleet --workflow "$WF" --limit 50 \
+            --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' 2>/dev/null) \
+            || { echo "drain: gh could not list $WF; its runs wait for the next tick"; continue; }
+        while IFS=$'\t' read -r RID STATUS; do
+            [ -n "$RID" ] || continue
+            grep -qx "$RID" "$PROCESSED" && continue
+            gh run download "$RID" --repo i-staykov/ark-fleet --pattern 'findings-*' \
+                --dir "$IN/run_$RID" >/dev/null 2>&1 || true
+            if [ "$STATUS" = "completed" ]; then echo "$RID" >> "$PROCESSED"; fi
+        done <<< "$RUNS"
     done
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    # One directory per lead at the top of the drain, the telemetry rows in the ledger.
-    uv run python scripts/harness/fleet_findings.py drain "$IN"
+    # One directory per lead at the top of the drain; the laptop's old ledger TSV goes, once,
+    # into the fleet's ledger as legacy lines.
+    uv run python scripts/harness/fleet_findings.py drain "$IN" --fleet "$FLEET"
     uv run python scripts/harness/bank_hygiene.py prune --write
     # 2. The fleet's schema: a sidecar nobody validated is prose with braces. The second
     #    price, on the live store, is the bank's.
     uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
-    # 2b. Restart the fleet's wave chain if it has stopped. It stops by design on a zero-leg
-    #     wave, and the GitHub cron meant to restart it does not reliably fire.
-    #     `discover_cycle.py` holds the check but its own caller is six-hourly, so this hourly
-    #     one bounds the gap. Never fatal: a dead chain must not take the bank down with it.
-    uv run python scripts/harness/discover_cycle.py --wave-only || true
+    # 2b. Report each Leg slot policy.json allows that no run holds. `leg.yaml`'s schedule is
+    #     the watchdog that starts it, so this dispatches nothing. `discover_cycle.py` holds
+    #     the check and its own caller is six-hourly. Never fatal.
+    uv run python scripts/harness/discover_cycle.py --slots-only --fleet "$FLEET" || true
     # 3 to 7 need findings. A confirmed FIND needs the live store for its second price, so its
-    # whole drain goes to the bank; any other drain is booked here. The two shapes are tested
-    # separately: `ls` over both globs fails when EITHER is unmatched.
-    if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null; then
+    # whole drain goes to the bank; any other drain is booked here. Each shape, a closed scout
+    # lead's `scout.md` among them, is tested alone: `ls` over all fails when ANY is unmatched.
+    if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null \
+        && ! compgen -G "$IN/*/scout.md" >/dev/null; then
         echo "nothing new to book"
     else
-        # 3. Result lines first and pushed at once: a wave that picks while the rest of this
+        # 3. Result lines first and pushed at once: a leg that picks while the rest of this
         #    recipe is still running relaunches settled slugs.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
@@ -237,11 +242,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
                 --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
             NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
             # 5. Pending approvals as one issue and one mergeable pull request each, and the
-            #    lead queue, rebuilt against the banked slugs the last bank cached.
+            #    lead queue, rebuilt from the fleet's outcome lines and lead statuses.
             uv run python scripts/harness/sync_approvals.py || true
-            uv run python scripts/round/lead_queue.py --fleet "$FLEET" --cached --write || true
+            uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
             # 6. One commit and one push, **only when the registers moved**: an empty commit
-            #    says a wave was booked when none was.
+            #    says a drain was booked when none was.
             git add docs/registers/ docs/lore/key-decisions.md
             COMMITTED=no
             if git diff --cached --quiet; then
@@ -443,16 +448,16 @@ bank *args:
         fi
     fi
     # a. A confirmed FIND, priced a second time on the live store, booked with both figures,
-    #    asked for, and decided where the standing rule covers it. A FIND is always a reason,
-    #    so --force adds nothing here.
+    #    decided where the standing rule covers it and asked for where the rule parks it. A
+    #    FIND is always a reason, so --force adds nothing here.
     if has find; then
         RAN_A=yes
         uv run python scripts/harness/fleet_findings.py reprice "$IN"
         SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
         NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
-        uv run python scripts/harness/fleet_request.py "$IN" --write
-        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --write \
+        uv run python scripts/harness/fleet_request.py "$IN" --fleet "$FLEET" --write
+        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \
             | tee /dev/stderr | grep -c '^decided:' || true)
     fi
     # b. Approvals merged, or the standing rule just decided: ingest, export, gate. The rule's
@@ -532,6 +537,10 @@ bank *args:
     # A commit an earlier bank could not push goes with this one.
     if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
     if [ "$RAN_A" = yes ]; then
+        # Each confirmed FIND's outcome into the fleet's ledger, `banked` only once this bank's
+        # commit has landed, then each lead's fate into the fleet's queue, pushed together.
+        if [ "$COMMITTED" = yes ]; then BANKED=--banked; else BANKED=""; fi
+        uv run python scripts/harness/fleet_findings.py outcome "$IN" --fleet "$FLEET" $BANKED
         uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
         bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
         if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then

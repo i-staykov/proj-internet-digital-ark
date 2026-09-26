@@ -43,3 +43,6 @@ does not rebuild it. The code itself is in git.
   5,000 EE floor and all 3 were already answered elsewhere. Every entry was re-verified against the
   closed registers on 2026-09-19 and written back into `sources-closed.md` with its verdict, so
   nobody re-tests one. What is live is ranked by measured EE in generated `queue.md`.
+- **The fleet leg's CDX seat** (`scripts/harness/cdx_slot.sh`, `tests/test_cdx_slot.py`): let a leg
+  on the VPS ask the archive's CDX about one exact host, serialised behind one `flock`. No fleet
+  leg queries CDX, so a seat for one was a way back into the channel the collectors meter.

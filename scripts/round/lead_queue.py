@@ -5,6 +5,13 @@ and `sources-closed.md` stops a re-test; neither is a queue. The queue is what i
 live, ranked by what it is worth, and it goes stale the moment a lead moves. So it is
 derived from the fleet's own `leads/*.json` every sync and never hand-edited.
 
+**Two things are his to decide, and the page lists nothing else: a new evidence class and
+the send** (CLAUDE.md, Autonomy). A lead inside the standing size, terms, robots and class
+bounds is read and banked by the loop without asking, and a download, a terms page or a
+re-run is the loop's to settle, not his. So a lead is on the page only when it asks for a
+class nothing admits yet, and the send is where the round stands against the 5% gate, read
+from `data/brief.json`.
+
 **Ranked on `ee_low`, not `ee_high`.** The high figure is a projection and has been wrong
 by five orders of magnitude at least once: `isc-domain-survey-free-editions` was scouted at
 2,500,000 EE and measured at 6.2. The low figure is what a leg was willing to stand behind.
@@ -18,24 +25,22 @@ in it runs, so a module called `queue.py` here shadows the standard library's an
 import of `urllib3` below it dies on `queue.LifoQueue`. That took the hourly sync down on
 2026-09-19 and stopped banking for a cycle.
 
-    uv run python scripts/round/lead_queue.py [--fleet DIR] [--cached] [--write]
+    uv run python scripts/round/lead_queue.py [--fleet DIR] [--write]
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "docs/registers/queue.md"
-STORE = REPO / "data/ark.duckdb"
 DECISIONS = REPO / "docs/lore/key-decisions.md"
-# Written whenever the store is read, and the only list the hourly tick reads, since the
-# tick opens no store. A stale list costs freshness, but a silently skipped check puts
-# banked sources back in front of Ivo.
-CACHE = REPO / "data/banked_slugs.txt"
+# Written by the bank from the store it measured, so the send is read here without opening it.
+BRIEF = REPO / "data/brief.json"
 REGISTERS = (REPO / "docs/registers/sources.md", REPO / "docs/registers/sources-closed.md")
 FLOOR = 5000.0
 _EE = re.compile(r"([\d,]+(?:\.\d+)?)\s*EE")
@@ -47,86 +52,69 @@ _WORTH = re.compile(r"^Worth:\s*[^\d-]*(-?[\d,]+(?:\.\d+)?)\s*EE", re.M)
 # is the single exception to the grain rule in `_track`.
 _ISC = re.compile(r"\bisc\b|isc_survey", re.I)
 
-# What Ivo is actually being asked for, coarsest first. A lead's `blocked_on` is free
-# text written by a scout, so it is matched rather than parsed.
+# What Ivo is still asked for, and nothing else: a new evidence class and the send. A lead's
+# `blocked_on` is free text written by a scout, so it is matched rather than parsed. A rule
+# a scout asks for is a ruling on what counts as evidence, so it is a class; a download, a
+# terms page or a re-run matches neither, because the standing bounds decide those.
 ASKS = (
-    ("download", re.compile(r"download|over the 1 ?gi?b|content type|exit [456]", re.I)),
-    ("rule", re.compile(r"\brule\b|ruling", re.I)),
-    ("permission", re.compile(r"permission|approval|terms", re.I)),
-    ("rerun", re.compile(r"re-run|pricing cmd|runner that can", re.I)),
+    (
+        "class",
+        re.compile(r"new (evidence )?class|evidence class|eligib|admissib|\brul(e|ing)\b", re.I),
+    ),
+    ("send", re.compile(r"\bsend\b|\bsubmi(t|ssion)\b|5% gate", re.I)),
 )
+DECISION = "decision in key-decisions.md"
+# The OPEN entry `fleet_request.py` raises for a source the standing rule parks: its yes
+# admits that class for that source, which is the class ask by another name.
+_APPROVE = re.compile(r"^Approve \S+ / \S+")
+
+_SPEC = importlib.util.spec_from_file_location(
+    "fleet_ledger", REPO / "scripts/harness/fleet_ledger.py"
+)
+fleet_ledger = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(fleet_ledger)
 
 
 def ask_of(blocked: str) -> str:
+    """The ask a blocker puts to Ivo, or "" for one that is not his."""
     for name, pattern in ASKS:
         if pattern.search(blocked):
             return name
-    return "review"
-
-
-def _cached() -> tuple[set[str], bool]:
-    if CACHE.is_file():
-        return set(CACHE.read_text(encoding="utf-8").split()), True
-    return set(), False
-
-
-def banked(store: Path, cached: bool = False) -> tuple[set[str], bool]:
-    """Slugs the store already holds, from the names its own ingest wrote, and whether any
-    list was read at all.
-
-    **The reason this reads the store and not the lead file.** A lead reaches `verified`
-    in the fleet, the laptop ingests it, and nothing writes `banked` back unless the class
-    also carries a `Decision:` line. Four leads worth about 94,000 EE sat in this queue on
-    2026-09-19 having been ingested days earlier, which is a queue that spends Ivo's
-    attention on finished work. Read-only, and a held lock falls back to CACHE. `cached`
-    reads CACHE alone and never imports duckdb, so the hourly tick opens no store.
-    """
-    if cached:
-        return _cached()
-    try:
-        import duckdb
-
-        conn = duckdb.connect(str(store), read_only=True)
-    except Exception:
-        return _cached()
-    out: set[str] = set()
-    try:
-        for table, column in (
-            ("ingested_file", "source_name"),
-            ("evidence", "acquisition_method"),
-        ):
-            for (name,) in conn.execute(f"SELECT DISTINCT {column} FROM {table}").fetchall():
-                if name:
-                    out.add(re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-"))
-    except Exception:
-        return out, bool(out)
-    finally:
-        conn.close()
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE.write_text("\n".join(sorted(out)) + "\n", encoding="utf-8")
-    return out, True
-
-
-def held_state(slug: str, held: set[str]) -> str:
-    """ "" for unheld, "banked" for a name that is exactly this lead, "similar" otherwise.
-
-    **Only an exact name drops a lead.** The ingest and the scout shorten differently, so a
-    looser match is a guess, and a wrong guess here deletes a live lead: the never-read
-    Usenet hierarchies share a class name with the partition already banked, and the whole
-    point of that lead is the partition nobody has read. A guess is shown, never acted on.
-    """
-    if slug in held:
-        return "banked"
-    parts = {p for p in slug.split("-") if len(p) > 3}
-    for name in held:
-        # Both directions, because either side may be the longer word: the ingest wrote
-        # `poland_pl_extract_hostgrain` where the scout wrote `...-extraction-...`, and a
-        # one-way `part in name` test scores that 1 and calls a banked source new.
-        others = {q for q in name.split("-") if len(q) > 3}
-        overlap = sum(any(p in q or q in p for q in others) for p in parts)
-        if overlap >= 2:
-            return "similar"
     return ""
+
+
+def _json(path: Path) -> dict:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def banked(fleet: Path) -> set[str]:
+    """The leads the bank has banked: every slug the fleet ledger holds an outcome line for
+    whose `banked` is true, and every lead whose own status is `banked`.
+
+    **Why a banked lead is dropped at all.** A lead reaches `verified` in the fleet, the
+    laptop ingests it, and a queue read off the lead file alone keeps it. Four leads worth
+    about 94,000 EE sat in this queue on 2026-09-19 having been ingested days earlier, which
+    is a queue that spends Ivo's attention on finished work.
+
+    **Never the store, and no cached list of it.** The store's names are the ingest's, which
+    are a lead's slug only by luck, while an outcome line carries the lead's own slug and is
+    written by the bank once its register commit lands. So the hourly tick and the bank read
+    the same set and neither opens the store. Only a JSON `true` counts.
+    """
+    out = {
+        str(line["slug"])
+        for line in fleet_ledger.lines(fleet, "outcome")
+        if line.get("banked") is True and line.get("slug")
+    }
+    for path in sorted((fleet / "leads").glob("*.json")):
+        doc = _json(path)
+        if doc.get("status") == "banked":
+            out.add(str(doc.get("slug") or path.stem))
+    return out
 
 
 def measured(paths: tuple[Path, ...] = REGISTERS) -> dict[str, tuple[float | None, str]]:
@@ -255,8 +243,7 @@ def leads(fleet: Path, held: set[str], reg: dict | None = None) -> list[dict]:
             high = low
         blocked = str(doc.get("blocked_on") or "")
         slug = doc.get("slug") or path.stem
-        state = held_state(slug, held)
-        if state == "banked":
+        if slug in held:
             continue
         worth, said = verdict_of(slug, reg)
         if said == "closed":
@@ -276,9 +263,8 @@ def leads(fleet: Path, held: set[str], reg: dict | None = None) -> list[dict]:
                 "high": float(high),
                 "measured": said == "measured",
                 "blocked": blocked,
-                "ask": ask_of(blocked) if blocked else "ingest",
+                "ask": ask_of(blocked),
                 "class": str(doc.get("evidence_class") or "").split("(")[0].strip(),
-                "held": state,
                 "track": _track(str(doc.get("evidence_class") or ""), str(doc.get("grain") or "")),
                 "grain": str(doc.get("grain") or ""),
                 "url": str((doc.get("artifact") or {}).get("url") or ""),
@@ -295,7 +281,9 @@ def decisions(path: Path) -> list[dict]:
 
     They belong in the same list as the fleet's leads because they compete for the same
     thing, which is one person's attention, and some of them are worth more than any lead.
-    Each carries its own `Worth: <n> EE` line; one without a figure is not ranked here.
+    Each carries its own `Worth: <n> EE` line; one without a figure is not ranked here. Its
+    ask is read like a lead's, and `fleet_request.py`'s `Approve <source> / <class>` is a
+    class ask.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -318,10 +306,8 @@ def decisions(path: Path) -> list[dict]:
                 "status": "open",
                 "low": worth,
                 "high": worth,
-                "blocked": "rule",
-                "ask": "rule",
-                "class": "decision in key-decisions.md",
-                "held": "",
+                "ask": "class" if _APPROVE.match(title) else ask_of(block),
+                "class": DECISION,
                 "measured": True,
                 "track": "ships",
             }
@@ -335,45 +321,85 @@ def _cell(text: str, width: int) -> str:
     return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
 
 
-def render(rows: list[dict], checked: bool = True) -> str:
-    """The page: Ivo's approval list, grouped by what his yes unlocks.
+def send_line(path: Path = BRIEF) -> str:
+    """The send, the one ask no lead carries: where the round stands against the 5% gate, read
+    from the brief the bank writes, the way `bank_hygiene.py gate` reads it."""
+    brief = _json(path)
+    try:
+        percent = float(brief.get("round_percent", brief.get("percent")))
+        target = float(brief.get("gate_pct", 5.0))
+    except (TypeError, ValueError):
+        return "Not known here: `data/brief.json` is missing or carries no round figure."
+    label = str(brief.get("round", "?"))
+    name = label if label.lower().startswith("round") else f"Round {label}"
+    marker = str(brief.get("baseline", "?"))
+    if percent >= target:
+        return (
+            f"**{name} crossed the {target:g}% gate** at {percent:.4f}% against `{marker}`, and "
+            "the send is yours: merge any open approval PR, then run `just ship` where the "
+            "store is."
+        )
+    gap = brief.get("round_distance_to_gate_ee", brief.get("distance_to_gate_ee"))
+    number = isinstance(gap, int | float) and not isinstance(gap, bool)
+    short = f", {gap:,.0f} EE short" if number else ""
+    return (
+        f"Nothing to send: {name} stands at {percent:.4f}% against `{marker}`, under the "
+        f"{target:g}% gate{short}."
+    )
+
+
+def render(rows: list[dict], send: str = "", missing: str = "") -> str:
+    """The page: the send, then the new classes Ivo is asked for, grouped by what his yes
+    unlocks.
 
     **Only a measured figure is a row.** A scout's estimate has been wrong by five orders of
-    magnitude, so an unmeasured lead is named in one line at the foot and priced before it is
-    asked about. Nothing on the page is marked as the laptop's own work to do: a lead is
-    measured and ingested, measured and queued under the ruling it needs, or closed.
+    magnitude, so a lead asking for a class on an estimate alone is named in one line and
+    priced before it is asked about. A lead whose class the loop can bank, or whose blocker
+    is the loop's to settle, is not on the page at all.
     """
-    decisions = [r for r in rows if r["class"] == "decision in key-decisions.md"]
-    leads = [r for r in rows if r["class"] != "decision in key-decisions.md"]
-    measured = [r for r in leads if r.get("measured")]
-    unmeasured = [r for r in leads if not r.get("measured")]
+    decisions = [r for r in rows if r["class"] == DECISION]
+    leads = [r for r in rows if r["class"] != DECISION]
+    # A stranded lead's class reaches neither file, so what it waits on is a class outlet.
+    asked = [r for r in leads if r["ask"] == "class" or r["track"] == "stranded"]
+    measured = [r for r in asked if r.get("measured")]
+    unmeasured = [r for r in asked if not r.get("measured")]
     outlet = next((d for d in decisions if "outlet" in d["slug"].lower()), None)
     stranded = [r for r in measured if r["track"] == "stranded"]
-    permission = [r for r in measured if r["track"] != "stranded" and r["ask"] == "permission"]
-    ingest = [r for r in measured if r["track"] != "stranded" and r["ask"] != "permission"]
+    classes: dict[str, list[dict]] = {}
+    for r in measured:
+        if r["track"] != "stranded":
+            classes.setdefault(r["class"] or "unnamed", []).append(r)
     out = [
         "# Queue",
         "",
-        "Generated by `scripts/round/lead_queue.py` from the fleet's `leads/*.json`, the OPEN",
-        "block of `key-decisions.md` and the register rows that priced each lead. Never hand-edit.",
-        "Every figure here was measured against the store after reading the artifact; a lead a",
-        "scout only estimated is named at the foot and not asked about. Letters are off the table.",
-        "One yes unlocks everything under its heading.",
+        "Generated by `scripts/round/lead_queue.py` from the fleet's `leads/*.json` and ledger,",
+        "the OPEN block of `key-decisions.md`, the register rows that priced each lead and",
+        "`data/brief.json`. Never hand-edit. You approve a new evidence class and every send, and",
+        "nothing else is asked here: a lead inside the standing bounds is read without asking.",
+        "Every figure was measured against the store after reading the artifact. Letters are off",
+        "the table. One yes unlocks everything under its heading.",
         "",
-        "## What your yes unlocks, biggest first",
+        "## The send",
+        "",
+        send or send_line(),
         "",
     ]
+    sends = [d for d in decisions if d["ask"] == "send"]
+    if sends:
+        out += [f"- {d['slug']}: **{d['low']:,.0f} EE**" for d in sends] + [""]
+    out += ["## New evidence classes, biggest first", ""]
+    if missing:
+        out += [missing, ""]
     groups: list[tuple[str, float, list[dict]]] = []
     if outlet or stranded:
         title = outlet["slug"] if outlet else "Give the XIII-excluded hostnames a candidate outlet"
         worth = (outlet["low"] if outlet else 0.0) + sum(r["low"] for r in stranded)
         groups.append((title, worth, stranded))
     for d in decisions:
-        if d is not outlet:
+        if d is not outlet and d["ask"] == "class":
             groups.append((d["slug"], d["low"], []))
-    if permission:
-        asked = sum(r["low"] for r in permission)
-        groups.append(("Read these terms, or write for permission", asked, permission))
+    for name, members in classes.items():
+        groups.append((f"Admit `{_cell(name, 80)}`", sum(r["low"] for r in members), members))
     for title, worth, members in sorted(groups, key=lambda g: -g[1]):
         out.append(f"### {title}")
         out.append("")
@@ -402,43 +428,34 @@ def render(rows: list[dict], checked: bool = True) -> str:
                     f"{_cell(r.get('terms') or 'none recorded', 70)} |"
                 )
         out.append("")
-    if ingest:
-        out += ["## Measured and shippable, ingested without asking", ""]
-        for r in sorted(ingest, key=lambda r: -r["low"]):
-            out.append(f"- {r['low']:,.1f} EE `{r['slug']}`: {_cell(r.get('said') or '', 120)}")
-        out.append("")
-    out += ["## Not yet measured", ""]
+    if not groups and not missing:
+        out += ["None. No measured lead and no open decision asks for a new evidence class.", ""]
     if unmeasured:
         out.append(
-            f"{len(unmeasured)} lead(s) carry only a scout's estimate and are not asked about "
-            "until read: "
+            f"{len(unmeasured)} lead(s) ask for a class on a scout's estimate alone and are "
+            "priced before they are asked about: "
             + ", ".join(f"`{r['slug']}`" for r in sorted(unmeasured, key=lambda r: r["slug"]))
             + "."
         )
-    else:
-        out.append("None. Every live lead has been read and priced.")
-    if not checked:
-        out += ["", "**The store could not be read this run**, so nothing was dropped as banked."]
-    return "\n".join(out) + "\n"
+    return "\n".join(out).rstrip("\n") + "\n"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fleet", type=Path, default=Path.home() / "Documents/GitHub/ark-fleet")
     ap.add_argument("--write", action="store_true")
-    ap.add_argument("--cached", action="store_true")
-    args = ap.parse_args()
-    if not (args.fleet / "leads").is_dir():
-        print(f"no leads/ under {args.fleet}")
-        return 1
-    held, checked = banked(STORE, cached=args.cached)
-    page = render(
-        sorted(
-            leads(args.fleet, held) + decisions(DECISIONS),
-            key=lambda r: (-r["low"], -r["high"]),
-        ),
-        checked,
-    )
+    args = ap.parse_args(argv)
+    fleet = args.fleet.expanduser()
+    rows, missing = decisions(DECISIONS), ""
+    if (fleet / "leads").is_dir():
+        rows += leads(fleet, banked(fleet))
+    else:
+        print(f"no leads/ under {fleet}: the page says the fleet queue is not there")
+        missing = (
+            "The fleet queue is not there: the fleet clone has no `leads/`, so no lead is "
+            "listed this run."
+        )
+    page = render(sorted(rows, key=lambda r: (-r["low"], -r["high"])), send_line(BRIEF), missing)
     if args.write:
         OUT.write_text(page, encoding="utf-8")
         print(f"wrote {OUT.relative_to(REPO)}, {len(page.splitlines())} lines")

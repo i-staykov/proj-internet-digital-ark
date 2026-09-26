@@ -175,7 +175,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | bank | `just bank [--force]` | the laptop's only store writer, run on what arrived: folds new journals, prices every confirmed FIND again on the live store, books both figures, writes the `Decision:` line the standing rule authorises or raises the approval, ingests, gates, pushes `live`, refreshes the VPS pricing snapshot and writes each lead's fate back into the fleet's queue. Journals alone wait until the last bank is `ARK_BANK_JOURNAL_HOURS` (3) old. A red writes `data/logs/bank_red.json` and nothing banks until `bank_trigger.py clear`; `--force` banks with no reason |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 | schedule | `just schedule install` / `just schedule status` / `just schedule remove` | enables and bootstraps the launchd jobs, and refuses while `just hold` holds the laptop. A second argument names one job, because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at :05 every hour (`just sync`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout lives under `~/GitHub` so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exits 126 while `launchctl list` looks normal. A 126 means a plist rendered from an old path or a checkout under a protected directory; launchd's bare PATH exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
-| hold | `just hold` / `just hold status` / `just hold off [name]` | writes `~/ark/state/hold`, one name per line, then `pause` and `pause-platform` with `human` on line 1 here and on the VPS, disables and boots out every `com.ark.*` job, letting a running sync finish first, and disables the fleet's Wave and Improver. `launchctl disable` persists, so a reboot and a login load nothing. `just sync`, `just bank` and the collector supervisor exit `held` while the file lists their job, `collectors resume` refuses while it lists `pause`, and `schedule install` refuses while it exists. `off <name>` lifts one name; bare `off` lifts all of them, including a `human` pause that predates the hold, and deletes the file. An unreachable VPS or `gh` prints unconfirmed, never fatal |
+| hold | `just hold` / `just hold status` / `just hold off [name]` | writes `~/ark/state/hold`, one name per line, then `pause` and `pause-platform` with `human` on line 1 here and on the VPS, disables and boots out every `com.ark.*` job, letting a running sync finish first, and disables the fleet's Leg, Read and Improver workflows. `launchctl disable` persists, so a reboot and a login load nothing. `just sync`, `just bank` and the collector supervisor exit `held` while the file lists their job, `collectors resume` refuses while it lists `pause`, and `schedule install` refuses while it exists. `off <name>` lifts one name; bare `off` lifts all of them, including a `human` pause that predates the hold, and deletes the file. An unreachable VPS or `gh` prints unconfirmed, never fatal |
 | restart the collectors on a new deadline | `bash scripts/engines/extend_engines.sh <deadline_epoch>`, **on the laptop** | the lane is the laptop's and launchd owns it (C-84), so widening the window is a handover on this machine and nothing is done on the VPS, which runs no collector at all. `extend_engines.sh` performs one handover and exits rather than looping, because a job that restarted a collector on its own would eventually restart it with settings that had since been retuned. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. **Count CLIENTS BY OPEN JOURNAL, never by process**: one client is a `uv run` wrapper plus its python child, so a process count doubles it, and `local_clients()` in `scripts/harness/collectors.sh` is the definition. The VPS recipe, `restart_sweeps.sh`, is retired with the lane |
 | geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
 | usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
@@ -265,10 +265,11 @@ a figure has reached the register without being checked.
    **named by the slug inside the sidecar and never by the directory it arrived in**: a leg
    artifact's root is called `findings`, so keying on the name banked a copy of a finding as a
    second lead. It moves the artifact's own `leads/<slug>.json` in beside the finding as
-   `lead.json` and files one ledger row per leg. Where the same slug arrives twice, from a price
-   wave and the verify wave that answered it, the settled copy wins and then the later run. A
-   file no rule matched moves to `incoming/_unread/<run>/` rather than going with the run
-   directory.
+   `lead.json`; a scout lead with a `scout.md` and no finding moves the same way. Where one slug
+   arrives twice, the settled copy wins and then the later run. A file no rule matched moves to
+   `incoming/_unread/<run>/`. Once, it appends `data/logs/fleet_ledger.tsv` to the fleet's ledger
+   as `legacy` lines, keyed on each row's number and text, and deletes the TSV only once every
+   line is in.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
@@ -285,31 +286,34 @@ a figure has reached the register without being checked.
    the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
    line quotes, the artifact URL. A scout lead that closed under the floor used to reach
    `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
-   nothing about it. A FIND replaces its own unsettled FIND row when the figure or verify status
-   moved; any other slug either register already carries is skipped and said so. Where two rows
-   of one source meet, `scripts/round/compact_registers.py` keeps the newest.
+   nothing about it. A scout lead the fleet closed at filing is booked closed from its lead's
+   status, never its prose, and a closed row already naming its artifact URL keeps it from a
+   second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
+   replaces its own unsettled FIND row when the figure or verify status moved; any other slug
+   either register already carries is skipped and said so. Where two rows of one source meet,
+   `scripts/round/compact_registers.py` keeps the newest.
 
-A drain leaves `incoming/` only once its rows are committed. Two waves were archived under
+A drain leaves `incoming/` only once its rows are committed. Two runs were archived under
 `banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
 said so; the FIND inside them was found by hand a day later. On any earlier failure the drain
 stays where it is and the next tick takes it again, which is safe because every step is keyed on
 the slug or on a journal's sha256. A drain that books nothing new is finished rather than failed
-and is archived without a commit, because an empty commit reads as a wave that was banked.
+and is archived without a commit, because an empty commit reads as a drain that was banked.
 
 Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
-and the approval filer both iterate blocks that already exist, and a confirmed FIND with no block
-is a measurement nobody can answer. A slug that names a registered spec gets the full
-`request_approval.py` request with its seeded sample; everything else gets a short block that
-carries both figures, quotes the stamp, names the items file, and says plainly that no collector
-here can ingest it yet.
+and the approval filer both iterate blocks that already exist. It picks the finds the standing
+rule does, by the same figure. A slug that names a registered spec gets the full
+`request_approval.py` request with its seeded sample; everything else gets a short block with both
+figures and the items file. **Only a source the standing rule parks is asked for** (a new class,
+no standing admission, a clause not ok); the rest print `no ask: the standing rule decides it`.
 
-`standing_rule.py` then writes the `Decision:` line for the sources the standing rule already
-covers. Its fourth condition is `ark check` after the ingest, so **a red gate takes the rows back
-out with `unbank_source.py` and resets the registers to HEAD**, then writes
-`data/logs/bank_red.json`: every tick prints `BANK RED` and banks nothing until someone reads it and
-runs `bank_trigger.py clear`. A red after the journals writes the same file and unbanks nothing.
-`unbank_source.py` is the only code here that deletes evidence, it is called on that path and no
-other, and it names every row it removes.
+`standing_rule.py` then writes the `Decision:` line for a confirmed FIND of a class already
+approved for the master whose lead the fleet admitted with every clause ok (size, terms, robots,
+class, window): on the store re-price until the program's figure agrees within 1% on the last ten
+finds in the fleet's outcome lines, then on the program's. `ark check` after the ingest gates it:
+**a red takes the rows back out with `unbank_source.py` and resets the registers to HEAD**, then
+writes `data/logs/bank_red.json`, and every tick prints `BANK RED` until `bank_trigger.py clear`.
+A red after the journals unbanks nothing. `unbank_source.py` alone deletes evidence.
 
 `sync_approvals.py` raises what is left as a pull request and an issue, and `fleet_leads.py`
 writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
@@ -588,15 +592,6 @@ justfile, and `attested_years` still reads them.
 failure so far is written up in [../registers/sources.md](../registers/sources.md), and each one
 failed differently.
 
-### What a fleet leg may ask the archive
-
-A leg on the VPS, which runs no collector, may ask about ONE named host through
-`bash scripts/harness/cdx_slot.sh <exact host> ['<extra CDX query>']`. Every query there serialises
-behind one `flock`, waits two seconds after the previous one, honours `Retry-After`, and refuses a
-wildcard host or a `matchType` that would walk a namespace, so a price or verify leg can check a
-sample without becoming a third client on the channel. `ARK_CDX_DRY_RUN=1` prints the question and
-asks nobody.
-
 **A journal left on a remote disk is invisible to every measurement taken here.** `just engines`
 lists any remote journal missing locally and prints the `rsync` that fetches it, and it reports
 **UNKNOWN** rather than "everything is home" when it could not reach the machine to ask. Where work
@@ -789,7 +784,7 @@ next refresh, and packaging refuses outright if the two disagree.
 A source the loop cannot decide sits at `Decision: pending` in
 `docs/registers/approved-sources-list.md`, and the ingest gate refuses it. `standing_rule.py` in
 `just bank`, then `sync_approvals.py` in the tick and the bank, split them in two. The standing rule writes the `Decision:` line itself
-where Ivo's rule of 2026-08-29 already authorises it; everything else at or above the 5,000 EE bar
+where CLAUDE.md's Autonomy rule covers it; everything else at or above the 5,000 EE bar
 becomes two things: a pull request on `live` that flips only that source's `Decision:` line, and an
 issue in the private fleet repository labelled `approval` that links to it and carries the
 measurement.

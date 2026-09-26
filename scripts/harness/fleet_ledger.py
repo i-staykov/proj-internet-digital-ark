@@ -1,0 +1,117 @@
+"""The laptop's one reader and writer of the fleet's keyed ledger, `ledger/YYYY-MM.jsonl`.
+
+The fleet's `scripts/ledger.py` owns the format and the keys. This module reads the month
+files the way it does and appends only through its command line, so a key is built in one
+place and a replay adds nothing: `append --kind K --json -` keeps a line whose kind and key
+are already in any month's file.
+
+    lines(fleet, kind)          every line of one kind, month files in name order, then file order
+    append(fleet, kind, rows)   one `ledger.py append --kind K --json -` run over the fleet clone
+    streak(outcomes)            whether the last STREAK finds with both figures agree within 1%
+
+**The fleet clone may predate the ledger.** Until it holds `scripts/ledger.py`, `append`
+writes nothing and says why, and `lines` finds no files and returns nothing, so a caller
+keeps what it would have converted and the next tick tries again.
+
+**An outcome line** is the laptop's booking of one confirmed FIND: `slug`, `store_ee` (the
+live-store re-price), `program_ee` (the program's figure on the pushed snapshot),
+`agreement_pct` (`100 * program_ee / store_ee`), the register's `decision` and whether the
+find was `banked`. Its key is (slug, decision, banked), so one find can own a line per step.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import subprocess
+import sys
+from pathlib import Path
+
+LEDGER_DIR = "ledger"
+SCRIPT = "scripts/ledger.py"
+# The program figure decides once this many finds in a row agree with the store within
+# WITHIN of the store's figure; until then the store re-price does.
+STREAK = 10
+WITHIN = 0.01
+
+
+def available(fleet: Path | None) -> bool:
+    """Whether `fleet` is a clone that holds the fleet's ledger script."""
+    return fleet is not None and (Path(fleet) / SCRIPT).is_file()
+
+
+def lines(fleet: Path | None, kind: str) -> list[dict]:
+    """Every line of `kind`, month files in name order and lines in file order: the order
+    `ledger.py read` gives. A line that is not a JSON object is skipped."""
+    if fleet is None:
+        return []
+    out = []
+    for path in sorted((Path(fleet) / LEDGER_DIR).glob("*.jsonl")):
+        for text in path.read_text(errors="replace").splitlines():
+            try:
+                line = json.loads(text) if text.strip() else None
+            except ValueError:
+                line = None
+            if isinstance(line, dict) and line.get("kind") == kind:
+                out.append(line)
+    return out
+
+
+def append(fleet: Path | None, kind: str, rows: list[dict]) -> tuple[bool, str]:
+    """Append `rows` as `kind` lines through the fleet's own script. Returns whether every
+    row is now in the ledger, and the script's last line or the reason nothing ran. A row
+    the script refuses stops the batch there, with the rows before it written."""
+    if not available(fleet):
+        return False, f"no {SCRIPT} in {fleet}, so nothing was appended"
+    body = "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(Path(fleet) / SCRIPT),
+            "append",
+            "--kind",
+            kind,
+            "--json",
+            "-",
+            "--root",
+            str(fleet),
+        ],
+        input=body,
+        capture_output=True,
+        text=True,
+    )
+    said = (done.stdout.strip().splitlines() or done.stderr.strip().splitlines() or [""])[-1]
+    if done.returncode != 0:
+        said = (done.stderr.strip().splitlines() or [said])[-1]
+    return done.returncode == 0, said
+
+
+def _positive(value) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) and value > 0 else None
+
+
+def agreement_pct(store_ee, program_ee) -> float | None:
+    """The program figure as a percentage of the store's, or None without both."""
+    store, program = _positive(store_ee), _positive(program_ee)
+    return None if store is None or program is None else round(100 * program / store, 2)
+
+
+def agrees(line: dict) -> bool:
+    """Whether an outcome line's program figure is within WITHIN of its store figure."""
+    store, program = _positive(line.get("store_ee")), _positive(line.get("program_ee"))
+    return store is not None and program is not None and abs(program - store) <= WITHIN * store
+
+
+def streak(outcomes: list[dict]) -> bool:
+    """Whether the last STREAK finds that carry both figures all agree. A find counts once,
+    at its latest line, so a find booked pending and then banked is one find, not two."""
+    latest: dict[str, dict] = {}
+    for line in outcomes:
+        if _positive(line.get("store_ee")) is None or _positive(line.get("program_ee")) is None:
+            continue
+        latest.pop(str(line.get("slug")), None)
+        latest[str(line.get("slug"))] = line
+    last = list(latest.values())[-STREAK:]
+    return len(last) == STREAK and all(agrees(line) for line in last)
