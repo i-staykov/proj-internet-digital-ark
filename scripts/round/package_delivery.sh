@@ -16,6 +16,27 @@ set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJ"
 
+# The fleet checkout ships as source/fleet.tar.gz and the open research questions are built
+# from it, so it must be the fleet as it stands: the top of a git checkout (a worktree's
+# `.git` is a file), its HEAD on the fleet's main, and no older than the newest drain the
+# laptop banked, whose name is the drain's UTC minute.
+FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+TOP=$(git -C "$FLEET" rev-parse --show-toplevel 2>/dev/null) || true
+if [ -z "$TOP" ] || [ "$(cd "$TOP" && pwd -P)" != "$(cd "$FLEET" && pwd -P)" ]; then
+    echo "refusing to package: $FLEET is not the top of a fleet checkout; set ARK_FLEET" >&2
+    exit 1
+fi
+if ! git -C "$FLEET" merge-base --is-ancestor HEAD refs/remotes/origin/main 2>/dev/null; then
+    echo "refusing to package: HEAD of $FLEET is not on the fleet's origin/main" >&2
+    exit 1
+fi
+NEWEST=$(ls data/fleet_findings/banked 2>/dev/null | grep -E '^[0-9]{8}T[0-9]{4}Z' | cut -c1-14 | sort | tail -1) || true
+HEAD_AT=$(TZ=UTC git -C "$FLEET" log -1 --format=%cd --date=format-local:%Y%m%dT%H%MZ HEAD)
+if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
+    echo "refusing to package: the fleet at $FLEET was committed $HEAD_AT, before the newest banked drain $NEWEST; pull it" >&2
+    exit 1
+fi
+
 # The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
 # writes only the claim, so the masters, manifests and ISC files beside it are whatever the
 # last full export left; only a full export with provenance, against the current release and
@@ -201,6 +222,22 @@ cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
 # figures and the receipts. The report links here rather than carrying the method essay.
 cp docs/round/findings.md "$STAGE/findings.md"
 cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
+
+# The research loop itself, from the fleet checkout checked at the top: workflows, prompts,
+# policy and leads, tracked files only so no secret can ride along (the workflows name
+# theirs by reference). Both open research questions folders are built from that commit.
+git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
+git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
+if ! uv run python scripts/round/orq.py --stage "$STAGE" --fleet "$FLEET"; then
+    echo "refusing to package: the open research questions did not build" >&2
+    exit 1
+fi
+for folder in "Open Research Questions" "开放性研究问题"; do
+    if [ ! -d "$STAGE/$folder" ]; then
+        echo "refusing to package: $STAGE/$folder is missing" >&2
+        exit 1
+    fi
+done
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
@@ -507,16 +544,6 @@ done
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
-
-# The research loop itself: workflows, prompts, policy and the hypothesis register from
-# the fleet repo, when it sits beside this one. Section 4 of the report describes it, and
-# a description of an unattended loop is weaker than the loop's own files. Tracked files
-# only, so no secret can ride along (the workflows name theirs by reference).
-FLEET="${ARK_FLEET:-$(dirname "$PWD")/ark-fleet}"
-if [ -d "$FLEET/.git" ]; then
-    git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
-    git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
-fi
 
 # Every journal on disk must be in the archive. Naming source directories by hand
 # has now failed twice: once a ledgered CDX journal sat one directory down and

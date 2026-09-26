@@ -12,7 +12,8 @@
 # (every provenance assignment cites an evidence row shipped here); then the four deliverables
 # D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
 # asked, every merge reconciliation check passed and agrees with the shipped files, and the
-# reviewer's own calculator reproduces the audit's baseline figure.
+# reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
+# research questions folders, their questions, headings, labels and files.
 #
 # Checks 5 to 8 police the four deliverables he added on 2026-08-17, called D1 to D4
 # throughout this project. They are checks rather than a checklist for one reason: the
@@ -244,6 +245,7 @@ else:
         "scripts/round/merge_against_baseline.py": "the D3 merge and reconciliation",
         "scripts/round/round_figures.py": "the five headline figures",
         "src/ark/baseline.py": "which baseline the figures mean",
+        "scripts/round/orq.py": "the open research questions builder",
     }
     try:
         with tarfile.open(snapshot) as tf:
@@ -389,12 +391,105 @@ else:
 
 sys.exit(1 if fail else 0)
 PY
-# Three checks that once sat here are gone with the standard they policed: they verified
-# `additions_english/` against the additions and against `additions_unverified/`, and that
-# every rejection in `disqualified.csv` carried a reason. The reviewer retired the
-# page-level English standard in August 2026 and the archive stopped shipping all three
-# files, at which point the checks printed SKIP lines about folders that no longer exist.
-# A check that examines nothing reads like a check that found nothing wrong.
+# --- 9 (E1): the two open research questions folders -------------------------
+# Section IV-A asks for `Open Research Questions/` holding `Open Research Questions.docx`
+# with its code, logs, samples and screenshots beside it, and section X for `开放性研究问题/`
+# of plain-text answers under six headings. A missing folder fails; no screenshots warns.
+python3 - <<'PY' || fail=1
+import csv
+import gzip
+import html
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+LABEL = "E1 open research questions"
+EN, ZH = Path("Open Research Questions"), Path("开放性研究问题")
+QUESTIONS = (
+    "How can historical web data from before 1996 be discovered and acquired at scale?",
+    "How can the year in which a website existed be determined more accurately?",
+)
+HEADINGS = (
+    "Proposed approaches",
+    "Completed related work or tests",
+    "Preliminary technical-feasibility findings",
+    "Preliminary practical-operability findings",
+    "Limitations",
+    "Next steps",
+)
+LABELS = {"Validated", "Tested, not independently verified", "Pending validation"}
+problems = [f"{folder}/ is missing" for folder in (EN, ZH) if not folder.is_dir()]
+
+
+def contents(path):
+    """Every byte a reader could see: a .docx is a zip and a .gz is compressed."""
+    if path.suffix == ".docx":
+        with zipfile.ZipFile(path) as z:
+            return b"".join(z.read(name) for name in z.namelist())
+    if path.suffix == ".gz":
+        return gzip.decompress(path.read_bytes())
+    return path.read_bytes()
+
+
+if not problems:
+    docx = EN / "Open Research Questions.docx"
+    try:
+        with zipfile.ZipFile(docx) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    except (OSError, KeyError, zipfile.BadZipFile) as exc:
+        problems.append(f"{docx} unreadable: {exc}")
+        xml = ""
+    # A heading can be split across runs, so each paragraph's runs are joined first.
+    paragraphs = [
+        html.unescape("".join(re.findall(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>", p)))
+        for p in re.findall(r"<w:p[\s>].*?</w:p>", xml, re.S)
+    ]
+    for question in QUESTIONS:
+        if xml and not any(question in p for p in paragraphs):
+            problems.append(f"the docx does not ask: {question}")
+    answered = 0
+    for path in sorted(ZH.glob("*.txt")):
+        try:
+            text = path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            problems.append(f"{path} is not UTF-8")
+            continue
+        lines = {line.strip() for line in text.splitlines()}
+        answered += bool(text.strip()) and set(HEADINGS) <= lines
+    if answered < 2:
+        problems.append(f"{answered} .txt answers carry the six headings, not 2")
+    tests = EN / "tests.csv"
+    if not tests.is_file():
+        problems.append("tests.csv is missing")
+    else:
+        with tests.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        labels = {row.get("label", "") for row in rows}
+        if not rows or labels - LABELS:
+            problems.append(f"tests.csv labels outside the three: {sorted(labels - LABELS)}")
+        for row in rows:
+            for column in ("evidence", "code", "logs", "sample"):
+                if row.get(column) and not (EN / row[column]).exists():
+                    problems.append(f"tests.csv names a missing {row[column]}")
+    for path in sorted(p for folder in (EN, ZH) for p in folder.rglob("*")):
+        if path.is_symlink():
+            problems.append(f"{path} is a link, not a copy")
+        elif path.is_file():
+            try:
+                if b"private/" in contents(path):
+                    problems.append(f"{path} names private/")
+            except (OSError, zipfile.BadZipFile, EOFError) as exc:
+                problems.append(f"{path} unreadable: {exc}")
+
+if problems:
+    print(f"{LABEL:<46} FAIL  {'; '.join(problems[:5])}")
+    sys.exit(1)
+shots = [p for p in (EN / "screenshots").glob("*") if p.is_file()] if (EN / "screenshots").is_dir() else []
+print(f"{LABEL:<46} PASS  both folders, both questions, the six headings, three labels")
+if not shots:
+    print(f"{'':<46}       WARN  no screenshots/ beside the document")
+PY
 
 echo
 if [ "$fail" -eq 0 ]; then

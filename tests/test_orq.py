@@ -61,8 +61,13 @@ def finding(run_id="11", years=None, sha=SHA, cmd="uv run ark price-snapshot", s
     }
 
 
-def verify(run_id="22", sha=SHA, status="confirmed"):
-    return {"run_id": run_id, "artifact": {"sha256": sha}, "verify": {"status": status}}
+def verify(run_id="22", sha=SHA, status="confirmed", ee=1.5):
+    return {
+        "run_id": run_id,
+        "artifact": {"sha256": sha},
+        "pricing": {"ee": ee, "manifest_sha": "b" * 64},
+        "verify": {"status": status},
+    }
 
 
 def lead(
@@ -133,6 +138,7 @@ def test_labels_are_computed_from_the_record(tmp_path):
     lead(fleet, "no-sha", found=finding(sha=None), checked=verify(sha=None))
     lead(fleet, "no-command", found=finding(cmd=" "), checked=verify())
     lead(fleet, "verify-no-bytes", found=finding(), checked=verify(sha=None))
+    lead(fleet, "verify-other-figure", found=finding(), checked=verify(ee=1.6))
     lead(fleet, "copied-opinion-only", found=finding())
     lead(fleet, "scouted")
 
@@ -152,6 +158,7 @@ def test_labels_are_computed_from_the_record(tmp_path):
         "no-sha": "no artifact sha256",
         "no-command": "no pricing command",
         "verify-no-bytes": "recorded no bytes of its own",
+        "verify-other-figure": "printed a different figure",
         "copied-opinion-only": "recorded no bytes of its own",
     }
     for slug, gap in expect.items():
@@ -256,6 +263,22 @@ def test_a_fleet_with_changes_under_what_is_read_is_refused(tmp_path):
     (fleet / "leads/a-lead.json").write_text("{}")
     with pytest.raises(orq.Refusal, match="uncommitted"):
         orq.fleet_head(fleet)
+
+
+def test_a_fleet_file_that_does_not_parse_is_named_never_skipped(tmp_path):
+    fleet = tmp_path / "fleet"
+    lead(fleet, "fine")
+    (fleet / "leads/torn.json").write_text('{"slug": "torn", "lens": "pre-')
+    orq.BROKEN.clear()
+    tests, _, _ = orq.q1(fleet)
+    assert [t.id for t in tests] == ["fine"]
+    assert orq.BROKEN == [fleet / "leads/torn.json"]
+
+
+def test_the_inputs_come_from_the_environment_only_when_asked(monkeypatch):
+    monkeypatch.setenv("HIS", "/nowhere/his")
+    assert orq.inputs()["HIS"] != "/nowhere/his"
+    assert orq.inputs(from_env=True)["HIS"] == "/nowhere/his"
 
 
 def test_reads_refuse_private_and_the_store():
@@ -397,6 +420,7 @@ def test_the_status_share_and_the_year_fill_are_read_again_from_their_files(tmp_
         "1",
     )
     assert values["EE"] == f"{ee:,.4f}" and values["RATE"] == f"{ee / Decimal(2):.2f}"
+    assert values["FLOOR"] == f"{orq.kill_floor():,}"  # read from the register row
     assert "host\ta\tnew.org\t" in out
 
     (tmp_path / "cdx/cdx_yearfill_a_20260923T080000Z_0002.jsonl.gz").unlink()
@@ -444,7 +468,8 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
     def run(command, env):
         # A `--measure` row runs in this process, so the store trap and the audit hook see it.
         if "--measure" in command:
-            return orq.Run(command, 0, orq.MEASURES[command.split()[-1]](env), "", 0.0)
+            measure = re.search(r"--measure (\S+)", command)[1]
+            return orq.Run(command, 0, orq.MEASURES[measure](env), "", 0.0)
         return real_run(command, env)
 
     monkeypatch.setattr(orq, "_run", run)
@@ -488,7 +513,178 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
     forbidden = [root.resolve() for root in orq.FORBIDDEN]
     assert not any(root == p or root in p.parents for p in opened for root in forbidden)
 
+    (fleet / "leads/torn.json").write_text("{")
+    with pytest.raises(orq.Refusal, match="not one JSON object: leads/torn.json"):
+        orq.build(out, fleet, variables)
+    (fleet / "leads/torn.json").unlink()
+
     (Path(variables["HIS"]) / "2000.txt").unlink()
     with pytest.raises(orq.Refusal, match="2000.txt"):
         orq.build(out, fleet, variables)
     assert (en / orq.DOCX).is_file()  # a refused build leaves the last one standing
+
+
+# --- the wiring: verify.sh's E1 and package_delivery.sh's fleet guard -------------------
+
+NO_GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
+def e1_block() -> str:
+    """verify.sh's E1 check, cut out by its own markers: the whole script fails on a stage
+    that holds only the two folders, so its exit status alone proves nothing."""
+    text = (REPO / "scripts/round/verify_delivery.sh").read_text(encoding="utf-8")
+    block = text.split("# --- 9 (E1)", 1)[1]
+    return block[block.index("python3 - <<'PY'") : block.index("\nPY\n") + 4]
+
+
+def fixture_stage(root: Path) -> Path:
+    """The two folders as orq.py lays them out, by hand, so E1 runs without pandoc."""
+    en, zh = root / orq.EN, root / orq.ZH
+    (en / "evidence/a-lead").mkdir(parents=True)
+    (en / "evidence/a-lead/scout.md").write_text("scouted\n")
+    zh.mkdir()
+    q1, q2 = (
+        "How can historical web data from before 1996 be discovered and acquired at scale?",
+        "How can the year in which a website existed be determined more accurately?",
+    )
+    # the first question split across two runs, as Word splits a heading
+    half = len(q1) // 2
+    xml = (
+        '<w:document><w:body><w:p><w:r><w:t xml:space="preserve">'
+        f"{q1[:half]}</w:t></w:r><w:r><w:t>{q1[half:]}</w:t></w:r></w:p>"
+        f"<w:p><w:r><w:t>{q2}</w:t></w:r></w:p></w:body></w:document>"
+    )
+    with zipfile.ZipFile(en / orq.DOCX, "w") as docx:
+        docx.writestr("word/document.xml", xml)
+    rows = [
+        {"question": "Q1", "id": "a-lead", "label": orq.VALIDATED, "evidence": "evidence/a-lead/"},
+        {"question": "Q2", "id": "q2-x", "label": orq.PENDING},
+    ]
+    with (en / "tests.csv").open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=orq.TESTS_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    for name in (orq.TXT["Q1"], orq.TXT["Q2"]):
+        (zh / name).write_text("\n\n".join(("Q", *orq.HEADINGS)) + "\n", encoding="utf-8")
+    (zh / orq.README).write_text("the folders\n", encoding="utf-8")
+    return root
+
+
+def title_only(docx: Path) -> None:
+    with zipfile.ZipFile(docx, "w") as z:
+        z.writestr("word/document.xml", "<w:p><w:r><w:t>Only a title</w:t></w:r></w:p>")
+
+
+def run_e1(stage: Path) -> subprocess.CompletedProcess:
+    # verify.sh sets `fail` from the block and exits with it, so the block runs the same way
+    script = f'fail=0\n{e1_block()}\nexit "$fail"\n'
+    return subprocess.run(
+        ["bash", "-c", script], cwd=stage, capture_output=True, text=True, env=NO_GIT_ENV
+    )
+
+
+def test_e1_passes_both_folders_and_fails_on_any_one_gap(tmp_path):
+    """The verdict names the constants verify.sh must carry literally, since nothing from the
+    repository is importable inside an archive: they are orq.py's own."""
+    text = e1_block()
+    for literal in (*orq.HEADINGS, *orq.LABELS, orq.EN, orq.ZH, orq.DOCX):
+        assert literal in text, literal
+    parts = orq.split(orq.TEMPLATE.read_text(encoding="utf-8"))
+    for question in ("Q1", "Q2"):
+        assert parts[question].splitlines()[0].split(". ", 1)[1].strip() in text
+
+    done = run_e1(fixture_stage(tmp_path / "good"))
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.stdout.startswith(f"{'E1 open research questions':<46} PASS")
+    assert "WARN  no screenshots/" in done.stdout
+
+    breaks = {
+        "folder gone": lambda s: shutil.rmtree(s / orq.ZH),
+        "other folder gone": lambda s: shutil.rmtree(s / orq.EN),
+        "docx unreadable": lambda s: (s / orq.EN / orq.DOCX).write_bytes(b"not a zip"),
+        "question missing": lambda s: title_only(s / orq.EN / orq.DOCX),
+        "one heading short": lambda s: (s / orq.ZH / orq.TXT["Q2"]).write_text("Limitations\n"),
+        "a fourth label": lambda s: (s / orq.EN / "tests.csv").write_text(
+            "question,id,label\nQ1,a,Probably fine\n"
+        ),
+        "a named file gone": lambda s: shutil.rmtree(s / orq.EN / "evidence"),
+        "private text": lambda s: (s / orq.ZH / orq.README).write_text("see private/notes\n"),
+        "a link": lambda s: (s / orq.ZH / "linked.txt").symlink_to(s / orq.ZH / orq.README),
+    }
+    for name, broken in breaks.items():
+        stage = fixture_stage(tmp_path / name.replace(" ", "-"))
+        broken(stage)
+        done = run_e1(stage)
+        assert done.returncode == 1 and " FAIL " in done.stdout, (name, done.stdout)
+
+
+def fleet_guard() -> str:
+    text = (REPO / "scripts/round/package_delivery.sh").read_text(encoding="utf-8")
+    block = text.split("# The fleet checkout ships", 1)[1]
+    return (
+        "set -euo pipefail\n# The fleet checkout ships" + block[: block.index("# The export stamp")]
+    )
+
+
+def commit_fleet(fleet: Path, when: str) -> None:
+    fleet.mkdir(parents=True)
+    (fleet / "leads").mkdir()
+    (fleet / "leads/a.json").write_text("{}")
+    env = NO_GIT_ENV | {"GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when}
+    who = ["-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "commit.gpgsign=false"]
+    for args in (
+        ["init", "-q"],
+        ["add", "leads"],
+        [*who, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "fixture"],
+        ["update-ref", "refs/remotes/origin/main", "HEAD"],
+    ):
+        subprocess.run(["git", "-C", str(fleet), *args], check=True, capture_output=True, env=env)
+
+
+def run_guard(cwd: Path, fleet: Path) -> subprocess.CompletedProcess:
+    env = NO_GIT_ENV | {"ARK_FLEET": str(fleet)}
+    return subprocess.run(
+        ["bash", "-c", fleet_guard()], cwd=cwd, capture_output=True, text=True, env=env
+    )
+
+
+def test_packaging_refuses_a_fleet_that_is_not_a_checkout_or_predates_the_newest_drain(
+    tmp_path,
+):
+    repo = tmp_path / "repo"
+    (repo / "data/fleet_findings/banked/20260923T1006Z").mkdir(parents=True)
+    (repo / "data/fleet_findings/banked/20260904T1544Z_dups").mkdir()
+    stale, fresh, ahead = tmp_path / "stale", tmp_path / "fresh", tmp_path / "ahead"
+    commit_fleet(stale, "2026-09-09T22:34:17Z")
+    commit_fleet(fresh, "2026-09-24T22:08:15Z")
+    commit_fleet(ahead, "2026-09-24T22:08:15Z")
+    # a branch commit on top of main, as a fleet worktree on an unmerged branch holds
+    (ahead / "leads/b.json").write_text("{}")
+    who = ["-c", "user.name=t", "-c", "user.email=t@example.org", "-c", "commit.gpgsign=false"]
+    for args in (["add", "leads"], [*who, "-c", "core.hooksPath=/dev/null", "commit", "-qm", "b"]):
+        subprocess.run(
+            ["git", "-C", str(ahead), *args], check=True, capture_output=True, env=NO_GIT_ENV
+        )
+    (tmp_path / "plain").mkdir()
+    worktree = tmp_path / "linked"
+    subprocess.run(
+        ["git", "-C", str(fresh), "worktree", "add", "-q", "--detach", str(worktree)],
+        check=True,
+        capture_output=True,
+        env=NO_GIT_ENV,
+    )
+
+    for fleet, why in (
+        (tmp_path / "plain", "not the top of a fleet checkout"),
+        (fresh / "leads", "not the top of a fleet checkout"),
+        (ahead, "is not on the fleet's origin/main"),
+        (stale, "committed 20260909T2234Z, before the newest banked drain 20260923T1006Z"),
+    ):
+        done = run_guard(repo, fleet)
+        assert done.returncode == 1 and why in done.stderr, (fleet, done.stderr)
+    for fleet in (fresh, worktree):
+        done = run_guard(repo, fleet)
+        assert done.returncode == 0, (fleet, done.stderr)
+    # no banked drain at all: nothing to be older than
+    shutil.rmtree(repo / "data")
+    assert run_guard(repo, stale).returncode == 0
