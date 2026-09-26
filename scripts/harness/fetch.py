@@ -39,7 +39,8 @@ Exit codes, because the caller is a workflow and a workflow reads numbers:
     7  the server did not serve it: HTTP error, or the network failed
 
 The receipt is one JSON line: `url, bytes, sha256, content_type, robots`, plus the path it
-landed on and whether the cap stopped it. With `--to -` the payload owns stdout and the
+landed on, whether the cap stopped it, and `resumes`, the range requests that continued a
+transfer that ended early, a streamed one included. With `--to -` the payload owns stdout and the
 receipt goes to stderr; every other invocation prints the receipt on stdout, success or
 failure, so a workflow always has something to record.
 """
@@ -392,16 +393,32 @@ def content_type_verdict(header: str | None, to_pipe: bool, approved: bool) -> s
     return f"content type {kind or 'unnamed'} is not on the allowlist"
 
 
+class TransferBroke(http.client.HTTPException):
+    """The body failed mid-read after `got` bytes of this response were written and hashed.
+
+    A subclass of `HTTPException`, so a caller that cannot continue a transfer handles it
+    as any failed transfer; one that can reads `got` and asks for the rest with `Range`.
+    """
+
+    def __init__(self, got: int, cause: BaseException):
+        super().__init__(str(cause))
+        self.got = got
+
+
 def stream(body, out, cap: int, digest=None, seen: int = 0) -> tuple[int, str, bool]:
     """Copy up to `cap` bytes, hashing as it goes. Returns (bytes, sha256, over the cap).
 
     `digest` and `seen` carry a transfer that is being continued: the hash has to be taken
-    over the whole artifact in order, and the cap counts what is already on disk.
+    over the whole artifact in order, and the cap counts what is already written. A read
+    that fails raises `TransferBroke` with the bytes this call wrote.
     """
     digest = digest if digest is not None else hashlib.sha256()
     total = 0
     while True:
-        chunk = body.read(256 * 1024)
+        try:
+            chunk = body.read(256 * 1024)
+        except (OSError, http.client.HTTPException) as exc:
+            raise TransferBroke(total, exc) from exc
         if not chunk:
             return total, digest.hexdigest(), False
         total += len(chunk)
@@ -442,9 +459,15 @@ def _append_no_symlink(path: str):
     return os.fdopen(os.open(path, flags, 0o600), "wb")
 
 
+def _range_start(headers: dict) -> int | None:
+    """The first byte a 206 says it carries, from `Content-Range: bytes S-E/T`, or None."""
+    found = re.match(r"\s*bytes\s+(\d+)-", headers.get("content-range") or "")
+    return int(found.group(1)) if found else None
+
+
 def resume(
     url: str,
-    path: str,
+    path: str | None,
     have: int,
     declared: int,
     digest,
@@ -452,21 +475,29 @@ def resume(
     timeout: float,
     sleep=time.sleep,
     opener=None,
+    out=None,
+    tally: dict | None = None,
 ) -> tuple[int, str | None]:
     """Continue a transfer that ended early, with `Range`, until the artifact is whole.
 
     **Why this exists.** The UKWA host-linkage dataset, 20,928,588,915 bytes, ends every
     continuous stream at exactly 2,147,483,648: a 2 GiB wall on the far side, not a flaky
     link, so a retry stops at the same byte for ever. The same server answers 206 for a
-    range past it. Measured 2026-09-11, fleet run 34610597166.
+    range past it.
 
-    Three refusals, because a resume that guesses is worse than a fetch that fails. A
+    Each round appends to `path`, or writes to `out` when the payload goes to a pipe, and
+    hashes into the same `digest`, so the sha256 is the whole artifact's. A round whose
+    connection drops keeps the bytes it wrote and the next round starts after them.
+    `tally["resumes"]` counts the range requests sent.
+
+    Four refusals, because a resume that guesses is worse than a fetch that fails. A
     server that answers **200 to a Range** has ignored it and is starting over, so taking
-    that body would append the artifact to itself. A round that **returns no bytes** is not
-    progress and two of them end it. And the **cap still binds**: what is already on disk
-    counts towards it, so a resume cannot walk past the ceiling a caller set.
+    that body would append the artifact to itself. A 206 whose `Content-Range` starts
+    anywhere but the next byte would splice the wrong bytes in. A round that **returns no
+    bytes** is not progress and two of them end it. And the **cap still binds**: what is
+    already written counts towards it, so a resume cannot walk past the ceiling a caller set.
 
-    Returns (bytes now on disk, reason to fail or None).
+    Returns (bytes now written, reason to fail or None).
     """
     opener = opener or get
     stalled = 0
@@ -474,6 +505,8 @@ def resume(
         if have >= declared:
             return have, None
         stop = min(have + RESUME_CHUNK, declared) - 1
+        if tally is not None:
+            tally["resumes"] = tally.get("resumes", 0) + 1
         status, headers, body = opener(url, timeout, have, stop)
         with body:
             if status in RETRY_STATUS:
@@ -491,9 +524,20 @@ def resume(
                 )
             if status != 206:
                 return have, f"the server answered {status} to a range request"
+            start = _range_start(headers)
+            if start is not None and start != have:
+                return have, f"the server answered a range from byte {start}, not {have}"
             try:
-                with _append_no_symlink(path) as out:
+                if out is not None:
                     got, _, over = stream(body, out, cap, digest, have)
+                    out.flush()
+                else:
+                    with _append_no_symlink(path) as sink:
+                        got, _, over = stream(body, sink, cap, digest, have)
+            except TransferBroke as broke:
+                got, over = broke.got, False
+                if out is not None:
+                    out.flush()
             except (OSError, http.client.HTTPException) as exc:
                 return have, f"the transfer failed while resuming: {exc}"
         if over:
@@ -536,6 +580,7 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
         "robots": "unknown",
         "path": None,
         "capped": False,
+        "resumes": 0,
     }
     to_pipe = to == "-"
     approved = False
@@ -652,7 +697,15 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                     )
                     _rehash(receipt["path"], hasher)
                     total, why = resume(
-                        url, receipt["path"], on_disk, declared, hasher, cap, timeout, sleep
+                        url,
+                        receipt["path"],
+                        on_disk,
+                        declared,
+                        hasher,
+                        cap,
+                        timeout,
+                        sleep,
+                        tally=receipt,
                     )
                     receipt["bytes"], receipt["sha256"] = total, hasher.hexdigest()
                     if why is not None:
@@ -662,7 +715,14 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                     return OK, receipt
                 try:
                     if to_pipe:
-                        total, digest, over = stream(body, sys.stdout.buffer, cap, hasher)
+                        # A dropped connection is continued below when the length is
+                        # known: the bytes already on the pipe are what the hasher holds.
+                        try:
+                            total, digest, over = stream(body, sys.stdout.buffer, cap, hasher)
+                        except TransferBroke as broke:
+                            if declared is None:
+                                raise
+                            total, digest, over = broke.got, hasher.hexdigest(), False
                         sys.stdout.buffer.flush()
                     else:
                         os.makedirs(os.path.dirname(receipt["path"]), exist_ok=True)
@@ -674,24 +734,36 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                     receipt["reason"] = f"the transfer failed: {exc}"
                     return HTTP_FAILED, receipt
 
-            # **A short body is continued, not discarded**, once the connection is closed
-            # and only for a file: a pipe has already had the bytes and cannot take them
-            # twice. A wall on the far side is not a reason to abandon an artifact the
-            # server will hand over in pieces.
+            # **A short body is continued, not discarded**, once the connection is closed.
+            # A file is appended to; a pipe is continued in this process from the next
+            # byte it has not had, into the same hasher, so a consumer sees the artifact
+            # once and in order. A wall on the far side is not a reason to abandon an
+            # artifact the server will hand over in pieces. A killed process cannot resume
+            # a pipe: its consumer restarts from byte zero.
             short = declared is not None and not over and total < declared
-            if short and not to_pipe:
+            if short:
                 print(
                     f"fetch: {total} of {declared} bytes, continuing with Range",
                     file=sys.stderr,
                     flush=True,
                 )
                 total, why = resume(
-                    url, receipt["path"], total, declared, hasher, cap, timeout, sleep
+                    url,
+                    receipt["path"],
+                    total,
+                    declared,
+                    hasher,
+                    cap,
+                    timeout,
+                    sleep,
+                    out=sys.stdout.buffer if to_pipe else None,
+                    tally=receipt,
                 )
                 digest = hasher.hexdigest()
                 if why is not None:
                     receipt["bytes"] = total
-                    _discard(receipt)
+                    if not to_pipe:
+                        _discard(receipt)
                     receipt["reason"] = why
                     return HTTP_FAILED, receipt
                 short = total < declared
