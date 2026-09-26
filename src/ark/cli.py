@@ -23,7 +23,7 @@ from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import AUDIT_PATH, collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
+from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_only_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -761,8 +761,16 @@ def export(
             help="Also write the provenance graph. Needed to ship a round or to `ark rebuild`.",
         ),
     ] = False,
+    claim: Annotated[
+        bool,
+        typer.Option(
+            "--claim",
+            help="Write only the claim and its stamp, as the bank does. Packaging refuses it.",
+        ),
+    ] = False,
 ) -> None:
-    """Write net-new year files, candidates, manifest, and merged masters.
+    """Write net-new year files, candidates, manifest, merged masters and the stamp; `--claim`
+    writes only the claim files ROUND.md reads and the stamp.
 
     Patient, because it is the first step of shipping a round: DuckDB blocks a write
     connection against any other process holding the file, even a reader, and this
@@ -771,8 +779,10 @@ def export(
     **The provenance graph is off unless asked for**: it is 229 of the command's 444
     seconds and 2,319 MB, and only `package_delivery.sh` and `just rebuild` read it.
     """
+    if claim and provenance:
+        raise typer.BadParameter("--claim writes no provenance graph: pass one of the two")
     conn = connect_patiently()
-    export_all(conn, with_provenance=provenance)
+    export_all(conn, with_provenance=provenance, claim_only=claim)
 
 
 @app.command(name="price-snapshot")
@@ -1041,12 +1051,15 @@ def rebuild(
 @app.command()
 def check() -> None:
     """Run integrity checks over the store; exit non-zero if any fails."""
-    # Same reason as `stats`, and it matters more here: a lock traceback out of the
-    # integrity gate reads as a broken invariant when the database is merely busy.
-    conn = connect_patiently()
-    results = collect_checks(conn, audit=AUDIT_PATH)
+    # Read-only and patient: the gate writes nothing, and a lock traceback out of it reads
+    # as a broken invariant when the store is merely busy. Closed before returning, since a
+    # read-write open in the same process fails while this connection lives.
+    conn = connect_read_only_patiently()
+    try:
+        results = collect_checks(conn, audit=AUDIT_PATH)
+    finally:
+        conn.close()
     typer.echo(format_checks(results))
-    record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
     if any(not r["ok"] for r in results):
         raise typer.Exit(code=1)
 

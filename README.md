@@ -64,7 +64,7 @@ decision. `docs/lore/rules.md` states the rule it enforces.
 
 ## Where the round stands
 
-In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
+In `docs/ROUND.md`, written by the bank and `just state` from the claim files. It is generated
 and untracked, because the figures move daily and the page names the machine that collects them.
 This page states no round figure, so it cannot go stale.
 

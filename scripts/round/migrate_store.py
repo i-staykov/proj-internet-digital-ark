@@ -44,7 +44,7 @@ from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir  # noqa: E402
 from ark.checks import collect_checks, format_checks  # noqa: E402
 from ark.db import connect_read_only_patiently, init_db  # noqa: E402
 from ark.evidence_types import ALL_TYPES  # noqa: E402
-from ark.export import export_all  # noqa: E402
+from ark.export import STAMP_NAME, export_all  # noqa: E402
 from ark.ingest import BATCH_ROWS, YEARS  # noqa: E402
 from ark.metrics import _TABLE as METRICS_TABLE  # noqa: E402
 from ark.provenance import SHIPPED  # noqa: E402
@@ -610,7 +610,12 @@ def files_under(root: Path) -> dict[str, str]:
     out = {}
     for rel in COMPARED:
         path = root / rel
-        found = sorted(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else [path]
+        # The export stamp carries its write time, so it differs between any two exports.
+        found = (
+            sorted(p for p in path.rglob("*") if p.is_file() and p.name != STAMP_NAME)
+            if path.is_dir()
+            else [path]
+        )
         for each in found:
             out[str(each.relative_to(root))] = sha256(each) if each.exists() else "missing"
     return out

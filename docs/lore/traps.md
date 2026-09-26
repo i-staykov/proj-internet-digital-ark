@@ -71,12 +71,6 @@ pairs and 479.4256 EE under `.arpa` or dated before their TLD existed, which no 
 credited for. `ark.delegation.shipping_filter` is the one predicate; every count that claims to
 be what ships takes it, and a new counter that does not is wrong by construction.
 
-**A figure is comparable only to a figure over the same window, and an exported file has no
-window.** Quote the cumulative for a submission, because that is what he merges, and ask
-`scripts/round/added_since.py` what a session added. `round_figures.py` still takes its hostname
-half by reading the exported `*_hostnames.txt` files, which carry no timestamps, so the two halves
-of its increment disagree whenever a round opens before his feedback lands.
-
 **A hostname-grain figure is not a figure until the `www.` alias share is measured.** `ukwa` came
 back at 20,916.90 EE of which 99.5% was `www.<a name already held that year>`, and
 `nypw_firstcdx` at 7,074.09 EE of which 100.0% was. Both WERE banked: ADR-008 admits the alias as

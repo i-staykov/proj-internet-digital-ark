@@ -108,14 +108,12 @@ def test_a_later_credited_round_releases_the_backup_only_with_write(tmp_path, mo
 
     def run(args, **kwargs):
         calls.append((args, kwargs))
-        with store.open("ab") as stream:
-            stream.write(b" metrics row")
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(prune.subprocess, "run", run)
     assert prune.round_cleanup(tmp_path, write=write)[0] == 0
     assert backup.exists() is not write
-    assert store.read_bytes().startswith(b"current")
+    assert store.read_bytes() == b"current"
     assert len(calls) == int(write)
     if write:
         assert calls[0][0] == ["uv", "run", "ark", "check"]

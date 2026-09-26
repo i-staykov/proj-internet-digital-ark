@@ -110,23 +110,17 @@ verify what="" *args:
 
 # --- where the round stands ---------------------------------------------------
 
-# Assembled from the programs that own each figure, so no number in it is a second copy
-# and it cannot drift. `--check` exits 1 when the store has moved past the file's footer.
+# Assembled from the claim files and the programs that own each figure, so no number in it
+# is a second copy. No store unless `--full`; `--check` exits 1 when a claim file has changed
+# since the file's footer.
 #
 # regenerate docs/ROUND.md, the generated statement of where the round stands
 state *args:
     uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py {{args}}
 
-# What the lanes have added since the round opened, in seconds and from the store:
-# `just state` needs a 20-minute export and `just brief` reads the last snapshot.
-#
-# what this round has added so far, priced, without an export
-added *args:
-    uv run python scripts/round/added_since.py {{args}}
-
-# Reads the data/brief.json snapshot `just state` leaves, plus private/handoff.md. Never
-# opens the store or runs ssh, so a session-start hook can call it inside its timeout.
+# Reads the data/brief.json snapshot the bank and `just state` leave, plus private/handoff.md.
+# Never opens the store or runs ssh, so a session-start hook can call it inside its timeout.
 #
 # where the round stands, read from the last snapshot rather than the store
 brief:
@@ -430,7 +424,7 @@ bank *args:
             fi
         fi
         uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export >/dev/null || C_FAIL="$C_FAIL export"
+        uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes
         touch data/logs/.push_pending
         CHECK_RC=0
@@ -479,7 +473,7 @@ bank *args:
         else
             if [ "$RC" -eq 0 ]; then
                 uv run python scripts/harness/bank_hygiene.py space
-                uv run ark export >/dev/null || RC=$?
+                uv run ark export --claim >/dev/null || RC=$?
                 EXPORTED=yes
                 touch data/logs/.push_pending
             fi
@@ -500,7 +494,7 @@ bank *args:
                 uv run python scripts/harness/bank_trigger.py red --step b \
                     --ingested "$INGESTED" --check "$CHECK_LOG"
                 uv run python scripts/harness/bank_hygiene.py space
-                uv run ark export >/dev/null || true
+                uv run ark export --claim >/dev/null || true
                 if uv run ark check; then
                     echo "the store is green again; the sources are pending and nothing was banked"
                 else
@@ -1356,9 +1350,9 @@ prune *args:
 # The round-end sequence, in the one order that works, as one recipe. The stages, and what
 # each one runs: `just ship --help`, which prints the chain and runs none of it.
 #
-# `package_delivery.sh` refuses unless output/ matches the store EXACTLY, so only the INGEST
-# loop has to pause: collectors writing journals do not move the store, and a re-offered
-# journal is skipped in milliseconds on its content hash.
+# The store moves only inside `just bank`, and ship holds the sync lock from its bank to the
+# package, so no tick banks in between. `package_delivery.sh` refuses unless the export stamp
+# is a full export whose ledger matches the store and whose claim equals the bank's.
 #
 # **Safe to rehearse with nothing decided.** `bank_approved.py` reports and SKIPS anything
 # still pending, and `just ship draft` prints the mail it would send without writing it.
@@ -1368,16 +1362,9 @@ ship stage="all" *args:
     #!/usr/bin/env bash
     set -uo pipefail
     set -- {{args}}
-
-    # Restart only a previously running ingest loop, with sufficient disk space.
-    WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
-    restore() {
-        if [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null; then
-            uv run python scripts/harness/bank_hygiene.py space || exit $?
-            nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 &
-            echo "== ingest loop restarted =="
-        fi
-    }
+    # The store's memory limit, as the bank has it, for the full export and the round state.
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
     newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
 
@@ -1389,49 +1376,69 @@ ship stage="all" *args:
         just prune --round --write
     }
 
+    # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
+    # The drop trap goes in only after our own take, because drop removes the lock whoever holds it.
+    LOCKED=no
+    hold_lock() {
+        [ "$LOCKED" = yes ] && return 0
+        if ! bash scripts/harness/sync_lock.sh take $$; then
+            echo "ship: the sync lock is held, so nothing ran; run it again after that one" >&2
+            exit 1
+        fi
+        LOCKED=yes
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    }
+
     stage_prep() {
         set -e
-        source local.env
-        # skip the journals a sweep still holds open: a half-copied one ledgers short
-        BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
-        rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
-        rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
-        uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export | tail -1
-        uv run ark check
-        uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
+        if bash scripts/harness/hold.sh holds com.ark.sync; then
+            echo "ship prep: the hold is on, so the bank would not run" >&2
+            exit 1
+        fi
+        hold_lock
+        # A bank handed the lock skips its preflight, so ship runs it, as a bank by hand does.
+        uv run python scripts/harness/bank_hygiene.py preflight
+        BEFORE=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        ARK_LOCK_HELD=$$ just bank --force
+        AFTER=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        if [ "$AFTER" = "$BEFORE" ] || ! grep -q '"mode": "claim"' <<<"$AFTER"; then
+            echo "ship prep: the bank wrote no claim export" >&2
+            exit 1
+        fi
+        # The promotion tranche, measured and never banked: without --write it writes nothing.
+        uv run python scripts/engines/build_promotion_journals.py --tag "dryrun$(date -u +%Y%m%d)"
         uv run python scripts/round/merge_against_baseline.py | tail -3
         uv run python scripts/round/round_figures.py | sed -n '1,13p'
     }
 
     stage_build() {
-        trap restore EXIT
         set -e
-        echo "== pausing the ingest loop so the store stops moving =="
-        pkill -f 'maintain[.]sh' 2>/dev/null || true
-        until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
-        echo "== exporting =="
+        hold_lock
+        # The bank's claim, set aside where packaging compares it with the full export's.
+        if ! grep -q '"mode": "claim"' output/netnew/export_stamp.json 2>/dev/null; then
+            echo "== the claim export =="
+            uv run python scripts/harness/bank_hygiene.py space
+            uv run ark export --claim
+        fi
+        mkdir -p data/exports/claim
+        cp output/netnew/candidate_additions.txt output/netnew/export_stamp.json data/exports/claim/
+        echo "== the full export =="
         uv run python scripts/harness/bank_hygiene.py space
-        uv run ark export
+        uv run ark export --provenance
         echo "== the data invariants =="
         uv run ark check
-        # `package_delivery.sh` regenerates the report and refuses if it changed, so a human
-        # reviews the diff. Doing it here makes this a single pass: the diff is by
-        # construction nothing but regenerated figures.
-        echo "== regenerating the round report =="
+        echo "== the round state, with the store sections =="
+        uv run python scripts/round/build_round_state.py --full
+        # `package_delivery.sh` regenerates the report and refuses a dirty tree or a report that
+        # changed, so a human reviews the diff. Rebuilding and committing the report and its
+        # .docx here makes this one pass: the diff is nothing but regenerated figures.
+        echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
-        if ! git diff --quiet -- docs/report.md; then
-            git --no-pager diff --stat -- docs/report.md
-            git add docs/report.md
-            git commit -q -m "Regenerate docs/report.md from the store before packaging"
-            echo "== committed the regenerated report =="
+        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
+        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
+            git add docs/report.md docs/report.docx docs/report-sendable.md
+            git commit -q -m "Regenerate the round report and its .docx before packaging"
+            echo "== committed the regenerated report artifacts =="
         fi
         echo "== packaging =="
         bash scripts/round/package_delivery.sh "${1:-}"
@@ -1461,12 +1468,12 @@ ship stage="all" *args:
     case "{{stage}}" in
     -h|--help|help)
         echo "just ship <stage> [args]"
-        echo "  all [round]      bank the approved, regenerate the report and the .docx,"
-        echo "                   pause ingestion, export, the invariants, package, verify"
-        echo "                   the delivery, the reviewer's calculator, the mail draft,"
-        echo "                   then close the gate issue"
-        echo "  prep             drain the sweeps, ingest, export, gate, merge audit, figures"
-        echo "  build [round]    pause ingestion, export, invariants, report, package, verify"
+        echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
+        echo "                   draft, and closing the gate issue"
+        echo "  prep             take the sync lock, bank --force, promotion dry run, merge"
+        echo "                   audit, figures"
+        echo "  build [round]    take the sync lock, full export, invariants, round state,"
+        echo "                   report and .docx, package, verify"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
@@ -1481,12 +1488,14 @@ ship stage="all" *args:
     build) stage_build "${1:-}" ;;
     package)
         set -e
+        hold_lock
         bash scripts/round/package_delivery.sh "${1:-}"
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
     verify)
         set -e
+        hold_lock
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
@@ -1505,20 +1514,7 @@ ship stage="all" *args:
     all)
         set -e
         round="${1:-}"
-        echo "== banking newly approved classes =="
-        uv run python scripts/harness/bank_hygiene.py space
-        uv run python scripts/harness/bank_approved.py --write
-        # Regenerate and COMMIT the report artifacts BEFORE packaging: `package_delivery.sh`
-        # refuses a dirty tree, correctly, and docs/report.docx and docs/report-sendable.md
-        # are tracked and rebuilt from docs/report.md. Order, not tidiness.
-        echo "== regenerating the report and the .docx he asks for =="
-        uv run python scripts/round/fill_report.py
-        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
-            git commit -q -m "Regenerate the round report and its .docx before packaging"
-            echo "== committed the regenerated report artifacts =="
-        fi
+        stage_prep
         stage_build "$round"
         echo "== the reviewer's own calculator =="
         uv run python scripts/round/round_figures.py --verify
