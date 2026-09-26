@@ -464,18 +464,24 @@ delivery. `just ship draft` prints that mail and writes nothing.
 ```bash
 just ship build                         # the claim set aside, the full export, report, package, verify
 just ship verify                        # re-verify the newest stage and the retained copies
+just ship orq                           # both research-questions folders into $TMPDIR/orq, and Word's page count
 ```
 
+`uv run python scripts/round/header_promotion.py`, under the sync lock, re-derives the header
+collection's promotion rate that the report and its register row quote, a lower bound.
+
 Packaging refuses to build from a modified working tree, from a claim or stale export, from
-a `docs/report.md` that disagrees with what `fill_report.py` would emit, or when the baseline release
-the figures are measured against is not on disk to ship alongside them. Each of those guards exists
+a `docs/report.md` that disagrees with what `fill_report.py` would emit, from a fleet checkout off the
+fleet's main or older than the newest banked drain, from a reproduction note naming another verdict
+count than `verify.sh` prints, or when the baseline release the figures are measured against is not
+on disk to ship alongside them. Each of those guards exists
 because the failure it catches has happened.
 
 The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
-explicitly with `just ship package phase-5`. The tarball is git-ignored; the report, the source
-documentation, the checksum and `MANIFEST.txt` stay in git, which is enough to say later exactly what
-was claimed and to prove a rebuilt archive matches. **Add a row to `submissions/README.md` after each
-send.**
+explicitly with `just ship package phase-5`. The tarball is git-ignored; its checksum and
+`MANIFEST.txt` stay in git, and the commit the manifest names holds the report and registers as sent.
+Git keeps the current round and the one before it: when a round ships, the older one goes to Drive
+as `submissions/README.md` says.
 
 ## Collecting more evidence (needs the network)
 

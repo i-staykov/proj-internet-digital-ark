@@ -55,15 +55,13 @@ the artifact; none was a header class. The records already extracted ship as the
 collection `server_header_hostnames/`, as the evidence rule directs and as the Internet Domain
 Survey hostnames already do, and promote only when an exact-host capture for that year arrives.
 
-**What such a record is worth, measured.** On 98,381 header-dated host-year pairs from eight Usenet
-hierarchies, 1.16% carry an exact-host capture in our own index for the same year (Wilson 95%
-interval 1.10 to 1.23), against 0.14% to 0.82% for the same hosts at a year shifted by one to
-three: the header's own year lifts the hit rate. Any in-window year: 2.10%, beside the 2.67% you
-measured on Internet Domain Survey hostnames over 1996-2013. By the shape of the leftmost label:
-client-shaped names (digits, ppp, dialup, dyn, pool) 0.06%, infrastructure names 4.07%, `www`,
-`web` and `ftp` names 31.1%, a 500-fold spread on one string split. Lower bounds against our
-partial capture index, measured on 11% of the header hosts, Usenet only; the label shape ranks
-which hosts to verify first.
+**What such a record is worth, measured.** Re-derived from the collection's own journals against
+the web captures in our database by `scripts/round/header_promotion.py`: at least 0.40% of 749,068
+header-dated host-years carry an exact-host capture for the same year, and 1.00% in any in-window
+year, beside the 2.67% you measured on Internet Domain Survey hostnames over 1996-2013. Both are
+lower bounds, since our database keeps one record per host and year and a header record written
+first holds its place, and the shifted years are not held down the same way, so no comparison with
+them is drawn.
 
 ## Equivalent-English per hour of work, this round
 

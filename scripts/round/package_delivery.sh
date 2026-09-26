@@ -37,6 +37,20 @@ if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
     exit 1
 fi
 
+# The reproduction note is quoted into the report, so a verdict count it names must be the
+# one verify.sh prints, or the report ships a stale claim about its own archive.
+VERDICTS=$(sed -n 's/^VERDICTS=\([0-9][0-9]*\)$/\1/p' scripts/round/verify_delivery.sh)
+COUNTS=(zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
+SAID=$(grep -oE '[a-z]+ `verify\.sh` verdicts' docs/round/reproduction.txt | head -1 | cut -d' ' -f1) || true
+if [ -z "$VERDICTS" ]; then
+    echo "refusing to package: scripts/round/verify_delivery.sh declares no VERDICTS" >&2
+    exit 1
+fi
+if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
+    echo "refusing to package: docs/round/reproduction.txt says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
+    exit 1
+fi
+
 # The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
 # writes only the claim, so the masters, manifests and ISC files beside it are whatever the
 # last full export left; only a full export with provenance, against the current release and

@@ -181,7 +181,9 @@ def test_cost_is_the_ledgers_and_a_run_it_does_not_hold_is_not_recorded(tmp_path
     lines[1] |= {"started": "2026-09-25T10:00:00Z", "ended": "2026-09-25T10:02:30Z"}
     body = "".join(json.dumps(line) + "\n" for line in lines) + "not json\n"
     (fleet / "ledger/2026-09.jsonl").write_text(body)
+    orq.BROKEN.clear()
     held = orq.ledger(fleet)
+    assert orq.BROKEN == [f"{fleet / 'ledger/2026-09.jsonl'}:5"]  # named, never skipped
     gone = (orq.NOT_RECORDED,) * 3
 
     assert orq.cost(held, "11", "a") == ("1200", "300", "0.5")
@@ -272,7 +274,7 @@ def test_a_fleet_file_that_does_not_parse_is_named_never_skipped(tmp_path):
     orq.BROKEN.clear()
     tests, _, _ = orq.q1(fleet)
     assert [t.id for t in tests] == ["fine"]
-    assert orq.BROKEN == [fleet / "leads/torn.json"]
+    assert orq.BROKEN == [str(fleet / "leads/torn.json")]
 
 
 def test_the_inputs_come_from_the_environment_only_when_asked(monkeypatch):
@@ -621,9 +623,8 @@ def test_e1_passes_both_folders_and_fails_on_any_one_gap(tmp_path):
 def fleet_guard() -> str:
     text = (REPO / "scripts/round/package_delivery.sh").read_text(encoding="utf-8")
     block = text.split("# The fleet checkout ships", 1)[1]
-    return (
-        "set -euo pipefail\n# The fleet checkout ships" + block[: block.index("# The export stamp")]
-    )
+    end = block.index("# The reproduction note is quoted")
+    return "set -euo pipefail\n# The fleet checkout ships" + block[:end]
 
 
 def commit_fleet(fleet: Path, when: str) -> None:
@@ -688,3 +689,42 @@ def test_packaging_refuses_a_fleet_that_is_not_a_checkout_or_predates_the_newest
     # no banked drain at all: nothing to be older than
     shutil.rmtree(repo / "data")
     assert run_guard(repo, stale).returncode == 0
+
+
+def test_verify_declares_the_verdicts_it_prints():
+    """Packaging compares the reproduction note's count against this, so it must be true."""
+    text = (REPO / "scripts/round/verify_delivery.sh").read_text(encoding="utf-8")
+    labels = set(re.findall(r'\bsay\(\s*"([^"]+)"', text))
+    labels |= set(re.findall(r'\bsay "([^"]+)"', text))
+    labels |= set(re.findall(r"print\(f\"\{'([^']+)':<46\}", text))
+    labels |= set(re.findall(r'^LABEL = "([^"]+)"', text, re.M))
+    assert "verify_isc_candidates.py" in text  # it prints the ISC verdict itself
+    labels.add("ISC candidates")
+    declared = int(re.search(r"^VERDICTS=(\d+)$", text, re.M)[1])
+    assert len(labels) == declared, sorted(labels)
+
+
+def count_check() -> str:
+    text = (REPO / "scripts/round/package_delivery.sh").read_text(encoding="utf-8")
+    block = text.split("# The reproduction note is quoted", 1)[1]
+    end = block.index("# The export stamp")
+    return "set -euo pipefail\n# The reproduction note is quoted" + block[:end]
+
+
+def test_packaging_refuses_a_reproduction_note_naming_another_verdict_count(tmp_path):
+    (tmp_path / "scripts/round").mkdir(parents=True)
+    (tmp_path / "docs/round").mkdir(parents=True)
+    (tmp_path / "scripts/round/verify_delivery.sh").write_text("fail=0\nVERDICTS=14\n")
+    note = tmp_path / "docs/round/reproduction.txt"
+    for said, code in (
+        ("all thirteen `verify.sh` verdicts pass", 1),
+        ("all fourteen `verify.sh` verdicts pass", 0),
+        ("every `verify.sh` verdict passes", 0),
+    ):
+        note.write_text(f"Before sending, {said} (26 seconds).\n")
+        done = subprocess.run(
+            ["bash", "-c", count_check()], cwd=tmp_path, capture_output=True, text=True
+        )
+        assert done.returncode == code, (said, done.stderr)
+    # the shipped note names no count, so a new verdict can never leave it stale
+    assert "`verify.sh` verdicts" not in (REPO / "docs/round/reproduction.txt").read_text()

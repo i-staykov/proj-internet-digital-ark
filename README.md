@@ -67,6 +67,8 @@ decision. `docs/lore/rules.md` states the rule it enforces.
 In `docs/ROUND.md`, written by the bank and `just state` from the claim files. It is generated
 and untracked, because the figures move daily and the page names the machine that collects them.
 This page states no round figure, so it cannot go stale.
+`just ship orq` builds the two research-questions folders into `$TMPDIR/orq` to read before a ship,
+and `scripts/round/header_promotion.py` re-derives the header collection's promotion rate.
 
 ## Where to read next
 
