@@ -5,8 +5,7 @@ project splits cleanly in two, and pretending otherwise is how autonomy turns in
 theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
-a collector has died, that a journal is sitting on a remote disk unbanked, that a
-file on disk was never read, that a derived target list is older than the rows it
+a file on disk was never read, that a derived target list is older than the rows it
 should carry, that a hypothesis has been sitting half-priced for a day, and that the
 state document has gone stale. **That is this script**, and it is genuinely
 autonomous: every check has a right answer that needs no judgement.
@@ -86,11 +85,6 @@ def collectors() -> tuple[Collector, ...]:
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
 # `ark seed` is a 33-minute outage for every reader, so a 20-minute ceiling made
 # the residual check time out and vanish from the report.
-# How old the VPS gap list may get before a refresh is worth a VPN window. Gap targets
-# change slowly by design, so this is days rather than hours; the real staleness signal
-# is the yield check, not the clock.
-GAP_LIST_REFRESH_HOURS = 7 * 24
-
 STEP_TIMEOUT = 3600
 
 
@@ -112,44 +106,11 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
     return out, bool(out)
 
 
-def check_collectors() -> tuple[list[str], list[str]]:
-    """Alive, and is anything they produced still not banked?"""
-    findings, attention = [], []
-    out, ran = run(["bash", "scripts/engines/engine_status.sh"], timeout=180)
-    if not ran:
-        return ["collectors: COULD NOT CHECK"], [
-            "the collector check did not complete, so their state is UNKNOWN rather than fine"
-        ]
-    local_running = "NOT RUNNING" not in out.split("== VPS")[0]
-    findings.append(f"local collector: {'running' if local_running else 'NOT RUNNING'}")
-    if not local_running:
-        attention.append("the local collector is not running; decide whether that is intended")
-    if "UNKNOWN: could not reach" in out:
-        findings.append("VPS: UNREACHABLE, so its journals are unbanked and uncounted")
-        attention.append(
-            "VPS unreachable: bring the VPN up and rsync its journals. This is not "
-            "'nothing to fetch', and the project once left 5,793 records stranded for "
-            "a day and a half by reading it that way"
-        )
-    elif "everything is home" in out:
-        findings.append("VPS: reachable, every journal is home")
-    else:
-        missing = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("cdx_")]
-        if missing:
-            findings.append(f"VPS: {len(missing)} journals not copied here yet")
-            attention.append(f"rsync {len(missing)} VPS journals home, then ingest them")
-    return findings, attention
-
-
 def check_yield() -> tuple[list[str], list[str]]:
     """Are the collectors finding anything, not just running and writing?
 
-    The gap none of the other checks covered. `check_collectors` asks whether a
-    process is alive, the supervisor itself watches journal growth, and **a journal
-    full of misses grows exactly as fast as a journal full of hits.** On 11 August a
-    rebuilt queue sent the local engine 1,200 queries for zero captures while every
-    check here reported clean; the truth was in a `no_capture: 600` counter nothing
-    read. Reasoning and thresholds in `ark.yield_check`.
+    **A journal full of misses grows exactly as fast as one full of hits**, so growth says
+    nothing about yield. Reasoning and thresholds in `ark.yield_check`.
     """
     findings, attention = [], []
     for reading in measure_collectors(collectors()):
@@ -191,7 +152,7 @@ def check_residual() -> tuple[list[str], list[str]]:
                     # stale almost always, and an alarm on that condition fires every
                     # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
                     # the threshold and asks for a human only when it cannot act, which
-                    # is the VPS list or a failed rebuild. An alarm nobody can clear is
+                    # is a failed rebuild. An alarm nobody can clear is
                     # the same defect as the 982 MB the unreferenced check used to report.
     return findings, attention
 
@@ -230,7 +191,7 @@ def rebuild_lock_holder() -> str | None:
 
 
 def rebuild_derived() -> tuple[list[str], list[str]]:
-    """Rebuild stale derived target lists, and re-point the local engine at them.
+    """Rebuild stale derived target lists.
 
     **This is the cycle's one action rather than a report**, and the distinction is
     deliberate. Writing evidence is a judgement and belongs to a human; regenerating a
@@ -243,9 +204,6 @@ def rebuild_derived() -> tuple[list[str], list[str]]:
     dispatch, so rewriting the file is enough, and the restart used `pkill -f` with a
     pattern that matches the shell running it. On 11 August that took down a healthy
     collector mid-batch. **An unattended loop does not get to kill collectors.**
-
-    The VPS is deliberately untouched too. Its list has to be shipped over a VPN
-    window, so it is reported and left.
     """
     findings, attention = [], []
     out, ran = run(
@@ -295,66 +253,7 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
         if hours < REBUILD_AFTER_HOURS:
             findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
             continue
-        if "queue_gap_vps" in path:
-            # **Age alone is the wrong alarm for this list, and raising it hourly trained a
-            # reader to skip the whole judgement section.** `CLAUDE.md` is explicit that gap
-            # targets change slowly and the VPS wants a rare refresh rather than a periodic
-            # one, so "26.9h behind" is the list working as designed. The signal that a gap
-            # queue has actually gone stale is that the engine stops finding anything, which
-            # `check_yield` already measures per collector against its own history: on
-            # 2026-08-12 the VPS sat at 0.0% for 31 hours and after the refresh it measures
-            # 92.7%. So this reports the age and defers the alarm to yield.
-            findings.append(
-                f"derived: {Path(path).name} {hours:.1f}h behind, which is expected: gap "
-                f"targets change slowly and the yield check is what would call it stale"
-            )
-            if hours > GAP_LIST_REFRESH_HOURS:
-                attention.append(
-                    f"the VPS gap list is {hours / 24:.1f} days old, past the "
-                    f"{GAP_LIST_REFRESH_HOURS / 24:.0f}-day mark where a rebuild is worth a VPN "
-                    f"window: rebuild it, scp it over the file the supervisor already reads, and "
-                    f"do NOT restart anything, since it re-reads its target list at every batch"
-                )
-            continue
-        if "queue_pool_local" in path or "queue_edge_local" in path:
-            population = "edge" if "queue_edge_local" in path else "pool"
-            _o, ok = run(
-                [
-                    "uv",
-                    "run",
-                    "python",
-                    "scripts/engines/build_query_queue.py",
-                    "--population",
-                    population,
-                    "--out",
-                    path,
-                ]
-            )
-            findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
-            if ok:
-                reader = collector_reading(path)
-                if reader:
-                    findings.append(
-                        "derived: the running collector reads this exact file, so it picks the "
-                        "rebuild up at its next dispatch and nothing is restarted"
-                    )
-                else:
-                    attention.append(
-                        f"the {population} queue was rebuilt and NO RUNNING COLLECTOR READS "
-                        f"{path}. "
-                        f"A supervisor fixes ARK_TARGETS at startup, so a rebuild reaches it "
-                        f"only if it was started on this path. Copy the rebuilt list over the "
-                        f"file the running collector was given, or restart it on this one; "
-                        f"until then the re-rank is inert and the engine keeps working a stale "
-                        f"head. Measured cost of exactly this on 2026-08-18: two hours of .ca "
-                        f"at 9.5% while a re-ranked queue sat unread"
-                    )
-            else:
-                attention.append(
-                    "the pool queue rebuild FAILED, so the local collector is working a "
-                    "list that cannot see the newest candidates"
-                )
-        elif "pool_targets_measured" in path:
+        if "pool_targets_measured" in path:
             # The TLD set is not a preference. Restricted to those with a real measured
             # in-window rate, because the builder falls back to the pool-wide rate where
             # it has no sample, and a high English share then floats namespaces nobody
@@ -476,34 +375,6 @@ def check_ledger() -> tuple[list[str], list[str]]:
 
 
 TRIAGE_HEADING = "Triage the newly found sources"
-
-
-def collector_reading(path: str) -> str | None:
-    """The command line of a running collector that reads this exact target list, if any.
-
-    **A rebuilt queue that nothing reads is not a rebuild.** `supervise_cdx_pool.sh` resolves
-    `ARK_TARGETS` once, at startup, and passes that fixed path to every `ark cdx` batch. So the
-    cycle's old claim that "the running collector picks it up at its next dispatch" held only
-    when the collector happened to have been started on the file the cycle rebuilds. On
-    2026-08-18 it had not been: the engine ran `queue_pool_20260818c.txt` for two hours at 9.5%
-    on a `.ca` head while `queue_pool_local.txt` sat correctly re-ranked and unread, and every
-    health check read clean because presence, progress and yield were all fine in their own
-    terms. Only the queue identity was wrong.
-
-    Matched on the basename, because the supervisor may have been given a relative path and the
-    worker an absolute one.
-    """
-    name = Path(path).name
-    try:
-        out = subprocess.run(
-            ["ps", "-eo", "command"], capture_output=True, text=True, check=False
-        ).stdout
-    except OSError:
-        return None
-    for line in out.splitlines():
-        if "ark cdx" in line and name in line:
-            return line.strip()
-    return None
 
 
 def _mirror_triage_count(count: int, findings: list[str]) -> None:
@@ -677,7 +548,6 @@ def cycle(number: int, with_network: bool) -> list[str]:
     findings: list[str] = []
     attention: list[str] = []
     for name, fn in (
-        ("collectors", check_collectors),
         ("yield", check_yield),
         ("residual", check_residual),
         ("derived", rebuild_derived),

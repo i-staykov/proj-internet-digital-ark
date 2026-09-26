@@ -103,6 +103,7 @@ def test_telemetry_becomes_a_ledger_row_and_the_run_directory_goes(tmp_path):
     (lead.parent.parent / "telemetry.json").write_text('{"tokens_in_plus_out": 5}', "utf-8")
     assert run("drain", str(incoming)).returncode == 0
     assert not list(incoming.glob("run_*"))
+    assert Path(os.environ["ARK_FLEET_LEDGER"]).read_text().split("\t")[1:] == ["5", "?\n"]
 
 
 @pytest.mark.skipif(not (FLEET / "scripts/contract.py").is_file(), reason="no fleet clone here")
@@ -231,7 +232,7 @@ def test_every_leg_gets_a_ledger_row_not_the_wrapper(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     ledger = tmp_path / "ledger.tsv"
-    monkeypatch.setattr(module, "LEDGER", ledger)
+    monkeypatch.setenv("ARK_FLEET_LEDGER", str(ledger))
     module.drain(incoming)
     rows = [line.split("\t") for line in ledger.read_text().splitlines()]
     assert [r[1] for r in rows] == ["111", "222"]

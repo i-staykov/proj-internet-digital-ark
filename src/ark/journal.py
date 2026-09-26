@@ -119,12 +119,10 @@ def journal_writer(path: Path) -> Iterator[IO[str]]:
 def write_journal_line(fh: IO[str], record: dict) -> None:
     """Append one record and push it to disk.
 
-    The flush is load-bearing. `scripts/engines/supervise_cdx_pool.sh` decides whether a run
-    has stalled by watching the journal's size on disk, and gzip emits nothing until zlib
-    fills a block: with the archive answering in ~15 s instead of ~2 s the first block took
-    12.7 minutes, which a 10-minute watchdog window reads as a stall. The cost is a
-    `Z_SYNC_FLUSH` per record, a few bytes of compression on a 20 KB journal, against a
-    monitor that cannot go blind. Writes come from the main thread, so no lock is needed.
+    The flush is load-bearing: gzip emits nothing until zlib fills a block, so without it a
+    live journal looks empty on disk for minutes to anything reading it or watching its
+    size. The cost is a `Z_SYNC_FLUSH` per record, a few bytes of compression on a 20 KB
+    journal. Writes come from the main thread, so no lock is needed.
     """
     fh.write(json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n")
     fh.flush()

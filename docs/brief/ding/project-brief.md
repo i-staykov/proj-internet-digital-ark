@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/Domain_Data_Collection_Task_0917_UpdateV2/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0917_Update.docx` |
-| sha256 | `f4f843e4c8c30dc5c5a04a2a24b876f3aa78d4b42170a01e8adf73dd7e12d59d` |
-| delivered in | `feedback/Domain_Data_Collection_Task_0917_UpdateV2/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0917_UpdateV2.zip (2026-09-17) |
-| transcribed | 2026-09-17 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0922_UpdateV2/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0918_Update.docx` |
+| sha256 | `53c5f87ace85ee0b36792ef5ce134c95dcf9eec1953b64e346239600156b46fd` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0922_UpdateV2/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0922_UpdateV2.zip (2026-09-22) |
+| transcribed | 2026-09-24 by `scripts/round/extract_ding_docs.py` |
 
 Word files are converted with pandoc; plain text is fenced. Only escaped backticks
 and curly quotation marks are normalised. Wording, order and section numbering
@@ -23,7 +23,7 @@ provenance values above to check it.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-09-17 (UTC+8)
+Update time: 2026-09-18 16:23:34 (UTC+8)
 
 **I. Task Background**
 
@@ -105,13 +105,15 @@ The following rules have the highest priority. All subsequent methods must compl
 
 11. Every collected domain list must be accompanied by an explanation of the acquisition method and the processing performed. It is strictly unacceptable to expand the lists without documenting the method.
 
-IV-A. Open Research Questions for Continued Investigation
+**<span class="mark">IV-A. Open Research Questions for Continued Investigation</span>**
 
 The following questions require practical, reproducible proposals or technically defensible solutions. They do not relax the annual evidence rules above: each proposed approach must state its evidence level, assumptions, limitations, and route for retaining unresolved material as an auditable candidate asset.
 
 1\. How can historical web data from before 1996 be discovered and acquired at scale? The Internet Archive began web crawling and preservation in 1996, so participants should propose ways to locate, assess, recover, or obtain large pre-1996 web archives and related historical materials. Proposed approaches may consider institutional, national-library, research, commercial, network, software-distribution, or other archival sources, but must explain bulk-access feasibility, date semantics, provenance, rights or access constraints, expected coverage, and how resulting hostnames could be linked to reproducible evidence.
 
 2\. How can the year in which a website existed be determined more accurately? Participants should propose methods for correctly assigning hostname-year records, including how hosts in the Equivalent-English Domain calculator inputs and candidate_pool.txt should be reconciled and archived. The solution should distinguish direct year-specific website evidence, weaker discovery-only evidence, and unresolved records; explain how evidence from CDX, historical WHOIS, historical DNS, dated datasets, snapshots, or other sources can be combined without inferring unsupported continuity; and specify how a candidate can be promoted to an annual file only after the required evidence is retained.
+
+**Required response package:** Respond to both open research questions promptly and include the response in every complete submission archive as a separate folder named Open Research Questions. The folder must contain a Word document named Open Research Questions.docx. The document must describe the proposed methods, the relevant work or tests already performed, the data sources and access paths used, test procedures or commands, sample scope, observed results, failures, limitations, and preliminary verification of both technical feasibility and practical operability. It must also include or reference supporting materials, such as runnable code, source links, execution logs, result samples, and screenshots of relevant materials found online. Supporting code, screenshots, and other evidence files may be stored alongside the Word document in the same folder and must be clearly referenced from the document. Ideas that have not yet been tested must be explicitly labelled Pending validation; a conceptual proposal must not be presented as a technically or practically validated result. Continue improving the proposed solutions through reproducible tests in subsequent submissions.
 
 **V. Priority Workstreams**
 
@@ -197,11 +199,13 @@ The final delivery must include more than several TXT files. It must document ho
 
 **Explanatory materials:** In addition to the merged and deduplicated annual domain files, provide a Word document explaining the methods used, newly identified methods, every external dataset and repository searched, dataset identifiers or DOI values where available, yield from each source, year-evidence fields and validation rules, limitations, whether further expansion is worthwhile, the Equivalent-English Domain calculation and growth results, and how the work contributes to Automated/Autonomous/Intelligent Scientific Knowledge Discovery and Deep Research System capabilities.
 
-**Source contribution statistics:** Newly added domain-year records must be counted by source, with separate figures for additions eligible for direct inclusion in the annual master results and additions eligible only for the candidate pool. For accepted annual additions, report both the raw record increase and the corresponding Equivalent-English Domain increase.
+- Open Research Questions package: Include a separate folder named `开放性研究问题` inside the submission archive. Submit the answers as plain-text `.txt` files and document the proposed approaches, completed related work or tests, preliminary technical-feasibility findings, preliminary practical-operability findings, limitations, and next steps. Markdown-only placement outside the required folder does not satisfy this packaging requirement.
 
-**CDX execution notes:** Provide a dedicated explanation of the existing CDX acquisition tools used, the retrieval strategy, errors encountered, how those errors were handled, and the number of domains actually added.
+  **Source contribution statistics:** Newly added domain-year records must be counted by source, with separate figures for additions eligible for direct inclusion in the annual master results and additions eligible only for the candidate pool. For accepted annual additions, report both the raw record increase and the corresponding Equivalent-English Domain increase.
 
-**Code package and experience summary:** Every submission must include the complete runnable code, scripts, configurations, dependency or environment instructions, and execution commands used for discovery, acquisition, extraction, normalization, validation, evidence generation, and result export. It must also include a concise experience summary describing successful and unsuccessful approaches, measured source yield, important limitations, lessons learned, reusable techniques, and recommended directions for continued expansion.
+  **CDX execution notes:** Provide a dedicated explanation of the existing CDX acquisition tools used, the retrieval strategy, errors encountered, how those errors were handled, and the number of domains actually added.
+
+  **Code package and experience summary:** Every submission must include the complete runnable code, scripts, configurations, dependency or environment instructions, and execution commands used for discovery, acquisition, extraction, normalization, validation, evidence generation, and result export. It must also include a concise experience summary describing successful and unsuccessful approaches, measured source yield, important limitations, lessons learned, reusable techniques, and recommended directions for continued expansion.
 
 - Submission archive filename: Every complete submission must be supplied in one compressed archive named **<span class="mark">DomainDataCollectionTask\_{SubmissionTime}\_{Name}</span>**. {SubmissionTime} denotes the complete submission time, and {Name} denotes the submitting contributor.
 

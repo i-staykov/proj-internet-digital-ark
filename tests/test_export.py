@@ -584,3 +584,84 @@ def test_the_masters_keep_every_row_of_his_and_filter_only_ours(tmp_path: Path) 
     assert "his-early.info" in masters
     assert "our-early.info" not in masters
     assert "our-early.info" not in (tmp_path / "netnew" / "1997.txt").read_text().split()
+
+
+def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
+    """The same rows in either insertion order, as a store rewrite lays them down again: his
+    pair, ours, a web hostname, header-only hosts, a candidate and two ISC survey editions."""
+    news = "https://archive.org/download/usenet-alt/alt.test.mbox.zip"
+    zone = "http://nw.com/zone/WWW/9901/isc.hosts/net.gz"
+    listing = "artifact_listing"
+    headers = (("news.example.org", 2000), ("news.example.org", 2001), ("mail.example.org", 1998))
+    surveys = (("1999-01", "Mail.isc.net"), ("1999-07", "mail.isc.net"))
+    rows = [
+        ("prior_task", "base.com", 1997, "prior_reused", "1997.txt", None, None),
+        ("ia_cdx", "new.com", 1997, "cdx_timestamp", "19970101000000", None, None),
+        ("ia_cdx", "web.com", 1999, "cdx_timestamp", "19990101000000", None, "www2.web.com"),
+        # a second type for one source, whose reported type must not follow the row order
+        ("ia_cdx", "dir.com", 1998, "dated_directory", "1998/05 dir.com", None, None),
+        *(("usenet", "example.org", y, listing, f"a#{y} {h}", news, h) for h, y in headers),
+        *(
+            (ISC_SOURCE, "isc.net", 1999, listing, f"isc survey {e} host {h}", zone, None)
+            for e, h in surveys
+        ),
+        ("ia_cdx", "cand.org", None, None, None, None, None),
+    ]
+    methods = {"ia_cdx": "ia_cdx_domain_sweep", "usenet": "usenet_server_written_header"}
+    conn = connect(":memory:")
+    init_db(conn)
+    for source, domain, year, kind, value, url, host in rows[::-1] if reverse else rows:
+        sid = ensure_source(conn, source, "timestamped")
+        add_candidate(conn, domain, sid)
+        if year is None:
+            continue
+        method = methods.get(source, source)
+        eid = record_evidence(conn, domain, sid, year, kind, value, url, acquisition_method=method)
+        if source == ISC_SOURCE:
+            continue
+        assign_year(conn, eid)
+        if host:
+            conn.execute(
+                "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+                "VALUES (?, ?, ?, ?)",
+                [host, domain, year, eid],
+            )
+    return conn
+
+
+def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path, monkeypatch) -> None:
+    """A store swaps in only when its export matches the old one byte for byte, so the files
+    depend on the rows and never on their physical order. `hostname_year`'s key already makes
+    header provenance unique on hostname and year; its ORDER BY names every column anyway."""
+    import hashlib
+
+    baseline = _fake_baseline(tmp_path)
+    # the hostname half reads baseline_dir(), which is his real release in a checkout
+    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
+
+    def export(conn: duckdb.DuckDBPyConnection, name: str) -> dict[str, str]:
+        out = tmp_path / name
+        export_all(
+            conn,
+            netnew_dir=out / "netnew",
+            candidates_path=out / "candidates.txt",
+            masters_dir=out / "exports",
+            report_dir=out / "reports",
+            provenance_dir=out / "provenance",
+            baseline=baseline,
+        )
+        return {
+            str(p.relative_to(out)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(out.rglob("*"))
+            if p.is_file()
+        }
+
+    forward = _one_logical_store(reverse=False)
+    first = export(forward, "first")
+    assert export(forward, "second") == first
+    assert export(_one_logical_store(reverse=True), "reversed") == first
+    netnew = tmp_path / "first" / "netnew"
+    summary = json.loads((netnew / "candidate_additions_summary.json").read_text())
+    assert list(summary["by_unit"]) == ["hostname", "registrable"]
+    assert len((netnew / "header_candidates_provenance.csv").read_text().splitlines()) == 4
+    assert len((netnew / "isc_survey_provenance.csv").read_text().splitlines()) == 3

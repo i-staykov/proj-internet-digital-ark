@@ -1,5 +1,5 @@
-# Scripts ark-fleet runs from its own clone of `live`. Nothing in this repository calls them,
-# so the hygiene test would otherwise report them as orphans. One tracked path per line.
+# Scripts ark-fleet runs from its own clone of `live`, one tracked path per line.
+# tests/test_hygiene.py fails when one of them is moved or deleted.
 scripts/harness/pick_hypotheses.py
 scripts/harness/researcher_brief.py
 scripts/harness/cdx_slot.sh
