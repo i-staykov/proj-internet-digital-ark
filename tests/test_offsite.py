@@ -229,6 +229,25 @@ def test_upload_prints_the_commands_and_runs_nothing_without_yes(tmp_path: Path,
     assert not any(word in out for word in ("--delete", "rclone sync", "rclone move", "purge"))
 
 
+def test_entry_narrows_upload_and_verify_to_the_named_rows(
+    tmp_path: Path, capsys, fake_rclone
+) -> None:
+    """A round goes to Drive without the whole payload going first, and its receipt covers
+    exactly the rows checked."""
+    build(tmp_path, [r for r in ROWS if r[0] != "data/raw/nosum"])
+    assert run(tmp_path, "--manifest") == 0
+    capsys.readouterr()
+    assert run(tmp_path, "--upload", "--entry", "data/raw/journal") == 0
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.startswith("rclone copy")]
+    assert len(lines) == 1 and lines[0].endswith("/data/raw/journal")
+    assert run(tmp_path, "--upload", "--yes", "--entry", "data/raw/journal") == 0
+    assert run(tmp_path, "--verify", "--entry", "data/raw/journal") == 0
+    receipt = offsite.read_receipt(tmp_path)
+    assert receipt and all(path.startswith("data/raw/journal/") for path in receipt)
+    assert run(tmp_path, "--verify", "--entry", "data/raw/nowhere") == 2
+    assert "not in offsite-manifest.tsv: data/raw/nowhere" in capsys.readouterr().err
+
+
 def test_verify_needs_a_manifest_first(tmp_path: Path, capsys) -> None:
     build(tmp_path)
     assert run(tmp_path, "--verify") == 2

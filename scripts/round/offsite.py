@@ -14,12 +14,16 @@ are neither regenerable by a recipe nor refetchable from somebody else:
     already recorded in `data/raw/usenet_catalog.json`.
 
 Everything else stays local only: a recipe rebuilds it, or a URL in its row fetches
-it. `private/` has no row and so can never appear (C-62).
+it. `private/` has no row and so can never appear.
 
     uv run python scripts/round/offsite.py --manifest        # price the payload
     uv run python scripts/round/offsite.py --upload          # print the commands
     uv run python scripts/round/offsite.py --upload --yes    # run them
     uv run python scripts/round/offsite.py --verify          # remote against manifest
+
+`--entry PATH`, repeatable, narrows `--upload` and `--verify` to those manifest rows, so a
+round can go to Drive without the whole payload going first. A narrowed `--verify` writes a
+receipt for exactly the rows it checked.
 
 `--manifest` writes `data/offsite-manifest.tsv` (untracked, like the `SHA256SUMS`
 files it reads) and refuses any entry whose row carries no checksum record: an
@@ -524,6 +528,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--table", type=Path, default=None, help="retention table (default under --root)"
     )
+    ap.add_argument(
+        "--entry",
+        action="append",
+        default=[],
+        help="with --upload or --verify, only this manifest row (repeatable)",
+    )
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
 
     root: Path = args.root.resolve()
@@ -546,6 +556,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{manifest} is missing: run --manifest first.", file=sys.stderr)
         return 2
     rows = read_manifest(manifest)
+    if args.entry:
+        unknown = sorted(set(args.entry) - {row.entry for row in rows})
+        if unknown:
+            print(f"not in {manifest.name}: {', '.join(unknown)}", file=sys.stderr)
+            return 2
+        rows = [row for row in rows if row.entry in args.entry]
 
     if args.upload:
         print("\n".join(upload(rows, root, args.remote, args.yes)))

@@ -70,9 +70,9 @@ ROUND_DIR="submissions/$ROUND"
 # code, and a reviewer running it would have regenerated the withdrawn rows.
 #
 # `submissions/` is excluded because it is this script's own OUTPUT, not an input
-# to the source snapshot. Every run rewrites the round's MANIFEST, checksum and
-# report copy, so including it made the second packaging run refuse on the first
-# run's results, which is a guard tripping over its own footprints.
+# to the source snapshot. Every run rewrites the round's MANIFEST and checksum, so
+# including it made the second packaging run refuse on the first run's results,
+# which is a guard tripping over its own footprints.
 DIRTY=$(git status --porcelain --untracked-files=no -- . ':(exclude)submissions')
 if [ -n "$DIRTY" ]; then
     echo "refusing to package: tracked files are modified, so source/ would not match the results" >&2
@@ -587,15 +587,11 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # of `submissions/...` makes that fail before they have checked anything.
 ( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
 
-# What stays in git after the tarball is git-ignored: the report as sent, the
-# checksum, and a manifest naming the commit and the baseline. Together those are
-# enough to say later exactly what was claimed in a given round and to prove a
-# recovered tarball is the one that was sent, without keeping gigabytes in the
-# repository. Rebuilding a superseded round is `git checkout <commit>` then
+# What stays in git after the tarball is git-ignored: the checksum, and a manifest
+# naming the commit and the baseline. The report and registers as sent are at that
+# commit, and the checksum proves a recovered tarball is the one that was sent, so no
+# copy of either is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
-cp docs/report.md "$ROUND_DIR/report.md"
-cp docs/registers/sources.md "$ROUND_DIR/sources.md"
-cp docs/registers/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -622,6 +618,6 @@ Delivery archive ready, in $ROUND_DIR/
   sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
-Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
+Tracked beside it: MANIFEST.txt and the .sha256.
 The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF
