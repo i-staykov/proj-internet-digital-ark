@@ -1,11 +1,11 @@
 """Where the round stands, in thirty lines, from a snapshot.
 
-Reads `data/brief.json`, written by `scripts/round/build_round_state.py` (so by
-`just state`, `just cycle` and `just sync`), plus `private/handoff.md` when the
-last session left one. Never the store and never the network: opening the store
-waits up to 900 s on a writer's lock, which hangs a session-start hook at its 60 s
-default. So this reads a file and says how old it is; a stale or missing snapshot
-is one line pointing at `just state`.
+Reads `data/brief.json`, which `just bank` and `just state` write, plus
+`private/handoff.md` when the last session left one. Stdlib only, never the store and
+never the network: the SessionStart hook stops it at 10 s, and opening the store waits
+up to 900 s on a writer's lock. So this reads a file and says how old it is. Field 5 is
+quoted as the snapshot spells it; a stale or missing snapshot, or one without field 5,
+is one line saying where to look.
 
     uv run python scripts/agents/brief.py            # just brief
 """
@@ -36,31 +36,19 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
     age = hours_between(parse_stamp(snapshot["written_at"]), now)
     if age > STALE_HOURS:
         return [f"brief is {age / 24:.1f} days old ({snapshot['written_at']}): run `just state`"]
-    # **The gate line is the round's own window when the snapshot carries one.** The total
-    # is measured against his current release, which still lacks the round already sent, so
-    # it reads several points high the day a new window opens. A snapshot written before
-    # the window figures existed keeps the old single line rather than claiming them.
-    windowed = "round_ee" in snapshot
-    gap = snapshot["round_distance_to_gate_ee"] if windowed else snapshot["distance_to_gate_ee"]
+    if "field5_percent" not in snapshot:
+        return ["brief carries no field 5: docs/ROUND.md says why"]
+    gap = snapshot["distance_to_gate_ee"]
     gate = f"{snapshot['gate_pct']:g}%"
     standing = (
         f"{abs(gap):,.0f} EE short of {gate}" if gap > 0 else f"{abs(gap):,.0f} EE past {gate}"
     )
-    lines = [f"brief written {age:.1f} h ago ({snapshot['written_at']})"]
-    if windowed:
-        lines += [
-            f"round {snapshot['round']} since {str(snapshot.get('round_since', '?'))[:10]}: "
-            f"{snapshot['round_pairs']:,} pairs, {snapshot['round_ee']:,.4f} EE, "
-            f"{snapshot['round_percent']:.4f}%, {standing}",
-            f"against {snapshot['baseline']} in total: {snapshot['netnew_pairs']:,} net-new "
-            f"pairs, {snapshot['netnew_ee']:,.4f} EE, {snapshot['percent']:.4f}%",
-        ]
-    else:
-        lines += [
-            f"round {snapshot['round']} against {snapshot['baseline']}: "
-            f"{snapshot['netnew_pairs']:,} net-new pairs, {snapshot['netnew_ee']:,.4f} EE, "
-            f"{snapshot['percent']:.4f}%, {standing}",
-        ]
+    lines = [
+        f"brief written {age:.1f} h ago ({snapshot['written_at']})",
+        f"round {snapshot['round']} against {snapshot['baseline']}: "
+        f"field 3 {snapshot['netnew_pairs']:,} records, field 4 {snapshot['netnew_ee']:,.4f} EE, "
+        f"field 5 {snapshot['field5_percent']}%, {standing}",
+    ]
     waiting = snapshot["waiting_on_human"]
     lines.append(
         f"waiting on a human: {waiting['approvals']} approvals pending, "

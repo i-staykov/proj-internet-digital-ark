@@ -282,3 +282,150 @@ def test_arquivo_journals_get_their_own_source_row() -> None:
         SOURCE_NAME,
         SWEEP_METHOD,
     )
+
+
+def _audit(tmp_path: Path, errors: list[tuple[str, ...]], repoint: list[tuple[str, ...]]) -> Path:
+    """A status audit's two files: error captures, and each error host-year's earliest 2xx."""
+    audit = tmp_path / "audit"
+    audit.mkdir(exist_ok=True)
+    for name, header, rows in (
+        ("status_errors.tsv.gz", "hostname\tts\tstatus\tfamily", errors),
+        ("status_repoint.tsv.gz", "hostname\tyear\tts\tfamily", repoint),
+    ):
+        with gzip.open(audit / name, "wt") as fh:
+            fh.write("\n".join([header, *("\t".join(r) for r in rows)]) + "\n")
+    return audit / "status_errors.tsv.gz"
+
+
+def _store_on_error_captures(tmp_path: Path) -> tuple[duckdb.DuckDBPyConnection, Path]:
+    """Three host-years banked before rows carried a status. The audit says a 1999 and a
+    2000 capture were errors; only the 1999 host-year has a 2xx elsewhere in the raw."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    rows = [
+        ("http://a.example.com/", "19990101000000", "200"),
+        ("http://b.example.com/", "20000101000000", "200"),
+        ("http://c.example.com/", "20010101000000", "200"),
+    ]
+    ingest_hostname_journal(conn, write(tmp_path, rows, "nypw_status_t.jsonl.gz"))
+    audit = _audit(
+        tmp_path,
+        [
+            ("a.example.com", "19990101000000", "404", "nypw"),
+            ("b.example.com", "20000101000000", "503", "nypw"),
+        ],
+        [("a.example.com", "1999", "19990601000000", "nypw")],
+    )
+    return conn, audit
+
+
+def test_a_record_on_an_error_capture_is_repointed_or_retracted(tmp_path) -> None:
+    from ark.hostnames import retract_error_captures
+
+    conn, audit = _store_on_error_captures(tmp_path)
+    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"), audit=audit)}
+    assert results["no_master_record_points_to_an_error_capture"]["offending"] == 4
+
+    counted = retract_error_captures(conn, audit, write=False, netnew_dir=tmp_path)
+    assert counted == {
+        "hy_hit_repoint_nypw": 1,
+        "hy_hit_retract_nypw": 1,
+        "dy_hit_repoint_nypw": 1,
+        "dy_hit_retract_nypw": 1,
+    }
+    assert len(_shipped(conn)) == 3, "a dry run changes nothing"
+
+    retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
+    values = dict(
+        conn.execute(
+            "SELECT hy.hostname, e.evidence_value FROM hostname_year hy "
+            "JOIN evidence e USING (evidence_id)"
+        ).fetchall()
+    )
+    assert values == {
+        "a.example.com": "cdx capture 19990601000000 a.example.com",
+        "b.example.com": "cdx capture 20000101000000 status 503 b.example.com",
+        "c.example.com": "cdx capture 20010101000000 c.example.com",
+    }
+    assert _shipped(conn) == [("a.example.com", 1999), ("c.example.com", 2001)]
+    shipped_years = conn.execute(
+        "SELECT assigned_year FROM domain_year dy "
+        f"WHERE {web_evidence_exists('dy.evidence_id')} ORDER BY 1"
+    ).fetchall()
+    assert shipped_years == [(1999,), (2001,)]
+    results = collect_checks(conn, Path("no-such-export"), audit=audit)
+    assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
+
+
+def test_a_retracted_year_another_web_family_captured_comes_back(tmp_path) -> None:
+    from ark.hostnames import retract_error_captures
+
+    conn, audit = _store_on_error_captures(tmp_path)
+    other = tmp_path / "other"
+    other.mkdir()
+    write(other, [("http://b.example.com/x", "20000301000000")], "suffix_example_com_t.jsonl.gz")
+    stats = retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=(other,))
+    assert stats["restored_by_another_web_family"] == 1
+    assert stats["left_on_an_error_capture"] == 0
+    assert ("b.example.com", 2000) in _shipped(conn)
+    assert (2000,) in conn.execute(
+        f"SELECT assigned_year FROM domain_year dy WHERE {web_evidence_exists('dy.evidence_id')}"
+    ).fetchall()
+    # read past the ledger for that key alone, and the ledger is left as it was
+    names = [n for (n,) in conn.execute("SELECT file_name FROM ingested_file").fetchall()]
+    assert names == ["nypw_status_t.jsonl.gz"]
+
+
+def test_a_parent_year_never_moves_onto_a_candidate_only_row(tmp_path) -> None:
+    """A link target is candidate-only however web its method is, so a retracted parent year
+    stays on its error row rather than ship on one."""
+    from ark.hostnames import retract_error_captures
+
+    conn, audit = _store_on_error_captures(tmp_path)
+    source = conn.execute("SELECT source_id FROM source LIMIT 1").fetchone()[0]
+    conn.execute(
+        "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value, "
+        "acquisition_method) VALUES ('example.com', ?, 2000, 'link_target', "
+        "'host_link_graph:2000', 'ukwa_host_link_graph')",
+        [source],
+    )
+    retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
+    shipped = conn.execute(
+        "SELECT assigned_year FROM domain_year dy "
+        f"WHERE {web_evidence_exists('dy.evidence_id')} ORDER BY 1"
+    ).fetchall()
+    assert shipped == [(1999,), (2001,)]
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export"), audit=audit))
+
+
+def test_a_stopped_write_resumes_and_a_same_second_capture_of_another_family_repoints(
+    tmp_path,
+) -> None:
+    from ark.hostnames import retract_error_captures
+
+    conn, audit = _store_on_error_captures(tmp_path)
+    retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
+    # the re-read of the other families stopped: a rerun finds the retracted row again
+    other = tmp_path / "other"
+    other.mkdir()
+    write(other, [("http://b.example.com/x", "20000301000000")], "suffix_example_com_t.jsonl.gz")
+    again = retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=(other,))
+    assert again["restored_by_another_web_family"] == 1
+    assert ("b.example.com", 2000) in _shipped(conn)
+
+    # an Early Web 200 at the very second NYPW answered 404 is a capture of its own
+    (tmp_path / "second").mkdir()
+    conn, _ = _store_on_error_captures(tmp_path / "second")
+    same = _audit(
+        tmp_path / "second",
+        [("a.example.com", "19990101000000", "404", "nypw")],
+        [("a.example.com", "1999", "19990101000000", "early_web")],
+    )
+    retract_error_captures(conn, same, write=True, netnew_dir=tmp_path, journals=())
+    method = conn.execute(
+        "SELECT e.acquisition_method FROM hostname_year hy JOIN evidence e USING (evidence_id) "
+        "WHERE hy.hostname = 'a.example.com'"
+    ).fetchone()[0]
+    assert method == "early_web_hostgrain"
+    assert ("a.example.com", 1999) in _shipped(conn)
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export"), audit=same))

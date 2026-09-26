@@ -7,9 +7,9 @@ then. So once a day this reads what the machine already measured and posts it as
 comment on one issue, which is a surface a phone can open.
 
 **It measures nothing itself.** Every figure is read from `data/brief.json`, which the
-hourly bank writes at the end of its run, or from the mtimes of the journals the sweeps
-close. A digest that re-derived the round would be a second opinion nobody asked for, and
-the two would drift.
+bank writes at the end of its run, or from the mtimes of the sync log and of the journals
+the sweeps close. A digest that re-derived the round would be a second opinion nobody
+asked for, and the two would drift.
 
 **The absence of a comment is a signal too.** If the laptop sleeps or the job is unloaded,
 no digest appears, which is the one failure this cannot report on its own.
@@ -41,6 +41,7 @@ from ark.key_decisions import open_titles  # noqa: E402
 REPO = "i-staykov/proj-internet-digital-ark"
 TITLE_PREFIX = "Unattended status"
 BRIEF = ROOT / "data/brief.json"
+SYNC_LOG = ROOT / "data/logs/scheduled_sync.log"
 JOURNALS = ROOT / "data/raw/cdx_suffix"
 
 # **Nothing shaped like an address leaves this machine.** The repository is public and the
@@ -50,7 +51,8 @@ JOURNALS = ROOT / "data/raw/cdx_suffix"
 _ADDRESS = re.compile(r"\b\d{1,3}(\.\d{1,3}){3}\b|@")
 
 STALL_HOURS = 4.0
-BRIEF_STALL_HOURS = 3.0
+# The sync log is appended every hourly tick; the brief moves only when a bank runs.
+SYNC_STALL_HOURS = 3.0
 
 # The fleet repository is private, so it is named here and never in what gets posted.
 FLEET = "i-staykov/ark-fleet"
@@ -173,17 +175,18 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
     written = datetime.fromisoformat(brief["written_at"]).timestamp()
     brief_age = hours_since(written, now)
     day, since_journal = journal_activity(now)
+    since_sync = hours_since(SYNC_LOG.stat().st_mtime, now) if SYNC_LOG.is_file() else None
     running = clients()
     free_gib = shutil.disk_usage(ROOT).free / 1024**3
 
-    gap = brief.get("round_distance_to_gate_ee", brief["distance_to_gate_ee"])
-    gate_ee = brief["round_ee"] + gap if "round_ee" in brief else None
-    share = (brief["round_ee"] / gate_ee * 100) if gate_ee else 0.0
+    pct = brief["field5_percent"]
+    gap = brief["distance_to_gate_ee"]
+    share = float(pct) / float(brief.get("gate_pct", 5)) * 100
 
     stalled = []
     if since_journal is None or since_journal > STALL_HOURS:
         stalled.append("collectors quiet")
-    if brief_age > BRIEF_STALL_HOURS:
+    if since_sync is None or since_sync > SYNC_STALL_HOURS:
         stalled.append("sync quiet")
     fleet = waves(now)
     if fleet and (fleet[0] is None or fleet[0] > FLEET_STALL_HOURS):
@@ -197,13 +200,14 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
     lines = [
         f"### {stamp}",
         "",
-        f"**Round {brief['round']}** since {str(brief.get('round_since', '?'))[:10]}: "
-        f"{brief.get('round_pairs', 0):,} records, {brief.get('round_ee', 0):,.0f} EE, "
-        f"**{share:.1f}%** of the 5% gate ({abs(gap):,.0f} EE {'short' if gap > 0 else 'past'}).",
+        f"**Round {brief['round']}** field 5 {pct}%, **{share:.1f}%** of the 5% gate "
+        f"({abs(gap):,.0f} EE {'short' if gap > 0 else 'past'}).",
         "",
         f"- collectors: {running} of 2 clients, {day} journals closed in 24 h, "
         + (f"last write {since_journal:.1f} h ago" if since_journal is not None else "none yet"),
-        f"- last bank: {brief_age:.1f} h ago. Free space: {free_gib:,.0f} GiB.",
+        "- last sync: "
+        + (f"{since_sync:.1f} h ago" if since_sync is not None else "none yet")
+        + f", last bank: {brief_age:.1f} h ago. Free space: {free_gib:,.0f} GiB.",
         "- fleet: " + fleet_line(fleet),
         f"- waiting on you: {len(priced)} priced classes, {len(open_titles())} open decisions.",
         "",
@@ -222,7 +226,7 @@ def compose(brief: dict, now: float | None = None) -> tuple[str, str]:
         lines += top
         lines += [""]
     lines += [
-        "Nothing here was measured by this comment: the figures are the hourly bank's, "
+        "Nothing here was measured by this comment: the figures are the last bank's, "
         "read out of `data/brief.json`. No comment at all on a given day means the laptop "
         "or the job stopped, which is the one thing this cannot report itself.",
     ]
@@ -300,7 +304,11 @@ def main() -> int:
     if not BRIEF.is_file():
         print("no data/brief.json: run `just state` first")
         return 1
-    title, body = compose(json.loads(BRIEF.read_text(encoding="utf-8")))
+    brief = json.loads(BRIEF.read_text(encoding="utf-8"))
+    if "field5_percent" not in brief:
+        print("data/brief.json carries no field5_percent: docs/ROUND.md says why")
+        return 1
+    title, body = compose(brief)
     if not args.write:
         print(title)
         print()
