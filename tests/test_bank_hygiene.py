@@ -141,20 +141,24 @@ def test_a_dirty_clone_is_refused_before_anything_is_fetched(tmp_path: Path) -> 
     assert (ours / "src/page.txt").read_text(encoding="utf-8") == "mine\n"
 
 
-def test_an_untracked_file_is_fatal_only_where_the_bank_stages_by_directory(
-    tmp_path: Path,
-) -> None:
-    """`git add docs/` is how a 1.3 GB copy once reached history; a scratch file is not."""
+def test_an_untracked_file_is_fatal_only_where_the_bank_stages(tmp_path: Path) -> None:
+    """The bank's `git add` names the registers, so a draft there would be committed; a
+    scratch file at the root or under src/ is nobody's business but its author's."""
     _, ours = _clones(tmp_path)
     (ours / "scratch.txt").write_text("notes\n", encoding="utf-8")
-    code, lines = preflight_in(ours)
-    assert code == 0
-    assert any("untracked, not staged by the bank" in line for line in lines)
-
     (ours / "src/new.txt").write_text("draft\n", encoding="utf-8")
     code, lines = preflight_in(ours)
+    assert code == 0
+    assert sum("untracked, not staged by the bank" in line for line in lines) == 2
+
+    (ours / "docs/registers").mkdir(parents=True)
+    (ours / "docs/registers/sources.md").write_text("rows\n", encoding="utf-8")
+    _git(ours, "add", "docs/registers/sources.md")
+    _git(ours, "commit", "-m", "registers")
+    (ours / "docs/registers/new.txt").write_text("draft\n", encoding="utf-8")
+    code, lines = preflight_in(ours)
     assert code == 2
-    assert any("src/new.txt" in line for line in lines)
+    assert any("docs/registers/new.txt" in line for line in lines)
 
 
 def test_a_diverged_clone_is_refused_rather_than_merged(tmp_path: Path) -> None:

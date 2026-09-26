@@ -253,8 +253,8 @@ def download(
     """Stream one artifact to `dest` and return the bytes written.
 
     Writes a `.part` file and renames, so a truncated download is never a journal.
-    A throttle is reported with its `Retry-After` and not slept through: the bank
-    runs hourly, and the next one asks again.
+    A throttle is reported with its `Retry-After` and not slept through: the block
+    stays a reason for the trigger, and the next bank asks again.
     """
     if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
         raise RefetchFailed(f"not an http URL: {url}")

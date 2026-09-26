@@ -107,20 +107,17 @@ ACCOUNTED = {
     "texts": "trade-press OCR cache, read by scripts/sources/trade_press/reextract_trade_press.py",
     "webbase": "rejected on measurement: 99.99% already held, and re-tested 2026-08-27 "
     "on the held-and-missing-2001 screen at exactly 0 pairs",
-    # 806 MB that reads as the largest unexplained block on disk and is fully processed
-    # INPUT, checked 2026-08-27. `cdx_suffix_convert.py` collapses these capture rows
-    # into `cdx_snapshot` shape under `data/raw/cdx/cdx_suffix_*.jsonl.gz`, 46 of which
-    # are in the ledger, and the newest converted journal (2026-08-27 02:36) postdates
-    # the newest raw one (2026-08-24 10:51) with no stranded `.part`. So every capture
-    # has been banked. `unreferenced` cannot tell "raw input already converted" from
-    # "bytes nothing reads", which is why this needs saying here rather than being
-    # rediscovered.
-    "cdx_suffix": "raw sweep input; converted to cdx_snapshot journals, all banked",
+    # The largest block on disk, and INPUT: `ark ingest-hostnames` reads these capture rows
+    # and `cdx_suffix_convert.py` turns their exact-host registrables into `cdx_snapshot`
+    # journals under `data/raw/cdx/`. `unreferenced` cannot tell "raw input" from "bytes
+    # nothing reads", which is why this needs saying here rather than being rediscovered.
+    "cdx_suffix": "raw sweep input; converted incrementally, state in "
+    "data/raw/cdx/cdx_suffix_convert.state.tsv",
     # Deliberately unreachable, and it must stay that way until Ivo rules. Nominet's
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
-    # collection, so these three journals are held where no ingest glob matches them
-    # and `maintain.sh` cannot bank them. See docs/lore/key-decisions.md.
+    # collection, so these three journals are held where no ingest or bank glob matches
+    # them. See docs/lore/key-decisions.md.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
     # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
@@ -160,7 +157,7 @@ def read_only_store(path: Path, patience_s: int = 900) -> duckdb.DuckDBPyConnect
     """Open for reading, waiting out a writer.
 
     Patience is 15 minutes, not the 2 minutes this first shipped with. That was
-    sized against `just maintain`, which holds the write lock for seconds, and it
+    sized against a writer that holds the write lock for seconds, and it
     failed the first time it met a real writer: `ark seed` over 29,432 names holds
     the lock for more than twenty minutes, so a read-only audit gave up at
     exactly the moment the audit was worth running. A writer that outlasts even

@@ -68,7 +68,7 @@ class Box:
         for name in ("hold.sh", "collectors.sh", "scheduled_sync.sh"):
             shutil.copy(ROOT / "scripts" / "harness" / name, harness / name)
         shutil.copy(ROOT / "justfile", self.repo / "justfile")
-        # The sync stops at its lock, so reaching the lock is passing the hold.
+        # The sync and the bank stop at the lock, so reaching it is passing the hold.
         (harness / "sync_lock.sh").write_text('echo "reached the lock"; exit 3\n')
         self.agents.mkdir(parents=True)
         (self.shim / "launchd" / "loaded").mkdir(parents=True)
@@ -174,17 +174,19 @@ def test_off_one_job_lifts_only_that_job(box):
 
 
 @pytest.mark.skipif(JUST is None, reason="just not on PATH")
-def test_the_sync_and_the_install_obey_the_hold(box):
+def test_the_sync_the_bank_and_the_install_obey_the_hold(box):
     box.hold("on")
     before = len(box.launchd_calls())
-    sync = box.just("sync")
-    assert (sync.returncode, sync.stdout.strip()) == (0, "held")
+    for recipe in ("sync", "bank"):
+        done = box.just(recipe)
+        assert (done.returncode, done.stdout.strip()) == (0, "held"), recipe
     install = box.just("schedule", "install")
     assert install.returncode != 0 and "just hold off" in install.stderr
     assert box.launchd_calls()[before:] == []
     box.hold("off", "com.ark.sync")
     before = len(box.launchd_calls())
-    assert "reached the lock" in box.just("sync").stdout
+    for recipe in ("sync", "bank"):
+        assert "reached the lock" in box.just(recipe).stdout, recipe
     install = box.just("schedule", "install")
     assert install.returncode != 0 and "just hold off" in install.stderr
     assert box.launchd_calls()[before:] == []
