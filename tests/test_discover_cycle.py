@@ -192,18 +192,21 @@ def _fake_gh(tmp_path, monkeypatch, runs) -> Path:
 
 def test_an_idle_leg_slot_is_reported_and_nothing_is_dispatched(tmp_path, monkeypatch) -> None:
     """`leg.yaml`'s schedule is the watchdog that starts an idle slot, so the laptop reports
-    and never runs `gh workflow run`: the old check dispatched the next wave itself."""
+    and never runs `gh workflow run`: the old check dispatched the next wave itself. Only a
+    title that is exactly `Leg slot N` holds slot N, so `Leg slot 01` and `Leg slot 10`
+    running leave slots 0 and 1 idle."""
     runs = [
         {"displayTitle": "Leg watchdog", "status": "in_progress"},
-        {"displayTitle": "Leg slot 0", "status": "in_progress"},
+        {"displayTitle": "Leg slot 0", "status": "completed"},
         {"displayTitle": "Leg slot 1", "status": "completed"},
         {"displayTitle": "Leg slot 2", "status": "queued"},
         {"displayTitle": "Leg slot 01", "status": "in_progress"},
+        {"displayTitle": "Leg slot 10", "status": "in_progress"},
         {"displayTitle": "Leg slot 5", "status": "in_progress"},
     ]
     log = _fake_gh(tmp_path, monkeypatch, runs)
     findings, attention = cycle.check_leg_slots(_fleet(tmp_path, 3))
-    said = "leg slots: 1 of 3 idle (slot 1), for leg.yaml's watchdog to start"
+    said = "leg slots: 2 of 3 idle (slot 0, 1), for leg.yaml's watchdog to start"
     assert (findings, attention) == ([said], [])
     calls = log.read_text().splitlines()
     assert len(calls) == 1 and calls[0].startswith("run list"), calls

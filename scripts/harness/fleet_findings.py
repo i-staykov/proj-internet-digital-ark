@@ -9,7 +9,7 @@ store, and the scribe books both numbers side by side. A FIND that ships no item
 re-priced, and that says so in the register rather than passing as measured.
 
 Four subcommands, in order: the tick runs drain and validate, `just bank` runs reprice and,
-once the register commit has landed, outcome.
+once its commit has landed, outcome over this drain and every drain banked before it.
 
     drain     the downloaded run directories become one directory per lead, and the old
               TSV ledger becomes the fleet ledger's legacy lines, once
@@ -23,7 +23,7 @@ once the register commit has landed, outcome.
         --fleet ~/Documents/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming
     uv run python scripts/harness/fleet_findings.py outcome data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet [--register R] [--banked]
+        data/fleet_findings/banked/*/ --fleet ~/Documents/GitHub/ark-fleet [--register R] [--db D]
 """
 
 from __future__ import annotations
@@ -61,11 +61,18 @@ NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
 # The old spend record, converted once into legacy lines and then deleted. `ARK_FLEET_LEDGER`
 # moves it, so a drain under test never deletes the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
+# The store whose ingested files say which sources are banked, read only, under the bank's lock.
+DB = REPO / "data/ark.duckdb"
+# The decisions that let a source's rows into the store at all.
+INGESTIBLE = frozenset({"master", "candidate-only"})
 
 _ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
 _HOST_EE = re.compile(r"NET-NEW hostname years ([\d,]+)\s+([\d,]+\.?\d*) EE")
 # The old ledger's first field: the drain's minute, as the tick's run label writes it.
 _STAMP = re.compile(r"\d{8}T\d{4}Z")
+# A row a test drain wrote into the live TSV: 5 tokens and no window. #171 drops these by
+# this shape; converted first, they would stand in the fleet ledger for good.
+_TEST_ROW = re.compile(r"\d{8}T\d{4}Z\t5\t\?")
 
 
 def _number(text: str) -> float:
@@ -189,8 +196,8 @@ def convert_ledger(fleet: Path | None) -> None:
     stamp as the line's time. The fleet keys a legacy line on the row and the text together,
     because the old ledger repeats identical rows, so a rerun over a fresh copy adds none.
     Anything short of every row in the fleet ledger keeps the file for the next tick: a fleet
-    clone that predates `scripts/ledger.py`, which the sync never pulls, or a row with no
-    stamp to date it. Neither stops the tick.
+    clone that predates `scripts/ledger.py`, which the sync never pulls, a row with no stamp
+    to date it, or a test drain's row still waiting for #171's drop. None stops the tick.
     """
     tsv = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
     if not tsv.is_file():
@@ -200,8 +207,16 @@ def convert_ledger(fleet: Path | None) -> None:
         print(f"drain: {tsv.name} kept, {where} to convert it into")
         return
     body = tsv.read_text(encoding="utf-8")
+    lines = body.removesuffix("\n").split("\n") if body else []
+    tests = sum(1 for line in lines if _TEST_ROW.fullmatch(line))
+    if tests:
+        print(
+            f"drain: {tsv.name} kept, {tests} rows are a test drain's (5 tokens, no window):"
+            " #171's drop must run before the conversion"
+        )
+        return
     rows = []
-    for number, line in enumerate(body.removesuffix("\n").split("\n") if body else [], 1):
+    for number, line in enumerate(lines, 1):
         stamp = line.split("\t", 1)[0]
         try:
             if not _STAMP.fullmatch(stamp):
@@ -426,14 +441,42 @@ def decision_of(decided: dict, source: str, etype) -> str:
     return "pending"
 
 
-def outcome(incoming: Path, fleet: Path, register: Path | None, banked: bool) -> int:
-    """One outcome line per confirmed FIND with a store price, in one append.
+def ingested(db: Path) -> set[str] | None:
+    """Every source name the store's ingest wrote, or None when the store cannot be read.
+    Read only: `just bank` holds the lock that keeps any writer out."""
+    try:
+        import duckdb
+
+        conn = duckdb.connect(str(db), read_only=True)
+    except Exception as exc:
+        print(f"outcome: the store could not be opened ({exc}), so nothing is banked")
+        return None
+    try:
+        rows = conn.execute("SELECT DISTINCT source_name FROM ingested_file").fetchall()
+    except Exception as exc:
+        print(f"outcome: the store's ingested files could not be read ({exc}), nothing is banked")
+        return None
+    finally:
+        conn.close()
+    return {str(name) for (name,) in rows if name}
+
+
+def outcome(roots: list[Path], fleet: Path, register: Path | None, db: Path = DB) -> int:
+    """One outcome line per confirmed FIND with a store price under `roots`, in one append.
 
     The line carries both figures and how far they agree, so the streak that hands the
     decision to the program's figure is read from the fleet ledger and not from a count kept
-    here. `banked` is true only for a `master` decision whose register commit has landed,
-    which the caller says with `--banked`, and it is a JSON bool: the fleet keys a line on
-    slug, decision and banked, and the string `"true"` would key as another line.
+    here. **`banked` is the store's say, not the bank's**: true only once the source the
+    register block names is among the store's ingested files under a decision that admits
+    rows. A standing-rule master over a source with no ingest spec banks nothing, and a
+    master a previous bank committed and ingested is banked whenever this runs next. It is a
+    JSON bool: the fleet keys a line on slug, decision and banked, and the string `"true"`
+    would key as another line.
+
+    The bank passes this drain and every drain banked before it, so a find the owner
+    approves later, or one ingested later, gains its banked line then; a line the ledger
+    holds already is kept, not added. A slug under several roots is booked from its most
+    settled copy. Exits 1 when the lines did not land, so the bank keeps its drain.
     """
     # Imported here: the register is read through the store package, which the drain the
     # tick runs every hour has no need of.
@@ -442,44 +485,62 @@ def outcome(incoming: Path, fleet: Path, register: Path | None, banked: bool) ->
     from ark import approvals
 
     decided = approvals.load(register or fleet_request.REGISTER)
+    finds: dict[str, Path] = {}
+    for root in roots:
+        for path in sidecars(root):
+            finding = load(path)
+            lead = path.parent
+            if finding.get("verdict") != "FIND":
+                continue
+            if (finding.get("verify") or {}).get("status") != "confirmed":
+                continue
+            if not (lead / STORE_PRICE).is_file():
+                continue
+            if lead.name not in finds or freshness(lead) > freshness(finds[lead.name]):
+                finds[lead.name] = lead
+    if not finds:
+        print("outcome: no confirmed FIND with a store price, nothing to book")
+        return 0
+    # The source is named the way the request block names it.
+    sources = {slug: fleet_request.source_key(slug) for slug in finds}
+    decisions = {
+        slug: decision_of(decided, sources[slug], load(lead / LEAD).get("evidence_class"))
+        for slug, lead in finds.items()
+    }
+    held: set[str] = set()
+    if INGESTIBLE & set(decisions.values()):
+        held = {fleet_request.source_key(name) for name in ingested(db) or ()}
     rows = []
-    for path in sidecars(incoming):
-        finding = load(path)
-        lead = path.parent
-        if finding.get("verdict") != "FIND":
-            continue
-        if (finding.get("verify") or {}).get("status") != "confirmed":
-            continue
-        if not (lead / STORE_PRICE).is_file():
-            continue
+    for slug, lead in finds.items():
         store = load(lead / STORE_PRICE)
         store_ee = _figure(store.get("ee"))
         program_ee = _figure(store.get("fleet_program_ee"))
-        # The source is named the way the request block names it.
-        source = fleet_request.source_key(lead.name)
-        decision = decision_of(decided, source, load(lead / LEAD).get("evidence_class"))
         rows.append(
             {
-                "slug": lead.name,
+                "slug": slug,
                 "store_ee": store_ee,
                 "program_ee": program_ee,
                 "agreement_pct": fleet_ledger.agreement_pct(store_ee, program_ee),
-                "decision": decision,
-                "banked": decision == "master" and banked,
+                "decision": decisions[slug],
+                "banked": decisions[slug] in INGESTIBLE and sources[slug] in held,
             }
         )
-    if not rows:
-        print("outcome: no confirmed FIND with a store price, nothing to book")
-        return 0
     ok, said = fleet_ledger.append(fleet, "outcome", rows)
-    print(f"outcome: {len(rows)} confirmed finds, {said if ok else f'not booked: {said}'}")
-    return 0
+    banked = sum(row["banked"] for row in rows)
+    said = said if ok else f"not booked: {said}"
+    print(f"outcome: {len(rows)} confirmed finds, {banked} banked in the store, {said}")
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("command", choices=["drain", "validate", "reprice", "outcome"])
-    ap.add_argument("incoming", type=Path)
+    ap.add_argument(
+        "incoming",
+        type=Path,
+        nargs="+",
+        help="the drain; outcome also takes the drains banked before it",
+    )
     ap.add_argument(
         "--fleet",
         type=Path,
@@ -491,13 +552,17 @@ def main(argv: list[str] | None = None) -> int:
         help="outcome: the approvals register, by default docs/registers/approved-sources-list.md",
     )
     ap.add_argument(
-        "--banked",
-        action="store_true",
-        help="outcome: the register commit has landed, so a master decision is banked",
+        "--db",
+        type=Path,
+        default=DB,
+        help="outcome: the store whose ingested files say what is banked, read only",
     )
     args = ap.parse_args(argv)
 
-    incoming = args.incoming.expanduser()
+    roots = [root.expanduser() for root in args.incoming]
+    if args.command != "outcome" and len(roots) > 1:
+        ap.error(f"{args.command} takes one directory")
+    incoming = roots[0]
     if not incoming.is_dir():
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
@@ -509,7 +574,8 @@ def main(argv: list[str] | None = None) -> int:
     if fleet is None:
         ap.error(f"{args.command} needs --fleet")
     if args.command == "outcome":
-        return outcome(incoming, fleet, args.register, args.banked)
+        # An unmatched glob of banked drains arrives as its own pattern: nothing to book there.
+        return outcome([root for root in roots if root.is_dir()], fleet, args.register, args.db)
     return validate(incoming, fleet)
 
 

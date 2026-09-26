@@ -1,14 +1,16 @@
 """The laptop's reads and appends of the fleet ledger, against a stand-in fleet clone.
 
 The quiet failures. An append that builds its own key would book a find twice the moment
-the fleet's key changed; a reader that took the store figure's streak from lines with no
-program figure would hand the decision to a figure nobody measured.
+the fleet's key changed; a streak that skipped a line with no program figure would hand the
+decision to a figure nobody measured.
 """
 
 import importlib.util
 import json
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 _SPEC = importlib.util.spec_from_file_location(
@@ -110,10 +112,35 @@ def test_ten_finds_in_a_row_within_one_percent_make_a_streak():
     assert not fleet_ledger.streak([*agreeing, outcome("off", 1000.0, 1011.0)])
 
 
-def test_a_find_counts_once_and_a_line_without_both_figures_not_at_all():
+def test_a_find_counts_once_and_a_line_without_a_store_figure_not_at_all():
     agreeing = [outcome(f"s{i}", 1000.0, 1000.0) for i in range(fleet_ledger.STREAK - 1)]
     twice = [outcome("s0", 1000.0, 1000.0, decision="pending", banked=False), *agreeing]
     assert not fleet_ledger.streak(twice), "s0 booked twice is still nine finds"
-    unmeasured = [*agreeing, outcome("store-only", 1000.0, None)]
-    assert not fleet_ledger.streak(unmeasured)
-    assert fleet_ledger.streak([*unmeasured, outcome("tenth", 50.0, 50.4)])
+    unpriced = [*agreeing, outcome("store-failed", None, 1000.0)]
+    assert not fleet_ledger.streak(unpriced)
+    assert fleet_ledger.streak([*unpriced, outcome("tenth", 50.0, 50.4)])
+
+
+@pytest.mark.parametrize("program", [None, 0.0], ids=["no-program-figure", "program-zero"])
+def test_a_line_with_no_program_figure_breaks_the_streak(program):
+    """Skipped, it kept the streak alive and handed every later find to a figure that failed."""
+    agreeing = [outcome(f"s{i}", 1000.0, 1000.0) for i in range(fleet_ledger.STREAK)]
+    assert fleet_ledger.streak(agreeing)
+    assert not fleet_ledger.streak([*agreeing, outcome("snapshot-out", 8000.0, program)])
+
+
+def test_a_rebooked_find_counts_at_its_latest_line_not_its_first():
+    """f0 off, ten agreeing finds, then f0 rebooked off as it is banked: the last ten finds
+    hold f0, so there is no streak. Kept at its first place, f0 would fall out of the window
+    and the program figure would decide while the latest find is 10% off."""
+    agreeing = [outcome(f"f{i}", 1000.0, 1000.0) for i in range(1, fleet_ledger.STREAK + 1)]
+    first = outcome("f0", 1000.0, 1100.0, decision="pending", banked=False)
+    assert not fleet_ledger.streak([first, *agreeing, outcome("f0", 1000.0, 1100.0)])
+    # The other way round: moving f0 to the end pushes the one disagreeing find out.
+    lines = [
+        outcome("f0", 1000.0, 1000.0, decision="pending", banked=False),
+        outcome("f1", 1000.0, 1100.0),
+        *[outcome(f"f{i}", 1000.0, 1000.0) for i in range(2, fleet_ledger.STREAK + 1)],
+        outcome("f0", 1000.0, 1000.0),
+    ]
+    assert fleet_ledger.streak(lines)

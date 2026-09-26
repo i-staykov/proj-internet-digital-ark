@@ -269,7 +269,7 @@ a figure has reached the register without being checked.
    arrives twice, the settled copy wins and then the later run. A file no rule matched moves to
    `incoming/_unread/<run>/`. Once, it appends `data/logs/fleet_ledger.tsv` to the fleet's ledger
    as `legacy` lines, keyed on each row's number and text, and deletes the TSV only once every
-   line is in.
+   line is in. A test drain's row (5 tokens, no window) keeps the TSV until it is dropped.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
@@ -283,41 +283,48 @@ a figure has reached the register without being checked.
 4. `bank_findings.py` writes one row per source into the register the verdict belongs to.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
-   the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
-   line quotes, the artifact URL. A scout lead that closed under the floor used to reach
-   `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
-   nothing about it. A scout lead the fleet closed at filing is booked closed from its lead's
-   status, never its prose, and a closed row already naming its artifact URL keeps it from a
-   second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
+   the five-column row filled from `lead.json` and the prose: the lens, the figure the scout states
+   for its own source and never a bound, the artifact URL. A scout lead that closed under the floor
+   used to reach `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated
+   and recording nothing about it. A scout lead the fleet closed at filing is booked closed from
+   its lead's status, never its prose, and a closed row already naming its artifact URL keeps it
+   from a second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
    replaces its own unsettled FIND row when the figure or verify status moved; any other slug
    either register already carries is skipped and said so. Where two rows of one source meet,
    `scripts/round/compact_registers.py` keeps the newest.
 
-A drain leaves `incoming/` only once its rows are committed. Two runs were archived under
-`banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
-said so; the FIND inside them was found by hand a day later. On any earlier failure the drain
-stays where it is and the next tick takes it again, which is safe because every step is keyed on
-the slug or on a journal's sha256. A drain that books nothing new is finished rather than failed
-and is archived without a commit, because an empty commit reads as a drain that was banked.
+A drain leaves `incoming/` only once its rows are committed; its outcome lines, if they did not
+land, land on a later bank. Two runs were archived under `banked/` by a sync that failed after the drain, so nothing
+they carried was booked and nothing said so; the FIND inside them was found by hand a day later. On
+any earlier failure the drain stays where it is and the next tick takes it again, which is safe
+because every step is keyed on the slug or on a journal's sha256. A drain that books nothing new is
+finished rather than failed and is archived without a commit, because an empty commit reads as a
+drain that was banked.
 
 Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
 and the approval filer both iterate blocks that already exist. It picks the finds the standing
 rule does, by the same figure. A slug that names a registered spec gets the full
 `request_approval.py` request with its seeded sample; everything else gets a short block with both
-figures and the items file. **Only a source the standing rule parks is asked for** (a new class,
-no standing admission, a clause not ok); the rest print `no ask: the standing rule decides it`.
+figures and the items file. **Only a source the standing rule parks is asked for**, saying why:
+`Approve <source> / <class>` for a new class, `Outside the standing bounds: <source> / <class>`
+for no standing admission or a clause not ok, which `queue.md` leaves off. The rest print
+`no ask: the standing rule decides it`.
 
 `standing_rule.py` then writes the `Decision:` line for a confirmed FIND of a class already
 approved for the master whose lead the fleet admitted with every clause ok (size, terms, robots,
 class, window): on the store re-price until the program's figure agrees within 1% on the last ten
-finds in the fleet's outcome lines, then on the program's. `ark check` after the ingest gates it:
+finds in the fleet's outcome lines, then on the program's where it priced the find; a line with no
+program figure breaks the streak. The citation is a `- standing rule:` fact above the line, which
+the compactor keeps. `ark check` after the ingest gates it:
 **a red takes the rows back out with `unbank_source.py` and resets the registers to HEAD**, then
 writes `data/logs/bank_red.json`, and every tick prints `BANK RED` until `bank_trigger.py clear`.
 A red after the journals unbanks nothing. `unbank_source.py` alone deletes evidence.
 
-`sync_approvals.py` raises what is left as a pull request and an issue, and `fleet_leads.py`
-writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
-invisible re-deals settled work.
+`sync_approvals.py` raises what is left as a pull request and an issue. After the commit, every
+bank books an outcome line for each confirmed FIND in its drain and every drain under `banked/`,
+with `banked` **true only once the store's ingested files hold the source**, so a find approved or
+ingested later is banked by the next bank. `fleet_leads.py` then writes `banked` or `closed` back
+into the fleet's `leads/`, because a queue whose last step is invisible re-deals settled work.
 
 ### One lock, whoever started the sync
 

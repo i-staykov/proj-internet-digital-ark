@@ -128,6 +128,11 @@ def test_every_clause_ok_on_an_approved_class_writes_the_line_citing_them_and_th
     _, text, _ = decide(tmp_path, lead=LEAD)
     assert "Decision: pending" not in text
     assert text.count("Decision: master") == 2
+    # A fact above the line, the shape the compactor keeps, and no `Decided by` it drops.
+    block = text.split("### new_source / cdx_timestamp\n")[1].splitlines()
+    assert block[-2].startswith("- standing rule: the loop wrote the decision below")
+    assert block[-1] == "Decision: master"
+    assert "Decided by" not in text
     assert "(CLAUDE.md, Autonomy)" in text
     assert "rule 7" not in text
     assert "standing policy 59" in text
@@ -295,8 +300,14 @@ def test_a_find_the_store_could_not_price_is_a_candidate_only_under_the_streak(t
     assert (got["new-source"]["figure"], got["new-source"]["ee"]) == ("program", 7050.0)
 
 
-def test_under_the_streak_a_find_with_no_program_figure_is_not_a_candidate(tmp_path):
-    assert finds(tmp_path, {"status": "priced", "ee": 7000.0}, AGREEING) == {}
+@pytest.mark.parametrize("program", ["absent", None, 0.0, -5.0])
+def test_under_the_streak_a_find_with_no_program_figure_is_decided_on_the_store(tmp_path, program):
+    """A find the program did not price keeps its block and ask, on the store figure."""
+    price = {"status": "priced", "ee": 7000.0}
+    if program != "absent":
+        price["fleet_program_ee"] = program
+    got = finds(tmp_path, price, AGREEING)
+    assert (got["new-source"]["figure"], got["new-source"]["ee"]) == ("store", 7000.0)
 
 
 def test_the_program_figure_is_cited_when_it_decided(tmp_path, capsys):
@@ -310,3 +321,52 @@ def test_a_fleet_ledger_without_the_streak_cites_the_store_figure(tmp_path):
     fleet = fleet_with(tmp_path, AGREEING[:9])
     _, text, _ = decide(tmp_path, fleet=fleet, lead=LEAD, price=BOTH)
     assert "decided on the store re-price, 7,000.0 EE." in text
+
+
+# The citation, on the real register.
+
+PAGES = ("sources.md", "sources-closed.md", "approved-sources-list.md")
+
+
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # a dataclass looks its module up there
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_decision_on_the_real_register_leaves_it_the_compactors_fixed_point(tmp_path, capsys):
+    """The commit hook checks the live pages are the compactor's fixed point, so a citation
+    the compactor would rewrite or drop fails the bank's commit and stops the tick."""
+    request = _load("fleet_request_on_the_real_register", ROOT / "scripts/harness/fleet_request.py")
+    compactor = _load("compact_registers_for_the_rule", ROOT / "scripts/round/compact_registers.py")
+    pages = tmp_path / "registers"
+    pages.mkdir()
+    for name in PAGES:
+        (pages / name).write_text((ROOT / "docs/registers" / name).read_text("utf-8"), "utf-8")
+    register = pages / "approved-sources-list.md"
+    lead_dir = tmp_path / "incoming" / "fixture-node-cdx"
+    lead_dir.mkdir(parents=True)
+    finding = {"slug": "fixture-node-cdx", "run_id": "1741", "verdict": "FIND"}
+    finding["verify"] = {"status": "confirmed", "reason": "re-ran it"}
+    (lead_dir / "finding.json").write_text(json.dumps(finding), "utf-8")
+    price = {"status": "priced", "ee": 1234.5, "netnew": 12, "pricer": "price_items.py"}
+    (lead_dir / "store_price.json").write_text(json.dumps(price), "utf-8")
+    lead = dict(LEAD, slug="fixture-node-cdx", evidence_class="cdx_timestamp", lens="fixture")
+    (lead_dir / "lead.json").write_text(json.dumps(lead), "utf-8")
+
+    def check() -> str:
+        compactor.main(["--check", "--registers", str(pages)])
+        return capsys.readouterr().out
+
+    assert "pages that would change: 0" in check()
+    incoming = str(tmp_path / "incoming")
+    request.main([incoming, "--register", str(register), "--write"])
+    rule.main([incoming, "--register", str(register), "--write"])
+    assert "decided: fixture_node_cdx / cdx_timestamp is master" in capsys.readouterr().out
+    text = register.read_text("utf-8")
+    assert "- standing rule: the loop wrote the decision below" in text
+    out = check()
+    assert "Decided by lines: 0" in out
+    assert "fixed point: yes" in out and "pages that would change: 0" in out

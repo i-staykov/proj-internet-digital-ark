@@ -196,8 +196,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     #    run uploads it before it ends**, so in-progress runs are taken too and a run is marked
     #    PROCESSED only once it has completed. Name each workflow: `gh run list` with none lists
     #    CI too. A workflow not on the fleet's main answers 404, which skips it, not the tick.
+    #    Only dispatched runs carry findings; the watchdog's are scheduled. An idle slot starts
+    #    about five runs an hour, so 300 outlasts a night asleep at up to four slots.
     for WF in leg.yaml read.yaml; do
-        RUNS=$(gh run list --repo i-staykov/ark-fleet --workflow "$WF" --limit 50 \
+        RUNS=$(gh run list --repo i-staykov/ark-fleet --workflow "$WF" \
+            --event workflow_dispatch --limit 300 \
             --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' 2>/dev/null) \
             || { echo "drain: gh could not list $WF; its runs wait for the next tick"; continue; }
         while IFS=$'\t' read -r RID STATUS; do
@@ -536,13 +539,18 @@ bank *args:
     fi
     # A commit an earlier bank could not push goes with this one.
     if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
+    # Every confirmed FIND's outcome into the fleet's ledger, this drain's and every drain
+    # banked before it: a find the owner approved since, or the store ingested since, gains its
+    # banked line here, and a line the ledger holds adds nothing. `banked` is the store's
+    # ingested files. Then each lead's fate into the fleet's queue, pushed together.
+    # Every bank books the outcome of every drain, banked ones included, so lines that did not
+    # land this time land on a later bank and never hold a drain in `incoming/`.
+    uv run python scripts/harness/fleet_findings.py outcome "$IN" data/fleet_findings/banked/*/ \
+        --fleet "$FLEET" || echo "the outcome lines did not land; the next bank books them"
+    uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
+    bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+    # A drain leaves `incoming/` only once its rows are committed.
     if [ "$RAN_A" = yes ]; then
-        # Each confirmed FIND's outcome into the fleet's ledger, `banked` only once this bank's
-        # commit has landed, then each lead's fate into the fleet's queue, pushed together.
-        if [ "$COMMITTED" = yes ]; then BANKED=--banked; else BANKED=""; fi
-        uv run python scripts/harness/fleet_findings.py outcome "$IN" --fleet "$FLEET" $BANKED
-        uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
-        bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
         if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
             mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
         else

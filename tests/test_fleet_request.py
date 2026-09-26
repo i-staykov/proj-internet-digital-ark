@@ -63,6 +63,11 @@ STANDING = {
 
 DECISIONS = "# Decisions\n\n## OPEN\n\n## CLOSED\n\n| | date | decision |\n|---|---|---|\n"
 
+# Every clause ok but robots, which the fleet refused.
+ROBOTS_REFUSED = dict(
+    STANDING["clauses"], robots={"ok": False, "evidence": "robots.txt disallows /data/"}
+)
+
 # Ten finds whose program figure agreed with the store within 1%: the program decides.
 AGREEING = [
     {
@@ -225,11 +230,12 @@ def test_a_short_block_also_gets_an_open_entry(tmp_path):
     lead = {"lens": "registry-publications"}
     store = {"ee": 9702.6, "netnew": 56707, "pricer": "price_items.py"}
     find = {"store": store, "figure": "store", "ee": 9702.6}
-    assert request.surface("dk_zone", "artifact_listing", lead, find, decisions)
+    new_class = [standing_rule.NEW_CLASS.format("artifact_listing")]
+    assert request.surface("dk_zone", "artifact_listing", lead, find, new_class, decisions)
     text = decisions.read_text()
     assert "### Approve dk_zone / artifact_listing" in text
     assert "9,702.6 EE net-new on the live store" in text
-    assert not request.surface("dk_zone", "artifact_listing", lead, find, decisions), "once"
+    assert not request.surface("dk_zone", "artifact_listing", lead, find, new_class, decisions)
 
 
 # The ask: only for a source the standing rule parks.
@@ -262,23 +268,73 @@ def test_a_new_class_is_asked_about_once(tmp_path, monkeypatch, capsys):
     called, decisions, text = asks(tmp_path, monkeypatch, register=REGISTER, lead=lead)
     assert called == [("a_lead", "cdx_timestamp")]
     assert decisions.count("### Approve a_lead / cdx_timestamp") == 1
+    assert "Parked by the standing rule: no other cdx_timestamp source is approved as master. " in (
+        decisions
+    )
     assert "### a_lead / cdx_timestamp" in text
     assert "and its OPEN entry" in capsys.readouterr().out
 
 
+def test_a_new_class_that_also_fails_a_clause_is_still_a_class_ask_naming_both(
+    tmp_path, monkeypatch
+):
+    lead = dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED))
+    _, decisions, _ = asks(tmp_path, monkeypatch, register=REGISTER, lead=lead)
+    assert "### Approve a_lead / cdx_timestamp" in decisions
+    assert "Outside the standing bounds" not in decisions
+    assert (
+        "Parked by the standing rule: no other cdx_timestamp source is approved as master; "
+        "the robots clause is not ok: robots.txt disallows /data/. "
+    ) in decisions
+
+
 @pytest.mark.parametrize(
-    "lead",
+    "lead, why",
     [
-        LEAD,
-        dict(LEAD, standing=dict(STANDING, admitted=False)),
-        dict(LEAD, standing=dict(STANDING, clauses={})),
+        (LEAD, "the lead carries no standing admission"),
+        (dict(LEAD, standing=dict(STANDING, admitted=False)), "the fleet did not admit it"),
+        (dict(LEAD, standing=dict(STANDING, clauses={})), "the size clause is missing"),
+        (
+            dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED)),
+            "the robots clause is not ok: robots.txt disallows /data/",
+        ),
     ],
-    ids=["no-standing", "not-admitted", "no-clauses"],
+    ids=["no-standing", "not-admitted", "no-clauses", "robots-refused"],
 )
-def test_a_lead_outside_the_standing_bounds_is_asked_about(tmp_path, monkeypatch, lead):
+def test_a_lead_outside_the_standing_bounds_is_asked_about_as_that_and_says_why(
+    tmp_path, monkeypatch, lead, why
+):
+    """In an approved class the ask is no class approval: its heading says the source is
+    outside the bounds and its body names the reasons the standing rule parked it on."""
     called, decisions, _ = asks(tmp_path, monkeypatch, register=APPROVED_CLASS, lead=lead)
     assert called == [("a_lead", "cdx_timestamp")]
-    assert "### Approve a_lead / cdx_timestamp" in decisions
+    assert "### Outside the standing bounds: a_lead / cdx_timestamp" in decisions
+    assert "Approve" not in decisions
+    assert f"Parked by the standing rule: {why}" in decisions
+
+
+def test_a_clause_park_puts_no_new_class_ask_on_the_queue(tmp_path, monkeypatch):
+    """What `lead_queue.py` makes of the two asks: the new class is listed, the park is not."""
+    page_script = ROOT / "scripts/round/lead_queue.py"
+    spec = importlib.util.spec_from_file_location("queue_page", page_script)
+    queue = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(queue)
+    decisions = tmp_path / "key-decisions.md"
+    decisions.write_text(DECISIONS, encoding="utf-8")
+    parked = dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED))
+    world(tmp_path, lead=parked, register=APPROVED_CLASS)
+    new = dict(LEAD, slug="b-lead", evidence_class="dated_directory", standing=STANDING)
+    world(tmp_path, lead=new, register=APPROVED_CLASS, slug="b-lead")
+    write(tmp_path / "incoming", tmp_path / "approvals.md", "--decisions", str(decisions))
+    assert "### Outside the standing bounds: a_lead / cdx_timestamp" in decisions.read_text()
+    page = tmp_path / "queue.md"
+    for name, value in (("REPO", tmp_path), ("DECISIONS", decisions), ("OUT", page)):
+        monkeypatch.setattr(queue, name, value)
+    monkeypatch.setattr(queue, "BRIEF", tmp_path / "brief.json")
+    assert queue.main(["--fleet", str(tmp_path / "fleet"), "--write"]) == 0
+    text = page.read_text(encoding="utf-8")
+    assert "### Approve b_lead / dated_directory" in text.split("## New evidence classes")[1]
+    assert "a_lead" not in text
 
 
 def test_the_dry_run_says_whether_it_would_ask(tmp_path, capsys):
@@ -296,6 +352,7 @@ def test_every_block_left_pending_after_the_standing_rule_has_its_ask(tmp_path):
     """The live gate's invariant on a scratch register: the request writes a block with no
     ask only where the standing rule then decides it, so nothing pending goes unsurfaced."""
     from ark import approvals
+    from ark.key_decisions import is_open
 
     decisions = tmp_path / "key-decisions.md"
     decisions.write_text(DECISIONS, encoding="utf-8")
@@ -313,7 +370,7 @@ def test_every_block_left_pending_after_the_standing_rule_has_its_ask(tmp_path):
     assert approvals.load(register)[("a_lead", "cdx_timestamp")].decision == "master"
     left = [f"{a.source_name} / {a.evidence_type}" for a in approvals.pending(register)]
     assert left == ["b_lead / cdx_timestamp"]
-    assert all(f"### Approve {name}" in decisions.read_text() for name in left)
+    assert all(is_open(name, decisions) for name in left)
 
 
 @pytest.mark.parametrize(
@@ -346,15 +403,15 @@ def test_both_scripts_choose_the_same_finds_by_the_same_figure(tmp_path):
     world(tmp_path, slug="closed", verdict="CLOSED", program=7020.0)
     incoming = tmp_path / "incoming"
     (incoming / "_unread").mkdir()
-    for outcomes, figure, chosen in [
-        ([], "store", ["both", "store-only"]),
-        (AGREEING, "program", ["both", "program-only"]),
+    # Under the streak the program decides where it priced the find, and the store elsewhere.
+    for outcomes, chosen in [
+        ([], {"both": "store", "store-only": "store"}),
+        (AGREEING, {"both": "program", "program-only": "program", "store-only": "store"}),
     ]:
         picked = request.candidates(incoming, outcomes)
         rule = standing_rule.confirmed_finds(incoming, outcomes)
-        assert [lead_dir.name for lead_dir, *_ in picked] == chosen
-        assert [find["dir"].name for find in rule.values()] == chosen
-        assert all(find["figure"] == figure for *_, find in picked)
+        assert {lead_dir.name: find["figure"] for lead_dir, *_, find in picked} == chosen
+        assert {find["dir"].name: find["figure"] for find in rule.values()} == chosen
 
 
 def test_under_the_streak_the_block_carries_the_program_figure(tmp_path):
@@ -364,6 +421,18 @@ def test_under_the_streak_the_block_carries_the_program_figure(tmp_path):
     assert "The live store re-price by `price_items.py` said no figure" in text
     assert "the program's figure is the one to read" in text
     assert "- potential: 7020" in text
+
+
+def test_under_the_streak_a_find_the_program_did_not_price_is_asked_on_the_store(tmp_path):
+    fleet = ledger(tmp_path, AGREEING)
+    decisions = tmp_path / "key-decisions.md"
+    decisions.write_text(DECISIONS, encoding="utf-8")
+    incoming, register = world(tmp_path)
+    text = write(incoming, register, "--fleet", str(fleet), "--decisions", str(decisions))
+    assert "### a_lead / cdx_timestamp" in text
+    assert "7,000.0 EE net-new on the live store" in text
+    assert "### Approve a_lead / cdx_timestamp" in decisions.read_text(encoding="utf-8")
+    assert "Worth: 7000 EE." in decisions.read_text(encoding="utf-8")
 
 
 def test_the_open_entry_carries_the_deciding_figure(tmp_path):

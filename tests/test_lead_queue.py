@@ -255,6 +255,9 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
             "## OPEN\n\n"
             "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
             "### Pick a typeface for the report\n\nWorth: 50000 EE.\n\n"
+            # A park in an approved class: its reasons name a rule, and it is still no class.
+            "### Outside the standing bounds: t_parked / cdx_x\n\nParked by the standing rule: "
+            "the robots clause is not ok: robots.txt disallows /data/.\n\nWorth: 40000 EE.\n\n"
             "## CLOSED\n",
             encoding="utf-8",
         )
@@ -270,8 +273,29 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
         self.assertIn("**Round 11 crossed the 5% gate** at 5.2000% against `b1`", page)
         self.assertIn("[`t-class`](https://example.org/t-class)", page)
         self.assertIn("### Approve t_source / cdx_x", page)
-        for other in ("`t-download`", "`t-terms`", "`t-rerun`", "`t-plain`", "typeface"):
+        for other in (
+            "`t-download`",
+            "`t-terms`",
+            "`t-rerun`",
+            "`t-plain`",
+            "typeface",
+            "t_parked",
+        ):
             self.assertNotIn(other, page)
+
+    def test_an_open_send_entry_is_listed_under_the_send_and_nowhere_else(self):
+        self.decisions.write_text(
+            "## OPEN\n\n### Send round 11\n\nWorth: 30000 EE.\n\n"
+            "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
+            "## CLOSED\n",
+            encoding="utf-8",
+        )
+        self.run_main("--write")
+        page = self.out.read_text(encoding="utf-8")
+        send, classes = page.split("## New evidence classes, biggest first")
+        self.assertIn("- Send round 11: **30,000 EE**", send.split("## The send")[1])
+        self.assertIn("### Approve t_source / cdx_x", classes)
+        self.assertNotIn("Send round 11", classes)
 
     def test_cached_is_gone_and_no_caller_passes_it(self):
         with self.assertRaises(SystemExit) as refused, contextlib.redirect_stderr(io.StringIO()):

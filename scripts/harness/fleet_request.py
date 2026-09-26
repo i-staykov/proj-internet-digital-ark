@@ -23,7 +23,9 @@ bank, which is the behaviour wanted here rather than a silent yes.
 are `standing_rule.confirmed_finds`, so every block written here is one the standing rule
 reads, and the block quotes the figure that decides. A source the standing rule would decide
 gets its block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank.
-A source it parks, a new class above all, gets its OPEN entry, the ask the owner reads.
+A source it parks gets its OPEN entry, the ask the owner reads, naming why: headed
+`Approve <source> / <class>` when the class is new, and `Outside the standing bounds:
+<source> / <class>` when only the admission or a clause failed, which `queue.md` omits.
 
     uv run python scripts/harness/fleet_request.py INCOMING [--fleet FLEET] [--write]
 """
@@ -55,6 +57,8 @@ REGISTER = REPO / "docs/registers/approved-sources-list.md"
 SECTION = "## Pending requests"
 FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
+# The ask for a park in an approved class; `lead_queue.py` keeps it off the new-class list.
+OUTSIDE = "Outside the standing bounds: {} / {}"
 
 
 def _json(path: Path) -> dict:
@@ -146,18 +150,37 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     return "".join(" ".join(line.split()) + "\n" for line in lines)
 
 
-def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None = None) -> bool:
+def heading(key: str, etype: str, reasons: list[str]) -> str:
+    """`Approve <source> / <class>` when the class is new, else the outside-the-bounds ask.
+
+    Both carry `<source> / <class>`, the phrase the gate's surfaced test looks for.
+    """
+    if standing_rule.NEW_CLASS.format(etype) in reasons:
+        return f"Approve {key} / {etype}"
+    return OUTSIDE.format(key, etype)
+
+
+def surface(
+    key: str,
+    etype: str,
+    lead: dict,
+    find: dict,
+    reasons: list[str],
+    decisions: Path | None = None,
+) -> bool:
     """The OPEN entry in `key-decisions.md`, which is the one surface the owner reads.
 
     A pending block with no OPEN entry is a request nobody was told about, and the gate
     refuses it (`test_every_pending_approval_is_surfaced_in_the_live_files`). The tool
-    path writes its own; this is the short path's, for a source the standing rule parks.
+    path writes its own; this is the short path's, for a source the standing rule parks,
+    with `reasons` the ones it parked on.
     """
     body = (
-        f"Found and priced by the fleet under the {lead.get('lens', 'unrecorded')} lens, "
-        f"confirmed by a second leg: {figure_said(find)}. The block is under `## Pending "
-        f"requests` in `approved-sources-list.md`; merge the approval pull request to say yes, "
-        f"close it to leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
+        f"Parked by the standing rule: {'; '.join(reasons)}. Found and priced by the fleet "
+        f"under the {lead.get('lens', 'unrecorded')} lens, confirmed by a second leg: "
+        f"{figure_said(find)}. The block is under `## Pending requests` in "
+        f"`approved-sources-list.md`; merge the approval pull request to say yes, close it to "
+        f"leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
     )
     if decisions is not None and not Path(decisions).is_file():
         # A register somewhere else, as in a test, has no decisions document beside it.
@@ -165,7 +188,7 @@ def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None
         # `key-decisions.md` on 2026-09-15 and had the hourly sync refuse a dirty clone.
         print(f"request: no decisions document at {decisions}, OPEN entry not written")
         return False
-    return raise_open(f"Approve {key} / {etype}", body, decisions)
+    return raise_open(heading(key, etype, reasons), body, decisions)
 
 
 def append(register: Path, text: str) -> None:
@@ -277,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
                 decisions = (
                     args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
                 )
-                surface(key, etype, lead, find, decisions)
+                surface(key, etype, lead, find, ask, decisions)
                 print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
             else:
                 print(f"request: wrote a pending block for {key} / {etype}, {NO_ASK}")
