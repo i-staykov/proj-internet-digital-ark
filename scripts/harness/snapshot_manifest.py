@@ -15,7 +15,10 @@ What lands, and why each piece is there:
     candidates/isc_candidates.txt         the ISC collection names, the class he refused
                                           for the annual files and which still scores as
                                           candidates
-    manifest.json                         {marker, built_at, files: {path: {lines, sha256}}}
+    candidates/{candidate_additions,header_candidates}.txt   ours, in the claim
+    netnew/attested_registrables.txt      what the store dates beyond his files, required
+    calculator/                           his scorer and its table, required
+    manifest.json                         {marker, built_at, claim_sha256, files}
 
 **A zero-line file refuses the build**, because an empty held-set prices every name as
 net-new, which is the most flattering way this can go wrong, and so does an ABSENT
@@ -40,9 +43,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from ark.export import his_held_candidate_files  # noqa: E402
+from ark.baseline import calculator_path  # noqa: E402
+from ark.export import ATTESTED_NAME, claim_files, his_held_candidate_files  # noqa: E402
 from ark.ingest import YEARS  # noqa: E402
 from ark.price_snapshot import (  # noqa: E402
+    ATTESTED,
+    CALCULATOR_DIR,
+    CALCULATOR_FILES,
     CANDIDATES_DIR,
     MANIFEST_NAME,
     NETNEW_DIR,
@@ -53,6 +60,10 @@ from ark.price_snapshot import (  # noqa: E402
 BASELINE_JSON = REPO / "data/baseline.json"
 EXPORT_NETNEW = REPO / "output/netnew"
 EXPORT_CANDIDATES = REPO / "output/candidate_unverified.txt"
+# calculator_path() is relative to the working directory; anchored like every path here.
+CALCULATOR = REPO / calculator_path()
+# The fleet's record of the claim the pushed snapshot carries, which every leg checks.
+EXPECTED = "snapshot.json"
 # **Both of these must exist for every year, or the build is refused.** They are the two
 # units we ship, registrables and the hostnames beneath them (the second accepted
 # 2026-09-01), so a missing one means `output/netnew` is stale or half-written, and every
@@ -94,12 +105,22 @@ def sources(baseline: Path, marker: str) -> tuple[dict[str, Path], set[str], lis
         *((f"{CANDIDATES_DIR}/{path.relative_to(baseline)}", path) for path in outside),
         (f"{CANDIDATES_DIR}/candidate_unverified.txt", EXPORT_CANDIDATES),
         (f"{CANDIDATES_DIR}/isc_candidates.txt", EXPORT_NETNEW / "isc_candidates.txt"),
+        (f"{CANDIDATES_DIR}/candidate_additions.txt", EXPORT_NETNEW / "candidate_additions.txt"),
+        (f"{CANDIDATES_DIR}/header_candidates.txt", EXPORT_NETNEW / "header_candidates.txt"),
     ):
         if not path.is_file():
             absent.append(rel)
             continue
         files[rel] = path
         optional.add(rel)
+    for rel, path in (
+        (ATTESTED, EXPORT_NETNEW / ATTESTED_NAME),
+        *((f"{CALCULATOR_DIR}/{name}", CALCULATOR.parent / name) for name in CALCULATOR_FILES),
+    ):
+        if path.is_file():
+            files[rel] = path
+        else:
+            absent.append(rel)
     return files, optional, absent
 
 
@@ -108,7 +129,29 @@ def must_be_present(absent: list[str]) -> list[str]:
     required = {
         f"{NETNEW_DIR}/{family.format(year=year)}" for year in YEARS for family in NETNEW_REQUIRED
     }
+    required |= {ATTESTED, *(f"{CALCULATOR_DIR}/{name}" for name in CALCULATOR_FILES)}
     return [rel for rel in absent if rel in required]
+
+
+def claim_of(files: dict[str, Path]) -> set[str]:
+    """The staged entries that are claim files, as the export names them."""
+    claim = set(claim_files(EXPORT_NETNEW, EXPORT_CANDIDATES))
+    return {rel for rel, path in files.items() if path in claim}
+
+
+def publish_expected(stage: Path, fleet: Path) -> int:
+    """Write the fleet's `snapshot.json` from the staged manifest, building nothing, so it
+    names the claim `sync_fleet.sh` pushed."""
+    manifest = json.loads((stage / MANIFEST_NAME).read_text(encoding="utf-8"))
+    claim = manifest.get("claim_sha256")
+    if not claim or not fleet.is_dir():
+        why = f"{fleet} is not a directory" if claim else "the staged manifest has no claim_sha256"
+        print(f"snapshot_manifest: nothing published, {why}", file=sys.stderr)
+        return 1
+    expected = {"marker": manifest["marker"], "claim_sha256": claim}
+    (fleet / EXPECTED).write_text(json.dumps(expected, indent=2) + "\n", encoding="utf-8")
+    print(f"snapshot_manifest: {EXPECTED} expects {manifest['marker']} claim_sha256 {claim}")
+    return 0
 
 
 def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
@@ -134,7 +177,15 @@ def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True, help="staging directory to build")
+    parser.add_argument(
+        "--publish-expected",
+        type=Path,
+        metavar="FLEET",
+        help="write FLEET/snapshot.json from the manifest already at --out, and build nothing",
+    )
     args = parser.parse_args()
+    if args.publish_expected:
+        return publish_expected(args.out, args.publish_expected.expanduser())
 
     current = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["current"]
     marker, baseline = current["marker"], REPO / current["directory"]
@@ -146,13 +197,13 @@ def main() -> int:
         print(
             "snapshot_manifest: refusing to build, because "
             + ", ".join(missing)
-            + " would price as net-new every name we have already shipped for that year. "
-            "Run `uv run ark export` and try again.",
+            + " would price as net-new every name we have already shipped, or leave the EE "
+            "without his calculator. Run `uv run ark export`, or restore his package.",
             file=sys.stderr,
         )
         return 1
     try:
-        manifest, skipped = build_manifest(marker, files, optional)
+        manifest, skipped = build_manifest(marker, files, optional, claim_of(files))
     except SnapshotError as exc:
         print(f"snapshot_manifest: {exc}", file=sys.stderr)
         return 1
@@ -163,6 +214,7 @@ def main() -> int:
         f"snapshot_manifest: {len(manifest['files'])} files, marker {marker}, "
         f"built_at {manifest['built_at']}"
     )
+    print(f"snapshot_manifest: claim_sha256 {manifest['claim_sha256']}")
     return 0
 
 

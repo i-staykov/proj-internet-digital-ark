@@ -814,17 +814,17 @@ rather than mispricing it.
     uv run ark price-snapshot --snapshot /projects/ark-data --items items.jsonl
     uv run ark price-snapshot --snapshot /projects/ark-data --items names.jsonl --track candidate
 
-**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}`, one
-JSON object per line; it prints one JSON object with `netnew_pairs`, `ee`, `by_year`, the top
-five TLDs, `www_alias_share`, `parent_held_share`, `split`, `manifest_sha`, `snapshot_marker`
-and `snapshot_built_at`, which a finding copies so the figure can be reproduced against the
-same snapshot. **`split` is fixed at `none, exact-name membership, pre-corroboration`**: the
-corroboration split needs the store's attestation and a snapshot carries year files rather
-than evidence, so `ee` is `price_items.py`'s BEFORE-the-split figure and an upper bound on
-what an annual submission of the same corpus would be credited. It reads no store and writes nothing, it applies the ingest's own hostname and `www.`
-rules and the export's shipping filter, and it exits 2 without a figure when the snapshot
-disagrees with its manifest in either direction. A leg may write its own extractor, which is
-kept as evidence; it may not write its own pricer.
+**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}` or
+capture rows `{url, timestamp, status}`, one JSON object per line. It prints, and `--out` writes,
+one JSON object: `netnew_pairs`, `ee` by his calculator, `by_year`, the top five TLDs,
+`www_alias_share`, `parent_held_share`, `split`, `manifest_sha`, `snapshot_marker` and
+`snapshot_built_at`, which a finding copies. `--split auto`, the default, counts a name read only
+from `text` when its registrable is dated that year in his files or `attested_registrables.txt`;
+`--split none`, a `--class` headed by a listing, a registry record or a web method, and the
+candidate track take no split, and `split` names the rule. A 4xx or 5xx capture is a candidate
+only, and a year outside 1996 to 2001 prices on neither track. It reads no store, applies the
+ingest's hostname and `www.` rules and the export's shipping filter, and exits 2 when the snapshot
+disagrees with its manifest. A leg may write its own extractor, kept as evidence, not its pricer.
 
 ## Pricing the thin-parent lane
 
