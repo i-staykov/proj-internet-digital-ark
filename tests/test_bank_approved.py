@@ -8,6 +8,7 @@ bytes a source was priced from live wherever it was priced.
 import email.message
 import hashlib
 import importlib.util
+import json
 import sys
 import urllib.error
 from pathlib import Path
@@ -315,3 +316,192 @@ def test_it_never_offers_to_bank_a_class_a_human_has_not_approved() -> None:
     # assertion is the shape of the data, not the count: a request block plus a
     # non-master decision is exactly the case the module reports and skips.
     assert all(d != "master" for _, _, d in offered)
+
+
+READ_BLOCK = (
+    "### fleet_x_hostnames / cdx_timestamp\n\n"
+    "- ingest: ark ingest-hostnames data/raw/fleet_read/x/\n"
+    "- journal sha256: " + "ab" * 32 + ", 2 part(s), 10 rows read whole from the artifact\n\n"
+    "Decision: master\n"
+)
+PARTS = [f"fleetread_bulk_cdx_file__x_000{n}.jsonl.gz" for n in (1, 2)]
+REGISTRABLES = "data/raw/cdx/cdx_suffix_fleetread_bulk_cdx_file__x_abababababab.jsonl.gz"
+
+
+def _read_dir(root: Path, complete: bool = True) -> Path:
+    directory = root / "data/raw/fleet_read/x"
+    directory.mkdir(parents=True)
+    for name in PARTS:
+        (directory / name).write_bytes(b"rows")
+    receipt = {"complete": complete, "journal_sha256": "ab" * 32, "parts": []}
+    receipt["parts"] = [{"name": name, "sha256": "cd" * 32} for name in PARTS]
+    (directory / "receipt.json").write_text(json.dumps(receipt))
+    return directory
+
+
+def test_a_fleet_read_block_plans_as_ready_and_banks_under_its_own_source(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Registrables first, hostname records last, and every ingest under the read's source."""
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    request = bank.request_in(text, "fleet_x_hostnames", "cdx_timestamp")
+    assert request.hostnames_dir == "data/raw/fleet_read/x"
+    directory = _read_dir(tmp_path)
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)]
+    assert plan.blocked == [] and plan.ready == []
+    monkeypatch.setattr(bank, "ROOT", tmp_path)
+    steps = bank.read_commands(directory, "fleet_x_hostnames", tmp_path / "state.tsv")
+    assert steps[0][3] == bank.CONVERTER
+    assert steps[0][-6:] == [
+        "--glob",
+        f"data/raw/fleet_read/x/{bank.READ_PARTS}",
+        "--tag",
+        "fleetread_bulk_cdx_file__x_abababababab",
+        "--state",
+        str(tmp_path / "state.tsv"),
+    ]
+    assert steps[1] == ["uv", "run", "ark", "ingest", "fleet_x_hostnames", REGISTRABLES]
+    assert steps[2][:5] == ["uv", "run", "ark", "ingest", "fleet_x_hostnames"]
+    assert steps[2][5:] == [f"data/raw/fleet_read/x/{name}" for name in PARTS]
+
+
+def test_a_fleet_read_already_banked_is_done_and_an_incomplete_one_is_refused(
+    tmp_path: Path,
+) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    directory = _read_dir(tmp_path)
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(PARTS), specs=SPECS)
+    assert plan.reads == [] and plan.done == [
+        ("fleet_x_hostnames / cdx_timestamp", "2 part(s) of x")
+    ]
+    (directory / "receipt.json").write_text('{"complete": false}')
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == []
+    assert "no complete read" in plan.blocked[0][1]
+
+
+def test_a_bank_that_stopped_before_the_hostname_records_runs_again(tmp_path: Path) -> None:
+    """The registrables banked but a part did not: the read is not done, so the next bank
+    reuses the converted file and banks the rest."""
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    directory = _read_dir(tmp_path)
+    banked = {Path(REGISTRABLES).name, PARTS[0]}
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: banked, specs=SPECS)
+    assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)] and plan.done == []
+
+
+def test_a_part_the_receipt_does_not_name_or_another_leads_part_refuses_the_read(
+    tmp_path: Path,
+) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    directory = _read_dir(tmp_path)
+    stray = directory / "fleetread_bulk_cdx_file__x_0003.jsonl.gz"
+    stray.write_bytes(b"rows")
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == [] and "not the receipt's" in plan.blocked[0][1]
+    stray.unlink()
+    other = "fleetread_bulk_cdx_file__y_0001.jsonl.gz"
+    (directory / PARTS[1]).rename(directory / other)
+    receipt = json.loads((directory / "receipt.json").read_text())
+    receipt["parts"][1]["name"] = other
+    (directory / "receipt.json").write_text(json.dumps(receipt))
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == [] and "not all fleet_x_hostnames's" in plan.blocked[0][1]
+
+
+def test_a_fleet_read_directory_that_never_arrived_is_refused_loudly(tmp_path: Path) -> None:
+    text, approvals = _approved(tmp_path, READ_BLOCK)
+    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
+    assert plan.reads == []
+    assert plan.blocked == [
+        (
+            "fleet_x_hostnames / cdx_timestamp",
+            "no complete read in data/raw/fleet_read/x on this machine",
+        )
+    ]
+
+
+def _rollback_names(log: str) -> list[str]:
+    """What the bank recipe hands `unbank_source.py` on a red gate, by the recipe's own awk."""
+    import re
+    import subprocess
+
+    recipe = (Path(__file__).resolve().parent.parent / "justfile").read_text(encoding="utf-8")
+    found = re.search(r"INGESTED=\$\(awk '([^']+)' \"\$BANK_LOG\"\)", recipe)
+    assert found, "the bank recipe no longer collects its ingests with awk"
+    out = subprocess.run(["awk", found.group(1)], input=log, capture_output=True, text=True)
+    return out.stdout.split()
+
+
+def test_a_red_gate_after_a_read_bank_takes_back_only_the_reads_own_source(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """On red, the recipe unbanks field 6 of every `== uv run ark ingest` line. A read's lines
+    must all name `fleet_x_hostnames` there: `cdx_snapshot` would unbank the whole IA bulk
+    source, and leave the read in."""
+    text, _ = _approved(tmp_path, READ_BLOCK)
+    register = tmp_path / "approved-sources-list.md"
+    _read_dir(tmp_path)
+    monkeypatch.setattr(bank, "ROOT", tmp_path)
+    monkeypatch.setattr(bank, "APPROVALS", register)
+    monkeypatch.setattr(bank, "files_read", lambda _: set())
+    ran = []
+
+    def run(command, cwd=None, check=False):
+        ran.append(command)
+        if bank.CONVERTER in command:  # the converter found one exact-host registrable
+            out = tmp_path / REGISTRABLES
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"{}")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(bank.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["bank_approved.py", "--write"])
+    bank.main()
+    monkeypatch.undo()
+    log = capsys.readouterr().out
+    assert len(ran) == 3 and ran[-1][5:] == [f"data/raw/fleet_read/x/{name}" for name in PARTS]
+    assert _rollback_names(log) == ["fleet_x_hostnames", "fleet_x_hostnames"]
+    # and with no exact-host registrable at all, the hostname line still names the source
+    assert _rollback_names(
+        "\n".join(line for line in log.splitlines() if "cdx_suffix" not in line)
+    ) == ["fleet_x_hostnames"]
+
+    import duckdb
+
+    from ark.db import SCHEMA_SQL
+
+    unbank_spec = importlib.util.spec_from_file_location(
+        "unbank_source", Path(__file__).resolve().parent.parent / "scripts/harness/unbank_source.py"
+    )
+    unbank = importlib.util.module_from_spec(unbank_spec)
+    unbank_spec.loader.exec_module(unbank)
+    db = tmp_path / "ark.duckdb"
+    conn = duckdb.connect(str(db))
+    conn.execute(SCHEMA_SQL)
+    for source_id, name in ((1, "ia_cdx_bulk"), (2, "fleet_x_hostnames")):
+        conn.execute("INSERT INTO source VALUES (?, ?, 'timestamped', NULL)", [source_id, name])
+        domain = f"d{source_id}.com"
+        conn.execute(
+            "INSERT INTO domain (domain, tld, discovered_source) VALUES (?, 'com', ?)",
+            [domain, source_id],
+        )
+        conn.execute(
+            "INSERT INTO evidence (evidence_id, domain, source_id, evidence_year, evidence_type,"
+            " evidence_value) VALUES (?, ?, ?, 1998, 'cdx_timestamp', 'x')",
+            [source_id, domain, source_id],
+        )
+        conn.execute(
+            "INSERT INTO domain_year (domain, assigned_year, evidence_id) VALUES (?, 1998, ?)",
+            [domain, source_id],
+        )
+    conn.close()
+    assert unbank.main([*_rollback_names(log), "--db", str(db), "--write"]) == 0
+    conn = duckdb.connect(str(db), read_only=True)
+    left = conn.execute(
+        "SELECT s.name, count(*) FROM domain_year JOIN evidence USING (evidence_id)"
+        " JOIN source s USING (source_id) GROUP BY 1"
+    ).fetchall()
+    conn.close()
+    assert left == [("ia_cdx_bulk", 1)]

@@ -375,3 +375,37 @@ def test_the_open_entry_carries_the_deciding_figure(tmp_path):
     text = decisions.read_text(encoding="utf-8")
     assert "7,020.0 EE net-new by the program on the pushed snapshot" in text
     assert "Worth: 7020 EE." in text
+
+
+def read_world(tmp_path, monkeypatch, receipt=True):
+    """A lead the fleet read whole: `read.json` beside the finding, parts pulled locally."""
+    incoming, register = world(tmp_path, lead=dict(LEAD, evidence_class="artifact_listing"))
+    (incoming / "a-lead" / "read.json").write_text("{}", encoding="utf-8")
+    pulled = tmp_path / "fleet_read"
+    monkeypatch.setattr(request, "FLEET_READ", pulled)
+    if receipt:
+        (pulled / "a-lead").mkdir(parents=True)
+        (pulled / "a-lead" / "receipt.json").write_text(
+            json.dumps({"journal_sha256": "ab" * 32, "parts": [{}, {}], "lines": 1234}),
+            encoding="utf-8",
+        )
+    return incoming, register
+
+
+def test_a_read_lead_asks_for_its_hostname_source_with_the_ingest_line(tmp_path, monkeypatch):
+    from ark import approvals
+
+    incoming, register = read_world(tmp_path, monkeypatch)
+    text = write(incoming, register)
+    block = text.split("### fleet_a_lead_hostnames / cdx_timestamp", 1)[1].split("\n### ")[0]
+    assert f"- ingest: ark ingest-hostnames {tmp_path / 'fleet_read' / 'a-lead'}/" in block
+    assert f"- journal sha256: {'ab' * 32}, 2 part(s), 1,234 rows" in block
+    assert "- ingest spec:" not in block and "- journal: `" not in block
+    parsed = approvals.load(register)
+    assert parsed[("fleet_a_lead_hostnames", "cdx_timestamp")].decision == "pending"
+    assert ("a_lead", "artifact_listing") not in parsed
+
+
+def test_a_read_lead_whose_parts_never_arrived_says_so(tmp_path, monkeypatch):
+    text = write(*read_world(tmp_path, monkeypatch, receipt=False))
+    assert "- journal sha256: no receipt on this machine, 0 part(s)" in text

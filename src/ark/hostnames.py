@@ -43,8 +43,9 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
-from ark.evidence_types import ERROR_STATUS
+from ark.evidence_types import ERROR_STATUS, WEB_METHODS
 from ark.ingest import ensure_source
 
 SOURCE_NAME = "ia_cdx_hostnames"
@@ -96,8 +97,82 @@ GAP_METHOD = "ia_cdx_gap_hostgrain"
 AVAILABILITY_METHOD = "wayback_availability"
 
 
+# A corpus the fleet read whole: `fleetread_<method>__<slug>_NNNN.jsonl.gz`, one source per
+# lead, named after the lead and carrying the method its receipt names. Only a web method
+# can write hostname years, so any other method is refused by name, before a row is read.
+FLEETREAD = re.compile(
+    r"^fleetread_(?P<method>[a-z0-9]+(?:_[a-z0-9]+)*)__(?P<slug>[a-z0-9][a-z0-9-]*)"
+    r"_\d{4}\.jsonl(?:\.gz)?$"
+)
+FLEETREAD_SOURCE = re.compile(r"^fleet_[a-z0-9_]+_hostnames$")
+# Its registrable half, the exact-host converter's output named after the read's journal
+# sha256, so a retried bank finds the same file. It banks under the read's own source, so a
+# red gate that takes the read back takes both halves and no other source's rows.
+FLEETREAD_REGISTRABLES = re.compile(
+    r"^cdx_suffix_fleetread_(?P<method>[a-z0-9]+(?:_[a-z0-9]+)*)__(?P<slug>[a-z0-9][a-z0-9-]*)"
+    r"_[0-9a-f]{12}\.jsonl\.gz$"
+)
+
+
+def fleet_read_source(path: Path) -> tuple[str, str] | None:
+    """(source name, method) for a fleet read's journal part, None for any other family.
+
+    Raises ValueError for a part whose method is not in `WEB_METHODS`, and for a `fleetread_`
+    name that is not a part's, which would otherwise bank as the sweep's.
+    """
+    found = FLEETREAD.match(path.name)
+    if found is None:
+        if path.name.startswith("fleetread_"):
+            raise ValueError(f"{path.name}: not a fleet read part name")
+        return None
+    method = found.group("method")
+    if method not in WEB_METHODS:
+        raise ValueError(f"{path.name}: {method} is not a web method, so it dates no host")
+    return fleet_read_source_name(found.group("slug")), method
+
+
+def fleet_read_registrables_tag(method: str, slug: str, journal_sha256: str) -> str:
+    """The converter tag that names a read's registrable half, `FLEETREAD_REGISTRABLES`."""
+    return f"fleetread_{method}__{slug}_{journal_sha256[:12]}"
+
+
+def fleet_read_spec(source: str, path: Path) -> SourceSpec | None:
+    """How one file of a fleet read banks under `source`: None for a journal part, which the
+    hostname ingest reads, and `cdx_snapshot`'s parser and class under the read's own source
+    and method for its registrable half. ValueError for any other file, or one of another
+    lead's read."""
+    from dataclasses import replace
+
+    from ark.sources import SOURCES
+
+    part = fleet_read_source(path)
+    if part is not None:
+        if part[0] != source:
+            raise ValueError(f"{path.name} is {part[0]}'s part, not {source}'s")
+        return None
+    found = FLEETREAD_REGISTRABLES.match(path.name)
+    if found is None:
+        raise ValueError(f"{path.name} is neither a part nor the registrables of a fleet read")
+    method = found.group("method")
+    if method not in WEB_METHODS:
+        raise ValueError(f"{path.name}: {method} is not a web method, so it dates nothing")
+    if fleet_read_source_name(found.group("slug")) != source:
+        raise ValueError(f"{path.name} is not {source}'s registrables")
+    return replace(
+        SOURCES["cdx_snapshot"], key=source, source_name=source, acquisition_method=method
+    )
+
+
+def fleet_read_source_name(slug: str) -> str:
+    """The source a lead's read banks under, spelled as the register spells a source."""
+    return f"fleet_{re.sub(r'[^a-z0-9]+', '_', slug.lower()).strip('_')}_hostnames"
+
+
 def source_for(path: Path) -> tuple[str, str]:
     """(source name, acquisition method) for one journal, from its filename family."""
+    fleet = fleet_read_source(path)
+    if fleet is not None:
+        return fleet
     if path.name.startswith("cdx_gap_"):
         return SOURCE_NAME, GAP_METHOD
     if path.name.startswith("availability_host_"):
@@ -126,7 +201,7 @@ def source_for(path: Path) -> tuple[str, str]:
 # and `*_4xx_status.jsonl.gz`, never by a token that a swept domain's name could carry. The
 # error captures behind the journals ingested before rows carried a status are listed by
 # `scripts/round/status_audit.py`.
-_STATUS_FAMILIES = ("nypw_", "early_web_")
+_STATUS_FAMILIES = ("nypw_", "early_web_", "fleetread_")
 _ERROR_LANE = re.compile(r"^early_web_nonok_|_[45]xx(_status)?\.jsonl(\.gz)?$")
 _CAPTURE_STATUS = re.compile(r"[2-5][0-9][0-9]")
 
@@ -185,8 +260,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
 
 
 def writes_hostname_years(source_name: str) -> bool:
-    """Whether a lane's observation is web-facing and so may write hostname records."""
-    return source_name in WEB_FACING_HOST_SOURCES
+    """Whether a lane's observation is web-facing and so may write hostname records.
+
+    A fleet read's source is, because `source_for` gives one only to a web method's parts.
+    """
+    return source_name in WEB_FACING_HOST_SOURCES or bool(FLEETREAD_SOURCE.match(source_name))
 
 
 # His structural rule, verbatim: "A valid annual hostname must have dot-separated labels, use
@@ -232,7 +310,12 @@ def ingest_hostname_journal(
     journal is read again past the ledger for those (host, year) keys alone, and the ledger
     is left as it was."""
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
-    source_name, method = source_for(path)
+    try:
+        source_name, method = source_for(path)
+    except ValueError as exc:
+        stats["refused"] = True
+        logger.warning(f"{exc}; journal refused")
+        return stats
     if only is not None:
         stats = _ingest_rows(conn, path, source_name, method, stats, only)
         logger.info(str(stats))
