@@ -140,6 +140,21 @@ def nearest_closed(source_name: str) -> str:
     )
 
 
+def append(text: str, block: str) -> str:
+    """The page with the block last in `## Pending requests`, whose `None.` then goes.
+
+    Inside the section, not at the end of the file: after the last section the block would
+    land in `## Found, awaiting triage`, where `approvals.py` reads it as a triage line.
+    """
+    marker = "## Pending requests"
+    if marker not in text:
+        return text.rstrip("\n") + "\n\n" + marker + "\n\n" + block
+    head, tail = text.split(marker, 1)
+    section, sep, rest = tail.partition("\n## ")
+    section = "\n".join(line for line in section.split("\n") if line.strip() != "None.")
+    return head + marker + section.rstrip("\n") + "\n\n" + block + sep + rest
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("source", help="the spec key, e.g. udrp_proceedings")
@@ -240,9 +255,10 @@ def main() -> None:
         else "NOT GIVEN, so an approval merged where the bytes are not banks nothing"
     )
     by_year = Counter(y for _d, y in netnew)
+    # No blank line after the heading or at the end: the compactor's shape. The blank lines
+    # inside stay, because a block with a table keeps them or stops rendering.
     lines = [
         f"### {spec.source_name} / {spec.evidence_type}",
-        "",
         f"- ingest spec: `{args.source}`",
         f"- source: {args.source_url or 'NOT GIVEN, which is itself a reason to refuse'}",
         f"- journal: `{shown_journal}`",
@@ -297,30 +313,7 @@ def main() -> None:
         "",
     ]
 
-    block = "\n".join(lines)
-    text = APPROVALS.read_text(encoding="utf-8")
-    marker = "## Pending requests"
-    if marker in text:
-        head, tail = text.split(marker, 1)
-        # drop the "nothing pending" placeholder once there is something
-        placeholder = (
-            "\nNothing pending. New requests are appended here by\n"
-            "`uv run python scripts/harness/request_approval.py <source> --journal <journal>`, "
-            "which refuses to re-open a\nclass already marked `rejected`.\n"
-        )
-        tail = tail.replace(placeholder, "\n")
-        # Append inside the Pending block, not at the end of the file. `tail` runs to
-        # the end of the document, so writing the block after it dropped a priced
-        # request into `## Found, awaiting triage`, where `approvals.py` reads it as a
-        # triage line. Triage lines reach Ivo as a single collective counter, so the
-        # request he most needed to see was the one made hardest to find.
-        section, sep, rest = tail.partition("\n## ")
-        APPROVALS.write_text(
-            head + marker + section.rstrip("\n") + "\n\n" + block + sep + rest,
-            encoding="utf-8",
-        )
-    else:
-        APPROVALS.write_text(text.rstrip("\n") + "\n\n" + marker + "\n\n" + block, encoding="utf-8")
+    APPROVALS.write_text(append(APPROVALS.read_text(encoding="utf-8"), "\n".join(lines)), "utf-8")
 
     # Mirrored into the one surface Ivo reads, at the moment the request is written
     # rather than whenever a cycle next runs. A request he never learns about is a

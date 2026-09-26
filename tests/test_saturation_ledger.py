@@ -75,7 +75,7 @@ def _reorder(page: str, order: list[int]) -> str:
 
 
 def test_the_ledger_is_byte_for_byte_what_the_register_says(tmp_path: Path) -> None:
-    """Every cell shape in one assertion: filled, `n/a`, detail-only, closed page."""
+    """Every cell shape in one assertion: filled, `n/a`, reopen in a cell, closed page."""
     assert _build(tmp_path) == _expected()
 
 
@@ -137,9 +137,15 @@ def test_retrieval_method_is_populated_from_the_register_column() -> None:
 
 
 def test_the_closed_page_reads_its_five_columns_and_leaves_the_rest_empty() -> None:
-    """No retrieval, coverage, overlap or effort column exists there, so those are empty."""
-    text = (FIXTURES / "sources-closed.md").read_text(encoding="utf-8")
-    (row,) = ledger.rows_from_register(text, "docs/registers/sources-closed.md")
+    """No retrieval, coverage, overlap or effort column exists there, so those are empty, and
+    a row's verdict is its reason's closed word, whatever its prose says after it."""
+    text = (FIXTURES / "sources-closed.md").read_text(encoding="utf-8") + (
+        "| not_a_source | 2026-09-01 | 0 EE | REJECTED. FIND, not a source. |  |\n"
+        "| aged_out | 2026-09-19, retired | 0 EE | RETIRED: never priced; retired unmeasured |  |\n"
+    )
+    row, rejected, retired = ledger.rows_from_register(text, "docs/registers/sources-closed.md")
+    assert rejected["status"] == "rejected" and not rejected["decision"].startswith("retain")
+    assert (retired["status"], retired["decision"]) == ("retired", "retired unmeasured")
     assert row["source_family"] == "closed_on_measurement"
     assert row["coverage_ee"] == "4.44"
     assert row["source_link"] == "https://example.org/irr-dump.txt"

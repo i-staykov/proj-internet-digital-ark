@@ -1,23 +1,19 @@
-"""Search the four register pages without opening one.
+"""Search the three register pages without opening one.
 
-`.claude/settings.json` denies reading `docs/sources*.md`, and that deny covers a
-`grep` or a `sed` on the same path, so this is the sanctioned route in. It is also
-the cheap one: the two pages are 347 KB and 546 KB, and a session that greps either
-spends its context on prose it never wanted. Every page is streamed a line at a
-time, one truncated line is printed per hit, and no whole row and no whole entry
-ever reaches the terminal.
+`.claude/settings.json` denies reading `docs/registers/sources*.md`, and that deny covers a
+`grep` or a `sed` on the same path, so this is the sanctioned route in. It is also the
+cheap one: every page is streamed a line at a time, one truncated line is printed per hit,
+and no whole row and no whole entry ever reaches the terminal.
 
-The four pages, all of them registers: `docs/registers/sources.md` (its eleven-column table,
-its narrative sections and its `## Detail` blocks), `docs/registers/sources-closed.md`,
-`docs/registers/approved-sources-list.md`.
+The three pages: `docs/registers/sources.md` (one eleven-column table, one row per source),
+`docs/registers/sources-closed.md` (one five-column table, one row per closed source) and
+`docs/registers/approved-sources-list.md` (one `### source / type` block per decision).
 
 A hit line is `page:line  key  verdict  net-new EE  where  the matching text`, where
-`where` says which shape the term was found in: a table `row`, a `## Detail` block,
-a `head`ing, or the `prose` of a section. A row is a projection of its entry, so a
-`detail` hit is the signal that the row does not carry what you asked about, and
-`--detail` is the only way to get that entry's full text.
+`where` says which shape the term was found in: a table `row` or `header`, a `head`ing, or
+the `prose` of a block. `--detail` prints one named `###` block whole.
 
-    just find iedr                       every hit, over all four pages
+    just find iedr                       every hit, over all three pages
     just find iedr_register --detail     that one entry, whole
     just find blocklist squidguard       hits under one source key
     just find 2001 --all                 past the 40-line cap
@@ -37,7 +33,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# The four pages, by the tag the output prints. `docs/` is dropped from the tag: it
+# The three pages, by the tag the output prints. `docs/` is dropped from the tag: it
 # repeats on every line and it is not news.
 PAGES = {
     "sources": "docs/registers/sources.md",
@@ -140,8 +136,7 @@ def _is_header(cells: list[str]) -> bool:
 def _columns(cells: list[str]) -> dict[str, int | None]:
     """Which column is which, read off the header rather than assumed.
 
-    The four pages carry three different tables: eleven columns in `sources.md`, five
-    in `sources-closed.md`.
+    The two tables differ: eleven columns in `sources.md`, five in `sources-closed.md`.
     """
     lower = [cell.lower() for cell in cells]
 
@@ -345,7 +340,7 @@ def render(hits: list[Hit], show_all: bool, width: int) -> list[str]:
 
 
 def locate(root: Path, key: str) -> list[Block]:
-    """Every heading whose key matches, over all four pages. `tag#heading` names one."""
+    """Every heading whose key matches, over all three pages. `tag#heading` names one."""
     page, _, wanted = key.rpartition("#")
     if not _norm(wanted):
         return []
@@ -399,7 +394,7 @@ def block_lines(block: Block) -> list[str]:
 def show_detail(root: Path, key: str, show_all: bool, width: int) -> int:
     blocks = locate(root, key)
     if not blocks:
-        print(f"no entry named '{key}' in the four register pages", file=sys.stderr)
+        print(f"no entry named '{key}' in the three register pages", file=sys.stderr)
         return 1
     pool = choose(blocks, key)
     if len(pool) != 1:
@@ -419,7 +414,7 @@ def show_detail(root: Path, key: str, show_all: bool, width: int) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="search the four register pages")
+    parser = argparse.ArgumentParser(description="search the three register pages")
     parser.add_argument("term", nargs="?", help="case-insensitive substring")
     parser.add_argument("family", nargs="?", help="restrict to one source key")
     parser.add_argument("--family", dest="family_option", help="same, as an option")
@@ -451,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     hits = search(args.root, args.term, family)
     if not hits:
         scope = f" under family '{family}'" if family else ""
-        print(f"no hit for '{args.term}'{scope} in the four register pages", file=sys.stderr)
+        print(f"no hit for '{args.term}'{scope} in the three register pages", file=sys.stderr)
         return 1
     for line in render(hits, args.show_all, width):
         print(line)

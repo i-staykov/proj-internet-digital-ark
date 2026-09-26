@@ -107,7 +107,8 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
     """The short block, built from the sidecar, the lead and the re-price. No prose invented.
 
     Every line is a fact one of those three files carries. Where one of them says nothing,
-    the line says so: an approval decided on a blank is worse than one deferred.
+    the line says so: an approval decided on a blank is worse than one deferred. One fact per
+    line and no blank line, the shape the compactor keeps a pending block in.
     """
     key, etype = request_class(lead_dir, lead)
     read = etype == READ_CLASS and (lead_dir / "read.json").is_file()
@@ -137,7 +138,6 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
     )
     lines = [
         f"### {key} / {etype}",
-        "",
         *head,
         f"- refetch: {artifact.get('url') or 'the lead records no URL'}",
         f"- terms: {artifact.get('terms_url') or 'the lead records no terms page'}, "
@@ -152,11 +152,9 @@ def block(lead_dir: Path, finding: dict, lead: dict, store: dict) -> str:
         f"- fleet run {finding.get('run_id', 'unknown')}, lens {lead.get('lens', 'unrecorded')}, "
         f"grain {lead.get('grain', 'unrecorded')}, verified by a second leg",
         f"- potential: {store['ee']:.0f}",
-        "",
         "Decision: pending",
-        "",
     ]
-    return "\n".join(lines)
+    return "".join(" ".join(line.split()) + "\n" for line in lines)
 
 
 def surface(key: str, etype: str, lead: dict, store: dict, decisions: Path | None = None) -> bool:
@@ -184,11 +182,21 @@ def surface(key: str, etype: str, lead: dict, store: dict, decisions: Path | Non
 
 
 def append(register: Path, text: str) -> None:
-    """Insert under the pending heading, so the newest ask is the first one read."""
+    """Insert above the section's first block, so the newest ask is the first one read.
+
+    The section's `None.` goes once something is pending, and a blank line parts each block
+    from the next, the shape the compactor writes.
+    """
     current = register.read_text(encoding="utf-8")
-    at = current.index(SECTION) + len(SECTION)
-    end = current.index("\n", at) + 1
-    register.write_text(current[:end] + "\n" + text + current[end:], encoding="utf-8")
+    start = current.index(SECTION)
+    stop = current.find("\n## ", start)
+    stop = len(current) if stop == -1 else stop + 1
+    intro, sep, blocks = current[start + len(SECTION) : stop].partition("\n### ")
+    said = [line for line in intro.splitlines() if line.strip() and line.strip() != "None."]
+    section = "\n\n".join([SECTION, *(["\n".join(said)] if said else []), text.rstrip("\n")])
+    section += "\n\n" + ("### " + blocks.rstrip("\n") + "\n\n" if sep else "")
+    rest = current[:start] + section + current[stop:]
+    register.write_text(rest.rstrip("\n") + "\n", encoding="utf-8")
 
 
 def by_the_tool(key: str, lead_dir: Path, lead: dict, artifact: dict) -> bool:

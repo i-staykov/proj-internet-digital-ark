@@ -193,7 +193,7 @@ distro trees.
 
 ## Briefing agents
 
-**Grep `sources.md` before briefing an agent, not after.** A lens described as untried when it
+**Run `just find` before briefing an agent, not after.** A lens described as untried when it
 is closed three times over wastes the run and teaches the agent to distrust the brief.
 
 **Grep does not reach the highest authority.** The reviewer's own words arrive in

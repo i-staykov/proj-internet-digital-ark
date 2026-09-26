@@ -51,7 +51,7 @@ Before opening anything:
 | `logs/` | Execution logs from the runs that produced this |
 | `seeds/` | The auxiliary hostname and URL seed pool, and the page lists used for expansion |
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the code of the unattended research agents (workflows, prompts, policy), at the commit named in `FLEET_COMMIT.txt` |
-| `sources.md` | Per-source detail, including **the commands to download each**, and one row per source evaluated |
+| `sources.md` | One row per source not closed: what dates one item and **a link to its download address**. Each ingest spec is on `docs/registers/approved-sources-list.md` inside `source/` |
 | `sources-closed.md` | The other half of the source list: one row per family closed on a measurement, with the figure and the reason |
 | `findings.md` | The round's research findings in full, with the measurement behind each. The report cites them rather than carrying them |
 | `experience-summary.md` | What worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full source list this distils |
@@ -170,8 +170,9 @@ from the original sources, which is tier 3.
 
 ### 3. Rebuild from the original sources (not run this round)
 
-**`README.md` inside `source/` documents the route step by step**, with each source's download address
-in `sources.md`.
+**`README.md` inside `source/` documents the route step by step**. Each source's row in `sources.md`
+links its download address, and `docs/registers/approved-sources-list.md` in `source/` carries its
+ingest spec.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source   # if not already done in step 2
@@ -182,21 +183,21 @@ just reproduce                  # the command runner: https://just.systems
 
 Without `journals/` in `data/raw/` the replay runs clean and ingests nothing. The excluded sets
 replay nothing until restored: the RDAP logs on request, the rest by re-downloading from the
-addresses in `sources.md`; every assignment they back is checked by step 2. The replay also needs
-the first baseline release in `legacy-data/`, which this archive does not carry.
+link in each one's `sources.md` row; every assignment they back is checked by step 2. The replay
+also needs the first baseline release in `legacy-data/`, which this archive does not carry.
 
 About 50 GB of downloads, of which the 47 GB Arquivo.pt (Portuguese web archive) capture index is
 most; sizes measured once, on the first delivery, indicative.
 
-**What the replay cannot re-derive.** Three sources cannot be re-fetched: `domain_creation_bulk`
-(a Kaggle dataset that needs an account and may not be redistributed), `dartmouth_nber_captures` (an
+**What the replay cannot re-derive.** Three sources cannot be re-fetched: `domain_creation_bulk` (a
+Kaggle dataset that needs an account and may not be redistributed), `dartmouth_nber_captures` (an
 archive.org item that stopped serving the day after it was downloaded) and `rdap_snapshot` (journals
-held back on size, sent on request). `sources.md` gives the acquisition route for all three, and
-`audit/dartmouth_nber_captures_audit.csv` and `audit/domain_creation_bulk_audit.csv` record what
-the first two contributed. **Step 2 reproduces all of it, and that is the check to run**: the
-provenance export ships the evidence row behind every assignment, which is why the `evidence wall
-intact` verdict of `verify.sh` tests that every assignment resolves to an evidence row in this
-archive.
+held back on size, sent on request). Each one's `sources.md` row links the address it came from and
+the approved page names its ingest spec; `audit/dartmouth_nber_captures_audit.csv` and
+`audit/domain_creation_bulk_audit.csv` record what the first two contributed. **Step 2 reproduces
+all of it, and that is the check to run**: the provenance export ships the evidence row behind every
+assignment, which is why the `evidence wall intact` verdict of `verify.sh` tests that every
+assignment resolves to an evidence row in this archive.
 
 Two live sources need not match a later download: the `.fr` open-data file (June 2026 edition used
 here) and the Internet Scout feed. The journals and the provenance export shipped here do not move.

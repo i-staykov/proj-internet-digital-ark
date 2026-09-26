@@ -19,7 +19,7 @@ TWO SHAPES HAVE PAID, and you are looking for either one in a namespace that has
 at domainregistry.ie/statistics/{0-9,a..z}-doms.html, machine-generated from the live register, each
 page carrying its own in-body line, verbatim: "Last updated automatically at 14:51 GMT on Friday, 21
 December 2001". The Wayback Machine captured them: 24,805 distinct .ie names, banked at 19,263
-net-new pairs worth 18,769.9 EE (docs/registers/sources.md, \`iedr_register\`).
+net-new pairs worth 18,769.9 EE (\`iedr_register\`).
 
 **A CHANGE report.** MYNIC published a fortnightly "Domain Name Listing" at
 \`mynic.net.my/my/stats/<month><year>-<half>.htm\` giving every name that ENTERED or LEFT the register
@@ -71,7 +71,7 @@ ALREADY DONE, DO NOT REPEAT: .ie (banked, above), .my (found, above), .za (measu
 .ph (measured, 467 EE), .in ISP roster (62.7 EE), the .au family (AUNIC, auDA and AARNet are closed as
 having no bulk artifact), .ca's Usenet approval notices (banked; a LISTING artifact would be new), .nz,
 .sg, .hk, and the .us \`domain-delegated.txt\` file, a CLOSED FAMILY worth 1 to 2 net-new pairs that has
-been re-proposed by mistake. Grep \`docs/registers/sources.md\` before proposing anything.
+been re-proposed by mistake. Run \`just find <term>\` before proposing anything.
 
 HOW TO LOOK, cheapest first:
  1. Work out who actually ran the namespace in 1996-2001. It was very often a university computing
@@ -162,7 +162,7 @@ const results = await pipeline(
          otherwise against the newest baseline named in docs/registers/releases.md plus output/netnew.
          **Do not price against legacy-data**: that is the SUPERSEDED original baseline, and pricing
          against it overstated a source by about 1,000 EE.
-      8. Grep docs/registers/sources.md for the artifact by name and by population. One agent re-proposed
+      8. Run \`just find <term>\` for the artifact by name and by population. One agent re-proposed
          a family closed on 2026-08-18 and quoted a figure that row exists to refute.
       Correct every number and say how you checked it. Set found=true only if a dated list of names
       genuinely fetched today.`,

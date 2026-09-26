@@ -10,8 +10,8 @@ The reader is on a laptop terminal with a narrow window and little time.
   plan, no summary of what was just read.
 - Under 15 lines unless more was asked for. Long form belongs in the file being written; the
   chat says which file.
-- Every figure carries its unit, its date and where it came from: `18,038 EE net-new post-split,
-  measured 2026-09-01, docs/registers/sources.md:412`. A bare number is not an answer.
+- Every figure carries its unit, its date and where it came from: `7,074 EE net-new post-split,
+  measured 2026-09-04, sources.md row nypw_hostgrain`. A bare number is not an answer.
 - Say what was measured and what was assumed, separately. A negative with a reason is a result
   and is reported as one.
 - A proposal is five lines: what, why, files, risk, go?

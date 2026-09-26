@@ -278,13 +278,15 @@ a figure has reached the register without being checked.
    on the VPS, loudly when it cannot; a FIND with none is not re-priced. `ark price-snapshot` prices
    them again against `output/fleet_snapshot`, beside the store's figure as `fleet_program_ee` and
    `agreement_pct`, and the run ends with how many finds in a row agree within 1%.
-4. `bank_findings.py` writes the row, once per slug, into the register the verdict belongs to.
+4. `bank_findings.py` writes one row per source into the register the verdict belongs to.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
    the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
    line quotes, the artifact URL. A scout lead that closed under the floor used to reach
    `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
-   nothing about it. A slug either register already carries is skipped and said so.
+   nothing about it. A FIND replaces its own unsettled FIND row when the figure or verify status
+   moved; any other slug either register already carries is skipped and said so. Where two rows
+   of one source meet, `scripts/round/compact_registers.py` keeps the newest.
 
 A drain leaves `incoming/` only once its rows are committed. Two waves were archived under
 `banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
@@ -363,7 +365,7 @@ wc -l legacy-data/199[6-9].txt legacy-data/200[01].txt   # expect 8224963 total
 ```
 
 **The bulk sources** go in `data/raw/<source>/`, one folder per source.
-**[sources.md](../registers/sources.md) has the download command for each**, since the routes differ:
+**[sources.md](../registers/sources.md) links each one's download address**, since the routes differ:
 several survive only as web-archive captures, and one address answers HTTP 200 with a stub.
 
 ```bash
@@ -576,8 +578,8 @@ carries the retirement. Its journals still ingest through the `ark ingest rdap_s
 justfile, and `attested_years` still reads them.
 
 **Probe any registry or bulk endpoint with about 150 queries before spending a night on it.** Every
-failure so far is written up in [../registers/sources.md](../registers/sources.md), and each one
-failed differently.
+failure so far is a row of [../registers/sources-closed.md](../registers/sources-closed.md), and
+each one failed differently.
 
 ### What a fleet leg may ask the archive
 
@@ -669,8 +671,7 @@ any a sweep still holds open.
 ### The per-source collectors
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
-sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
-and residual headroom for every one are in [sources.md](../registers/sources.md).
+sorts it into a dated half and a candidate half, and only then does anything reach the store.
 
 One recipe, the source as its argument. `just collect` with no source lists them.
 
