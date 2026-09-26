@@ -156,7 +156,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 
 | | command | what it does |
 |---|---|---|
-| memory | `just state` | regenerates [ROUND.md](../ROUND.md), the current state, from the programs that own each figure |
+| memory | `just state` | regenerates [ROUND.md](../ROUND.md) and the brief from the claim files, without the store; `--full` adds the scoreboard and the unread residual |
 | memory | `just hypo list` | the ledger: what has been proposed, priced, adopted or killed, with status |
 | screen | `just screen --dating typed "..."` | kills a proposal that duplicates a closed family, and says whether it was closed on **measurement** or on **availability** |
 | fetch | `uv run python scripts/harness/fetch.py URL [--max-bytes 1G] [--to PATH]` | the fleet's only download path, and runnable by hand. Reads the whole robots.txt of the host in the download URL and refuses a by-name group wherever it sits (exit 3, with the artifact never asked for), re-reads the rules of every redirect hop before following it, honours `Retry-After` on 429, 503 and 504, caps at 1 GB by `Content-Length` and again by the stream (exit 5), refuses a body that ended short of its declared length (exit 7, nothing left on disk), allows only text, JSON, CSV, XML, gzip, mbox and CDX to disk, writes only under `$ARK_PROBE_DIR` or an approved download's corpus directory, extracts nothing, and prints one JSON receipt with the bytes and the sha256. `--to -` streams the payload to a pipe and puts the receipt on stderr, which is how a zip or an unnamed type is read at all |
@@ -165,7 +165,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](../lore/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | price-hosts | `just price-hosts data/raw/<x>_hostgrain/` | the same question at **hostname grain**, the second unit the reviewer accepted on 2026-09-01: runs the ingest's own funnel over `{url, timestamp}` journals (or `--items x.jsonl`), differences against `hostname_year` and his baseline files on a read-only connection, and prints net-new hostname years and EE per year with the parent pairs beside. `--head N --sample-of M` samples; the projection it prints is an upper bound and says so |
-| ship it | `just ship` | banks every class a human has newly moved to `master`, then exports, runs the data invariants, packages, verifies the delivery as a reviewer would, re-checks the totals with **his own calculator**, builds the `.docx`, writes the mail draft and closes the gate issue. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
+| ship it | `just ship` | holds the sync lock throughout: `just bank --force` banks every class a human has newly moved to `master` and writes the claim, then the full export, the data invariants, the round state, the report and its `.docx`, packaging, a reviewer's check of the delivery, **his own calculator** over the totals, the mail draft and the gate issue's close. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
 | approve | `uv run python scripts/harness/request_approval.py <spec> --journal <j>` | writes a request into [approved-sources-list.md](../registers/approved-sources-list.md) that a human can decide in two minutes. `ark ingest` **refuses** a master-eligible class until it is decided |
 | rank | `just triage-rank` | sorts the triage queue in [approved-sources-list.md](../registers/approved-sources-list.md) by the `- potential:` score each entry declares, highest first, so the most promising source is signed off first. `--check` exits 1 if it has drifted. An entry with no score is a hard error, because a source that sorts to the bottom for want of a number is the one nobody looks at |
 | `uv run python scripts/engines/build_promotion_journals.py --tag T` | re-file mentions the corroboration split now admits, as dated journals. Dry run by default; `--write` emits, and it never ingests |
@@ -187,7 +187,6 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | yield priors | `uv run python scripts/harness/yield_priors.py` | the positive half of his XI's last sentence, feeding measured yield back into hypothesis generation. Read the SPREAD and not the median: every shape's median is three figures or less and its best is six or seven, so shape does not predict a lead's worth. What does is how much of the artifact can be read whole |
 | query health | `uv run python scripts/harness/query_health.py --write`, and inside `just cycle` | the failure-state ledger of his section XI, derived from what the collectors already print rather than by changing them, so it works while they run. Three signals: failure rate, throttles per query (the early warning, since the archive slows us before refusing) and a run of batches answering nothing at all. Found on 2026-09-04 that past batches had been failing at 24% to 43% with the delay pinned at its ceiling, unrecorded |
 | dataset discovery | `uv run python scripts/harness/dataset_discovery.py --out private/discovery.tsv` | asks six open-repository catalogues for the artifact shape that pays and screens every hit against the three registers; metadata only, and a hit is a lead to price, not a source |
-| what a run has added | `just added [--by-source]` | the store query a long collection run wants every half hour: what the lanes have added since `round_since`, priced, through the export's own predicates so a row counted is a row that would ship. Seconds, and read-only, against the 20 minutes `just state` needs. Records are hostname-YEARS, which is the unit he counts |
 | hostname lane | `just hostnames <epoch>` | **the standing priority in one command, and leave it running.** Ranks platforms by the hosts we LACK rather than the hosts that exist, starts two sweeps (the maximum), and needs no hand between starting and reading the figures. Measured 2026-09-04: 22.5M capture rows in three and a half hours, 886,216 net-new shippable records, 552,782 equivalent-English, 48% of the 5% gate. At about 750 times the yield of a gap query an idle hour costs more here than anywhere else, so give it a deadline days out and restart it whenever a session ends |
 | gap hostnames | `uv run python scripts/engines/cdx_gap_hostgrain.py`, then `uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain` | the gap engine's own answers one level down, and `just bank` runs both whenever their journals move, so it needs no hand. Free: the archive already named the host in a response we had already paid for. Journals written before 2026-09-04 yield NOTHING, because the query asked `fl=timestamp` and kept `{domain, years}`: 2,984,321 answers across 1,163 journals record no host, which is the measured cost of journalling a conclusion instead of a response |
 | re-split | `bash scripts/engines/compound_splits.sh <epoch>` | **the largest single lever measured in round 7, and it reads nothing new.** The corroboration split promotes a mention to a dated record only when some other source already places that domain in a year, and that test is re-evaluated every time the split runs, so the same journals are worth more as the store grows. On 2026-08-27 re-splitting the address journals paid 30,645.6 equivalent-English against roughly 700 pairs from the 60 new archives that triggered it, and the bare journals paid 11,447.7 against 128.17 for their 400 new archives: ratios of about 40:1 and 90:1 in favour of re-splitting over reading. Loops the promotion tranche and both corpora to a deadline, and skips a pass rather than queueing when the store's single writer is busy |
@@ -321,9 +320,9 @@ invisible re-deals settled work.
 
 ### One lock, whoever started the sync
 
-`just sync` and `just bank` take `data/logs/.sync.lock` before they touch anything and drop it on
-the way out, by hand or by launchd. The tick hands its lock to the bank it calls: `ARK_LOCK_HELD`
-names the tick's pid, and the bank trusts it only while the lock does. A second sync prints who
+`just sync`, `just bank` and `just ship` take `data/logs/.sync.lock` before they touch anything and
+drop it on the way out. The tick and ship hand the lock to the bank they call: `ARK_LOCK_HELD`
+names the caller's pid, and the bank trusts it only while the lock does. A second sync prints who
 holds the lock and how long that one has been running, changes nothing and exits 0, so the hourly
 job skipping is not an error. A lock left by a killed run names a pid that is gone and is taken
 over, with a line saying so. `scripts/harness/sync_lock.sh holder` answers who has it.
@@ -403,7 +402,7 @@ about a domain the bulk sources introduced, and the corroboration split in stage
 what the store holds by then.
 
 ```bash
-wc -l output/netnew/*.txt   # equals the net-new pair count from `ark stats`
+cat output/netnew/199[6-9].txt output/netnew/200[01].txt | wc -l   # the pairs packaging counts
 ```
 
 **`ark check` must run after `ark export`, not before.** One invariant,
@@ -439,11 +438,11 @@ Its overlap guard reading zero is also the proof that the new release actually l
 
 ### Package the delivery archive
 
-**Use `just ship` rather than packaging by hand.** The packaging stage refuses unless `output/`
-matches the store **exactly**, and the store moves whenever `just bank` folds journals, which the
-hourly tick can start at any time. So a hand-run `ark export` followed by `just ship package` races
-it and refuses, and the evening a round ships is the wrong time to find that out. Measured on
-2026-08-13: export wrote 170,186 pairs and packaging read 170,787 from the store minutes later.
+**Use `just ship` rather than packaging by hand.** Packaging refuses unless
+`output/netnew/export_stamp.json` records a full export with provenance whose ledger matches the
+store, and the bank's claim, set aside in `data/exports/claim/`, equals the full one. A bank writes
+only the claim, so after one packaging refuses and names the stale masters. Each `just ship` stage
+that banks, packages or verifies holds the sync lock to its end, so no tick moves the store meanwhile.
 
 ```bash
 just ship --help     # the whole chain, printed, nothing run
@@ -455,18 +454,12 @@ just ship            # bank the approved, export, gate, package, verify, draft t
 [questions.md](../registers/questions.md) that is due for a reminder, and it closes the gate issue on a verified
 delivery. `just ship draft` prints that mail and writes nothing.
 
-Only the **ingest** loop pauses. Collectors writing journals do not move the store, so they keep running
-and their work banks afterwards; journals are ledgered by content hash, so re-offering an ingested one is
-skipped in milliseconds. The recipe restarts the loop on exit if it was running when ship began.
-
 ```bash
-uv run ark export                       # refresh output/ from the store first
-uv run python scripts/round/fill_report.py    # substitutes every figure into docs/report.md
-just ship package                       # tar.gz plus its SHA256, into submissions/<round>/
-just verify delivery                    # run the archive's own checks from outside
+just ship build                         # the claim set aside, the full export, report, package, verify
+just ship verify                        # re-verify the newest stage and the retained copies
 ```
 
-Packaging refuses to build from a modified working tree, from an `output/` older than the store, from
+Packaging refuses to build from a modified working tree, from a claim or stale export, from
 a `docs/report.md` that disagrees with what `fill_report.py` would emit, or when the baseline release
 the figures are measured against is not on disk to ship alongside them. Each of those guards exists
 because the failure it catches has happened.
@@ -774,7 +767,7 @@ docs/          the brief and its amendments, sources, discovery method, design n
 submissions/   one folder per round: the report as sent, its checksum and manifest
 ```
 
-Two files under `docs/` are **generated, not written**. `docs/ROUND.md` comes from `just state`, and `docs/report.md` comes from
+Two files under `docs/` are **generated, not written**. `docs/ROUND.md` comes from the bank and `just state`, and `docs/report.md` comes from
 `docs/report.template.md` via `scripts/round/fill_report.py`, which fills every figure from the store and
 refuses to write if a placeholder is left unfilled. Editing the generated copy loses the edit at the
 next refresh, and packaging refuses outright if the two disagree.

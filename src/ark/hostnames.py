@@ -223,13 +223,20 @@ def host_of(url: str) -> str | None:
 
 
 def ingest_hostname_journal(
-    conn: duckdb.DuckDBPyConnection, path: Path, ledger: set[tuple[str, str, str]] | None = None
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    ledger: set[tuple[str, str, str]] | None = None,
+    only: set[tuple[str, int]] | None = None,
 ) -> dict[str, int | str | bool]:
-    """One journal of raw capture rows into hostname_year, idempotently."""
-    from ark import approvals
-
+    """One journal of raw capture rows into hostname_year, idempotently. With `only`, the
+    journal is read again past the ledger for those (host, year) keys alone, and the ledger
+    is left as it was."""
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     source_name, method = source_for(path)
+    if only is not None:
+        stats = _ingest_rows(conn, path, source_name, method, stats, only)
+        logger.info(str(stats))
+        return stats
     # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
     # journal under the journal's FINAL name, one batch per index page, for hours. A name-only
     # ledger marks a live journal done at whatever length it happened to have, and every row
@@ -256,9 +263,42 @@ def ingest_hostname_journal(
         # rows to the log every run, and it says nothing a reader wants.
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
+    stats = _ingest_rows(conn, path, source_name, method, stats, None)
+    if stats.get("refused"):
+        return stats
+    # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
+    # row to the new digest rather than adding one. `record_rows` accumulates, because the
+    # journal really did yield rows on both passes and the total is what the ledger is for.
+    conn.execute(
+        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
+        "record_rows = ingested_file.record_rows + excluded.record_rows",
+        [source_name, path.name, digest, stats["hostname_year_rows"]],
+    )
+    logger.info(str(stats))
+    return stats
+
+
+# The host of a journal row's URL, read before the row is parsed, so a re-read for a few
+# keys skips every other line cheaply.
+_ROW_HOST = re.compile(r'"url":\s*"[A-Za-z][A-Za-z0-9+.-]*://([^/:"?#\s]+)')
+
+
+def _ingest_rows(
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    source_name: str,
+    method: str,
+    stats: dict[str, int | str | bool],
+    only: set[tuple[str, int]] | None,
+) -> dict[str, int | str | bool]:
+    from ark import approvals
+
     # The same gate every other master-eligible ingest passes: a journal family with no
     # `Decision: master` line behind its source row is refused before anything is read.
     approvals.check(source_name, "cdx_timestamp")
+    only_hosts = {h for h, _ in only} if only is not None else None
 
     counts: Counter[str] = Counter()
     # the capture quoted per (host, year): any 2xx or 3xx before any error, then the earliest
@@ -271,6 +311,10 @@ def ingest_hostname_journal(
                 line = line.strip()
                 if not line:
                     continue
+                if only_hosts is not None:
+                    found = _ROW_HOST.search(line)
+                    if not found or found.group(1).lower().rstrip(".") not in only_hosts:
+                        continue
                 counts["lines"] += 1
                 try:
                     row = json.loads(line)
@@ -305,6 +349,8 @@ def ingest_hostname_journal(
                 if error:
                     counts["error_status"] += 1
                 key = (host, year)
+                if only is not None and key not in only:
+                    continue
                 if key not in seen or (error, ts) < seen[key][:2]:
                     seen[key] = (error, ts, status if error else None)
     except (EOFError, OSError):
@@ -413,6 +459,28 @@ def ingest_hostname_journal(
             """
         )
         stats["repointed"] = conn.execute("SELECT count(*) FROM repoint").fetchone()[0]
+        # and the parent-year an error capture held, from any subdomain but `www.`
+        conn.execute(
+            """
+            CREATE OR REPLACE TEMP TABLE parent_repoint AS
+            SELECT dy.domain, dy.assigned_year, min(e.evidence_id) AS evidence_id
+            FROM hostage h
+            JOIN domain_year dy ON dy.domain = h.parent AND dy.assigned_year = h.year
+            JOIN evidence held ON held.evidence_id = dy.evidence_id
+            JOIN evidence e
+              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
+            WHERE h.status IS NULL AND h.hostname <> 'www.' || h.parent
+              AND regexp_matches(held.evidence_value, ?)
+            GROUP BY dy.domain, dy.assigned_year
+            """,
+            [ERROR_STATUS],
+        )
+        conn.execute(
+            """
+            UPDATE domain_year SET evidence_id = r.evidence_id FROM parent_repoint r
+            WHERE domain_year.domain = r.domain AND domain_year.assigned_year = r.assigned_year
+            """
+        )
         # A capture under the domain evidences the parent registrable in that year too, in
         # the same cdx_timestamp class: one row per (parent, year).
         #
@@ -439,18 +507,6 @@ def ingest_hostname_journal(
         conn.execute("DELETE FROM hostage")
     else:
         stats["hostname_year_rows"] = 0
-
-    # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
-    # row to the new digest rather than adding one. `record_rows` accumulates, because the
-    # journal really did yield rows on both passes and the total is what the ledger is for.
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?) "
-        "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
-        "record_rows = ingested_file.record_rows + excluded.record_rows",
-        [source_name, path.name, digest, stats["hostname_year_rows"]],
-    )
-    logger.info(str(stats))
     return stats
 
 
@@ -1661,3 +1717,235 @@ def ingest_usenet_item_dir(
     totals["files_seen"] = len(files)
     logger.info(f"usenet hostnames: {dict(totals)}")
     return dict(totals)
+
+
+# **The captures `scripts/round/status_audit.py` read the raw CDX of, by family**: the
+# (source, method) their evidence rows carry, and the group whose raw the audit reads
+# together for a repoint target.
+AUDITED_FAMILIES = {
+    "nypw": (SOURCE_NAME, NYPW_METHOD, "ia_hostgrain"),
+    "early_web": (EARLY_WEB_SOURCE, EARLY_WEB_METHOD, "ia_hostgrain"),
+    "dartmouth_arcs": (DARTMOUTH_ARCS_SOURCE, DARTMOUTH_ARCS_METHOD, "dartmouth_arcs"),
+    "host_cdx": (HOSTCDX_SOURCE, HOSTCDX_METHOD, "host_cdx"),
+}
+# The other web families' journals, read again for the host-years a retraction leaves
+# without a 2xx or 3xx, so a year another family captured comes back. The NYPW and Early
+# Web journals carry no status and are refused, so their captures come from the audit.
+OTHER_WEB_JOURNALS = tuple(
+    Path("data/raw") / name
+    for name in (
+        "cdx_suffix",
+        "cdx_gap_hostgrain",
+        "availability_hostgrain",
+        "arquivo_hostgrain",
+        "arquivo_hostgrain_3xx",
+        "poland_hostgrain",
+        "poland_hostgrain_3xx",
+        "ukwa_hostgrain",
+        "dartmouth_arcs_hostgrain",
+        "hostcdx_hostgrain",
+        "hostcdx_hostgrain_3xx",
+    )
+)
+
+
+def retract_error_captures(
+    conn: duckdb.DuckDBPyConnection,
+    audit: Path,
+    write: bool = False,
+    netnew_dir: Path = Path("output/netnew"),
+    journals: tuple[Path, ...] | None = None,
+) -> dict[str, int]:
+    """Every hostname or domain year whose evidence row quotes a capture the status audit
+    lists as a 4xx or 5xx. A host-year with a 2xx or 3xx capture in the audited raw of its
+    family's group is repointed to a new evidence row at the earliest one; the rest keep
+    their row, which gets its error status and so fails XIII and exports as a candidate. A
+    parent year moves to the host's repointed capture, or to another passing master row of
+    its own, or stays on the error row. `write` false counts and changes nothing, and a
+    second `write` resumes one that stopped.
+
+    `audit` is `status_errors.tsv.gz`; `status_repoint.tsv.gz` beside it names each error
+    host-year's earliest 2xx or 3xx capture, per group.
+    """
+    from ark.evidence_types import MASTER_TYPES, web_evidence_sql
+
+    families = ", ".join(
+        f"('{f}', '{s}', '{m}', '{g}')" for f, (s, m, g) in AUDITED_FAMILIES.items()
+    )
+    masters = ", ".join(f"'{t}'" for t in sorted(MASTER_TYPES))
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE fams AS "
+        f"FROM (VALUES {families}) f(family, source, method, grp)"
+    )
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE audit_err AS SELECT * FROM read_csv(?, delim = '\t', "
+        "header = true, columns = {'hostname': 'VARCHAR', 'ts': 'VARCHAR', "
+        "'status': 'VARCHAR', 'family': 'VARCHAR'})",
+        [str(audit)],
+    )
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE audit_ok AS SELECT * FROM read_csv(?, delim = '\t', "
+        "header = true, columns = {'hostname': 'VARCHAR', 'year': 'INTEGER', "
+        "'ts': 'VARCHAR', 'family': 'VARCHAR'})",
+        [str(audit.with_name("status_repoint.tsv.gz"))],
+    )
+    # the row as banked, or as a stopped write already left it, so a rerun finds both
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE hit AS
+        WITH form AS (
+            SELECT *, 'cdx capture ' || ts || ' ' || hostname AS value, false AS done
+            FROM audit_err
+            UNION ALL
+            SELECT *, 'cdx capture ' || ts || ' status ' || status || ' ' || hostname, true
+            FROM audit_err
+        )
+        SELECT e.evidence_id, e.domain AS parent, e.evidence_year AS year, v.hostname, v.ts,
+               v.status, v.family, f.grp, v.done, e.evidence_value
+        FROM form v
+        JOIN fams f ON f.family = v.family
+        JOIN source s ON s.name = f.source
+        JOIN evidence e
+          ON e.source_id = s.source_id AND e.acquisition_method = f.method
+         AND e.evidence_value = v.value
+    """)
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE hit_target AS
+        SELECT h.evidence_id, min(o.ts) AS ok_ts, any_value(f.source) AS ok_source,
+               any_value(f.method) AS ok_method
+        FROM hit h
+        JOIN audit_ok o ON o.hostname = h.hostname AND o.year = h.year
+        JOIN fams f ON f.family = o.family AND f.grp = h.grp
+        GROUP BY h.evidence_id
+    """)
+    for grain, table, key in (("hy", "hostname_year", "hostname"), ("dy", "domain_year", "domain")):
+        www = "AND h.hostname <> 'www.' || h.parent" if grain == "dy" else ""
+        conn.execute(f"""
+            CREATE OR REPLACE TEMP TABLE {grain}_hit AS
+            SELECT r.{key}, r.assigned_year, h.evidence_id, h.family, h.evidence_value,
+                   CASE WHEN t.evidence_id IS NOT NULL {www} THEN 'repoint'
+                        WHEN h.done THEN 'retracted' ELSE 'retract' END AS action
+            FROM {table} r
+            JOIN hit h ON h.evidence_id = r.evidence_id
+            LEFT JOIN hit_target t ON t.evidence_id = h.evidence_id
+        """)
+    stats: dict[str, int] = {}
+    for grain in ("hy", "dy"):
+        for family, action, n in conn.execute(
+            f"SELECT family, action, count(*) FROM {grain}_hit GROUP BY 1, 2"
+        ).fetchall():
+            stats[f"{grain}_hit_{action}_{family}"] = n
+    for grain, manifest, key in (
+        ("hy", "hostnames_evidence_manifest.csv", "hostname"),
+        ("dy", "evidence_manifest.csv", "domain"),
+    ):
+        path = netnew_dir / manifest
+        if not path.is_file():
+            continue
+        for family, action, n in conn.execute(
+            f"""
+            SELECT t.family, t.action, count(*)
+            FROM {grain}_hit t
+            JOIN read_csv(?, header = true, all_varchar = true) m
+              ON m.{key} = t.{key} AND CAST(m.assigned_year AS INTEGER) = t.assigned_year
+             AND m.evidence_value = t.evidence_value
+            GROUP BY 1, 2
+            """,
+            [str(path)],
+        ).fetchall():
+            stats[f"shipped_{grain}_hit_{action}_{family}"] = n
+    if not write:
+        return stats
+
+    for source, _, _ in AUDITED_FAMILIES.values():
+        ensure_source(conn, source, "timestamped")
+    conn.execute("BEGIN")
+    # the repoint target, one new row per host-year unless a row that is no error holds it
+    conn.execute("""
+        INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
+                              evidence_value, evidence_url, acquisition_method)
+        SELECT DISTINCT h.parent, s.source_id, h.year, 'cdx_timestamp',
+               'cdx capture ' || t.ok_ts || ' ' || h.hostname,
+               'https://web.archive.org/web/' || t.ok_ts || '/http://' || h.hostname || '/',
+               t.ok_method
+        FROM hit h
+        JOIN hit_target t ON t.evidence_id = h.evidence_id
+        JOIN source s ON s.name = t.ok_source
+        WHERE NOT EXISTS (
+            SELECT 1 FROM evidence x
+            WHERE x.domain = h.parent AND x.evidence_year = h.year
+              AND x.evidence_value = 'cdx capture ' || t.ok_ts || ' ' || h.hostname
+              AND x.evidence_id NOT IN (SELECT evidence_id FROM hit))
+    """)
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE new_row AS
+        SELECT h.evidence_id AS old_id, min(e.evidence_id) AS new_id
+        FROM hit h
+        JOIN hit_target t ON t.evidence_id = h.evidence_id
+        JOIN evidence e
+          ON e.domain = h.parent AND e.evidence_year = h.year
+         AND e.evidence_value = 'cdx capture ' || t.ok_ts || ' ' || h.hostname
+        WHERE e.evidence_id NOT IN (SELECT evidence_id FROM hit)
+        GROUP BY h.evidence_id
+    """)
+    conn.execute("""
+        UPDATE hostname_year SET evidence_id = n.new_id FROM new_row n
+        WHERE hostname_year.evidence_id = n.old_id
+    """)
+    conn.execute("""
+        UPDATE domain_year SET evidence_id = n.new_id
+        FROM new_row n, dy_hit d
+        WHERE domain_year.evidence_id = n.old_id AND d.evidence_id = n.old_id
+          AND d.action = 'repoint'
+          AND domain_year.domain = d.domain AND domain_year.assigned_year = d.assigned_year
+    """)
+    # every row that quoted an error capture now says so
+    conn.execute("""
+        UPDATE evidence SET evidence_value = 'cdx capture ' || h.ts || ' status ' || h.status
+                                              || ' ' || h.hostname
+        FROM hit h WHERE evidence.evidence_id = h.evidence_id AND NOT h.done
+    """)
+    # a parent year left on an error row takes another passing master row of its own
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE parent_other AS
+        SELECT dy.domain, dy.assigned_year, min(e.evidence_id) AS evidence_id
+        FROM domain_year dy
+        JOIN hit h ON h.evidence_id = dy.evidence_id
+        JOIN evidence e ON e.domain = dy.domain AND e.evidence_year = dy.assigned_year
+        WHERE {web_evidence_sql("e")} AND e.evidence_type IN ({masters})
+          AND e.evidence_value NOT LIKE 'cdx capture % www.' || dy.domain
+          AND e.evidence_id NOT IN (SELECT evidence_id FROM hit)
+        GROUP BY dy.domain, dy.assigned_year
+    """)
+    conn.execute("""
+        UPDATE domain_year SET evidence_id = p.evidence_id FROM parent_other p
+        WHERE domain_year.domain = p.domain AND domain_year.assigned_year = p.assigned_year
+    """)
+    conn.execute("COMMIT")
+    stats["parent_years_moved_to_another_row"] = conn.execute(
+        "SELECT count(*) FROM parent_other"
+    ).fetchone()[0]
+
+    # a host-year left on an error row may still have a 2xx or 3xx in another web family
+    def still_on_an_error() -> set[tuple[str, int]]:
+        return {
+            (h, int(y))
+            for h, y in conn.execute(
+                "SELECT hy.hostname, hy.assigned_year FROM hostname_year hy "
+                "JOIN evidence e ON e.evidence_id = hy.evidence_id "
+                "WHERE hy.evidence_id IN (SELECT evidence_id FROM hit) "
+                "AND regexp_matches(e.evidence_value, ?)",
+                [ERROR_STATUS],
+            ).fetchall()
+        }
+
+    left, restored = still_on_an_error(), 0
+    for root in journals if journals is not None else OTHER_WEB_JOURNALS:
+        if not left:
+            break
+        files = sorted(root.glob("*.jsonl.gz")) if root.is_dir() else []
+        for path in files:
+            restored += int(ingest_hostname_journal(conn, path, only=left).get("repointed") or 0)
+        left = still_on_an_error()
+    stats["restored_by_another_web_family"] = restored
+    stats["left_on_an_error_capture"] = len(left)
+    return stats

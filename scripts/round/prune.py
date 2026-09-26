@@ -209,12 +209,11 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
             if not write:
                 lines.append(f"would check store and remove: {backup.relative_to(root)}")
                 continue
-            # `ark check` records a metrics row, so the store's size and times move under it;
-            # the file must stay the same file, never a store swapped in during the check.
+            # `ark check` only reads, so the store must come out of it the very same file.
             done = subprocess.run(["uv", "run", "ark", "check"], cwd=root, check=False)
             if (
                 done.returncode
-                or offsite.signature(root, store)[:2] != before[:2]
+                or offsite.signature(root, store) != before
                 or store.with_suffix(".duckdb.wal").exists()
             ):
                 raise ValueError("ark check failed or store replaced; backup retained")

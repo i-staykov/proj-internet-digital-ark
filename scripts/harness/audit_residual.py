@@ -58,6 +58,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import duckdb  # noqa: E402
 
 from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 from ark.stats import BASELINE_TYPE  # noqa: E402
 
@@ -154,37 +155,26 @@ ACCOUNTED = {
 
 
 def read_only_store(path: Path, patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    """Open for reading, waiting out a writer.
+    """Open for reading through `ark.db`, which caps memory and waits out a writer.
 
-    Patience is 15 minutes, not the 2 minutes this first shipped with. That was
-    sized against a writer that holds the write lock for seconds, and it
-    failed the first time it met a real writer: `ark seed` over 29,432 names holds
-    the lock for more than twenty minutes, so a read-only audit gave up at
-    exactly the moment the audit was worth running. A writer that outlasts even
-    this gets a one-line explanation naming its PID, because a traceback out of a
-    read-only reporting tool reads as a defect in the tool.
+    Patience is 15 minutes because `ark seed` over tens of thousands of names holds the
+    lock for more than twenty. A writer that outlasts even this gets a one-line
+    explanation naming its PID, because a traceback out of a read-only reporting tool
+    reads as a defect in the tool.
     """
-    deadline = time.monotonic() + patience_s
-    announced = False
-    while True:
-        try:
-            return duckdb.connect(str(path), read_only=True)
-        except duckdb.Error as exc:
-            message = str(exc)
-            if "Conflicting lock" not in message:
-                raise
-            if time.monotonic() >= deadline:
-                pid = re.search(r"PID (\d+)", message)
-                who = f" (PID {pid.group(1)})" if pid else ""
-                raise SystemExit(
-                    f"the store is being written{who} and still was after "
-                    f"{patience_s}s. Nothing is wrong: this reads the store, so it "
-                    f"waits for the writer. Re-run when the ingest or seed finishes."
-                ) from None
-            if not announced:
-                print(f"waiting for a writer to release {path.name} ...", flush=True)
-                announced = True
-            time.sleep(3)
+    try:
+        return connect_read_only_patiently(path, patience_s=patience_s)
+    except duckdb.Error as exc:
+        message = str(exc)
+        if "Conflicting lock" not in message:
+            raise
+        pid = re.search(r"PID (\d+)", message)
+        who = f" (PID {pid.group(1)})" if pid else ""
+        raise SystemExit(
+            f"the store is being written{who} and still was after "
+            f"{patience_s}s. Nothing is wrong: this reads the store, so it "
+            f"waits for the writer. Re-run when the ingest or seed finishes."
+        ) from None
 
 
 def ingest_globs() -> list[tuple[str, str, str]]:

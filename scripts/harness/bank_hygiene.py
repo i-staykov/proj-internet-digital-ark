@@ -306,26 +306,23 @@ def gate(
 ) -> list[str]:
     """Open the gate issue on a crossing, once, and say what it did.
 
-    The figure comes from `data/brief.json`, which `build_round_state.py` writes at
-    the end of the bank, so this reads the number the bank itself measured rather
-    than opening the store a second time.
+    The figure is field 5 from `data/brief.json`, which `build_round_state.py` writes at
+    the end of the bank, quoted as ROUND.md prints it rather than measured a second time.
     """
     now = now or datetime.now(UTC)
-    # **This round's window, not the total.** His current release lacks the round already
-    # sent to him, so the total carries that round inside it and would report a crossing
-    # on the day the next window opened, with nothing collected. A brief written before
-    # the window figures existed still answers on the total.
-    percent = float(brief.get("round_percent", brief.get("percent", 0.0)))
+    # Field 5 counts against his release, so a shipped round reads over the gate until the
+    # next release, and the latch below keys on the release alone: one crossing per release.
+    percent = brief["field5_percent"]
     target = float(brief.get("gate_pct", 5.0))
     label = str(brief.get("round", "?"))
     # The brief carries Ivo's numbering as a bare label ("8"), and the open-issue
     # query keys on the title, so the word belongs here and only here.
     round_name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))
-    if percent < target:
-        return [f"at {percent:.4f}%, gate at {target:g}%: not crossed"]
-    if (label, marker) in latched(latch_path):
-        return [f"gate already notified for {round_name} against {marker}: nothing to do"]
+    if float(percent) < target:
+        return [f"at {percent}%, gate at {target:g}%: not crossed"]
+    if marker in {m for _, m in latched(latch_path)}:
+        return [f"gate already notified against {marker}: nothing to do"]
 
     code, out = call(
         [
@@ -353,11 +350,11 @@ def gate(
 
     stamp = now.strftime("%H:%M UTC")
     since = f" (released {released})" if released else ""
-    title = f"{round_name} at {percent:.4f}% against {marker}{since} at {stamp}"
+    title = f"{round_name} at {percent}% against {marker}{since} at {stamp}"
     body = "\n".join(
         [
-            f"{round_name} crossed the {target:g}% gate: {percent:.4f}% against `{marker}`"
-            f"{since}, measured by the hourly bank at {now.isoformat(timespec='seconds')}.",
+            f"{round_name} crossed the {target:g}% gate: field 5 is {percent}% against "
+            f"`{marker}`{since}, read off the last bank at {now.isoformat(timespec='seconds')}.",
             "",
             "Next: merge any open approval PR, then run `just ship` where the store is.",
             "Opened once per crossing, and closed on a verified package.",
@@ -387,6 +384,9 @@ def _brief() -> dict | None:
             f"brief is against {brief.get('baseline')}, the current release is "
             f"{CURRENT_BASELINE_MARKER}: refresh it before the gate is read"
         )
+        return None
+    if "field5_percent" not in brief:
+        print("brief carries no field5_percent: docs/ROUND.md says why; gate not checked")
         return None
     return brief
 

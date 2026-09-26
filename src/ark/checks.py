@@ -11,7 +11,7 @@ from pathlib import Path
 import duckdb
 
 from ark.evidence_types import CANDIDATE_ONLY_TYPES
-from ark.hostnames import WEB_FACING_HOST_SOURCES
+from ark.hostnames import AUDITED_FAMILIES, WEB_FACING_HOST_SOURCES
 
 _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
@@ -19,6 +19,10 @@ _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 # constant inside the SQL: a hardcoded path would make the test suite assert
 # against the real deliverable, which is the same trap `export_all` documents.
 NETNEW_DIR = Path("output/netnew")
+# The error captures `scripts/round/status_audit.py` read out of the raw CDX. `ark check`
+# passes it; a caller that passes none skips the check that reads it.
+AUDIT_PATH = Path("data/audit/status_errors.tsv.gz")
+_AUDITED = ", ".join(f"('{f}', '{s}', '{m}')" for f, (s, m, _) in AUDITED_FAMILIES.items())
 
 # The first four-digit run inside an evidence value is that value's own year, for
 # every type whose value names a single year: a CDX timestamp (19981212033831), a
@@ -284,12 +288,30 @@ CHECKS: list[tuple[str, str, str]] = [
           )
         """,
     ),
+    (
+        "no_master_record_points_to_an_error_capture",
+        "no hostname or domain year rests on a capture the status audit lists as 4xx or 5xx",
+        """
+        WITH bad AS (
+            SELECT e.evidence_id
+            FROM read_csv('{audit}', delim = '\t', header = true, all_varchar = true) a
+            JOIN (VALUES {audited}) f(family, source, method) ON f.family = a.family
+            JOIN source s ON s.name = f.source
+            JOIN evidence e
+              ON e.source_id = s.source_id AND e.acquisition_method = f.method
+             AND e.evidence_value = 'cdx capture ' || a.ts || ' ' || a.hostname
+        )
+        SELECT (SELECT count(*) FROM hostname_year WHERE evidence_id IN (SELECT * FROM bad))
+             + (SELECT count(*) FROM domain_year WHERE evidence_id IN (SELECT * FROM bad))
+        """,
+    ),
 ]
 
 
 def collect_checks(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
+    audit: Path | None = None,
 ) -> list[dict]:
     """Run every integrity check; return one result dict per check.
 
@@ -300,6 +322,20 @@ def collect_checks(
     """
     results = []
     for name, description, template in CHECKS:
+        if "{audit}" in template:
+            if audit is None or not audit.is_file():
+                results.append(
+                    {
+                        "name": name,
+                        "description": description,
+                        "offending": 0,
+                        "ok": True,
+                        "skipped": f"no status audit at {audit}; run scripts/round/status_audit.py",
+                    }
+                )
+                continue
+            # replaced, not formatted: the SQL carries regex braces
+            template = template.replace("{audit}", str(audit)).replace("{audited}", _AUDITED)
         needs_export = "{netnew_dir}" in template
         sql = template.format(netnew_dir=netnew_dir) if needs_export else template
         try:
