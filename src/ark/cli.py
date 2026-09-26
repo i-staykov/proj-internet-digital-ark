@@ -732,8 +732,16 @@ def export(
             help="Also write the provenance graph. Needed to ship a round or to `ark rebuild`.",
         ),
     ] = False,
+    claim: Annotated[
+        bool,
+        typer.Option(
+            "--claim",
+            help="Write only the claim and its stamp, as the bank does. Packaging refuses it.",
+        ),
+    ] = False,
 ) -> None:
-    """Write net-new year files, candidates, manifest, and merged masters.
+    """Write net-new year files, candidates, manifest, merged masters and the stamp; `--claim`
+    writes only the claim files ROUND.md reads and the stamp.
 
     Patient, because it is the first step of shipping a round: DuckDB blocks a write
     connection against any other process holding the file, even a reader, and this
@@ -742,8 +750,10 @@ def export(
     **The provenance graph is off unless asked for**: it is 229 of the command's 444
     seconds and 2,319 MB, and only `package_delivery.sh` and `just rebuild` read it.
     """
+    if claim and provenance:
+        raise typer.BadParameter("--claim writes no provenance graph: pass one of the two")
     conn = connect_patiently()
-    export_all(conn, with_provenance=provenance)
+    export_all(conn, with_provenance=provenance, claim_only=claim)
 
 
 @app.command(name="price-snapshot")
