@@ -84,8 +84,6 @@ verify_raw = _load("verify_raw")
 
 def reason(entry) -> str | None:
     """Why this entry must go off-site, or None when something else can bring it back."""
-    if Path(entry.key).parent == Path("data") and Path(entry.key).match("ark.duckdb.pre-*.bak"):
-        return "store rollback copy, held until checked and verified off-site"
     if Path(entry.key).name == ".DS_Store":
         return None
     if entry.cls == "keep_journal":

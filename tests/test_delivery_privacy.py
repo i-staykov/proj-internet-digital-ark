@@ -1,4 +1,4 @@
-"""Nothing addressed to a person may reach the delivery archive.
+"""Nothing addressed to a person, and no unwritten section, may reach the delivery archive.
 
 `package_delivery.sh` ships the code as `git archive HEAD`, so **every tracked file goes in
 front of the reviewer** unless `.gitattributes` marks it `export-ignore`. This tests the
@@ -101,3 +101,20 @@ def test_the_private_directory_never_ships() -> None:
     """`private/` is git-ignored, so nothing in it is tracked. Asserted, not assumed:
     the email template and its filled draft live there precisely because of this."""
     assert not [n for n in _archive_names() if n.startswith("private/")]
+
+
+def test_the_shipped_report_carries_no_unwritten_section() -> None:
+    """A section still marked `<!-- ROUND` for a human to write must never reach the reviewer.
+
+    `docs/report.md` is what ships, so it is read rather than the template, which carries
+    the markers between rounds by design.
+    """
+    report = ROOT / "docs" / "report.md"
+    if not report.is_file():
+        return  # nothing generated yet in this checkout
+    stubs = [
+        line.strip()
+        for line in report.read_text(encoding="utf-8").splitlines()
+        if line.lstrip().lower().startswith("<!-- round")
+    ]
+    assert not stubs, f"docs/report.md has {len(stubs)} unwritten section(s): {stubs[:2]}"

@@ -27,7 +27,6 @@ from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
-from ark.gaps import write_creation_candidates, write_gap_candidates
 from ark.ingest import YEARS, ingest_legacy
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
@@ -795,66 +794,6 @@ def stats() -> None:
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
     record_metrics(conn, "stats", "scoreboard", scoreboard)
-
-
-@app.command()
-def gaps(
-    out: Annotated[
-        Path, typer.Option("--out", help="Where to write the prioritised domain list.")
-    ] = Path("data/raw/cdx/gap_candidates.txt"),
-    creation: Annotated[
-        bool,
-        typer.Option(
-            "--creation",
-            help="Instead list the population a registry creation date can address: domains "
-            "missing an in-window year next to one they hold, most-missing first. Not bounded "
-            "to years before the earliest held one, because a creation date resets on "
-            "re-registration and can therefore fall after years already held.",
-        ),
-    ] = False,
-    legacy_year_order: Annotated[
-        bool,
-        typer.Option(
-            "--legacy-year-order",
-            help="Order by thinnest gap year instead of by expected equivalent-English. The "
-            "pre-August-2026 order, kept for reproducing earlier rounds; measured 54% worse "
-            "per query under the current metric.",
-        ),
-    ] = False,
-    shards: Annotated[
-        int,
-        typer.Option(
-            "--shards",
-            help="Split the list into this many disjoint slices by content hash, so several "
-            "machines can collect in parallel without ever querying the same domain twice.",
-        ),
-    ] = 1,
-    shard: Annotated[
-        int, typer.Option("--shard", help="Which slice to write, from 0 to --shards minus 1.")
-    ] = 0,
-) -> None:
-    """List held domains worth a per-domain query, best target first. Feed it to `ark cdx`.
-
-    By default the population is domains whose missing year is bracketed by two held
-    years. Ordered by expected equivalent-English, the TLD's English share times the
-    bracketed years a capture could fill: the hit rate is near-uniform here, so what
-    separates targets is what an answer is worth, not the chance of getting one.
-    """
-    conn = connect_patiently()
-    if creation:
-        summary = write_creation_candidates(conn, out)
-        record_metrics(conn, "gaps", "creation_addressable", summary)
-        logger.info(f"gaps (creation): {summary} -> {out}")
-        # No "next" line any more: the RDAP client that consumed this list is retired
-        # (docs/lore/retired.md), and nothing has replaced it as a creation-date route.
-        typer.echo(f"gaps (creation): {summary}\nwrote {out}")
-        return
-    summary = write_gap_candidates(
-        conn, out, legacy_year_order=legacy_year_order, shards=shards, shard=shard
-    )
-    record_metrics(conn, "gaps", "sandwich", summary)
-    logger.info(f"gaps: {summary} -> {out}")
-    typer.echo(f"gaps: {summary}\nwrote {out}\nnext: uv run ark cdx {out}")
 
 
 @app.command()

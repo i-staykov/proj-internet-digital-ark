@@ -181,7 +181,7 @@ for i in $(seq 1 "$ITERATIONS"); do
     fi
 
     # And the suffix sweep's own journals, the other half of the standing hostname
-    # priority: `platform_sweep.sh` writes `{url, timestamp}` continuously and nothing
+    # priority: the sweep writes `{url, timestamp}` continuously and nothing
     # here read them, so a sweep's work only became records when somebody ingested by
     # hand. Same failure as the RDAP journals below, on a newer collector.
     if compgen -G "data/raw/cdx_suffix/suffix_*.jsonl.gz" > /dev/null; then

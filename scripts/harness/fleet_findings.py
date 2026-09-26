@@ -46,6 +46,7 @@ VPS_ITEMS = "/projects/ark-data/items"
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
 # Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
 NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
+# The spend record. `ARK_FLEET_LEDGER` moves it, so a drain under test never writes the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
 
 _ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
@@ -159,14 +160,15 @@ def ledger_rows(run: Path) -> None:
     being written and not read.
     """
     label = datetime.now(UTC).strftime("%Y%m%dT%H%MZ")
+    ledger = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
     for telemetry in sorted(run.rglob("telemetry.json")):
         doc = load(telemetry)
         rows = doc.get("legs") if isinstance(doc.get("legs"), list) else [doc]
         for row in rows:
             if not isinstance(row, dict) or not row:
                 continue
-            LEDGER.parent.mkdir(parents=True, exist_ok=True)
-            with LEDGER.open("a", encoding="utf-8") as out:
+            ledger.parent.mkdir(parents=True, exist_ok=True)
+            with ledger.open("a", encoding="utf-8") as out:
                 out.write(
                     f"{label}\t{row.get('tokens_in_plus_out', 0)}\t"
                     f"{row.get('seven_day_pct', '?')}\n"

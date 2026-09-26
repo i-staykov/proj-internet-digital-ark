@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
-# The laptop's CDX collector lane: the supervisor launchd runs, and the three commands
-# that steer it. `just collectors pause|resume|status` is the whole interface (S9).
-#
-# Why a supervisor and not `just hostnames <epoch>`: that recipe detaches two sweeps and
-# returns, which is right for a session and wrong for launchd. A KeepAlive job whose
-# program exits immediately is restarted immediately, and each restart would detach
-# another pair of archive clients. So this stays in the FOREGROUND for the whole window,
-# waits on its children, and is the one process launchd supervises.
+# The laptop's CDX parent sweep lane and the three commands that steer it. The lane is
+# closed: `run` (what launchd calls) starts nothing and exits. `just collectors
+# pause|resume|status` is the whole interface.
 #
 # The pause is a flag FILE, which is what makes it survive sleep and reboot: the sweep
 # checks it between pages (`cdx_suffix_sweep.py`), so a pause costs at most the page in
@@ -15,54 +10,33 @@
 # continues from its marker with no other step.
 #
 # Usage:
-#   bash scripts/harness/collectors.sh run       the supervisor (launchd calls this)
+#   bash scripts/harness/collectors.sh run       launchd calls this; the lane is closed
 #   bash scripts/harness/collectors.sh pause     stop after the current page
 #   bash scripts/harness/collectors.sh resume    continue from the marker
-#   bash scripts/harness/collectors.sh status    running or paused, parent, journal, hit rate
+#   bash scripts/harness/collectors.sh status    paused or not, clients, journal, hit rate
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 # local.env is the machine-local config (gitignored): the VPS address lives there, and so
 # does any knob this laptop wants different from the default. The environment still wins.
 [ -f local.env ] && . ./local.env
-# The sweep loop is a CHILD process, so a knob it reads itself has to be exported and not
-# merely set: `local.env` assigns without `export` and the loop would get the default.
-[ -n "${ARK_RANK_TOP:-}" ] && export ARK_RANK_TOP
 : "${ARK_STATE_DIR:=$HOME/ark/state}"
 : "${ARK_CDX_BUDGET:=2}"
-# The loop shards the ranked list modulo this, so it has to reach the child too.
-export ARK_CDX_BUDGET
-: "${ARK_COLLECTOR_WINDOW:=21600}"
-# Epoch after which this laptop collects nothing more, for a machine that has to be closed.
-# Empty means run forever, which is the default and what the VPS wants.
-: "${ARK_COLLECTOR_UNTIL:=}"
 
 STATE_DIR="$ARK_STATE_DIR"
 FLAG="$STATE_DIR/pause"
-# A pause a human asked for must not expire. The sweep loop expires a flag left behind by
-# a fleet wave after 9,000 s, which is right for a forgotten heartbeat and wrong here, so
-# this one says who wrote it on its first line and the loop leaves it alone.
+# A pause a human asked for says so on its first line.
 FLAG_MARK="human"
-WINDOW="$ARK_COLLECTOR_WINDOW"
-# Two archive clients maximum, and the limit binds the CDX CHANNEL, not the machine
-# (C-77). So the budget is spent against every client on the channel, this laptop's and
-# the VPS's, which is why the supervisor asks the VPS before it starts anything: the two
-# slots become the laptop's when the VPS sweeps stop (S8), with no step here.
-# ARK_CDX_BUDGET is the client count AND the lane count. Rule 6 caps archive clients at
-# three and spends the third on the availability engine; while that endpoint is dark the
-# slot is idle, so 3 reallocates it to a sweep lane. Put it back to 2 when the engine answers.
+# The archive-client cap binds the CDX channel, not the machine, so `status` counts every
+# client on it, this laptop's and the VPS's, against ARK_CDX_BUDGET.
 BUDGET="$ARK_CDX_BUDGET"
-SHARD_PREFIX="data/raw/cdx/collector_shard"
-LOCK="data/logs/.collectors.lock"
-SWEEP_LOOP="scripts/engines/platform_sweep_loop.sh"
 
 note() { printf '%s %s\n' "$(date -u '+%FT%TZ')" "$*"; }
 
 paused() { [ -e "$FLAG" ]; }
 
 # A client is the journal it holds open, not a process: one client is a `uv run` wrapper
-# plus its python child, so counting processes doubles it. This is how `just engines` counts,
-# and since the VPS recipe was retired with its lane (C-84) this function is the definition.
+# plus its python child, so counting processes doubles it.
 local_clients() {
     for pid in $(pgrep -f cdx_suffix_sweep.py 2>/dev/null); do
         if [ -d "/proc/$pid/fd" ]; then
@@ -182,6 +156,10 @@ cmd_pause() {
 }
 
 cmd_resume() {
+    if bash scripts/harness/hold.sh holds pause; then
+        echo "collectors: the hold lists pause; 'just hold off pause' lifts it" >&2
+        exit 1
+    fi
     if [ -e "$FLAG" ]; then
         rm -f "$FLAG"
         echo "resumed: $FLAG removed"
@@ -192,16 +170,14 @@ cmd_resume() {
 }
 
 cmd_status() {
-    local job clients n parent journal
+    local job clients n journal
     job=$(launchctl list 2>/dev/null | awk '$3 == "com.ark.collectors" { print "pid " $1 ", last exit " $2 }')
     echo "launchd: ${job:-com.ark.collectors not loaded}"
 
     if paused; then
         echo "state:   PAUSED since $(sed -n 2p "$FLAG" 2>/dev/null || echo unknown)"
-    elif [ -d "$LOCK" ]; then
-        echo "state:   running, supervisor pid $(cat "$LOCK/pid" 2>/dev/null || echo unknown)"
     else
-        echo "state:   no supervisor here"
+        echo "state:   not paused; the lane is closed, so nothing runs"
     fi
 
     clients=$(local_clients)
@@ -217,13 +193,6 @@ cmd_status() {
     *) echo "         VPS: $there on the same channel" ;;
     esac
 
-    parent=$(ls -t data/logs/collectors_shard*.log 2>/dev/null | head -1)
-    if [ -n "$parent" ]; then
-        echo "parent:  $(grep -h '^=== ' "$parent" | tail -1 | sed 's/^=== //; s/ ===$//')"
-    else
-        echo "parent:  no shard log yet"
-    fi
-
     journal=$(newest_journal)
     if [ -n "$journal" ]; then
         echo "journal: $(basename "$journal") last written $(date -r "$journal" '+%F %H:%M:%S %Z')"
@@ -233,109 +202,11 @@ cmd_status() {
     fi
 }
 
-# One shard file per client, seeded from the queues the hostname lane was already walking
-# so the laptop picks up where `just hostnames` left off. The loop refills from the ranker
-# when a shard empties, so an empty seed is not a stall.
-seed_shard() {
-    local shard="$1" file="${SHARD_PREFIX}${1}.txt" seed="$2"
-    [ -e "$file" ] && return 0
-    if [ -s "$seed" ]; then
-        awk 'NF && $1 !~ /^#/ {print $1}' "$seed" > "$file"
-        note "seeded shard $shard from $seed"
-    else
-        : > "$file"
-        note "shard $shard starts empty; the loop will rank its own queue"
-    fi
-}
-
 cmd_run() {
-    mkdir -p data/logs data/raw/cdx data/raw/cdx_suffix
-    # mkdir is the atomic primitive macOS has without flock, and the convention here
-    # (scheduled_sync.sh). A dead holder's lock is stale and taken over.
-    if ! mkdir "$LOCK" 2>/dev/null; then
-        holder=$(cat "$LOCK/pid" 2>/dev/null || true)
-        if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-            note "supervisor already running as pid $holder, leaving"
-            exit 0
-        fi
-        rm -rf "$LOCK" && mkdir "$LOCK" || exit 1
-    fi
-    echo $$ > "$LOCK/pid"
-    trap 'rm -rf "$LOCK"' EXIT
-
-    note "supervisor up, window ${WINDOW}s, budget $BUDGET clients"
-    while true; do
-        if [ -n "$ARK_COLLECTOR_UNTIL" ] && [ "$(date +%s)" -ge "$ARK_COLLECTOR_UNTIL" ]; then
-            note "reached ARK_COLLECTOR_UNTIL, the lane stops here"
-            exit 0
-        fi
-        if paused; then
-            sleep 30
-            continue
-        fi
-        # Disk before requests: a full disk truncates the journal mid page, and the rows
-        # already fetched go with it.
-        if ! uv run python scripts/harness/bank_hygiene.py space >/dev/null 2>&1; then
-            note "disk check refused the run, waiting 15 minutes"
-            sleep 900
-            continue
-        fi
-
-        here=$(count "$(local_clients)")
-        there=$(vps_clients)
-        case "$there" in
-        "" | *[!0-9]*)
-            note "no answer from the VPS ($there), counting one client there rather than none"
-            there=1
-            ;;
-        esac
-        room=$(( BUDGET - here - there ))
-        if [ "$room" -le 0 ]; then
-            note "channel full under the ${BUDGET}-client rule: $here here, $there on the VPS"
-            sleep 300
-            continue
-        fi
-
-        deadline=$(( $(date +%s) + WINDOW ))
-        if [ -n "$ARK_COLLECTOR_UNTIL" ] && [ "$deadline" -gt "$ARK_COLLECTOR_UNTIL" ]; then
-            deadline="$ARK_COLLECTOR_UNTIL"
-        fi
-        seed_shard 0 data/raw/cdx/platform_queue_netnew.txt
-        seed_shard 1 data/raw/cdx/suffix_queue_r9.txt
-        # Any lane past the two seeded ones starts empty and ranks its own queue. Without
-        # this its shard file never exists and the loop fails on a missing path.
-        for shard in $(seq 2 $(( BUDGET - 1 ))); do
-            seed_shard "$shard" ""
-        done
-
-        pids=""
-        started=0
-        for shard in $(seq 0 $(( BUDGET - 1 ))); do
-            [ "$started" -ge "$room" ] && break
-            nohup bash "$SWEEP_LOOP" "$deadline" "${SHARD_PREFIX}${shard}.txt" "$shard" \
-                >> "data/logs/collectors_shard${shard}.log" 2>&1 < /dev/null &
-            pids="$pids $!"
-            started=$(( started + 1 ))
-            sleep 2
-        done
-        note "started $started sweep loop(s) to $(date -r "$deadline" '+%F %H:%M %Z' 2>/dev/null || echo "epoch $deadline")"
-
-        # One fold loop, because DuckDB takes a single writer. It brings finished journals
-        # into the store while the sweeps run, so the lane needs no hand.
-        if ! pgrep -f "harness/maintain[.]sh" >/dev/null 2>&1; then
-            # **Its iteration count has to cover the window.** `maintain.sh 420 24` is
-            # 2.8 hours, so on a six hour window the fold loop died two thirds of the way
-            # through and nothing folded until the next window started one. The count is
-            # therefore derived from the window rather than written down.
-            nohup bash scripts/harness/maintain.sh "$(( WINDOW / 24 + 30 ))" 24 \
-                >/dev/null 2>&1 < /dev/null &
-            note "fold loop started, $(( WINDOW / 24 + 30 )) turns of 24s"
-        fi
-
-        # shellcheck disable=SC2086
-        wait $pids
-        note "window done, the sweeps exited at their deadline"
-    done
+    # Under a hold a restart prints held and exits; the lane is closed either way.
+    if bash scripts/harness/hold.sh holds com.ark.collectors; then echo held; exit 0; fi
+    note "the CDX parent sweep lane is closed, nothing starts"
+    exit 0
 }
 
 case "${1:-status}" in

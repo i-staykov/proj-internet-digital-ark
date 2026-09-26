@@ -73,46 +73,10 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 # Derived artifacts, each with the thing that makes it stale. Every one is
 # regenerable, so a finding is "rebuild this", never "you have lost something".
 #
-# **The `against` column is the fix for a real miss.** This check first compared every
-# artifact to the baseline load and nothing else, and reported the candidate-pool queue
-# as fine while 4,333 freshly seeded UDRP names, 88% of them absent from the store and
-# all of them parties to real legal proceedings, sat in the pool where the running
-# engine could never see them. A queue is stale relative to **the newest row that
-# should be in it**, which for a pool queue is the newest candidate and for a gap queue
-# is the newest assigned pair, because a new pair both creates and closes brackets.
-#
 #   baseline    the reviewer's release: a bigger merged corpus creates new gaps
 #   candidates  the newest domain with no year, which a pool queue should carry
 #   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
-    # The operative lists since the two-machine split of 2026-08-11: the VPS works
-    # bracketed gaps, the local engine works the candidate pool.
-    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap", "pairs"),
-    # Two marks, and the second one is not in the store at all. A pool queue goes stale
-    # when new candidates arrive, and ALSO when new journals arrive, because its
-    # ordering is `measured hit rate x English share` and the rate is measured out of
-    # the journals. On 11 August at 22:20 the queue was two hours old and correctly
-    # reported fresh against candidates, while three of the four sources at its head had
-    # had their (source, TLD) cells measured in the meantime: 0.086, 0.111 and 0.536
-    # against the 0.874 they had been inheriting. The population had not changed and the
-    # ranking was out of date, which no store mark can see.
-    (
-        "data/raw/cdx/queue_pool_local.txt",
-        "build_query_queue.py --population pool",
-        ("candidates", "journals"),
-    ),
-    # **The list the local engine reads since 2026-08-20.** C-24 kept the local engine on
-    # the candidate pool and left one explicit contingency: "the edge queue is available
-    # for whenever the pool runs thin." It has. Measured per journal in run order rather
-    # than over a window that reaches back into better ones, the pool's last fifteen runs
-    # gave 15.8% and 0.110 equivalent-English per query, against 0.6075 expected for the
-    # best 250,000 edge targets. The pool list above is kept and kept fresh, because a
-    # population that has run thin is not a population that is finished.
-    (
-        "data/raw/cdx/queue_edge_local.txt",
-        "build_query_queue.py --population edge",
-        ("candidates", "journals"),
-    ),
     # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
     # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
     # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
@@ -125,11 +89,6 @@ DERIVED = (
         "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
         "candidates",
     ),
-    # The mixed queue, kept because a shard of it may still be in flight on a
-    # machine that has not been re-pointed yet.
-    ("data/raw/cdx/queue_shard0.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_shard1.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue", "baseline"),
 )
 
 # Directories whose contents are inputs to a collector rather than to an ingest,

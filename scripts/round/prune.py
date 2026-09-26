@@ -21,8 +21,11 @@ before it can be copied and verified.
     uv run python scripts/round/prune.py --json
 
 The retention report grants no deletion permission. Round cleanup is limited to
-superseded store backups and CRC-matched reviewer zips. Every removed file needs
-an unchanged local verification receipt and a current matching remote hash.
+superseded store backups and CRC-matched reviewer zips. A store backup is held until
+`data/baseline.json` lists a credited round dated after it, because that round's Parquet
+and our journals rebuild the store; it then needs a newer quiescent store and a fresh
+`ark check`. A zip needs an unchanged local verification receipt and a current matching
+remote hash.
 """
 
 from __future__ import annotations
@@ -35,6 +38,7 @@ import sys
 import zipfile
 import zlib
 from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -172,6 +176,17 @@ def remove_verified(root: Path, path: Path, *, write: bool = False) -> str:
     return f"{'removed' if write else 'would remove'}: {path.relative_to(root)}"
 
 
+def credited_after(root: Path, mtime_ns: int) -> bool:
+    """Whether `data/baseline.json` lists a round with an awarded percent dated after the day
+    (UTC) of `mtime_ns`. A round's date is a day, so a round the same day does not count."""
+    rounds = json.loads((root / "data/baseline.json").read_text(encoding="utf-8"))["rounds"]
+    made = datetime.fromtimestamp(mtime_ns / 1e9, UTC).date()
+    return any(
+        r.get("awarded_percent") and r.get("date") and date.fromisoformat(r["date"]) > made
+        for r in rounds
+    )
+
+
 def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
     """Keep extracted releases and the current store; never select submissions or output."""
     root = root.resolve()
@@ -180,8 +195,10 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
     store = root / "data/ark.duckdb"
     for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak")):
         try:
-            before = offsite.signature(root, store)
             backup_stamp = offsite.signature(root, backup)
+            if not credited_after(root, backup_stamp[3]):
+                raise ValueError("no credited round in data/baseline.json is dated after it")
+            before = offsite.signature(root, store)
             if (
                 before[2] == 0
                 or before[3] <= backup_stamp[3]
@@ -189,18 +206,22 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
                 or store.with_suffix(".duckdb.wal").exists()
             ):
                 raise ValueError("store is not a quiescent successor")
-            offsite.deletion_proof(root, backup)
             if not write:
                 lines.append(f"would check store and remove: {backup.relative_to(root)}")
                 continue
+            # `ark check` records a metrics row, so the store's size and times move under it;
+            # the file must stay the same file, never a store swapped in during the check.
             done = subprocess.run(["uv", "run", "ark", "check"], cwd=root, check=False)
             if (
                 done.returncode
-                or offsite.signature(root, store) != before
+                or offsite.signature(root, store)[:2] != before[:2]
                 or store.with_suffix(".duckdb.wal").exists()
             ):
-                raise ValueError("ark check failed or store changed; backup retained")
-            lines.append(remove_verified(root, backup, write=True))
+                raise ValueError("ark check failed or store replaced; backup retained")
+            if offsite.signature(root, backup) != backup_stamp:
+                raise ValueError("backup changed during the check")
+            backup.unlink()
+            lines.append(f"removed: {backup.relative_to(root)}")
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
             held = True
             lines.append(f"HELD {backup.relative_to(root)}: {exc}")
