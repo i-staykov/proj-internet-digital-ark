@@ -64,9 +64,11 @@ ASKS = (
     ("send", re.compile(r"\bsend\b|\bsubmi(t|ssion)\b|5% gate", re.I)),
 )
 DECISION = "decision in key-decisions.md"
-# The OPEN entry `fleet_request.py` raises for a source the standing rule parks: its yes
-# admits that class for that source, which is the class ask by another name.
+# The OPEN entries `fleet_request.py` raises for a source the standing rule parks: `Approve`
+# when its class is new, the class ask by another name, and `Outside the standing bounds` when
+# only its admission or a clause failed, which is no class ask whatever its reasons say.
 _APPROVE = re.compile(r"^Approve \S+ / \S+")
+_OUTSIDE = re.compile(r"^Outside the standing bounds: \S+ / \S+")
 
 _SPEC = importlib.util.spec_from_file_location(
     "fleet_ledger", REPO / "scripts/harness/fleet_ledger.py"
@@ -282,8 +284,7 @@ def decisions(path: Path) -> list[dict]:
     They belong in the same list as the fleet's leads because they compete for the same
     thing, which is one person's attention, and some of them are worth more than any lead.
     Each carries its own `Worth: <n> EE` line; one without a figure is not ranked here. Its
-    ask is read like a lead's, and `fleet_request.py`'s `Approve <source> / <class>` is a
-    class ask.
+    ask is read like a lead's, except `fleet_request.py`'s, which its heading names.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -306,13 +307,22 @@ def decisions(path: Path) -> list[dict]:
                 "status": "open",
                 "low": worth,
                 "high": worth,
-                "ask": "class" if _APPROVE.match(title) else ask_of(block),
+                "ask": ask_of_entry(title, block),
                 "class": DECISION,
                 "measured": True,
                 "track": "ships",
             }
         )
     return out
+
+
+def ask_of_entry(title: str, block: str) -> str:
+    """The ask an OPEN entry puts to Ivo: `fleet_request.py`'s by heading, others by text."""
+    if _APPROVE.match(title):
+        return "class"
+    if _OUTSIDE.match(title):
+        return ""
+    return ask_of(block)
 
 
 def _cell(text: str, width: int) -> str:
@@ -323,13 +333,13 @@ def _cell(text: str, width: int) -> str:
 
 def send_line(path: Path = BRIEF) -> str:
     """The send, the one ask no lead carries: where the round stands against the 5% gate, read
-    from the brief the bank writes, the way `bank_hygiene.py gate` reads it."""
+    from the brief the bank writes, the way `bank_hygiene.py gate` reads it: field 5."""
     brief = _json(path)
     try:
-        percent = float(brief.get("round_percent", brief.get("percent")))
+        percent = float(brief["field5_percent"])
         target = float(brief.get("gate_pct", 5.0))
-    except (TypeError, ValueError):
-        return "Not known here: `data/brief.json` is missing or carries no round figure."
+    except (KeyError, TypeError, ValueError):
+        return "Not known here: `data/brief.json` is missing or carries no field 5 figure."
     label = str(brief.get("round", "?"))
     name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))
@@ -339,7 +349,7 @@ def send_line(path: Path = BRIEF) -> str:
             "the send is yours: merge any open approval PR, then run `just ship` where the "
             "store is."
         )
-    gap = brief.get("round_distance_to_gate_ee", brief.get("distance_to_gate_ee"))
+    gap = brief.get("distance_to_gate_ee")
     number = isinstance(gap, int | float) and not isinstance(gap, bool)
     short = f", {gap:,.0f} EE short" if number else ""
     return (

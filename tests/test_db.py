@@ -260,6 +260,7 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     audit_residual = load("harness/audit_residual.py")
     price_items = load("pricing/price_items.py")
     ack_journals = load("harness/ack_journals.py")
+    fleet_findings = load("harness/fleet_findings.py")
     monkeypatch.setattr(price_items, "STORE", store)
 
     # one at a time: a read-write open fails while a read-only one lives in this process
@@ -268,6 +269,7 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     audit_residual.read_only_store(store).close()
     price_items.read_only_store().close()
     assert ack_journals.acks(store) == []
+    assert fleet_findings.ingested(store) == set()
 
     st = store.stat()
     before = (st.st_size, st.st_mtime_ns)
@@ -279,12 +281,13 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     assert reader.execute("SELECT command FROM run_metrics").fetchall() == [("seed",)]
     reader.close()
 
-    assert len(seen) == 7 and set(seen) == {expected}, seen
+    assert len(seen) == 8 and set(seen) == {expected}, seen
     for rel in (
         "harness/audit_residual.py",
         "harness/ack_journals.py",
         "pricing/price_items.py",
         "round/lead_queue.py",
+        "harness/fleet_findings.py",
         "round/package_delivery.sh",
     ):
         assert "duckdb.connect(" not in (scripts / rel).read_text(encoding="utf-8"), rel

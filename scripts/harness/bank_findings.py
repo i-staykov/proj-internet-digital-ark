@@ -52,15 +52,18 @@ SCOUT = "scout.md"
 READ = "read.json"
 
 _FIELD = re.compile(r"^([a-z_ ]+):\s*(.*)$")
+# Any `scheme://host`: an ftp artifact is a URL, and keying it by its host alone books every
+# other artifact on a mirror host under it.
+_SCHEME = r"(?<![\w+.-])[a-z][a-z0-9+.-]*://"
 # `>` and a trailing comma end a URL as often as a space does, because the prose writes
 # artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
 # link that does not open.
-_URL = re.compile(r"https?://[^\s`)>\"']+")
-# `compact_registers.py` reads URLs with this pattern and copies every one a row names into
-# its link cell, less RFC 2606 example hosts, which name no source. A row whose link cell
-# already holds them all is one it leaves as written.
-_LINKED = re.compile(r"https?://(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
-_EXAMPLE = re.compile(r"https?://(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
+_URL = re.compile(_SCHEME + r"[^\s/`)>\"']+[^\s`)>\"']*")
+# `compact_registers.py` reads http(s) URLs with this pattern's http(s) form and copies every
+# one a row names into its link cell, less RFC 2606 example hosts, which name no source. A row
+# whose link cell already holds them all is one it leaves as written, an ftp link beside them.
+_LINKED = re.compile(_SCHEME + r"(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
+_EXAMPLE = re.compile(_SCHEME + r"(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
 _PIPE = re.compile(r"(?<!\\)\|")
 # The pages cite no decision number; a wave's prose sometimes does, and loses it here with
 # the words that only pointed at it: the brackets round a list of them, a `per` before one.
@@ -173,19 +176,55 @@ def verdict_paragraph(path: Path) -> str:
     return ""
 
 
+_NUMBER = r"[\d,]*\d(?:\.\d+)?"
+_STATED = re.compile(rf"(?<![\w.])({_NUMBER})\s*((?:(?:net-new|post-split|candidate)\s+)*)EE\b")
+# `a 5,000 EE floor`, `the 5,000 EE candidate floor`, `a 1,000 EE ceiling`; `family ceiling
+# ~1,000 EE`, `a floor of 5,000 EE`.
+_BOUND_AFTER = re.compile(r"\s*(?:(?:annual|candidate)(?:[\s-]track)?\s+)?(?:floor|ceiling)\b")
+_BOUND_BEFORE = re.compile(r"(?:(?:ceiling|~)[^,;]{0,12}|\bfloor\s+of\s+)$")
+
+
+def scout_figure(path: Path) -> str:
+    """The figure a scout states for its own source, "0" (not priced) when it states none.
+
+    Its `ee:` line, else a figure in its verdict paragraph that is not a floor or a ceiling.
+    A figure beside `measured` or `net-new` wins over the others. Nothing else in the file
+    counts, because a scout quotes other sources' figures in its indented blocks, and
+    `parse_finding` runs those on into the verdict.
+    """
+    line = re.search(r"^ee:(.*)$", path.read_text(encoding="utf-8", errors="replace"), re.M)
+    stated = re.search(_NUMBER, line.group(1)) if line else None
+    if stated:
+        return stated.group(0).replace(",", "")
+    said, figures = verdict_paragraph(path), []
+    for m in _STATED.finditer(said):
+        before, after = said[: m.start()], said[m.end() :]
+        if _BOUND_AFTER.match(after) or _BOUND_BEFORE.search(before):
+            continue
+        beside = (
+            "net-new" in m.group(2)
+            or re.search(r"\b(?:measured|net-new)(?:\s+at)?\s*$", before)
+            or re.match(r"\s*measured\b", after)
+        )
+        figures.append((0 if beside else 1, m.group(1).replace(",", "")))
+    return min(figures, key=lambda f: f[0])[1] if figures else "0"
+
+
 def scout_negative(lead: Path) -> dict | None:
     """A lead the fleet closed at filing: `scout.md` and `lead.json`, and no finding.
 
     **The verdict is the lead's status, never the prose**: a scout that wrote FIND lands
     closed when its own high estimate misses half the floor or the fleet refuses its class,
     and routing on its prose put such a lead in `sources.md` as a FIND. The slug is the
-    directory's name, because a scout's heading is not always its slug. A lead the fleet has
-    not closed is still in its queue, and books nothing yet.
+    directory's name, because a scout's heading is not always its slug, and the figure is
+    the one the scout states for this source (`scout_figure`). A lead the fleet has not
+    closed is still in its queue, and books nothing yet.
     """
     if _json(lead / "lead.json").get("status") != "closed":
         return None
     finding = parse_finding(lead / SCOUT)
     finding.update(slug=lead.name, verdict="CLOSED", scout=verdict_paragraph(lead / SCOUT))
+    finding["ee"] = scout_figure(lead / SCOUT)
     return overlay(finding, lead)
 
 
@@ -394,7 +433,7 @@ def first_clause(text: str, limit: int = 240) -> str:
 
 def drop_decision_numbers(text: str) -> str:
     """The text without decision numbers; a URL is kept whole, because a cut one does not open."""
-    parts = re.split(r"(https?://\S+)", text)
+    parts = re.split(rf"({_SCHEME}\S+)", text)
     return "".join(p if i % 2 else _DECISION_NO.sub("", p) for i, p in enumerate(parts))
 
 
@@ -453,8 +492,10 @@ def read_note(f: dict) -> str:
 
     The verdict cell is the one `fate` compares and `_within_limit` never trims, so the read
     rewrites the FIND row its verify leg booked, and the sha256 is never cut. A read is a
-    lead the fleet set `read` with its `read.json` beside it, whose `journal_sha256` is the
-    sha256 of the parts it fetched, in order (the fleet's `schemas/read.json`).
+    lead the fleet set `read` with its `read.json` beside it, which the fleet's `read.py
+    combine` writes as `{slug, source, receipt, annual, candidate}`. The receipt is the one
+    the fleet's `schemas/read.json` describes, and its `journal_sha256` is the sha256 of the
+    parts the read fetched, in order; a flat `read.json` carrying it at the top is read too.
     """
     if (f.get("lead") or {}).get("status") != "read" or not f.get("read"):
         return ""
@@ -469,7 +510,9 @@ def read_note(f: dict) -> str:
         head += f" under standing policy {version}" if version not in (None, "") else ""
         head += f": {', '.join(held)} held" if held else ""
         said += [f"{', '.join(unheld)} not held"] if unheld else []
-    sha = f["read"].get("journal_sha256")
+    read = f["read"]
+    receipt = read.get("receipt") if isinstance(read.get("receipt"), dict) else {}
+    sha = receipt.get("journal_sha256", read.get("journal_sha256"))
     if isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{64}", sha):
         said.append(f"journal sha256 {sha}")
     return "; ".join([head, *said])
@@ -565,7 +608,7 @@ def closed_row(f: dict, run_label: str) -> str:
         f"{f['verdict']}. lens {lens}. {reason}".strip(),
     ]
     link = links(artifact, [*f["fields"].values(), *cells])
-    # An artifact with no http(s) URL, such as an ftp one, is found and keyed by its host.
+    # An artifact with no URL is found and keyed by its host.
     cells.append(f"{link} {host}".strip() if host and not artifact and host not in link else link)
     return _within_limit(_tidy(cells), order=(3,), keep=len(f["verdict"]) + 2)
 

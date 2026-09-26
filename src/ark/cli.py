@@ -175,7 +175,12 @@ def ingest_cmd(
     Idempotent per file: a file already in the ledger is skipped whole.
     Example: ark ingest early_web data/raw/early_web/*.cdx.gz
     """
+    from ark.hostnames import FLEETREAD_SOURCE
+
     spec = SOURCES.get(source)
+    if spec is None and FLEETREAD_SOURCE.match(source):
+        _ingest_fleet_read(source, files)
+        return
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     # Checked before the store is opened, so an unapproved ingest does not even take
@@ -192,6 +197,30 @@ def ingest_cmd(
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+def _ingest_fleet_read(source: str, files: list[Path]) -> None:
+    """A fleet read banks both halves under its own source: its journal parts through the
+    hostname ingest, its registrables through the `cdx_snapshot` parser. A file that is not
+    this read's, a refused part or a failed file exits non-zero, so the bank stops there."""
+    from ark.hostnames import fleet_read_spec, ingest_hostname_journal
+
+    try:
+        specs = [fleet_read_spec(source, path) for path in files]
+        approvals.check(source, "cdx_timestamp")
+    except (ValueError, approvals.NotApproved) as exc:
+        typer.echo(f"refusing to ingest: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path, spec in zip(files, specs, strict=True):
+        if spec is None:
+            failed = bool(ingest_hostname_journal(conn, path).get("refused"))
+        else:
+            failed = bool(ingest_files(conn, spec, [path]).get("files_failed"))
+        if failed:
+            typer.echo(f"{source}: {path.name} did not ingest", err=True)
+            raise typer.Exit(code=1)
 
 
 @app.command(name="ingest-hostnames")
@@ -760,28 +789,52 @@ def export(
 def price_snapshot_cmd(
     snapshot: Annotated[
         Path,
-        typer.Option(help="Snapshot directory: manifest.json, the marker, netnew, candidates."),
+        typer.Option(help="Snapshot: manifest.json, the marker, netnew, candidates, calculator."),
     ],
     items: Annotated[
-        Path, typer.Option(help="JSONL(.gz) of {host, year, text?}, one item per line.")
+        Path,
+        typer.Option(
+            help="JSONL(.gz), one item per line: {host, year, text?} or {url, timestamp, status}."
+        ),
     ],
     track: Annotated[
         str, typer.Option(help="`annual` for (name, year) records, `candidate` for undated names.")
     ] = "annual",
+    split: Annotated[
+        str,
+        typer.Option(
+            help="`auto` counts a name read only from free text when its registrable is dated "
+            "that year; `none` counts every net-new name."
+        ),
+    ] = "auto",
+    evidence_class: Annotated[
+        str | None,
+        typer.Option(
+            "--class",
+            help="The lead's evidence class: a listing, a registry record or a web method "
+            "takes no split.",
+        ),
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
 ) -> None:
     """Price items against a pushed snapshot and print one JSON object.
 
-    The only price a fleet leg may quote. Reads no store, writes nothing, and refuses a
+    The only price a fleet leg may quote. Reads no store, writes only `--out`, and refuses a
     snapshot whose files disagree with its manifest, so the figure is reproducible from
     the marker and `built_at` it carries.
     """
     try:
-        priced = price_against_snapshot(snapshot, items, track)
+        priced = price_against_snapshot(
+            snapshot, items, track, split=split, evidence_class=evidence_class
+        )
     except SnapshotError as exc:
         logger.error(str(exc))
         raise typer.Exit(2) from exc
+    text = json.dumps(priced, indent=2)
+    if out is not None:
+        out.write_text(text + "\n", encoding="utf-8")
     # stdout is the JSON and nothing else: a leg copies fields out of it.
-    typer.echo(json.dumps(priced, indent=2))
+    typer.echo(text)
 
 
 @app.command()

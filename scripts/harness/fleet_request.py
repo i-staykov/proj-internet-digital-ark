@@ -23,7 +23,9 @@ bank, which is the behaviour wanted here rather than a silent yes.
 are `standing_rule.confirmed_finds`, so every block written here is one the standing rule
 reads, and the block quotes the figure that decides. A source the standing rule would decide
 gets its block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank.
-A source it parks, a new class above all, gets its OPEN entry, the ask the owner reads.
+A source it parks gets its OPEN entry, the ask the owner reads, naming why: headed
+`Approve <source> / <class>` when the class is new, and `Outside the standing bounds:
+<source> / <class>` when only the admission or a clause failed, which `queue.md` omits.
 
     uv run python scripts/harness/fleet_request.py INCOMING [--fleet FLEET] [--write]
 """
@@ -48,6 +50,7 @@ import standing_rule  # noqa: E402
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.hostnames import fleet_read_source_name  # noqa: E402
 from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
@@ -55,6 +58,11 @@ REGISTER = REPO / "docs/registers/approved-sources-list.md"
 SECTION = "## Pending requests"
 FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
+# The ask for a park in an approved class; `lead_queue.py` keeps it off the new-class list.
+OUTSIDE = "Outside the standing bounds: {} / {}"
+# Where `fleet_findings.py` pulls a lead's whole read, one directory of journal parts.
+FLEET_READ = REPO / "data/raw/fleet_read"
+READ_CLASS = "cdx_timestamp"
 
 
 def _json(path: Path) -> dict:
@@ -94,6 +102,31 @@ def figure_said(find: dict) -> str:
     return f"**{find['ee']:,.1f} EE net-new on the live store** over {netnew:,} records"
 
 
+def request_class(lead_dir: Path, lead: dict) -> tuple[str, str | None]:
+    """(source, evidence type) the lead's block asks about.
+
+    A lead the fleet read whole banks its journal parts under its own hostname source, in
+    the capture class, whatever class the scout recorded for the sample.
+    """
+    if (lead_dir / "read.json").is_file():
+        return fleet_read_source_name(lead_dir.name), READ_CLASS
+    return source_key(lead_dir.name), lead.get("evidence_class")
+
+
+def read_lines(lead_dir: Path) -> list[str]:
+    """The ingest and journal lines of a read lead's block, from the pulled receipt."""
+    parts = FLEET_READ / lead_dir.name
+    where = parts.relative_to(REPO) if parts.is_relative_to(REPO) else parts
+    receipt = _json(parts / "receipt.json")
+    sha = receipt.get("journal_sha256") or "no receipt on this machine"
+    count = len(receipt.get("parts") or [])
+    return [
+        f"- ingest: ark ingest-hostnames {where}/",
+        f"- journal sha256: {sha}, {count} part(s), {receipt.get('lines', 0):,} rows read "
+        f"whole from the artifact",
+    ]
+
+
 def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     """The short block, built from the sidecar, the lead and the re-price. No prose invented.
 
@@ -101,7 +134,8 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     the line says so: an approval decided on a blank is worse than one deferred. One fact per
     line and no blank line, the shape the compactor keeps a pending block in.
     """
-    key = source_key(lead_dir.name)
+    key, etype = request_class(lead_dir, lead)
+    read = etype == READ_CLASS and (lead_dir / "read.json").is_file()
     spec = SOURCES.get(key)
     store = find["store"]
     stamp = str(lead.get("what_dates_one_item") or "not recorded in the lead")
@@ -114,17 +148,24 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     # Relative when it is under the checkout, which is where the drain puts it, and absolute
     # when someone points this at a directory elsewhere rather than crashing on the block.
     where = items.relative_to(REPO) if items.is_relative_to(REPO) else items
+    head = (
+        read_lines(lead_dir)
+        if read
+        else [
+            (
+                f"- ingest spec: `{key}`"
+                if spec
+                else "- ingest spec: none in this repository yet. The fleet found and priced "
+                "this; no collector or parser here reads it, so a yes is a decision to write "
+                "one and `bank_approved.py` will say it banked nothing until that exists"
+            ),
+            f"- journal: `{where if items.is_file() else 'not on this machine'}`, "
+            f"the items the figures below were measured from",
+        ]
+    )
     lines = [
-        f"### {key} / {lead.get('evidence_class')}",
-        (
-            f"- ingest spec: `{key}`"
-            if spec
-            else "- ingest spec: none in this repository yet. The fleet found and priced this; "
-            "no collector or parser here reads it, so a yes is a decision to write one and "
-            "`bank_approved.py` will say it banked nothing until that exists"
-        ),
-        f"- journal: `{where if items.is_file() else 'not on this machine'}`, "
-        f"the items the figures below were measured from",
+        f"### {key} / {etype}",
+        *head,
         f"- refetch: {artifact.get('url') or 'the lead records no URL'}",
         f"- terms: {artifact.get('terms_url') or 'the lead records no terms page'}, "
         f"robots {artifact.get('robots') or 'unrecorded'}",
@@ -146,18 +187,37 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     return "".join(" ".join(line.split()) + "\n" for line in lines)
 
 
-def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None = None) -> bool:
+def heading(key: str, etype: str, reasons: list[str]) -> str:
+    """`Approve <source> / <class>` when the class is new, else the outside-the-bounds ask.
+
+    Both carry `<source> / <class>`, the phrase the gate's surfaced test looks for.
+    """
+    if standing_rule.NEW_CLASS.format(etype) in reasons:
+        return f"Approve {key} / {etype}"
+    return OUTSIDE.format(key, etype)
+
+
+def surface(
+    key: str,
+    etype: str,
+    lead: dict,
+    find: dict,
+    reasons: list[str],
+    decisions: Path | None = None,
+) -> bool:
     """The OPEN entry in `key-decisions.md`, which is the one surface the owner reads.
 
     A pending block with no OPEN entry is a request nobody was told about, and the gate
     refuses it (`test_every_pending_approval_is_surfaced_in_the_live_files`). The tool
-    path writes its own; this is the short path's, for a source the standing rule parks.
+    path writes its own; this is the short path's, for a source the standing rule parks,
+    with `reasons` the ones it parked on.
     """
     body = (
-        f"Found and priced by the fleet under the {lead.get('lens', 'unrecorded')} lens, "
-        f"confirmed by a second leg: {figure_said(find)}. The block is under `## Pending "
-        f"requests` in `approved-sources-list.md`; merge the approval pull request to say yes, "
-        f"close it to leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
+        f"Parked by the standing rule: {'; '.join(reasons)}. Found and priced by the fleet "
+        f"under the {lead.get('lens', 'unrecorded')} lens, confirmed by a second leg: "
+        f"{figure_said(find)}. The block is under `## Pending requests` in "
+        f"`approved-sources-list.md`; merge the approval pull request to say yes, close it to "
+        f"leave the source pending.\n\nWorth: {find['ee']:.0f} EE."
     )
     if decisions is not None and not Path(decisions).is_file():
         # A register somewhere else, as in a test, has no decisions document beside it.
@@ -165,7 +225,7 @@ def surface(key: str, etype: str, lead: dict, find: dict, decisions: Path | None
         # `key-decisions.md` on 2026-09-15 and had the hourly sync refuse a dirty clone.
         print(f"request: no decisions document at {decisions}, OPEN entry not written")
         return False
-    return raise_open(f"Approve {key} / {etype}", body, decisions)
+    return raise_open(heading(key, etype, reasons), body, decisions)
 
 
 def append(register: Path, text: str) -> None:
@@ -251,8 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     outcomes = fleet_ledger.lines(fleet, "outcome")
     written = 0
     for lead_dir, finding, lead, find in candidates(incoming, outcomes):
-        key = source_key(lead_dir.name)
-        etype = lead.get("evidence_class")
+        key, etype = request_class(lead_dir, lead)
         if etype not in MASTER_TYPES:
             print(f"request: {key} is {etype or 'of no recorded class'}, which needs no approval")
             continue
@@ -277,7 +336,7 @@ def main(argv: list[str] | None = None) -> int:
                 decisions = (
                     args.decisions or args.register.parent.parent / "lore" / "key-decisions.md"
                 )
-                surface(key, etype, lead, find, decisions)
+                surface(key, etype, lead, find, ask, decisions)
                 print(f"request: wrote a pending block for {key} / {etype}, and its OPEN entry")
             else:
                 print(f"request: wrote a pending block for {key} / {etype}, {NO_ASK}")

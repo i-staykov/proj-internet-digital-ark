@@ -130,6 +130,35 @@ def test_a_confirmed_find_still_waiting_on_ivo_is_left_alone(tmp_path):
     assert status_of(lead_file) == "verified"
 
 
+def test_every_lead_the_ledger_banks_is_banked_not_only_the_drains(tmp_path, capsys):
+    """The owner approves a parked find, or the store ingests it, after its drain has left
+    `incoming/`: its lead is banked off the ledger with no finding in sight."""
+    incoming, fleet, drained = world(tmp_path, "in-drain", {"verdict": "CLOSED"})
+    earlier = fleet / "leads" / "approved-later.json"
+    earlier.write_text(json.dumps(dict(LEAD, slug="approved-later")), encoding="utf-8")
+    done = fleet / "leads" / "done-already.json"
+    done.write_text(json.dumps(dict(LEAD, slug="done-already", status="banked")), "utf-8")
+    waiting = fleet / "leads" / "still-pending.json"
+    waiting.write_text(json.dumps(dict(LEAD, slug="still-pending")), encoding="utf-8")
+    outcomes(
+        fleet,
+        {"slug": "approved-later", "decision": "pending", "banked": False},
+        {"slug": "approved-later", "banked": True},
+        {"slug": "done-already", "banked": True},
+        {"slug": "in-drain", "banked": True},
+        {"slug": "no-lead-file", "banked": True},
+        {"slug": "still-pending", "decision": "pending", "banked": False},
+    )
+    before = done.read_text(encoding="utf-8")
+    assert write(incoming, fleet) == 0
+    assert status_of(earlier) == "banked"
+    assert done.read_text(encoding="utf-8") == before, "a banked lead is not rewritten"
+    assert status_of(waiting) == "verified"
+    assert status_of(drained) == "closed", "the drain's own verdict decides its slug"
+    assert not (fleet / "leads" / "no-lead-file.json").exists()
+    assert "2 statuses written" in capsys.readouterr().out
+
+
 def test_banked_slugs_come_from_outcome_lines_alone(tmp_path):
     """The register is not read: a banked set built from outcome lines, where the approvals
     register once decided it, and one that ignores every other kind of line."""

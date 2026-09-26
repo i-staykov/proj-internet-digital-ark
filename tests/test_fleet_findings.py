@@ -4,9 +4,12 @@ The quiet failures. A drain that loses the items beside a sidecar makes every FI
 unpriceable and says nothing; a validator that passes a sidecar the fleet would reject lets
 prose into a row that reads like a measurement; a re-price that cannot find the pricer's own
 answer would report zero, the one wrong answer that looks like a result; a conversion that
-deletes the old ledger before every row is in the fleet's loses the spend record for good.
+deletes the old ledger before every row is in the fleet's loses the spend record for good; an
+outcome line that says banked before the store holds the rows can never be taken back.
 """
 
+import gzip
+import hashlib
 import importlib.util
 import json
 import os
@@ -15,8 +18,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+import duckdb
 import pytest
 from test_fleet_ledger import STAND_IN
+
+from ark.db import init_db
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/harness/fleet_findings.py"
@@ -361,6 +367,22 @@ def test_a_row_with_no_stamp_keeps_the_tsv_and_appends_nothing(tmp_path):
     assert module.fleet_ledger.lines(root, "legacy") == []
 
 
+def test_a_test_drains_row_keeps_the_tsv_until_its_drop_has_run(tmp_path):
+    """Five tokens and no window is the row a test drain wrote into the live file. Converted,
+    it would stand in the append-only fleet ledger for good."""
+    root = stand_in(tmp_path)
+    tsv = Path(os.environ["ARK_FLEET_LEDGER"])
+    body = ROWS + "20260924T2058Z\t5\t?\n20260925T1254Z\t5\t?\n"
+    tsv.write_text(body, encoding="utf-8")
+    said = drained(tmp_path, "--fleet", str(root)).stdout
+    assert "2 rows are a test drain's" in said and "#171's drop must run" in said
+    assert tsv.read_text(encoding="utf-8") == body
+    assert module.fleet_ledger.lines(root, "legacy") == []
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    assert len(module.fleet_ledger.lines(root, "legacy")) == 4, "once dropped, it converts"
+
+
 @pytest.mark.skipif(REAL_FLEET is None, reason="no fleet clone with scripts/ledger.py here")
 def test_the_fleets_own_ledger_script_takes_both_kinds_of_line(tmp_path):
     root = tmp_path / "fleet"
@@ -392,6 +414,8 @@ def test_the_fleets_own_ledger_script_takes_both_kinds_of_line(tmp_path):
         str(root),
         "--register",
         str(tmp_path / "approved.md"),
+        "--db",
+        str(store(tmp_path / "ark.duckdb", "a_find")),
     )
     assert "1 appended" in done.stdout, done.stdout + done.stderr
     assert count("outcome") == "1"
@@ -454,8 +478,25 @@ def confirmed(incoming: Path, slug: str, store: dict | None, **over) -> None:
         (lead / "store_price.json").write_text(json.dumps(store), encoding="utf-8")
 
 
-def booked(tmp_path: Path, fleet: Path, *flags: str) -> tuple[str, dict[str, dict]]:
-    """What `outcome` says, and the outcome lines it leaves, by slug and banked."""
+def store(path: Path, *sources: str) -> Path:
+    """A tiny store whose ingest has written one file under each of `sources`."""
+    conn = duckdb.connect(str(path))
+    init_db(conn)
+    for n, source in enumerate(sources):
+        conn.execute(
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows)"
+            " VALUES (?, ?, ?, 1)",
+            [source, f"{source}_{n}.jsonl.gz", "0" * 64],
+        )
+    conn.close()
+    return path
+
+
+def booked(
+    tmp_path: Path, fleet: Path, *roots: Path, ingested: tuple[str, ...] = ()
+) -> tuple[subprocess.CompletedProcess, dict[str, dict]]:
+    """What `outcome` did, and the outcome lines it leaves, by slug and banked. Never the
+    live store: `--db` is a tiny one that has ingested `ingested`."""
     incoming = tmp_path / "incoming"
     if not incoming.exists():
         confirmed(incoming, "a-find", {"status": "priced", "ee": 1000.0, "fleet_program_ee": 995.0})
@@ -466,34 +507,218 @@ def booked(tmp_path: Path, fleet: Path, *flags: str) -> tuple[str, dict[str, dic
         confirmed(incoming, "negative", {"ee": 5.0}, verdict="CLOSED")
     register = tmp_path / "approved.md"
     register.write_text(REGISTER, encoding="utf-8")
-    done = run("outcome", str(incoming), "--fleet", str(fleet), "--register", str(register), *flags)
-    assert done.returncode == 0, done.stderr
+    db = tmp_path / "ark.duckdb"
+    db.unlink(missing_ok=True)
+    store(db, *ingested)
+    done = run(
+        "outcome",
+        str(incoming),
+        *map(str, roots),
+        "--fleet",
+        str(fleet),
+        "--register",
+        str(register),
+        "--db",
+        str(db),
+    )
     lines = module.fleet_ledger.lines(fleet, "outcome")
-    return done.stdout, {f"{line['slug']}:{line['banked']}": line for line in lines}
+    return done, {f"{line['slug']}:{line['banked']}": line for line in lines}
 
 
 def test_each_confirmed_find_with_a_store_price_books_one_outcome_line(tmp_path):
     root = stand_in(tmp_path)
-    _, lines = booked(tmp_path, root)
+    done, lines = booked(tmp_path, root)
+    assert done.returncode == 0, done.stderr
     assert sorted(lines) == ["a-find:False", "b-find:False", "c-find:False"]
     a = lines["a-find:False"]
     assert (a["store_ee"], a["program_ee"], a["agreement_pct"]) == (1000.0, 995.0, 99.5)
-    assert a["decision"] == "master", "not banked until the caller says the commit landed"
+    assert a["decision"] == "master", "not banked until the store holds its rows"
     b, c = lines["b-find:False"], lines["c-find:False"]
     assert (b["store_ee"], b["agreement_pct"], b["decision"]) == (None, None, "candidate-only")
     assert (c["program_ee"], c["decision"]) == (None, "pending"), "no block is pending"
     assert len(booked(tmp_path, root)[1]) == 3, "a rerun adds none"
 
 
-def test_only_a_master_decision_is_banked_and_banked_is_a_json_bool(tmp_path):
+def test_banked_is_the_stores_ingested_files_and_a_json_bool(tmp_path):
+    """No bank's commit makes a line banked, only the source's rows in the store, under a
+    decision that admits them. A pending source's name in the store banks nothing."""
     root = stand_in(tmp_path)
-    _, lines = booked(tmp_path, root, "--banked")
+    done, lines = booked(tmp_path, root, ingested=("a_find", "b_find", "c_find"))
+    assert done.returncode == 0, done.stderr
+    assert sorted(lines) == ["a-find:True", "b-find:True", "c-find:False"]
     assert lines["a-find:True"]["banked"] is True
-    assert {"b-find:False", "c-find:False"} <= set(lines)
+    assert lines["b-find:True"]["decision"] == "candidate-only"
     assert '"banked": true' in (root / "ledger/2026-09.jsonl").read_text()
+    assert "2 banked in the store" in done.stdout
 
 
-def test_an_outcome_with_no_fleet_ledger_script_says_so_and_exits_0(tmp_path):
-    said, lines = booked(tmp_path, tmp_path / "old-clone")
-    assert "not booked" in said
+def test_a_master_decision_the_store_holds_no_rows_for_is_not_banked(tmp_path):
+    """The standing rule decides a source with no ingest spec master, and the bank ingests
+    nothing. A banked line then would stand for good; a later ingest adds the banked one."""
+    root = stand_in(tmp_path)
+    _, lines = booked(tmp_path, root, ingested=("some_other_source",))
+    assert "a-find:False" in lines and "a-find:True" not in lines
+    _, lines = booked(tmp_path, root, ingested=("a_find",))
+    assert {"a-find:False", "a-find:True"} <= set(lines), "the ingest books its banked line"
+
+
+def test_a_store_that_cannot_be_read_banks_nothing_and_says_so(tmp_path):
+    root = stand_in(tmp_path)
+    incoming = tmp_path / "incoming"
+    confirmed(incoming, "a-find", {"ee": 1000.0})
+    (tmp_path / "approved.md").write_text(REGISTER, encoding="utf-8")
+    done = run(
+        "outcome",
+        str(incoming),
+        "--fleet",
+        str(root),
+        "--register",
+        str(tmp_path / "approved.md"),
+        "--db",
+        str(tmp_path / "no-store.duckdb"),
+    )
+    assert "could not be opened" in done.stdout, done.stdout + done.stderr
+    assert [line["banked"] for line in module.fleet_ledger.lines(root, "outcome")] == [False]
+
+
+def test_the_drains_banked_before_are_booked_too_from_their_most_settled_copy(tmp_path):
+    """A find whose drain left `incoming/` gains its banked line whenever the store holds it."""
+    root = stand_in(tmp_path)
+    old = tmp_path / "banked" / "20260920T0105Z"
+    later = tmp_path / "banked" / "20260921T0105Z"
+    confirmed(old, "d-find", {"ee": 70.0}, run_id="5")
+    confirmed(later, "d-find", {"ee": 80.0}, run_id="6")
+    done, lines = booked(tmp_path, root, old, later, tmp_path / "banked/*/", ingested=("a_find",))
+    assert done.returncode == 0, done.stderr
+    assert lines["d-find:False"]["store_ee"] == 80.0, "the later run's copy"
+    assert "a-find:True" in lines
+
+
+def test_an_outcome_that_did_not_land_exits_1_and_says_so(tmp_path):
+    done, lines = booked(tmp_path, tmp_path / "old-clone")
+    assert done.returncode == 1
+    assert "not booked" in done.stdout
     assert lines == {}
+    assert booked(tmp_path, stand_in(tmp_path))[0].returncode == 0
+
+
+def _remote_read(root, slug="a-lead", complete=True, tamper=False, extra="", rename=""):
+    """A read as `read.yaml` leaves it on the VPS: parts plus the receipt that lists them."""
+    directory = root / "journals" / slug
+    directory.mkdir(parents=True)
+    parts, whole = [], hashlib.sha256()
+    for n in (1, 2):
+        name = f"fleetread_bulk_cdx_file__{slug}_000{n}.jsonl.gz"
+        body = gzip.compress(
+            f'{{"url": "http://h{n}.example.com/", "timestamp": "1999"}}\n'.encode()
+        )
+        (directory / name).write_bytes(body)
+        parts.append({"name": name, "sha256": hashlib.sha256(body).hexdigest(), "rows": 1})
+        whole.update(body)
+    if tamper:
+        (directory / parts[0]["name"]).write_bytes(b"changed on the way")
+    if extra:
+        (directory / extra).write_bytes(b"not the read's")
+    if rename:
+        parts[1]["name"] = rename
+    receipt = {"complete": complete, "parts": parts, "journal_sha256": whole.hexdigest()}
+    (directory / "receipt.json").write_text(json.dumps(receipt))
+    return root / "journals"
+
+
+def test_a_complete_read_is_pulled_whole_and_verified(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARK_READ_REMOTE", str(_remote_read(tmp_path)))
+    monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    got = module.fetch_read(lead)
+    assert got == tmp_path / "fleet_read" / "a-lead"
+    assert sorted(p.name for p in got.glob("fleetread_*")) == [
+        "fleetread_bulk_cdx_file__a-lead_0001.jsonl.gz",
+        "fleetread_bulk_cdx_file__a-lead_0002.jsonl.gz",
+    ]
+    assert module.verify_read(got) == ""
+    monkeypatch.setenv("ARK_READ_REMOTE", str(tmp_path / "nowhere"))
+    assert module.fetch_read(lead) == got, "a verified read here is not pulled again"
+
+
+def test_an_incomplete_or_mismatched_read_pulls_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    cases = (
+        ("incomplete", {"complete": False}),
+        ("tampered", {"tamper": True}),
+        ("unlisted", {"extra": "notes.jsonl.gz"}),
+        ("escaping", {"rename": "../fleetread_bulk_cdx_file__a-lead_0002.jsonl.gz"}),
+    )
+    for case, kwargs in cases:
+        remote = _remote_read(tmp_path / case, **kwargs)
+        monkeypatch.setenv("ARK_READ_REMOTE", str(remote))
+        assert module.fetch_read(lead) is None, case
+        assert not (tmp_path / "fleet_read" / "a-lead").exists(), case
+        assert list((tmp_path / "fleet_read").iterdir()) == [], f"{case}: staging left behind"
+    out = capsys.readouterr().out
+    assert "does not say complete" in out and "does not match its sha256" in out
+    assert "notes.jsonl.gz is not in the receipt" in out
+    assert "is not a fleet read part name" in out
+
+
+def test_a_banked_read_part_is_acked_by_its_sha256(tmp_path, monkeypatch):
+    """The VPS frees a part once `journal_acks.tsv` holds its sha256, which the ingest wrote."""
+    import duckdb
+
+    from ark import approvals
+    from ark.db import init_db
+    from ark.hostnames import ingest_hostname_journal
+
+    spec = importlib.util.spec_from_file_location(
+        "ack_journals", ROOT / "scripts/harness/ack_journals.py"
+    )
+    ack = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ack)
+    register = tmp_path / "approved.md"
+    register.write_text(
+        "## Decided\n\n### fleet_a_lead_hostnames / cdx_timestamp\n\nDecision: master\n"
+    )
+    monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
+    part = _remote_read(tmp_path) / "a-lead" / "fleetread_bulk_cdx_file__a-lead_0001.jsonl.gz"
+    part.write_bytes(
+        gzip.compress(
+            json.dumps(
+                {
+                    "url": "http://www.h1.example.com/",
+                    "timestamp": "19990101000000",
+                    "status": "200",
+                }
+            ).encode()
+            + b"\n"
+        )
+    )
+    store = tmp_path / "store.duckdb"
+    conn = duckdb.connect(str(store))
+    init_db(conn)
+    assert ingest_hostname_journal(conn, part)["hostname_year_rows"] == 1
+    conn.close()
+    assert (part.name, hashlib.sha256(part.read_bytes()).hexdigest()) in ack.acks(store)
+
+
+def test_a_read_lead_is_priced_on_its_pulled_parts_at_hostname_grain(tmp_path, monkeypatch):
+    lead = tmp_path / "incoming" / "a-lead"
+    lead.mkdir(parents=True)
+    (lead / "read.json").write_text("{}")
+    parts = tmp_path / "fleet_read" / "a-lead"
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: parts)
+    ran = []
+
+    def fake_run(cmd, **_kwargs):
+        ran.append(cmd)
+        out = "NET-NEW hostname years 1,234  567.8 EE\n"
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    result = module.price(lead, {"verdict": "FIND"})
+    assert ran == [["uv", "run", "python", "scripts/pricing/price_hostnames.py", str(parts)]]
+    assert (result["status"], result["grain"], result["netnew"]) == ("priced", "hostname", 1234)
+    monkeypatch.setattr(module, "fetch_read", lambda _lead: None)
+    assert module.price(lead, {"verdict": "FIND"})["ee"] is None

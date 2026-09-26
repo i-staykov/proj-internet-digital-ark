@@ -255,11 +255,14 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
             "## OPEN\n\n"
             "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
             "### Pick a typeface for the report\n\nWorth: 50000 EE.\n\n"
+            # A park in an approved class: its reasons name a rule, and it is still no class.
+            "### Outside the standing bounds: t_parked / cdx_x\n\nParked by the standing rule: "
+            "the robots clause is not ok: robots.txt disallows /data/.\n\nWorth: 40000 EE.\n\n"
             "## CLOSED\n",
             encoding="utf-8",
         )
         self.brief.write_text(
-            json.dumps({"round": "11", "baseline": "b1", "round_percent": 5.2, "gate_pct": 5.0}),
+            json.dumps({"round": "11", "baseline": "b1", "field5_percent": 5.2, "gate_pct": 5.0}),
             encoding="utf-8",
         )
         code, _ = self.run_main("--write")
@@ -270,8 +273,29 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
         self.assertIn("**Round 11 crossed the 5% gate** at 5.2000% against `b1`", page)
         self.assertIn("[`t-class`](https://example.org/t-class)", page)
         self.assertIn("### Approve t_source / cdx_x", page)
-        for other in ("`t-download`", "`t-terms`", "`t-rerun`", "`t-plain`", "typeface"):
+        for other in (
+            "`t-download`",
+            "`t-terms`",
+            "`t-rerun`",
+            "`t-plain`",
+            "typeface",
+            "t_parked",
+        ):
             self.assertNotIn(other, page)
+
+    def test_an_open_send_entry_is_listed_under_the_send_and_nowhere_else(self):
+        self.decisions.write_text(
+            "## OPEN\n\n### Send round 11\n\nWorth: 30000 EE.\n\n"
+            "### Approve t_source / cdx_x\n\nFound and priced.\n\nWorth: 12000 EE.\n\n"
+            "## CLOSED\n",
+            encoding="utf-8",
+        )
+        self.run_main("--write")
+        page = self.out.read_text(encoding="utf-8")
+        send, classes = page.split("## New evidence classes, biggest first")
+        self.assertIn("- Send round 11: **30,000 EE**", send.split("## The send")[1])
+        self.assertIn("### Approve t_source / cdx_x", classes)
+        self.assertNotIn("Send round 11", classes)
 
     def test_cached_is_gone_and_no_caller_passes_it(self):
         with self.assertRaises(SystemExit) as refused, contextlib.redirect_stderr(io.StringIO()):
@@ -301,10 +325,9 @@ class SendTest(unittest.TestCase):
             {
                 "round": "10",
                 "baseline": "merged260922",
-                "percent": 0.25,
-                "round_percent": 0.3823,
+                "field5_percent": 0.3823,
                 "gate_pct": 5.0,
-                "round_distance_to_gate_ee": 3008271.3436,
+                "distance_to_gate_ee": 3008271.3436,
             }
         )
         self.assertEqual(
@@ -314,13 +337,17 @@ class SendTest(unittest.TestCase):
         )
 
     def test_past_the_gate_the_send_is_the_owners(self):
-        said = self.line({"round": "Round 11", "baseline": "b1", "percent": 5.01})
+        said = self.line({"round": "Round 11", "baseline": "b1", "field5_percent": 5.01})
         self.assertTrue(said.startswith("**Round 11 crossed the 5% gate** at 5.0100%"), said)
         self.assertIn("just ship", said)
 
     def test_no_brief_is_said_and_never_guessed(self):
         self.assertIn("Not known here", self.line(None))
         self.assertIn("Not known here", self.line({"round": "10"}))
+        # The keys the brief no longer carries are no figure at all, so the send never
+        # quotes a round the bank stopped writing.
+        gone = {"round": "10", "round_percent": 6.0, "percent": 6.0, "round_distance_to_gate_ee": 1}
+        self.assertIn("Not known here", self.line(gone))
 
 
 class AskTest(unittest.TestCase):
