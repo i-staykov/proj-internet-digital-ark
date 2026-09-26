@@ -9,9 +9,8 @@ share of its right-most TLD (`foo.uk` 0.9813, `foo.de` 0.1324).
 
 The core rule is structural rather than editorial: **no year without an observation**
 (`domain_year.evidence_id` and `hostname_year.evidence_id` are NOT NULL onto `evidence`), checked on
-every export, and no source class may date a year until a human has written the decision that admits
-it. Negative results are first-class: the register keeps every family tried and the measurement that
-closed it.
+every export, and no new evidence class may date a year until a human has approved it. Negative
+results are first-class: the register keeps every family tried and the measurement that closed it.
 
 ## Reproduce it
 
@@ -60,7 +59,7 @@ uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only do
 It reads the whole robots.txt of each host, including the next one before it follows a redirect,
 honours `Retry-After`, caps and re-counts the bytes, extracts no archive to disk, and prints the
 sha256 the finding has to quote. Anything over the cap waits in the fleet's download backlog for a
-decision. `docs/lore/rules.md` states the rule it enforces.
+decision. `CLAUDE.md`, Autonomy and Channel, state the rules it enforces.
 
 ## Where the round stands
 
@@ -74,7 +73,7 @@ and `scripts/round/header_promotion.py` re-derives the header collection's promo
 
 | | |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | the standing rules, and the order to work in |
+| [CLAUDE.md](CLAUDE.md) | every standing rule, stated once |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
 | [docs/ops/runbook.md](docs/ops/runbook.md) | every command, what it prints, and how the machines are arranged |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

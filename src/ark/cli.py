@@ -145,7 +145,7 @@ def legacy_review_cmd(
     logger.info(f"see {DEFAULT_DROPLIST_PATH} ({sum(counts.values())} distinct entries)")
 
 
-# Banking a finished journal is top of ADR-001's ordering, so this is the job that waits
+# Banking a finished journal outranks every other writer, so this is the job that waits
 # rather than the one that yields. Generous, because `ark seed` has been measured holding
 # the lock for 33 minutes and a banking pass that gives up leaves collected work on disk.
 INGEST_LOCK_PATIENCE_S = 2400
@@ -191,7 +191,7 @@ def ingest_cmd(
     except approvals.NotApproved as exc:
         typer.echo(f"refusing to ingest: {exc}", err=True)
         raise typer.Exit(code=2) from None
-    # Top of ADR-001's ordering: banking a collector's finished journal is work already
+    # Banking a collector's finished journal outranks every other writer: it is work already
     # paid for, so this is the job that waits and everything below it yields to it.
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
@@ -505,7 +505,7 @@ def ingest_apache_header_hostnames_cmd(
 ) -> None:
     """Fill hostname_year with the relay hosts of dated Apache list messages.
 
-    C-83, class link_source, for the `Received: ... by <host>` clause ALONE: the receiving
+    Class link_source, for the `Received: ... by <host>` clause ALONE: the receiving
     MTA writes its own name there, so the field is machine-written and takes no
     corroboration split. The `from` clause is a sender-chosen HELO name and is not read,
     nor is the parenthesised reverse-DNS: neither was approved. The item pointer is
@@ -535,7 +535,7 @@ def ingest_ietf_header_hostnames_cmd(
 ) -> None:
     """Fill hostname_year with the relay hosts of dated IETF list messages.
 
-    C-83's class at a second host, not a new class: the same `Received: ... by <host>`
+    The Apache class at a second host, not a new class: the same `Received: ... by <host>`
     clause, read by the Apache lane's parser, with `from` and the parenthesised
     reverse-DNS skipped here too. The item pointer is `www.ietf.org/<tree>/<list>/<file>#<n>`,
     and the file name is carried whole because the archive spells early months `1996-03`
@@ -610,8 +610,7 @@ def seed_pool(
 # Deliberately short: long enough to ride out the gap between two files inside one ingest
 # pass, no longer. A generous wait does not make the seed polite, it makes it QUEUE, so it
 # wins the lock the moment the ingest finishes and then holds it for its own long run.
-# ADR-001 is explicit that seeding yields, because a candidate claims nothing until
-# something dates it.
+# Seeding yields, because a candidate claims nothing until something dates it.
 SEED_LOCK_PATIENCE_S = 20
 
 
@@ -630,8 +629,8 @@ def seed(
 
     Example: ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
 
-    Yields to a writer rather than crashing against one: ADR-001 puts banking a
-    collector's journal above seeding. It waits only long enough to ride out a gap
+    Yields to a writer rather than crashing against one: banking a collector's
+    journal outranks seeding. It waits only long enough to ride out a gap
     inside one ingest pass, then says it yielded. Safe to re-run: inserts autocommit
     and are `INSERT OR IGNORE`.
     """
@@ -643,7 +642,7 @@ def seed(
         raise SystemExit(
             f"the store was still being written after {SEED_LOCK_PATIENCE_S}s, so this seed "
             f"yielded and wrote nothing.\n"
-            f"Per ADR-001 banking a finished journal outranks seeding, so waiting is correct "
+            f"Banking a finished journal outranks seeding, so waiting is correct "
             f"and this is not an error.\n"
             f"Re-run when the ingest loop is idle: a re-run is additive, since inserts "
             f"autocommit and the insert ignores duplicates."

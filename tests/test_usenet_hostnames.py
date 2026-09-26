@@ -84,8 +84,8 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
     path = write(tmp_path, ITEMS)
     stats = ingest_usenet_item_journal(conn, path)
     assert stats["hostname_year_candidates"] == 3
-    # `www.demon.co.uk` is `www.<parent registrable>`, refused for every lane until
-    # 2026-09-04 and admitted by ADR-009, because the post names that exact host.
+    # `www.demon.co.uk` is `www.<parent registrable>`, its own record, because
+    # the post names that exact host.
     assert stats["hostname_year_rows"] == 3
     held = conn.execute("SELECT hostname FROM hostname_year ORDER BY hostname").fetchall()
     assert held == [

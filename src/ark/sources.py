@@ -26,8 +26,8 @@ from ark.journal import open_journal
 UDRP_LIST_URL = "https://www.icann.org/udrp/proceedings-list.htm"
 
 # Where an RDAP query went before direct registry routing was added, so it
-# rebuilds the record URL of a journal written without one. See docs/lore/retired.md
-# for why the client that wrote those journals is gone.
+# rebuilds the record URL of a journal written without one. The client that wrote those
+# journals is gone: the registries' terms forbid bulk RDAP.
 RDAP_REDIRECTOR = "https://rdap.org/domain/"
 
 # classic CDX field order: urlkey, timestamp, original url, mimetype, status
@@ -249,7 +249,7 @@ def _parse_usenet_whois_journal(path: Path, stats: Counter) -> Iterator[BulkReco
 
 # The consolidated ICANN list of UDRP proceedings: one dispute per row, an explicit
 # commencement date, the disputed name in its own column, all five providers that heard
-# cases in the window. `artifact_listing`, no corroboration split (ADR-002).
+# cases in the window. `artifact_listing`, no corroboration split.
 #
 # The year is the COMMENCEMENT date, never the decision date: a case commenced in late
 # 2000 may be decided in 2001, and the domain existed when the complaint was filed.
@@ -367,8 +367,8 @@ def parse_isc_survey(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
 # The SOA serial of an InterNIC zone, `YYYYMMDDNN`, which is the artifact's own statement
 # of when it was generated. Read from inside the file rather than from its name or its
-# capture, because `docs/lore/discovery.md` asks whether a date would change if the artifact were
-# re-published tomorrow: this one would not.
+# capture, because a date that would change if the artifact were re-published tomorrow dates
+# nothing: this one would not.
 _ZONE_SERIAL = re.compile(r"\b(19[89]\d)(?:0[1-9]|1[0-2])(?:[0-2]\d|3[01])\d\d\b")
 
 
@@ -1641,7 +1641,7 @@ def parse_ukwa_link_target(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 
     The loader collapses the host to its registrable and the value keeps only the year, so a
     `www.` or deeper target, 77% of them, would date a name the record does not identify.
-    `parse_ukwa_link_target_bare` is the annual half (C-85). Targets are worldwide, unlike the
+    `parse_ukwa_link_target_bare` is the annual half. Targets are worldwide, unlike the
     `.uk`-biased source hosts.
     """
     yield from _parse_ukwa(path, stats, _UKWA_TARGET_COL)
@@ -2324,7 +2324,7 @@ SOURCES: dict[str, SourceSpec] = {
     # The BL geoindex extract: IA capture timestamps for `.uk` resources, so
     # `cdx_timestamp` and self-dating. Registering a spec does NOT let it date a year:
     # `ark ingest` refuses the class until a human writes its `Decision:` line in
-    # docs/registers/approved-sources-list.md (ADR-003). The parser exists ahead of that
+    # docs/registers/approved-sources-list.md. The parser exists ahead of that
     # decision so approving it is one command.
     "ukwa_geoindex": SourceSpec(
         key="ukwa_geoindex",
@@ -2378,7 +2378,7 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="ukwa_host_link_graph",
         parse=parse_ukwa_link_target,
     ),
-    # its annual half: a dated listing of a target that IS its registrable (C-85), under the
+    # its annual half: a dated listing of a target that IS its registrable, under the
     # same web method as the source side
     "ukwa_link_target_bare": SourceSpec(
         key="ukwa_link_target_bare",
@@ -2470,12 +2470,12 @@ SOURCES: dict[str, SourceSpec] = {
     # resolve could not be in the index, so the hostname is verified by the act of
     # mirroring rather than typed from memory.
     # Domain-dispute proceedings: a dated docket naming a registered domain in its
-    # own column. Master, self-dating, no corroboration split. See ADR-002.
+    # own column. Self-dating, no corroboration split.
     # DK Hostmaster's own zone list, `domaincount/domains.txt`, in three Wayback captures
     # inside 2001. Each opens with the registry's dated count of its own register
     # (`20011217: 349694 subdomains of DK`), which dates every name below it: the registry
     # stating its own register, as MYNIC, TWNIC and IDNIC do.
-    # A delimited field of a self-dating artifact, so no corroboration split (C-86).
+    # A delimited field of a self-dating artifact, so no corroboration split.
     "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": SourceSpec(
         key="dk_hostmaster_dk_zonen_domains_txt_wayback_2001",
         source_name="dk_hostmaster_dk_zonen_domains_txt_wayback_2001",

@@ -50,7 +50,7 @@ local_clients() {
 count() { printf '%s\n' "$1" | grep -c . ; }
 
 # What the OTHER machine on the channel is spending, which is the number that decides
-# whether this laptop may start anything at all (C-77 binds the channel, not the machine).
+# whether this laptop may start anything at all (the client cap binds the channel, not the machine).
 #
 # Two subtleties, both learned the hard way in this repository. **A loop between parents is
 # still a client**: it holds no journal for the seconds it spends refilling, and a laptop
@@ -67,14 +67,14 @@ count() { printf '%s\n' "$1" | grep -c . ; }
 # them. Unknown is therefore worth ONE remote client here, which leaves this laptop one
 # slot rather than none, until S8 stops the VPS sweeps and the answer is a real zero.
 #
-# ARK_NO_REMOTE skips the question outright, for a machine with no link and for the tests,
-# which must not spend eight seconds on an ssh timeout to decide a local invariant; it is
-# not a claim that the VPS is idle, so it costs the same one client.
+# ARK_NO_REMOTE skips the question outright and answers 0, for a machine with no link and
+# for the tests, which must not spend eight seconds on an ssh timeout to decide a local
+# invariant.
 vps_clients() (
     # **0, not "unknown".** The caller counts an unreadable answer as one client, which is
     # the safe default against the cap, so "not asked" silently cost this laptop half the
-    # channel every window. Under C-88 all three archive clients are here and the VPS runs
-    # none, so a machine that says it has no remote is stating a fact, not declining to look.
+    # channel every window. A machine that says it has no remote is stating a fact, not
+    # declining to look.
     [ "${ARK_NO_REMOTE:-0}" = "1" ] && { echo 0; return; }
     [ -n "${ARK_VPS:-}" ] || { echo "unknown"; return; }
     local out

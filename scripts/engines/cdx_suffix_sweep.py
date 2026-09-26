@@ -107,7 +107,7 @@ def main() -> None:
         "fl": "original,timestamp",
         "from": "1996",
         "to": "2001",
-        # 2xx and 3xx, not 200 alone (ADR-011). A 3xx is a host that resolved and answered
+        # 2xx and 3xx, not 200 alone. A 3xx is a host that resolved and answered
         # with a redirect, which is an observation of that hostname serving; measured 2.4% more
         # rows for the same request, 98.6% of the extra net-new. 4xx and 5xx stay out: a 404
         # shows the server answered, not that the hostname served anything.

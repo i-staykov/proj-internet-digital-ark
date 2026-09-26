@@ -5,8 +5,8 @@ subdomain, `from`/`to` bound the window, `filter=statuscode:[23][0-9][0-9]` keep
 the host answered 2xx or 3xx and never an error, `fl=timestamp,original` returns the stamp and
 the captured URL, and `collapse=timestamp:4` asks the server to fold repeated years.
 
-**Always ask for `original`, never `timestamp` alone.** A `www.` host is its own record
-(ADR-009), so keeping the URL turns a query about a domain we hold into a harvest of the
+**Always ask for `original`, never `timestamp` alone.** A `www.` host is its own record,
+so keeping the URL turns a query about a domain we hold into a harvest of the
 hosts beneath it, at no extra request and inside the row `limit`.
 
 The collapse is a payload optimisation, never correctness: results are ordered by URL key,

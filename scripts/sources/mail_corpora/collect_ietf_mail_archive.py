@@ -6,8 +6,8 @@ shape `build_apache_header_pool.py` writes for lists.apache.org.
     uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan
     uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py sweep
 
-**This is C-83's class at a second host, not a new class.** Ivo approved the `by` clause
-alone on 2026-09-09 for the receiving MTA's own name, and the reading here is that lane's
+**This is the relay-host rule's class at a second host, not a new class.** It admits the
+`by` clause alone, the receiving MTA's own name, and the reading here is that lane's
 own code: `BOUNDARY`, `unfold`, `by_hosts` and `IN_WINDOW` are imported from
 `build_apache_header_pool.py` rather than re-typed, so an ietf.org figure is comparable to
 the Apache one. The `from` clause, the parenthesised reverse-DNS and `Message-ID` hosts are
@@ -23,7 +23,7 @@ On the fleet's 13.61% sample that was 2,158 of 39,385 messages, 5.5%.
 `concluded-wg-ietf-mail-archive` months are MMDF, delimited by a line of four `\\x01` bytes
 with no `From ` line anywhere in the file. Running the Apache mbox boundary alone over
 `822ext/1996-08` returned 0 messages from 247,156 bytes that hold 52 of them, silently,
-which is the boundary defect `docs/lore/traps.md` already paid for once. MMDF writes a
+which is the boundary defect `docs/lore/laws.md` (Pricing) records. MMDF writes a
 delimiter both before and after every message, so a message is counted at flush and only
 when its header block is non-empty, never at the boundary itself.
 

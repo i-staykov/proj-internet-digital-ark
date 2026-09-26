@@ -43,7 +43,7 @@ def main() -> int:
     ap.add_argument(
         "--status",
         default="200",
-        help="keep only statuses matching this regex; ADR-011 admits `3[0-9][0-9]` as well",
+        help="keep statuses matching this regex; a 3xx is evidence too, so `3[0-9][0-9]` as well",
     )
     ap.add_argument(
         "--prefix",

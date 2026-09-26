@@ -43,7 +43,7 @@ CLAIM_COPY_DIR = MASTERS_DIR / "claim"
 # points at is not baseline": the baseline rolls forward, so an absorbed addition still
 # points at its original CDX row while now also carrying baseline evidence, and the weaker
 # test re-exports every past addition as new.
-# **Spec XIII: the annual CLAIM is website evidence only** (C-90). The store keeps every
+# **Spec XIII: the annual CLAIM is website evidence only.** The store keeps every
 # row, because a row that cannot date a year is still evidence and still a candidate; what
 # this filters is what we ASSERT. `evidence_types.WEB_METHODS` is the allowlist and an
 # unknown method fails closed.
@@ -657,11 +657,10 @@ def export_all(
     # of them were absent from his files, so shipping the pool as the contribution would
     # overstate the registrable half of this track by 78x.
     #
-    # **A registrable name whose every year fails XIII is a candidate, not nothing** (C-90:
-    # "failing rows re-track to candidates"). Until 2026-09-21 the pool took only names with
-    # NO year at all, so a registry list ingested as `artifact_listing` earned a year the
-    # annual screen then refused, and the name fell between the two tracks: the `.dk` zone
-    # list's 251,114 rows shipped in neither file. His own baseline rows are excluded by
+    # **A registrable name whose every year fails XIII is a candidate, not nothing**:
+    # failing rows re-track to candidates. A registry list ingested as `artifact_listing`
+    # earns a year the annual screen then refuses, and a pool of only year-less names would
+    # drop it between the two tracks. His own baseline rows are excluded by
     # type rather than by method, because `prior_reused` is not a web method either and
     # every one of his 33.7M names would otherwise enter the pool only to be deleted below.
     with _phase("candidate pool"):

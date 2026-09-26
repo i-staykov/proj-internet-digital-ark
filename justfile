@@ -634,7 +634,7 @@ screen *args:
 # Turn a URL into a priceable journal from a TOML description, so a source can be measured
 # before anyone decides whether it is worth a hand-written collector. It refuses to guess a
 # column, reports what it threw away by reason, and its output has no ingest spec, so no
-# probe can date a year (ADR-004). Then `just price --items data/raw/probes/<name>.jsonl`.
+# probe can date a year. Then `just price --items data/raw/probes/<name>.jsonl`.
 #
 # price a source from a TOML description, writing no Python
 probe spec *args:
@@ -1144,7 +1144,7 @@ expand what="" *args:
 # touches no database, the split sorts it into a dated half and a candidate half. The split
 # is the evidence wall for every free-text source, so it is not optional.
 #
-#   apache-headers               Apache list relay hosts, dated per message (C-83)
+#   apache-headers               Apache list relay hosts, dated per message
 #   attrition                    the defacement mirror index, no request sent
 #   enron                        the FERC corpus, dated per message
 #   maillists                    public pipermail archives, dated per message
@@ -1167,7 +1167,7 @@ collect source="" *args:
     set -euo pipefail
     set -- {{args}}
     case "{{source}}" in
-    # Approved under C-83 for the `Received: ... by <host>` clause alone. Discovery is 72
+    # The relay-host rule admits the `Received: ... by <host>` clause alone. Discovery is 72
     # requests and resumable per month; the harvest honours `Crawl-delay: 5` and skips what
     # is on disk. A list-month limit as the first argument takes a measured slice.
     apache-headers)

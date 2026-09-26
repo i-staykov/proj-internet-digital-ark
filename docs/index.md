@@ -10,18 +10,11 @@ A page marked *generated* is written by the named script and never edited by han
 *frozen* is never edited at all. Pages marked *not shipped* are export-ignored and stay out of
 the delivery archive.
 
-## Rules and lore
+## Lore
 
 | Page | What it is | Read it when |
 |---|---|---|
-| [rules.md](lore/rules.md) | The standing rules, one line each, by family | before any ingest, commit or delivery step |
-| [laws.md](lore/laws.md) | The measured laws of source pricing, with every figure | before pricing or proposing a source |
-| [traps.md](lore/traps.md) | Mistakes already paid for, one paragraph each | before trusting a number or sending a first request |
-| [discovery.md](lore/discovery.md) | How to find and price a new source, the long form | when a lens is new to you |
-| [retired.md](lore/retired.md) | Capabilities deleted from the tree, one line each with the commit that removed them | before rebuilding something that was retired on purpose |
-| [key-decisions.md](lore/key-decisions.md) | Open and closed asks to Ivo, two lines each (*not shipped*) | when something needs a human decision |
-| [ADRs.md](lore/ADRs.md) | Architecture decision records, structural changes only | before changing the schema, the gate or the evidence classes |
-| [documentation.md](lore/documentation.md) | Why the code is shaped the way it is | before a refactor |
+| [laws.md](lore/laws.md) | Every measured fact the rules in `CLAUDE.md` rest on, with its figure, and what not to rebuild | before pricing, proposing or trusting a number |
 
 ## The task, in Ding's words
 
@@ -67,6 +60,5 @@ the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
-| [brief-compliance.md](brief/brief-compliance.md) | Every bullet of his newest numbered brief section against the file that satisfies it | when an update from him lands |
 | [runbook.md](ops/runbook.md) | What to run and what each command should print | when running anything for the first time |
 | [security-posture.md](ops/security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |
