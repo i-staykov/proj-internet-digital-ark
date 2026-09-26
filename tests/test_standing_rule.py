@@ -21,15 +21,11 @@ _SPEC.loader.exec_module(rule)
 REGISTER = """# Approved sources
 
 ### old_source / cdx_timestamp
-
 - ingest specs: `old_spec`
-
 Decision: master
 
 ### new_source / cdx_timestamp
-
 - ingest specs: `new_spec`
-
 Decision: pending
 """
 
@@ -77,7 +73,10 @@ def test_all_four_conditions_hold_so_the_line_is_written_and_the_rule_is_cited(t
     _, text, _ = decide(tmp_path, lead=LEAD)
     assert "Decision: pending" not in text
     assert text.count("Decision: master") == 2
-    assert "CLAUDE.md, Autonomy" in text
+    # The citation is the block's last fact line, above its one decision line.
+    block = text[text.index("### new_source") :].splitlines()
+    assert block[-2].startswith("- standing rule (CLAUDE.md, Autonomy): ")
+    assert block[-1] == "Decision: master"
     # The stamp is quoted, which is the rule's own wording, and the terms are named.
     assert '"Tue, 4 May 1999 11:02:13 +0100 in the Received header"' in text
     assert "https://example.invalid/terms" in text

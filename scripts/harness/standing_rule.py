@@ -42,11 +42,12 @@ from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
+# One fact line above the decision, the shape the compactor keeps an approved block in.
 CITATION = (
-    "Decided by the loop under the standing approval rule (CLAUDE.md, Autonomy): "
-    "the class is already master-eligible, the stamp {stamp} dates one item, the terms at "
-    "{terms} permit it, and the ingest this line releases is gated by `ark check`, which parks "
-    "the line back to pending if it fails. Fleet run {run}, store re-price {ee:,.1f} EE."
+    "- standing rule (CLAUDE.md, Autonomy): the class is already master-eligible, the stamp "
+    "{stamp} dates one item, the terms at {terms} permit it, and the ingest this line releases "
+    "is gated by `ark check`, which parks the line back to pending if it fails; fleet run "
+    "{run}, store re-price {ee:,.1f} EE"
 )
 
 
@@ -121,11 +122,11 @@ def reasons_to_park(approval, lead: dict, decided: dict) -> list[str]:
 
 
 def decide(text: str, approval, citation: str) -> str:
-    """The register with this one source's pending line flipped, and the rule cited under it."""
+    """The register with this one source's pending line flipped, and the rule cited above it."""
     lines = text.splitlines(keepends=True)
     for index in range(approval.line - 1, len(lines)):
         if lines[index].startswith("Decision: pending"):
-            lines[index] = "Decision: master\n" + citation + "\n"
+            lines[index] = citation + "\nDecision: master\n"
             return "".join(lines)
     raise ValueError(f"no pending decision line under {approval.source_name}")
 
