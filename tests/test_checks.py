@@ -47,7 +47,7 @@ def test_clean_store_passes_all_checks() -> None:
     # one direction was refusing half of it.
     # Pinned, not counted loosely: a check silently dropped
     # from the gate is the failure this assertion exists to catch.
-    assert len(results) == 18, [r["name"] for r in results]
+    assert len(results) == 19, [r["name"] for r in results]
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
 

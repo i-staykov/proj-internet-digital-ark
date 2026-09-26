@@ -549,8 +549,9 @@ def check_state() -> tuple[list[str], list[str]]:
         ]
     if "is current" in out:
         return ["ROUND.md: current"], []
-    _, wrote = run(["uv", "run", "python", "scripts/round/build_round_state.py"])
-    return [f"ROUND.md: was stale, {'regenerated' if wrote else 'REGENERATION FAILED'}"], []
+    return ["ROUND.md: stale"], [
+        "ROUND.md is stale: the next bank rewrites it, or run `just state`"
+    ]
 
 
 def cycle(number: int, with_network: bool, fleet: Path = DEFAULT_FLEET) -> list[str]:

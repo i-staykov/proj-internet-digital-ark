@@ -18,8 +18,8 @@ The evidence bar and the standing approval rule are in `docs/lore/rules.md`; the
    `uv run ark check`, in that order.
 5. A five-figure source banks together with its paragraph in `docs/report.template.md`.
 
-`just ship` runs step 3 to 4 as the first stage of shipping, so a rehearsal before any
-decision arrives exercises every later step and changes nothing.
+`just ship` runs steps 3 and 4 in its first stage, `just bank --force`, so a rehearsal
+exercises every later step and banks nothing still pending.
 
 Traps worth re-reading in `docs/lore/traps.md`: an already-ingested journal shows zero net-new by
 construction, and a partition's real yield is the `year_rows` the ingest ledger printed, not an

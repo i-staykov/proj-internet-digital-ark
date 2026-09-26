@@ -262,7 +262,7 @@ class OnlyTheOwnersAsksTest(unittest.TestCase):
             encoding="utf-8",
         )
         self.brief.write_text(
-            json.dumps({"round": "11", "baseline": "b1", "round_percent": 5.2, "gate_pct": 5.0}),
+            json.dumps({"round": "11", "baseline": "b1", "field5_percent": 5.2, "gate_pct": 5.0}),
             encoding="utf-8",
         )
         code, _ = self.run_main("--write")
@@ -325,10 +325,9 @@ class SendTest(unittest.TestCase):
             {
                 "round": "10",
                 "baseline": "merged260922",
-                "percent": 0.25,
-                "round_percent": 0.3823,
+                "field5_percent": 0.3823,
                 "gate_pct": 5.0,
-                "round_distance_to_gate_ee": 3008271.3436,
+                "distance_to_gate_ee": 3008271.3436,
             }
         )
         self.assertEqual(
@@ -338,13 +337,17 @@ class SendTest(unittest.TestCase):
         )
 
     def test_past_the_gate_the_send_is_the_owners(self):
-        said = self.line({"round": "Round 11", "baseline": "b1", "percent": 5.01})
+        said = self.line({"round": "Round 11", "baseline": "b1", "field5_percent": 5.01})
         self.assertTrue(said.startswith("**Round 11 crossed the 5% gate** at 5.0100%"), said)
         self.assertIn("just ship", said)
 
     def test_no_brief_is_said_and_never_guessed(self):
         self.assertIn("Not known here", self.line(None))
         self.assertIn("Not known here", self.line({"round": "10"}))
+        # The keys the brief no longer carries are no figure at all, so the send never
+        # quotes a round the bank stopped writing.
+        gone = {"round": "10", "round_percent": 6.0, "percent": 6.0, "round_distance_to_gate_ee": 1}
+        self.assertIn("Not known here", self.line(gone))
 
 
 class AskTest(unittest.TestCase):

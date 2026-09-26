@@ -45,7 +45,6 @@ import importlib.util
 import json
 import re
 import sys
-import time
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
@@ -57,6 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import duckdb  # noqa: E402
 from probe_texts_corpus import domains_in, to_registrable  # noqa: E402
 
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 # **The prose extractor's TLD whitelist is wrong for a list of hostnames, and it errs in
@@ -126,19 +126,15 @@ ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789-."
 
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"the store was still being written after {patience_s}s; "
-                    "pricing reads it, so re-run when the ingest finishes"
-                ) from None
-            time.sleep(3)
+    try:
+        return connect_read_only_patiently(STORE, patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" not in str(exc):
+            raise
+        raise SystemExit(
+            f"the store was still being written after {patience_s}s; "
+            "pricing reads it, so re-run when the ingest finishes"
+        ) from None
 
 
 def opener(path: Path):

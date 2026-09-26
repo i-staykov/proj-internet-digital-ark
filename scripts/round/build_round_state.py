@@ -1,41 +1,31 @@
-"""Generate `docs/ROUND.md`: where the round stands, right now.
+"""Generate `docs/ROUND.md` and `data/brief.json`: where the round stands, right now.
 
-**Why this is generated and not written.** `docs/phase5-handoff.md` was a
-hand-written snapshot of the current state. It was accurate for one day, and by
-the next morning three of its claims were disproved: `alt.*` had been called the
-largest open question about the corpus when it turns out to be proportionate, a
-command it told you to run before ordering a queue could not run at all, and the
-figures in its state table were two ingests old. **Current state is the one
-category of memory that cannot be hand-maintained**, because it changes faster
-than anyone updates prose, and a stale statement of it is worse than none: it
-reads as authoritative.
+**Current state is the one category of memory that cannot be hand-maintained**: it changes
+faster than anyone updates prose, and a stale statement of it reads as authoritative. So this
+assembles the answer from the programs that own each piece rather than restating any of it:
 
-So this assembles the answer from the programs that already own each piece rather
-than restating any of it:
-
-    ark stats              the scoreboard and the two outcomes
-    round_figures.py       the five fields and the per-source split
-    audit_residual.py      what is on disk that nothing has read
+    round_figures.py       the five fields, from the claim export's files
     key-decisions.md       what is waiting on a human
+    ark stats              the scoreboard, with --full
+    audit_residual.py      what is on disk that nothing has read, with --full
 
-Nothing here is a second copy of a figure. If a producer changes, this changes
-with it.
+By default it reads files and never the store, so the bank writes it while it holds the writer,
+and `just state` runs the same. `--full` adds the two store sections, read-only.
 
-**Staleness is detectable rather than prevented.** The file ends in a
-machine-readable state line, and `--check` recomputes those counts and exits 1 if
-the store has moved since the file was written. That is the honest guarantee: not
-"this is current" but "you can tell in one command whether it is".
+The brief takes fields 3 to 5 as the very strings ROUND.md prints, so every reader quotes one
+field 5. `just brief` prints it from a session-start hook, so it stays small.
 
-The same run writes `data/brief.json`, the snapshot `just brief` reads. That
-reader must never touch the store (900 s lock wait) or ssh, since it runs from a
-session-start hook, so everything it needs is copied out here while the store is
-open anyway.
+**Staleness is detectable rather than prevented.** The footer holds his release's marker and
+the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
+change.
 
-    uv run python scripts/round/build_round_state.py           # write docs/ROUND.md
+    uv run python scripts/round/build_round_state.py            # write docs/ROUND.md
+    uv run python scripts/round/build_round_state.py --full     # plus the store sections
     uv run python scripts/round/build_round_state.py --check    # exit 1 if it is stale
 """
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -49,6 +39,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import db, export  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
@@ -57,13 +48,8 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
-from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import added_since  # noqa: E402
-from round_figures import hostname_increment  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
@@ -71,20 +57,20 @@ DECISIONS = ROOT / "docs/lore/key-decisions.md"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 GATE_PCT = Decimal(5)
+# Fields 3 to 5 exactly as round_figures prints them.
+FIELD_RE = {
+    "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
+    "4": re.compile(r"^4\. .*: ([0-9,.]+)$", re.M),
+    "5": re.compile(r"^5\. .*: ([0-9.]+)%$", re.M),
+}
+STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    """Wait out a writer rather than crashing against one. A long ingest holds the
-    lock for minutes, and this is a reporting tool: waiting is correct.
-
-    **Through `ark.db`, not a private copy of the retry loop.** This function had its
-    own, so it also missed the memory and thread caps that live there, and measured
-    2026-09-08 this process sat at 28 GB resident on a 36 GB laptop: DuckDB takes 80%
-    of the machine unless told otherwise, and `just sync`, `just state` and `just
-    cycle` each start one.
-    """
+    """Wait out a writer rather than crashing against one: this is a reporting tool. Through
+    `ark.db`, which carries the memory and thread caps. Only `--full` calls it."""
     try:
-        return connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+        return db.connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
     except duckdb.Error as exc:
         if "Conflicting lock" in str(exc):
             raise SystemExit(
@@ -108,16 +94,38 @@ def run(cmd: list[str], timeout: int) -> str:
     return out.strip() or f"(no output from {' '.join(cmd)})"
 
 
-def headline(conn: duckdb.DuckDBPyConnection) -> dict:
-    """The four counts the staleness check compares."""
-    stats = collect_stats(conn)
-    return {
-        "pairs": stats["netnew_pairs_total"],
-        "domains": stats["netnew_domains"],
-        "ee": f"{stats['ee_netnew']:.4f}",
-        "evidence": stats["evidence_rows"],
-        "_stats": stats,
-    }
+def claim_state() -> dict[str, str]:
+    """His release's marker, then each claim file's sha256 by its path under `output/`."""
+    state = {"baseline": CURRENT_BASELINE_MARKER}
+    for path in export.claim_files(ROOT / export.NETNEW_DIR, ROOT / export.CANDIDATES_PATH):
+        rel = path.relative_to(ROOT / "output").as_posix()
+        if path.is_file():
+            with path.open("rb") as fh:
+                state[rel] = hashlib.file_digest(fh, "sha256").hexdigest()
+        else:
+            state[rel] = "missing"
+    return state
+
+
+def export_problem() -> str | None:
+    """Why `output/netnew` cannot be quoted, or None. An export with no stamp crashed or came
+    before stamps, and one diffed against another release counts against the wrong one."""
+    stamp = export.read_stamp(ROOT / export.NETNEW_DIR)
+    if stamp is None:
+        found = "holds no export stamp"
+    elif stamp.get("baseline") != CURRENT_BASELINE_MARKER:
+        found = f"was diffed against {stamp.get('baseline')}, not {CURRENT_BASELINE_MARKER}"
+    else:
+        return None
+    return f"output/netnew {found}: the next bank re-exports it, or `just bank --force`"
+
+
+def parse_fields(figures: str) -> dict[str, str] | None:
+    """Fields 3 to 5 as printed, or None when round_figures did not print all three."""
+    found = {key: rx.search(figures) for key, rx in FIELD_RE.items()}
+    if not all(found.values()):
+        return None
+    return {key: m.group(1) for key, m in found.items()}
 
 
 def open_decisions() -> list[str]:
@@ -146,95 +154,77 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(
-    head: dict,
-    approvals: int,
-    decisions: int,
-    hostnames: tuple[int, Decimal] | None = None,
-    window: dict | None = None,
-) -> dict:
-    """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
-    injected into every session start, and thirty lines is the budget."""
-    stats = head["_stats"]
-    # **Both units, or the brief understates the round by most of it.** `ee_netnew` is the
-    # registrable half alone. Hostnames beneath a held registrable have been annual records
-    # at full weight since 2026-09-01 and the shipped report counts them (`fill_report`
-    # adds them for exactly this reason), so a gate distance taken from registrables alone
-    # is wrong by the hostname half: measured 2026-09-08, 54,599 EE against a real
-    # 991,394, which read as 1.63M short of the gate when the true distance was 691k. That
-    # figure is injected into every session start, so it was the first thing every session
-    # believed.
-    host_pairs, host_ee = hostnames if hostnames is not None else hostname_increment()
-    ee = stats["ee_netnew"] + host_ee
-    gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
-    win = window or {}
-    round_ee = Decimal(str(win.get("ee", 0)))
-    return {
+def brief(fields: dict[str, str] | None, approvals: int, decisions: int) -> dict:
+    """The snapshot `scripts/agents/brief.py` prints. Without the five fields it carries no
+    `field5_percent`, and every reader refuses rather than quote a figure of its own."""
+    snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
         "round": CURRENT_ROUND_LABEL,
-        "netnew_pairs": head["pairs"] + host_pairs,
-        "netnew_domains": head["domains"],
-        "netnew_ee": round(float(ee), 4),
-        "registrable_ee": round(float(stats["ee_netnew"]), 4),
-        "hostname_ee": round(float(host_ee), 4),
-        "percent": round(float(ee / REVIEWER_BASELINE_EE * 100), 4),
+    }
+    if fields:
+        ee = Decimal(fields["4"].replace(",", ""))
+        snapshot |= {
+            "netnew_pairs": int(fields["3"].replace(",", "")),
+            "netnew_ee": float(ee),
+            # a string, so the trailing zeros ROUND.md prints survive `jq -r`
+            "field5_percent": fields["5"],
+            "distance_to_gate_ee": round(float(REVIEWER_BASELINE_EE * GATE_PCT / 100 - ee), 4),
+        }
+    return snapshot | {
         "gate_pct": float(GATE_PCT),
-        "distance_to_gate_ee": round(float(gate_ee - ee), 4),
-        # **The gate is taken on THIS round's window, not on the total.** The total is
-        # everything net-new against his current release, and his release still lacks the
-        # round already sent to him, so it carries the last round inside it: on the day
-        # round 10 opened it read 5.36% and would have reported a crossing with nothing
-        # collected. The window figures are `added_since.py`'s, over both units.
-        "round_since": CURRENT_ROUND_SINCE,
-        "round_pairs": int(win.get("records", 0)),
-        "round_ee": round(float(round_ee), 4),
-        "round_percent": round(float(round_ee / REVIEWER_BASELINE_EE * 100), 4),
-        "round_distance_to_gate_ee": round(float(gate_ee - round_ee), 4),
         "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
         "pending_amendments": pending_amendments(),
     }
 
 
-def build() -> tuple[str, dict, dict]:
-    conn = read_only_store()
-    try:
-        head = headline(conn)
-    finally:
-        conn.close()
-
-    # Nine seconds against the store, read-only, so the hourly bank can afford it and
-    # every reader of the brief gets the round's own progress rather than the total.
-    window = added_since.measure()
-
-    # Producers run after the store connection is closed, because two of them open
-    # it themselves and DuckDB allows many readers only when no writer is waiting.
-    figures = run(["uv", "run", "python", "scripts/round/round_figures.py"], timeout=900)
-    residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
+def build(full: bool = False) -> tuple[str, dict]:
+    # Hashed before the figures run: a file that changes in between reads as stale, never
+    # as current.
+    state = claim_state()
+    scoreboard = residual = None
+    if full:
+        conn = read_only_store()
+        try:
+            scoreboard = format_stats(collect_stats(conn))
+        finally:
+            conn.close()
+    # Producers run after the store connection is closed, because under --full they open it
+    # themselves and DuckDB allows many readers only when no writer is waiting.
+    figures = export_problem() or run(
+        ["uv", "run", "python", "scripts/round/round_figures.py", *(["--full"] if full else [])],
+        timeout=900,
+    )
+    if full:
+        residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
 
     decisions = open_decisions()
     waiting = pending_approvals()
     parts = [
         "# Where the round stands",
         "",
-        "**Generated by `just state`. Do not edit: every number here belongs to another program,",
-        "and a hand edit makes this disagree with the store rather than correcting it.**",
+        "**Generated by `scripts/round/build_round_state.py`. Do not edit: every number here",
+        "belongs to another program, and a hand edit makes this disagree with its owner rather",
+        "than correcting it.**",
         "",
         f"Measured against **{CURRENT_BASELINE_MARKER}**, the reviewer's current release:",
         f"{REVIEWER_BASELINE_PAIRS:,} pairs and {REVIEWER_BASELINE_EE:,.4f} equivalent-English.",
-        f"The round window opens at `{CURRENT_ROUND_SINCE}`, held in `src/ark/baseline.py`.",
+    ]
+    if full:
+        parts += [
+            f"The round window opens at `{CURRENT_ROUND_SINCE}`, held in `src/ark/baseline.py`."
+        ]
+    parts += [
         "",
         "Run `just state --check` to find out whether this file is still current. It compares",
-        "the counts in its own footer against the store and exits 1 if the store has moved.",
+        "the claim files' sha256s against its footer and exits 1 if any has changed.",
         "",
         "---",
         "",
-        "## The scoreboard",
-        "",
-        "```",
-        format_stats(head["_stats"]),
-        "```",
-        "",
+    ]
+    if scoreboard is not None:
+        parts += ["## The scoreboard", "", "```", scoreboard, "```", ""]
+    parts += [
         "## The five fields, and the per-source split",
         "",
         "The format the reviewer set. Send with `--verify`, which re-scores the increment with his",
@@ -244,12 +234,10 @@ def build() -> tuple[str, dict, dict]:
         figures,
         "```",
         "",
-        "## What is on disk that nothing has read",
-        "",
-        "```",
-        residual,
-        "```",
-        "",
+    ]
+    if residual is not None:
+        parts += ["## What is on disk that nothing has read", "", "```", residual, "```", ""]
+    parts += [
         "## Waiting on a human",
         "",
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
@@ -280,11 +268,10 @@ def build() -> tuple[str, dict, dict]:
         "",
         "State line, used by `--check` to detect that this file has gone stale:",
         "",
-        f"<!-- ark-round-state: pairs={head['pairs']} domains={head['domains']} "
-        f"ee={head['ee']} evidence={head['evidence']} -->",
+        f"<!-- ark-round-state: {' '.join(f'{k}={v}' for k, v in state.items())} -->",
         "",
     ]
-    return "\n".join(parts), head, brief(head, len(waiting), len(decisions), window=window)
+    return "\n".join(parts), brief(parse_fields(figures), len(waiting), len(decisions))
 
 
 def parse_state(text: str) -> dict[str, str] | None:
@@ -299,7 +286,12 @@ def main() -> None:
     ap.add_argument(
         "--check",
         action="store_true",
-        help="exit 1 if docs/ROUND.md is missing or its counts no longer match the store",
+        help="exit 1 if docs/ROUND.md is missing or a claim file no longer matches its footer",
+    )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="also read the store: the scoreboard and what is on disk that nothing has read",
     )
     args = ap.parse_args()
 
@@ -309,38 +301,31 @@ def main() -> None:
         recorded = parse_state(OUT.read_text(encoding="utf-8"))
         if recorded is None:
             raise SystemExit(f"{OUT.relative_to(ROOT)} carries no state line: run `just state`")
-        conn = read_only_store()
-        try:
-            head = headline(conn)
-        finally:
-            conn.close()
-        drift = {
-            key: (recorded.get(key), str(head[key]))
-            for key in ("pairs", "domains", "ee", "evidence")
-            if recorded.get(key) != str(head[key])
-        }
+        problem = export_problem()
+        if problem:
+            raise SystemExit(problem)
+        now = claim_state()
+        drift = sorted(k for k in now.keys() | recorded.keys() if recorded.get(k) != now.get(k))
         if drift:
-            for key, (was, now) in drift.items():
-                print(f"  {key}: file says {was}, store says {now}")
-            raise SystemExit("docs/ROUND.md is stale: run `just state`")
-        print(f"docs/ROUND.md is current: {head['pairs']:,} pairs, {head['ee']} EE")
+            for key in drift:
+                print(f"  {key}: changed")
+            raise SystemExit(STALE)
+        print(f"docs/ROUND.md is current: its footer matches the {len(now) - 1} claim files")
         return
 
-    body, head, snapshot = build()
+    body, snapshot = build(args.full)
     OUT.write_text(body, encoding="utf-8")
     BRIEF.parent.mkdir(parents=True, exist_ok=True)
     BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
-    # **Print the round, not half of it.** `head` is the registrable unit alone, so this line
-    # read "71,379 net-new pairs, 54601.6080 equivalent-English" for a round holding 1,820,780
-    # records and 1,106,725 EE. `brief()` already sums both units for exactly this reason; the
-    # line a human actually reads was still quoting one of them, and it is the line that gets
-    # pasted into a message.
+    if "field5_percent" not in snapshot:
+        raise SystemExit(
+            f"wrote {OUT.relative_to(ROOT)} without the five fields, so data/brief.json carries "
+            f"no field 5: {export_problem() or 'round_figures.py failed'}"
+        )
     print(
-        f"wrote {OUT.relative_to(ROOT)}: {snapshot['netnew_pairs']:,} net-new records "
-        f"({head['pairs']:,} registrable, {snapshot['netnew_pairs'] - head['pairs']:,} hostname), "
-        f"{snapshot['netnew_ee']:,.4f} equivalent-English, {snapshot['percent']}% of "
-        f"{snapshot['baseline']}, {snapshot['distance_to_gate_ee']:,.2f} EE short of "
-        f"{snapshot['gate_pct']}%"
+        f"wrote {OUT.relative_to(ROOT)}: field 3 {snapshot['netnew_pairs']:,} records, "
+        f"field 4 {snapshot['netnew_ee']:,.4f} EE, field 5 {snapshot['field5_percent']}%, "
+        f"{snapshot['distance_to_gate_ee']:,.4f} EE short of {GATE_PCT}%"
     )
 
 

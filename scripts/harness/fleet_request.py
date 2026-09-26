@@ -50,6 +50,7 @@ import standing_rule  # noqa: E402
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.hostnames import fleet_read_source_name  # noqa: E402
 from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
@@ -59,6 +60,9 @@ FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
 # The ask for a park in an approved class; `lead_queue.py` keeps it off the new-class list.
 OUTSIDE = "Outside the standing bounds: {} / {}"
+# Where `fleet_findings.py` pulls a lead's whole read, one directory of journal parts.
+FLEET_READ = REPO / "data/raw/fleet_read"
+READ_CLASS = "cdx_timestamp"
 
 
 def _json(path: Path) -> dict:
@@ -98,6 +102,31 @@ def figure_said(find: dict) -> str:
     return f"**{find['ee']:,.1f} EE net-new on the live store** over {netnew:,} records"
 
 
+def request_class(lead_dir: Path, lead: dict) -> tuple[str, str | None]:
+    """(source, evidence type) the lead's block asks about.
+
+    A lead the fleet read whole banks its journal parts under its own hostname source, in
+    the capture class, whatever class the scout recorded for the sample.
+    """
+    if (lead_dir / "read.json").is_file():
+        return fleet_read_source_name(lead_dir.name), READ_CLASS
+    return source_key(lead_dir.name), lead.get("evidence_class")
+
+
+def read_lines(lead_dir: Path) -> list[str]:
+    """The ingest and journal lines of a read lead's block, from the pulled receipt."""
+    parts = FLEET_READ / lead_dir.name
+    where = parts.relative_to(REPO) if parts.is_relative_to(REPO) else parts
+    receipt = _json(parts / "receipt.json")
+    sha = receipt.get("journal_sha256") or "no receipt on this machine"
+    count = len(receipt.get("parts") or [])
+    return [
+        f"- ingest: ark ingest-hostnames {where}/",
+        f"- journal sha256: {sha}, {count} part(s), {receipt.get('lines', 0):,} rows read "
+        f"whole from the artifact",
+    ]
+
+
 def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     """The short block, built from the sidecar, the lead and the re-price. No prose invented.
 
@@ -105,7 +134,8 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     the line says so: an approval decided on a blank is worse than one deferred. One fact per
     line and no blank line, the shape the compactor keeps a pending block in.
     """
-    key = source_key(lead_dir.name)
+    key, etype = request_class(lead_dir, lead)
+    read = etype == READ_CLASS and (lead_dir / "read.json").is_file()
     spec = SOURCES.get(key)
     store = find["store"]
     stamp = str(lead.get("what_dates_one_item") or "not recorded in the lead")
@@ -118,17 +148,24 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
     # Relative when it is under the checkout, which is where the drain puts it, and absolute
     # when someone points this at a directory elsewhere rather than crashing on the block.
     where = items.relative_to(REPO) if items.is_relative_to(REPO) else items
+    head = (
+        read_lines(lead_dir)
+        if read
+        else [
+            (
+                f"- ingest spec: `{key}`"
+                if spec
+                else "- ingest spec: none in this repository yet. The fleet found and priced "
+                "this; no collector or parser here reads it, so a yes is a decision to write "
+                "one and `bank_approved.py` will say it banked nothing until that exists"
+            ),
+            f"- journal: `{where if items.is_file() else 'not on this machine'}`, "
+            f"the items the figures below were measured from",
+        ]
+    )
     lines = [
-        f"### {key} / {lead.get('evidence_class')}",
-        (
-            f"- ingest spec: `{key}`"
-            if spec
-            else "- ingest spec: none in this repository yet. The fleet found and priced this; "
-            "no collector or parser here reads it, so a yes is a decision to write one and "
-            "`bank_approved.py` will say it banked nothing until that exists"
-        ),
-        f"- journal: `{where if items.is_file() else 'not on this machine'}`, "
-        f"the items the figures below were measured from",
+        f"### {key} / {etype}",
+        *head,
         f"- refetch: {artifact.get('url') or 'the lead records no URL'}",
         f"- terms: {artifact.get('terms_url') or 'the lead records no terms page'}, "
         f"robots {artifact.get('robots') or 'unrecorded'}",
@@ -274,8 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     outcomes = fleet_ledger.lines(fleet, "outcome")
     written = 0
     for lead_dir, finding, lead, find in candidates(incoming, outcomes):
-        key = source_key(lead_dir.name)
-        etype = lead.get("evidence_class")
+        key, etype = request_class(lead_dir, lead)
         if etype not in MASTER_TYPES:
             print(f"request: {key} is {etype or 'of no recorded class'}, which needs no approval")
             continue

@@ -80,7 +80,8 @@ def read_journal(path: str, years: defaultdict[str, set[int]]) -> tuple[int, str
                 year = int(stamp[:4])
                 if year not in YEARS:
                     continue
-                # only the platform walk records a status; its query keeps 2xx and 3xx already
+                # a row that carries a status counts only as a 2xx or 3xx: a fleet read keeps its
+                # error captures, and they date no registrable
                 if "status" in d and str(d["status"])[:1] not in ("2", "3"):
                     continue
                 # the authority ends at the path, query or fragment; userinfo is not the host

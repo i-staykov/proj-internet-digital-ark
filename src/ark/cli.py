@@ -22,8 +22,8 @@ from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
-from ark.checks import collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
+from ark.checks import AUDIT_PATH, collect_checks, format_checks
+from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_only_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -175,7 +175,12 @@ def ingest_cmd(
     Idempotent per file: a file already in the ledger is skipped whole.
     Example: ark ingest early_web data/raw/early_web/*.cdx.gz
     """
+    from ark.hostnames import FLEETREAD_SOURCE
+
     spec = SOURCES.get(source)
+    if spec is None and FLEETREAD_SOURCE.match(source):
+        _ingest_fleet_read(source, files)
+        return
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     # Checked before the store is opened, so an unapproved ingest does not even take
@@ -192,6 +197,30 @@ def ingest_cmd(
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+def _ingest_fleet_read(source: str, files: list[Path]) -> None:
+    """A fleet read banks both halves under its own source: its journal parts through the
+    hostname ingest, its registrables through the `cdx_snapshot` parser. A file that is not
+    this read's, a refused part or a failed file exits non-zero, so the bank stops there."""
+    from ark.hostnames import fleet_read_spec, ingest_hostname_journal
+
+    try:
+        specs = [fleet_read_spec(source, path) for path in files]
+        approvals.check(source, "cdx_timestamp")
+    except (ValueError, approvals.NotApproved) as exc:
+        typer.echo(f"refusing to ingest: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path, spec in zip(files, specs, strict=True):
+        if spec is None:
+            failed = bool(ingest_hostname_journal(conn, path).get("refused"))
+        else:
+            failed = bool(ingest_files(conn, spec, [path]).get("files_failed"))
+        if failed:
+            typer.echo(f"{source}: {path.name} did not ingest", err=True)
+            raise typer.Exit(code=1)
 
 
 @app.command(name="ingest-hostnames")
@@ -217,6 +246,62 @@ def ingest_hostnames_cmd(
     init_db(conn)
     for path in paths:
         ingest_hostname_dir(conn, path)
+
+
+@app.command(name="retract-status")
+def retract_status_cmd(
+    audit: Annotated[
+        Path,
+        typer.Option(help="The status audit's error captures, `status_errors.tsv.gz`."),
+    ] = Path("data/audit/status_errors.tsv.gz"),
+    write: Annotated[
+        bool, typer.Option("--write", help="Repoint and retract; without it, count only.")
+    ] = False,
+) -> None:
+    """Take every master record off the 4xx and 5xx captures `status_audit.py` lists.
+
+    A host-year with a 2xx or 3xx in the audited raw moves to a new evidence row at the
+    earliest one; the rest keep a row that now carries its error status, so they fail XIII
+    and export as candidates. `--write` then reads the other web families' journals again
+    for the host-years left on an error capture, so a year another family holds comes back.
+    """
+    from ark.hostnames import AUDITED_FAMILIES, retract_error_captures
+
+    for path in (audit, audit.with_name("status_repoint.tsv.gz")):
+        if not path.is_file():
+            raise typer.BadParameter(f"no {path}; run scripts/round/status_audit.py")
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    stats = retract_error_captures(conn, audit, write=write)
+
+    def total(prefix: str) -> int:
+        return sum(n for k, n in stats.items() if k.startswith(prefix))
+
+    for scope, prefix in (("shipped", "shipped_"), ("store", "")):
+        count = {
+            (grain, action): total(f"{prefix}{grain}_hit_{action}_")
+            for grain in ("hy", "dy")
+            for action in ("retract", "repoint", "retracted")
+        }
+        retract = count["hy", "retract"] + count["dy", "retract"]
+        repoint = count["hy", "repoint"] + count["dy", "repoint"]
+        by_family = ", ".join(
+            f"{total(f'{prefix}hy_hit_retract_{f}') + total(f'{prefix}dy_hit_retract_{f}')} {f}"
+            for f in AUDITED_FAMILIES
+        )
+        typer.echo(
+            f"{scope}: {retract + repoint:,} records on a 4xx or 5xx capture "
+            f"({count['hy', 'retract'] + count['hy', 'repoint']:,} hostname years, "
+            f"{count['dy', 'retract'] + count['dy', 'repoint']:,} domain years): "
+            f"{retract:,} to retract ({by_family}), {repoint:,} to repoint; "
+            f"{count['hy', 'retracted'] + count['dy', 'retracted']:,} already retracted"
+        )
+    if write:
+        typer.echo(
+            f"written; {stats['parent_years_moved_to_another_row']:,} parent years moved to "
+            f"another row, {stats['restored_by_another_web_family']:,} host-years restored by "
+            f"another web family, {stats['left_on_an_error_capture']:,} left as candidates"
+        )
 
 
 @app.command(name="ingest-zone-hostnames")
@@ -676,8 +761,16 @@ def export(
             help="Also write the provenance graph. Needed to ship a round or to `ark rebuild`.",
         ),
     ] = False,
+    claim: Annotated[
+        bool,
+        typer.Option(
+            "--claim",
+            help="Write only the claim and its stamp, as the bank does. Packaging refuses it.",
+        ),
+    ] = False,
 ) -> None:
-    """Write net-new year files, candidates, manifest, and merged masters.
+    """Write net-new year files, candidates, manifest, merged masters and the stamp; `--claim`
+    writes only the claim files ROUND.md reads and the stamp.
 
     Patient, because it is the first step of shipping a round: DuckDB blocks a write
     connection against any other process holding the file, even a reader, and this
@@ -686,8 +779,10 @@ def export(
     **The provenance graph is off unless asked for**: it is 229 of the command's 444
     seconds and 2,319 MB, and only `package_delivery.sh` and `just rebuild` read it.
     """
+    if claim and provenance:
+        raise typer.BadParameter("--claim writes no provenance graph: pass one of the two")
     conn = connect_patiently()
-    export_all(conn, with_provenance=provenance)
+    export_all(conn, with_provenance=provenance, claim_only=claim)
 
 
 @app.command(name="price-snapshot")
@@ -956,12 +1051,15 @@ def rebuild(
 @app.command()
 def check() -> None:
     """Run integrity checks over the store; exit non-zero if any fails."""
-    # Same reason as `stats`, and it matters more here: a lock traceback out of the
-    # integrity gate reads as a broken invariant when the database is merely busy.
-    conn = connect_patiently()
-    results = collect_checks(conn)
+    # Read-only and patient: the gate writes nothing, and a lock traceback out of it reads
+    # as a broken invariant when the store is merely busy. Closed before returning, since a
+    # read-write open in the same process fails while this connection lives.
+    conn = connect_read_only_patiently()
+    try:
+        results = collect_checks(conn, audit=AUDIT_PATH)
+    finally:
+        conn.close()
     typer.echo(format_checks(results))
-    record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
     if any(not r["ok"] for r in results):
         raise typer.Exit(code=1)
 
