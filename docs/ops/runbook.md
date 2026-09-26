@@ -479,7 +479,8 @@ because the failure it catches has happened.
 
 The archive lands in `submissions/<round>/`, defaulting the round to the current git branch. Pass one
 explicitly with `just ship package phase-5`. The tarball is git-ignored; its checksum and
-`MANIFEST.txt` stay in git, and the commit the manifest names holds the report and registers as sent.
+`MANIFEST.txt` stay in git, and the commit the manifest names holds the report and registers as sent
+(phase-9's are at 37e331cc).
 Git keeps the current round and the one before it: when a round ships, the older one goes to Drive
 as `submissions/README.md` says.
 

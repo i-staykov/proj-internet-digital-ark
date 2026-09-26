@@ -603,8 +603,8 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 
 # What stays in git after the tarball is git-ignored: the checksum, and a manifest
 # naming the commit and the baseline. The report and registers as sent are at that
-# commit, and the checksum proves a recovered tarball is the one that was sent, so no
-# copy of either is kept. Rebuilding a superseded round is `git checkout <commit>` then
+# commit (phase-9's at 37e331cc, since its manifest names one no branch holds), and the
+# checksum proves a recovered tarball is the one that was sent, so no copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
 {
     echo "round        $ROUND"
