@@ -297,7 +297,7 @@ def test_an_unrecognised_file_is_kept_rather_than_deleted_with_the_run(tmp_path)
     assert kept, "an unrecognised file went with the run directory"
 
 
-def _remote_read(root, slug="a-lead", complete=True, tamper=False):
+def _remote_read(root, slug="a-lead", complete=True, tamper=False, extra="", rename=""):
     """A read as `read.yaml` leaves it on the VPS: parts plus the receipt that lists them."""
     directory = root / "journals" / slug
     directory.mkdir(parents=True)
@@ -312,6 +312,10 @@ def _remote_read(root, slug="a-lead", complete=True, tamper=False):
         whole.update(body)
     if tamper:
         (directory / parts[0]["name"]).write_bytes(b"changed on the way")
+    if extra:
+        (directory / extra).write_bytes(b"not the read's")
+    if rename:
+        parts[1]["name"] = rename
     receipt = {"complete": complete, "parts": parts, "journal_sha256": whole.hexdigest()}
     (directory / "receipt.json").write_text(json.dumps(receipt))
     return root / "journals"
@@ -337,7 +341,13 @@ def test_an_incomplete_or_mismatched_read_pulls_nothing(tmp_path, monkeypatch, c
     monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
     lead = tmp_path / "incoming" / "a-lead"
     lead.mkdir(parents=True)
-    for case, kwargs in (("incomplete", {"complete": False}), ("tampered", {"tamper": True})):
+    cases = (
+        ("incomplete", {"complete": False}),
+        ("tampered", {"tamper": True}),
+        ("unlisted", {"extra": "notes.jsonl.gz"}),
+        ("escaping", {"rename": "../fleetread_bulk_cdx_file__a-lead_0002.jsonl.gz"}),
+    )
+    for case, kwargs in cases:
         remote = _remote_read(tmp_path / case, **kwargs)
         monkeypatch.setenv("ARK_READ_REMOTE", str(remote))
         assert module.fetch_read(lead) is None, case
@@ -345,6 +355,8 @@ def test_an_incomplete_or_mismatched_read_pulls_nothing(tmp_path, monkeypatch, c
         assert list((tmp_path / "fleet_read").iterdir()) == [], f"{case}: staging left behind"
     out = capsys.readouterr().out
     assert "does not say complete" in out and "does not match its sha256" in out
+    assert "notes.jsonl.gz is not in the receipt" in out
+    assert "is not a fleet read part name" in out
 
 
 def test_a_banked_read_part_is_acked_by_its_sha256(tmp_path, monkeypatch):

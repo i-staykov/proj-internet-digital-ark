@@ -43,6 +43,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
 from ark.evidence_types import ERROR_STATUS, WEB_METHODS
 from ark.ingest import ensure_source
@@ -104,20 +105,62 @@ FLEETREAD = re.compile(
     r"_\d{4}\.jsonl(?:\.gz)?$"
 )
 FLEETREAD_SOURCE = re.compile(r"^fleet_[a-z0-9_]+_hostnames$")
+# Its registrable half, the exact-host converter's output named after the read's journal
+# sha256, so a retried bank finds the same file. It banks under the read's own source, so a
+# red gate that takes the read back takes both halves and no other source's rows.
+FLEETREAD_REGISTRABLES = re.compile(
+    r"^cdx_suffix_fleetread_(?P<method>[a-z0-9]+(?:_[a-z0-9]+)*)__(?P<slug>[a-z0-9][a-z0-9-]*)"
+    r"_[0-9a-f]{12}\.jsonl\.gz$"
+)
 
 
 def fleet_read_source(path: Path) -> tuple[str, str] | None:
     """(source name, method) for a fleet read's journal part, None for any other family.
 
-    Raises ValueError for a part whose method is not in `WEB_METHODS`.
+    Raises ValueError for a part whose method is not in `WEB_METHODS`, and for a `fleetread_`
+    name that is not a part's, which would otherwise bank as the sweep's.
     """
     found = FLEETREAD.match(path.name)
     if found is None:
+        if path.name.startswith("fleetread_"):
+            raise ValueError(f"{path.name}: not a fleet read part name")
         return None
     method = found.group("method")
     if method not in WEB_METHODS:
         raise ValueError(f"{path.name}: {method} is not a web method, so it dates no host")
     return fleet_read_source_name(found.group("slug")), method
+
+
+def fleet_read_registrables_tag(method: str, slug: str, journal_sha256: str) -> str:
+    """The converter tag that names a read's registrable half, `FLEETREAD_REGISTRABLES`."""
+    return f"fleetread_{method}__{slug}_{journal_sha256[:12]}"
+
+
+def fleet_read_spec(source: str, path: Path) -> SourceSpec | None:
+    """How one file of a fleet read banks under `source`: None for a journal part, which the
+    hostname ingest reads, and `cdx_snapshot`'s parser and class under the read's own source
+    and method for its registrable half. ValueError for any other file, or one of another
+    lead's read."""
+    from dataclasses import replace
+
+    from ark.sources import SOURCES
+
+    part = fleet_read_source(path)
+    if part is not None:
+        if part[0] != source:
+            raise ValueError(f"{path.name} is {part[0]}'s part, not {source}'s")
+        return None
+    found = FLEETREAD_REGISTRABLES.match(path.name)
+    if found is None:
+        raise ValueError(f"{path.name} is neither a part nor the registrables of a fleet read")
+    method = found.group("method")
+    if method not in WEB_METHODS:
+        raise ValueError(f"{path.name}: {method} is not a web method, so it dates nothing")
+    if fleet_read_source_name(found.group("slug")) != source:
+        raise ValueError(f"{path.name} is not {source}'s registrables")
+    return replace(
+        SOURCES["cdx_snapshot"], key=source, source_name=source, acquisition_method=method
+    )
 
 
 def fleet_read_source_name(slug: str) -> str:

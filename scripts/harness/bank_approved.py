@@ -20,7 +20,8 @@ makes an approval merged from a phone bank something:
     - refetch: https://host/path (then `uv run ark ingest some_spec <journal>`)
 
 A corpus the fleet read whole carries one line instead, naming the directory its journal
-parts were pulled into, and banks through the hostname ingest and then its registrable half:
+parts were pulled into. It banks under its own source, its registrable half first and its
+hostname records last, so a red gate's rollback of that source takes all of it back:
 
     - ingest: ark ingest-hostnames data/raw/fleet_read/<slug>/
 
@@ -48,12 +49,12 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -64,6 +65,12 @@ from ark.approvals import load  # noqa: E402
 from ark.cdx import USER_AGENT  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.hostnames import (  # noqa: E402
+    FLEETREAD,
+    FLEETREAD_REGISTRABLES,
+    fleet_read_registrables_tag,
+    fleet_read_source,
+)
 from ark.sources import SOURCES  # noqa: E402
 
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
@@ -78,6 +85,7 @@ _REFETCH_LINE = re.compile(r"^- refetch: (.+)$", re.M)
 _HOSTNAMES_LINE = re.compile(r"^- ingest: `?ark ingest-hostnames ([^`\s]+?)/?`?\s*$", re.M)
 # The parts a fleet read writes, one source per lead (`ark.hostnames.fleet_read_source`).
 READ_PARTS = "fleetread_*.jsonl.gz"
+CONVERTER = "scripts/engines/cdx_suffix_convert.py"
 _URL = re.compile(r"https?://[^\s`)]+")
 _BACKTICKED = re.compile(r"`([^`]+)`")
 
@@ -164,11 +172,33 @@ def request_in(text: str, source_name: str, evidence_type: str) -> Request:
     )
 
 
-def plan_read(request: Request, plan: Plan, root: Path, read: Callable[[str], set[str]]) -> None:
-    """A fleet read's directory: bankable while it holds a part the ledger has not read.
+def read_parts(path: Path, source_name: str) -> tuple[list[Path], str]:
+    """The parts a complete read's receipt names, each on disk and each `source_name`'s,
+    else why not. A `fleetread_` file the receipt does not name refuses the directory."""
+    try:
+        receipt = json.loads((path / "receipt.json").read_text(encoding="utf-8"))
+        names = [str(part["name"]) for part in receipt["parts"]] if receipt["complete"] else []
+    except (OSError, ValueError, KeyError, TypeError):
+        names = []
+    if not names or not all((path / name).is_file() for name in names):
+        return [], "no complete read"
+    if {p.name for p in path.glob(READ_PARTS)} != set(names):
+        return [], "a part on disk is not the receipt's, or a named part is not a part"
+    try:
+        sources = {fleet_read_source(Path(name)) for name in names}
+    except ValueError as exc:
+        return [], str(exc)
+    if {source for source, _ in sources} != {source_name}:
+        return [], f"its parts are not all {source_name}'s"
+    return [path / name for name in names], ""
 
-    The pull writes a part only after its sha256 matched the receipt, and the receipt says
-    the read was complete, so a directory without one is refused rather than half banked.
+
+def plan_read(request: Request, plan: Plan, root: Path, read: Callable[[str], set[str]]) -> None:
+    """A fleet read's directory: bankable until every part its receipt names is in the ledger.
+
+    The pull writes a directory only after the receipt said complete and every part matched
+    its sha256. The hostname records bank last, so a part in the ledger means the registrable
+    half before it banked too, and a bank that stopped part way runs again.
     """
     path = under(root, request.hostnames_dir)
     if path is None:
@@ -176,15 +206,9 @@ def plan_read(request: Request, plan: Plan, root: Path, read: Callable[[str], se
             (request.label, f"read directory escapes the repository: {request.hostnames_dir}")
         )
         return
-    parts = sorted(path.glob(READ_PARTS)) if path.is_dir() else []
-    try:
-        complete = json.loads((path / "receipt.json").read_text(encoding="utf-8")).get("complete")
-    except (OSError, ValueError, AttributeError):
-        complete = False
-    if not parts or not complete:
-        plan.blocked.append(
-            (request.label, f"no complete read in {request.hostnames_dir} on this machine")
-        )
+    parts, why = read_parts(path, request.source_name)
+    if not parts:
+        plan.blocked.append((request.label, f"{why} in {request.hostnames_dir} on this machine"))
         return
     banked = read(request.source_name)
     if all(part.name in banked for part in parts):
@@ -347,26 +371,51 @@ def run_refetches(
     return lines
 
 
-def read_commands(path: Path, tag: str) -> list[list[str]]:
-    """A whole read banks in three steps: its hostname records, then its registrable half,
-    converted by the exact-host converter, which leaves out error captures. The last step
-    runs only when the converter wrote a file, since a read may hold no exact-host
-    registrable at all."""
+def read_commands(path: Path, source_name: str, state: Path) -> list[list[str]]:
+    """A whole read banks in three steps, every ingest under the read's own source:
+    the exact-host converter, which leaves out error captures, writes its registrables under
+    a tag named after the journal's sha256; they bank; then the parts bank as hostname
+    records. The converter keeps its state in `state`, never the sweep's, so a retry reads
+    the parts again."""
+    parts, why = read_parts(path, source_name)
+    if not parts:
+        raise ValueError(f"{path}: {why}")
+    receipt = json.loads((path / "receipt.json").read_text(encoding="utf-8"))
+    found = FLEETREAD.match(parts[0].name)
+    assert found is not None  # read_parts matched every name
+    tag = fleet_read_registrables_tag(
+        found.group("method"), found.group("slug"), str(receipt.get("journal_sha256") or "")
+    )
+    if not FLEETREAD_REGISTRABLES.match(Path(converted(tag)).name):
+        raise ValueError(f"{path}: the receipt has no journal_sha256 to name its registrables")
     rel = path.relative_to(ROOT)
     return [
-        ["uv", "run", "ark", "ingest-hostnames", f"{rel}/"],
         [
             "uv",
             "run",
             "python",
-            "scripts/engines/cdx_suffix_convert.py",
+            CONVERTER,
             "--glob",
             f"{rel}/{READ_PARTS}",
             "--tag",
             tag,
+            "--state",
+            str(state),
         ],
-        ["uv", "run", "ark", "ingest", "cdx_snapshot", converted(tag)],
+        ["uv", "run", "ark", "ingest", source_name, converted(tag)],
+        ["uv", "run", "ark", "ingest", source_name, *(str(p.relative_to(ROOT)) for p in parts)],
     ]
+
+
+def skip_reason(command: list[str]) -> str:
+    """Why a read's step does not run: its registrables are already converted, from a bank
+    that stopped after the converter, or the converter found none."""
+    if CONVERTER in command:
+        tag = command[command.index("--tag") + 1]
+        return "its registrables are already converted" if (ROOT / converted(tag)).is_file() else ""
+    if FLEETREAD_REGISTRABLES.match(Path(command[-1]).name) and not (ROOT / command[-1]).is_file():
+        return "the read holds no exact-host registrable, nothing to convert"
+    return ""
 
 
 def converted(tag: str) -> str:
@@ -411,12 +460,14 @@ def main() -> None:
     approvals = load(APPROVALS)
     read = lru_cache(maxsize=None)(files_read)
 
-    plan = plan_bank(text, approvals, read=read)
+    plan = plan_bank(text, approvals, root=ROOT, read=read)
     if plan.refetch and args.write:
         for line in run_refetches(plan.refetch):
             print(line)
         read.cache_clear()
-        plan = plan_bank(text, approvals, read=read)  # once: the bytes either came or did not
+        plan = plan_bank(
+            text, approvals, root=ROOT, read=read
+        )  # once: the bytes either came or did not
     report(plan)
 
     if not plan.ready and not plan.reads:
@@ -429,23 +480,23 @@ def main() -> None:
         (key, [["uv", "run", "ark", "ingest", key, str(path.relative_to(ROOT))]])
         for key, path in plan.ready
     ]
-    # The ingest ledger keys on a file's name, so each run's converted file gets its own.
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    jobs += [
-        (label, read_commands(path, f"fleetread_{path.name}_{stamp}")) for label, path in plan.reads
-    ]
-    for key, commands in jobs:
-        for command in commands:
-            if not args.write:
-                print("  would run: " + " ".join(command))
-                continue
-            if command[-2] == "cdx_snapshot" and not (ROOT / command[-1]).is_file():
-                print(f"  {key}: the read holds no exact-host registrable, nothing to convert")
-                continue
-            print("== " + " ".join(command))
-            result = subprocess.run(command, cwd=ROOT, check=False)
-            if result.returncode != 0:
-                raise SystemExit(f"ingest failed for {key}; stopping before anything else runs")
+    with tempfile.TemporaryDirectory() as scratch:
+        for label, path in plan.reads:
+            source_name = label.split(" / ", 1)[0]
+            state = Path(scratch) / f"{path.name}.convert.tsv"
+            jobs.append((label, read_commands(path, source_name, state)))
+        for key, commands in jobs:
+            for command in commands:
+                if not args.write:
+                    print("  would run: " + " ".join(command))
+                    continue
+                if why := skip_reason(command):
+                    print(f"  {key}: {why}")
+                    continue
+                print("== " + " ".join(command))
+                result = subprocess.run(command, cwd=ROOT, check=False)
+                if result.returncode != 0:
+                    raise SystemExit(f"ingest failed for {key}; stopping before anything else runs")
 
     if not args.write:
         print("\ndry run. Pass --write to refetch and ingest.")

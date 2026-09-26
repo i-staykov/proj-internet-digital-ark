@@ -51,6 +51,8 @@ ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
 VPS_JOURNALS = "/projects/ark-data/journals"
 FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
+# A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
+PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
 # Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
 NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
 # The spend record. `ARK_FLEET_LEDGER` moves it, so a drain under test never writes the real one.
@@ -296,7 +298,10 @@ def verify_read(directory: Path) -> str:
     if not parts:
         return "the receipt lists no parts"
     listed = {str(part.get("name")) for part in parts}
-    extra = sorted(p.name for p in directory.glob("fleetread_*") if p.name not in listed)
+    stray = sorted(n for n in listed if not PART.fullmatch(n))
+    if stray:
+        return f"{stray[0]} is not a fleet read part name"
+    extra = sorted(p.name for p in directory.iterdir() if p.name not in listed | {"receipt.json"})
     if extra:
         return f"{extra[0]} is not in the receipt"
     whole = hashlib.sha256()

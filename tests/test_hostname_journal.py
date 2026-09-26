@@ -481,8 +481,75 @@ def test_a_fleet_read_of_a_non_web_method_or_without_status_is_refused(tmp_path,
     assert ingest_hostname_journal(conn, write(tmp_path, rows, dns))["refused"] is True
     bare = write(tmp_path, CAPTURES, "fleetread_bulk_cdx_file__x_0002.jsonl.gz")
     assert ingest_hostname_journal(conn, bare)["refused"] is True
+    misnamed = write(tmp_path, rows, "fleetread_bulk_cdx_file_x.jsonl.gz")
+    assert ingest_hostname_journal(conn, misnamed)["refused"] is True, "never the sweep's source"
     for table in ("hostname_year", "evidence", "ingested_file"):
         assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+
+
+def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypatch):
+    """`ark ingest fleet_x_hostnames` takes the converter's registrables and the parts, both
+    under the read's source and method, so one unbank of that source takes the read back."""
+    import importlib.util
+    from functools import partial
+
+    import pytest
+    import typer
+
+    from ark import approvals, cli
+    from ark.bulk import ingest_files
+    from ark.hostnames import fleet_read_registrables_tag
+
+    register = tmp_path / "approved.md"
+    register.write_text(FLEET_APPROVAL)
+    monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
+    read = tmp_path / "read"
+    read.mkdir()
+    rows = [
+        ("http://example.com/", "19990301000000", "200"),
+        ("http://www.example.com/", "19990301000000", "200"),
+        ("http://shop.example.org/", "20000101000000", "200"),
+        ("http://gone.com/", "19980101000000", "404"),
+    ]
+    part = write(read, rows, "fleetread_bulk_cdx_file__x_0001.jsonl.gz")
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "cdx_suffix_convert", root / "scripts/engines/cdx_suffix_convert.py"
+    )
+    convert = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(convert)
+    tag = fleet_read_registrables_tag("bulk_cdx_file", "x", "ab" * 32)
+    out = tmp_path / "cdx"
+    convert.main(
+        [
+            "--glob",
+            f"{read}/fleetread_*",
+            "--tag",
+            tag,
+            "--out",
+            str(out),
+            "--state",
+            str(tmp_path / "state.tsv"),
+        ]
+    )
+    registrables = out / f"cdx_suffix_{tag}.jsonl.gz"
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    monkeypatch.setattr(cli, "connect_patiently", lambda **_: conn)
+    monkeypatch.setattr(cli, "ingest_files", partial(ingest_files, report_dir=tmp_path))
+    cli._ingest_fleet_read("fleet_x_hostnames", [registrables, part])
+    by = conn.execute(
+        "SELECT DISTINCT s.name, e.acquisition_method FROM evidence e"
+        " JOIN source s USING (source_id)"
+    ).fetchall()
+    assert by == [("fleet_x_hostnames", "bulk_cdx_file")]
+    years = conn.execute("SELECT domain, assigned_year FROM domain_year ORDER BY 1").fetchall()
+    assert years == [("example.com", 1999), ("example.org", 2000)], "the 404 dates nothing"
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
+    for source, files in (("fleet_y_hostnames", [part]), ("fleet_x_hostnames", [register])):
+        with pytest.raises(typer.Exit) as refused:
+            cli._ingest_fleet_read(source, files)
+        assert refused.value.exit_code == 2
 
 
 def test_a_fleet_source_record_from_a_non_web_method_fails_the_check() -> None:
