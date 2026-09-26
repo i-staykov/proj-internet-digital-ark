@@ -11,8 +11,9 @@ The cut is structural rather than clever: everything from the notes heading onwa
 and so does everything between the title and the first horizontal rule. What is left is
 the letter, which is the only part with a reader outside this repository.
 
-Pandoc reads GitHub-flavoured markdown here because the reports carry pipe tables, and
-`commonmark` renders those as literal pipes.
+`to_docx` is the pandoc step alone, so `orq.py` builds its document the same way without
+the cut, which would drop everything between the title and the first rule and everything
+from a notes heading on.
 
     uv run python scripts/round/build_report_docx.py private/interim-report-20260812.md
 """
@@ -27,6 +28,11 @@ from pathlib import Path
 # Tolerant of the exact wording: what matters is that a notes section starts here.
 NOTES = re.compile(r"^#{1,3}\s+notes\b.*$", re.I | re.M)
 RULE = re.compile(r"^-{3,}\s*$", re.M)
+# A reference document, because the reviewer asked for four pages and pandoc's default is
+# 12pt with 10pt paragraph spacing and one-inch margins, which spends about a page and a
+# half on air. It is that default with 10pt body, 5pt spacing and 0.75in margins, and
+# nothing else changed. Found from this file, so a run from any directory is styled.
+REFERENCE = Path(__file__).resolve().parents[2] / "docs/round/assets/report-reference.docx"
 
 
 def sendable(markdown: str) -> str:
@@ -45,6 +51,28 @@ def sendable(markdown: str) -> str:
     if first_rule:
         body = body[first_rule.end() :]
     return f"{title}\n{body}".strip() + "\n"
+
+
+def to_docx(markdown: str, out: Path) -> None:
+    """Write `markdown` to `out` as a .docx. Raises FileNotFoundError without pandoc and
+    CalledProcessError when pandoc fails.
+
+    Pandoc's own markdown reader, not gfm: only it sizes pipe-table columns from the
+    separator row's dash counts, and the gfm reader gave every column of a six-column
+    attribution table the same width, which is what made the .docx unreadable. `-smart`
+    keeps `--` and `...` as typed instead of turning them into dashes.
+    """
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as handle:
+        handle.write(markdown)
+        staged = Path(handle.name)
+    command = ["pandoc", "--from=markdown-smart", "--to=docx", "--standalone"]
+    if REFERENCE.exists():
+        command.append(f"--reference-doc={REFERENCE}")
+    command += ["-o", str(out), str(staged)]
+    try:
+        subprocess.run(command, check=True)
+    finally:
+        staged.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -69,29 +97,11 @@ def main() -> int:
         trimmed.write_text(body, encoding="utf-8")
         print(f"wrote {trimmed}")
 
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as handle:
-        handle.write(body)
-        staged = Path(handle.name)
-    # A reference document, because the reviewer asked for four pages and pandoc's
-    # default is 12pt with 10pt paragraph spacing and one-inch margins, which spends
-    # about a page and a half on air. `docs/round/assets/report-reference.docx` is that
-    # default with 10pt body, 5pt spacing and 0.75in margins, and nothing else changed.
-    # Pandoc's own markdown reader, not gfm: only it sizes pipe-table columns from the
-    # separator row's dash counts, and the gfm reader gave every column of a six-column
-    # attribution table the same width, which is what made the .docx unreadable.
-    # `-smart` keeps `--` and `...` as typed instead of turning them into dashes.
-    command = ["pandoc", "--from=markdown-smart", "--to=docx", "--standalone"]
-    reference = Path("docs/round/assets/report-reference.docx")
-    if reference.exists():
-        command.append(f"--reference-doc={reference}")
-    command += ["-o", str(out), str(staged)]
     try:
-        subprocess.run(command, check=True)
+        to_docx(body, out)
     except FileNotFoundError:
         print("pandoc is not installed: brew install pandoc", file=sys.stderr)
         return 1
-    finally:
-        staged.unlink(missing_ok=True)
 
     print(f"wrote {out} ({out.stat().st_size:,} bytes) from {args.source}")
     if NOTES.search(args.source.read_text(encoding="utf-8")):

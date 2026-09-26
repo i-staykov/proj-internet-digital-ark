@@ -1,10 +1,10 @@
 # Index of docs/
 
-**One line per page: what it is and when to read it.** `docs/` is five directories by what a page
+**One line per page: what it is and when to read it.** `docs/` is six directories by what a page
 IS rather than what it is about: `lore/` standing knowledge we wrote, `brief/` the task as the
 reviewer stated it, `registers/` the current-state ledgers, `round/` the inputs to one delivery,
-`ops/` how to run the thing. The report cluster and this page stay at the root: they are the
-entry points.
+`orq/` the open research questions package, `ops/` how to run the thing. The report cluster and
+this page stay at the root: they are the entry points.
 
 A page marked *generated* is written by the named script and never edited by hand; a page marked
 *frozen* is never edited at all. Pages marked *not shipped* are export-ignored and stay out of
@@ -61,6 +61,7 @@ the delivery archive.
 | [experience-summary.md](round/experience-summary.md) | What worked, what did not, the limits (D2 of the standard) | when writing up a round |
 | [findings.md](round/findings.md) | The round's research findings and the measurement behind each, kept out of the report so the report stays the figures and the receipts | when writing up a round |
 | [assets/](round/assets/) | `report-reference.docx`, the Word style reference for the report | never, unless the report styling changes |
+| [orq.template.md](orq/orq.template.md) | The two Open Research Questions answers with their tokens, filled by `scripts/round/orq.py` into both research-questions folders | when an answer to either open question changes |
 
 ## Operations
 
