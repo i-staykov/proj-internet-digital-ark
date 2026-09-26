@@ -140,6 +140,40 @@ Decision: pending
     assert request.failed == "not stated in the block"
 
 
+def test_a_parked_block_is_filed_naming_why_it_was_parked(monkeypatch) -> None:
+    """A clause park is still an ask; the owner's issue says what its yes would approve."""
+    parked = """### robotslist / artifact_listing
+- refetch: https://example.org/list
+- parked: the robots clause is not ok: robots.txt disallows /data/
+- potential: 7000
+Decision: pending
+"""
+    sa.REGISTER.write_text(register_text(parked), encoding="utf-8")
+    (request,) = sa.requests(floor=5_000)
+    why = "parked by the standing rule: the robots clause is not ok: robots.txt disallows /data/"
+    assert request.failed == why
+    calls = []
+    monkeypatch.setattr(sa, "gh", lambda args, check=True: calls.append(args) or "#1")
+    sa.raise_issue(request, "https://example.org/pull/1", dry_run=False)
+    assert f"Blocked on: {why}" in calls[0][calls[0].index("--body") + 1]
+
+
+def test_a_block_priced_again_is_not_filed_a_second_time(monkeypatch, capsys) -> None:
+    """The title carries the potential, so the open issue is found by its source."""
+    calls = []
+
+    def fake_gh(args, check=True):
+        calls.append(args)
+        if args[:2] == ["issue", "list"]:
+            return json.dumps([{"number": 5, "title": "Approve hostlist? 38,500 EE"}])
+        return "[]"
+
+    monkeypatch.setattr(sa, "gh", fake_gh)
+    assert sa.main([]) == 0
+    assert "open already: Approve hostlist? 38,500 EE" in capsys.readouterr().out
+    assert not [args for args in calls if args[:2] in (["pr", "create"], ["issue", "create"])]
+
+
 def test_the_branch_name_is_stable_per_source() -> None:
     request = next(r for r in sa.requests(floor=5_000))
     assert request.branch == "approve/hostlist"

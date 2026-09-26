@@ -241,9 +241,7 @@ sync fleet="~/Documents/GitHub/ark-fleet":
             SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
                 --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
             NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
-            # 5. Pending approvals as one issue and one mergeable pull request each, and the
-            #    lead queue, rebuilt from the fleet's outcome lines and lead statuses.
-            uv run python scripts/harness/sync_approvals.py || true
+            # 5. The lead queue, rebuilt from the fleet's outcome lines and lead statuses.
             uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
             # 6. One commit and one push, **only when the registers moved**: an empty commit
             #    says a drain was booked when none was.
@@ -256,6 +254,9 @@ sync fleet="~/Documents/GitHub/ark-fleet":
                 git push -q origin live
                 COMMITTED=yes
             fi
+            #    Then pending approvals as one issue and one mergeable pull request each, after
+            #    the push, so a block this run wrote is on live and its pull request flips one line.
+            uv run python scripts/harness/sync_approvals.py || true
             # 7. What became of each lead, back into the fleet's queue, with the result lines.
             #    **A run leaves `incoming/` only once its rows are committed**; anything else
             #    keeps it here for the next tick, which is safe because every step is keyed on
@@ -524,7 +525,6 @@ bank *args:
     # d. The pages the store feeds, the stamp, one commit, the fleet's queue. The round state
     #    rewrites docs/ROUND.md, which git ignores because it names the collecting machine.
     if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
-        uv run python scripts/harness/sync_approvals.py || true
         uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
     fi
     uv run python scripts/harness/bank_hygiene.py space
@@ -540,6 +540,11 @@ bank *args:
     fi
     # A commit an earlier bank could not push goes with this one.
     if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
+    # Pending approvals as one issue and one mergeable pull request each, after the push, so a
+    # block this bank wrote is on live and its pull request flips one line.
+    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
+        uv run python scripts/harness/sync_approvals.py || true
+    fi
     # Every confirmed FIND's outcome into the fleet's ledger, this drain's and every drain
     # banked before it: a find the owner approved since, or the store ingested since, gains its
     # banked line here, and a line the ledger holds adds nothing. `banked` is the store's

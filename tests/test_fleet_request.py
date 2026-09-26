@@ -247,12 +247,17 @@ def test_a_standing_rule_source_gets_its_block_and_no_ask(tmp_path, capsys):
     assert "### a_lead / cdx_timestamp" in text
     assert "no ask: the standing rule decides it" in said
     assert "sync_approvals.py" not in said
+    assert not [line for line in block_of(text) if line.startswith("- parked:")]
 
 
 def test_a_new_class_that_also_fails_a_clause_names_both_reasons(tmp_path, capsys):
     lead = dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED))
     text, said = ask(tmp_path, capsys, register=REGISTER, lead=lead)
-    assert block_of(text)[-1] == "Decision: pending"
+    assert block_of(text)[-3:-1] == [
+        "- parked: no other cdx_timestamp source is approved as master; "
+        "the robots clause is not ok: robots.txt disallows /data/",
+        "- potential: 7000",
+    ]
     assert (
         "parked: no other cdx_timestamp source is approved as master; "
         "the robots clause is not ok: robots.txt disallows /data/;"
@@ -291,6 +296,7 @@ def test_a_parked_source_gets_a_pending_block_with_its_potential_and_says_why(
 ):
     text, said = ask(tmp_path, capsys, register=register, lead=lead)
     block = block_of(text)
+    assert block[-3].startswith(f"- parked: {why}")
     assert block[-2:] == ["- potential: 7000", "Decision: pending"]
     assert f"parked: {why}" in said
     assert "sync_approvals.py files the block as a needs-owner issue" in said
@@ -309,12 +315,12 @@ def test_the_dry_run_says_whether_the_standing_rule_parks_it(tmp_path, capsys):
     assert "sync_approvals.py files the block" in said
 
 
-def test_every_block_left_pending_after_the_standing_rule_carries_a_potential(
+def test_every_block_left_pending_after_the_standing_rule_is_filed_with_its_reason(
     tmp_path, monkeypatch
 ):
     """Every block the standing rule leaves pending carries a `- potential:` line, so
-    `sync_approvals.py` reads its figure and files it at or above the floor. A block without
-    one reads as 0 EE and never reaches the owner."""
+    `sync_approvals.py` reads its figure and files it at or above the floor, and the reason it
+    was parked, so the owner's issue says what a yes would approve."""
     from ark import approvals
 
     world(tmp_path, lead=dict(LEAD, standing=STANDING), register=APPROVED_CLASS)
@@ -338,6 +344,11 @@ def test_every_block_left_pending_after_the_standing_rule_carries_a_potential(
     monkeypatch.setattr(sync_approvals, "REGISTER", register)
     filed = sync_approvals.requests(sync_approvals.DEFAULT_FLOOR)
     assert [(r.source, r.potential) for r in filed] == [("b_lead", 7000.0)]
+    calls = []
+    monkeypatch.setattr(sync_approvals, "gh", lambda args, check=True: calls.append(args) or "#1")
+    sync_approvals.raise_issue(filed[0], "https://example.org/pull/1", dry_run=False)
+    body = calls[0][calls[0].index("--body") + 1]
+    assert "Blocked on: parked by the standing rule: the lead carries no standing admission" in body
 
 
 @pytest.mark.parametrize(

@@ -118,6 +118,23 @@ def decide(tmp_path, fleet=None, **kwargs) -> tuple[int, str, str]:
     return code, register.read_text(encoding="utf-8"), str(register)
 
 
+def test_a_park_an_earlier_bank_wrote_goes_when_the_rule_admits_the_source(tmp_path):
+    """The block's `- parked:` line is the owner's ask; once the rule decides, it is answered.
+    Another block's park stays."""
+    register = REGISTER.replace(
+        "### old_source / cdx_timestamp\n",
+        "### other / artifact_listing\n- parked: the fleet did not admit it\nDecision: pending\n\n"
+        "### old_source / cdx_timestamp\n",
+    ).replace(
+        "### new_source / cdx_timestamp\n",
+        "### new_source / cdx_timestamp\n- parked: no other cdx_timestamp source is approved\n",
+    )
+    _, text, _ = decide(tmp_path, lead=LEAD, register=register)
+    block = text.split("### new_source / cdx_timestamp\n")[1]
+    assert "- parked:" not in block and block.rstrip().endswith("Decision: master")
+    assert "### other / artifact_listing\n- parked: the fleet did not admit it\n" in text
+
+
 def test_every_clause_ok_on_an_approved_class_writes_the_line_citing_them_and_the_figure(
     tmp_path, capsys
 ):

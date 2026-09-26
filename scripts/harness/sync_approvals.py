@@ -43,6 +43,8 @@ _TITLE = re.compile(r"^Approve (.+)\? [\d,]+ EE$")
 # The standing bar for a lead worth a decision.
 DEFAULT_FLOOR = 5_000.0
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
+# The reasons `fleet_request.py` writes into a block the standing rule parks.
+_PARKED = re.compile(r"^-\s*parked:\s*(.+)$", re.M)
 # Which of the four conditions of the standing rule a human can actually settle. 1 is the
 # evidence class and 3 is the terms: both are judgements only Ivo makes. 2 is a missing stamp
 # and 4 is a missing ingest, which are WORK, and an issue asking him to approve work he has
@@ -105,6 +107,7 @@ def requests(floor: float) -> list[Request]:
         if potential < floor:
             continue
         reason = _FAILED.search(block)
+        parked = _PARKED.search(block)
         numbers = failed_conditions(block)
         if numbers and not numbers & set(HUMAN_CONDITIONS):
             continue
@@ -114,7 +117,13 @@ def requests(floor: float) -> list[Request]:
                 etype=approval.evidence_type,
                 line=approval.line,
                 potential=potential,
-                failed=reason.group(0).strip(" *") if reason else "not stated in the block",
+                failed=(
+                    f"parked by the standing rule: {parked.group(1).strip()}"
+                    if parked
+                    else reason.group(0).strip(" *")
+                    if reason
+                    else "not stated in the block"
+                ),
                 block=block,
             )
         )
@@ -317,10 +326,13 @@ def main(argv: list[str] | None = None) -> int:
     wanted = requests(args.floor)
     prs, issues = ({}, {}) if args.dry_run else (open_prs(), open_issues())
     decided = {a.source_name for a in approvals.load(REGISTER).values() if a.decision != "pending"}
+    # Keyed on the source, not the whole title: the title carries the potential, and a block
+    # re-priced since its issue was filed is still the one ask.
+    asked = {own.group(1): title for title in issues if (own := _TITLE.match(title))}
 
     for request in wanted:
-        if request.title in issues:
-            print(f"open already: {request.title}")
+        if request.source in asked:
+            print(f"open already: {asked[request.source]}")
             continue
         pr = prs.get(request.branch) or raise_pr(request, args.dry_run)
         if pr is None:

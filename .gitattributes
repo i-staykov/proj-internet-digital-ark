@@ -14,6 +14,8 @@ docs/phase*-plan.md export-ignore
 # fails if the shape reappears.
 submissions/*/email-draft.md export-ignore
 docs/report-sendable.md export-ignore
+# The lore's page of open and closed asks, a working document, until the rules absorb it.
+docs/lore/key-*.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans:
 # working documents about how to approach the round, and corrections owed. Neither is a
 # deliverable and neither is his business.

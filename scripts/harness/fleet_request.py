@@ -129,7 +129,9 @@ def read_lines(lead_dir: Path) -> list[str]:
     ]
 
 
-def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
+def block(
+    lead_dir: Path, finding: dict, lead: dict, find: dict, parked: list[str] | None = None
+) -> str:
     """The short block, built from the sidecar, the lead and the re-price. No prose invented.
 
     Every line is a fact one of those three files carries. Where one of them says nothing,
@@ -183,6 +185,8 @@ def block(lead_dir: Path, finding: dict, lead: dict, find: dict) -> str:
         ),
         f"- fleet run {finding.get('run_id', 'unknown')}, lens {lead.get('lens', 'unrecorded')}, "
         f"grain {lead.get('grain', 'unrecorded')}, verified by a second leg",
+        # What the standing rule parked it on, which is what the owner's issue asks about.
+        *([f"- parked: {'; '.join(parked)}"] if parked else []),
         f"- potential: {find['ee']:.0f}",
         "Decision: pending",
     ]
@@ -286,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
         if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
-            append(args.register, block(lead_dir, finding, lead, find))
+            append(args.register, block(lead_dir, finding, lead, find, parked))
             print(f"request: wrote a pending block for {key} / {etype}, {said}")
         written += 1
     if args.write:
