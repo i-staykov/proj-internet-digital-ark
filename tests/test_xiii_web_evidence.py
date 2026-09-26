@@ -1,4 +1,4 @@
-"""ADR-013: the annual claim is website evidence, and the method decides it."""
+"""The annual claim is website evidence: the method decides it, and an error capture never does."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ def test_the_allowlist_fails_closed() -> None:
     assert "isc_domain_survey" not in WEB_METHODS
     assert "registry_zone_list_wayback_capture" not in WEB_METHODS
     assert "a_method_invented_tomorrow" not in WEB_METHODS
+    # a per-year capture count cannot show that the host answered without an error
+    assert "ia_domain_year_census" not in WEB_METHODS
 
 
 def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
-    """Ivo's ruling, 2026-09-18. XIII's "non-error" qualifies the custodian-extract
-    pattern, not the IA CDX pattern, and a TimeMap row is the IA index read through
-    Memento. So a 3xx, a server answering deliberately for the exact host, is web
-    presence; a 4xx or 5xx stays a candidate, because a wildcard vhost answers 404 for
-    any name pointed at it.
+    """A capture enters the masters only when the exact host answered 2xx or 3xx. A 3xx is
+    a server answering deliberately for that host; a 4xx or 5xx stays a candidate whatever
+    its method, because a wildcard vhost answers 404 for any name pointed at it.
 
     Driven through DuckDB rather than asserted on the string: the whole rule lives in a
     `regexp_extract` and a `LIKE`, and only the engine can say those are right.
@@ -35,6 +35,11 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
         ("nypw_timemap_non_200", "nypw timemap capture status 500 20010704120000", False),
         ("nypw_timemap", "nypw timemap capture 20010704120000", True),
         ("isc_domain_survey", "nypw timemap capture status 301 20010704120000", False),
+        ("nypw_timemap_hostgrain", "cdx capture 20010704120000 a.example.com", True),
+        ("nypw_timemap_hostgrain", "cdx capture 20010704120000 status 404 a.example.com", False),
+        ("bulk_cdx_file", "cdx capture 20010704120000 status 503 b.example.com", False),
+        ("early_web_hostgrain", "cdx capture 19990101000000 status 302 c.example.com", True),
+        ("ia_domain_year_census", "ia domain year census 2001 captures 12", False),
     ]
     for method, value, _ in rows:
         conn.execute("INSERT INTO evidence VALUES (?, ?)", [method, value])

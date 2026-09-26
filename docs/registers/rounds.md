@@ -8,11 +8,9 @@ reproduces his only two quoted scores exactly. From the 0903 update t_i is inste
 `max(1, receipt_date_i - task_assignment_date_member)` in whole calendar days, an absolute clock that
 starts when the participant first received the task and never resets.
 
-**We cannot reproduce his t for round 8 and it is worth asking about.** He scored it 5.687792, which
-is 10 x 18.769714 / 33, so t = 33 and the origin is 2026-08-02. Our records support 2026-07-21 as the
-first receipt, which gives t = 45 and S = 4.171048. A contributor scored on 2026-09-06 was divided by
-21. The divisor is now the largest lever on the score and it grows by one every day, so a round held
-back a week costs about a fifth of its own value. Timestamps are in HIS clock (US Pacific), read from his mail headers and from the
+**t counts whole days from the task assignment his scores show, 2026-08-02**: round 8's
+5.687792 is 10 x 18.769714 / 33 and round 9's 0.944228 is 10 x 3.682488 / 39, and it grows by
+one every day. Timestamps are in HIS clock (US Pacific), read from his mail headers and from the
 quote lines his replies carry; the two known scores fit exactly one reading of t_i, whole days rounded
 up from the release stamp (round 6: 5.19 days, t = 6; round 7: 11.77 days, t = 12). Calendar days
 give round 6 t = 5 and S = 8.26, which he did not quote. Seeded by hand on 2026-09-02 from the mail
@@ -44,8 +42,7 @@ Figures come from the sent mails and his feedback, quoted as numbers only. Round
 the sent mail's, and the older figures that had them 17 records and 0.31 EE lower are retired.
 Round 1 sent 1,429,524 records and he awarded
 17.38% on records, so its p_i is not commensurable with the others; it is summed on Ivo's instruction of
-2026-09-02 and flagged wherever the sum is printed. Whether he confirms the whole-day reading of t_i is
-open in `docs/registers/questions.md`.
+2026-09-02 and flagged wherever the sum is printed.
 
 A round can be accepted in full and still be credited less than it was sent for: he merges against
 whatever baseline is current when he reaches the submission, and in round 5 230,393 of ours had already

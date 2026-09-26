@@ -36,7 +36,7 @@ def test_cdx_url_asks_one_question_for_all_years() -> None:
     assert "from=1996" in url and "to=2001" in url
     assert "fl=timestamp" in url
     assert "collapse=timestamp%3A4" in url
-    assert "filter=statuscode%3A200" in url
+    assert "filter=statuscode%3A%5B23%5D%5B0-9%5D%5B0-9%5D" in url
 
 
 def test_years_in_extracts_and_filters_to_the_window() -> None:
@@ -424,6 +424,7 @@ def test_the_response_carries_the_host_and_the_journal_keeps_it() -> None:
         year_probe_url("foo.com", 1998),
     ):
         assert "fl=timestamp%2Coriginal" in url, url
+        assert "filter=statuscode%3A%5B23%5D%5B0-9%5D%5B0-9%5D" in url, url
 
     body = (
         "19980101000000 http://www.foo.com/\n"

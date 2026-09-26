@@ -15,7 +15,13 @@ import duckdb
 
 from ark.checks import collect_checks
 from ark.db import init_db
-from ark.hostnames import WEB_FACING_HOST_SOURCES, ingest_hostname_journal, writes_hostname_years
+from ark.evidence_types import web_evidence_exists
+from ark.hostnames import (
+    WEB_FACING_HOST_SOURCES,
+    error_lane,
+    ingest_hostname_journal,
+    writes_hostname_years,
+)
 
 CAPTURES = [
     ("http://www.example.com/", "19980301000000"),
@@ -25,12 +31,113 @@ CAPTURES = [
 ]
 
 
-def write(tmp_path: Path, rows: list[tuple[str, str]], name: str = "sweep_test.jsonl.gz") -> Path:
+def write(tmp_path: Path, rows: list[tuple[str, ...]], name: str = "sweep_test.jsonl.gz") -> Path:
+    """One journal; a row is `(url, ts)` or `(url, ts, status)`."""
     path = tmp_path / name
     with gzip.open(path, "wt") as fh:
-        for url, ts in rows:
-            fh.write(json.dumps({"url": url, "timestamp": ts}) + "\n")
+        for url, ts, *status in rows:
+            row = {"url": url, "timestamp": ts} | ({"status": status[0]} if status else {})
+            fh.write(json.dumps(row) + "\n")
     return path
+
+
+def _shipped(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
+    """The hostname years whose evidence passes the XIII screen, as the export reads it."""
+    return sorted(
+        conn.execute(
+            "SELECT hostname, assigned_year FROM hostname_year hy "
+            f"WHERE {web_evidence_exists('hy.evidence_id')}"
+        ).fetchall()
+    )
+
+
+def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_path) -> None:
+    """A 4xx or 5xx keeps its status in the evidence row, so it dates no master year and
+    no parent; a 2xx or 3xx of the same host-year is quoted instead, however much later."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    rows = [
+        ("http://shop.example.com/", "19980101000000", "404"),
+        ("http://shop.example.com/x", "19980601000000", "302"),
+        ("http://dead.example.com/", "19990101000000", "500"),
+        ("http://gone.example.com/", "19990301000000", "403"),
+    ]
+    stats = ingest_hostname_journal(conn, write(tmp_path, rows, "nypw_status_t.jsonl.gz"))
+    assert stats["error_status"] == 3 and stats["error_hostname_years"] == 2
+    values = dict(
+        conn.execute(
+            "SELECT hy.hostname, e.evidence_value FROM hostname_year hy "
+            "JOIN evidence e USING (evidence_id)"
+        ).fetchall()
+    )
+    assert values == {
+        "shop.example.com": "cdx capture 19980601000000 shop.example.com",
+        "dead.example.com": "cdx capture 19990101000000 status 500 dead.example.com",
+        "gone.example.com": "cdx capture 19990301000000 status 403 gone.example.com",
+    }
+    # the error rows stay in the store as candidates; only the 302 reaches a master file
+    assert _shipped(conn) == [("shop.example.com", 1998)]
+    assert conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall() == [
+        ("example.com", 1998)
+    ]
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
+
+
+def test_an_error_lane_dates_nothing_and_refuses_a_row_that_is_not_an_error(tmp_path) -> None:
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    rows = [
+        ("http://a.example.com/", "20000101000000", "404"),
+        ("http://b.example.com/", "20000101000000", "503"),
+        ("http://c.example.com/", "20000101000000", "200"),
+    ]
+    stats = ingest_hostname_journal(conn, write(tmp_path, rows, "hostcdx_t_4xx.jsonl.gz"))
+    assert stats["status_mismatch"] == 1 and stats["hostname_year_rows"] == 2
+    assert _shipped(conn) == []
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    assert error_lane(Path("early_web_nonok_status_x.jsonl.gz"))
+    assert error_lane(Path("hostcdx_ia600702_4xx_status.jsonl.gz"))
+    assert not error_lane(Path("hostcdx_ia600702_3xx_status.jsonl.gz"))
+    # a swept domain's own name never makes its journal an error lane
+    for name in ("suffix_mononoke_com_20260921T035207Z", "suffix_4xxx_nu_20260917T013008Z"):
+        assert not error_lane(Path(f"{name}.jsonl.gz")), name
+
+
+def test_a_later_2xx_or_3xx_takes_the_year_an_error_capture_held(tmp_path) -> None:
+    """Journals are read one at a time, so the ok capture may arrive second. Either way round
+    the 302 is quoted, the host-year ships and the parent is dated."""
+    error = (
+        "early_web_nonok_status_t.jsonl.gz",
+        [("http://shop.example.com/", "19990101000000", "404")],
+    )
+    ok = (
+        "early_web_3xx_status_t.jsonl.gz",
+        [("http://shop.example.com/", "19990601000000", "302")],
+    )
+    for order in ((error, ok), (ok, error)):
+        conn = duckdb.connect(":memory:")
+        init_db(conn)
+        for name, rows in order:
+            ingest_hostname_journal(conn, write(tmp_path, rows, name))
+        assert _shipped(conn) == [("shop.example.com", 1999)]
+        assert conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall() == [
+            ("example.com", 1999)
+        ]
+
+
+def test_a_journal_that_must_carry_a_status_and_does_not_is_refused(tmp_path) -> None:
+    """NYPW and Early Web rows are cut from CDX that holds a status, so a journal of theirs
+    without one cannot show which captures were errors. Nothing of it is written, and it is
+    left off the ledger so its re-emission is read."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    for name in ("nypw_t_hostgrain.jsonl.gz", "early_web_t_hostgrain.jsonl.gz", "x_4xx.jsonl.gz"):
+        stats = ingest_hostname_journal(conn, write(tmp_path, CAPTURES, name))
+        assert stats["refused"] is True, name
+    for table in ("hostname_year", "evidence", "ingested_file"):
+        assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0, table
+    # a sweep journal needs none: its query asked for 2xx and 3xx only
+    assert ingest_hostname_journal(conn, write(tmp_path, CAPTURES))["hostname_year_rows"] == 3
 
 
 def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
