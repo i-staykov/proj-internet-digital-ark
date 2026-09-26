@@ -179,9 +179,9 @@ def read_text(path: Path) -> str:
     return read_bytes(path).decode("utf-8")
 
 
-# Fleet files that are there but are not one JSON object. A label read off one would be
-# wrong, so the build names every one and refuses rather than skip it.
-BROKEN: list[Path] = []
+# Fleet files, and ledger lines as `file:line`, that are there but are not one JSON object.
+# A label or a cost read off one would be wrong, so the build names every one and refuses.
+BROKEN: list[str] = []
 
 
 def _json(path: Path) -> dict | None:
@@ -193,7 +193,7 @@ def _json(path: Path) -> dict | None:
     except (ValueError, UnicodeDecodeError):
         doc = None
     if not isinstance(doc, dict):
-        BROKEN.append(path)
+        BROKEN.append(str(path))
         return None
     return doc
 
@@ -359,12 +359,17 @@ def ledger(fleet: Path) -> dict[str, list[dict]]:
     collected, and slots collect out of order, so the ledger's readers charge `points`."""
     out: dict[str, list[dict]] = {}
     for path in sorted((fleet / "ledger").glob("*.jsonl")):
-        for text in read_text(path).splitlines():
-            try:
-                line = json.loads(text) if text.strip() else None
-            except ValueError:
+        for number, text in enumerate(read_text(path).splitlines(), 1):
+            if not text.strip():
                 continue
-            if not isinstance(line, dict) or line.get("kind") not in ("leg", "read"):
+            try:
+                line = json.loads(text)
+            except ValueError:
+                line = None
+            if not isinstance(line, dict):
+                BROKEN.append(f"{path}:{number}")
+                continue
+            if line.get("kind") not in ("leg", "read"):
                 continue
             if line.get("run_id") not in (None, ""):
                 out.setdefault(str(line["run_id"]), []).append(line)
@@ -1092,8 +1097,8 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> d
         q2_tests.append(test)
     q2_tests += experiments(fleet)
     if BROKEN:
-        names = ", ".join(str(path.relative_to(fleet)) for path in BROKEN)
-        raise Refusal(f"{len(BROKEN)} fleet file(s) are not one JSON object: {names}")
+        names = ", ".join(os.path.relpath(item, fleet) for item in BROKEN)
+        raise Refusal(f"{len(BROKEN)} fleet file(s) or line(s) are not one JSON object: {names}")
 
     every = q1_tests + q2_tests
     counts = {label: sum(1 for t in every if t.label == label) for label in LABELS}

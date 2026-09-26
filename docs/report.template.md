@@ -69,12 +69,12 @@ about itself (`Received: by`, `Path`, `X-Trace`, `NNTP-Posting-Host`), proof of 
 not of a website. It ships with per-host provenance and its run's exclusion ledger; a host
 promotes only beside an exact-host capture for that year.
 
-Its worth, measured on 98,381 header-dated host-years from eight Usenet hierarchies, against
-captures already in our database: **1.16% carry an exact-host capture for the same year** (95% interval
-1.10 to 1.23), against 0.14% to 0.82% at a year shifted by one to three; 2.10% in any in-window year, beside the
-2.67% you measured on Internet Domain Survey hosts over 1996-2013. By leftmost label: dial-up shaped
-names 0.06%, infrastructure names 4.07%, `www` and `web` names 31.1%. All are lower bounds (partial
-index, Usenet only) and rank the verification queue.
+Its worth, re-derived from the collection's own journals against the web captures in our database
+(`scripts/round/header_promotion.py`): **at least 0.40% of 749,068 header-dated host-years carry an
+exact-host capture for the same year**, and 1.00% in any in-window year, beside the 2.67% you measured
+on Internet Domain Survey hosts over 1996-2013. Both are lower bounds, because our database keeps one
+record per host and year and a header record written first holds its place, and they rank the
+verification queue.
 
 ## 4. The two open questions
 

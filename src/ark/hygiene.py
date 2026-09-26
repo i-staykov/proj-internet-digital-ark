@@ -130,12 +130,12 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
 
 
 def tracked_files(root: Path) -> list[Path]:
-    """Tracked files worth scanning: frozen submissions keep whatever their round shipped."""
+    """Every tracked file, the kept submissions included."""
     out = subprocess.run(
         ["git", "ls-files", "-z"], cwd=root, check=True, capture_output=True
     ).stdout
     rels = [p for p in out.decode("utf-8").split("\0") if p and (root / p).is_file()]
-    return [root / rel for rel in rels if not rel.startswith("submissions/")]
+    return [root / rel for rel in rels]
 
 
 def main() -> int:

@@ -37,6 +37,20 @@ if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
     exit 1
 fi
 
+# The reproduction note is quoted into the report, so a verdict count it names must be the
+# one verify.sh prints, or the report ships a stale claim about its own archive.
+VERDICTS=$(sed -n 's/^VERDICTS=\([0-9][0-9]*\)$/\1/p' scripts/round/verify_delivery.sh)
+COUNTS=(zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
+SAID=$(grep -oE '[a-z]+ `verify\.sh` verdicts' docs/round/reproduction.txt | head -1 | cut -d' ' -f1) || true
+if [ -z "$VERDICTS" ]; then
+    echo "refusing to package: scripts/round/verify_delivery.sh declares no VERDICTS" >&2
+    exit 1
+fi
+if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
+    echo "refusing to package: docs/round/reproduction.txt says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
+    exit 1
+fi
+
 # The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
 # writes only the claim, so the masters, manifests and ISC files beside it are whatever the
 # last full export left; only a full export with provenance, against the current release and
@@ -70,9 +84,9 @@ ROUND_DIR="submissions/$ROUND"
 # code, and a reviewer running it would have regenerated the withdrawn rows.
 #
 # `submissions/` is excluded because it is this script's own OUTPUT, not an input
-# to the source snapshot. Every run rewrites the round's MANIFEST, checksum and
-# report copy, so including it made the second packaging run refuse on the first
-# run's results, which is a guard tripping over its own footprints.
+# to the source snapshot. Every run rewrites the round's MANIFEST and checksum, so
+# including it made the second packaging run refuse on the first run's results,
+# which is a guard tripping over its own footprints.
 DIRTY=$(git status --porcelain --untracked-files=no -- . ':(exclude)submissions')
 if [ -n "$DIRTY" ]; then
     echo "refusing to package: tracked files are modified, so source/ would not match the results" >&2
@@ -587,15 +601,11 @@ tar -czf "$ARCHIVE" -C output "$RELEASE"
 # of `submissions/...` makes that fail before they have checked anything.
 ( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
 
-# What stays in git after the tarball is git-ignored: the report as sent, the
-# checksum, and a manifest naming the commit and the baseline. Together those are
-# enough to say later exactly what was claimed in a given round and to prove a
-# recovered tarball is the one that was sent, without keeping gigabytes in the
-# repository. Rebuilding a superseded round is `git checkout <commit>` then
+# What stays in git after the tarball is git-ignored: the checksum, and a manifest
+# naming the commit and the baseline. The report and registers as sent are at that
+# commit (phase-9's at 37e331cc, since its manifest names one no branch holds), and the
+# checksum proves a recovered tarball is the one that was sent, so no copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
-cp docs/report.md "$ROUND_DIR/report.md"
-cp docs/registers/sources.md "$ROUND_DIR/sources.md"
-cp docs/registers/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -622,6 +632,6 @@ Delivery archive ready, in $ROUND_DIR/
   sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
-Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
+Tracked beside it: MANIFEST.txt and the .sha256.
 The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF
