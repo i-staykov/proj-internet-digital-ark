@@ -19,7 +19,7 @@ TWO SHAPES HAVE PAID, and you are looking for either one in a namespace that has
 at domainregistry.ie/statistics/{0-9,a..z}-doms.html, machine-generated from the live register, each
 page carrying its own in-body line, verbatim: "Last updated automatically at 14:51 GMT on Friday, 21
 December 2001". The Wayback Machine captured them: 24,805 distinct .ie names, banked at 19,263
-net-new pairs worth 18,769.9 EE (docs/registers/sources.md, \`iedr_register\`).
+net-new pairs worth 18,769.9 EE (\`iedr_register\`).
 
 **A CHANGE report.** MYNIC published a fortnightly "Domain Name Listing" at
 \`mynic.net.my/my/stats/<month><year>-<half>.htm\` giving every name that ENTERED or LEFT the register

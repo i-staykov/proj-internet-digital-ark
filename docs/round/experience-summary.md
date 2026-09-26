@@ -1,10 +1,10 @@
 # Experience summary
 
 **Deliverable D2 of the specification.** Round 10: what worked, what did not, the yields and the
-limits. `sources.md` beside this carries every source tested, with the measurement that settled
-it; `findings.md` carries the three results in full. "The evidence rule" is section XIII of your
-specification of 17 September; EE is equivalent-English; "our database" is the evidence store every
-figure here is measured against.
+limits. `sources.md` and `sources-closed.md` beside this carry every source tested, one row each
+with its verdict; `findings.md` carries the three results in full. "The evidence rule" is section
+XIII of your specification of 17 September; EE is equivalent-English; "our database" is the evidence
+store every figure here is measured against.
 
 ## 1. The reusable technique
 

@@ -578,8 +578,8 @@ carries the retirement. Its journals still ingest through the `ark ingest rdap_s
 justfile, and `attested_years` still reads them.
 
 **Probe any registry or bulk endpoint with about 150 queries before spending a night on it.** Every
-failure so far is written up in [../registers/sources.md](../registers/sources.md), and each one
-failed differently.
+failure so far is a row of [../registers/sources-closed.md](../registers/sources-closed.md), and
+each one failed differently.
 
 ### What a fleet leg may ask the archive
 
@@ -671,8 +671,7 @@ any a sweep still holds open.
 ### The per-source collectors
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
-sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
-and residual headroom for every one are in [sources.md](../registers/sources.md).
+sorts it into a dated half and a candidate half, and only then does anything reach the store.
 
 One recipe, the source as its argument. `just collect` with no source lists them.
 
