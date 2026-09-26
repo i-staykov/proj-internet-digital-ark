@@ -130,11 +130,10 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
 
 
 def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
-    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS. His merges
+    """`www.<a name already held that year>` SHIPS. His merges
     hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of them, and
     section XI says a base hostname and a distinct subdomain hostname may each be annual
-    records. This keeps the reversal from being undone and proves the two filters that DO
-    still bite were never part of it.
+    records. This keeps the alias shipping and proves the two filters that DO still bite.
     """
     conn = connect(":memory:")
     init_db(conn)
@@ -158,7 +157,7 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
         [cdx],
     )
     rows = [
-        # www. of a hostname the store holds for that same year: SHIPS since ADR-008
+        # www. of a hostname the store holds for that same year: SHIPS
         ("www.deep.held.com", "held.com", 1999),
         ("deep.held.com", "held.com", 1999),
         # www. of a name held only in another year: always shipped
@@ -192,8 +191,8 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
     assert shipped_1999 == ["deep.held.com", "mail.held.com", "www.deep.held.com"]
     assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
-    # `.site` was delegated in 2015 and `.arpa` is never a website. Both survive ADR-008:
-    # the reversal was about the alias and touched neither.
+    # `.site` was delegated in 2015 and `.arpa` is never a website: neither
+    # ships, alias or not.
     assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
     assert "in-addr.arpa" not in (tmp_path / "netnew" / "1999_hostnames.txt").read_text()
     # the manifest carries the same rows as the files, or it reads as an addition it is not
@@ -393,10 +392,10 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
 
 
 def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> None:
-    """C-90: a row the annual screen refuses is a candidate, not a loss. A registry list is
+    """A row the annual screen refuses is a candidate, not a loss. A registry list is
     `artifact_listing` by type and so earns a `domain_year`, and XIII then keeps it out of the
-    annual file by METHOD; until 2026-09-21 the candidate pool took only names with no year
-    at all, so 251,114 `.dk` rows shipped in neither file."""
+    annual file by METHOD; a pool of only year-less names would ship such a row in neither
+    file."""
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path)
     registry = ensure_source(conn, "dk_zone_list", "timestamped")

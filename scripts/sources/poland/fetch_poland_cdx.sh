@@ -11,8 +11,8 @@
 # could tell. That check is the whole reason this is a script and not a curl loop.
 #
 # Host is `archive.org/download/`, which is a different service from the
-# `web.archive.org/cdx` endpoint the collectors meter against (C-77), so this runs
-# beside them rather than as a third client on their channel.
+# `web.archive.org/cdx` endpoint the collectors meter against, so this runs
+# beside them rather than as another client on their channel.
 set -uo pipefail
 cd "$(dirname "$0")/../../.." || exit 1
 

@@ -56,9 +56,9 @@ NOT_BASELINE = """
 # and a 2,380,575-line candidate pool beside annual files holding 1,929,655, 1,660,226
 # and 2,380,517. Found 2026-08-26 by grepping the shipped manifest for the round's
 # largest source and getting four fewer pairs than the report printed.
-# Since C-90 the annual files also take a row only on web evidence for the exact name and
-# year (Section XIII); the 251,114 `.dk` zone rows of 2001 sit in the store as dated pairs and
-# in no shipped file, so the report screened them the same way from 2026-09-21.
+# The annual files also take a row only on web evidence for the exact name and year
+# (Section XIII); the 251,114 `.dk` zone rows of 2001 sit in the store as dated pairs and
+# in no shipped file, so the report screens them the same way.
 SHIPPED = _shipping_filter("dy.") + f"\n      AND {web_evidence_exists('dy.evidence_id')}"
 CANDIDATES_SHIPPED = _shipping_filter("d.", with_year=False)
 

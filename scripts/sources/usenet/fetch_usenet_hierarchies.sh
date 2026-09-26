@@ -7,7 +7,7 @@
 # rather than by anything here. So this is collection under an existing decision,
 # not a new source class.
 #
-# **What it is worth, measured rather than assumed.** C-29 sampled two hierarchies
+# **What it is worth, measured rather than assumed.** A sample of two hierarchies
 # through `measure_usenet_yield.py`: `bit.listserv` gave 1.13 net-new post-split
 # pairs per MB and 0.68 EE/MB, `microsoft.public` gave 5.66 and 3.25. The register's
 # older figure of 15.5 pairs/MB is 3x to 14x optimistic and should not be used. On

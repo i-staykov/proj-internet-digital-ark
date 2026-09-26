@@ -12,10 +12,10 @@ making cheap is the **measurement**, not the ingest.
 
 **What it deliberately cannot do.** Its output has no entry in `ark.sources.SOURCES`,
 so `ark ingest` has no spec to run and there is no path by which a probe can date a
-year. That is not a policy, it is an absence, which is the same safety ADR-003 chose:
+year. That is not a policy, it is an absence, the same safety as the approval gate:
 an unwired thing cannot contaminate. A source that prices well still earns a
 hand-written collector whose refusals are specific to its document, and a human still
-classifies the class in `docs/registers/approved-sources-list.md`. Reasoning in ADR-004.
+classifies the class in `docs/registers/approved-sources-list.md`.
 
 **It refuses to guess.** No column sniffing, no "find the date somewhere on the page".
 The spec names the column or field, and a spec that names the wrong one fails on the
@@ -302,7 +302,7 @@ def main() -> None:
         )
     print(
         f"\n  next: just price --items {out.relative_to(ROOT)} --label {spec['name']}\n"
-        f"  A probe cannot date a year: it has no ingest spec, by design (ADR-004). "
+        f"  A probe cannot date a year: it has no ingest spec, by design. "
         f"If it prices well it earns a collector."
     )
     if not kept:

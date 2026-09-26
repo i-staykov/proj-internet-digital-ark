@@ -2,8 +2,8 @@
 
 **What this lane is for.** The `Received:` chain of a dated mailing-list message names the
 hosts that relayed it on that date. The receiving MTA writes the `by` clause itself, so it is
-machine-written evidence that a host at that exact name was in use in that year. Ivo approved
-the class on 2026-09-09 (C-83) for the `by` clause only; see `docs/registers/sources.md`.
+machine-written evidence that a host at that exact name was in use in that year. The
+relay-host rule admits the `by` clause only; see `docs/registers/sources.md`.
 
 **Why an API script rather than the pipermail collector.** `collect_mailing_lists.py` walks
 Mailman month files. Apache runs Ponymail, whose archive is reached through a JSON API, and
@@ -39,7 +39,7 @@ back empty is recorded as fetched-and-empty rather than retried.
 **Terms.** `lists.apache.org/robots.txt` is `User-agent: * / Crawl-delay: 5` with no Disallow,
 and every request here waits that 5 seconds. `mail-archives.apache.org` is `Disallow: /` and is
 never fetched from. One connection at a time, honest User-Agent naming the project and a
-contact. This is not `web.archive.org/cdx`, so it does not touch the two-client limit (C-77).
+contact. This is not `web.archive.org/cdx`, so it does not count against the archive client cap.
 
     uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover
     uv run python scripts/sources/mail_corpora/collect_apache_lists.py --expand

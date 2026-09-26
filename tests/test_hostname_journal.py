@@ -1,7 +1,7 @@
 """The capture-journal hostname lane, and what survives of the purpose rules.
 
 One still stands: a record needs an observation of the host serving web content, so the DNS
-lanes date the parent only. The other is gone, `www.<parent>` having been admitted by ADR-009
+lanes date the parent only. The other is gone: `www.<parent>` is its own record, admitted
 on his section XI and on a count of his own benchmark, where 1,221,065 names carry both forms
 in one year file. What replaced it is weaker and more useful: a `www.<parent>` record must
 point at evidence naming that exact host, so admitting the shape never became asserting it.
@@ -141,10 +141,10 @@ def test_a_journal_that_must_carry_a_status_and_does_not_is_refused(tmp_path) ->
 
 
 def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
-    """His ruling in ADR-010 runs in both directions. ADR-009 admitted `www.<parent>` as its own
-    record and let the same capture date the parent as well; the second half is what he
-    refused, "nor does the presence of www automatically establish the bare hostname". So
-    1998 is still dated, by the bare capture and by `shop.example.com`, and 1999 is not.
+    """Neither form establishes the other. `www.<parent>` is its own record, and the same
+    capture does not date the parent: "nor does the presence of www automatically establish
+    the bare hostname". So 1998 is still dated, by the bare capture and by `shop.example.com`,
+    and 1999 is not.
     """
     conn = duckdb.connect(":memory:")
     init_db(conn)
@@ -250,9 +250,10 @@ def test_a_journal_that_has_GROWN_is_read_again(tmp_path) -> None:
 
 def test_arquivo_journals_get_their_own_source_row() -> None:
     """A hostname read from Arquivo.pt must not read as an Internet Archive capture. The lane is
-    in under C-81 and Arquivo's terms require the citation "[fonte: Arquivo.pt, dd/mm/aaaa]",
-    so its provenance has to be separable in the shipped contribution table. The dispatch is
-    on the filename family, as for the Early Web and USFEDGOV indexes.
+    read at hostname grain and Arquivo's terms require the citation
+    "[fonte: Arquivo.pt, dd/mm/aaaa]", so its provenance has to be separable in the shipped
+    contribution table. The dispatch is on the filename family, as for the Early Web and
+    USFEDGOV indexes.
     """
     from ark.hostnames import (
         ARQUIVO_METHOD,

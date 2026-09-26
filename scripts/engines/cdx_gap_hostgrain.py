@@ -3,7 +3,7 @@
 **Why this exists, and it is a lesson rather than a converter.** The gap engine asked the
 archive `fl=timestamp` and kept `{domain, status, years}`, so the hostname the archive had
 just named was discarded: 1,164 journals and 1,108,452 dated pairs of querying, none of it
-re-readable one level down. Since ADR-009 a `www.` host is a record, so every one of those
+re-readable one level down. A `www.` host is its own record, so every one of those
 rows was a record we had paid a request for and thrown away. `ark.cdx` now asks for
 `timestamp,original` and records a `hosts` map, and this turns that map into the
 `{url, timestamp}` journal `ark ingest-hostnames` already reads.

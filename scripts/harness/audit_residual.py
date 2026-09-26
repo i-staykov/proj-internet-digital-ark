@@ -144,7 +144,7 @@ ACCOUNTED = {
     "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
     "hathitrust_ef route closed on measurement, see docs/registers/sources.md",
     "probes": "cached pages and journals from scripts/pricing/probe_source.py, read by "
-    "scripts/pricing/price_items.py; a probe has no ingest spec by design (ADR-004)",
+    "scripts/pricing/price_items.py; a probe has no ingest spec by design",
     "udrp": "the dockets collector's own input and journal, ingested as "
     "udrp_proceedings; udrp_hosts.txt is the seed list built beside it",
     "gapfill_candidates.txt": "target list",
@@ -492,7 +492,7 @@ def main() -> None:
     print(
         "\nNot a gate: unread material is a fact about the round, not a broken invariant.\n"
         "An `unread` count above zero is the cheapest yield in the project. Price it\n"
-        "against the live store before ingesting, per docs/lore/discovery.md."
+        "against the live store before ingesting."
     )
 
 
