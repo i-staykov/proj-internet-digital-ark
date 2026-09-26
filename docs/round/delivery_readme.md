@@ -55,6 +55,8 @@ Before opening anything:
 | `sources-closed.md` | The other half of the source list: one row per family closed on a measurement, with the figure and the reason |
 | `findings.md` | The round's research findings in full, with the measurement behind each. The report cites them rather than carrying them |
 | `experience-summary.md` | What worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next. `sources.md` and `sources-closed.md` beside it are the full source list this distils |
+| `Open Research Questions/` | **The two open research questions of section IV-A**: `Open Research Questions.docx`, with `tests.csv` (every test, its label and its cost), `sources.csv`, and the evidence, code, logs and samples it names |
+| `开放性研究问题/` | The same answers as plain text, one file per question under the six headings of section X |
 | `metric-explained.md` | The equivalent-English metric. The weights, the model version, the formula, how invalid and unmatched records are treated, and the four totals, each with the command that regenerates it |
 | `audit/merge_stats_ark_*.csv` | The merge against the current baseline in your own column names, so your audit and this one can be diffed directly |
 | `audit/merge_audit_ark_*.json` | The same figures plus every reconciliation check that was run, and whether it passed |
@@ -100,14 +102,15 @@ bash verify.sh
 ```
 
 It needs `shasum`, `python3` and `uv` for the ISC file audit, prints a verdict per check, and exits
-non-zero on failure. **Thirteen labelled verdicts**: checksums; the six annual and six hostname
+non-zero on failure. **Fourteen labelled verdicts**: checksums; the six annual and six hostname
 files with their counts, their disjointness and an evidence row per line; the ISC collection
 disjoint from your candidate pool and annual files, with its equivalent-English total reproduced;
 the header collection complete and inside the claim; every provenance assignment resolving to an
 evidence row shipped beside it; and the four deliverables: the code snapshot carries its lockfile,
 the experience summary covers every topic asked for, every merge reconciliation check passed and
 agrees with the shipped files, and **your own calculator, run from inside this archive, reproduces
-the audit's baseline figure**. SKIP means the checked thing is not in the archive. The last check
+the audit's baseline figure**; last, both open research questions folders with their questions,
+headings, labels and files. SKIP means the checked thing is not in the archive. The calculator check (D4)
 needs a writable extraction, because it runs the calculator into `audit/` and cleans up after itself.
 
 To look up why a single domain is in a given year, no database needed, only

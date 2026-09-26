@@ -17,7 +17,7 @@ help:
     echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
     echo "  just schedule <what>    install remove"
-    echo "  just ship <stage>       all prep build package verify calculator docx draft"
+    echo "  just ship <stage>       all prep build package verify calculator docx orq draft"
     echo "  just verify <what>      raw trees delivery offsite"
 
 # --- the environment ----------------------------------------------------------
@@ -1511,6 +1511,8 @@ ship stage="all" *args:
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
         echo "  docx SOURCE      one markdown report into .docx"
+        echo "  orq [DIR]        both research-questions folders into DIR (default"
+        echo "                   \$TMPDIR/orq), never output/ or submissions/, and the page count"
         echo "  draft [--write]  the mail draft, printed unless --write"
         echo ""
         echo "Nothing above has run. A rehearsal with nothing decided:"
@@ -1540,6 +1542,45 @@ ship stage="all" *args:
         # section and the builder strips both, because trimming them by eye eventually sends one.
         uv run python scripts/round/build_report_docx.py "$1" --keep-markdown
         ;;
+    orq)
+        # Both research-questions folders alone, to read before a ship. orq.py refuses a
+        # target under output/ or submissions/, so a look never lands in a delivery.
+        dest="${1:-${TMPDIR:-/tmp}/orq}"
+        uv run python scripts/round/orq.py --preview "$dest" || exit 1
+        doc="$(cd "$dest" && pwd -P)/Open Research Questions/Open Research Questions.docx"
+        # Only Word lays the document out, so only it can count pages. The first run waits
+        # on a macOS permission prompt and there is no timeout command, so osascript runs in
+        # the background and is given up on after a minute.
+        said="$(mktemp)"
+        osascript - "$doc" > "$said" 2>&1 <<'APPLESCRIPT' &
+    on run argv
+        set f to POSIX file (item 1 of argv)
+        set p to f as text
+        tell application "Microsoft Word"
+            repeat with d in (documents whose full name is p)
+                close d saving no
+            end repeat
+            open f
+            set d to active document
+            if (full name of d) is not p then error "Word opened another document"
+            set n to (compute statistics d statistic statistic pages)
+            close d saving no
+        end tell
+        return n
+    end run
+    APPLESCRIPT
+        asked=$!
+        for _ in $(seq 60); do kill -0 "$asked" 2>/dev/null || break; sleep 1; done
+        if kill -0 "$asked" 2>/dev/null; then
+            kill "$asked"
+            echo "Word did not answer within a minute: open $doc to count its pages"
+        elif wait "$asked"; then
+            echo "Word counts $(cat "$said") pages in $doc"
+        else
+            echo "Word could not count the pages: $(cat "$said")"
+        fi
+        rm -f "$said"
+        ;;
     draft)
         uv run python scripts/round/ship_mail.py "$@"
         close_gate_issue --dry-run
@@ -1555,7 +1596,7 @@ ship stage="all" *args:
         uv run python scripts/round/ship_mail.py --write --archive "$(newest_stage)"
         close_gate_issue
         ;;
-    *) echo "ship: all prep build package verify calculator docx draft (--help for the chain)" >&2; exit 2 ;;
+    *) echo "ship: all prep build package verify calculator docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
 
 # --- unattended ---------------------------------------------------------------

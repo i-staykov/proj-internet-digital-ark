@@ -2,7 +2,7 @@
 
 Additions to the 1996-2001 annual lists and to the candidate pool, against your release
 `[BASELINE]`. "The specification" is your
-`Internet_Digital_Ark_Project_0917_Update.docx` of 17 September, "the evidence rule" its section XIII
+`Internet_Digital_Ark_Project_0918_Update.docx` of 18 September, "the evidence rule" its section XIII
 (Mandatory Evidence Classification and Hostname Integrity Gate), "the two open questions" its
 section IV-A. EE is equivalent-English.
 
@@ -78,45 +78,9 @@ index, Usenet only) and rank the verification queue.
 
 ## 4. The two open questions
 
-**Q1. Discovering pre-1996 web data at scale.**
-
-No pre-1996 hostname can meet the evidence rule as written: every qualifying pattern is a web
-capture, and the Internet Archive began crawling in 1996. The question needs a pre-1996 evidence
-standard before it needs sources; we propose three tiers, named by what wrote the date.
-
-Tier A, a pre-1996 web capture held by another custodian (national libraries, university archives,
-software mirrors that kept HTTP logs): the evidence rule's own standard, small and institutional in
-coverage. Tier B, a server naming the exact host at a date: news and mail headers as in section 3,
-dated FTP mirror listings, UUCP maps; before 1996 the only machine-stamped option, proving a host in
-service, not a website. Tier C, dated human-written mentions: candidates only.
-
-What we can add is the tier-B corpus and its cost: about 110 GB of Usenet reaching before 1996 is
-already on disk with per-post `Date` and server headers, and the shipped extractor reads 2.6
-million host-carrying posts an hour. Limits: the server's clock dates it, the hosts are servers and
-relays, coverage skews to institutions that ran news. Retention: a pre-1996 collection held apart
-from 1996-2001, with source, message-id, header field and stamp per host, and an overlap report
-against the benchmark.
-
-**Q2. Determining the year a website existed more accurately.**
-
-Three evidence levels with measured error rates. Direct: an
-exact-host capture in the target year from an archive index or a custodian's per-host
-extract, the only route into an annual file. Availability check: the Wayback Machine availability
-API, graded against CDX ground truth on disk, 187 of 204 year-pairs recovered (91.7%, 94.3% at 2001)
-and 40 of 40 CDX-negative domains empty; it returns HTTP 200 captures only and drops `www.`, so
-every miss under-claims. Discovery-only: DNS surveys and server-written headers at the rates of
-section 3, which rank a verification queue before a request is spent.
-
-Reconciliation: at export every candidate is diffed against your `candidate_pool.txt` and six
-annual files, and a name accepted annually leaves the pool. We propose one field per record,
-`evidence_level` (direct, discovery, unresolved), so the reconciliation is machine-checkable on your
-side; our manifests carry `evidence_type` and `acquisition_method`, from which it is a lookup.
-Promotion only beside an exact-host, target-year capture; nothing is inferred between a bare name
-and its `www.` form or between adjacent years.
-
-Where the availability check pays: of 6,568,275 domains held in 2000 and missing 2001, one query
-pinned at mid-2001 recovers 55.0% +/- 6.3%; on names with no dated evidence at all it yields 114 EE
-an hour, too little to run. Both instruments err toward omission.
+Both are answered in `Open Research Questions/`, as `Open Research Questions.docx` with its tests,
+sources, code, logs and samples beside it, and as plain text in `开放性研究问题/`, one file per
+question under the six headings of section X.
 
 ## 5. Merge, overlap and reconciliation
 

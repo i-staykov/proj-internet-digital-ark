@@ -132,8 +132,8 @@ read from files. A row without a command is a proposal nothing has run.
 | `q2-continuity-2000-2001` | `wc -l < <(LC_ALL=C comm -12 "$HIS/2000.txt" "$HIS/2001.txt"); wc -l < "$HIS/2000.txt"` | `docs/lore/laws.md#Compute headroom from the adjacent year only` | [Q2_CONTINUITY_2000_2001] |
 | `q2-pool-his` | `wc -l < <(LC_ALL=C comm -12 "$HIS/candidate_pool.txt" <(LC_ALL=C sort -m -u "$HIS"/199[6-9].txt "$HIS"/200[01].txt))` | `docs/brief/ding/project-brief.md#candidate_pool.txt should be reconciled` | [Q2_POOL_HIS] |
 | `q2-pool-ours` | `wc -l < <(LC_ALL=C comm -12 "$NETNEW/candidate_additions.txt" <(LC_ALL=C sort -m -u "$HIS"/199[6-9].txt "$HIS"/200[01].txt))` | `docs/brief/ding/project-brief.md#candidate_pool.txt should be reconciled` | [Q2_POOL_OURS] |
-| `q2-status-share` | `uv run python scripts/round/orq.py --measure q2-status-share` | `CLAUDE.md#Error captures (4xx, 5xx)` | [Q2_STATUS_SHARE] |
-| `q2-yearfill-kill` | `uv run python scripts/round/orq.py --measure q2-yearfill-kill` | `docs/registers/sources-closed.md#CDX exact-host year fill` | [Q2_YEARFILL_KILL] |
+| `q2-status-share` | `uv run python scripts/round/orq.py --measure q2-status-share --inputs-from-env` | `CLAUDE.md#Error captures (4xx, 5xx)` | [Q2_STATUS_SHARE] |
+| `q2-yearfill-kill` | `uv run python scripts/round/orq.py --measure q2-yearfill-kill --inputs-from-env` | `docs/registers/sources-closed.md#CDX exact-host year fill` | [Q2_YEARFILL_KILL] |
 | `q2-evidence-level` | none | `docs/brief/ding/project-brief.md#distinguish direct year-specific website evidence` | Pending validation |
 | `q2-dated-bounds` | none | `docs/brief/ding/project-brief.md#historical WHOIS, historical DNS, dated datasets` | Pending validation |
 

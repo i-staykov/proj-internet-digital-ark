@@ -9,9 +9,9 @@ related work or tests, preliminary technical-feasibility findings, preliminary
 practical-operability findings, limitations and next steps. Both are built here from
 one template, `docs/orq/orq.template.md`, so they cannot say different things.
 
-    uv run python scripts/round/orq.py --preview DIR [--fleet DIR]
-    uv run python scripts/round/orq.py --stage DIR [--fleet DIR]
-    uv run python scripts/round/orq.py --measure ID
+    uv run python scripts/round/orq.py --preview DIR [--fleet DIR] [--inputs-from-env]
+    uv run python scripts/round/orq.py --stage DIR [--fleet DIR] [--inputs-from-env]
+    uv run python scripts/round/orq.py --measure ID [--inputs-from-env]
 
 `--stage` writes into a package stage and refuses one under `submissions/`. `--preview`
 writes anywhere else, and refuses `output/` too, so a look at the document never lands
@@ -38,8 +38,9 @@ command re-run by this build is "Tested, not independently verified": it ran, an
 independent has run it again. A fleet experiment keeps the label its re-run gave it.
 
 **Q2 is the template's Q2 table.** Each row's command is exactly what runs, concurrently,
-at every build, with `$HIS`, `$NETNEW`, `$CDX` and `$AUDIT` naming its inputs. `--measure`
-is the part of a command too long for a table cell.
+at every build, with `$HIS`, `$NETNEW`, `$CDX` and `$AUDIT` naming its inputs, which are the
+repository's own files unless `--inputs-from-env`. `--measure` is the part of a command too
+long for a table cell.
 
 **Cost is the fleet ledger's.** A test's run_ids (the price leg's in `finding.json`, the
 verify leg's in `verify.json`, an experiment's own) are looked up among the `leg` and
@@ -113,8 +114,10 @@ HEADINGS = (
 LENS = "pre-1996"
 FIRST_YEAR, LAST_YEAR = 1996, 2001
 NOT_RECORDED = "not recorded"
-# A lane under this many net-new EE per client-hour after two hours is killed.
-KILL_FLOOR = 300
+# The year-fill row on the closed register names the floor its lane was killed under, so
+# the figure is read from there and never typed here.
+FLOOR_ROW = ("docs/registers/sources-closed.md", "CDX exact-host year fill")
+_FLOOR = re.compile(r"floor of ([\d,]+) EE per client-hour")
 
 PLACEHOLDER = re.compile(r"\[([A-Z][A-Z0-9_]+)\]")
 SHA256 = re.compile(r"[0-9a-f]{64}")
@@ -176,14 +179,23 @@ def read_text(path: Path) -> str:
     return read_bytes(path).decode("utf-8")
 
 
+# Fleet files that are there but are not one JSON object. A label read off one would be
+# wrong, so the build names every one and refuses rather than skip it.
+BROKEN: list[Path] = []
+
+
 def _json(path: Path) -> dict | None:
+    """The JSON object at `path`, or None when there is no file there."""
     if not path.is_file():
         return None
     try:
         doc = json.loads(read_text(path))
     except (ValueError, UnicodeDecodeError):
+        doc = None
+    if not isinstance(doc, dict):
+        BROKEN.append(path)
         return None
-    return doc if isinstance(doc, dict) else None
+    return doc
 
 
 def _dig(doc: dict | None, *keys):
@@ -279,6 +291,12 @@ def label_of(
             gaps.append("the verify leg recorded no bytes of its own")
         elif again != sha:
             gaps.append("the verify leg fetched different bytes")
+        for key, what in (("ee", "figure"), ("manifest_sha", "snapshot manifest")):
+            theirs = _dig(verify, "pricing", key)
+            if theirs is None:
+                gaps.append(f"the verify leg recorded no {what}")
+            elif theirs != _dig(finding, "pricing", key):
+                gaps.append(f"the verify leg printed a different {what}")
     return (TESTED if gaps else VALIDATED), gaps
 
 
@@ -462,8 +480,10 @@ def resolve_anchor(anchor: str) -> str:
     raise Refusal(f"anchor {anchor}: the phrase is not in {name}")
 
 
-def inputs() -> dict[str, str]:
-    """What the Q2 commands read, as the variables they name it by."""
+def inputs(from_env: bool = False) -> dict[str, str]:
+    """What the Q2 commands read, as the variables they name it by. The repository's own
+    files unless `from_env`, when a variable that is set wins: a build hands its inputs to
+    the `--measure` commands that way, and a stray one in a shell never moves a build."""
     from ark.baseline import baseline_dir
 
     cwd = os.getcwd()
@@ -472,12 +492,9 @@ def inputs() -> dict[str, str]:
         his = baseline_dir().resolve()
     finally:
         os.chdir(cwd)
-    return {
-        "HIS": os.environ.get("HIS") or str(his),
-        "NETNEW": os.environ.get("NETNEW") or str(NETNEW),
-        "CDX": os.environ.get("CDX") or str(CDX),
-        "AUDIT": os.environ.get("AUDIT") or str(AUDIT),
-    }
+    names = {"HIS": his, "NETNEW": NETNEW, "CDX": CDX, "AUDIT": AUDIT}
+    env = os.environ if from_env else {}
+    return {name: env.get(name) or str(path) for name, path in names.items()}
 
 
 @dataclass
@@ -577,7 +594,18 @@ def _status_share(out: str) -> tuple[dict[str, str], str]:
     return values, result
 
 
+def kill_floor() -> int:
+    """The floor below which a lane is stopped after two hours, from the year-fill row."""
+    name, phrase = FLOOR_ROW
+    for line in read_text(REPO / name).splitlines():
+        match = _FLOOR.search(line) if phrase in line else None
+        if match:
+            return int(match[1].replace(",", ""))
+    raise Refusal(f"{name} has no year-fill row naming the floor it was killed under")
+
+
 def _yearfill(out: str) -> tuple[dict[str, str], str]:
+    floor = kill_floor()
     lanes = _rows_of(out, "lane")
     names = sum(int(lane[1]) for lane in lanes)
     hosts = sum(int(lane[2]) for lane in lanes)
@@ -592,13 +620,13 @@ def _yearfill(out: str) -> tuple[dict[str, str], str]:
         "NOT_HIS": f"{fresh:,}",
         "EE": f"{ee:,.4f}",
         "RATE": f"{rate:.2f}",
-        "FLOOR": f"{KILL_FLOOR:,}",
+        "FLOOR": f"{floor:,}",
         "LANES": str(len(lanes)),
     }
     result = (
         f"{names:,} names queried in {len(lanes)} lanes, {hosts:,} hosts with a {LAST_YEAR} "
         f"capture, {held:,} already his, {fresh:,} not his, {ee:,.4f} EE, at most {rate:.2f} "
-        f"EE a client-hour against a floor of {KILL_FLOOR:,}"
+        f"EE a client-hour against a floor of {floor:,}"
     )
     return values, result
 
@@ -1014,6 +1042,7 @@ def sources_rows(
 def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> dict:
     """Write both folders under `root`, replacing any earlier build of them there."""
     started = time.monotonic()
+    BROKEN.clear()
     if not (fleet / "leads").is_dir():
         raise Refusal(f"{fleet} holds no leads/: not a fleet checkout")
     template = read_text(TEMPLATE)
@@ -1062,6 +1091,9 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> d
             values[PLACEHOLDER.fullmatch(row.result)[1]] = test.result
         q2_tests.append(test)
     q2_tests += experiments(fleet)
+    if BROKEN:
+        names = ", ".join(str(path.relative_to(fleet)) for path in BROKEN)
+        raise Refusal(f"{len(BROKEN)} fleet file(s) are not one JSON object: {names}")
 
     every = q1_tests + q2_tests
     counts = {label: sum(1 for t in every if t.label == label) for label in LABELS}
@@ -1203,6 +1235,11 @@ def main(argv: list[str] | None = None) -> int:
     where.add_argument("--preview", type=Path, help="a scratch directory, never output/")
     where.add_argument("--measure", choices=sorted(MEASURES), help="print one Q2 measure")
     parser.add_argument(
+        "--inputs-from-env",
+        action="store_true",
+        help="take $HIS, $NETNEW, $CDX and $AUDIT from the environment where set",
+    )
+    parser.add_argument(
         "--fleet",
         type=Path,
         default=Path(os.environ.get("ARK_FLEET") or DEFAULT_FLEET).expanduser(),
@@ -1211,10 +1248,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.measure:
-            sys.stdout.write(MEASURES[args.measure](inputs()))
+            sys.stdout.write(MEASURES[args.measure](inputs(args.inputs_from_env)))
             return 0
         root = target(args.stage, args.preview)
-        done = build(root, args.fleet.resolve())
+        done = build(root, args.fleet.resolve(), inputs(args.inputs_from_env))
     except Refusal as exc:
         print(f"orq: refusing: {exc}", file=sys.stderr)
         return 1
