@@ -26,9 +26,9 @@ fi
 # writer, which reads the drain and not the clone, so a hard reset is safe; this checkout
 # is snapshot.json's only writer, so its copy is put back after the reset.
 #
-# **The ledger lines are replayed from the clone itself**, because the old TSV the legacy
-# lines came from is deleted once converted and nothing here could write them again. The
-# lines this clone added are read off its own commits before the fetch moves origin/main,
+# **The ledger lines are replayed from the clone itself**, so none waits for its writer to
+# run again: the drain re-appends the old TSV's legacy lines only until fleet main holds
+# them all. The lines this clone added are read off its own commits before the fetch moves origin/main,
 # and appended again after the reset, kind by kind, through the fleet's keyed append,
 # which adds none the remote already holds.
 ROOT_FOR_MERGE="$(pwd)"

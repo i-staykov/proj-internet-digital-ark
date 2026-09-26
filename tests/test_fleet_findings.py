@@ -52,6 +52,9 @@ Decision: master
 
 ### b_find / artifact_listing
 Decision: candidate-only
+
+### fleet_e_read_hostnames / cdx_timestamp
+Decision: master
 """
 
 _SPEC = importlib.util.spec_from_file_location("fleet_findings", SCRIPT)
@@ -320,6 +323,22 @@ def stand_in(tmp_path: Path) -> Path:
     return root
 
 
+def pushed(root: Path) -> None:
+    """The stand-in clone's ledger committed and taken as fleet main, as a landed push leaves
+    it. Git's own variables go: under the commit hook, GIT_DIR and GIT_INDEX_FILE would point
+    every call here at this repository instead of the stand-in."""
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env |= {"GIT_AUTHOR_NAME": "ark", "GIT_AUTHOR_EMAIL": "ark@localhost"}
+    env |= {"GIT_COMMITTER_NAME": "ark", "GIT_COMMITTER_EMAIL": "ark@localhost"}
+    for args in (
+        ["init", "-q"],
+        ["add", "ledger"],
+        ["commit", "-q", "-m", "ledger"],
+        ["update-ref", "refs/remotes/origin/main", "HEAD"],
+    ):
+        subprocess.run(["git", "-C", str(root), *args], check=True, env=env)
+
+
 def drained(tmp_path: Path, *flags: str) -> subprocess.CompletedProcess:
     incoming = tmp_path / "incoming"
     incoming.mkdir(exist_ok=True)
@@ -328,20 +347,24 @@ def drained(tmp_path: Path, *flags: str) -> subprocess.CompletedProcess:
     return done
 
 
-def test_the_old_tsv_becomes_one_legacy_line_per_row_and_goes(tmp_path):
+def test_the_old_tsv_becomes_one_legacy_line_per_row_and_goes_aside_once_pushed(tmp_path):
     # The old ledger repeats identical rows: keyed on the text alone, it would keep one of each.
     root = stand_in(tmp_path)
     tsv = Path(os.environ["ARK_FLEET_LEDGER"])
     tsv.write_text(ROWS, encoding="utf-8")
-    drained(tmp_path, "--fleet", str(root))
+    assert "fleet main holds 0 of its 4 rows" in drained(tmp_path, "--fleet", str(root)).stdout
     lines = module.fleet_ledger.lines(root, "legacy")
     assert [(line["row"], line["line"]) for line in lines] == list(enumerate(ROWS.splitlines(), 1))
     assert [line["at"] for line in lines[1:3]] == ["2026-09-01T10:37:00Z", "2026-09-23T07:06:00Z"]
-    assert not tsv.exists()
-    tsv.write_text(ROWS, encoding="utf-8")
+    assert tsv.read_text(encoding="utf-8") == ROWS, "kept until a push lands the lines"
+    pushed(root)
     drained(tmp_path, "--fleet", str(root))
     assert len(module.fleet_ledger.lines(root, "legacy")) == 4, "a rerun adds none"
     assert not tsv.exists()
+    assert tsv.with_name(f"{tsv.name}.converted").read_text(encoding="utf-8") == ROWS
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    assert tsv.with_name(f"{tsv.name}.converted.2").is_file(), "an earlier one is never replaced"
 
 
 def test_a_drain_with_no_fleet_ledger_to_write_keeps_the_tsv(tmp_path):
@@ -355,6 +378,9 @@ def test_a_drain_with_no_fleet_ledger_to_write_keeps_the_tsv(tmp_path):
     (old / "scripts").mkdir()
     (old / "scripts/ledger.py").write_text("raise SystemExit('ledger: refused')\n")
     assert "refused" in drained(tmp_path, "--fleet", str(old)).stdout
+    # A script that says it appended is taken at fleet main's word, not its own.
+    (old / "scripts/ledger.py").write_text("print('ledger: appended 4')\n")
+    assert "fleet main holds 0 of its 4 rows" in drained(tmp_path, "--fleet", str(old)).stdout
     assert tsv.read_text(encoding="utf-8") == ROWS
 
 
@@ -401,10 +427,12 @@ def test_the_fleets_own_ledger_script_takes_both_kinds_of_line(tmp_path):
         return done.stdout.strip()
 
     tsv = Path(os.environ["ARK_FLEET_LEDGER"])
-    for _ in range(2):
-        tsv.write_text(ROWS, encoding="utf-8")
-        drained(tmp_path, "--fleet", str(root))
-        assert (count("legacy"), tsv.exists()) == ("4", False)
+    tsv.write_text(ROWS, encoding="utf-8")
+    drained(tmp_path, "--fleet", str(root))
+    assert (count("legacy"), tsv.exists()) == ("4", True), "kept until a push lands the lines"
+    pushed(root)
+    drained(tmp_path, "--fleet", str(root))
+    assert (count("legacy"), tsv.exists()) == ("4", False)
     confirmed(tmp_path / "incoming", "a-find", {"ee": 1000.0, "fleet_program_ee": 995.0})
     (tmp_path / "approved.md").write_text(REGISTER, encoding="utf-8")
     done = run(
@@ -579,6 +607,18 @@ def test_a_store_that_cannot_be_read_banks_nothing_and_says_so(tmp_path):
     )
     assert "could not be opened" in done.stdout, done.stdout + done.stderr
     assert [line["banked"] for line in module.fleet_ledger.lines(root, "outcome")] == [False]
+
+
+def test_a_whole_read_is_booked_under_the_source_and_class_its_block_names(tmp_path):
+    """A read banks its parts as `fleet_<slug>_hostnames / cdx_timestamp`, whatever class the
+    scout recorded, so its outcome line must read that block and that source's rows."""
+    root = stand_in(tmp_path)
+    incoming = tmp_path / "incoming"
+    confirmed(incoming, "e-read", {"status": "priced", "ee": 30.0})
+    (incoming / "e-read" / "read.json").write_text("{}", encoding="utf-8")
+    done, lines = booked(tmp_path, root, ingested=("fleet_e_read_hostnames",))
+    assert done.returncode == 0, done.stderr
+    assert lines["e-read:True"]["decision"] == "master"
 
 
 def test_the_drains_banked_before_are_booked_too_from_their_most_settled_copy(tmp_path):
