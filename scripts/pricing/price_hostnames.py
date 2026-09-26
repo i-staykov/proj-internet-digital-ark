@@ -116,6 +116,9 @@ def read_rows(
                     if year not in YEARS:
                         counts["out_of_window"] += 1
                         continue
+                    if str(row.get("status", "2"))[:1] in "45":
+                        counts["error_status"] += 1
+                        continue
                     urls = [str(row.get("url", ""))]
                 for url in urls:
                     host = host_of(url)

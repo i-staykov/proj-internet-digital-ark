@@ -14,9 +14,11 @@ import io
 import json
 import os
 import socket
+import struct
 import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -669,6 +671,147 @@ def test_a_part_file_from_an_earlier_run_is_continued(serve, probe, monkeypatch)
     assert receipt["sha256"] == hashlib.sha256(whole).hexdigest()
     assert part.read_bytes() == whole
     assert calls == [(20, len(whole) - 1)]
+
+
+# ------------------------------------------------------- continuing a streamed read
+
+
+class DroppingServer:
+    """One payload that honours `bytes=S-E` and hangs up after `drop` bytes of a response.
+
+    `reset` makes the hang-up a TCP reset, which raises in the reader, rather than a clean
+    close, which reads as an early EOF. `drop_ranges` decides whether a 206 drops too.
+    """
+
+    def __init__(self, payload: bytes, drop: int, reset=False, drop_ranges=False, honour=True):
+        self.payload, self.asked = payload, []
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                outer.asked.append((self.path, self.headers.get("Range")))
+                if self.path == "/robots.txt":
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                span = (self.headers.get("Range") or "").removeprefix("bytes=")
+                if span and honour:
+                    first, _, last = span.partition("-")
+                    start, stop = int(first), int(last or len(payload) - 1)
+                    body = payload[start : stop + 1]
+                    self.send_response(206)
+                    self.send_header("Content-Range", f"bytes {start}-{stop}/{len(payload)}")
+                    cut = drop if drop_ranges else len(body)
+                else:
+                    body, cut = payload, drop
+                    self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body[:cut])
+                if cut < len(body):
+                    self.wfile.flush()
+                    if reset:
+                        # Time for the reader to take what arrived, then a linger of zero,
+                        # which makes the close a TCP reset.
+                        time.sleep(0.2)
+                        self.connection.setsockopt(
+                            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+                        )
+                    self.close_connection = True
+                    self.connection.close()
+
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    @property
+    def url(self) -> str:
+        host, port = self.httpd.server_address[:2]
+        return f"http://{host}:{port}/read.cdx"
+
+    def close(self):
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
+    """fetch.py `--to -` as a read runs it: (exit code, stdout bytes, receipt)."""
+    result = subprocess.run(
+        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G"],
+        capture_output=True,
+        env={**os.environ},
+        cwd=ROOT,
+        timeout=60,
+    )
+    lines = [x for x in result.stderr.decode().splitlines() if x.startswith("{")]
+    return result.returncode, result.stdout, json.loads(lines[-1]) if lines else {}
+
+
+PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
+
+
+@pytest.mark.parametrize("reset", [False, True], ids=["early-eof", "reset"])
+def test_a_dropped_stream_resumes_in_process_and_hashes_the_whole_artifact(reset, probe):
+    server = DroppingServer(PAYLOAD, drop=600_000, reset=reset)
+    try:
+        code, out, receipt = stream_read(server)
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert out == PAYLOAD, "the pipe saw every byte once and in order"
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert receipt["bytes"] == len(PAYLOAD)
+    assert receipt["resumes"] == 1
+    if not reset:
+        assert server.asked[-1][1] == f"bytes=600000-{len(PAYLOAD) - 1}"
+    assert list(probe.iterdir()) == [], "a streamed read writes no file"
+
+
+def test_a_stream_that_drops_on_every_round_still_arrives_whole(probe):
+    server = DroppingServer(PAYLOAD, drop=300_000, reset=True, drop_ranges=True)
+    try:
+        code, out, receipt = stream_read(server)
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert out == PAYLOAD
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert receipt["resumes"] >= len(PAYLOAD) // 300_000
+
+
+def test_a_stream_whose_server_ignores_the_range_fails_after_the_first_part(probe):
+    server = DroppingServer(PAYLOAD, drop=600_000, honour=False)
+    try:
+        code, out, receipt = stream_read(server)
+    finally:
+        server.close()
+    assert code == fetch.HTTP_FAILED
+    assert "ignored the Range header" in receipt["reason"]
+    assert out == PAYLOAD[:600_000], "nothing was written twice"
+
+
+def test_a_range_that_starts_at_the_wrong_byte_is_refused():
+    out = io.BytesIO()
+    total, why = fetch.resume(
+        "https://host/x.cdx",
+        None,
+        10,
+        21,
+        hashlib.sha256(b"first-half"),
+        1 << 40,
+        5.0,
+        opener=_opener([(206, {"content-range": "bytes 0-20/21"}, b"first-halfsecond-half")]),
+        out=out,
+    )
+    assert total == 10
+    assert "from byte 0, not 10" in why
+    assert out.getvalue() == b""
 
 
 # ---------------------------------------------------------------- the two roots

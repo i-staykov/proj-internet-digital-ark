@@ -102,3 +102,20 @@ def test_head_cuts_each_file(tmp_path: Path) -> None:
     )
     seen, counts = ph.read_rows([journal], items=False, head=3)
     assert counts["lines"] == 3 and counts["head_cut_files"] == 1
+
+
+def test_an_error_capture_dates_no_hostname_year(tmp_path: Path) -> None:
+    """A fleet read keeps its 4xx and 5xx rows for the candidate track; the store price of
+    its annual half counts only captures that answered."""
+    journal = tmp_path / "fleetread_bulk_cdx_file__x_0001.jsonl.gz"
+    with gzip.open(journal, "wt") as fh:
+        for url, ts, status in (
+            ("http://ok.fresh.org/", "19990101000000", "200"),
+            ("http://moved.fresh.org/", "19990101000000", "301"),
+            ("http://gone.fresh.org/", "19990101000000", "404"),
+            ("http://down.fresh.org/", "19990101000000", "503"),
+        ):
+            fh.write(json.dumps({"url": url, "timestamp": ts, "status": status}) + "\n")
+    seen, counts = ph.read_rows([journal], items=False, head=None)
+    assert counts["error_status"] == 2
+    assert sorted(host for host, _ in seen) == ["moved.fresh.org", "ok.fresh.org"]

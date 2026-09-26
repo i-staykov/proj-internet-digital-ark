@@ -175,7 +175,12 @@ def ingest_cmd(
     Idempotent per file: a file already in the ledger is skipped whole.
     Example: ark ingest early_web data/raw/early_web/*.cdx.gz
     """
+    from ark.hostnames import FLEETREAD_SOURCE
+
     spec = SOURCES.get(source)
+    if spec is None and FLEETREAD_SOURCE.match(source):
+        _ingest_fleet_read(source, files)
+        return
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     # Checked before the store is opened, so an unapproved ingest does not even take
@@ -192,6 +197,30 @@ def ingest_cmd(
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+def _ingest_fleet_read(source: str, files: list[Path]) -> None:
+    """A fleet read banks both halves under its own source: its journal parts through the
+    hostname ingest, its registrables through the `cdx_snapshot` parser. A file that is not
+    this read's, a refused part or a failed file exits non-zero, so the bank stops there."""
+    from ark.hostnames import fleet_read_spec, ingest_hostname_journal
+
+    try:
+        specs = [fleet_read_spec(source, path) for path in files]
+        approvals.check(source, "cdx_timestamp")
+    except (ValueError, approvals.NotApproved) as exc:
+        typer.echo(f"refusing to ingest: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path, spec in zip(files, specs, strict=True):
+        if spec is None:
+            failed = bool(ingest_hostname_journal(conn, path).get("refused"))
+        else:
+            failed = bool(ingest_files(conn, spec, [path]).get("files_failed"))
+        if failed:
+            typer.echo(f"{source}: {path.name} did not ingest", err=True)
+            raise typer.Exit(code=1)
 
 
 @app.command(name="ingest-hostnames")
