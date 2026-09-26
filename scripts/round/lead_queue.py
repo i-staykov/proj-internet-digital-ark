@@ -84,9 +84,9 @@ def banked(store: Path, cached: bool = False) -> tuple[set[str], bool]:
     if cached:
         return _cached()
     try:
-        import duckdb
+        from ark.db import connect_read_only_patiently
 
-        conn = duckdb.connect(str(store), read_only=True)
+        conn = connect_read_only_patiently(store, patience_s=60)
     except Exception:
         return _cached()
     out: set[str] = set()

@@ -23,7 +23,7 @@ from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import AUDIT_PATH, collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
+from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_only_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -1022,12 +1022,15 @@ def rebuild(
 @app.command()
 def check() -> None:
     """Run integrity checks over the store; exit non-zero if any fails."""
-    # Same reason as `stats`, and it matters more here: a lock traceback out of the
-    # integrity gate reads as a broken invariant when the database is merely busy.
-    conn = connect_patiently()
-    results = collect_checks(conn, audit=AUDIT_PATH)
+    # Read-only and patient: the gate writes nothing, and a lock traceback out of it reads
+    # as a broken invariant when the store is merely busy. Closed before returning, since a
+    # read-write open in the same process fails while this connection lives.
+    conn = connect_read_only_patiently()
+    try:
+        results = collect_checks(conn, audit=AUDIT_PATH)
+    finally:
+        conn.close()
     typer.echo(format_checks(results))
-    record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
     if any(not r["ok"] for r in results):
         raise typer.Exit(code=1)
 
