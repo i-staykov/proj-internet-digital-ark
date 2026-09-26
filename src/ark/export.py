@@ -17,7 +17,7 @@ from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
-from ark.evidence_types import web_evidence_exists, web_evidence_sql
+from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
 from ark.stats import BASELINE_TYPE
@@ -375,7 +375,8 @@ def export_header_candidates(
     """XIII's source-specific candidate asset: every hostname in the claim whose only dated
     evidence is a non-web class (a server-written mail or Usenet header, a DNS listing), with
     per-host provenance, a summary and the exclusion ledger of the same validation run. Runs
-    after the pool is reconciled, so every name here is in `candidate_additions.txt`."""
+    after the pool is reconciled, so every name here is in `candidate_additions.txt`. An
+    error capture is web evidence that failed on its status, so it is not in this asset."""
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE header_provenance AS
         SELECT DISTINCT hy.hostname, hy.assigned_year AS target_year, s.name AS source,
@@ -386,6 +387,7 @@ def export_header_candidates(
         JOIN evidence e ON e.evidence_id = hy.evidence_id
         JOIN source s ON s.source_id = e.source_id
         WHERE c.unit = 'hostname' AND NOT ({web_evidence_sql("e")})
+          AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
     """)
     stats["header_candidates"] = _copy_query(
         conn,
@@ -414,6 +416,7 @@ def export_header_candidates(
             FROM hostname_year hy
             JOIN evidence e ON e.evidence_id = hy.evidence_id
             WHERE NOT ({web_evidence_sql("e")}) AND NOT ({HOSTNAME_SHIPPING_FILTER})
+              AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
             ORDER BY hy.hostname, e.evidence_url, e.evidence_value
         ) TO '{ledger_path}' (HEADER true)
     """)
