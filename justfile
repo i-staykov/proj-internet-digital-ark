@@ -291,9 +291,14 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
         echo "push: held while BANK RED stands"
     elif [ -f data/logs/.push_pending ]; then
-        if bash scripts/harness/sync_fleet.sh --no-ack; then
+        if bash scripts/harness/sync_fleet.sh --no-ack \
+            && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+                --publish-expected "$FLEET" \
+            && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+            && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+                | cmp -s - "$FLEET/snapshot.json"; then
             rm -f data/logs/.push_pending
-            echo "push: the pending snapshot reached the VPS"
+            echo "push: the pending snapshot reached the VPS, and fleet main expects its claim"
         else
             echo "push: still pending, the next tick retries"
         fi
@@ -550,14 +555,19 @@ bank *args:
             echo "nothing was committed, so the drain stays in $IN"
         fi
     fi
-    # e. The snapshot the fleet prices against, when this bank exported one. The export set
-    #    data/logs/.push_pending, which only a push that reached the VPS removes.
+    # e. The snapshot the fleet prices against, when this bank exported one, then its claim in
+    #    the fleet's snapshot.json. data/logs/.push_pending goes once fleet main holds that.
     if [ "$EXPORTED" = no ]; then
         echo "push: nothing was exported, so the fleet's snapshot stands"
-    elif bash scripts/harness/sync_fleet.sh; then
+    elif bash scripts/harness/sync_fleet.sh \
+        && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+            --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json"; then
         rm -f data/logs/.push_pending
     else
-        echo "push pending: sync_fleet.sh exited $?, the next tick retries"
+        echo "push pending: the VPS or fleet main did not take the snapshot, the next tick retries"
     fi
 
 # The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
@@ -1339,7 +1349,16 @@ intake *args:
     set -euo pipefail
     uv run python scripts/round/intake.py {{args}}
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
-    case "{{args}}" in *--dry-run*) ;; *) bash scripts/harness/sync_fleet.sh ;; esac
+    case "{{args}}" in *--dry-run*) exit 0 ;; esac
+    bash scripts/harness/sync_fleet.sh
+    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+        --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json" \
+        || { touch data/logs/.push_pending; echo "push pending: the next tick retries"; }
 
 # Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
 # figures parsed, S and t computed from the two stamps rather than read off the mail, and a

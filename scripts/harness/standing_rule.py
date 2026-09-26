@@ -51,6 +51,7 @@ import fleet_ledger  # noqa: E402
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.hostnames import fleet_read_source_name  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 # The fleet's standing clauses, in the order a park names them. A clause the lead does not
@@ -217,6 +218,20 @@ def decide(text: str, approval, citation: str) -> str:
     raise ValueError(f"no pending decision line under {approval.source_name}")
 
 
+def find_for(source: str, finds: dict[str, dict]) -> dict | None:
+    """The find a pending block asks about: the one its name slugifies to, or the lead a
+    whole read banks under `fleet_<slug>_hostnames`, the name `fleet_request.py` files a
+    read's block under."""
+    find = finds.get(slugify(source))
+    if find is not None:
+        return find
+    for find in finds.values():
+        lead = find["dir"]
+        if (lead / "read.json").is_file() and fleet_read_source_name(lead.name) == source:
+            return find
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("incoming", type=Path)
@@ -245,7 +260,7 @@ def main(argv: list[str] | None = None) -> int:
     # Re-read the register per source rather than iterating one parse of it: a decision adds
     # its citation line, so every line number below the one just written has moved.
     pending = approvals.pending(args.register)
-    wanted = [a.source_name for a in pending if slugify(a.source_name) in finds]
+    wanted = [a.source_name for a in pending if find_for(a.source_name, finds) is not None]
     for source in wanted:
         decided = approvals.load(args.register)
         approval = next(
@@ -253,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if approval is None:
             continue
-        find = finds[slugify(approval.source_name)]
+        find = find_for(approval.source_name, finds)
         lead = lead_of(incoming, find["dir"].name)
         bad = reasons_to_park(approval, lead, decided)
         if bad:

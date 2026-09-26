@@ -2,11 +2,12 @@
 
 **A fleet figure never reaches the register alone.** The leg that measured a corpus priced
 it against the pushed snapshot, which is a copy of the store's exports and his baseline and
-not the store; it can be hours stale, it holds no corroboration split, and it was produced by
-the same agent that wants the answer to be large. So a FIND its own verify lane confirmed is
-priced a second time HERE, by `price_items.py` or `price_hostnames.py`, against the live
-store, and the scribe books both numbers side by side. A FIND that ships no items cannot be
-re-priced, and that says so in the register rather than passing as measured.
+not the store; it can be hours stale, and it was produced by the same agent that wants the
+answer to be large. So a FIND its own verify lane confirmed is priced a second time HERE, by
+`price_items.py` or `price_hostnames.py`, against the live store, and the scribe books both
+numbers side by side. The program a leg runs prices the same items against the snapshot the
+last push staged, and how far it agrees with the store goes beside them in `store_price.json`.
+A FIND that ships no items cannot be re-priced, and that says so in the register.
 
 Four subcommands, in order: the tick runs drain and validate, `just bank` runs reprice and,
 once its commit has landed, outcome over this drain and every drain banked before it.
@@ -14,7 +15,7 @@ once its commit has landed, outcome over this drain and every drain banked befor
     drain     the downloaded run directories become one directory per lead, and the old
               TSV ledger becomes the fleet ledger's legacy lines, once
     validate  every sidecar against the fleet's own schema, via the fleet's own validator
-    reprice   every confirmed FIND against the live store
+    reprice   every confirmed FIND against the live store and by the program
     outcome   one fleet ledger line per confirmed FIND: both figures, the decision, banked
 
     uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming \\
@@ -57,6 +58,9 @@ VPS_ITEMS = "/projects/ark-data/items"
 # What the leg has to leave beside its finding for the laptop to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
+# What the program prices against: the snapshot the last push staged. Relative to REPO, so
+# no local path reaches store_price.json.
+SNAPSHOT = Path("output/fleet_snapshot")
 # A corpus `read.yaml` read whole: its journal parts and `receipt.json` on the VPS, pulled
 # here per lead. The pull is the gate: only a complete read whose every part matches the
 # sha256 the receipt lists lands, so what the bank ingests is exactly what the read wrote.
@@ -65,8 +69,6 @@ FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
 PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
-# Evidence classes whose names arrive in a delimited field of a self-dating artifact (C-86).
-NO_SPLIT_CLASSES = frozenset({"artifact_listing", "whois_creation"})
 # The old spend record, converted once into legacy lines and then deleted. `ARK_FLEET_LEDGER`
 # moves it, so a drain under test never deletes the real one.
 LEDGER = REPO / "data/logs/fleet_ledger.tsv"
@@ -468,7 +470,10 @@ def price(lead: Path, finding: dict) -> dict:
         grain = grain_of(lead.name, finding, lead)
         script = "price_hostnames.py" if grain == "hostname" else "price_items.py"
         cmd = ["uv", "run", "python", f"scripts/pricing/{script}", "--items", str(items)]
-    # C-86: a listing or a registry record is a delimited field, and takes no split.
+    # A listing or a registry record is a delimited field, and takes no split. Imported
+    # here: the drain the tick runs every hour has no need of the pricer.
+    from ark.price_snapshot import NO_SPLIT_CLASSES
+
     lead_doc = load(lead / LEAD)
     if script == "price_items.py" and lead_doc.get("evidence_class") in NO_SPLIT_CLASSES:
         cmd.append("--no-split")
@@ -491,8 +496,76 @@ def price(lead: Path, finding: dict) -> dict:
     }
 
 
+def _program(
+    lead: Path, items: Path, track: str, evidence_class, keys=("ee", "netnew_pairs")
+) -> tuple:
+    """One `ark price-snapshot` run on one track: the EE and net-new count its `keys` name,
+    and a status. Its stderr goes beside the store pricer's output, so the status never
+    carries a path."""
+    out = lead / f"program_{track}.json"
+    out.unlink(missing_ok=True)
+    cmd = ["uv", "run", "ark", "price-snapshot", "--snapshot", str(SNAPSHOT)]
+    cmd += ["--items", str(items), "--track", track, "--out", str(out)]
+    if evidence_class:
+        cmd += ["--class", str(evidence_class)]
+    done = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
+    (lead / f"program_{track}.txt").write_text(done.stderr, encoding="utf-8")
+    try:
+        doc = json.loads(out.read_text(encoding="utf-8"))
+        rule = str(doc["split"]).split(":")[0]
+        return float(doc[keys[0]]), int(doc[keys[1]]), f"priced, {track}, split {rule}"
+    except (OSError, ValueError, KeyError, TypeError):
+        return None, None, f"price-snapshot exited {done.returncode}, see program_{track}.txt"
+
+
+def program_price(lead: Path, finding: dict, items: Path) -> dict:
+    """The items priced again by the command a leg runs, against the snapshot the last push
+    staged, with the program's own split. `fleet_program_ee` is the annual track in the unit
+    the store's figure measures, on hostname grain its hostname years; a finding that claims
+    the candidate track gets that figure too, under its own key."""
+    evidence_class = load(lead / LEAD).get("evidence_class")
+    grain = grain_of(lead.name, finding, lead)
+    tracks = ["annual"]
+    claimed = (finding.get("pricing") or {}).get("track")
+    if grain == "candidate" or claimed == "candidate":
+        tracks.append("candidate")
+    result: dict = {}
+    for track in tracks:
+        name = "program" if track == "annual" else f"program_{track}"
+        keys = ("ee", "netnew_pairs")
+        if grain == "hostname" and track == "annual":
+            keys = ("ee_hostname_years", "netnew_hostname_years")
+        ee, netnew, status = _program(lead, items, track, evidence_class, keys)
+        result.update({f"fleet_{name}_ee": ee, f"{name}_netnew": netnew, f"{name}_status": status})
+    return result
+
+
+def streak(incoming: Path) -> int:
+    """How many finds in a row, newest first, the program and the store agree on within
+    `fleet_ledger.WITHIN`, over every store price in `incoming` and the drains banked beside
+    it. A find counts once, at its latest price; one the program did not price breaks the run, so an
+    outage or a zero cannot keep it alive."""
+    latest: dict[str, dict] = {}
+    banked = (incoming.parent / "banked").glob(f"*/*/{STORE_PRICE}")
+    for path in [*banked, *incoming.glob(f"*/{STORE_PRICE}")]:
+        doc = load(path)
+        if fleet_ledger.positive(doc.get("ee")) is None:
+            continue
+        slug = path.parent.name
+        if slug not in latest or str(doc.get("at") or "") >= str(latest[slug].get("at") or ""):
+            latest[slug] = doc
+    run = 0
+    for doc in sorted(latest.values(), key=lambda d: str(d.get("at") or ""), reverse=True):
+        store, program = float(doc["ee"]), fleet_ledger.positive(doc.get("fleet_program_ee"))
+        if program is None or abs(program - store) > fleet_ledger.WITHIN * store:
+            break
+        run += 1
+    return run
+
+
 def reprice(incoming: Path) -> int:
-    """Every confirmed FIND, priced again on the live store beside the fleet's figure."""
+    """Every confirmed FIND, priced again on the live store and by the program, beside the
+    fleet's figure."""
     for path in sidecars(incoming):
         finding = load(path)
         lead = path.parent
@@ -508,13 +581,31 @@ def reprice(incoming: Path) -> int:
             continue
         result = price(lead, finding)
         result["fleet_ee"] = (finding.get("pricing") or {}).get("ee")
+        # the items price() found or fetched, when there were any
+        items = items_file(lead)
+        if items is not None:
+            result.update(program_price(lead, finding, items))
+            program_ee = result["fleet_program_ee"]
+            result["agreement_pct"] = fleet_ledger.agreement_pct(result["ee"], program_ee)
         (lead / STORE_PRICE).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if result["ee"] is None:
             print(f"reprice: {lead.name} NOT re-priced, {result['status']}")
+        else:
+            fleet_ee = result["fleet_ee"]
+            gap = f", the fleet said {fleet_ee:,.1f}" if isinstance(fleet_ee, int | float) else ""
+            print(f"reprice: {lead.name} is worth {result['ee']:,.1f} EE on the store{gap}")
+        if items is None:
             continue
-        fleet_ee = result["fleet_ee"]
-        gap = f", the fleet said {fleet_ee:,.1f}" if isinstance(fleet_ee, int | float) else ""
-        print(f"reprice: {lead.name} is worth {result['ee']:,.1f} EE on the store{gap}")
+        program, share = result["fleet_program_ee"], result["agreement_pct"]
+        if program is None:
+            print(f"reprice: {lead.name} NOT priced by the program, {result['program_status']}")
+        else:
+            of = f", {share}% of the store's" if share is not None else ""
+            print(f"reprice: {lead.name} is worth {program:,.1f} EE by the program{of}")
+    print(
+        f"reprice: the program agrees with the store within {fleet_ledger.WITHIN:.0%} "
+        f"on the last {streak(incoming)} finds in a row"
+    )
     return 0
 
 

@@ -24,15 +24,11 @@ _SPEC.loader.exec_module(rule)
 REGISTER = """# Approved sources
 
 ### old_source / cdx_timestamp
-
 - ingest specs: `old_spec`
-
 Decision: master
 
 ### new_source / cdx_timestamp
-
 - ingest specs: `new_spec`
-
 Decision: pending
 """
 
@@ -141,6 +137,26 @@ def test_every_clause_ok_on_an_approved_class_writes_the_line_citing_them_and_th
     assert "Fleet run 1741, decided on the store re-price, 7,000.0 EE." in text
     # The justfile counts `^decided:` to know the ingest and the gate follow.
     assert "\ndecided: new_source / cdx_timestamp is master\n" in "\n" + capsys.readouterr().out
+
+
+def test_a_whole_reads_block_is_decided_for_its_lead(tmp_path, capsys):
+    """`fleet_request.py` files a read's block under the source its journal banks as,
+    `fleet_<slug>_hostnames`, so the rule finds the lead through that name too."""
+    register = REGISTER.replace(
+        "### new_source / cdx_timestamp", "### fleet_new_source_hostnames / cdx_timestamp"
+    )
+    incoming, path = setup(tmp_path, lead=LEAD, register=register)
+    (incoming / "new-source" / "read.json").write_text("{}", encoding="utf-8")
+    assert rule.main([str(incoming), "--register", str(path), "--write"]) == 0
+    assert "Decision: pending" not in path.read_text(encoding="utf-8")
+    assert (
+        "decided: fleet_new_source_hostnames / cdx_timestamp is master" in capsys.readouterr().out
+    )
+    # Without its read, a block under that name is no lead's, and stays pending.
+    (incoming / "new-source" / "read.json").unlink()
+    path.write_text(register, encoding="utf-8")
+    rule.main([str(incoming), "--register", str(path), "--write"])
+    assert "Decision: pending" in path.read_text(encoding="utf-8")
 
 
 def test_a_class_nobody_has_approved_before_stays_pending(tmp_path, capsys):

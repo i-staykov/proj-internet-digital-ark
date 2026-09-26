@@ -7,12 +7,18 @@ anyway would have produced a flattering number and no way to catch it.
 
 import importlib.util
 import json
+import shutil
+import subprocess
+import sys
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from ark.baseline import calculator_path
+from ark.english_share import SHARE_PATH
 from ark.price_snapshot import (
-    SPLIT,
+    SPLIT_AUTO,
     SnapshotError,
     build_manifest,
     file_stats,
@@ -23,6 +29,23 @@ from ark.price_snapshot import (
 
 MARKER = "merged260908"
 COM = 0.6321
+ROOT = Path(__file__).resolve().parent.parent
+# His calculator's interface and summary keys over our reader of the table beside it, since
+# his package is not in a fresh clone. `test_the_ee_is_his_calculators` runs his.
+STAND_IN = """
+import json, sys
+from decimal import Decimal
+from pathlib import Path
+from ark.english_share import english_weights
+
+weights = english_weights(Path(__file__).with_name("q2_tld_top_langs.json"))
+names = {line.strip() for line in Path(sys.argv[1]).read_text().splitlines() if line.strip()}
+out = Path(sys.argv[sys.argv.index("--output-dir") + 1])
+out.mkdir(parents=True, exist_ok=True)
+total = sum((weights.get(n.rsplit(".", 1)[-1], Decimal(0)) for n in names), Decimal(0))
+summary = {"unique_valid_domains": len(names), "equivalent_english_domains": format(total, "f")}
+(out / "summary.json").write_text(json.dumps(summary))
+"""
 
 
 def _write(path: Path, names: list[str]) -> Path:
@@ -36,10 +59,20 @@ def _snapshot(
     held: dict[int, list[str]] | None = None,
     netnew: dict[str, list[str]] | None = None,
     candidates: dict[str, list[str]] | None = None,
+    calculator: Path | None = None,
 ) -> Path:
-    """A snapshot of the shape `sync_fleet.sh` pushes, manifest included."""
+    """A snapshot of the shape `sync_fleet.sh` pushes, manifest included, with the stand-in
+    calculator unless `calculator` names the directory holding his."""
     snapshot = root / "ark-data"
     files: dict[str, Path] = {}
+    (snapshot / "calculator").mkdir(parents=True)
+    for name in ("equivalent_english_domains.py", "q2_tld_top_langs.json"):
+        files[f"calculator/{name}"] = snapshot / "calculator" / name
+        if calculator is not None:
+            shutil.copy(calculator / name, files[f"calculator/{name}"])
+    if calculator is None:
+        files["calculator/equivalent_english_domains.py"].write_text(STAND_IN)
+        shutil.copy(SHARE_PATH, files["calculator/q2_tld_top_langs.json"])
     for year in range(1996, 2002):
         rel = f"{MARKER}/{year}.txt"
         files[rel] = _write(snapshot / rel, (held or {}).get(year) or [f"filler{year}.example"])
@@ -73,15 +106,14 @@ def test_the_three_item_fixture(tmp_path: Path) -> None:
     manifest, sha = read_manifest(snapshot)
 
     assert priced["track"] == "annual"
-    # The figure is the whole net-new set, which is `price_items.py`'s pre-split line, and
-    # every result says so: a finding that quoted it as post-split would overstate a claim.
-    assert priced["split"] == SPLIT == "none, exact-name membership, pre-corroboration"
+    # every result names its split; names from a field are never split away
+    assert priced["split"] == SPLIT_AUTO
     assert priced["netnew_pairs"] == 2
     assert priced["ee"] == f"{2 * COM:.4f}"
     assert priced["by_year"] == {"1998": {"pairs": 2, "ee": f"{2 * COM:.4f}"}}
     assert priced["by_tld"] == [{"tld": "com", "pairs": 2, "ee": f"{2 * COM:.4f}"}]
-    # `www.other.com` is its own record under ADR-010 and is not folded onto its parent,
-    # and the share says how much of the figure arrived in that form.
+    # `www.other.com` is its own record and is not folded onto its parent, and the share
+    # says how much of the figure arrived in that form.
     assert priced["www_alias_share"] == 0.5
     assert priced["hostname_records"] == 1
     assert priced["parent_held_share"] == 0.0
@@ -160,21 +192,48 @@ def test_a_www_form_and_its_parent_are_two_records(tmp_path: Path) -> None:
 
 
 def test_a_year_is_a_year(tmp_path: Path) -> None:
-    """Membership is per year, and an item outside the window is not priced at all."""
+    """Membership is per year, a year outside the window prices on neither track, and an
+    undated record is a candidate."""
     snapshot = _snapshot(tmp_path, held={1997: ["moved.com"]})
     items = _items(
         tmp_path / "items.jsonl",
         [
             {"host": "moved.com", "year": 1997},
             {"host": "moved.com", "year": 1998},
-            {"host": "moved.com", "year": 1995},
-            {"host": "moved.com"},
+            {"host": "old.com", "year": 1995},
+            {"host": "dated.com", "year": "1994-12-01"},
+            {"host": "plain.com"},
         ],
     )
     priced = price(snapshot, items)
     assert priced["netnew_pairs"] == 1
     assert priced["by_year"] == {"1998": {"pairs": 1, "ee": f"{COM:.4f}"}}
-    assert priced["counts"]["undated_or_out_of_window"] == 2
+    assert priced["counts"]["out_of_window"] == 1
+    assert priced["counts"]["undated"] == 1
+    candidate = price(snapshot, items, track="candidate")
+    assert candidate["netnew_pairs"] == 1  # plain.com: moved.com is held in 1997
+    assert candidate["counts"]["out_of_window"] == 1
+    assert candidate["counts"]["already_held"] == 1
+
+
+def test_an_error_capture_prices_on_the_candidate_track_only(tmp_path: Path) -> None:
+    """A 4xx or 5xx capture shows no web presence in its year, only that the name existed."""
+    snapshot = _snapshot(tmp_path)
+    items = _items(
+        tmp_path / "items.jsonl",
+        [
+            {"url": "http://ok.com/", "timestamp": "19990101000000", "status": "200"},
+            {"url": "http://gone.com/x", "timestamp": "19990102000000", "status": 404},
+            {"url": "http://down.org/", "timestamp": "19990103000000", "status": "503"},
+            {"host": "up.com", "year": 1999, "status": "active"},
+            {"host": "lost.com", "year": 1999, "status": 404},
+        ],
+    )
+    priced = price(snapshot, items)
+    assert priced["netnew_pairs"] == 2
+    assert list(priced["by_year"]) == ["1999"]
+    assert priced["counts"]["error_status"] == 3
+    assert price(snapshot, items, track="candidate")["netnew_pairs"] == 5
 
 
 def test_text_is_read_and_junk_is_dropped(tmp_path: Path) -> None:
@@ -188,12 +247,43 @@ def test_text_is_read_and_junk_is_dropped(tmp_path: Path) -> None:
             {"item": "msg-3", "year": 2001},
         ],
     )
-    priced = price(snapshot, items)
+    priced = price(snapshot, items, split="none")
     assert priced["netnew_pairs"] == 2
     assert priced["counts"]["rejected_host"] == 1  # the suffix list does not know it
     # the IP address, the underscore name, and the item carrying no host at all
     assert priced["counts"]["no_host"] == 3
     assert priced["ee"] == f"{COM + 0.7101:.4f}"
+
+
+def test_the_ee_is_his_calculators(tmp_path: Path) -> None:
+    """The EE a leg quotes is what his calculator prints for the same net-new names."""
+    his = ROOT / calculator_path()
+    if not his.is_file():
+        pytest.skip(f"his calculator is not on disk at {his}")
+    snapshot = _snapshot(tmp_path, held={1998: ["held.com"]}, calculator=his.parent)
+    netnew = {
+        "1998": ["a.com", "b.org", "c.co.uk"],
+        "1999": ["d.de", "e.com", "www.e.com"],
+    }
+    rows = [{"host": "held.com", "year": 1998}]
+    rows += [{"host": name, "year": int(year)} for year, names in netnew.items() for name in names]
+    priced = price(snapshot, _items(tmp_path / "items.jsonl", rows))
+    total = Decimal(0)
+    for year, names in netnew.items():
+        listing = _write(tmp_path / f"{year}.txt", names)
+        results = tmp_path / f"his_{year}"
+        subprocess.run(
+            [sys.executable, "-B", str(his), str(listing), "--output-dir", str(results)],
+            check=True,
+            capture_output=True,
+        )
+        summary = json.loads((results / "summary.json").read_text())
+        assert priced["by_year"][year]["pairs"] == summary["unique_valid_domains"] == 3
+        assert Decimal(priced["by_year"][year]["ee"]) == Decimal(
+            summary["equivalent_english_domains"]
+        )
+        total += Decimal(summary["equivalent_english_domains"])
+    assert Decimal(priced["ee"]) == total
 
 
 def test_a_pair_that_could_never_ship_is_not_priced(tmp_path: Path) -> None:
@@ -217,13 +307,18 @@ def test_the_candidate_track(tmp_path: Path) -> None:
     snapshot = _snapshot(
         tmp_path,
         held={1996: ["annual.com"]},
-        candidates={"candidate_pool.txt": ["his.com"], "isc_candidates.txt": ["isc.com"]},
+        candidates={
+            "candidate_pool.txt": ["his.com"],
+            "isc_candidates.txt": ["isc.com"],
+            "candidate_additions.txt": ["ours.com"],
+        },
     )
     items = _items(
         tmp_path / "items.jsonl",
         [
             {"host": "his.com"},
             {"host": "isc.com"},
+            {"host": "ours.com"},
             {"host": "annual.com"},
             {"host": "brand.new.com", "year": 1998},
         ],
@@ -234,7 +329,7 @@ def test_the_candidate_track(tmp_path: Path) -> None:
     assert priced["ee"] == f"{COM:.4f}"
     # A candidate claims no year, so nothing is bucketed by one even when an item had one.
     assert priced["by_year"] == {}
-    assert priced["counts"]["already_in_candidate_pool"] == 2
+    assert priced["counts"]["already_in_candidate_pool"] == 3
     assert priced["counts"]["already_held"] == 1
 
 
@@ -396,6 +491,9 @@ def test_an_absent_export_family_refuses_the_build(tmp_path: Path, monkeypatch) 
     """
     netnew = tmp_path / "netnew"
     baseline = tmp_path / "baseline"
+    calculator = _write(tmp_path / "calculator" / "equivalent_english_domains.py", ["pass"])
+    _write(calculator.with_name("q2_tld_top_langs.json"), ["{}"])
+    _write(netnew / "attested_registrables.txt", ["1996\tours.com"])
     for year in range(1996, 2002):
         _write(netnew / f"{year}.txt", ["ours.com"])
         _write(netnew / f"{year}_hostnames.txt", ["a.ours.com"])
@@ -404,12 +502,67 @@ def test_an_absent_export_family_refuses_the_build(tmp_path: Path, monkeypatch) 
     monkeypatch.setattr(
         snapshot_manifest, "EXPORT_CANDIDATES", tmp_path / "candidate_unverified.txt"
     )
+    monkeypatch.setattr(snapshot_manifest, "CALCULATOR", calculator)
 
     _files, _optional, absent = snapshot_manifest.sources(baseline, MARKER)
-    # the six `-ISC` files and all three candidate exports are absent and allowed to be
+    # the six `-ISC` files and all five candidate exports are absent and allowed to be
     assert snapshot_manifest.must_be_present(absent) == []
-    assert len(absent) == 9
+    assert len(absent) == 11
 
     (netnew / "1999_hostnames.txt").unlink()
+    (netnew / "attested_registrables.txt").unlink()
     _files, _optional, absent = snapshot_manifest.sources(baseline, MARKER)
-    assert snapshot_manifest.must_be_present(absent) == ["netnew/1999_hostnames.txt"]
+    assert snapshot_manifest.must_be_present(absent) == [
+        "netnew/1999_hostnames.txt",
+        "netnew/attested_registrables.txt",
+    ]
+
+
+def test_the_snapshot_stages_the_claim_and_his_calculator(tmp_path: Path, monkeypatch) -> None:
+    """Our claim and his calculator travel with the snapshot, one digest names the claim, and
+    the fleet is told which claim to expect."""
+    baseline, netnew = tmp_path / "baseline", tmp_path / "netnew"
+    calculator = _write(tmp_path / "calculator" / "equivalent_english_domains.py", ["pass"])
+    _write(calculator.with_name("q2_tld_top_langs.json"), ["{}"])
+    for year in range(1996, 2002):
+        _write(baseline / f"{year}.txt", ["his.com"])
+        _write(netnew / f"{year}.txt", ["ours.com"])
+        _write(netnew / f"{year}_hostnames.txt", ["a.ours.com"])
+    _write(netnew / "attested_registrables.txt", ["1998\tours.com"])
+    _write(netnew / "candidate_additions.txt", ["cand.com"])
+    _write(netnew / "header_candidates.txt", ["header.com"])
+    monkeypatch.setattr(snapshot_manifest, "EXPORT_NETNEW", netnew)
+    monkeypatch.setattr(snapshot_manifest, "EXPORT_CANDIDATES", tmp_path / "unverified.txt")
+    monkeypatch.setattr(snapshot_manifest, "CALCULATOR", calculator)
+
+    def staged(out: Path) -> dict:
+        files, optional, absent = snapshot_manifest.sources(baseline, MARKER)
+        assert snapshot_manifest.must_be_present(absent) == []
+        manifest, _ = build_manifest(MARKER, files, optional, snapshot_manifest.claim_of(files))
+        snapshot_manifest.stage(out, files, manifest)
+        return manifest
+
+    first = staged(tmp_path / "a")
+    for rel in (
+        "candidates/candidate_additions.txt",
+        "candidates/header_candidates.txt",
+        "netnew/attested_registrables.txt",
+        "calculator/equivalent_english_domains.py",
+        "calculator/q2_tld_top_langs.json",
+    ):
+        assert rel in first["files"] and (tmp_path / "a" / rel).is_file()
+    assert first["files"]["netnew/attested_registrables.txt"]["sorted"] is True
+    # his files are not the claim; ours are
+    _write(baseline / "1996.txt", ["his.com", "more.com"])
+    assert staged(tmp_path / "b")["claim_sha256"] == first["claim_sha256"]
+    _write(netnew / "candidate_additions.txt", ["cand.com", "more.com"])
+    last = staged(tmp_path / "c")
+    assert last["claim_sha256"] != first["claim_sha256"]
+
+    fleet = tmp_path / "fleet"
+    fleet.mkdir()
+    assert snapshot_manifest.publish_expected(tmp_path / "c", fleet) == 0
+    assert json.loads((fleet / "snapshot.json").read_text()) == {
+        "marker": MARKER,
+        "claim_sha256": last["claim_sha256"],
+    }

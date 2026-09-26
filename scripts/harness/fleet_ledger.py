@@ -87,7 +87,8 @@ def append(fleet: Path | None, kind: str, rows: list[dict]) -> tuple[bool, str]:
     return done.returncode == 0, said
 
 
-def _positive(value) -> float | None:
+def positive(value) -> float | None:
+    """A finite number above zero as a float, else None. A bool is not a number here."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if math.isfinite(value) and value > 0 else None
@@ -95,13 +96,13 @@ def _positive(value) -> float | None:
 
 def agreement_pct(store_ee, program_ee) -> float | None:
     """The program figure as a percentage of the store's, or None without both."""
-    store, program = _positive(store_ee), _positive(program_ee)
+    store, program = positive(store_ee), positive(program_ee)
     return None if store is None or program is None else round(100 * program / store, 2)
 
 
 def agrees(line: dict) -> bool:
     """Whether an outcome line's program figure is within WITHIN of its store figure."""
-    store, program = _positive(line.get("store_ee")), _positive(line.get("program_ee"))
+    store, program = positive(line.get("store_ee")), positive(line.get("program_ee"))
     return store is not None and program is not None and abs(program - store) <= WITHIN * store
 
 
@@ -115,7 +116,7 @@ def streak(outcomes: list[dict]) -> bool:
     """
     latest: dict[str, dict] = {}
     for line in outcomes:
-        if _positive(line.get("store_ee")) is None:
+        if positive(line.get("store_ee")) is None:
             continue
         latest.pop(str(line.get("slug")), None)
         latest[str(line.get("slug"))] = line
