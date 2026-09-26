@@ -3,7 +3,7 @@
 **One surface asks Ivo for things, and it is this file** (ADR-005). Two lines per ask: what is needed and
 what it is worth. If an entry needs a third line, it is being over-explained. He decides; the agent
 measures. Closed decisions are one line each, because the decision is what binds and the reasoning is in
-the git log and, for sources, in `sources.md` with its measurement.
+the git log and, for sources, in the source's register row.
 
 ## OPEN
 

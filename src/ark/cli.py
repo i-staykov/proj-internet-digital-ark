@@ -789,28 +789,52 @@ def export(
 def price_snapshot_cmd(
     snapshot: Annotated[
         Path,
-        typer.Option(help="Snapshot directory: manifest.json, the marker, netnew, candidates."),
+        typer.Option(help="Snapshot: manifest.json, the marker, netnew, candidates, calculator."),
     ],
     items: Annotated[
-        Path, typer.Option(help="JSONL(.gz) of {host, year, text?}, one item per line.")
+        Path,
+        typer.Option(
+            help="JSONL(.gz), one item per line: {host, year, text?} or {url, timestamp, status}."
+        ),
     ],
     track: Annotated[
         str, typer.Option(help="`annual` for (name, year) records, `candidate` for undated names.")
     ] = "annual",
+    split: Annotated[
+        str,
+        typer.Option(
+            help="`auto` counts a name read only from free text when its registrable is dated "
+            "that year; `none` counts every net-new name."
+        ),
+    ] = "auto",
+    evidence_class: Annotated[
+        str | None,
+        typer.Option(
+            "--class",
+            help="The lead's evidence class: a listing, a registry record or a web method "
+            "takes no split.",
+        ),
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
 ) -> None:
     """Price items against a pushed snapshot and print one JSON object.
 
-    The only price a fleet leg may quote. Reads no store, writes nothing, and refuses a
+    The only price a fleet leg may quote. Reads no store, writes only `--out`, and refuses a
     snapshot whose files disagree with its manifest, so the figure is reproducible from
     the marker and `built_at` it carries.
     """
     try:
-        priced = price_against_snapshot(snapshot, items, track)
+        priced = price_against_snapshot(
+            snapshot, items, track, split=split, evidence_class=evidence_class
+        )
     except SnapshotError as exc:
         logger.error(str(exc))
         raise typer.Exit(2) from exc
+    text = json.dumps(priced, indent=2)
+    if out is not None:
+        out.write_text(text + "\n", encoding="utf-8")
     # stdout is the JSON and nothing else: a leg copies fields out of it.
-    typer.echo(json.dumps(priced, indent=2))
+    typer.echo(text)
 
 
 @app.command()

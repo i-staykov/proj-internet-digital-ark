@@ -8,8 +8,10 @@ were relaunched on 2026-09-01 when result lines were written late.
 
 Two terminal statuses, and the schema has no third:
 
-    banked   the bank booked it: the fleet ledger holds an outcome line for the slug whose
-             `banked` is true, which the bank appends once its register commit has landed
+    banked   the store holds it: the fleet ledger holds an outcome line for the slug whose
+             `banked` is true, which the bank appends once the source's rows are ingested,
+             often after its drain has left `incoming/`, so every lead in `leads/` with
+             such a line is set `banked`, drained or not
     closed   a measured negative: a CLOSED finding, or a FIND its own verify lane disputed
 
 Everything else is left exactly as it is. A confirmed FIND still waiting on Ivo is not
@@ -117,19 +119,27 @@ def main(argv: list[str] | None = None) -> int:
     banked = banked_slugs(fleet)
     check = validator(fleet)
     written = refused = 0
+    settled: list[tuple[str, str]] = []
+    drained = set()
     for lead_dir in sorted(p for p in incoming.iterdir() if p.is_dir()):
         finding = _json(lead_dir / "finding.json")
         if not finding:
             continue
         slug = slugify(str(finding.get("slug") or lead_dir.name))
+        drained.add(slug)
         status = status_for(finding, banked, slug)
         if status is None:
             print(f"leads: {slug} is not settled here, left as the fleet has it")
             continue
+        settled.append((slug, status))
+    # The drain's own verdict decides its slugs; the ledger decides every other lead.
+    settled += [(slug, "banked") for slug in sorted(banked - drained)]
+    for slug, status in settled:
         lead_file = fleet / "leads" / f"{slug}.json"
         lead = _json(lead_file)
         if not lead:
-            print(f"leads: {slug} has no lead file in the fleet clone, nothing written")
+            if slug in drained:
+                print(f"leads: {slug} has no lead file in the fleet clone, nothing written")
             continue
         if lead.get("status") == status:
             continue

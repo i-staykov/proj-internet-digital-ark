@@ -7,7 +7,7 @@ are already in any month's file.
 
     lines(fleet, kind)          every line of one kind, month files in name order, then file order
     append(fleet, kind, rows)   one `ledger.py append --kind K --json -` run over the fleet clone
-    streak(outcomes)            whether the last STREAK finds with both figures agree within 1%
+    streak(outcomes)            whether the last STREAK finds with a store figure agree within 1%
 
 **The fleet clone may predate the ledger.** Until it holds `scripts/ledger.py`, `append`
 writes nothing and says why, and `lines` finds no files and returns nothing, so a caller
@@ -16,7 +16,8 @@ keeps what it would have converted and the next tick tries again.
 **An outcome line** is the laptop's booking of one confirmed FIND: `slug`, `store_ee` (the
 live-store re-price), `program_ee` (the program's figure on the pushed snapshot),
 `agreement_pct` (`100 * program_ee / store_ee`), the register's `decision` and whether the
-find was `banked`. Its key is (slug, decision, banked), so one find can own a line per step.
+source's rows are in the store (`banked`). Its key is (slug, decision, banked), so one find
+can own a line per step.
 """
 
 from __future__ import annotations
@@ -86,7 +87,8 @@ def append(fleet: Path | None, kind: str, rows: list[dict]) -> tuple[bool, str]:
     return done.returncode == 0, said
 
 
-def _positive(value) -> float | None:
+def positive(value) -> float | None:
+    """A finite number above zero as a float, else None. A bool is not a number here."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     return float(value) if math.isfinite(value) and value > 0 else None
@@ -94,22 +96,27 @@ def _positive(value) -> float | None:
 
 def agreement_pct(store_ee, program_ee) -> float | None:
     """The program figure as a percentage of the store's, or None without both."""
-    store, program = _positive(store_ee), _positive(program_ee)
+    store, program = positive(store_ee), positive(program_ee)
     return None if store is None or program is None else round(100 * program / store, 2)
 
 
 def agrees(line: dict) -> bool:
     """Whether an outcome line's program figure is within WITHIN of its store figure."""
-    store, program = _positive(line.get("store_ee")), _positive(line.get("program_ee"))
+    store, program = positive(line.get("store_ee")), positive(line.get("program_ee"))
     return store is not None and program is not None and abs(program - store) <= WITHIN * store
 
 
 def streak(outcomes: list[dict]) -> bool:
-    """Whether the last STREAK finds that carry both figures all agree. A find counts once,
-    at its latest line, so a find booked pending and then banked is one find, not two."""
+    """Whether the last STREAK finds with a store figure all agree. A find counts once, at
+    its latest line, so a find booked pending and then banked is one find, not two.
+
+    **A missing program figure is a disagreement, not a gap.** Skipped, a snapshot outage or
+    a program that printed 0 would keep a streak alive while the program measured nothing,
+    and every find after it would be decided on the figure that failed.
+    """
     latest: dict[str, dict] = {}
     for line in outcomes:
-        if _positive(line.get("store_ee")) is None or _positive(line.get("program_ee")) is None:
+        if positive(line.get("store_ee")) is None:
             continue
         latest.pop(str(line.get("slug")), None)
         latest[str(line.get("slug"))] = line

@@ -21,8 +21,9 @@ one. The fleet's `class` clause is a different test, of a stream's grain and web
 **Which figure decides.** The store re-price (`store_price.json` `ee`) decides until the
 program's figure on the pushed snapshot (`fleet_program_ee`) has agreed with it within 1% on
 the last ten finds booked as outcome lines in the fleet ledger; from then the program's figure
-decides. A confirmed FIND is a candidate when its deciding figure is a positive number, and
-the citation names which figure decided and its value.
+decides for a find that has one, and the store re-price still decides for a find that has
+none. A confirmed FIND is a candidate when its deciding figure is a positive number, and the
+citation names which figure decided and its value.
 
 **Why this is a program and not a judgement.** Every bound is a lookup: the fleet admitted the
 lead on every clause or it did not, the class has a master source in the register or it does
@@ -50,6 +51,7 @@ import fleet_ledger  # noqa: E402
 
 from ark import approvals  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.hostnames import fleet_read_source_name  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
 # The fleet's standing clauses, in the order a park names them. A clause the lead does not
@@ -58,11 +60,14 @@ CLAUSES = ("size", "terms", "robots", "class", "window")
 # Where each figure lives in `store_price.json`, and how a line names it.
 FIELDS = {"store": "ee", "program": "fleet_program_ee"}
 FIGURES = {"store": "the store re-price", "program": "the program's figure on the pushed snapshot"}
+# The new-class reason, which `fleet_request.py` reads to head its ask as a class approval.
+NEW_CLASS = "no other {} source is approved as master"
 CITATION = (
-    "Decided by the loop under the standing rule (CLAUDE.md, Autonomy): the class is already "
-    "approved for the master, and the fleet admitted the lead under standing policy {policy} "
-    "with every clause ok: {clauses}. Fleet run {run}, decided on {figure}, {ee:,.1f} EE. The "
-    "ingest this line releases is gated by `ark check`, and a red gate takes the line back."
+    "- standing rule: the loop wrote the decision below (CLAUDE.md, Autonomy). The class is "
+    "already approved for the master, and the fleet admitted the lead under standing policy "
+    "{policy} with every clause ok: {clauses}. Fleet run {run}, decided on {figure}, "
+    "{ee:,.1f} EE. The ingest the decision releases is gated by `ark check`, and a red gate "
+    "takes the decision back."
 )
 
 
@@ -101,8 +106,9 @@ def confirmed_finds(incoming: Path, outcomes: list[dict]) -> dict[str, dict]:
     """The confirmed FINDs with a deciding figure, keyed by their directory's slug.
 
     `outcomes` are the fleet ledger's outcome lines. Once the last ten finds in them agree
-    within 1%, the program's figure decides; until then the store re-price does. Each entry
-    carries its directory, the sidecar, the re-price, which figure decided and its value.
+    within 1%, the program's figure decides for each find with a positive one, and the store
+    re-price for every other, so a find the program did not price still gets its block. Each
+    entry carries its directory, the sidecar, the re-price, which figure decided and its value.
 
     The key is the directory's, which the drain names after the sidecar's slug and
     `fleet_request.py` names the block after, so every block written there is found here.
@@ -111,7 +117,7 @@ def confirmed_finds(incoming: Path, outcomes: list[dict]) -> dict[str, dict]:
     for an automatic decision. Both are visible in the register row; neither is evidence
     enough to spend a human's standing permission on.
     """
-    figure = "program" if fleet_ledger.streak(list(outcomes)) else "store"
+    streak = fleet_ledger.streak(list(outcomes))
     out: dict[str, dict] = {}
     for lead in sorted(p for p in incoming.iterdir() if p.is_dir()):
         finding = _json(lead / "finding.json")
@@ -120,6 +126,7 @@ def confirmed_finds(incoming: Path, outcomes: list[dict]) -> dict[str, dict]:
             continue
         if (finding.get("verify") or {}).get("status") != "confirmed":
             continue
+        figure = "program" if streak and _positive(store.get(FIELDS["program"])) else "store"
         ee = store.get(FIELDS[figure])
         if not _positive(ee):
             continue
@@ -160,7 +167,7 @@ def reasons_to_park(approval, lead: dict, decided: dict) -> list[str]:
     """The bounds this source is outside, the new class first. Empty means all hold."""
     bad: list[str] = []
     if not class_is_already_eligible(approval.evidence_type, approval.source_name, decided):
-        bad.append(f"no other {approval.evidence_type} source is approved as master")
+        bad.append(NEW_CLASS.format(approval.evidence_type))
     standing = (lead or {}).get("standing")
     if not isinstance(standing, dict):
         bad.append("the lead carries no standing admission")
@@ -179,10 +186,13 @@ def reasons_to_park(approval, lead: dict, decided: dict) -> list[str]:
 
 
 def cite(lead: dict, find: dict) -> str:
-    """The line under `Decision: master`: the clauses, their evidence and the deciding figure."""
+    """The fact line above `Decision: master`: the clauses, their evidence and the figure.
+
+    One line with single spaces, which the compactor keeps as it is written.
+    """
     standing = lead.get("standing") or {}
     clauses = standing.get("clauses") or {}
-    return CITATION.format(
+    said = CITATION.format(
         policy=standing.get("policy_version", "unrecorded"),
         clauses="; ".join(
             f"{name} ({_evidence(clauses.get(name))})" for name in _clause_names(clauses)
@@ -191,16 +201,35 @@ def cite(lead: dict, find: dict) -> str:
         figure=FIGURES[find["figure"]],
         ee=find["ee"],
     )
+    return " ".join(said.split())
 
 
 def decide(text: str, approval, citation: str) -> str:
-    """The register with this one source's pending line flipped, and the rule cited under it."""
+    """The register with this one source's pending line flipped and the rule cited above it.
+
+    As a `- standing rule:` fact, the shape the compactor keeps for a loop decision: it drops
+    a `Decided by` line, and the record of what decided with it.
+    """
     lines = text.splitlines(keepends=True)
     for index in range(approval.line - 1, len(lines)):
         if lines[index].startswith("Decision: pending"):
-            lines[index] = "Decision: master\n" + citation + "\n"
+            lines[index] = citation + "\nDecision: master\n"
             return "".join(lines)
     raise ValueError(f"no pending decision line under {approval.source_name}")
+
+
+def find_for(source: str, finds: dict[str, dict]) -> dict | None:
+    """The find a pending block asks about: the one its name slugifies to, or the lead a
+    whole read banks under `fleet_<slug>_hostnames`, the name `fleet_request.py` files a
+    read's block under."""
+    find = finds.get(slugify(source))
+    if find is not None:
+        return find
+    for find in finds.values():
+        lead = find["dir"]
+        if (lead / "read.json").is_file() and fleet_read_source_name(lead.name) == source:
+            return find
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -231,7 +260,7 @@ def main(argv: list[str] | None = None) -> int:
     # Re-read the register per source rather than iterating one parse of it: a decision adds
     # its citation line, so every line number below the one just written has moved.
     pending = approvals.pending(args.register)
-    wanted = [a.source_name for a in pending if slugify(a.source_name) in finds]
+    wanted = [a.source_name for a in pending if find_for(a.source_name, finds) is not None]
     for source in wanted:
         decided = approvals.load(args.register)
         approval = next(
@@ -239,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if approval is None:
             continue
-        find = finds[slugify(approval.source_name)]
+        find = find_for(approval.source_name, finds)
         lead = lead_of(incoming, find["dir"].name)
         bad = reasons_to_park(approval, lead, decided)
         if bad:

@@ -63,6 +63,11 @@ STANDING = {
     },
 }
 
+# Every clause ok but robots, which the fleet refused.
+ROBOTS_REFUSED = dict(
+    STANDING["clauses"], robots={"ok": False, "evidence": "robots.txt disallows /data/"}
+)
+
 # Ten finds whose program figure agreed with the store within 1%: the program decides.
 AGREEING = [
     {
@@ -244,21 +249,50 @@ def test_a_standing_rule_source_gets_its_block_and_no_ask(tmp_path, capsys):
     assert "sync_approvals.py" not in said
 
 
+def test_a_new_class_that_also_fails_a_clause_names_both_reasons(tmp_path, capsys):
+    lead = dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED))
+    text, said = ask(tmp_path, capsys, register=REGISTER, lead=lead)
+    assert block_of(text)[-1] == "Decision: pending"
+    assert (
+        "parked: no other cdx_timestamp source is approved as master; "
+        "the robots clause is not ok: robots.txt disallows /data/;"
+    ) in said
+
+
 @pytest.mark.parametrize(
-    "register, lead",
+    "register, lead, why",
     [
-        (REGISTER, dict(LEAD, standing=STANDING)),
-        (APPROVED_CLASS, LEAD),
-        (APPROVED_CLASS, dict(LEAD, standing=dict(STANDING, admitted=False))),
-        (APPROVED_CLASS, dict(LEAD, standing=dict(STANDING, clauses={}))),
+        (
+            REGISTER,
+            dict(LEAD, standing=STANDING),
+            "no other cdx_timestamp source is approved as master",
+        ),
+        (APPROVED_CLASS, LEAD, "the lead carries no standing admission"),
+        (
+            APPROVED_CLASS,
+            dict(LEAD, standing=dict(STANDING, admitted=False)),
+            "the fleet did not admit it",
+        ),
+        (
+            APPROVED_CLASS,
+            dict(LEAD, standing=dict(STANDING, clauses={})),
+            "the size clause is missing",
+        ),
+        (
+            APPROVED_CLASS,
+            dict(LEAD, standing=dict(STANDING, clauses=ROBOTS_REFUSED)),
+            "the robots clause is not ok: robots.txt disallows /data/",
+        ),
     ],
-    ids=["new-class", "no-standing", "not-admitted", "no-clauses"],
+    ids=["new-class", "no-standing", "not-admitted", "no-clauses", "robots-refused"],
 )
-def test_a_parked_source_gets_a_pending_block_with_its_potential(tmp_path, capsys, register, lead):
+def test_a_parked_source_gets_a_pending_block_with_its_potential_and_says_why(
+    tmp_path, capsys, register, lead, why
+):
     text, said = ask(tmp_path, capsys, register=register, lead=lead)
     block = block_of(text)
     assert block[-2:] == ["- potential: 7000", "Decision: pending"]
-    assert "parked: " in said
+    assert f"parked: {why}" in said
     assert "sync_approvals.py files the block as a needs-owner issue" in said
 
 
@@ -337,15 +371,15 @@ def test_both_scripts_choose_the_same_finds_by_the_same_figure(tmp_path):
     world(tmp_path, slug="closed", verdict="CLOSED", program=7020.0)
     incoming = tmp_path / "incoming"
     (incoming / "_unread").mkdir()
-    for outcomes, figure, chosen in [
-        ([], "store", ["both", "store-only"]),
-        (AGREEING, "program", ["both", "program-only"]),
+    # Under the streak the program decides where it priced the find, and the store elsewhere.
+    for outcomes, chosen in [
+        ([], {"both": "store", "store-only": "store"}),
+        (AGREEING, {"both": "program", "program-only": "program", "store-only": "store"}),
     ]:
         picked = request.candidates(incoming, outcomes)
         rule = standing_rule.confirmed_finds(incoming, outcomes)
-        assert [lead_dir.name for lead_dir, *_ in picked] == chosen
-        assert [find["dir"].name for find in rule.values()] == chosen
-        assert all(find["figure"] == figure for *_, find in picked)
+        assert {lead_dir.name: find["figure"] for lead_dir, *_, find in picked} == chosen
+        assert {find["dir"].name: find["figure"] for find in rule.values()} == chosen
 
 
 def test_under_the_streak_the_block_carries_the_program_figure(tmp_path):
@@ -355,6 +389,15 @@ def test_under_the_streak_the_block_carries_the_program_figure(tmp_path):
     assert "The live store re-price by `price_items.py` said no figure" in text
     assert "the program's figure is the one to read" in text
     assert "- potential: 7020" in text
+
+
+def test_under_the_streak_a_find_the_program_did_not_price_is_asked_on_the_store(tmp_path):
+    fleet = ledger(tmp_path, AGREEING)
+    incoming, register = world(tmp_path)
+    text = write(incoming, register, "--fleet", str(fleet))
+    assert "### a_lead / cdx_timestamp" in text
+    assert "7,000.0 EE net-new on the live store" in text
+    assert "- potential: 7000" in text
 
 
 def read_world(tmp_path, monkeypatch, receipt=True):

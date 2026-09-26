@@ -268,55 +268,62 @@ a figure has reached the register without being checked.
    arrives twice, the settled copy wins and then the later run. A file no rule matched moves to
    `incoming/_unread/<run>/`. Once, it appends `data/logs/fleet_ledger.tsv` to the fleet's ledger
    as `legacy` lines, keyed on each row's number and text, and deletes the TSV only once every
-   line is in.
+   line is in. A test drain's row (5 tokens, no window) keeps the TSV until it is dropped.
 2. `fleet_findings.py validate` runs the **fleet's own** `contract.py` over each sidecar, so the
    schema has one implementation. A sidecar that fails is kept as `finding.json.rejected` and
    replaced by the contract's BLOCKED fallback.
-3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time,
-   here, with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never
-   reaches the register alone**: it was measured against the pushed snapshot, which is a copy, by
-   the agent that wanted the answer to be large. The items are not in the artifact, because a price
-   leg leaves them on the VPS under `/projects/ark-data/items/<slug>.jsonl` so the verify leg's
-   re-run finds them, so this fetches each one first and is loud when there is nothing to fetch or
-   no `ARK_VPS` to fetch from. A FIND with no items is not re-priced and the row says so in words.
+3. `fleet_findings.py reprice` prices every FIND its own verify lane confirmed a second time, here,
+   with `price_items.py` or `price_hostnames.py` by the lead's grain. **A fleet figure never reaches
+   the register alone**: it was measured against the pushed snapshot, which is a copy, by the agent
+   that wanted the answer to be large. It fetches the leg's items from `/projects/ark-data/items/`
+   on the VPS, loudly when it cannot; a FIND with none is not re-priced. `ark price-snapshot` prices
+   them again against `output/fleet_snapshot`, beside the store's figure as `fleet_program_ee` and
+   `agreement_pct`, and the run ends with how many finds in a row agree within 1%.
 4. `bank_findings.py` writes one row per source into the register the verdict belongs to.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
-   the five-column row filled from `lead.json` and the prose: the lens, the figure the verdict
-   line quotes, the artifact URL. A scout lead that closed under the floor used to reach
-   `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated and recording
-   nothing about it. A scout lead the fleet closed at filing is booked closed from its lead's
-   status, never its prose, and a closed row already naming its artifact URL keeps it from a
-   second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
+   the five-column row filled from `lead.json` and the prose: the lens, the figure the scout states
+   for its own source and never a bound, the artifact URL. A scout lead that closed under the floor
+   used to reach `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated
+   and recording nothing about it. A scout lead the fleet closed at filing is booked closed from
+   its lead's status, never its prose, and a closed row already naming its artifact URL keeps it
+   from a second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
    replaces its own unsettled FIND row when the figure or verify status moved; any other slug
    either register already carries is skipped and said so. Where two rows of one source meet,
    `scripts/round/compact_registers.py` keeps the newest.
 
-A drain leaves `incoming/` only once its rows are committed. Two runs were archived under
-`banked/` by a sync that failed after the drain, so nothing they carried was booked and nothing
-said so; the FIND inside them was found by hand a day later. On any earlier failure the drain
-stays where it is and the next tick takes it again, which is safe because every step is keyed on
-the slug or on a journal's sha256. A drain that books nothing new is finished rather than failed
-and is archived without a commit, because an empty commit reads as a drain that was banked.
+A drain leaves `incoming/` only once its rows are committed; its outcome lines, if they did not
+land, land on a later bank. Two runs were archived under `banked/` by a sync that failed after the
+drain, so nothing they carried was booked and nothing said so; the FIND inside them was found by
+hand a day later. On any earlier failure the drain stays where it is and the next tick takes it
+again, which is safe because every step is keyed on the slug or on a journal's sha256. A drain that
+books nothing new is finished rather than failed and is archived without a commit, because an empty
+commit reads as a drain that was banked.
 
 Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
 and the approval filer both iterate blocks that already exist. It picks the finds the standing
 rule does, by the same figure. A slug that names a registered spec gets the full
 `request_approval.py` request with its seeded sample; everything else gets a short block with both
-figures and the items file. **Only a source the standing rule parks is asked for** (a new class,
-no standing admission, a clause not ok); the rest print `no ask: the standing rule decides it`.
+figures and the items file. **Only a source the standing rule parks is asked for**, saying why:
+`Approve <source> / <class>` for a new class, `Outside the standing bounds: <source> / <class>`
+for no standing admission or a clause not ok, which `queue.md` leaves off. The rest print
+`no ask: the standing rule decides it`.
 
 `standing_rule.py` then writes the `Decision:` line for a confirmed FIND of a class already
 approved for the master whose lead the fleet admitted with every clause ok (size, terms, robots,
 class, window): on the store re-price until the program's figure agrees within 1% on the last ten
-finds in the fleet's outcome lines, then on the program's. `ark check` after the ingest gates it:
+finds in the fleet's outcome lines, then on the program's where it priced the find; a line with no
+program figure breaks the streak. The citation is a `- standing rule:` fact above the line, which
+the compactor keeps. `ark check` after the ingest gates it:
 **a red takes the rows back out with `unbank_source.py` and resets the registers to HEAD**, then
 writes `data/logs/bank_red.json`, and every tick prints `BANK RED` until `bank_trigger.py clear`.
 A red after the journals unbanks nothing. `unbank_source.py` alone deletes evidence.
 
-`sync_approvals.py` raises what is left as a pull request and an issue, and `fleet_leads.py`
-writes `banked` or `closed` back into the fleet's `leads/`, because a queue whose last step is
-invisible re-deals settled work.
+`sync_approvals.py` raises what is left as a pull request and an issue. After the commit, every
+bank books an outcome line for each confirmed FIND in its drain and every drain under `banked/`,
+with `banked` **true only once the store's ingested files hold the source**, so a find approved or
+ingested later is banked by the next bank. `fleet_leads.py` then writes `banked` or `closed` back
+into the fleet's `leads/`, because a queue whose last step is invisible re-deals settled work.
 
 ### One lock, whoever started the sync
 
@@ -582,8 +589,8 @@ carries the retirement. Its journals still ingest through the `ark ingest rdap_s
 justfile, and `attested_years` still reads them.
 
 **Probe any registry or bulk endpoint with about 150 queries before spending a night on it.** Every
-failure so far is written up in [../registers/sources.md](../registers/sources.md), and each one
-failed differently.
+failure so far is a row of [../registers/sources-closed.md](../registers/sources-closed.md), and
+each one failed differently.
 
 **A journal left on a remote disk is invisible to every measurement taken here.** `just engines`
 lists any remote journal missing locally and prints the `rsync` that fetches it, and it reports
@@ -666,8 +673,7 @@ any a sweep still holds open.
 ### The per-source collectors
 
 Each is a collect-then-split pair: the collector writes a journal and touches no database, the split
-sorts it into a dated half and a candidate half, and only then does anything reach the store. Yields
-and residual headroom for every one are in [sources.md](../registers/sources.md).
+sorts it into a dated half and a candidate half, and only then does anything reach the store.
 
 One recipe, the source as its argument. `just collect` with no source lists them.
 
@@ -792,14 +798,14 @@ because that is work rather than a decision.
 
 ## What the fleet prices against
 
-The VPS holds no store. It prices against `/projects/ark-data`: the current reviewer baseline under
-`merged<marker>/`, our last export under `netnew/`, both candidate pools under `candidates/`, and
-`manifest.json`, which carries the marker, a `built_at` and the line count and sha256 of every file.
-`scripts/harness/sync_fleet.sh` pushes all of it, reading the marker from `data/baseline.json` so it
-can never name a stale release, and removes superseded baselines on the VPS once the new one holds
-all six year files. It runs at the end of a `just bank` that exported, from the tick with `--no-ack`
-while `data/logs/.push_pending` says the last push failed, and after every non-dry `just intake`; a
-wave priced before the next push sees a ceiling, which its brief makes it say.
+The VPS holds no store. It prices against `/projects/ark-data`: his baseline, our last export and
+`attested_registrables.txt`, the candidate pools, his calculator, and `manifest.json`, which carries
+the marker, `built_at`, a `claim_sha256` over our staged claim and each file's lines and sha256.
+`scripts/harness/sync_fleet.sh` pushes all of it under the marker `data/baseline.json` names, and
+removes superseded baselines on the VPS once the new one holds all six year files. It runs after a
+`just bank` that exported, from the tick with `--no-ack` while `data/logs/.push_pending` stands, and
+after a non-dry `just intake`; `push_fleet.sh` then commits the marker and `claim_sha256` to fleet
+main as `snapshot.json`, and only its landing clears the flag. A wave priced sooner sees a ceiling.
 
 `scripts/harness/snapshot_manifest.py` stages what gets pushed, with hard links so a 1.5 GB baseline
 costs no disk, and **refuses to build a snapshot holding a zero-line file**: an empty held-set
@@ -811,17 +817,17 @@ rather than mispricing it.
     uv run ark price-snapshot --snapshot /projects/ark-data --items items.jsonl
     uv run ark price-snapshot --snapshot /projects/ark-data --items names.jsonl --track candidate
 
-**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}`, one
-JSON object per line; it prints one JSON object with `netnew_pairs`, `ee`, `by_year`, the top
-five TLDs, `www_alias_share`, `parent_held_share`, `split`, `manifest_sha`, `snapshot_marker`
-and `snapshot_built_at`, which a finding copies so the figure can be reproduced against the
-same snapshot. **`split` is fixed at `none, exact-name membership, pre-corroboration`**: the
-corroboration split needs the store's attestation and a snapshot carries year files rather
-than evidence, so `ee` is `price_items.py`'s BEFORE-the-split figure and an upper bound on
-what an annual submission of the same corpus would be credited. It reads no store and writes nothing, it applies the ingest's own hostname and `www.`
-rules and the export's shipping filter, and it exits 2 without a figure when the snapshot
-disagrees with its manifest in either direction. A leg may write its own extractor, which is
-kept as evidence; it may not write its own pricer.
+**That command is the only price a fleet leg may quote.** Items are `{host, year, text?}` or
+capture rows `{url, timestamp, status}`, one JSON object per line. It prints, and `--out` writes,
+one JSON object: `netnew_pairs`, `ee` by his calculator, `by_year`, the top five TLDs,
+`www_alias_share`, `parent_held_share`, `split`, `manifest_sha`, `snapshot_marker` and
+`snapshot_built_at`, which a finding copies. `--split auto`, the default, counts a name read only
+from `text` when its registrable is dated that year in his files or `attested_registrables.txt`;
+`--split none`, a `--class` headed by a listing, a registry record or a web method, and the
+candidate track take no split, and `split` names the rule. A 4xx or 5xx capture is a candidate
+only, and a year outside 1996 to 2001 prices on neither track. It reads no store, applies the
+ingest's hostname and `www.` rules and the export's shipping filter, and exits 2 when the snapshot
+disagrees with its manifest. A leg may write its own extractor, kept as evidence, not its pricer.
 
 ## Pricing the thin-parent lane
 

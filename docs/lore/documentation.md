@@ -6,8 +6,8 @@ deliberately meta-level: anything a docstring or a comment already says belongs 
 
 Related documents: [project-brief.md](../brief/ding/project-brief.md) is the canonical brief and
 [brief_amendments.md](../brief/brief_amendments.md) records dated changes and email clarifications;
-[sources.md](../registers/sources.md) documents each source individually, and
-[discovery.md](discovery.md) is the method for pricing a new one.
+[sources.md](../registers/sources.md) and [sources-closed.md](../registers/sources-closed.md)
+give each source one row, and [discovery.md](discovery.md) is the method for pricing a new one.
 
 ---
 
@@ -183,9 +183,7 @@ totals are measured against is named in `src/ark/baseline.py` and nowhere else.
 That changes what a queue is for. **Neither population can be finished**, and both
 grow faster than the crawl closes them, because a larger merged baseline creates
 new bracketed gaps. So the ordering decides the outcome and the tail is
-theoretical. The measured pool sizes and hit rates live in `docs/registers/sources.md` under
-`ia_cdx_bulk` and `rdap`, which is where they ship; repeating them here is how they
-come to disagree. Both list builders therefore rank
+theoretical. Both list builders therefore rank
 by **expected equivalent-English per query**, and the two factors come from
 different places:
 
