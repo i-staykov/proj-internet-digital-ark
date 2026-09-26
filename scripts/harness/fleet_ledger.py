@@ -5,7 +5,7 @@ files the way it does and appends only through its command line, so a key is bui
 place and a replay adds nothing: `append --kind K --json -` keeps a line whose kind and key
 are already in any month's file.
 
-    lines(fleet, kind)          every line of one kind, month files in name order, then file order
+    lines(fleet, kind[, ref])   every line of one kind, month files in name order, then file order
     append(fleet, kind, rows)   one `ledger.py append --kind K --json -` run over the fleet clone
     streak(outcomes)            whether the last STREAK finds with a store figure agree within 1%
 
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,14 +42,15 @@ def available(fleet: Path | None) -> bool:
     return fleet is not None and (Path(fleet) / SCRIPT).is_file()
 
 
-def lines(fleet: Path | None, kind: str) -> list[dict]:
+def lines(fleet: Path | None, kind: str, ref: str | None = None) -> list[dict]:
     """Every line of `kind`, month files in name order and lines in file order: the order
-    `ledger.py read` gives. A line that is not a JSON object is skipped."""
+    `ledger.py read` gives. With `ref`, the files as that commit holds them, so `origin/main`
+    reads what a push has landed. A line that is not a JSON object is skipped."""
     if fleet is None:
         return []
     out = []
-    for path in sorted((Path(fleet) / LEDGER_DIR).glob("*.jsonl")):
-        for text in path.read_text(errors="replace").splitlines():
+    for body in _month_files(Path(fleet), ref):
+        for text in body.splitlines():
             try:
                 line = json.loads(text) if text.strip() else None
             except ValueError:
@@ -56,6 +58,28 @@ def lines(fleet: Path | None, kind: str) -> list[dict]:
             if isinstance(line, dict) and line.get("kind") == kind:
                 out.append(line)
     return out
+
+
+_TEXT = {"capture_output": True, "text": True, "errors": "replace"}
+
+
+def _git_env() -> dict[str, str]:
+    """The environment minus git's own variables: under a hook, GIT_DIR would point
+    `git -C fleet` at the repository the hook runs in."""
+    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+
+
+def _month_files(fleet: Path, ref: str | None) -> list[str]:
+    """The month files' text, in name order, from the working tree or from `ref`."""
+    if ref is None:
+        return [p.read_text(errors="replace") for p in sorted((fleet / LEDGER_DIR).glob("*.jsonl"))]
+    git = ["git", "-C", str(fleet)]
+    env = _git_env()
+    listed = subprocess.run(
+        [*git, "ls-tree", "--name-only", ref, f"{LEDGER_DIR}/"], env=env, **_TEXT
+    )
+    names = sorted(n for n in listed.stdout.split() if n.endswith(".jsonl"))
+    return [subprocess.run([*git, "show", f"{ref}:{n}"], env=env, **_TEXT).stdout for n in names]
 
 
 def append(fleet: Path | None, kind: str, rows: list[dict]) -> tuple[bool, str]:
