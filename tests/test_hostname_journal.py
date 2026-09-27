@@ -15,7 +15,7 @@ import duckdb
 
 from ark.checks import collect_checks
 from ark.db import init_db
-from ark.evidence_types import web_evidence_exists
+from ark.evidence_types import web_evidence_exists, web_evidence_sql
 from ark.hostnames import (
     WEB_FACING_HOST_SOURCES,
     error_lane,
@@ -46,9 +46,19 @@ def _shipped(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
     return sorted(
         conn.execute(
             "SELECT hostname, assigned_year FROM hostname_year hy "
-            f"WHERE {web_evidence_exists('hy.evidence_id')}"
+            f"WHERE {web_evidence_exists('hy.evidence_id', 'hy.hostname')}"
         ).fetchall()
     )
+
+
+def _parent_years_on_web_rows(conn: duckdb.DuckDBPyConnection) -> list[tuple[int]]:
+    """The parent years whose cited row passes the method screen, whatever host it captures:
+    which row a retract leaves each year on. Here each captures a host beneath the parent, so
+    no registrable line ships on it; that takes a capture of the name itself."""
+    return conn.execute(
+        "SELECT assigned_year FROM domain_year dy JOIN evidence e USING (evidence_id) "
+        f"WHERE {web_evidence_sql('e')} ORDER BY 1"
+    ).fetchall()
 
 
 def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_path) -> None:
@@ -162,7 +172,6 @@ def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_p
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
     assert results["a_www_record_has_its_own_evidence"]["ok"]
     assert results["hostname_observed_serving_web"]["ok"]
-    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
 
 
 def test_a_www_only_year_never_dates_the_parent_even_alone(tmp_path) -> None:
@@ -172,8 +181,6 @@ def test_a_www_only_year_never_dates_the_parent_even_alone(tmp_path) -> None:
     ingest_hostname_journal(conn, write(tmp_path, [("http://www.example.com/", "19970601000000")]))
     assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 1
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
-    results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
-    assert results["a_bare_record_is_not_inferred_from_www"]["ok"]
 
 
 def test_a_forced_dns_row_and_a_www_row_without_its_own_evidence_are_both_caught() -> None:
@@ -349,11 +356,9 @@ def test_a_record_on_an_error_capture_is_repointed_or_retracted(tmp_path) -> Non
         "c.example.com": "cdx capture 20010101000000 c.example.com",
     }
     assert _shipped(conn) == [("a.example.com", 1999), ("c.example.com", 2001)]
-    shipped_years = conn.execute(
-        "SELECT assigned_year FROM domain_year dy "
-        f"WHERE {web_evidence_exists('dy.evidence_id')} ORDER BY 1"
-    ).fetchall()
-    assert shipped_years == [(1999,), (2001,)]
+    assert _parent_years_on_web_rows(conn) == [(1999,), (2001,)]
+    exact = web_evidence_exists("dy.evidence_id", "dy.domain")
+    assert conn.execute(f"SELECT * FROM domain_year dy WHERE {exact}").fetchall() == []
     results = collect_checks(conn, Path("no-such-export"), audit=audit)
     assert all(r["ok"] for r in results), [r["name"] for r in results if not r["ok"]]
 
@@ -369,9 +374,7 @@ def test_a_retracted_year_another_web_family_captured_comes_back(tmp_path) -> No
     assert stats["restored_by_another_web_family"] == 1
     assert stats["left_on_an_error_capture"] == 0
     assert ("b.example.com", 2000) in _shipped(conn)
-    assert (2000,) in conn.execute(
-        f"SELECT assigned_year FROM domain_year dy WHERE {web_evidence_exists('dy.evidence_id')}"
-    ).fetchall()
+    assert (2000,) in _parent_years_on_web_rows(conn)
     # read past the ledger for that key alone, and the ledger is left as it was
     names = [n for (n,) in conn.execute("SELECT file_name FROM ingested_file").fetchall()]
     assert names == ["nypw_status_t.jsonl.gz"]
@@ -391,11 +394,7 @@ def test_a_parent_year_never_moves_onto_a_candidate_only_row(tmp_path) -> None:
         [source],
     )
     retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
-    shipped = conn.execute(
-        "SELECT assigned_year FROM domain_year dy "
-        f"WHERE {web_evidence_exists('dy.evidence_id')} ORDER BY 1"
-    ).fetchall()
-    assert shipped == [(1999,), (2001,)]
+    assert _parent_years_on_web_rows(conn) == [(1999,), (2001,)]
     assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export"), audit=audit))
 
 
@@ -546,6 +545,11 @@ def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypat
     assert by == [("fleet_x_hostnames", "bulk_cdx_file")]
     years = conn.execute("SELECT domain, assigned_year FROM domain_year ORDER BY 1").fetchall()
     assert years == [("example.com", 1999), ("example.org", 2000)], "the 404 dates nothing"
+    cited = conn.execute(
+        "SELECT e.evidence_value FROM domain_year dy JOIN evidence e USING (evidence_id)"
+        " WHERE dy.domain = 'example.com'"
+    ).fetchall()
+    assert cited == [("cdx capture 19990301000000 example.com",)], "the stamp names the host"
     assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
     for source, files in (("fleet_y_hostnames", [part]), ("fleet_x_hostnames", [register])):
         with pytest.raises(typer.Exit) as refused:
@@ -556,7 +560,7 @@ def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypat
 def test_a_fleet_source_record_from_a_non_web_method_fails_the_check() -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
-    from ark.ingest import ensure_source
+    from ark.db import ensure_source
 
     source_id = ensure_source(conn, "fleet_x_hostnames", "timestamped")
     conn.execute(

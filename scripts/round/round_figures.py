@@ -21,13 +21,14 @@ time a source widens: a rejected record scores zero for him and full weight for 
     uv run python scripts/round/round_figures.py --full
     uv run python scripts/round/round_figures.py --verify
 
-By default it reads only the export's files and his release, never the store, so it runs
-while a bank holds the writer. `--full` adds the store's own lines, read-only.
+By default it reads only the export's files and his release as `ark intake` prepared it,
+never the store, so it runs while a bank holds the writer. `--full` adds the store's own
+lines, read-only.
 """
 
 import argparse
+import functools
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -39,37 +40,33 @@ sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
-from ark import export  # noqa: E402
+from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
-    baseline_dir,
     calculator_path,
 )
+from ark.db import DB_TEMP_DIR  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
 YEARS = range(1996, 2002)
 NETNEW = REPO / "output/netnew"
-# `YYYY<TAB>registrable` for every pair the store dates that his year file lacks, sorted as a
-# whole under LC_ALL=C. With his files and ours it is every name held in a year.
+# `YYYY<TAB>registrable` for every pair of ours that his year file lacks, sorted as a whole
+# under LC_ALL=C. With his files and ours it is every name held in a year.
 ATTESTED = NETNEW / "attested_registrables.txt"
 
 
-# Both inputs come from `ark.baseline`, which owns the fact of which release is current
-# and therefore owns finding it. This file used to carry its own resolver; a third caller
-# needing the same answer is what moved it, and `tests/test_baseline_paths.py` pins it.
+# From `ark.baseline`, which owns the fact of which release is current and therefore owns
+# finding it; `tests/test_baseline_paths.py` pins it.
 CALCULATOR = calculator_path()
-MERGED_BASELINE = baseline_dir()
 
 # The round window opens where the last shipped release closes, so it comes from
-# `ark.baseline` rather than being retyped here. `increment()` does not actually
-# need it: each of its queries carries NOT_BASELINE, so a pair the reviewer has
-# merged drops out by itself. `held` does, and cannot be fixed the same way: a
-# candidate is never in the baseline, so the time window is the only thing
-# separating this round's held names from the last round's.
+# `ark.baseline` rather than being retyped here. It bounds both store counts under
+# `--full`, and for the held names it is the only thing separating this round's from the
+# last round's.
 SINCE = CURRENT_ROUND_SINCE
 
 # His merged 1996-2001 files after the last round was folded in, from `ark.baseline`
@@ -91,19 +88,12 @@ BASELINE_EE_BY_YEAR = REVIEWER_BASELINE_EE_BY_YEAR
 LAST_PAIRS = 946_266
 LAST_EE = Decimal("603401.7811")
 
-# A pair the shared baseline already holds is not ours to report. `prior_reused` is
-# the evidence type recording that a pair arrived with the baseline.
-from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
 
-SHIPPED = _shipping_filter("y.")
-
-NOT_BASELINE = """
-    NOT EXISTS (
-        SELECT 1 FROM evidence p
-        WHERE p.domain = y.domain AND p.evidence_year = y.assigned_year
-          AND p.evidence_type = 'prior_reused'
-    )
-"""
+@functools.cache
+def his_year(year: int) -> Path:
+    """His file for `year` as `ark intake` prepared it, sorted and checked. Every diff here
+    reads it, and `held.load` refuses a release his files have moved past."""
+    return held.load().year(year)
 
 
 def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
@@ -121,16 +111,44 @@ def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
 
 
 def increment(conn: duckdb.DuckDBPyConnection) -> dict:
+    """The round so far: our pairs verified since it opened that the export would ship, each
+    screened for its capture and diffed against his file for its year by exact name."""
     weights = english_weights()
-    rows = conn.execute(f"""
-        SELECT s.name, split_part(y.domain, '.', -1) AS tld,
-               y.assigned_year, count(*) AS pairs
-        FROM domain_year y
-        JOIN evidence e ON e.evidence_id = y.evidence_id
-        JOIN source s ON s.source_id = e.source_id
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-        GROUP BY 1, 2, 3
-    """).fetchall()
+    his = held.load()
+    Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=DB_TEMP_DIR) as tmp:
+        work = Path(tmp)
+        held.our_domain_year(conn)
+        held.claim_pairs(conn)
+        held.netnew(conn, his, work)
+        since = f"""
+            FROM netnew_pair np
+            JOIN our_domain_year y ON y.domain = np.domain AND y.assigned_year = np.year
+            JOIN evidence e ON e.evidence_id = np.evidence_id
+            JOIN source s ON s.source_id = e.source_id
+            WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}'
+        """
+        rows = conn.execute(
+            f"SELECT s.name, split_part(np.domain, '.', -1), np.year, count(*) {since} "
+            "GROUP BY 1, 2, 3"
+        ).fetchall()
+        domains = conn.execute(f"SELECT count(DISTINCT np.domain) {since}").fetchone()[0]
+
+        # Dated by one source but not yet corroborated, so in no file of ours, and not in his.
+        # Same definition as the 119,055 quoted last round, so the two are comparable.
+        usenet = work / "usenet.txt"
+        held.dump(
+            conn,
+            f"""
+            SELECT DISTINCT e.domain FROM evidence e
+            JOIN source s ON s.source_id = e.source_id
+            WHERE s.name = 'usenet_mention' AND e.ingested_at >= TIMESTAMPTZ '{SINCE}'
+              AND NOT EXISTS (SELECT 1 FROM our_domain_year y WHERE y.domain = e.domain)
+            ORDER BY 1
+            """,
+            usenet,
+        )
+        held_back = held.minus(usenet, his.all, work / "held_back.txt")
 
     by_source: dict[str, list] = {}
     by_year: dict[int, list] = {}
@@ -141,49 +159,30 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
             slot[0] += pairs
             slot[1] += ee
 
-    domains = conn.execute(f"""
-        SELECT count(DISTINCT y.domain) FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-    """).fetchone()[0]
-
-    # Dated by one source but not yet corroborated, so not in an annual file. Same
-    # definition as the 119,055 quoted last round, so the two are comparable.
-    held = conn.execute(f"""
-        SELECT count(DISTINCT e.domain) FROM evidence e
-        JOIN source s ON s.source_id = e.source_id
-        WHERE s.name = 'usenet_mention' AND e.ingested_at >= TIMESTAMPTZ '{SINCE}'
-          AND NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = e.domain)
-    """).fetchone()[0]
-
     return {
         "by_source": by_source,
         "by_year": by_year,
         "pairs": sum(v[0] for v in by_year.values()),
         "ee": sum((v[1] for v in by_year.values()), Decimal(0)),
         "domains": domains,
-        "held": held,
+        "held": held_back,
     }
 
 
-def already_in_his_files(per_year: dict[int, list[str]]) -> int:
-    """Records we are about to report that his merged files already hold.
+def already_in_his_files() -> int:
+    """Lines of the shipped files that his file for the same year already holds, by exact name.
 
-    The increment is defined by `verified_at` plus the absence of a `prior_reused`
-    marker, and neither of those knows what he actually holds. Since `merged260802`
-    was ingested this should now read zero, but the check stays: the moment he issues
-    a release and it is not loaded, the store's idea of the baseline goes stale and
-    net-new silently starts including work he already has. That is exactly what
-    happened between 2 and 7 August, and it is the one error he would catch and we
-    would not.
+    The export diffs each file against his by `comm`, so this reads zero unless the files were
+    written against another release than his current one. Then net-new includes work he
+    already has, which is the one error he would catch and we would not.
     """
     overlap = 0
-    for year, ours in sorted(per_year.items()):
-        path = MERGED_BASELINE / f"{year}.txt"
-        if not path.is_file():
-            raise SystemExit(f"merged baseline not found at {path}")
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            his = {line.strip().lower() for line in fh if line.strip()}
-        overlap += len(his & {d.lower() for d in ours})
+    with tempfile.TemporaryDirectory() as tmp:
+        for year in YEARS:
+            for unit in ("", "_hostnames"):
+                path = NETNEW / f"{year}{unit}.txt"
+                if path.exists():
+                    overlap += held.intersect(path, his_year(year), Path(tmp) / f"o{year}{unit}")
     return overlap
 
 
@@ -217,7 +216,7 @@ def verify_with_his_calculator() -> dict:
         if path.exists():
             hosts = [h.strip() for h in path.read_text().splitlines() if h.strip()]
             per_year.setdefault(year, []).extend(hosts)
-    totals["overlap"] = already_in_his_files(per_year)
+    totals["overlap"] = already_in_his_files()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for year, domains in sorted(per_year.items()):
@@ -314,15 +313,11 @@ def candidate_track() -> dict:
 
 
 def common_lines(sorted_a: Path, sorted_b: Path) -> set[str]:
-    """Lines two LC_ALL=C sorted files share, streamed by `comm` rather than loaded."""
-    out = subprocess.run(
-        ["comm", "-12", str(sorted_a), str(sorted_b)],
-        env={**os.environ, "LC_ALL": "C"},
-        capture_output=True,
-        check=True,
-        encoding="utf-8",
-    ).stdout
-    return set(out.splitlines())
+    """Lines two LC_ALL=C sorted files share, by `comm` on files checked for order first."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "common.txt"
+        held.intersect(sorted_a, sorted_b, out)
+        return set(out.read_text(encoding="utf-8").splitlines())
 
 
 def www_alias_share() -> tuple[int, Decimal] | None:
@@ -339,7 +334,7 @@ def www_alias_share() -> tuple[int, Decimal] | None:
     """
     if not ATTESTED.is_file():
         return None
-    held: set[str] = set()
+    aliased: set[str] = set()
     tagged: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
         for year in YEARS:
@@ -348,47 +343,21 @@ def www_alias_share() -> tuple[int, Decimal] | None:
                 bare = sorted({h.strip()[4:] for h in fh if h.startswith("www.")})
             if not bare:
                 continue
-            his = MERGED_BASELINE / f"{year}.txt"
-            if not his.is_file():
-                raise SystemExit(f"merged baseline not found at {his}")
+            his = his_year(year)
             listing = Path(tmp) / f"www_{year}.txt"
             listing.write_text("".join(f"{n}\n" for n in bare), encoding="utf-8")
             for other in (his, NETNEW / f"{year}.txt", hosts):
-                held |= {f"{year}\t{n}" for n in common_lines(listing, other)}
+                aliased |= {f"{year}\t{n}" for n in common_lines(listing, other)}
             tagged += [f"{year}\t{n}" for n in bare]
         if tagged:
             # The attested list is sorted as a whole, so the names tagged with their year
             # find every year's hits in one pass.
             listing = Path(tmp) / "www_tagged.txt"
             listing.write_text("".join(f"{t}\n" for t in tagged), encoding="utf-8")
-            held |= common_lines(listing, ATTESTED)
+            aliased |= common_lines(listing, ATTESTED)
     weights = english_weights()
-    ee = sum((weights.get(t.rsplit(".", 1)[-1], Decimal(0)) for t in held), Decimal(0))
-    return len(held), ee
-
-
-def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
-    """The same share over the store's hostname rows before the XIII screen.
-
-    The predicate is imported from the export, so the figure cannot drift from the rule
-    that produced it.
-    """
-    weights = english_weights()
-    export.load_baseline_hostnames(conn)
-    rows, ee = 0, Decimal(0)
-    for year in YEARS:
-        excluded = conn.execute(
-            f"""
-            SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE hy.assigned_year = {year}
-              AND {export.NOT_IN_BASELINE_HOSTNAME}
-              AND NOT {export.NOT_WWW_ALIAS}
-            """
-        ).fetchall()
-        rows += len(excluded)
-        for (host,) in excluded:
-            ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
-    return rows, ee
+    ee = sum((weights.get(t.rsplit(".", 1)[-1], Decimal(0)) for t in aliased), Decimal(0))
+    return len(aliased), ee
 
 
 def main() -> None:
@@ -401,7 +370,7 @@ def main() -> None:
     ap.add_argument(
         "--full",
         action="store_true",
-        help="also read the store: the round so far, the held count, by source, the www seam",
+        help="also read the store: the round so far, the held count, by source",
     )
     args = ap.parse_args()
 
@@ -479,7 +448,6 @@ def main() -> None:
         conn = open_store()
         try:
             m = increment(conn)
-            seam_rows, seam_ee = www_alias_seam(conn)
         finally:
             conn.close()
         pairs, ee = m["pairs"], m["ee"]
@@ -488,11 +456,6 @@ def main() -> None:
             f"  since this round opened ({SINCE[:16]}), registrables only: "
             f"{pairs:,} records  {ee:,.4f}"
         )
-        if h_ee:
-            print(
-                f"  www.<held that year>, store rows before the XIII screen: {seam_rows:,} "
-                f"records  {seam_ee:,.4f}  ({seam_ee / h_ee * 100:.1f}% of the hostname half)"
-            )
         print(f"  distinct domains in the increment : {m['domains']:,}")
         print(f"  dated but held back, not counted  : {m['held']:,}")
         if pairs:
@@ -529,4 +492,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None

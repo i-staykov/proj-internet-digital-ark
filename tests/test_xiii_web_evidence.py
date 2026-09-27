@@ -1,8 +1,46 @@
-"""The annual claim is website evidence: the method decides it, and an error capture never does."""
+"""The annual claim is website evidence: the method decides it, an error capture never does, and
+a record's row captures exactly the name it dates."""
 
 from __future__ import annotations
 
-from ark.evidence_types import MASTER_TYPES, WEB_METHODS, web_evidence_sql
+import duckdb
+import pytest
+
+from ark.evidence_types import (
+    MASTER_TYPES,
+    WEB_METHODS,
+    qualifies_sql,
+    web_evidence_exists,
+    web_evidence_sql,
+)
+
+WAYBACK = "https://web.archive.org/web"
+MIRROR = "https://github.com/attrition-org/web-hack-mirror/blob/main/mirror"
+T1, T2 = "19990412235959", "20010704120000"
+SITE = "http://example.com/"
+
+
+def wayback(stamp: str, original: str) -> str:
+    return f"{WAYBACK}/{stamp}/{original}"
+
+
+def mirror(host: str) -> str:
+    return f"{MIRROR}/1999/05/01/{host}/"
+
+
+def _evidence(rows: list[tuple[str | None, ...]]) -> duckdb.DuckDBPyConnection:
+    """An `evidence` table with the columns the screen reads, one row per
+    `(domain, acquisition_method, evidence_value, evidence_url)`."""
+    conn = duckdb.connect()
+    conn.execute(
+        "CREATE TABLE evidence (evidence_id INTEGER, domain VARCHAR, "
+        "acquisition_method VARCHAR, evidence_value VARCHAR, evidence_url VARCHAR)"
+    )
+    conn.executemany(
+        "INSERT INTO evidence VALUES (?, ?, ?, ?, ?)",
+        [(n, *row) for n, row in enumerate(rows, start=1)],
+    )
+    return conn
 
 
 def test_the_allowlist_fails_closed() -> None:
@@ -24,10 +62,6 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
     Driven through DuckDB rather than asserted on the string: the whole rule lives in a
     `regexp_extract` and a `LIKE`, and only the engine can say those are right.
     """
-    import duckdb
-
-    conn = duckdb.connect()
-    conn.execute("CREATE TABLE evidence (acquisition_method VARCHAR, evidence_value VARCHAR)")
     rows = [
         ("nypw_timemap_non_200", "nypw timemap capture status 301 19990412235959", True),
         ("nypw_timemap_non_200", "nypw timemap capture status 302 20010704120000", True),
@@ -41,8 +75,7 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
         ("early_web_hostgrain", "cdx capture 19990101000000 status 302 c.example.com", True),
         ("ia_domain_year_census", "ia domain year census 2001 captures 12", False),
     ]
-    for method, value, _ in rows:
-        conn.execute("INSERT INTO evidence VALUES (?, ?)", [method, value])
+    conn = _evidence([("example.com", method, value, None) for method, value, _ in rows])
     passed = {
         value
         for (value,) in conn.execute(
@@ -89,3 +122,77 @@ def test_the_three_judged_methods_stay_where_ivo_put_them() -> None:
     # registry data does not become a web capture by being captured from the web
     assert "registry_zone_list_wayback_capture" not in WEB_METHODS
     assert "registry_listing_capture" not in WEB_METHODS
+
+
+# One row per value format a web method writes, each dating `example.com`: naming exactly that
+# name passes, naming another host fails, and naming none fails.
+FORMATS = [
+    # a capture names its host last, with the status of a non-200 before it
+    ("ia_cdx_domain_sweep", f"cdx capture {T1} example.com", None, True),
+    ("ia_cdx_domain_sweep", f"cdx capture {T1} www.example.com", None, False),
+    ("early_web_hostgrain", f"cdx capture {T1} status 302 example.com", None, True),
+    ("nypw_timemap_hostgrain", f"cdx capture {T1} status 404 example.com", None, False),
+    # a link graph names its target last; its source form names none
+    ("ukwa_host_link_graph", "host_link_graph:1999 example.com", None, True),
+    ("ukwa_host_link_graph", "host_link_graph:1999 other.com", None, False),
+    ("ukwa_host_link_graph", "host_link_graph:1999", None, False),
+    # a bare stamp takes its URL's host, without case, port, user or trailing dot, and only
+    # when the URL carries the same stamp
+    ("bulk_cdx_file", T1, wayback(T1, "http://Example.COM:80/"), True),
+    ("arquivo_cdxj", T1, f"https://arquivo.pt/wayback/{T1}/http://u@example.com./x", True),
+    ("bl_geoindex_extract", T1, wayback(T1, "http://www.example.com/"), False),
+    ("bulk_cdx_file", T1, wayback(T2, SITE), False),
+    ("bulk_cdx_file", T1, None, False),
+    # a TimeMap stamp the same way, a 3xx admitted and a 4xx refused
+    ("nypw_first_capture_index", f"nypw first capture {T1}", wayback(T1, SITE), True),
+    ("nypw_timemap", f"nypw timemap capture {T1}", wayback(T1, "http://other.com/"), False),
+    ("nypw_timemap_non_200", f"nypw timemap capture status 301 {T1}", wayback(T1, SITE), True),
+    ("nypw_timemap_non_200", f"nypw timemap capture status 404 {T1}", wayback(T1, SITE), False),
+    # a defacement mirror names its host in its path
+    ("attrition_defacement_mirror_index", "attrition", mirror("example.com"), True),
+    ("attrition_defacement_mirror_index", "attrition", mirror("www.example.com"), False),
+    # a year alone names no host, whatever web method wrote it
+    ("ia_cdx_collapsed_query", "cdx capture 1999", None, False),
+    ("bulk_cdx_file", "cdx capture 2001", None, False),
+    # a format nobody taught the screen fails closed, even beside a URL naming the host
+    ("wayback_availability", "available 19990101", wayback(T1, SITE), False),
+    # the exact host is not enough under a method that is not web
+    ("internic_zone_ns_target", f"cdx capture {T1} example.com", None, False),
+]
+
+
+def test_a_record_ships_only_on_a_capture_of_exactly_its_own_name() -> None:
+    """A capture of `www.` or of any other host beneath a name dates that host, not the name.
+    Driven through DuckDB, and never unknown: every row is true or false, so `NOT (...)` in a
+    caller keeps every row that fails."""
+    conn = _evidence([("example.com", *row[:3]) for row in FORMATS])
+    got = conn.execute(
+        f"SELECT {qualifies_sql('e', 'e.domain')} FROM evidence e ORDER BY evidence_id"
+    ).fetchall()
+    for (passes,), row in zip(got, FORMATS, strict=True):
+        assert passes is row[3], row
+
+
+def test_a_row_without_a_method_is_refused_and_not_lost() -> None:
+    """The method column is nullable. The screen's answer for such a row is false, not
+    unknown, so a caller asking which rows fail sees it."""
+    conn = _evidence([("example.com", None, "cdx capture 19990601120000 example.com", None)])
+    failing = f"SELECT count(*) FROM evidence e WHERE NOT {qualifies_sql('e', 'e.domain')}"
+    assert conn.execute(failing).fetchone()[0] == 1
+
+
+def test_the_claims_screen_names_the_record_it_tests() -> None:
+    """`web_evidence_exists` needs the record's own name, so no caller can forget it."""
+    with pytest.raises(TypeError):
+        web_evidence_exists("dy.evidence_id")  # type: ignore[call-arg]
+    conn = _evidence(
+        [
+            ("example.com", "ia_cdx_domain_sweep", "cdx capture 19990601120000 example.com", None),
+            ("www.com", "ia_cdx_domain_sweep", "cdx capture 19990601120000 www.www.com", None),
+        ]
+    )
+    conn.execute("CREATE TABLE dy AS SELECT evidence_id, domain FROM evidence")
+    shipped = conn.execute(
+        f"SELECT domain FROM dy WHERE {web_evidence_exists('dy.evidence_id', 'dy.domain')}"
+    ).fetchall()
+    assert shipped == [("example.com",)]

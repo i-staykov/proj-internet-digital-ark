@@ -13,12 +13,11 @@ Six tables, which together are the whole provenance graph:
     domain_year     the annual assignments, each pointing at one evidence row
     ingested_file   the sha256 ledger, so a file's contribution is traceable
 
-**The reviewer's own rows are excluded.** 362.6 million of 442.2 million evidence rows were
-`prior_reused`, one per pair his release already holds, and 3 GB of an archive that then
-exceeded his 5 GB limit. What is lost is tracing a pair he can trace in his own release;
-what is kept is every row this project claims, and `ark check` asserts that nothing in
-`additions/` or `hostnames/` rests on a `prior_reused` row. Assignments citing an excluded
-row go with it, so the export never points at evidence it does not carry.
+**His rows are excluded; an assignment citing one is re-pointed to our best row or dropped.**
+They say only that his release already holds a pair, and they were 3 GB of an archive that
+then exceeded his 5 GB limit. What is lost is tracing a pair he can trace in his own release;
+what is kept is every row this project claims, and the export never points at evidence it
+does not carry.
 """
 
 import shutil
@@ -69,7 +68,7 @@ CREATE TABLE domain_language AS SELECT * FROM read_parquet('domain_language.parq
 CREATE TABLE hostname_year AS SELECT * FROM read_parquet('hostname_year.parquet');
 
 -- Why is a domain in a given annual file? One row per supporting observation.
--- Replace the domain and year with any line from additions/ or masters/.
+-- Replace the domain and year with any line from additions/.
 SELECT dy.assigned_year, s.name AS source, e.evidence_type, e.evidence_value
 FROM domain_year dy
 JOIN evidence e ON e.domain = dy.domain AND e.evidence_year = dy.assigned_year

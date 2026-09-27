@@ -45,8 +45,8 @@ from loguru import logger
 
 from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
+from ark.db import ensure_source
 from ark.evidence_types import ERROR_STATUS, WEB_METHODS
-from ark.ingest import ensure_source
 
 SOURCE_NAME = "ia_cdx_hostnames"
 # One source row, two acquisition methods: the NYPW TimeMap parts re-emitted at hostname

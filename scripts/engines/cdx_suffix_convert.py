@@ -8,7 +8,9 @@ one row per domain with a year list. So the right move is a converter, not a new
 `SourceSpec`, which would duplicate a reviewed decision for no gain.
 
 **Exact host only.** A capture dates a registrable only when its host IS the registrable:
-`www.x.com` and `sub.x.com` are hostname records and never date `x.com` here.
+`www.x.com` and `sub.x.com` are hostname records and never date `x.com` here. Each year keeps
+its earliest 2xx or 3xx stamp under `stamps`, so the ingested row names that capture and its
+host (`cdx capture <ts> x.com`) and passes the exact-host test a shipped record needs.
 
 **Only new or grown journals are read**, per the state file beside the output. gzip cannot
 resume, so a grown journal is read whole again; the ingest dedups per (domain, year,
@@ -61,8 +63,9 @@ def save_state(path: Path, state: dict[str, tuple[int, int, str]]) -> None:
     os.replace(tmp, path)
 
 
-def read_journal(path: str, years: defaultdict[str, set[int]]) -> tuple[int, str]:
-    """Add one journal's exact-host registrable years; return its row count and outcome."""
+def read_journal(path: str, stamps: defaultdict[str, dict[int, str]]) -> tuple[int, str]:
+    """Add one journal's exact-host registrable years, each with its earliest stamp; return its
+    row count and outcome."""
     # per journal, because a journal is one parent's hosts and they rarely recur in the next
     exact: dict[str, str | None] = {}
     rows = 0
@@ -90,8 +93,11 @@ def read_journal(path: str, years: defaultdict[str, set[int]]) -> tuple[int, str
                 if authority not in exact:
                     host = host_of(authority)
                     exact[authority] = host if host and to_registrable(host) == host else None
-                if exact[authority]:
-                    years[exact[authority]].add(year)
+                host = exact[authority]
+                if host:
+                    cur = stamps[host].get(year)
+                    if cur is None or stamp < cur:
+                        stamps[host][year] = stamp
     except EOFError:
         return rows, "truncated"
     except (OSError, zlib.error) as exc:
@@ -115,7 +121,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(f"{dest} exists: pass another --tag")
 
     state = load_state(state_path)
-    years: defaultdict[str, set[int]] = defaultdict(set)
+    stamps: defaultdict[str, dict[int, str]] = defaultdict(dict)
     read = unchanged = bad = rows = 0
     for path in sorted(glob.glob(args.glob)):
         name = os.path.basename(path)
@@ -130,25 +136,26 @@ def main(argv: list[str] | None = None) -> None:
                 bad += 1
                 print(f"still bad: {name}")
             continue
-        n, outcome = read_journal(path, years)
+        n, outcome = read_journal(path, stamps)
         read += 1
         rows += n
         bad += outcome == "bad"
         # the stat from before the read, so rows a live sweep appends meanwhile come next run
         state[name] = (st.st_size, st.st_mtime_ns, outcome)
 
-    if years:
+    if stamps:
         args.out.mkdir(parents=True, exist_ok=True)
         part = dest.with_name(dest.name + ".part")
         with open_journal_for_write(part) as fh:
-            for dom, ys in sorted(years.items()):
+            for dom, ys in sorted(stamps.items()):
                 fh.write(
                     json.dumps(
                         {
                             "domain": dom,
                             "status": 200,
                             "years": sorted(ys),
-                            "strategy": "suffix_sweep",
+                            "stamps": {str(y): ys[y] for y in sorted(ys)},
+                            "strategy": "suffix_sweep_exact",
                         }
                     )
                     + "\n"
@@ -159,8 +166,8 @@ def main(argv: list[str] | None = None) -> None:
         save_state(state_path, state)
 
     print(f"{read:,} journal(s) read, {unchanged:,} unchanged, {bad:,} bad; {rows:,} capture rows")
-    if years:
-        print(f"  {len(years):,} exact-host registrables -> {dest}")
+    if stamps:
+        print(f"  {len(stamps):,} exact-host registrables -> {dest}")
         print(f"  next: uv run ark ingest cdx_snapshot {dest}")
     else:
         print("  nothing new, nothing written")

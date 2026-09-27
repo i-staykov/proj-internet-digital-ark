@@ -56,8 +56,7 @@ def summarise(conn) -> None:
     example = conn.execute(
         """
         SELECT dy.domain, dy.assigned_year FROM domain_year dy
-        JOIN evidence e ON e.evidence_id = dy.evidence_id
-        WHERE e.evidence_type <> 'prior_reused' LIMIT 1
+        JOIN evidence e ON e.evidence_id = dy.evidence_id LIMIT 1
         """
     ).fetchone()
     if example:

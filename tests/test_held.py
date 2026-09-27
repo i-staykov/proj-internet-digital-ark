@@ -152,6 +152,39 @@ def test_load_refuses_a_release_it_has_not_prepared_or_that_moved(tmp_path: Path
         held.load(folder)
 
 
+def test_prepare_keeps_only_the_current_release_and_no_stale_part(tmp_path: Path) -> None:
+    old = held.HELD_ROOT / "merged260101"
+    old.mkdir(parents=True)
+    (old / held.STAMP).write_text("{}")
+    kept = held.HELD_ROOT / "not-held-sets"
+    kept.mkdir()
+    (held.HELD_ROOT / MARKER).mkdir()
+    (held.HELD_ROOT / MARKER / "all.txt.part").write_text("half")
+    his = held.prepare(stage(tmp_path))
+    assert not old.exists() and kept.exists()
+    assert not list(his.dir.rglob("*.part"))
+
+
+def test_prepare_never_prunes_its_own_folder_under_another_spelling(tmp_path: Path) -> None:
+    folder = stage(tmp_path)
+    held.prepare(folder)
+    kept = held.HELD_ROOT / MARKER
+    (held.HELD_ROOT / "other").mkdir()
+    ((held.HELD_ROOT / "other") / held.STAMP).write_text("{}")
+    alias = held.HELD_ROOT / "alias"
+    alias.symlink_to(kept, target_is_directory=True)
+    held.prepare(folder)
+    assert kept.is_dir() and (kept / held.STAMP).is_file()
+    assert not (held.HELD_ROOT / "other").exists()
+
+
+def test_the_marker_is_the_folder_name_even_for_a_dot(tmp_path: Path, monkeypatch) -> None:
+    folder = stage(tmp_path)
+    monkeypatch.chdir(folder)
+    assert held.prepare(Path(".")).marker == MARKER
+    assert held.load(Path(".")).dir == held.HELD_ROOT / MARKER
+
+
 def test_an_incomplete_release_is_refused(tmp_path: Path) -> None:
     folder = stage(tmp_path)
     (folder / "candidate_pool.txt").unlink()

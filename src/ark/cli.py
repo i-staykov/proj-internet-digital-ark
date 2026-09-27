@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 from ark import approvals, held
 from ark.audit import write_audit
-from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
+from ark.baseline import baseline_dir
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
@@ -27,7 +27,7 @@ from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_onl
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
-from ark.ingest import YEARS, ingest_legacy
+from ark.ingest import YEARS
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
@@ -75,6 +75,16 @@ def _abortable_pool(workers: int) -> Iterator[ThreadPoolExecutor]:
         pool.shutdown(wait=False, cancel_futures=True)
 
 
+@contextmanager
+def _held_sets() -> Iterator[None]:
+    """His held sets missing or stale is a step to take, and its message names it: no traceback."""
+    try:
+        yield
+    except held.HeldError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
+
+
 @app.callback()
 def _setup(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging.")] = False,
@@ -95,40 +105,6 @@ def init() -> None:
     logger.info(f"work queue ready at {DEFAULT_QUEUE_PATH}")
 
 
-@app.command(name="ingest-legacy")
-def ingest_legacy_cmd(
-    legacy_dir: Annotated[
-        Path,
-        typer.Option(
-            help="Folder holding the provided baseline files. Defaults to wherever the "
-            "current release actually is: the repository path, or `baseline/<marker>/` "
-            "in an unpacked delivery, where the repository path does not exist."
-        ),
-    ] = BASELINE_DIR,
-    marker_prefix: Annotated[
-        str,
-        typer.Option(
-            "--marker-prefix",
-            help="Namespace for this baseline's evidence markers, e.g. 'merged260727'. Required "
-            "when loading a later release: the marker is the file name alone, so a second "
-            "1996.txt would otherwise be skipped as already ingested. Defaults to the current "
-            "release; pass the pair explicitly to load an older one.",
-        ),
-    ] = CURRENT_BASELINE_MARKER,
-) -> None:
-    """Load the baseline year files and merge stats into the store."""
-    conn = connect()
-    init_db(conn)
-    all_stats = ingest_legacy(conn, legacy_dir, marker_prefix=marker_prefix)
-    ingested = [s for s in all_stats if not s["skipped"]]
-    total_rows = sum(s.get("year_rows", 0) for s in ingested)
-    total_rejected = sum(s.get("rejected", 0) for s in ingested)
-    logger.info(
-        f"done: {len(ingested)} files ingested, {len(all_stats) - len(ingested)} skipped, "
-        f"{total_rows} year rows added, {total_rejected} lines rejected"
-    )
-
-
 @app.command()
 def intake(
     baseline: Annotated[
@@ -143,7 +119,8 @@ def intake(
 
     Opens no store, and never writes a file of his.
     """
-    his = held.prepare(baseline)
+    with _held_sets():
+        his = held.prepare(baseline)
     logger.info(
         f"{his.marker}: {his.counts['all']:,} names in {his.all}, "
         f"{his.counts['candidates']:,} in {his.candidates}"
@@ -624,7 +601,8 @@ def seed_pool(
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     stats = write_source_part(spec, files)
-    combined = combine_parts(connect())
+    with _held_sets():
+        combined = combine_parts(connect())
     typer.echo(f"seed-pool {source}: {dict(stats)}\nseed pool: {combined}")
 
 
@@ -669,7 +647,8 @@ def seed(
             f"autocommit and the insert ignores duplicates."
         ) from None
     queue_conn = connect_queue()
-    seed_from_file(conn, queue_conn, seed_file, limit)
+    with _held_sets():
+        seed_from_file(conn, queue_conn, seed_file, limit)
 
 
 @app.command()
@@ -789,8 +768,8 @@ def export(
         ),
     ] = False,
 ) -> None:
-    """Write net-new year files, candidates, manifest, merged masters and the stamp; `--claim`
-    writes only the claim files ROUND.md reads and the stamp.
+    """Write net-new year files, candidates, manifests and the stamp; `--claim` writes only the
+    claim files ROUND.md reads and the stamp. Needs the held sets `ark intake` writes.
 
     Patient, because it is the first step of shipping a round: DuckDB blocks a write
     connection against any other process holding the file, even a reader, and this
@@ -802,7 +781,8 @@ def export(
     if claim and provenance:
         raise typer.BadParameter("--claim writes no provenance graph: pass one of the two")
     conn = connect_patiently()
-    export_all(conn, with_provenance=provenance, claim_only=claim)
+    with _held_sets():
+        export_all(conn, with_provenance=provenance, claim_only=claim)
 
 
 @app.command(name="price-snapshot")
@@ -873,7 +853,8 @@ def stats() -> None:
     # Waits out the ingest loop rather than raising a lock traceback: this records a
     # metrics row, so it needs the write lock even though it only reports.
     conn = connect_patiently()
-    scoreboard = collect_stats(conn)
+    with _held_sets():
+        scoreboard = collect_stats(conn)
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
     record_metrics(conn, "stats", "scoreboard", scoreboard)
@@ -1058,8 +1039,8 @@ def rebuild(
     """Rebuild the result from a provenance export, with no source data.
 
     Loads the exported evidence graph into the store and re-runs the exporter, which
-    regenerates the annual files, the merged masters, the candidate list and the
-    manifest. Run `ark check` afterwards.
+    regenerates the annual files, the candidate lists and the manifests. Needs the held
+    sets `ark intake` writes, checked before anything is dropped. Run `ark check` afterwards.
 
     DROPS the store's tables before recreating them from Parquet, so it refuses when the
     store holds ingested files the export does not: during collection anything banked
@@ -1087,8 +1068,10 @@ def rebuild(
             f"first, or pass --force if that is what you want."
         )
 
-    load_provenance(conn, provenance_dir)
-    stats = export_all(conn)
+    with _held_sets():
+        held.load()
+        load_provenance(conn, provenance_dir)
+        stats = export_all(conn)
     typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
 
 
@@ -1100,7 +1083,8 @@ def check() -> None:
     # read-write open in the same process fails while this connection lives.
     conn = connect_read_only_patiently()
     try:
-        results = collect_checks(conn, audit=AUDIT_PATH)
+        with _held_sets():
+            results = collect_checks(conn, audit=AUDIT_PATH)
     finally:
         conn.close()
     typer.echo(format_checks(results))

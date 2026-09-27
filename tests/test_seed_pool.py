@@ -6,6 +6,7 @@ from pathlib import Path
 
 import duckdb
 
+from ark import db
 from ark.bulk import BulkRecord, SourceSpec
 from ark.seed_pool import combine_parts, write_source_part
 
@@ -99,3 +100,20 @@ def test_an_empty_pool_reports_itself_rather_than_writing_files(tmp_path: Path) 
     result = combine_parts(seed_dir=tmp_path / "seeds", parts_dir=tmp_path / "parts")
     assert result == {"parts": 0, "seeds": 0}
     assert not (tmp_path / "seeds" / "download_seeds.txt").exists()
+
+
+def test_given_a_store_it_counts_the_domains_his_files_lack(
+    tmp_path: Path, his_files: Path, monkeypatch
+) -> None:
+    """By exact name: his 1999 file holds `www.rolled.com`, which is not `rolled.com`."""
+    monkeypatch.setattr(db, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+    parts, out = tmp_path / "parts", tmp_path / "seeds"
+    records = [_rec("www.already-his.com"), _rec("www.rolled.com"), _rec("shop.fresh.org")]
+    write_source_part(_spec("s", records), [tmp_path / "input"], parts_dir=parts)
+    # a name ours could never be is left out of the count rather than failing it
+    (parts / "odd.csv").write_text("seed,domain,year\nx.Odd.com,Odd.com,1998\n")
+
+    result = combine_parts(duckdb.connect(), seed_dir=out, parts_dir=parts)
+    assert result["domains"] == 4
+    # rolled.com and fresh.org
+    assert result["domains_not_in_his_files"] == 2
