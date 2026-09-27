@@ -84,6 +84,10 @@ def round_prune():
     return module
 
 
+# Headroom above the guard under which every recipe says so before it refuses.
+WARN_GIB = 50
+
+
 def space(*, root: Path = ROOT) -> tuple[int, list[str]]:
     """Require the free-space floor plus a write budget on both destination filesystems."""
     try:
@@ -111,6 +115,11 @@ def space(*, root: Path = ROOT) -> tuple[int, list[str]]:
                     "REFUSED: insufficient free space; no ingest or export started. "
                     "Use verified off-site cleanup or increase capacity.",
                 ]
+            if free < required + int(WARN_GIB * GIB):
+                lines.append(
+                    f"WARNING: within {WARN_GIB} GiB of the guard; "
+                    "`just prune --disk` lists what can go"
+                )
         return 0, lines
     except (OSError, ValueError, OverflowError) as exc:
         return 2, [f"REFUSED: cannot establish free space: {exc}"]

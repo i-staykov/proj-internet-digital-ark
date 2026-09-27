@@ -34,7 +34,6 @@ from report_figures import BASELINE, figures  # noqa: E402
 
 from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
-    CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
@@ -601,7 +600,6 @@ def substitutions(f: dict) -> dict[str, str]:
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),
-        "CUMULATIVE": cumulative(f, growth),
         "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
@@ -706,79 +704,36 @@ def reproduction_result() -> str:
 
 
 class ScoreRow(NamedTuple):
-    """One round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
+    """One submitted round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
 
     label: str
     p: Decimal
-    t: int
     s: Decimal
     scored: bool
 
 
-def score_rows(growth: Decimal) -> list[ScoreRow]:
-    """Every submitted round and this one, priced by `ark.figures`.
+def score_rows() -> list[ScoreRow]:
+    """Every submitted round, priced by `ark.figures`.
 
     The awarded percentages and both timestamps are quoted in
     `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
-    it. This round uses its own unverified growth and this minute as its receipt, and is
-    never marked scored, because he has not seen it.
+    it. Where he has stated the score himself, his figure wins over our model of the rule,
+    so the total is one he recognises.
     """
     rows = []
     for r in SUBMITTED_ROUNDS:
-        t = t_days(r[6], r[7])
-        s = score(r[5], t)
-        # Where he has stated the score himself, his figure wins over our model of the
-        # rule. Round 8 is why: he divided by 33, our benchmark interval divides by 1,
-        # and summing our reading put S_total at 200.88 in a report whose next sentence
-        # admits we cannot reproduce his divisor. A total he cannot recognise is worse
-        # than no total.
         his = awarded_score_of(r[0])
-        if his is not None:
-            t, s = his.divisor, his.score
-        rows.append(ScoreRow(r[0], r[5], t, s, scored_under_rule(r[7])))
-    t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
-    rows.append(
-        ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
-    )
+        s = his.score if his is not None else score(r[5], t_days(r[6], r[7]))
+        rows.append(ScoreRow(r[0], r[5], s, scored_under_rule(r[7])))
     return rows
 
 
-def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow], list[ScoreRow]]:
-    """Cumulative percentage, his S_total, the rounds he scored and the ones before the rule."""
-    pct = sum((r.p for r in rows), Decimal(0))
+def _score_parts(growth: Decimal) -> tuple[Decimal, Decimal, list[ScoreRow]]:
+    """Cumulative percentage, this round and round 1 on records included, and his S_total."""
+    rows = score_rows()
+    pct = sum((r.p for r in rows), growth)
     scored = [r for r in rows if r.scored]
-    early = [r for r in rows[:-1] if not r.scored]
-    return pct, score_total(r.s for r in scored), scored, early
-
-
-def _per_round(rows: list[ScoreRow]) -> str:
-    """`label: p / t = S`, p at the six places he awards so the division checks by hand."""
-    return "; ".join(f"{r.label.split()[0]}: {r.p:.6f}% / {r.t}d = {r.s:.6f}" for r in rows)
-
-
-def cumulative(f: dict, growth: Decimal) -> str:
-    """Both official records: the cumulative percentage and the time-weighted score.
-
-    The percentage record is the direct arithmetic sum of what he awarded, round 1
-    included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
-    The score record is the sum of S_i over the rounds he has scored, which his rule
-    only covers from its 2026-08-20 update: earlier rounds get their would-be S in a
-    clause of their own, and this round its prediction, labelled as such.
-    """
-    rows = score_rows(growth)
-    pct, total, scored, early = _score_parts(rows)
-    this = rows[-1]
-    early_labels = ", ".join(r.label for r in early[:-1]) + f" and {early[-1].label}"
-    return (
-        f"**Score, by both rules in your brief.** Cumulative verified percentage "
-        f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
-        f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
-        f"({_per_round(scored)}), with t_i the elapsed time from the release of the package "
-        "a round is measured against to receipt, rounded up to whole days in your clock, "
-        "which reproduces the 6.88 and 6.302372 you quoted. This round would add "
-        f"{this.s:.6f} at t = {this.t} if received now. Rounds {early_labels} predate the "
-        f"rule; under it they would have scored {_per_round(early)}."
-    )
+    return pct, score_total(r.s for r in scored), scored
 
 
 def merge_reconciliation() -> str:
@@ -849,15 +804,11 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     """The two official records in one sentence, written the way he writes them.
 
     **His figures, in his own arithmetic.** He states one score per round and sets each
-    track out as `S = 10 x (p / t)`, so the total is the sum of the three scores he has
-    quoted rather than our model of them, and this round is given as the two lines he
-    would write himself. His 0903 update replaced the benchmark interval and his round 8
-    divisor fixed its origin: he scored it 10 x (18.769714 / 33) and received it on
-    2026-09-04, and 33 whole calendar days back is 2026-08-02. That was once a question to
-    him. It is not one: the divisor he used is the answer.
+    track out as `S = 10 x (p / t)`, so the total is the sum of the scores he has quoted
+    rather than our model of them, and this round is given as the two lines he would write
+    himself, t whole days since the task assignment, 2 August 2026.
     """
-    rows = score_rows(growth)
-    pct, total, scored, _early = _score_parts(rows)
+    pct, total, scored = _score_parts(growth)
     t_now = t_days_assignment(now_in_his_clock())
     addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
     labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
