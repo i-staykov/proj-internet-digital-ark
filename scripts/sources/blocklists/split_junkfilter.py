@@ -10,8 +10,7 @@ has no independent evidence it ever resolved and goes to the candidate pool to e
 `split_expansion_journal.py` treats every row of the `domain` table as known, which includes
 names that are themselves only candidates. That is too weak for a blocklist. Used here:
 **a domain is corroborated when it already carries an assigned year in `domain_year`**, which
-is the same test every source priced on 2026-08-26 was measured against, and it is what
-CLAUDE.md means by "another source needs to date that domain first".
+is what CLAUDE.md means by "another source needs to date that domain first".
 
 **Nothing is discarded.** Both halves are written; the loader routes the uncorroborated half
 to the candidate pool as `link_target`, which never dates a year.

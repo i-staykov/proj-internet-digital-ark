@@ -2,9 +2,9 @@
 
 The rows are `<14-digit timestamp>/<URL>` and a tab and a postcode, so each row
 carries its own IA capture stamp next to the URL it captured. The registrable
-ingest sent that URL through `to_registrable` and threw the host away
-(`scripts/sources/ukwa/ukwa_geoindex_price.py:41-44`); the hostname unit accepted
-on 2026-09-01 makes the host itself the record. This writes the `{url, timestamp}`
+ingest sends that URL through `to_registrable` and throws the host away
+(`scripts/sources/ukwa/ukwa_geoindex_price.py:41-44`); the hostname unit makes
+the host itself the record. This writes the `{url, timestamp}`
 journal shape the hostname pricer and ingest read, one output journal per input
 member so the ingest ledger stays idempotent per member.
 

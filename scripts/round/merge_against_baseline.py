@@ -89,7 +89,7 @@ ADDITIONS = _first_holding(
     "2001.txt",
 )
 
-# The second output unit, accepted on 2026-09-01: valid hostnames beneath held
+# The second output unit: valid hostnames beneath held
 # registrables, one file per year beside the registrable one. His calculator scores a
 # distinct hostname at full weight, so the submitted set per year is the union of both
 # files. `ark export` writes them next to the registrable files; the archive stages them

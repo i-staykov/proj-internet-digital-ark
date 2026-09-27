@@ -23,9 +23,9 @@ to find. Three signals separate them, and each is a measured shape rather than a
   batch lines, which print a clock but no date: a reconstructed date would be a guess, and the
   file's mtime is a fact.
 
-**Every collector log, not one.** The first version read `cdx_pool.log` alone, so when that pool
-stood down on 2026-09-05 the reader went on judging a lane that had stopped and said nothing about
-the two that were still running. A collector that is not watched is the one that fails quietly.
+**Every collector log, not one.** A reader of one pool's log judges a lane that may have stopped
+and says nothing about the others still running. A collector that is not watched is the one that
+fails quietly.
 
     uv run python scripts/harness/query_health.py [--write] [--tail N]
 """

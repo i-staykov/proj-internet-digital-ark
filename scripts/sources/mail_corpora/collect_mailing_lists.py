@@ -50,12 +50,11 @@ YEARS = range(1996, 2002)
 HOSTS = {
     "python": "https://mail.python.org/pipermail/",
     "gnome": "https://mail.gnome.org/archives/",
-    # Added 2026-09-09 on the fleet's own FIND of 2026-09-08: seven whole month files of
-    # `mail.zope.dev/pipermail/zope/` measured **1,036 EE** at hostname grain, 26.6 MB on the
-    # wire, and the lead was left unbanked only because the floor was 10,000 EE that morning.
-    # The host serves 62 lists, and `zope`, `zope-dev` and `zope-announce` alone carry 40, 36
-    # and 30 in-window month files. It publishes no robots.txt at all (404), so nothing is
-    # disallowed and no crawl-delay is declared; the pause below is ours.
+    # Seven whole month files of `mail.zope.dev/pipermail/zope/` measure **1,036 EE** at
+    # hostname grain, 26.6 MB on the wire. The host serves 62 lists, and `zope`, `zope-dev`
+    # and `zope-announce` alone carry 40, 36 and 30 in-window month files. It publishes no
+    # robots.txt at all (404), so nothing is disallowed and no crawl-delay is declared; the
+    # pause below is ours.
     "zope": "https://mail.zope.dev/pipermail/",
 }
 

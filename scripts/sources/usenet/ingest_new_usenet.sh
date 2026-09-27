@@ -52,12 +52,9 @@ uv run python scripts/sources/usenet/split_usenet.py "${pending[@]}" --tag "$tag
     exit 1
 }
 
-# The exit status of each ingest decides whether the archives are marked, and
-# it used to be discarded. On 1 August a concurrent reader held the DuckDB write
-# lock, both ingests failed, and 92 archives were marked processed anyway: the
-# journals survived on disk but nothing would ever have offered them again, so
-# the work was silently lost rather than deferred. The comment below already
-# claimed this behaviour; now the code does it.
+# The exit status of each ingest decides whether the archives are marked: an
+# ingest that fails, say on a DuckDB write lock a concurrent reader holds, leaves
+# its archives unmarked, so the work is deferred rather than silently lost.
 ingested=1
 for half in dated candidates; do
     journal="$DIR/usenet_${half}_${tag}.jsonl.gz"

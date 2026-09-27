@@ -3,8 +3,7 @@
 **The queue is only true if the end of the pipeline writes to it.** A lead reaches
 `verified` in the fleet and then leaves for the laptop, which books it, decides it, ingests
 it or refuses it. Nothing there is visible from GitHub, so without this the dealer keeps
-seeing a settled lead as live work and re-deals it, which is exactly how six settled slugs
-were relaunched on 2026-09-01 when result lines were written late.
+seeing a settled lead as live work and re-deals it.
 
 Two terminal statuses, and the schema has no third:
 
@@ -14,7 +13,7 @@ Two terminal statuses, and the schema has no third:
              such a line is set `banked`, drained or not
     closed   a measured negative: a CLOSED finding, or a FIND its own verify lane disputed
 
-Everything else is left exactly as it is. A confirmed FIND still waiting on Ivo is not
+Everything else is left exactly as it is. A confirmed FIND still waiting on the owner is not
 settled, and a BLOCKED leg is a leg to run again, not a lead to bury.
 
 **Banked is read off the ledger, not the register.** A register block is keyed on the name

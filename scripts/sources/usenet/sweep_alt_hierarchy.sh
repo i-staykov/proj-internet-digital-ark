@@ -91,11 +91,10 @@ for size, name in rows:
 PY
 fi
 
-# **A run id, because the batch counter alone recycles shard names across runs.** Measured
-# 2026-09-08: the lane was stopped and restarted, its counter began at 1 again, and its first
-# batch's shards overwrote the first run's `batch1_shard_*`. Nothing banked was lost, because
-# `ark ingest-usenet-hostnames` refuses a ledgered name whose sha256 differs rather than skipping
-# it, but the next ingest would have failed. The run id makes a shard name unique for good.
+# **A run id, because the batch counter alone recycles shard names across runs.** A restarted
+# lane's counter begins at 1 again and its first batch overwrites the last run's
+# `batch1_shard_*`; `ark ingest-usenet-hostnames` refuses a ledgered name whose sha256 differs,
+# so the next ingest fails. The run id makes a shard name unique across runs.
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 batch=0
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
@@ -113,8 +112,8 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     echo "=== batch $batch: $(wc -l < "$WORK/batch.txt" | tr -d ' ') groups, $(awk -v d="$WORK/batch.txt" 'BEGIN{while((getline l < d)>0) want[l]=1} want[$2]{s+=$1} END{printf "%.1f", s/1e9}' "$PLAN") GB ==="
 
     # Six connections. Measured 2026-09-08: one connection to `archive.org/download`
-    # runs at about 2.5 MB/s, so two ran the first batch at 5.1 MB/s and the whole
-    # 193 GB lane would have taken 10.7 hours. Six is the rate that fits the lane in
+    # runs at about 2.5 MB/s, so two run at 5.1 MB/s and take 10.7 hours over the
+    # 193 GB lane. Six is the rate that fits the lane in
     # the round and stays modest for one host; the extraction behind it keeps up.
     xargs -P 6 -I{} curl -sSfL --retry 3 --retry-delay 5 -A "$UA" \
         -o "$WORK/{}" "$BASE/{}" < "$WORK/batch.txt"

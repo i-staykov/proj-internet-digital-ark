@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # The one lock a sync holds, whoever started it.
 #
-# The hourly wrapper held a lock and a hand-run `just sync` held nothing, so the two ran
-# together: measured 2026-09-09, a terminal recovering two waves and the launchd job at :05
-# were in the store at the same time, one of them lost `ark export` to a lock conflict, and
-# the journal ACK was skipped. Both paths now take THIS lock, inside the recipe, so the lock
-# is where the work is rather than around one of the two ways of starting it.
+# A lock around only one way of starting a sync lets a hand run and the hourly job meet in
+# the store, where one loses `ark export` to a lock conflict and the journal ACK is skipped.
+# Both paths take THIS lock, inside the recipe, so the lock is where the work is rather than
+# around one of the two ways of starting it.
 #
 # mkdir is the atomic primitive macOS has without flock: the directory either appears for us
 # or exists already. The pid inside says who holds it, so a lock left by a killed run is

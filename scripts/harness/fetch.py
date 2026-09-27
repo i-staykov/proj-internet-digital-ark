@@ -172,7 +172,7 @@ def get(
     early is continued rather than restarted. **The span is bounded on purpose.** An
     open-ended `bytes=N-` past 2 GiB is answered 206 by the archive and then delivers
     nothing at all, while the same byte asked for as `bytes=N-M` comes back with a correct
-    `Content-Range`. Measured against the UKWA artifact on 2026-09-11.
+    `Content-Range`. Measured against the UKWA artifact.
     """
     fields = {"User-Agent": USER_AGENT}
     if start is not None:
@@ -671,10 +671,10 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
 
                 # **Two ways a body ends early, and neither may read as success.** A dead
                 # connection raises `http.client.HTTPException`, which is not an `OSError`,
-                # so it used to traceback out with no receipt and a part-file on disk. And
+                # so uncaught it tracebacks out with no receipt and a part-file on disk. And
                 # a server that hangs up after a short body raises NOTHING at all:
                 # `HTTPResponse.read(amt)` returns b"" and the loop calls it EOF, so a
-                # truncated corpus banked a sha256 of the part that arrived. The declared
+                # truncated corpus banks a sha256 of the part that arrived. The declared
                 # length is checked against what was counted, below.
                 # The hash is kept as an object rather than a hex string, because a
                 # transfer continued with `Range` has to go on hashing where it stopped.

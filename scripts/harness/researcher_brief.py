@@ -17,9 +17,8 @@ now carries a QUEUE, and the agent is told to work down it until the budget runs
 out. The fixed cost of a round, reading CLAUDE.md and orienting, is paid once and
 amortised over every hypothesis in the queue rather than over one.
 
-**3. A closure can rest on a screen that has since been retired.** The novelty
-screen was retired on 2026-08-25 and the free-hosting family had to be re-tested
-because of it; the same happened to Stanford WebBase. So the brief names that
+**3. A closure can rest on a screen that has since been retired**, as the free-hosting
+family and Stanford WebBase did on the novelty screen. So the brief names that
 possibility explicitly and tells the agent what to do about it, which is the one
 judgement a collision report cannot make for it.
 

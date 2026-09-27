@@ -1,9 +1,9 @@
 """Re-read the trade-press OCR already on disk with the corrected extractor.
 
-`probe_texts_corpus.DOMAIN_RE` used to require two labels before the TLD, so it
-read `www.foo.com` and dropped `foo.com`, `http://foo.com/` and `bob@foo.com`.
-Printed copy drops the `www.` constantly, so the collector never saw a third of
-the addresses on the pages it had already downloaded.
+A `DOMAIN_RE` that requires two labels before the TLD reads `www.foo.com` and
+drops `foo.com`, `http://foo.com/` and `bob@foo.com`. Printed copy drops the
+`www.` constantly, so such an extraction misses about a third of the addresses on
+pages already downloaded.
 
 This is the third time on this project that the win was in bytes already on disk
 rather than in a new corpus, after the UUCP maps and the Usenet address forms, so

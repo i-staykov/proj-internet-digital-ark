@@ -19,7 +19,7 @@ PREFIX="${3:?journal prefix, e.g. hostcdx_ia600702}"
 UA="InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 mkdir -p "$OUT"
 
-# One long transfer dropped at 7% on 2026-09-22 and a gzip stream cannot resume, so the file is
+# A long transfer can drop mid-stream and a gzip stream cannot resume, so the file is
 # fetched in ranges: each chunk lands on disk, is checked against its expected size, retried
 # whole if short, and only then fed on in order.
 CHUNK="${ARK_CHUNK_BYTES:-$((512 * 1024 * 1024))}"

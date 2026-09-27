@@ -16,14 +16,14 @@ from `data/brief.json`.
 by five orders of magnitude at least once: `isc-domain-survey-free-editions` was scouted at
 2,500,000 EE and measured at 6.2. The low figure is what a leg was willing to stand behind.
 
-Ivo's floor of 2026-09-19: 5,000 EE of net-new to warrant his attention, master or
+The floor is 5,000 EE of net-new to warrant the owner's attention, master or
 candidate, both tracks scoring at the same rate. Anything under it that has an obvious
 ruling is ingested without asking.
 
 **Named `lead_queue` and not `queue`.** `scripts/round/` lands on `sys.path` when anything
 in it runs, so a module called `queue.py` here shadows the standard library's and every
-import of `urllib3` below it dies on `queue.LifoQueue`. That took the hourly sync down on
-2026-09-19 and stopped banking for a cycle.
+import of `urllib3` below it dies on `queue.LifoQueue`, taking the hourly sync and its
+banking down with it.
 
     uv run python scripts/round/lead_queue.py [--fleet DIR] [--write]
 """
@@ -50,7 +50,7 @@ _STORE_EE = re.compile(r"store\s+([\d,]+(?:\.\d+)?)\s*EE", re.I)
 # is the single exception to the grain rule in `_track`.
 _ISC = re.compile(r"\bisc\b|isc_survey", re.I)
 
-# What Ivo is still asked for, and nothing else: a new evidence class and the send. A lead's
+# What the owner is still asked for, and nothing else: a new evidence class and the send. A lead's
 # `blocked_on` is free text written by a scout, so it is matched rather than parsed. A rule
 # a scout asks for is a ruling on what counts as evidence, so it is a class; a download, a
 # terms page or a re-run matches neither, because the standing bounds decide those.
@@ -70,7 +70,7 @@ _SPEC.loader.exec_module(fleet_ledger)
 
 
 def ask_of(blocked: str) -> str:
-    """The ask a blocker puts to Ivo, or "" for one that is not his."""
+    """The ask a blocker puts to the owner, or "" for one that is not his."""
     for name, pattern in ASKS:
         if pattern.search(blocked):
             return name
@@ -90,9 +90,8 @@ def banked(fleet: Path) -> set[str]:
     whose `banked` is true, and every lead whose own status is `banked`.
 
     **Why a banked lead is dropped at all.** A lead reaches `verified` in the fleet, the
-    laptop ingests it, and a queue read off the lead file alone keeps it. Four leads worth
-    about 94,000 EE sat in this queue on 2026-09-19 having been ingested days earlier, which
-    is a queue that spends Ivo's attention on finished work.
+    laptop ingests it, and a queue read off the lead file alone keeps it, spending the
+    owner's attention on finished work.
 
     **Never the store, and no cached list of it.** The store's names are the ingest's, which
     are a lead's slug only by luck, while an outcome line carries the lead's own slug and is
@@ -115,9 +114,7 @@ def measured(paths: tuple[Path, ...] = REGISTERS) -> dict[str, tuple[float | Non
     """What each slug was WORTH when somebody read the artifact, from the register tables.
 
     **A lead carries a scout's estimate and the register carries a measurement, and only
-    the second is a number.** On 2026-09-19 four leads stood in this queue between 16,958
-    and 200,662 EE that the register already recorded as 93.9 EE, 1,389.1 EE, 0 EE and
-    banked-on-2026-09-10: about 380,000 EE of headroom that does not exist. An estimate is
+    the second is a number.** An estimate is
     what a leg was willing to guess before reading the artifact, so once the artifact has
     been read the guess has no standing at all.
 
@@ -304,7 +301,7 @@ def send_line(path: Path = BRIEF) -> str:
 
 
 def render(rows: list[dict], send: str = "", missing: str = "") -> str:
-    """The page: the send, then the new classes Ivo is asked for, grouped by what his yes
+    """The page: the send, then the new classes the owner is asked for, grouped by what his yes
     unlocks.
 
     **Only a measured figure is a row.** A scout's estimate has been wrong by five orders of

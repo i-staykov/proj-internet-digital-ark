@@ -102,8 +102,8 @@ def main() -> None:
     )
     print()
 
-    # The scored metric since August 2026 is equivalent-English domains, so a
-    # count of pairs no longer says what a tranche is worth: 10,000 `.de` pairs
+    # The scored metric is equivalent-English domains, so a
+    # count of pairs does not say what a tranche is worth: 10,000 `.de` pairs
     # score less than 1,500 `.uk` ones. Both totals are reported because only
     # the corroborated half can enter the annual files immediately.
     total = sum((weight_of(d) for d, _ in new_pairs), Decimal(0))
