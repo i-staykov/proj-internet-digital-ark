@@ -232,7 +232,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - Sibling RDAP queue ranker (`rank_sibling_queue.py`): no RDAP queue is left, and the candidate-pool headroom it fed measured 0.107 points, not 1.47.
 - Page-level English verification engine: EE is the TLD-weighted share in `docs/brief/ding/project-brief.md` section III, not a per-site verdict.
 - Local admitter (`scripts/harness/admit_prompt.txt`, the `claude -p` leg of `just bank`): a local `claude -p` bills the laptop's own Claude login at API rates, and `standing_rule.py` makes the admit decision with no tokens.
-- Laptop agent fan-out and overnight hunt (`agent_fanout.sh`, `agent_watchdog.sh`, `just hunt-overnight`, `just agent-loop`): the fleet runs sessions on a schedule with per-run telemetry.
+- Laptop agent fan-out and overnight hunt (`agent_fanout.sh`, `agent_watchdog.sh`, `just hunt-overnight`, `just agent-loop`, `.claude/workflows/hunt-*.js`): the fleet runs sessions on a schedule with per-run telemetry.
 - Decision sheet (`scripts/harness/decision_sheet.py`, `decisions-open.md`): a third copy of the pending queue, beside the `Decision: pending` blocks and the `needs-owner` issues.
 - VPS sweep scripts (restart_sweeps, make_vps_bundle, vps_bootstrap, pull_vps_journals, vps_start_edge, cdx_suffix_run, pull_suffix_loop): the one VPS client runs `cdx_platform_walk.py`.
 - Output-unit pack (`scripts/output_unit_pack/`): it copied `canonical.py`, the public suffix list and the English-share table, and copies drift.

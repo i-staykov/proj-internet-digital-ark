@@ -17,7 +17,3 @@ shapes Ding expects tried; `docs/lore/laws.md` holds the killers and the arithme
    Channel, lists the hosts that refuse us by name.
 4. Price it with the `price-source` skill.
 5. Log it as the source's one row either way (`CLAUDE.md`, Registers).
-
-For a fan-out across several candidate shapes at once, the three `hunt-*` workflows already do
-that; this skill is the single-lens protocol and the screen. After two empty hunts, ask what KIND
-of artifact has never been looked for, not which host has not been tried.
