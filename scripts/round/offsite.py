@@ -68,7 +68,7 @@ COLUMNS = ("entry", "class", "bytes", "files", "digest", "reason")
 REFETCHABLE = {"data/raw/usenet_bulk", "data/raw/usenet_new"}
 
 # Written beside the data by verify_raw.py, so not part of any entry's own manifest.
-SIDECARS = ("SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat")
+SIDECARS = ("SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", "DELETED.tsv")
 
 
 def _load(name: str):

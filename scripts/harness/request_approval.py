@@ -33,7 +33,6 @@ import gzip
 import json
 import random
 import sys
-import time
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
@@ -44,28 +43,28 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.approvals import load  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
+
+# The exit when his held sets are missing or stale: nothing was refused, so `fleet_request.py`
+# writes no block and the next bank asks again.
+NOT_NOW = 3
 
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 SAMPLE_SIZE = 6
 
 
 def read_only_store(patience_s: int = 1800) -> duckdb.DuckDBPyConnection:
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    "the store stayed locked; re-run when the ingest finishes"
-                ) from None
-            time.sleep(5)
+    try:
+        return connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" not in str(exc):
+            raise
+        raise SystemExit("the store stayed locked; re-run when the ingest finishes") from None
 
 
 def records_of(journal: Path, source: str = "") -> list[dict]:
@@ -213,24 +212,20 @@ def main() -> None:
     pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
     weights = english_weights()
 
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        # nothing is decided without his files: the bank asks again once `ark intake` has run
+        print(error, file=sys.stderr)
+        raise SystemExit(NOT_NOW) from None
     conn = read_only_store()
     try:
-        names = sorted({d for d, _ in pairs})
-        held_pairs: set[tuple[str, int]] = set()
-        attested: set[str] = set()
-        for start in range(0, len(names), 4000):
-            batch = names[start : start + 4000]
-            marks = ", ".join("?" * len(batch))
-            held_pairs |= {
-                (d, y)
-                for d, y in conn.execute(
-                    f"SELECT domain, assigned_year FROM domain_year WHERE domain IN ({marks})",
-                    batch,
-                ).fetchall()
-            }
-        attested = {d for d, _ in held_pairs}
+        # dated already: a pair of ours, or the exact name in his file for that year
+        held_pairs = held.known_years(conn, {d for d, _ in pairs}, his)
     finally:
         conn.close()
+    # his all.txt is his six year files merged, so this is `held.attested` without a second scan
+    attested = {d for d, _ in held_pairs}
 
     def ee(rows) -> Decimal:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
@@ -279,15 +274,15 @@ def main() -> None:
 
     lines += [
         "",
-        "**Measured against the live store**, by program, not by the agent:",
+        "**Measured against the live store and his files**, by program, not by the agent:",
         "",
         "| | |",
         "|---|--:|",
         f"| records in the journal | {len(records):,} |",
         f"| distinct (domain, year) | {len(pairs):,} |",
         f"| over distinct domains | {len({d for d, _ in pairs}):,} |",
-        f"| already held by the store | {len(pairs) - len(netnew):,} |",
-        f"| absent from the store | {len(netnew) / max(len(pairs), 1):.1%} |",
+        f"| already held, ours or his | {len(pairs) - len(netnew):,} |",
+        f"| held by neither | {len(netnew) / max(len(pairs), 1):.1%} |",
         "",
         "**The counterfactual, so the stake is visible before you decide:**",
         "",

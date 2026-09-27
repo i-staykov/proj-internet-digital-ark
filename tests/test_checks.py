@@ -3,9 +3,12 @@
 from pathlib import Path
 
 import duckdb
+from his_release import WEB_METHOD, capture, stage, text
 
-from ark.checks import collect_checks
+from ark import held
+from ark.checks import collect_checks, format_checks
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 
 
 def _clean_store() -> duckdb.DuckDBPyConnection:
@@ -25,26 +28,18 @@ def _clean_store() -> duckdb.DuckDBPyConnection:
 def _results_by_name(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path | None = None,
+    baseline: Path | None = None,
 ) -> dict[str, dict]:
     # Never the real output/: a check that reads files must be pointed at a
     # fixture, or the suite asserts against the actual deliverable. Every
     # file-reading directory needs its own override, and a new check that adds
     # one without threading it here will quietly start doing exactly that.
-    return {r["name"]: r for r in collect_checks(conn, netnew_dir or Path("no-such-export"))}
+    results = collect_checks(conn, netnew_dir or Path("no-such-export"), baseline=baseline)
+    return {r["name"]: r for r in results}
 
 
 def test_clean_store_passes_all_checks() -> None:
     results = collect_checks(_clean_store(), Path("no-such-export"))
-    # Thirteen invariants: nine after the English partition was retired, the IDN check
-    # added 2026-08-17, the `.arpa` check added 2026-08-18 when a hunt lens found
-    # reverse-DNS zones shipping in all six annual files at weight 1.0000, the delegation
-    # check, and `no_tld_that_never_existed_in_the_window` added 2026-08-31 after 749
-    # shipped pairs were found under 131 TLDs from the 2013 new-gTLD programme.
-    # The two hostname-wall checks were added 2026-09-01 with the second output unit, and
-    # the two purpose checks (web-facing observation, no `www.<parent>`) on 2026-09-02.
-    # `a_bare_record_is_not_inferred_from_www` joined them on 2026-09-06, the mirror of the
-    # `www.` check: his ruling that day made the inference bidirectional, so refusing only
-    # one direction was refusing half of it.
     # Pinned, not counted loosely: a check silently dropped
     # from the gate is the failure this assertion exists to catch.
     assert len(results) == 19, [r["name"] for r in results]
@@ -141,30 +136,89 @@ def test_registration_spans_are_exempt_from_the_year_match() -> None:
     assert _results_by_name(conn)["evidence_year_matches_its_value"]["ok"] is False
 
 
-def test_detects_an_addition_that_is_also_baseline(tmp_path: Path) -> None:
-    """The invariant is about the SHIPPED file, not the store. A pair the baseline already
-    had may sit in the store carrying this project's own evidence too, which is what a
-    rolling baseline produces. What must never happen is that pair appearing in the
-    exported additions, where it would be counted a second time.
+def _his_release(tmp_path: Path) -> Path:
+    """His release, with `both.com` in his 1998 file beside the names he already holds."""
+    folder = stage(tmp_path / "release", {"1998.txt": text(["already-his.com", "both.com"])})
+    held.prepare(folder)
+    return folder
+
+
+def test_detects_an_addition_his_file_holds(tmp_path: Path) -> None:
+    """Held by him is the exact name in his file for the year. We may date a name he holds,
+    and the store keeps our row; what must never happen is that name in our exported file for
+    the same year, where it would be counted a second time. Hostname files are held alike.
     """
+    his = _his_release(tmp_path)
+    netnew = tmp_path / "netnew"
+    netnew.mkdir()
+    (netnew / "1998.txt").write_text("example.com\n", encoding="utf-8")
+    # his other years do not count against 1998: `early.his.org` is his in 1996 only
+    (netnew / "1998_hostnames.txt").write_text("early.his.org\n", encoding="utf-8")
     conn = _clean_store()
-    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
-    prior = ensure_source(conn, "prior_task", "timestamped")
-    add_candidate(conn, "both.com", cdx)
-    assign_year(
-        conn, record_evidence(conn, "both.com", cdx, 1998, "cdx_timestamp", "19980202000000")
-    )
-    record_evidence(conn, "both.com", prior, 1998, "prior_reused", "1998.txt")
+    assert _results_by_name(conn, netnew, his)["additions_not_double_counted"]["ok"] is True
 
-    # store alone is clean: the pair simply has evidence from both rounds
-    (tmp_path / "1998.txt").write_text("example.com\n", encoding="utf-8")
-    assert _results_by_name(conn, tmp_path)["additions_not_double_counted"]["ok"] is True
-
-    # shipping it as an addition is the violation
-    (tmp_path / "1998.txt").write_text("example.com\nboth.com\n", encoding="utf-8")
-    results = _results_by_name(conn, tmp_path)
+    # shipping his name as an addition is the violation, in either file
+    (netnew / "1998.txt").write_text("both.com\nexample.com\n", encoding="utf-8")
+    (netnew / "1996_hostnames.txt").write_text("early.his.org\n", encoding="utf-8")
+    results = _results_by_name(conn, netnew, his)
     assert results["additions_not_double_counted"]["ok"] is False
-    assert results["additions_not_double_counted"]["offending"] == 1
+    assert results["additions_not_double_counted"]["offending"] == 2
+
+
+def test_the_double_count_check_fails_closed_and_the_others_still_report(tmp_path: Path) -> None:
+    """His files not prepared, or a file of ours `comm` would misread, is a failure carrying
+    its reason, never a pass, and the rest of the gate still runs."""
+    netnew = tmp_path / "netnew"
+    netnew.mkdir()
+    (netnew / "1998_hostnames.txt").write_text("www.example.com\n", encoding="utf-8")
+    results = collect_checks(_clean_store(), netnew)
+    assert len(results) == 19
+    by_name = {r["name"]: r for r in results}
+    missing = by_name.pop("additions_not_double_counted")
+    assert missing["ok"] is False
+    assert "run uv run ark intake" in missing["error"]
+    assert all(r["ok"] for r in by_name.values()), [n for n, r in by_name.items() if not r["ok"]]
+    report = format_checks(results)
+    assert f"[FAIL] additions_not_double_counted: {missing['error']}" in report
+    assert report.endswith("FAILED: additions_not_double_counted")
+
+    his = _his_release(tmp_path)
+    (netnew / "1998.txt").write_text("example.com\nboth.com\n", encoding="utf-8")
+    unsorted = _results_by_name(_clean_store(), netnew, his)["additions_not_double_counted"]
+    assert unsorted["ok"] is False
+    assert "not LC_ALL=C sorted" in unsorted["error"]
+
+
+def test_a_registrable_line_needs_a_web_row_of_ours_capturing_that_exact_name(
+    tmp_path: Path,
+) -> None:
+    """A registrable line ships on a capture of exactly that name in that year. A capture of
+    `www.` or of any host beneath it dates that host, not the registrable; neither does a
+    capture that names no host, an error capture, a row of his, or a row of another year."""
+    conn = _clean_store()
+    web = ensure_source(conn, "cdx_sweep", "timestamped")
+    his = ensure_source(conn, HIS_SOURCE, "timestamped")
+    rows = [
+        ("exact.com", 1998, capture("exact.com", 1998), WEB_METHOD),
+        ("www-only.com", 1998, capture("www.www-only.com", 1998), WEB_METHOD),
+        ("deep.com", 1998, capture("shop.deep.com", 1998), WEB_METHOD),
+        ("yearless.com", 1998, "cdx capture 1998", "ia_cdx_collapsed_query"),
+        ("error.com", 1998, "cdx capture 19980601120000 status 404 error.com", WEB_METHOD),
+        ("his.com", 1998, "1998.txt", HIS_SOURCE),
+        ("elsewhen.com", 1997, capture("elsewhen.com", 1997), WEB_METHOD),
+    ]
+    for domain, year, value, method in rows:
+        source, kind = (his, HIS_TYPE) if method == HIS_SOURCE else (web, "cdx_timestamp")
+        add_candidate(conn, domain, source)
+        record_evidence(conn, domain, source, year, kind, value, acquisition_method=method)
+    netnew = tmp_path / "netnew"
+    netnew.mkdir()
+    (netnew / "1998.txt").write_text("exact.com\n", encoding="utf-8")
+    check = "a_registrable_record_has_its_own_capture"
+    assert _results_by_name(conn, netnew)[check]["ok"] is True
+    shipped = sorted(domain for domain, *_ in rows)
+    (netnew / "1998.txt").write_text("".join(f"{d}\n" for d in shipped), encoding="utf-8")
+    assert _results_by_name(conn, netnew)[check]["offending"] == len(rows) - 1
 
 
 def test_missing_export_is_skipped_not_silently_passed(tmp_path: Path) -> None:

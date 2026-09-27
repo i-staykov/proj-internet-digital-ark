@@ -3,6 +3,7 @@
 from collections import Counter
 from pathlib import Path
 
+from ark import held
 from ark.bulk import ingest_files
 from ark.checks import collect_checks
 from ark.db import connect, init_db
@@ -61,12 +62,12 @@ def test_only_a_bare_target_ships_and_the_stored_class_stays_a_candidate(tmp_pat
     for year in range(1996, 2002):
         (baseline / f"{year}.txt").write_text("already-his.com\n")
     (baseline / "candidate_pool.txt").write_text("already-his-candidate.com\n")
+    held.prepare(baseline)
     netnew = tmp_path / "netnew"
     export_all(
         conn,
         netnew_dir=netnew,
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -75,4 +76,4 @@ def test_only_a_bare_target_ships_and_the_stored_class_stays_a_candidate(tmp_pat
     claim = (netnew / "candidate_additions.txt").read_text().split()
     assert {"sub-ark-test.org", "www-ark-test.com"} <= set(claim)
     assert "bare-ark-test.com" not in claim
-    assert all(r["ok"] for r in collect_checks(conn, netnew))
+    assert all(r["ok"] for r in collect_checks(conn, netnew, baseline=baseline))

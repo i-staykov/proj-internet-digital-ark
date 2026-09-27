@@ -28,7 +28,7 @@ def _delivery_layout(root: Path) -> Path:
 
 
 def test_the_baseline_is_found_from_an_unpacked_delivery(tmp_path: Path, monkeypatch) -> None:
-    """`ark ingest-legacy` died here with "missing year files in feedback-phase-6/..."."""
+    """A delivery keeps his release at `baseline/<marker>/`, not at the repository path."""
     source = _delivery_layout(tmp_path)
     monkeypatch.chdir(source)
     assert not Path("feedback-phase-6").exists(), "the repository path must be absent"
@@ -55,8 +55,8 @@ def test_an_absent_baseline_returns_the_first_candidate_rather_than_raising(
     tmp_path: Path, monkeypatch
 ) -> None:
     """A missing baseline is the caller's error to report, with a path in the message.
-    `ingest_legacy` already fails with "missing year files in <dir>", which names what to go
-    and find; a resolver that raised would replace that with a less useful message.
+    `held.prepare` already fails with "his release is incomplete, missing: <files>", naming
+    what to go and find; a resolver that raised would replace that with a less useful message.
     """
     monkeypatch.chdir(tmp_path)
     assert baseline_dir().name == CURRENT_BASELINE_MARKER

@@ -31,7 +31,7 @@ generalised; nothing downstream of them can be got wrong twice.
 - **It counts domains and pairs separately.** Conflating them once reported
   1,161,961 domains against a true 463,566.
 - **It bounds the typo rate** by checking how many never-before-seen names are one
-  edit from a name already held, which is the honest upper bound on OCR and
+  edit from a name already known, which is the honest upper bound on OCR and
   transcription junk.
 - **It never writes.** Pricing decides whether to build a collector; it is not one.
 
@@ -56,6 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import duckdb  # noqa: E402
 from probe_texts_corpus import domains_in, to_registrable  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
@@ -156,23 +157,19 @@ def year_of(record: dict) -> int | None:
     return int(found.group(1)) if found else None
 
 
-def within_one_edit(name: str, held: set[str]) -> bool:
-    """Whether one edit of `name` is a name the store already holds.
+def one_edit_variants(name: str) -> set[str]:
+    """Every name one deletion, substitution or insertion away from `name`.
 
-    Generates the neighbourhood rather than scanning `held`, so it is a few
-    hundred set lookups instead of millions of comparisons.
+    Asking about this neighbourhood rather than scanning every known name is a few
+    hundred lookups per name instead of millions of comparisons.
     """
+    out: set[str] = set()
     for i in range(len(name)):
-        if name[:i] + name[i + 1 :] in held:
-            return True
-        for ch in ALPHABET:
-            if ch != name[i] and name[:i] + ch + name[i + 1 :] in held:
-                return True
+        out.add(name[:i] + name[i + 1 :])
+        out.update(name[:i] + ch + name[i + 1 :] for ch in ALPHABET if ch != name[i])
     for i in range(len(name) + 1):
-        for ch in ALPHABET:
-            if name[:i] + ch + name[i:] in held:
-                return True
-    return False
+        out.update(name[:i] + ch + name[i:] for ch in ALPHABET)
+    return out
 
 
 def main() -> None:
@@ -240,37 +237,26 @@ def main() -> None:
     pairs = seen_pair
     names = sorted({d for d, _ in pairs})
 
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
     conn = read_only_store()
     try:
-        held_pairs: set[tuple[str, int]] = set()
-        known: set[str] = set()
-        attested: set[str] = set()
-        for start in range(0, len(names), 4000):
-            batch = names[start : start + 4000]
-            marks = ", ".join("?" * len(batch))
-            held_pairs |= {
-                (d, y)
-                for d, y in conn.execute(
-                    f"SELECT domain, assigned_year FROM domain_year WHERE domain IN ({marks})",
-                    batch,
-                ).fetchall()
-            }
-            known |= {
-                r[0]
-                for r in conn.execute(
-                    f"SELECT domain FROM domain WHERE domain IN ({marks})", batch
-                ).fetchall()
-            }
-        attested = {d for d, _ in held_pairs}
-        # The typo bound asks whether a never-seen name is one edit from a held one,
-        # which needs the whole name set rather than a lookup, so it is loaded only
-        # when there is something to check.
-        candidate_new = [d for d in names if d not in known]
-        all_known: set[str] = set()
-        if candidate_new:
-            all_known = {r[0] for r in conn.execute("SELECT domain FROM domain").fetchall()}
+        # dated already: a pair of ours, or the exact name in his file for that year
+        held_pairs = held.known_years(conn, names, his)
+        # The typo bound asks whether a net-new name is one edit from a known one. Only
+        # the edits of the sampled names are asked about, in the same pass as the names
+        # themselves, so no whole name set is loaded.
+        sample_names = sorted({d for d, y in pairs if (d, y) not in held_pairs})[:1500]
+        variants = {v for d in sample_names for v in one_edit_variants(d)}
+        found = held.known_names(conn, variants.union(names), his)
     finally:
         conn.close()
+    # his all.txt is his six year files merged, so this is `held.attested` without a second scan
+    attested = {d for d, _ in held_pairs}
+    known = found.intersection(names)
+    near_known = found & variants
 
     # cumulative net-new equivalent-English against item count, for the fits
     curve: list[tuple[int, float]] = []
@@ -304,7 +290,7 @@ def main() -> None:
     print(
         f"distinct (domain, year)    : {len(pairs):,} over {len({d for d, _ in pairs}):,} domains"
     )
-    print(f"already held by the store  : {len(pairs) - len(netnew):,}")
+    print(f"already held, ours or his  : {len(pairs) - len(netnew):,}")
     print()
     if args.no_split:
         split = {(d, y) for d, y in netnew if d in attested}
@@ -358,12 +344,11 @@ def main() -> None:
         print(f"  by year                  : {dict(sorted(by_year.items()))}")
         print(f"  by tld                   : {dict(by_tld.most_common(6))}")
 
-    sample_names = sorted({d for d, _ in netnew})[:1500]
-    if sample_names and all_known:
-        near = sum(1 for d in sample_names if within_one_edit(d, all_known))
+    if sample_names:
+        near = sum(1 for d in sample_names if not near_known.isdisjoint(one_edit_variants(d)))
         print(
             f"  typo upper bound         : {near:,} of {len(sample_names):,} sampled net-new names "
-            f"({near / len(sample_names) * 100:.1f}%) are one edit from a name already held"
+            f"({near / len(sample_names) * 100:.1f}%) are one edit from a name already known"
         )
 
     if args.sample_of and stats["items"]:

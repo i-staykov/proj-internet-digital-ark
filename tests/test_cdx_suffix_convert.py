@@ -120,3 +120,36 @@ def test_a_corrupt_journal_is_named_and_the_others_convert(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "still bad: suffix_magic_1.jsonl.gz" in out and "still bad: suffix_deflate_1" in out
     assert "0 journal(s) read, 4 unchanged, 2 bad" in out
+
+
+def test_each_year_keeps_its_earliest_exact_2xx_or_3xx_stamp(tmp_path):
+    """Across journals, the earliest capture of the host itself per year: an earlier `www.`
+    capture or an earlier error capture never gives the stamp."""
+    inp = tmp_path / "in"
+    inp.mkdir()
+    with gzip.open(inp / "suffix_x_com_1.jsonl.gz", "wt") as fh:
+        for url, ts, status in [
+            ("http://x.com/b", "19980601000000", "200"),
+            ("http://www.x.com/", "19980101000000", "200"),
+            ("http://x.com/", "19980201000000", "404"),
+            ("http://x.com/a", "19980301000000", "200"),
+            ("http://x.com/", "20000201000000", "200"),
+            ("http://x.com/moved", "20000101000000", "302"),
+        ]:
+            fh.write(json.dumps({"url": url, "timestamp": ts, "status": status}) + "\n")
+    _journal(inp / "suffix_x_com_2.jsonl.gz", [("http://x.com/c", "19980215000000")])
+
+    _run(tmp_path, "one")
+
+    (path,) = (tmp_path / "out").glob("cdx_suffix_*.jsonl.gz")
+    with gzip.open(path, "rt") as fh:
+        rows = [json.loads(line) for line in fh]
+    assert rows == [
+        {
+            "domain": "x.com",
+            "status": 200,
+            "years": [1998, 2000],
+            "stamps": {"1998": "19980215000000", "2000": "20000101000000"},
+            "strategy": "suffix_sweep_exact",
+        }
+    ]

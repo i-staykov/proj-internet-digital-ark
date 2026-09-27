@@ -49,7 +49,7 @@ def test_arpa_carries_the_highest_weight_in_the_model() -> None:
 
 def test_the_export_filter_names_the_whole_tld_not_the_reverse_dns_shape() -> None:
     """Pinned because the narrow rule was tried first and let `ignore.arpa` through."""
-    from ark.export import _NOT_REVERSE_DNS
+    from ark.delegation import shipping_filter
 
-    assert "'%.arpa'" in _NOT_REVERSE_DNS
-    assert "in-addr" not in _NOT_REVERSE_DNS
+    assert "'%.arpa'" in shipping_filter()
+    assert "in-addr" not in shipping_filter()

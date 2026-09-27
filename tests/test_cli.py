@@ -16,14 +16,25 @@ def test_help_lists_commands() -> None:
     assert callable(ark.main)
 
 
-def test_export_runs_after_init(tmp_path, monkeypatch) -> None:
+def test_export_runs_after_init(tmp_path, monkeypatch, his_files) -> None:
     monkeypatch.chdir(tmp_path)
     assert runner.invoke(app, ["init"]).exit_code == 0
     result = runner.invoke(app, ["export"])
     assert result.exit_code == 0
 
 
-def test_seed_takes_positional_path(tmp_path, monkeypatch) -> None:
+def test_without_held_sets_export_and_rebuild_say_to_run_intake(tmp_path, monkeypatch) -> None:
+    """One line naming the step, no traceback, and a rebuild refuses before it drops a table."""
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init"]).exit_code == 0
+    for args in (["export"], ["stats"], ["rebuild", "output/provenance"]):
+        result = runner.invoke(app, args)
+        assert result.exit_code == 1, args
+        assert "run uv run ark intake" in result.output
+        assert isinstance(result.exception, SystemExit)
+
+
+def test_seed_takes_positional_path(tmp_path, monkeypatch, his_files) -> None:
     # run in a temp cwd so the default data/ stores are created there, not in the repo
     monkeypatch.chdir(tmp_path)
     fixture = tmp_path / "seeds.txt"
@@ -59,7 +70,9 @@ def test_ingest_rejects_unknown_source(tmp_path, monkeypatch) -> None:
     assert result.exit_code != 0
 
 
-def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeypatch) -> None:
+def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(
+    tmp_path, monkeypatch, his_files
+) -> None:
     """`ark rebuild` DROPS the store's tables before recreating them from
     Parquet. On a finished delivery that is the tier-2 reviewer path; during
     collection it silently discards everything ingested since the last export,
@@ -83,7 +96,7 @@ def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeyp
     assert "refusing to rebuild" in result.output
 
 
-def test_rebuild_proceeds_when_the_export_is_current(tmp_path, monkeypatch) -> None:
+def test_rebuild_proceeds_when_the_export_is_current(tmp_path, monkeypatch, his_files) -> None:
     monkeypatch.chdir(tmp_path)
     assert runner.invoke(app, ["init"]).exit_code == 0
     assert runner.invoke(app, ["export", "--provenance"]).exit_code == 0

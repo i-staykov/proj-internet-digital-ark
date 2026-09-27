@@ -2,19 +2,20 @@
 
 import csv
 import json
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from ark import export
+from ark import export, held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.english_share import weight_of
 from ark.ingest import YEARS
 
 
 @pytest.fixture
-def collection(tmp_path, monkeypatch):
+def collection(tmp_path):
     baseline = tmp_path / "baseline"
     baseline.mkdir()
     for year in YEARS:
@@ -23,7 +24,7 @@ def collection(tmp_path, monkeypatch):
     (baseline / "candidate_pool.txt").write_text(
         " POOL.example.com \npool.example.com\nwww.alias.example.com\n", encoding="utf-8"
     )
-    monkeypatch.setattr(export, "baseline_dir", lambda: baseline)
+    held.prepare(baseline)
     conn = connect(":memory:")
     init_db(conn)
     source = ensure_source(conn, export.ISC_SOURCE, "timestamped")
@@ -63,16 +64,19 @@ def observe(conn, source, hostname, year=1996, month="07", parent="example.com")
     )
 
 
-def write_collection(conn, out: Path):
-    export.load_baseline_hostnames(conn)
+def write_collection(conn, baseline: Path, out: Path):
+    his = held.load(baseline)
+    held.our_domain_year(conn)
     stats = {}
+    with tempfile.TemporaryDirectory(dir=out.parent) as work:
+        export.reduce_isc(conn, his, Path(work))
     export.export_isc_hostnames(conn, out, stats)
     export.export_isc_provenance(conn, out, stats)
     return stats
 
 
 def test_reconciles_all_years_exact_names_and_preserves_each_observation(collection):
-    conn, source, _, out = collection
+    conn, source, baseline, out = collection
     for host in (
         "keep.example.com",
         "pool.example.com",
@@ -92,7 +96,7 @@ def test_reconciles_all_years_exact_names_and_preserves_each_observation(collect
     observe(conn, source, "keep.example.com", month="01")
     observe(conn, source, "keep.example.uk", parent="example.uk")
     observe(conn, source, "future.example.site", parent="example.site")
-    stats = write_collection(conn, out)
+    stats = write_collection(conn, baseline, out)
     names = ["alias.example.com", "keep.example.com", "keep.example.uk", "www.example.com"]
     assert (out / "isc_candidates.txt").read_text().splitlines() == names
     assert (out / "1996-ISC.txt").read_text().splitlines() == names
@@ -112,7 +116,7 @@ def test_reconciles_all_years_exact_names_and_preserves_each_observation(collect
     assert summary["candidates"] == 4
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(h) for h in names)
     before = {p.name: p.read_bytes() for p in out.iterdir()}
-    assert write_collection(conn, out) == stats
+    assert write_collection(conn, baseline, out) == stats
     assert {p.name: p.read_bytes() for p in out.iterdir()} == before
 
 
@@ -121,43 +125,42 @@ def test_missing_reviewer_input_refuses_candidate_claim(collection, missing):
     conn, source, baseline, out = collection
     observe(conn, source, "keep.example.com")
     (baseline / missing).unlink()
-    with pytest.raises(FileNotFoundError, match="requires current baseline"):
-        write_collection(conn, out)
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        write_collection(conn, baseline, out)
 
 
 @pytest.mark.parametrize("field", ["evidence_url", "acquisition_method", "evidence_value"])
 def test_missing_required_provenance_refuses_export(collection, field):
-    conn, source, _, out = collection
+    conn, source, baseline, out = collection
     eid = observe(conn, source, "keep.example.com")
     value = "host keep.example.com" if field == "evidence_value" else ""
     conn.execute(f"UPDATE evidence SET {field} = ? WHERE evidence_id = ?", [value, eid])
     with pytest.raises(ValueError, match="incomplete provenance"):
-        write_collection(conn, out)
+        write_collection(conn, baseline, out)
     assert not (out / "isc_candidates_summary.json").exists()
 
 
 def test_empty_collection_has_header_and_zero_summary(collection):
-    conn, _, _, out = collection
-    stats = write_collection(conn, out)
+    conn, _, baseline, out = collection
+    stats = write_collection(conn, baseline, out)
     assert stats["isc_candidates"] == stats["isc_provenance_rows"] == 0
     summary = json.loads((out / "isc_candidates_summary.json").read_text())
     assert summary["equivalent_english"] == "0.0000"
 
 
 def test_isc_export_does_not_change_annual_outputs_or_assignments(collection):
-    conn, source, _, out = collection
+    conn, source, baseline, out = collection
 
     def write_all():
         export.export_all(
             conn,
             netnew_dir=out,
             candidates_path=out / "candidates.txt",
-            masters_dir=out / "masters",
             report_dir=out / "reports",
             provenance_dir=out / "provenance",
+            baseline=baseline,
         )
         paths = [out / f"{y}{suffix}.txt" for y in YEARS for suffix in ("", "_hostnames")]
-        paths += list((out / "masters").glob("*.txt"))
         paths += [out / "evidence_manifest.csv", out / "hostnames_evidence_manifest.csv"]
         return {p: p.read_bytes() for p in paths}
 
