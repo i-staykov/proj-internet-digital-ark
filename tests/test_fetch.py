@@ -869,10 +869,10 @@ class DroppingServer:
         self.httpd.server_close()
 
 
-def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
+def stream_read(server: DroppingServer, *extra: str) -> tuple[int, bytes, dict]:
     """fetch.py `--to -` as a read runs it: (exit code, stdout bytes, receipt)."""
     result = subprocess.run(
-        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G"],
+        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G", *extra],
         capture_output=True,
         env={**os.environ},
         cwd=ROOT,
@@ -883,6 +883,62 @@ def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
 
 
 PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
+
+
+def ranges(server: DroppingServer) -> list:
+    return [asked for path, asked in server.asked if path == "/read.cdx"]
+
+
+def test_a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it(probe):
+    """A server that never hangs up, so the one drop is the one `--fault-after-bytes` asked
+    for, and the Range continuation is not cut."""
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, receipt = stream_read(server, "--fault-after-bytes", "600000")
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert out == PAYLOAD, "the pipe saw every byte once and in order"
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert (receipt["resumes"], receipt["fault_after_bytes"]) == (1, 600000)
+    assert ranges(server) == [None, f"bytes=600000-{len(PAYLOAD) - 1}"]
+
+
+def test_a_fault_on_a_file_fetch_resumes_into_the_same_file(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, receipt, _ = run(
+            server.url, "--to", str(probe / "read.cdx"), "--fault-after-bytes", "600000"
+        )
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert (probe / "read.cdx").read_bytes() == PAYLOAD
+    assert receipt["resumes"] == 1
+    assert ranges(server) == [None, f"bytes=600000-{len(PAYLOAD) - 1}"]
+
+
+def test_a_fault_at_or_past_the_declared_length_exits_two_and_writes_nothing(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, receipt = stream_read(server, "--fault-after-bytes", str(len(PAYLOAD)))
+    finally:
+        server.close()
+    assert code == fetch.USAGE, receipt
+    assert out == b""
+    assert "needs a declared length above" in receipt["reason"]
+    assert ranges(server) == [None], "no range was asked for"
+
+
+def test_a_fault_under_one_byte_is_refused_before_any_request(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, _ = stream_read(server, "--fault-after-bytes", "0")
+    finally:
+        server.close()
+    assert code == fetch.USAGE
+    assert out == b""
+    assert server.asked == []
 
 
 @pytest.mark.parametrize("reset", [False, True], ids=["early-eof", "reset"])
