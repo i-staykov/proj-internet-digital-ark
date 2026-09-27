@@ -41,7 +41,9 @@ def proofs(root, paths, monkeypatch):
 
     def rclone(args, check=True):
         calls.append(args)
-        return SimpleNamespace(returncode=0, stdout=json.dumps(objects.get(args[-1], {})))
+        if args[-1] not in objects:
+            return SimpleNamespace(returncode=3, stdout="")
+        return SimpleNamespace(returncode=0, stdout=json.dumps(objects[args[-1]]))
 
     monkeypatch.setattr(offsite, "rclone", rclone)
     return objects, calls
@@ -254,6 +256,10 @@ def sums(folder, files, kind="SHA256SUMS"):
     return digests
 
 
+# The rest of PRIVATE_KEEP, and a journal, which never() keeps even in private/.
+KEPT_PRIVATE = ("emails/a.eml", "email-draft.md", "email.template.md", "work/x.jsonl.gz")
+
+
 def disk_repo(root):
     """One of everything --disk selects, keeps or holds."""
     current = "feedback/Current_Release/merged261231"
@@ -266,9 +272,17 @@ def disk_repo(root):
     file(root, "feedback/Current_Release.zip", b"current zip")
     old = root / "feedback/Old_Release/merged260101"
     file(root, f"{old.relative_to(root)}/1996.txt", b"old.example\n")
+    file(root, f"{old.relative_to(root)}/README.md", b"his words")
     with zipfile.ZipFile(root / "feedback/Old_Release.zip", "w") as zf:
-        zf.write(old / "1996.txt", "merged260101/1996.txt")
+        for name in ("1996.txt", "README.md"):
+            zf.write(old / name, f"merged260101/{name}")
     file(root, "data/archive/merged250101.tar.zst", b"repacked release")
+    for rel in (  # the reviewer's own words, beside a release and inside one
+        "feedback/feedback-phase-9/Round_9_feedback.docx",
+        "feedback/feedback-phase-9/feedback-round-9.md",
+        "feedback/feedback-phase-9/notes.txt",
+    ):
+        file(root, rel, b"his words")
     host = root / "data/raw/host_cdx"
     file(host, "ia600702.hostcdx.gz", b"the node cdx")
     file(host, "bank.log", b"a log with no copy anywhere")
@@ -277,7 +291,14 @@ def disk_repo(root):
     bulk = root / "data/raw/usenet_bulk"
     file(bulk, "alt.test.mbox.zip", b"a usenet zip")
     sha1 = sums(bulk, ["alt.test.mbox.zip"], "SHA1SUMS")["alt.test.mbox.zip"]
-    catalog = {"alt": [{"name": "alt.test.mbox.zip", "sha1": sha1, "size": "12"}]}
+    file(bulk, "alt.cut.mbox.zip", b"partial")
+    sums(bulk, ["alt.test.mbox.zip", "alt.cut.mbox.zip"])  # SHA1SUMS stays, stats for both
+    catalog = {
+        "alt": [
+            {"name": "alt.test.mbox.zip", "sha1": sha1, "size": "12"},
+            {"name": "alt.cut.mbox.zip", "sha1": "c" * 40, "size": "999"},
+        ]
+    }
     file(root, "data/raw/usenet_catalog.json", json.dumps(catalog).encode())
     hdr2 = root / "data/raw/usenet_hdr2"
     file(hdr2, "demon/demon.test.mbox.zip", b"uncatalogued")
@@ -290,6 +311,8 @@ def disk_repo(root):
     tarball = file(root, f"submissions/phase-9/{NEW_STAGE}.tar.gz.sha256", b"")
     tarball.write_text(f"{'b' * 64}  {NEW_STAGE}.tar.gz\n")
     for rel in ("personal-context.md", "handoff.md", "mail/verdict.txt", "notes.md", "v3/big.bin"):
+        file(root, f"private/{rel}", b"private")
+    for rel in KEPT_PRIVATE:
         file(root, f"private/{rel}", b"private")
     for name in ("ark.duckdb.pre-stage-a.bak", "ark.duckdb.pre-166.bak"):
         file(root, f"data/{name}", b"store backup")
@@ -320,8 +343,11 @@ def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeyp
     assert "https://archive.org/download/host_cdx_ia600702/ia600702.hostcdx.gz" in text
     assert "https://archive.org/download/usenet-alt/alt.test.mbox.zip" in text
     assert "kept 1 archives of data/raw/usenet_hdr2" in text
+    assert "HELD data/raw/usenet_bulk/alt.cut.mbox.zip: 7 B here, 999 B in the catalog" in text
     assert "HELD feedback/Old_Release.zip: no Drive receipt" in text
     assert "Current_Release" not in text and "jsonl.gz" not in text and NEW_STAGE not in text
+    assert "his words" not in text and "feedback-phase-9" not in text and "README.md" not in text
+    assert str(tmp_path) not in text  # the list goes on a public issue
     assert "\nprivate:" not in text  # the private group only with --private
     assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
 
@@ -338,13 +364,22 @@ def test_disk_write_deletes_only_what_is_proven(tmp_path, monkeypatch):
         "Hashes": {"sha256": "b" * 64}
     }
     bulk_sha1 = hashlib.sha1(b"a usenet zip").hexdigest()
+    cdx_sha1 = hashlib.sha1(b"the node cdx").hexdigest()
     archive_org(
         monkeypatch,
         {
-            ("host_cdx_ia600702", "ia600702.hostcdx.gz"): {"size": "12"},
+            ("host_cdx_ia600702", "ia600702.hostcdx.gz"): {"size": "12", "sha1": cdx_sha1},
             ("usenet-alt", "alt.test.mbox.zip"): {"size": "12", "sha1": bulk_sha1},
         },
     )
+    unlink = Path.unlink
+
+    def recorded_first(path, *a, **k):
+        if "data/raw" in path.as_posix():
+            assert path.name in (path.parent / "DELETED.tsv").read_text()
+        unlink(path, *a, **k)
+
+    monkeypatch.setattr(Path, "unlink", recorded_first)
     code, lines = prune.disk_cleanup(tmp_path, write=True)
     gone = [
         *receipted,
@@ -355,6 +390,8 @@ def test_disk_write_deletes_only_what_is_proven(tmp_path, monkeypatch):
     assert not any(p.exists() for p in gone), lines
     stays = [
         tmp_path / "feedback/Current_Release.zip",
+        parts["old"] / "README.md",
+        tmp_path / "feedback/feedback-phase-9/Round_9_feedback.docx",
         parts["host"] / "bank.log",
         parts["host"] / "items/hostcdx_ia600702_001_items.jsonl.gz",
         parts["hdr2"] / "demon/demon.test.mbox.zip",
@@ -370,9 +407,10 @@ def test_disk_write_deletes_only_what_is_proven(tmp_path, monkeypatch):
     deleted = (parts["host"] / "DELETED.tsv").read_text().splitlines()
     rel, size, digest, url = deleted[1].split("\t")
     assert (rel, size) == ("ia600702.hostcdx.gz", "12")
-    assert digest == "sha256:" + hashlib.sha256(b"the node cdx").hexdigest()
+    assert digest == f"sha1:{cdx_sha1} sha256:" + hashlib.sha256(b"the node cdx").hexdigest()
     assert url == "https://archive.org/download/host_cdx_ia600702/ia600702.hostcdx.gz"
-    assert "sha1:" in (parts["bulk"] / "DELETED.tsv").read_text()
+    assert f"sha1:{bulk_sha1}\t" in (parts["bulk"] / "DELETED.tsv").read_text()
+    assert (parts["bulk"] / "alt.cut.mbox.zip").exists()
     assert code == 1  # the backups stay held
 
 
@@ -389,8 +427,8 @@ def test_a_spent_file_stays_when_archive_org_does_not_match_it(tmp_path, monkeyp
     _, lines = prune.disk_cleanup(tmp_path, write=True)
     text = "\n".join(lines)
     assert (parts["host"] / "ia600702.hostcdx.gz").exists()
-    assert (parts["bulk"] / "alt.test.mbox.zip").exists()
-    assert "archive.org holds 999 B" in text and "archive.org's sha1 differs" in text
+    assert (parts["bulk"] / "alt.test.mbox.zip").exists()  # the sidecar sha1 matches, our bytes not
+    assert "archive.org holds 999 B" in text and "sha1 of our bytes differs" in text
     assert not (parts["host"] / "DELETED.tsv").exists()
 
 
@@ -407,7 +445,14 @@ def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatc
     archive_org(monkeypatch, {})
     _, lines = prune.disk_cleanup(tmp_path, write=True)
     assert (tmp_path / f"output/{OLD_STAGE}/report.md").exists()
-    assert f"HELD output/{OLD_STAGE}/report.md: Drive" in "\n".join(lines)
+    assert f"HELD output/{OLD_STAGE}/report.md: Drive did not list" in "\n".join(lines)
+
+    def unreachable(*a, **k):
+        raise FileNotFoundError("rclone")
+
+    monkeypatch.setattr(prune.sibling("offsite"), "rclone", unreachable)
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert f"HELD output/{OLD_STAGE}/report.md: Drive did not answer" in "\n".join(lines)
 
 
 def test_private_keeps_what_code_reads_and_goes_only_with_the_flag(tmp_path, monkeypatch):
@@ -416,13 +461,19 @@ def test_private_keeps_what_code_reads_and_goes_only_with_the_flag(tmp_path, mon
     archive_org(monkeypatch, {})
     prune.disk_cleanup(tmp_path, write=True)
     assert (tmp_path / "private/notes.md").exists()
-    prune.disk_cleanup(tmp_path, write=True, private=True)
-    for kept in ("personal-context.md", "handoff.md", "mail/verdict.txt"):
-        assert (tmp_path / "private" / kept).exists()
+    before = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+    code, lines = prune.disk_cleanup(tmp_path, write=True, private=True)
+    assert code == 1 and "without --owner-go: nothing was deleted" in lines[0]
+    assert "  would remove: private/notes.md" in lines
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
+    prune.disk_cleanup(tmp_path, write=True, private=True, owner_go=True)
+    for kept in ("personal-context.md", "handoff.md", "mail/verdict.txt", *KEPT_PRIVATE):
+        assert (tmp_path / "private" / kept).exists(), kept
     assert not (tmp_path / "private/notes.md").exists()
     assert not (tmp_path / "private/v3/big.bin").exists()
-    with pytest.raises(SystemExit):
-        prune.main(["--private", "--root", str(tmp_path)])
+    for argv in (["--private"], ["--disk", "--owner-go"], ["--disk", "--private", "--owner-go"]):
+        with pytest.raises(SystemExit):
+            prune.main([*argv, "--root", str(tmp_path)])
 
 
 def test_the_never_list(tmp_path):
@@ -431,6 +482,7 @@ def test_the_never_list(tmp_path):
         "submissions/phase-9/x.tar.gz",
         "data/raw/usenet_hdr2/aus_items/shard_000.jsonl.gz",
         "data/raw/host_cdx/items/hostcdx_ia600702_001_items.jsonl.gz",
+        "data/raw/ietf_header_items/x.jsonl",
         "data/raw/host_cdx/SHA256SUMS",
         "data/raw/host_cdx/DELETED.tsv",
         "data/raw/cdx/collector.txt",  # keep_journal
@@ -439,6 +491,83 @@ def test_the_never_list(tmp_path):
     ):
         assert prune.never(tmp_path, tmp_path / rel), rel
     assert prune.never(tmp_path, tmp_path / "data/raw/host_cdx/ia600702.hostcdx.gz") == ""
+
+
+def test_a_file_another_issue_reads_is_held(tmp_path, monkeypatch):
+    shipped = prune.holds()  # the real file: rtfm and the 46 zips #180's lanes read
+    assert prune.held_by("data/raw/rtfm/any/file.txt", shipped).startswith("#180 lane input")
+    assert sum(k.startswith("data/raw/usenet_bulk/") for k in shipped) == 46
+    parts = disk_repo(tmp_path)
+    holds = file(tmp_path, "holds.tsv", b"# path\treason\n")
+    holds.write_text(
+        "data/raw/usenet_bulk/alt.test.mbox.zip\t#180 lane input\ndata/raw/host_cdx/\t#180 too\n"
+    )
+    monkeypatch.setattr(prune, "HOLDS", holds)
+    proofs(tmp_path, [], monkeypatch)
+    sha1 = hashlib.sha1(b"a usenet zip").hexdigest()
+    archive_org(monkeypatch, {("usenet-alt", "alt.test.mbox.zip"): {"size": "12", "sha1": sha1}})
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (parts["bulk"] / "alt.test.mbox.zip").exists()
+    assert (parts["host"] / "ia600702.hostcdx.gz").exists()
+    assert "  HELD data/raw/usenet_bulk/alt.test.mbox.zip: #180 lane input" in lines
+
+
+@pytest.mark.parametrize("spelling", ["case", "absolute"])
+def test_the_current_release_is_never_selected(tmp_path, spelling):
+    disk_repo(tmp_path)
+    current = "feedback/Current_Release/merged261231"
+    named = current.upper() if spelling == "case" else str(tmp_path / current)
+    (tmp_path / "data/baseline.json").write_text(
+        json.dumps({"current": {"directory": named, "marker": "other"}})
+    )
+    paths = [c.path for c in prune.releases_selected(tmp_path, {})]
+    assert tmp_path / "feedback/Old_Release/merged260101/1996.txt" in paths
+    assert not any("Current_Release" in str(p) for p in paths)
+
+
+@pytest.mark.parametrize(
+    "flags,serves,stays",
+    [
+        ({"private": "true"}, True, True),
+        ({"restricted": True}, False, True),
+        ({"restricted": True}, True, False),
+    ],
+)
+def test_a_file_archive_org_does_not_serve_openly_stays(
+    tmp_path, monkeypatch, flags, serves, stays
+):
+    parts = disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)
+    sha1 = hashlib.sha1(b"the node cdx").hexdigest()
+    record = {"size": "12", "sha1": sha1, **flags}
+    archive_org(monkeypatch, {("host_cdx_ia600702", "ia600702.hostcdx.gz"): record})
+    monkeypatch.setattr(prune, "ia_serves", lambda url: serves)
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (parts["host"] / "ia600702.hostcdx.gz").exists() is stays
+    assert ("HELD data/raw/host_cdx/ia600702.hostcdx.gz: archive.org" in "\n".join(lines)) is stays
+
+
+def test_a_release_tree_that_fails_its_crc_check_is_held(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    (parts["old"] / "1996.txt").write_bytes(b"edited after zipping\n")
+    receipted = [parts["old"] / "1996.txt", tmp_path / "feedback/Old_Release.zip"]
+    proofs(tmp_path, receipted, monkeypatch)
+    archive_org(monkeypatch, {})
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (parts["old"] / "1996.txt").exists()  # the zip goes behind its own receipt
+    assert "HELD feedback/Old_Release/merged260101/1996.txt: CRC check" in "\n".join(lines)
+
+
+def test_round_cleanup_keeps_a_held_backup(tmp_path, monkeypatch):
+    held = file(tmp_path, "data/ark.duckdb.pre-stage-a.bak", b"rows only it holds")
+    os.utime(held, ns=(1_000_000, 1_000_000))
+    file(tmp_path, "data/ark.duckdb", b"current")
+    credited(tmp_path)
+    calls = []
+    monkeypatch.setattr(prune.subprocess, "run", lambda *a, **k: calls.append(a))
+    code, lines = prune.round_cleanup(tmp_path, write=True)
+    assert held.exists() and not calls and code == 1
+    assert "HELD data/ark.duckdb.pre-stage-a.bak: held until #181" in "\n".join(lines)
 
 
 def test_store_backups_are_listed_and_never_deleted(tmp_path, monkeypatch):

@@ -19,27 +19,32 @@ before it can be copied and verified.
 
     uv run python scripts/round/prune.py
     uv run python scripts/round/prune.py --json
-    uv run python scripts/round/prune.py --disk [--private] [--write]
+    uv run python scripts/round/prune.py --disk [--private [--owner-go]] [--write]
 
 The retention report grants no deletion permission. Round cleanup is limited to
-superseded store backups and CRC-matched reviewer zips. A store backup is held until
-`data/baseline.json` lists a credited round dated after it, because that round's Parquet
-and our journals rebuild the store; it then needs a newer quiescent store and a fresh
-`ark check`. A zip needs an unchanged local verification receipt and a current matching
-remote hash.
+superseded store backups and CRC-matched reviewer zips. A backup BACKUP_HOLDS names stays;
+any other is held until `data/baseline.json` lists a credited round dated after it,
+because that round's Parquet and our journals rebuild the store, and it then needs a newer
+quiescent store and a fresh `ark check`. A zip needs an unchanged local verification
+receipt and a current matching remote hash.
 
 **`--disk` deletes only what somebody serves again, each file behind its own proof.** It
 lists, and with `--write` deletes:
 
-  * superseded releases: every `feedback/` entry but the current release, and
-    `data/archive/*.tar.zst`, file by file behind a live Drive receipt, a tree first
-    CRC-checked against its zip when both are here;
+  * superseded releases: their extracted trees, their zips and `data/archive/*.tar.zst`,
+    never the current or a newer release nor the reviewer's documents, file by file
+    behind a live Drive receipt, a tree first CRC-checked against its zip when both are here;
   * spent raw: the downloaded archives of the entries in SPENT, file by file once
-    archive.org's metadata shows the same name and size (and the same sha1 where we hold
-    one) and `DELETED.tsv` beside them records the file, its bytes, digest and URL;
+    archive.org serves it (a file marked private there, or one in a restricted item that
+    refuses a ranged GET, stays) at the same size, and the sha1 of our own bytes, hashed
+    at `--write`, equals archive.org's; `DELETED.tsv` beside them then records the file,
+    its bytes, that sha1 and the URL;
   * `output/DomainDataCollectionTask_*` but the newest, once the newest's tarball is on
     Drive with the checksum git keeps;
-  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code reads.
+  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code reads. Nothing
+    there has a copy anywhere, so `--private --write` deletes only with `--owner-go`, which
+    no recipe passes: #188's last step passes it on the owner's go. Without it, it lists
+    `private/` and deletes nothing at all.
 
 It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
 sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
@@ -51,6 +56,8 @@ restores the rows only it holds. The dry run makes no network call.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -217,6 +224,10 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
     lines, held = [], False
     store = root / "data/ark.duckdb"
     for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak")):
+        if backup.name in BACKUP_HOLDS:
+            held = True
+            lines.append(f"HELD {backup.relative_to(root)}: {BACKUP_HOLDS[backup.name]}")
+            continue
         try:
             backup_stamp = offsite.signature(root, backup)
             if not credited_after(root, backup_stamp[3]):
@@ -299,6 +310,10 @@ BACKUP_HOLDS = {
     "ark.duckdb.pre-stage-a.bak": "held until #181's rebuild restores the rows only it holds",
 }
 IA = "https://archive.org"
+# The reviewer's own words, kept wherever they sit, even inside a superseded release tree.
+DOCUMENTS = {".md", ".docx", ".doc", ".pdf", ".rtf", ".odt"}
+# Files another issue still reads, each with the reason, held until that issue says so.
+HOLDS = Path(__file__).with_name("disk_holds.tsv")
 USER_AGENT = "ark-prune/1.0 (checks archive.org metadata before a delete)"
 
 
@@ -423,22 +438,45 @@ def _receipted(root: Path, path: Path, receipt: dict) -> str:
 
 
 def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
-    baseline = json.loads((root / "data/baseline.json").read_text(encoding="utf-8"))
-    current = Path(baseline["current"]["directory"]).parts
-    keep = {current[1], current[1] + ".zip"} if len(current) > 1 else set()
-    out = []
-    feedback = root / "feedback"
-    entries = (
-        sorted(p for p in feedback.iterdir() if p.name not in keep) if feedback.is_dir() else []
+    """Superseded release trees (a `merged*` directory with a year file), the release zips
+    holding none but superseded markers, and the repacked `data/archive/*.tar.zst`. The
+    reviewer's own documents beside a release are never listed, nor is the current release,
+    matched by its resolved path, case-folded, or by its marker."""
+    releases = sibling("releases")
+    current = json.loads((root / "data/baseline.json").read_text(encoding="utf-8"))["current"]
+    here = str((root / current["directory"]).resolve()).casefold()
+    marker = str(current.get("marker") or Path(current["directory"]).name).casefold()
+
+    def kept(found: str) -> bool:
+        """The current release, or one newer than it that intake has not recorded yet."""
+        if found.casefold() == marker:
+            return True
+        try:
+            return releases.marker_key(found) >= releases.marker_key(marker)
+        except ValueError:
+            return False
+
+    paths: list[Path] = []
+    for found, trees in releases.find_trees(root / "feedback", {}).items():
+        for tree in trees:
+            if not kept(found) and str(tree.resolve()).casefold() != here:
+                paths += [f for f in _files(tree) if f.suffix.lower() not in DOCUMENTS]
+    markers_of: dict[Path, set[str]] = {}
+    for found, zips in releases.find_zips(root / "feedback").items():
+        for z in zips:
+            markers_of.setdefault(z, set()).add(found.casefold())
+    paths += sorted(z for z, markers in markers_of.items() if not any(map(kept, markers)))
+    paths += sorted(
+        a for a in (root / "data/archive").glob("*.tar.zst") if not kept(a.name.split(".")[0])
     )
-    entries += sorted((root / "data/archive").glob("*.tar.zst"))
-    for entry in entries:
-        for path in _files(entry):
-            if path.name == ".DS_Store" or never(root, path):
-                continue
-            out.append(
-                Candidate("releases", path, path.stat().st_size, _receipted(root, path, receipt))
-            )
+    out = []
+    for path in sorted(set(paths)):
+        inside = f"{str(path.resolve()).casefold()}/".startswith(f"{here}/")
+        if path.name == ".DS_Store" or path.is_symlink() or never(root, path) or inside:
+            continue
+        out.append(
+            Candidate("releases", path, path.stat().st_size, _receipted(root, path, receipt))
+        )
     return out
 
 
@@ -476,10 +514,13 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
                 else ""
             )
             held = ""
+            listed = catalog.get(path.name) if rule is _catalogued else None
             if not digest:
                 held = "no recorded digest"
             elif manifest.stats.get(key) != (st.st_size, st.st_mtime_ns):
                 held = "changed since its digest was recorded"
+            elif listed and listed[2] != st.st_size:
+                held = f"{st.st_size:,} B here, {listed[2]:,} B in the catalog: a partial download"
             out.append(Candidate("spent raw", path, st.st_size, held, hit[0], hit[1], digest))
     for entry, (count, size) in unnamed.items():
         notes.append(f"kept {count} archives of data/raw/{entry}, {human(size)}: in no catalog")
@@ -487,7 +528,7 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
 
 
 def stages_selected(root: Path) -> list[Candidate]:
-    stages = sorted(p for p in (root / "output").glob(STAGES) if p.is_dir())
+    stages = sorted(p for p in (root / "output").glob(STAGES) if p.is_dir() and not p.is_symlink())
     out = []
     for stage in stages[:-1]:
         for path in _files(stage):
@@ -501,10 +542,11 @@ def private_selected(root: Path) -> list[Candidate]:
     private = root / "private"
     out = []
     for top in sorted(private.iterdir()) if private.is_dir() else []:
-        if top.name in PRIVATE_KEEP:
+        if top.name in PRIVATE_KEEP or top.is_symlink():
             continue
         for path in _files(top):
-            out.append(Candidate("private", path, path.stat().st_size))
+            if path.name != ".DS_Store" and not never(root, path):
+                out.append(Candidate("private", path, path.stat().st_size))
     return out
 
 
@@ -518,6 +560,23 @@ def backups_listed(root: Path) -> list[Candidate]:
     return out
 
 
+def holds() -> dict[str, str]:
+    """Repository-relative path -> why it is held, from disk_holds.tsv. A path ending in `/`
+    holds everything under it."""
+    out = {}
+    for line in HOLDS.read_text().splitlines() if HOLDS.is_file() else []:
+        if line.strip() and not line.startswith("#"):
+            rel, _, why = line.partition("\t")
+            out[rel.strip()] = why.strip()
+    return out
+
+
+def held_by(rel: str, held: dict[str, str]) -> str:
+    return held.get(rel) or next(
+        (why for key, why in held.items() if key.endswith("/") and rel.startswith(key)), ""
+    )
+
+
 def ia_file(item: str, name: str, cache: dict) -> dict | None:
     """archive.org's metadata for one file of one item, or None when it has no such file."""
     if item not in cache:
@@ -526,8 +585,21 @@ def ia_file(item: str, name: str, cache: dict) -> dict | None:
         )
         with urllib.request.urlopen(request, timeout=60) as reply:
             cache[item] = json.load(reply)
+    meta = cache[item].get("metadata") or {}
+    restricted = cache[item].get("is_dark") or meta.get("access-restricted-item") in (True, "true")
     files = cache[item].get("files") or []
-    return next((f for f in files if f.get("name") == name), None)
+    found = next((f for f in files if f.get("name") == name), None)
+    return found and {**found, "restricted": bool(restricted)}
+
+
+def ia_serves(url: str) -> bool:
+    """archive.org answers a one-byte ranged GET for the file, as it does for an open file."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as reply:
+            return reply.status in (200, 206)
+    except (OSError, http.client.HTTPException):
+        return False
 
 
 def record_deleted(folder: Path, rel: str, size: int, digest: str, url: str) -> None:
@@ -556,14 +628,26 @@ def remove_refetchable(root: Path, cand: Candidate, cache: dict, *, write: bool)
     there = ia_file(cand.item, cand.remote, cache)
     if there is None:
         raise ValueError(f"archive.org has no {cand.item}/{cand.remote}")
-    if int(there.get("size", -1)) != cand.size:
-        raise ValueError(f"archive.org holds {there.get('size')} B, not {cand.size}")
-    kind, _, value = cand.digest.partition(":")
-    if kind == "sha1" and there.get("sha1") != value:
-        raise ValueError("archive.org's sha1 differs")
-    folder = root / "data/raw" / rel_root.parts[2]
     url = f"{IA}/download/{cand.item}/{urllib.request.quote(cand.remote)}"
-    record_deleted(folder, cand.path.relative_to(folder).as_posix(), cand.size, cand.digest, url)
+    # A file archive.org lists is not one it serves: a private file stays, and so does a
+    # file in a restricted item that will not answer a ranged GET.
+    if str(there.get("private", "")).lower() == "true":
+        raise ValueError("archive.org lists the file as private, so it does not serve it")
+    if there.get("restricted") and not ia_serves(url):
+        raise ValueError(f"archive.org restricts {cand.item} and did not serve the file")
+    if int(there.get("size", -1)) != before[2]:
+        raise ValueError(f"archive.org holds {there.get('size')} B, not {before[2]}")
+    if not there.get("sha1"):
+        raise ValueError("archive.org gives no sha1 to compare our bytes with")
+    # The sidecar digest of a Usenet zip is archive.org's catalog sha1, copied, so it can
+    # only show archive.org has not changed the file. Our bytes are hashed here.
+    with cand.path.open("rb") as handle:
+        ours = hashlib.file_digest(handle, "sha1").hexdigest()
+    if ours != there["sha1"]:
+        raise ValueError("the sha1 of our bytes differs from archive.org's")
+    folder = root / "data/raw" / rel_root.parts[2]
+    digest = f"sha1:{ours}" + (f" {cand.digest}" if cand.digest.startswith("sha256:") else "")
+    record_deleted(folder, cand.path.relative_to(folder).as_posix(), before[2], digest, url)
     if offsite.signature(root, cand.path) != before:
         raise ValueError(f"changed before deletion: {rel_root}")
     cand.path.unlink()
@@ -582,10 +666,16 @@ def newest_on_drive(root: Path) -> str:
         return f"git keeps no checksum for {tarball}"
     digest = kept[0].read_text().split()[0]
     remote = f"{offsite.REMOTE}/{kept[0].parent.relative_to(root).as_posix()}/{tarball}"
-    done = offsite.rclone(["lsjson", "--stat", "--hash", "--hash-type", "sha256", remote])
-    if done.returncode:
-        return f"Drive has no {remote}"
-    if (json.loads(done.stdout).get("Hashes") or {}).get("sha256") != digest:
+    try:
+        done = offsite.rclone(
+            ["lsjson", "--stat", "--hash", "--hash-type", "sha256", remote], check=False
+        )
+        there = json.loads(done.stdout) if not done.returncode else None
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        return f"Drive did not answer for {remote}: {type(exc).__name__}"
+    if there is None:
+        return f"Drive did not list {remote} (rclone exit {done.returncode})"
+    if (there.get("Hashes") or {}).get("sha256") != digest:
         return f"Drive's {tarball} does not match its checksum"
     return ""
 
@@ -623,14 +713,23 @@ def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
 
 
 def disk_cleanup(
-    root: Path, *, write: bool = False, private: bool = False
+    root: Path, *, write: bool = False, private: bool = False, owner_go: bool = False
 ) -> tuple[int, list[str]]:
     """List every --disk candidate by selector with its bytes and proof; with `write`,
     delete each one whose proof holds."""
     root = root.resolve()
+    if private and write and not owner_go:
+        cands = private_selected(root)
+        size = sum(c.size for c in cands)
+        return 1, [
+            "--disk --private --write without --owner-go: nothing was deleted.",
+            f"\nprivate: {len(cands)} files, {size:,} B ({human(size)})",
+            *(f"  would remove: {c.path.relative_to(root)}" for c in cands),
+        ]
     offsite = sibling("offsite")
     receipt = offsite.read_receipt(root)
     spent, notes = spent_selected(root)
+    held_here = holds()
     groups = [
         ("releases", releases_selected(root, receipt)),
         ("spent raw", spent),
@@ -639,7 +738,7 @@ def disk_cleanup(
     ]
     if private:
         groups.append(("private", private_selected(root)))
-    lines = [f"--disk {'--write' if write else 'dry run'}, {root}"]
+    lines = [f"--disk {'--write' if write else 'dry run'}"]
     held_any, freed, listed = False, 0, 0
     stage_held = newest_on_drive(root) if write and groups[2][1] else ""
     if groups[2][1] and not write:
@@ -652,7 +751,8 @@ def disk_cleanup(
         lines.append(f"\n{label}: {len(cands)} files, {size:,} B ({human(size)})")
         for cand in cands:
             rel = cand.path.relative_to(root)
-            held = cand.held or (stage_held if label == "output stages" else "")
+            held = cand.held or held_by(rel.as_posix(), held_here)
+            held = held or (stage_held if label == "output stages" else "")
             held = held or next(
                 (why for tree, why in crc_held.items() if tree in cand.path.parents), ""
             )
@@ -675,9 +775,19 @@ def disk_cleanup(
                     line = remove_plain(root, cand.path, under="private", write=write)
                 freed += cand.size
                 lines.append(f"  {line}")
-            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                subprocess.SubprocessError,
+                http.client.HTTPException,
+            ) as exc:
                 held_any = True
                 lines.append(f"  HELD {rel}: {exc}")
+            except KeyboardInterrupt:
+                lines.append(f"\ninterrupted at {rel}: everything above it ran")
+                return 1, lines
     if notes:
         lines += ["", *notes]
     verb = "removed" if write else "would remove"
@@ -767,6 +877,11 @@ def main(argv: list[str] | None = None) -> int:
         "--private", action="store_true", help="with --disk, private/ off the keep list"
     )
     ap.add_argument(
+        "--owner-go",
+        action="store_true",
+        help="with --disk --private --write, the owner's go to delete private/",
+    )
+    ap.add_argument(
         "--write", action="store_true", help="with --round or --disk, remove what is proven"
     )
     ap.add_argument("--root", type=Path, default=REPO)
@@ -776,10 +891,14 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--write requires --round or --disk")
     if args.private and not args.disk:
         ap.error("--private requires --disk")
+    if args.owner_go and not (args.private and args.write):
+        ap.error("--owner-go goes only with --disk --private --write")
     if args.disk:
         if args.round or args.json:
             ap.error("--disk takes neither --round nor --json")
-        code, lines = disk_cleanup(args.root, write=args.write, private=args.private)
+        code, lines = disk_cleanup(
+            args.root, write=args.write, private=args.private, owner_go=args.owner_go
+        )
         print("\n".join(lines))
         return code
     if args.round:

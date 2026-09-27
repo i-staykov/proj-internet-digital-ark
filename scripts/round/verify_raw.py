@@ -138,9 +138,11 @@ REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
     "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
-    # read and banked; archive.org serves every zip again by name
+    # read and banked; archive.org serves every zip again by name, and usenet_new's have no
+    # per-file catalog here yet
     "usenet_bulk": "https://archive.org/details/usenet-alt",
     "usenet_new": IA_USENET,
+    # read and banked; the UK Web Archive serves its open-data geoindex again
     "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "attrition": "https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/",
     "bl": UNKNOWN,

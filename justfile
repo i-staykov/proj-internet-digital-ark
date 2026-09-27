@@ -1414,7 +1414,7 @@ ship stage="all" *args:
     [ -f local.env ] && . ./local.env
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
-    newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
+    newest_stage() { ls -d output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {
