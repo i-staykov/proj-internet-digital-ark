@@ -36,9 +36,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-import duckdb  # noqa: E402
-
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 from ark.usenet import INFRASTRUCTURE, message_year  # noqa: E402
 
@@ -142,19 +142,6 @@ def read_messages(path: Path) -> list[str]:
     return re.split(r"(?m)^From ", raw.decode("latin-1", "replace"))[1:]
 
 
-def open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Open the store read-only, waiting out a bank's write lock."""
-    for attempt in range(attempts):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            if attempt == attempts - 1:
-                raise
-            print(f"store is locked, waiting ({attempt + 1}/{attempts})", flush=True)
-            time.sleep(pause)
-    raise RuntimeError("unreachable")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--harvest", action="store_true", help="download month files first")
@@ -164,6 +151,12 @@ def main() -> None:
         action="append",
         choices=sorted(HOSTS),
         help="limit to these host tags; default is every one of them",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=OUT_DIR,
+        help="directory for the two journals (default %(default)s); the month files stay put",
     )
     args = parser.parse_args()
     wanted = {tag: HOSTS[tag] for tag in (args.host or sorted(HOSTS))}
@@ -209,15 +202,11 @@ def main() -> None:
     print(f"read {stats['messages']:,} messages in {time.time() - started:.0f}s: {dict(stats)}")
     print(f"distinct in-window (domain, year): {len(pairs):,}")
 
-    conn = open_store()
+    domains = {domain for domain, _ in pairs}
+    conn = connect_read_only_patiently(STORE)
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, domains)
+        known = held.known_years(conn, domains)
     finally:
         conn.close()
 
@@ -234,7 +223,7 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(record)
-            fresh += (domain, year) not in held
+            fresh += (domain, year) not in known
         else:
             candidates.append(record)
     print(f"  corroborated -> dated_directory : {len(dated):,}, of which {fresh:,} net-new")
@@ -243,9 +232,9 @@ def main() -> None:
         print("\ndry run; pass --write to create both journals")
         return
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
     for name, batch in (("maillist_dated", dated), ("maillist_candidates", candidates)):
-        path = OUT_DIR / f"{name}.jsonl.gz"
+        path = args.out / f"{name}.jsonl.gz"
         with journal_writer(path) as handle:
             for record in batch:
                 write_journal_line(handle, record)

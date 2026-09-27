@@ -9,10 +9,12 @@ from pathlib import Path
 
 import duckdb
 import pytest
+from his_release import HIS_YEARS, stage, text
 
+from ark import held
 from ark.bulk import BulkRecord, SourceSpec, ingest_files
-from ark.db import connect, init_db
-from ark.evidence_types import qualifies_sql
+from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_SOURCE, HIS_TYPE, qualifies_sql
 from ark.sources import SOURCES, parse_early_web_cdx
 from ark.work_queue import connect_queue
 
@@ -89,7 +91,7 @@ def test_master_type_creates_year_rows(tmp_path: Path) -> None:
     ]
 
 
-def test_candidate_only_never_assigns_years(tmp_path: Path) -> None:
+def test_candidate_only_never_assigns_years(tmp_path: Path, his_files: Path) -> None:
     conn = _fresh_db()
     queue_conn = connect_queue(":memory:")
     records = [BulkRecord(raw="linked.com", year=1999, evidence_value="link-1999")]
@@ -107,6 +109,56 @@ def test_candidate_only_never_assigns_years(tmp_path: Path) -> None:
     # the source itself is registered as candidate_only
     kind = conn.execute("SELECT kind FROM source WHERE name = 'toy_source'").fetchone()[0]
     assert kind == "candidate_only"
+
+
+def test_the_unassigned_queue_skips_a_name_his_files_hold(tmp_path: Path, his_files: Path) -> None:
+    """His 1996 file holds once-his.org, mentioned here in 1999: any year of his settles it.
+    His www.rolled.com settles no rolled.com, nor does the pair his row gives it, and a pair of
+    ours settles ours.org."""
+    stage(his_files.parent, {"1996.txt": text(sorted(HIS_YEARS[1996] + ["once-his.org"]))})
+    held.prepare(his_files)
+    conn = _fresh_db()
+    queue_conn = connect_queue(":memory:")
+    prior = ensure_source(conn, HIS_SOURCE, "timestamped")
+    add_candidate(conn, "rolled.com", prior)
+    assign_year(conn, record_evidence(conn, "rolled.com", prior, 1999, HIS_TYPE, "1999.txt"))
+    ingest_files(
+        conn,
+        _spec([BulkRecord(raw="ours.org", year=1998, evidence_value="listing-1998")]),
+        [_touch(tmp_path)],
+        report_dir=tmp_path,
+    )
+    records = [
+        BulkRecord(raw=name, year=1999, evidence_value=f"link {name}")
+        for name in ("once-his.org", "linked.com", "rolled.com", "ours.org")
+    ]
+    links = SourceSpec(
+        key="links",
+        source_name="links_source",
+        evidence_type="link_target",
+        acquisition_method="test",
+        parse=_toy_parser(records),
+    )
+
+    summary = ingest_files(conn, links, [_touch(tmp_path)], queue_conn, report_dir=tmp_path)
+
+    assert summary["enqueued"] == 2
+    keys = queue_conn.execute("SELECT key FROM fetch_state ORDER BY key").fetchall()
+    assert [row["key"] for row in keys] == ["linked.com", "rolled.com"]
+
+
+def test_the_unassigned_queue_fails_closed_without_his_files(tmp_path: Path) -> None:
+    """The evidence commits, then the queue refuses to guess: a re-run after `ark intake`
+    queues it, as the recovery test shows."""
+    conn = _fresh_db()
+    queue_conn = connect_queue(":memory:")
+    records = [BulkRecord(raw="linked.com", year=1999, evidence_value="link")]
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        ingest_files(
+            conn, _spec(records, "link_target"), [_touch(tmp_path)], queue_conn, report_dir=tmp_path
+        )
+    assert conn.execute("SELECT count(*) FROM evidence").fetchone() == (1,)
+    assert queue_conn.execute("SELECT count(*) FROM fetch_state").fetchone()[0] == 0
 
 
 def test_ingest_is_idempotent_per_file(tmp_path: Path) -> None:
@@ -403,7 +455,7 @@ def test_out_of_window_record_is_counted_not_fatal(tmp_path: Path) -> None:
     assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 1
 
 
-def test_candidate_enqueue_recovers_after_queue_loss(tmp_path: Path) -> None:
+def test_candidate_enqueue_recovers_after_queue_loss(tmp_path: Path, his_files: Path) -> None:
     conn = _fresh_db()
     queue_conn = connect_queue(":memory:")
     records = [BulkRecord(raw="linked.com", year=1999, evidence_value="link")]

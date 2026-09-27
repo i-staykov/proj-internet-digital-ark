@@ -6,7 +6,17 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from his_release import HIS_CANDIDATES, HIS_YEARS, MARKER, all_names, digests, stage, text
+from his_release import (
+    HIS_CANDIDATES,
+    HIS_YEARS,
+    MARKER,
+    WEB_METHOD,
+    all_names,
+    capture,
+    digests,
+    stage,
+    text,
+)
 from typer.testing import CliRunner
 
 from ark import held
@@ -212,3 +222,118 @@ def test_our_domain_year_ships_no_pair_resting_on_his_rows() -> None:
     assert www < ours_a
     shipped = conn.execute(f"SELECT domain FROM ({SHIPPED['domain_year']}) ORDER BY 1").fetchall()
     assert shipped == [("a.com",), ("c.com",)]
+
+
+# Asked of `attested` and `known_years`: ours.com is ours in 1998; his 1997 file holds his.com,
+# which the store lacks; his row dates rolled.com (his 1999 file holds www.rolled.com) and
+# old.com (from an older release of his); both.com cites his row and we hold a capture of it
+# too; www-only.com cites his row and we hold only a capture of www.www-only.com; cand.org is
+# a candidate of ours
+ASKED = "ours.com his.com rolled.com old.com both.com www-only.com cand.org nobody.net".split()
+
+
+def _his_row(conn, domain: str, year: int, marker: str = MARKER) -> int:
+    his = ensure_source(conn, HIS_SOURCE, "timestamped")
+    add_candidate(conn, domain, his)
+    row = record_evidence(
+        conn, domain, his, year, HIS_TYPE, f"{marker}/{year}.txt", None, HIS_SOURCE
+    )
+    assign_year(conn, row)
+    return row
+
+
+def _ours(conn, domain: str, year: int, host: str | None = None, assign: bool = True) -> int:
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, domain, cdx)
+    value = capture(host or domain, year)
+    row = record_evidence(conn, domain, cdx, year, "cdx_timestamp", value, None, WEB_METHOD)
+    if assign:
+        assign_year(conn, row)
+    return row
+
+
+@pytest.fixture
+def asked_store(his_files: Path) -> duckdb.DuckDBPyConnection:
+    stage(his_files.parent, {"1997.txt": text(sorted(HIS_YEARS[1997] + ["his.com"]))})
+    held.prepare(his_files)
+    conn = connect(":memory:")
+    init_db(conn)
+    _ours(conn, "ours.com", 1998)
+    _his_row(conn, "rolled.com", 1999)
+    _his_row(conn, "old.com", 1997, "merged260817-2")
+    _his_row(conn, "both.com", 1998)
+    _ours(conn, "both.com", 1998, assign=False)
+    _his_row(conn, "www-only.com", 1998)
+    _ours(conn, "www-only.com", 1998, host="www.www-only.com", assign=False)
+    add_candidate(conn, "cand.org", ensure_source(conn, "links", "candidate_only"))
+    return conn
+
+
+def test_attested_is_our_years_plus_his_exact_names(asked_store) -> None:
+    """His www.rolled.com attests no rolled.com, and his row dates nothing on its own."""
+    assert held.attested(asked_store, ASKED) == {"ours.com", "his.com", "both.com"}
+
+
+def test_known_years_is_per_year(asked_store) -> None:
+    assert held.known_years(asked_store, ASKED) == {
+        ("ours.com", 1998),
+        ("his.com", 1997),
+        ("both.com", 1998),
+    }
+
+
+def test_attested_is_the_names_of_known_years(asked_store) -> None:
+    """His all.txt is his six year files merged, so the two answers agree on every name."""
+    names = ASKED + ["already-his.com", "early.his.org", "www.rolled.com"]
+    known = held.known_years(asked_store, names)
+    assert {name for name, _ in known} == held.attested(asked_store, names)
+    assert {year for name, year in known if name == "already-his.com"} == set(YEARS)
+
+
+def test_a_pair_citing_his_row_is_ours_only_by_a_row_of_ours_that_qualifies(
+    asked_store, his_files: Path
+) -> None:
+    stage(his_files.parent, {"1997.txt": text(HIS_YEARS[1997])})
+    held.prepare(his_files)
+    assert held.attested(asked_store, ["both.com", "www-only.com"]) == {"both.com"}
+
+
+def test_attested_does_not_change_when_his_rows_leave(asked_store) -> None:
+    """Dropping his rows and keeping `our_domain_year` as `domain_year` changes no answer."""
+    before = held.attested(asked_store, ASKED), held.known_years(asked_store, ASKED)
+    asked_store.execute(f"CREATE TABLE dy2 AS {held.OUR_DOMAIN_YEAR_SQL}")
+    asked_store.execute("DELETE FROM domain_year")
+    asked_store.execute("INSERT INTO domain_year SELECT * FROM dy2")
+    asked_store.execute(f"DELETE FROM evidence WHERE evidence_type = '{HIS_TYPE}'")
+    assert asked_store.execute(
+        f"SELECT count(*) FROM evidence WHERE evidence_type = '{HIS_TYPE}'"
+    ).fetchone() == (0,)
+    assert (held.attested(asked_store, ASKED), held.known_years(asked_store, ASKED)) == before
+
+
+def test_the_pairs_asked_for_are_the_whole_table_on_those_names(asked_store) -> None:
+    pairs = "SELECT domain, assigned_year, evidence_id FROM"
+    held.our_domain_year(asked_store)
+    whole = asked_store.execute(f"{pairs} our_domain_year").fetchall()
+    asked = ["both.com", "old.com", "cand.org"]
+    asked_store.execute("CREATE TEMP TABLE few AS SELECT unnest(?::VARCHAR[]) AS name", [asked])
+    held.our_domain_year(asked_store, "few", "our_few")
+    few = asked_store.execute(f"{pairs} our_few").fetchall()
+    assert sorted(few) == sorted(row for row in whole if row[0] in asked)
+    assert [row[0] for row in few] == ["both.com"]
+
+
+def test_an_empty_ask_admits_nothing_and_needs_no_release() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    assert held.attested(conn, []) == set()
+    assert held.known_years(conn, iter(())) == set()
+
+
+def test_attested_fails_closed_without_his_files() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        held.attested(conn, ["a.com"])
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        held.known_years(conn, ["a.com"])

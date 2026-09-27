@@ -39,6 +39,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -50,8 +51,8 @@ _NU_ROW = re.compile(
     re.I | re.S,
 )
 
-# (file, slug, stamp, tld, year, split). `split=True` means only already-held names
-# earn a year; see the module docstring for why it differs per artifact.
+# (file, slug, stamp, tld, year, split). `split=True` means only names already dated, by us
+# or by his files, earn a year; see the module docstring for why it differs per artifact.
 ARTIFACTS = [
     ("saudinic-allsa-20010414.html", "saudinic", "20010414", "sa", 2001, False),
     ("isocil-domains-19980120.html", "isocil", "19980120", "il", 1998, True),
@@ -79,6 +80,7 @@ def nu_rows(path: Path) -> dict[int, set[str]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="write the lanes")
+    ap.add_argument("--out", type=Path, default=SRC, help="lane directory (default %(default)s)")
     args = ap.parse_args()
 
     editions: list[tuple[str, str, int, set[str], bool]] = []
@@ -100,15 +102,20 @@ def main() -> int:
         print(f"nothing under {SRC}; run collect_cctld_capture.py first")
         return 1
 
+    # only the split editions ask
+    asked = {n for _slug, _stamp, _year, names, split in editions if split for n in names}
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        corroborated = {
-            row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
+        corroborated = held.attested(conn, asked)
     finally:
         conn.close()
-    print(f"{len(corroborated):,} domains already carry an assigned year\n")
+    print(
+        f"{len(corroborated):,} of {len(asked):,} names are dated by us "
+        "or named exactly in his files\n"
+    )
 
+    if args.write:
+        args.out.mkdir(parents=True, exist_ok=True)
     dated_ee = Decimal(0)
     for slug, stamp, year, names, split in editions:
         keep = sorted(n for n in names if n in corroborated) if split else sorted(names)
@@ -120,9 +127,9 @@ def main() -> int:
             f"{len(keep):,} dated, {len(park):,} candidate  [{note}]"
         )
         if args.write:
-            (SRC / f"cctldcap-dated.{slug}.{year}.txt").write_text("\n".join(keep) + "\n")
+            (args.out / f"cctldcap-dated.{slug}.{year}.txt").write_text("\n".join(keep) + "\n")
             if park:
-                (SRC / f"cctldcap-cand.{slug}.{year}.txt").write_text("\n".join(park) + "\n")
+                (args.out / f"cctldcap-cand.{slug}.{year}.txt").write_text("\n".join(park) + "\n")
 
     print(f"\ngross EE of the dated lanes (before removing pairs already held): {dated_ee:,.1f}")
     if not args.write:

@@ -12,11 +12,11 @@ seen nowhere else, not even in the candidate pool. A fabricated domain lands in
 that second group by construction, so admitting it on OCR's word alone would put
 invented names into the annual files.
 
-So: a domain another source already places in an annual file carries the issue
-date as `dated_directory`, and a name appearing only here goes to the candidate
-pool, where a capture can earn it a year later. That is the corroboration rule
-the project applies to every free-text source, and it is what makes an OCR source
-safe to use at all.
+So: a domain already dated, by a year of ours or by a line of his files that is
+exactly the name, carries the issue date as `dated_directory`, and a name appearing
+only here goes to the candidate pool, where a capture can earn it a year later.
+That is the corroboration rule the project applies to every free-text source, and
+it is what makes an OCR source safe to use at all.
 
 Read-only against the store.
 
@@ -38,7 +38,6 @@ import argparse
 import gzip
 import json
 import sys
-import time
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
@@ -46,26 +45,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-import duckdb  # noqa: E402
-
+from ark import held  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
 IN_DIR = ROOT / "data/raw/tradepress"
 YEARS = range(1996, 2002)
-
-
-def open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Wait out the ingest loop's writer rather than failing the split."""
-    for attempt in range(attempts):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            if attempt == attempts - 1:
-                raise
-            time.sleep(pause)
-    raise AssertionError("unreachable")
 
 
 def title_of(identifier: str) -> str:
@@ -124,6 +111,9 @@ def main() -> None:
         default="",
         help="suffix for the output names, so a later corpus does not overwrite an ingested file",
     )
+    ap.add_argument(
+        "--out", type=Path, default=IN_DIR, help="journal directory (default %(default)s)"
+    )
     args = ap.parse_args()
 
     paths = args.journal or sorted(IN_DIR.glob("tradepress_*.jsonl.gz"))
@@ -135,14 +125,11 @@ def main() -> None:
     if not seen:
         raise SystemExit(f"no journals in {IN_DIR}: run collect_trade_press.py first")
 
-    conn = open_store()
+    domains = {domain for domain, _ in seen}
+    conn = connect_read_only_patiently(STORE)
     try:
-        rows = conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        attested = {r[0] for r in rows}
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, domains)
+        known = held.known_years(conn, domains)
     finally:
         conn.close()
 
@@ -165,7 +152,7 @@ def main() -> None:
         if domain in attested:
             dated.append(out)
             counts["corroborated"] += 1
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 stats["netnew_pairs"] += 1
                 counts["netnew"] += 1
                 ee_by_title[title] = ee_by_title.get(title, Decimal(0)) + weight_of(domain)
@@ -173,9 +160,9 @@ def main() -> None:
             candidates.append(out)
 
     print(f"in-window (domain, year) rows: {len(seen):,}")
-    print(f"  corroborated, another source already dates the domain: {len(dated):,}")
-    print(f"    of those, pairs the store does not yet hold        : {stats['netnew_pairs']:,}")
-    print(f"  uncorroborated, candidate pool only                  : {len(candidates):,}")
+    print(f"  corroborated, dated by us or named exactly in his files: {len(dated):,}")
+    print(f"    of those, pairs neither we nor his files date yet    : {stats['netnew_pairs']:,}")
+    print(f"  uncorroborated, candidate pool only                    : {len(candidates):,}")
 
     # The number the metric pays for, per title, because "which magazine was
     # worth reading" is not answerable from the totals and was the question the
@@ -202,7 +189,7 @@ def main() -> None:
     suffix = f"_{args.tag}" if args.tag else ""
     written = []
     for name, batch in (("tradepress_dated", dated), ("tradepress_candidates", candidates)):
-        path = IN_DIR / f"{name}{suffix}.jsonl.gz"
+        path = args.out / f"{name}{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)

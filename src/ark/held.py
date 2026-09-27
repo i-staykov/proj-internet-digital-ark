@@ -552,27 +552,41 @@ def _asked(conn: duckdb.DuckDBPyConnection, names: list[str]) -> None:
         conn.unregister("_asked_names")
 
 
+def _our_pairs(conn: duckdb.DuckDBPyConnection, names: list[str]) -> set[tuple[str, int]]:
+    """The pairs of `our_domain_year` among `names`, built for those names alone."""
+    _asked(conn, names)
+    try:
+        our_domain_year(conn, "_asked", "_our_asked")
+        return set(conn.execute("SELECT domain, assigned_year FROM _our_asked").fetchall())
+    finally:
+        conn.execute("DROP TABLE IF EXISTS _our_asked")
+        conn.execute("DROP TABLE IF EXISTS _asked")
+
+
+# `attested` and `known_years` never call each other, so a harness that wraps both counts
+# each call once. His `www.x.com` dates neither `x.com` nor any other name.
 def attested(
     conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
 ) -> set[str]:
-    """The names dated in some year: by a pair of ours, or by his files."""
+    """The names dated in some year: by a pair of ours, or as an exact line of his `all.txt`,
+    which is his six year files merged. An empty ask admits nothing and reads nothing."""
     names = list(names)
+    if not names:
+        return set()
     his = his or load()
-    _asked(conn, names)
-    our_domain_year(conn, "_asked", "_our_asked")
-    ours_ = {d for (d,) in conn.execute("SELECT DISTINCT domain FROM _our_asked").fetchall()}
-    return ours_ | names_in(names, his.all)
+    return {d for d, _ in _our_pairs(conn, names)} | names_in(names, his.all)
 
 
 def known_years(
     conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
 ) -> set[tuple[str, int]]:
-    """The (name, year) pairs dated already: by a pair of ours, or by his file for that year."""
+    """The (name, year) pairs dated already: by a pair of ours, or as an exact line of his
+    file for that year. An empty ask admits nothing and reads nothing."""
     names = list(names)
+    if not names:
+        return set()
     his = his or load()
-    _asked(conn, names)
-    our_domain_year(conn, "_asked", "_our_asked")
-    pairs = set(conn.execute("SELECT domain, assigned_year FROM _our_asked").fetchall())
+    pairs = _our_pairs(conn, names)
     for year in YEARS:
         pairs |= {(n, year) for n in names_in(names, his.year(year))}
     return pairs

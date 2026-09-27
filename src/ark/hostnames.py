@@ -43,6 +43,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark import held
 from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
 from ark.db import ensure_source
@@ -908,7 +909,8 @@ def ingest_blocklist_hostnames(
     A `squidguard-*` file is the robot's own output, `artifact_listing`, no split. The
     chastity orig tarball is hand-kept, `dated_directory`, and takes the corroboration
     split exactly as `split_chastity.py` states it: a host counts only when its parent
-    registrable already carries an assigned year; the rest is counted as parked.
+    registrable is dated, by a pair of ours or as an exact name in his files
+    (`held.attested`); the rest is counted as parked.
     """
     from ark import approvals
 
@@ -957,21 +959,18 @@ def ingest_blocklist_hostnames(
     stats["hostname_year_rows"] = 0
     if rows:
         source_id = ensure_source(conn, source_name, "timestamped")
+        if split:
+            # parked rows are counted, not parents, and never reach listhost
+            dated = held.attested(conn, {parent for _, parent, _, _ in rows})
+            stats["split_parked"] = sum(1 for row in rows if row[1] not in dated)
+            rows = [row for row in rows if row[1] in dated]
         conn.execute(
             "CREATE TEMP TABLE IF NOT EXISTS listhost "
             "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
         )
         conn.execute("DELETE FROM listhost")
-        conn.executemany("INSERT INTO listhost VALUES (?, ?, ?, ?)", rows)
-        if split:
-            parked = conn.execute(
-                "SELECT count(*) FROM listhost l WHERE NOT EXISTS "
-                "(SELECT 1 FROM domain_year d WHERE d.domain = l.parent)"
-            ).fetchone()[0]
-            stats["split_parked"] = parked
-            conn.execute(
-                "DELETE FROM listhost WHERE parent NOT IN (SELECT domain FROM domain_year)"
-            )
+        if rows:
+            conn.executemany("INSERT INTO listhost VALUES (?, ?, ?, ?)", rows)
         conn.execute(
             r"""
             INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
