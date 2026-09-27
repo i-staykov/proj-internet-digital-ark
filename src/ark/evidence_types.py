@@ -21,6 +21,7 @@ MASTER_TYPES = frozenset(
 CANDIDATE_ONLY_TYPES = frozenset({"link_target"})
 
 ALL_TYPES = MASTER_TYPES | CANDIDATE_ONLY_TYPES
+CANDIDATE_ONLY_SQL = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 # **Spec XIII, and the unit is the METHOD, not the type.** The annual masters are a
 # website-evidence product: a row may enter the CLAIM only when the retained evidence
