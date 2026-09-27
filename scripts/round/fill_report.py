@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_figures import BASELINE, figures  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
@@ -39,11 +40,10 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
     awarded_score_of,
-    baseline_dir,
 )
 from ark.english_share import english_weights  # noqa: E402
-from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.export import NETNEW_DIR  # noqa: E402
+from ark.evidence_types import HIS_TYPE, MASTER_TYPES  # noqa: E402
+from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
 from ark.figures import (  # noqa: E402
     now_in_his_clock,
@@ -597,7 +597,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
         **grouped_ee(f, hosts),
-        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
+        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES - {HIS_TYPE})),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),
@@ -892,20 +892,7 @@ def isc_registrables_he_holds() -> int:
         }
     finally:
         conn.close()
-    if not names:
-        return 0
-    held: set[str] = set()
-    directory = baseline_dir()
-    for year in range(1996, 2002):
-        path = directory / f"{year}.txt"
-        if not path.is_file():
-            continue
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            for line in fh:
-                host = line.strip().lower()
-                if host in names:
-                    held.add(host)
-    return len(held)
+    return len(held.names_in(names, held.load().all))
 
 
 def pool_restricted() -> str:
@@ -913,21 +900,11 @@ def pool_restricted() -> str:
 
     Was typed as 575,417 and had drifted, in the one sentence of the report that argues
     the gate is worth something. Generated so it cannot drift again, and the namespaces
-    are now named in the prose so a reviewer can reproduce the query.
+    are now named in the prose so a reviewer can reproduce the count. Counted in the pool
+    the export shipped, the one `[CANDIDATES]` counts, so it holds no name of his.
     """
-    from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently
-    from ark.delegation import shipping_filter
-
-    conn = connect_read_only_patiently(DEFAULT_DB_PATH)
-    try:
-        n = conn.execute(f"""
-            SELECT count(*) FROM domain d
-            WHERE (d.domain LIKE '%.edu' OR d.domain LIKE '%.gov' OR d.domain LIKE '%.mil')
-              AND NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-              AND {shipping_filter("d.", with_year=False)}
-        """).fetchone()[0]
-    finally:
-        conn.close()
+    with CANDIDATES_PATH.open(encoding="utf-8") as fh:
+        n = sum(1 for line in fh if line.rstrip("\n").endswith((".edu", ".gov", ".mil")))
     return f"{n:,}"
 
 

@@ -1,8 +1,9 @@
-"""The scoreboard: what has been added on top of the baseline, and how well attested it is.
+"""The scoreboard: what we add to his files, and how well our rows attest it.
 
-Computed over the evidence table, one row per (domain, year) per source. A pair is net-new
-when it is assigned and carries no `prior_reused` (baseline) evidence; a domain is net-new
-when it is assigned and carries no baseline evidence in any year.
+A pair is net-new when it ships and his file for its year lacks the exact name; a domain is
+net-new when it has a net-new pair and his files hold it in no year. `held` diffs both by
+`comm`, as `ark export` does, so the net-new pairs are the lines of `output/netnew/<year>.txt`.
+Only our rows count: one of his rows in the store holds nothing and corroborates nothing.
 
 Corroboration is reported at two strengths. Cross-SOURCE counts distinct source rows and is
 the weaker figure, because several sources share one collector. Cross-PROVENANCE counts
@@ -11,16 +12,17 @@ independent confirmation: that is the figure worth quoting, and it is much small
 Candidate-only evidence proves nothing and is excluded from both.
 """
 
+import tempfile
 from decimal import Decimal
+from pathlib import Path
 
 import duckdb
 
-from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE
+from ark import db, held
+from ark.baseline import REVIEWER_BASELINE_EE
 from ark.delegation import shipping_filter
 from ark.english_share import english_weights
-from ark.evidence_types import MASTER_TYPES, web_evidence_exists
-
-BASELINE_TYPE = "prior_reused"
+from ark.evidence_types import HIS_TYPE, MASTER_TYPES
 
 # The scoreboard counts what ships, not what the store holds: `ark export` drops `.arpa`
 # names and pairs dated before their TLD was delegated, 866 pairs (479.4256 EE) that no
@@ -29,10 +31,10 @@ _SHIPPED = shipping_filter("dy.")
 _SHIPPED_CANDIDATE = shipping_filter("d.", with_year=False)
 
 # Growth is the increment over the reviewer's PRE-increment total, his convention. Which
-# release that is lives in `ark.baseline`, so this and the ingest defaults cannot drift.
-# Never subtract an already-credited constant here: ingesting his merged release makes
-# net-new right by construction, and a constant needing a hand edit when he merges fails
-# silently, in our favour.
+# release that is lives in `ark.baseline`, so this and the release `held` diffs against
+# cannot drift. Never subtract an already-credited constant here: diffing against his
+# merged release makes net-new right by construction, and a constant needing a hand edit
+# when he merges fails silently, in our favour.
 
 # Which body of observation each source derives from. Sources sharing a lineage cannot
 # confirm one another however many rows they carry, so filing a source in an existing
@@ -147,67 +149,48 @@ PROVENANCE_LINEAGE = {
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
 }
-# only existence-proving evidence corroborates an assertion
-_MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES))
+# only existence-proving evidence of ours corroborates an assertion
+_MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES - {HIS_TYPE}))
 
 
-def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
-    baseline_domains = conn.execute(
-        "SELECT count(DISTINCT domain) FROM evidence WHERE evidence_type = ?",
-        [BASELINE_TYPE],
-    ).fetchone()[0]
-    total_domains = conn.execute("SELECT count(*) FROM domain").fetchone()[0]
-    total_pairs = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-    candidate_pool = conn.execute(
-        f"""
-        SELECT count(*) FROM domain d
-        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-          AND {_SHIPPED_CANDIDATE}
-        """
-    ).fetchone()[0]
-    # net-new domain: assigned, but carrying no baseline evidence anywhere
-    netnew_domains = conn.execute(
-        f"""
-        SELECT count(DISTINCT dy.domain) FROM domain_year dy
-        WHERE NOT EXISTS (
-            SELECT 1 FROM evidence e WHERE e.domain = dy.domain AND e.evidence_type = ?
-        )
-          AND {_SHIPPED}
-          AND {web_evidence_exists("dy.evidence_id")}
-        """,
-        [BASELINE_TYPE],
-    ).fetchone()[0]
-    # net-new pair: assigned, but no baseline evidence for that (domain, year)
+def collect_stats(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> dict:
+    """The scoreboard, diffed against his release in `baseline` (his current one by default)."""
+    his = held.load(baseline)
+    held.our_domain_year(conn)
+    held.our_domains(conn)
+    held.claim_pairs(conn)
+    Path(db.DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=db.DB_TEMP_DIR) as tmp:
+        work = Path(tmp)
+        held.netnew(conn, his, work)
+        held.held_any(conn, his, work)
+        held.held_pairs(conn, his, work)
+        _unverified(conn, his, work)
+
+    def one(sql: str) -> int:
+        return conn.execute(sql).fetchone()[0]
+
     pairs_by_year = dict(
-        conn.execute(
-            f"""
-            SELECT dy.assigned_year, count(*)
-            FROM domain_year dy
-            WHERE NOT EXISTS (
-                SELECT 1 FROM evidence e
-                WHERE e.domain = dy.domain AND e.evidence_year = dy.assigned_year
-                  AND e.evidence_type = ?
-            )
-              AND {_SHIPPED}
-              AND {web_evidence_exists("dy.evidence_id")}
-            GROUP BY dy.assigned_year ORDER BY dy.assigned_year
-            """,
-            [BASELINE_TYPE],
-        ).fetchall()
+        conn.execute("SELECT year, count(*) FROM netnew_pair GROUP BY 1 ORDER BY 1").fetchall()
     )
     evidence_by_type = dict(
         conn.execute(
-            "SELECT evidence_type, count(*) FROM evidence "
+            f"SELECT evidence_type, count(*) FROM evidence e WHERE {held.ours('e')} "
             "GROUP BY evidence_type ORDER BY count(*) DESC, evidence_type"
         ).fetchall()
     )
     return {
         **_equivalent_english(conn),
-        "baseline_domains": baseline_domains,
-        "total_domains": total_domains,
-        "total_pairs": total_pairs,
-        "candidate_pool": candidate_pool,
-        "netnew_domains": netnew_domains,
+        "his_release": his.marker,
+        "baseline_domains": his.counts["all"],
+        "total_domains": one(f"SELECT count(*) FROM domain d WHERE {held.we_know('d')}"),
+        "total_pairs": one("SELECT count(*) FROM our_domain_year"),
+        "candidate_pool": one("SELECT count(*) FROM unverified"),
+        # net-new domain: a net-new pair on a name his files hold in no year
+        "netnew_domains": one(
+            "SELECT count(DISTINCT domain) FROM netnew_pair "
+            "WHERE domain NOT IN (SELECT name FROM held_any)"
+        ),
         "netnew_pairs_by_year": pairs_by_year,
         "netnew_pairs_total": sum(pairs_by_year.values()),
         "evidence_rows": sum(evidence_by_type.values()),
@@ -217,26 +200,41 @@ def collect_stats(conn: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def _unverified(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> None:
+    """`unverified(name)`: the names `ark export` writes to `candidate_unverified.txt`, found by
+    us and dated by no pair of ours, less every name his files hold, dated or candidate."""
+    found, not_candidate = work / "unverified_found.txt", work / "unverified_other.txt"
+    held.dump(
+        conn,
+        f"""SELECT d.domain FROM domain d
+            WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
+              AND {held.we_know("d")} AND {_SHIPPED_CANDIDATE}
+            ORDER BY 1""",
+        found,
+    )
+    held.minus(found, his.candidates, not_candidate)
+    held.minus(not_candidate, his.all, work / "unverified.txt")
+    held.read_names(conn, "unverified", work / "unverified.txt")
+
+
 def _corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
     """Distinct master-eligible sources behind each asserted pair."""
     avg_sources, corroborated, baseline_corroborated = conn.execute(
         f"""
         WITH pair_sources AS (
-            SELECT e.domain, e.evidence_year,
-                   count(DISTINCT e.source_id) AS n_sources,
-                   count(*) FILTER (WHERE e.evidence_type = ?) > 0 AS has_baseline
+            SELECT e.domain, e.evidence_year, count(DISTINCT e.source_id) AS n_sources
             FROM evidence e
-            JOIN domain_year dy
+            JOIN our_domain_year dy
               ON dy.domain = e.domain AND dy.assigned_year = e.evidence_year
             WHERE e.evidence_type IN ({_MASTER_TYPE_LIST})
             GROUP BY e.domain, e.evidence_year
         )
         SELECT coalesce(round(avg(n_sources), 4), 0.0),
                count(*) FILTER (WHERE n_sources >= 2),
-               count(*) FILTER (WHERE has_baseline AND n_sources >= 2)
-        FROM pair_sources
-        """,
-        [BASELINE_TYPE],
+               count(*) FILTER (WHERE h.domain IS NOT NULL AND n_sources >= 2)
+        FROM pair_sources p
+        LEFT JOIN held_pair h ON h.domain = p.domain AND h.year = p.evidence_year
+        """
     ).fetchone()
     return {
         "avg_sources_per_pair": avg_sources,
@@ -259,27 +257,26 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
     independent, netnew_independent = conn.execute(
         f"""
         WITH pair_lineages AS (
-            SELECT e.domain, e.evidence_year,
-                   count(DISTINCT {lineage}) AS n_lineages,
-                   count(*) FILTER (WHERE e.evidence_type = ?) > 0 AS has_baseline
+            SELECT e.domain, e.evidence_year, count(DISTINCT {lineage}) AS n_lineages
             FROM evidence e
             JOIN source s ON s.source_id = e.source_id
-            JOIN domain_year dy
+            JOIN our_domain_year dy
               ON dy.domain = e.domain AND dy.assigned_year = e.evidence_year
             WHERE e.evidence_type IN ({_MASTER_TYPE_LIST})
             GROUP BY e.domain, e.evidence_year
         )
         SELECT count(*) FILTER (WHERE n_lineages >= 2),
-               count(*) FILTER (WHERE n_lineages >= 2 AND NOT has_baseline)
-        FROM pair_lineages
-        """,
-        [BASELINE_TYPE],
+               count(*) FILTER (WHERE n_lineages >= 2 AND h.domain IS NULL)
+        FROM pair_lineages p
+        LEFT JOIN held_pair h ON h.domain = p.domain AND h.year = p.evidence_year
+        """
     ).fetchone()
     by_lineage = dict(
         conn.execute(
             f"""
             SELECT {lineage} AS lineage, count(*) FROM evidence e
             JOIN source s ON s.source_id = e.source_id
+            WHERE {held.ours("e")}
             GROUP BY 1 ORDER BY 2 DESC
             """
         ).fetchall()
@@ -297,65 +294,38 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
     Each figure is a count elsewhere in this scoreboard re-weighted by the English
     page-language share of the domain's right-most TLD, so a pair count no longer says
     what a tranche is worth. The candidate figure is an UPPER BOUND: it assumes every
-    held name is real and earns exactly one year, and much of the pool is neither.
+    candidate is real and earns exactly one year, and much of the pool is neither.
     """
     weights = english_weights()
 
     def weigh(rows: list[tuple[str, int]]) -> Decimal:
         return sum((weights.get(tld, Decimal(0)) * n for tld, n in rows), Decimal(0))
 
-    # **The same XIII screen the export applies**, or this figure describes a claim we
-    # would not send. Until 2026-09-18 it did not, and the page reported 251,125 net-new
-    # registrable rows for 2001 against the 3 the export actually wrote. Rows the screen
-    # refuses are not lost: they are candidates, counted on the candidate track below.
+    # **The pairs the export writes**, or this figure describes a claim we would not send.
+    # Rows the claim's screen refuses are not lost: they are candidates, counted below.
     netnew = conn.execute(
-        f"""
-        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
-        WHERE NOT EXISTS (
-            SELECT 1 FROM evidence e WHERE e.domain = dy.domain
-              AND e.evidence_year = dy.assigned_year AND e.evidence_type = '{BASELINE_TYPE}')
-          AND {_SHIPPED}
-          AND {web_evidence_exists("dy.evidence_id")}
-        GROUP BY 1
-        """
+        "SELECT split_part(domain, '.', -1) AS tld, count(*) FROM netnew_pair GROUP BY 1"
     ).fetchall()
     assigned = conn.execute(
         f"""
-        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM our_domain_year dy
         WHERE {_SHIPPED}
         GROUP BY 1
         """
     ).fetchall()
     candidates = conn.execute(
-        f"""
-        SELECT split_part(d.domain, '.', -1) AS tld, count(*) FROM domain d
-        WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-          AND {_SHIPPED_CANDIDATE}
-        GROUP BY 1
-        """
+        "SELECT split_part(name, '.', -1) AS tld, count(*) FROM unverified GROUP BY 1"
     ).fetchall()
 
     # The reviewer's priority (d): an unknown domain and a filled year on a domain he
-    # already has are different results and both stay visible. `has_baseline` is per
-    # DOMAIN, not per pair, so the two branches partition the net-new pairs exactly.
-    # Counting distinct domains over net-new pairs reports 1,161,961 against a true
-    # 463,566.
+    # already has are different results and both stay visible. `known` is per DOMAIN, not
+    # per pair, so the two branches partition the net-new pairs exactly. Counting distinct
+    # domains over net-new pairs reports 1,161,961 against a true 463,566.
     split = conn.execute(
-        f"""
-        WITH nn AS (
-            SELECT dy.domain, dy.assigned_year,
-                   EXISTS (SELECT 1 FROM evidence b
-                           WHERE b.domain = dy.domain
-                             AND b.evidence_type = '{BASELINE_TYPE}') AS known
-            FROM domain_year dy
-            WHERE NOT EXISTS (
-                SELECT 1 FROM evidence e WHERE e.domain = dy.domain
-                  AND e.evidence_year = dy.assigned_year
-                  AND e.evidence_type = '{BASELINE_TYPE}')
-              AND {_SHIPPED}
-        )
-        SELECT split_part(domain, '.', -1) AS tld, known, count(*)
-        FROM nn GROUP BY 1, 2
+        """
+        SELECT split_part(domain, '.', -1) AS tld,
+               domain IN (SELECT name FROM held_any) AS known, count(*)
+        FROM netnew_pair GROUP BY 1, 2
         """
     ).fetchall()
     discovery = [(tld, n) for tld, known, n in split if not known]
@@ -363,13 +333,9 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
     # Breadth in the scored unit: one count per newly discovered domain rather
     # than one per pair, so a domain found in four years is one discovery.
     netnew_domain_tlds = conn.execute(
-        f"""
-        SELECT split_part(dy.domain, '.', -1) AS tld, count(DISTINCT dy.domain)
-        FROM domain_year dy
-        WHERE NOT EXISTS (
-            SELECT 1 FROM evidence e WHERE e.domain = dy.domain
-              AND e.evidence_type = '{BASELINE_TYPE}')
-          AND {_SHIPPED}
+        """
+        SELECT split_part(domain, '.', -1) AS tld, count(DISTINCT domain) FROM netnew_pair
+        WHERE domain NOT IN (SELECT name FROM held_any)
         GROUP BY 1
         """
     ).fetchall()
@@ -393,46 +359,46 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
 def format_stats(stats: dict) -> str:
     lines = [
         "== scoreboard ==",
-        f"net-new domains (not in baseline):  {stats['netnew_domains']:>12,}",
+        f"net-new domains (not in his files): {stats['netnew_domains']:>12,}",
         f"net-new (domain, year) pairs:       {stats['netnew_pairs_total']:>12,}",
         f"net-new equivalent-English:         {stats['ee_netnew']:>16,.4f}",
         f"    mean weight per pair:           {stats['ee_netnew_mean_weight']:>16.4f}",
         f"    growth on the {REVIEWER_BASELINE_EE:,.4f} baseline: "
         f"{stats['ee_netnew_growth_pct']:.4f}%",
-        f"    (measured against {CURRENT_BASELINE_MARKER}, so this is the uncredited",
+        f"    (measured against {stats['his_release']}, so this is the uncredited",
         "     increment: everything the reviewer has already merged is excluded)",
     ]
     for year, count in stats["netnew_pairs_by_year"].items():
         lines.append(f"    {year}: {count:,}")
     lines += [
         "== the two outcomes, counted separately ==",
-        "  discovery: domains the baseline holds in no year",
+        "  discovery: domains his files hold in no year",
         f"    domains:                          {stats['netnew_domains']:>12,}",
         f"    equivalent-English, one per domain:{stats['ee_netnew_domains']:>15,.4f}",
         f"    pairs they carry:                 {stats['discovery_pairs']:>12,}",
         f"    equivalent-English of those pairs: {stats['ee_discovery_pairs']:>15,.4f}",
-        "  completeness: years filled on domains the baseline already holds",
+        "  completeness: years filled on domains his files hold",
         f"    pairs:                            {stats['completeness_pairs']:>12,}",
         f"    equivalent-English:               {stats['ee_completeness_pairs']:>15,.4f}",
         "== cross-source corroboration ==",
-        f"evidence rows in store:             {stats['evidence_rows']:>12,}",
+        f"our evidence rows:                  {stats['evidence_rows']:>12,}",
         f"avg sources per assigned pair:      {stats['avg_sources_per_pair']:>12.4f}",
         f"pairs with 2+ sources:              {stats['corroborated_pairs']:>12,}",
-        f"    of which already in baseline:   {stats['baseline_corroborated']:>12,}",
+        f"    of which his files hold:        {stats['baseline_corroborated']:>12,}",
         "== independent corroboration (2+ provenance lineages) ==",
         f"pairs confirmed independently:      {stats['independently_corroborated_pairs']:>12,}",
         f"    of which net-new:               {stats['independently_corroborated_netnew']:>12,}",
     ]
     for lineage, count in stats["evidence_rows_by_lineage"].items():
         lines.append(f"    {lineage}: {count:,}")
-    lines += ["== evidence rows by type =="]
+    lines += ["== our evidence rows by type =="]
     for etype, count in stats["evidence_rows_by_type"].items():
         lines.append(f"    {etype}: {count:,}")
     lines += [
         "== context ==",
-        f"baseline domains:                   {stats['baseline_domains']:>12,}",
-        f"domains in store:                   {stats['total_domains']:>12,}",
-        f"(domain, year) pairs in store:      {stats['total_pairs']:>12,}",
+        f"names in his files:                 {stats['baseline_domains']:>12,}",
+        f"our domains:                        {stats['total_domains']:>12,}",
+        f"our (domain, year) pairs:           {stats['total_pairs']:>12,}",
         f"equivalent-English, all assigned:   {stats['ee_assigned']:>16,.4f}",
         f"candidate pool (unverified):        {stats['candidate_pool']:>12,}",
         f"    equivalent-English if every one earned a year, an UPPER BOUND: "

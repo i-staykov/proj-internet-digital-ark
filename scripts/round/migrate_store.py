@@ -1,9 +1,11 @@
-"""Stage A: rebuild the store without his superseded rows and our duplicate rows, then swap.
+"""Stage A rebuilds the store without his superseded rows and our duplicate rows, then swaps;
+`deltas` gives every line two exports differ by its reason.
 
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --rehearse 1
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --run
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --swap
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --rollback
+    uv run python scripts/round/migrate_store.py deltas BEFORE AFTER [--store DB] [--out CSV]
 
 `evidence` keeps every row of his current release; one row per pair only his older releases
 hold, the one `domain_year` cites or else the highest id; and of ours every row a record cites,
@@ -17,22 +19,31 @@ store to `data/ark.duckdb.pre-stage-a.bak` and the new file into its place, only
 says `swap_ready`; `--rollback` moves both back and checks the store's sha256. `--rehearse PCT`
 runs every step, a swap and a rollback included, on the `hash(domain) % 100 < PCT` sample under
 `data/migrate/stage_a/sample/`, and never writes the live store.
+
+`deltas` diffs two `output/netnew` folders, and the `candidate_unverified.txt` beside each, by
+`LC_ALL=C comm`, and classes each changed line from the store, read-only, and his held sets. It
+writes `data/migrate/stage_b/deltas.csv`, prices each reason with his calculator into
+`deltas.json` beside it, and exits 0 only when no line is unexplained.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import filecmp
 import hashlib
 import json
 import os
+import re
 import resource
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -40,15 +51,23 @@ sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
-from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir  # noqa: E402
+from ark import held  # noqa: E402
+from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir, calculator_path  # noqa: E402
 from ark.checks import collect_checks, format_checks  # noqa: E402
 from ark.db import connect_read_only_patiently, init_db  # noqa: E402
-from ark.evidence_types import ALL_TYPES  # noqa: E402
-from ark.export import STAMP_NAME, export_all  # noqa: E402
-from ark.ingest import BATCH_ROWS, YEARS  # noqa: E402
+from ark.evidence_types import (  # noqa: E402
+    ALL_TYPES,
+    CANDIDATE_ONLY_TYPES,
+    HIS_TYPE,
+    exact_host_sql,
+    qualifies_sql,
+    web_evidence_exists,
+    web_evidence_sql,
+)
+from ark.export import ATTESTED_NAME, CANDIDATES_PATH, STAMP_NAME, export_all  # noqa: E402
+from ark.ingest import YEARS  # noqa: E402
 from ark.metrics import _TABLE as METRICS_TABLE  # noqa: E402
 from ark.provenance import SHIPPED  # noqa: E402
-from ark.stats import BASELINE_TYPE  # noqa: E402
 
 GIB = 1024**3
 EXPECTED_MARKER = "merged260922"
@@ -64,6 +83,11 @@ REFERENCE_MEMORY, CENSUS_MEMORY = "28GB", "16GB"
 # limit: about 9.5 GB for evidence at the live size, which 8GB cannot hold.
 BUILD_MEMORY, BUILD_MEMORY_BYTES = "16GB", 16 * 10**9
 MAX_BUILD_MINUTES, MAX_BUILD_RSS = 114, 24 * 10**9
+# **Rows per INSERT, and it is a memory number, not a speed one.** `evidence` carries a PRIMARY
+# KEY and a FOREIGN KEY on `domain`, so every inserted row costs an ART lookup and DuckDB holds a
+# statement's index work until it commits: one unbatched insert of 2.67M rows cost 13 GiB and left
+# the index unopenable for writing. Batched, the peak is bounded by this number, not by the table.
+BATCH_ROWS = 2_000_000
 # Every table a store holds, in foreign-key order. The census refuses a store with any other.
 TABLES = (
     "source",
@@ -78,11 +102,11 @@ TABLES = (
 )
 # What the two exports must match byte for byte. `source_contribution.csv` is compared by
 # source with the columns the collapse moves masked.
-COMPARED = ("netnew", "exports", "reports/year_growth.csv", "candidate_unverified.txt")
+COMPARED = ("netnew", "reports/year_growth.csv", "candidate_unverified.txt")
 MASKED = ("evidence_rows", "domains_touched", "evidence_type")
 
-HIS = f"evidence_type = '{BASELINE_TYPE}'"
-OURS = f"evidence_type <> '{BASELINE_TYPE}'"
+HIS = f"evidence_type = '{HIS_TYPE}'"
+OURS = f"evidence_type <> '{HIS_TYPE}'"
 # The subject of a row: the last token of its value when that names the domain or a host under
 # it, else the domain. Case is kept, so ISC hosts that differ only in case stay two rows.
 _LAST_WORD = "regexp_extract(evidence_value, '([^ ]+)$', 1)"
@@ -272,12 +296,11 @@ def export_into(conn: duckdb.DuckDBPyConnection, out: Path, stage: Stage) -> lis
         conn,
         netnew_dir=out / "netnew",
         candidates_path=out / "candidate_unverified.txt",
-        masters_dir=out / "exports",
         report_dir=out / "reports",
         provenance_dir=out / "provenance",
         baseline=stage.baseline,
     )
-    return collect_checks(conn, out / "netnew")
+    return collect_checks(conn, out / "netnew", baseline=stage.baseline)
 
 
 def reference(stage: Stage) -> dict:
@@ -641,8 +664,8 @@ def verify(stage: Stage) -> dict:
         results = _verify(conn, stage, plan, before)
     finally:
         conn.close()
-    held = read(stage.record("preflight"))["sha256"]
-    results["old_file_unchanged"] = {"ok": sha256(stage.store) == held}
+    recorded = read(stage.record("preflight"))["sha256"]
+    results["old_file_unchanged"] = {"ok": sha256(stage.store) == recorded}
     return {
         "checks": results,
         "swap_ready": all(r["ok"] for r in results.values()),
@@ -866,9 +889,9 @@ def stage_a_run(stage: Stage, isolate: bool = False) -> dict:
 def stage_a_rehearse(live: Stage, pct: int, isolate: bool = False) -> dict:
     stage = live.sample()
     started = time.monotonic()
-    held = preflight(live)
+    pre = preflight(live)
     sample = make_sample(live, stage, pct)
-    write(stage.work / "live_preflight.json", held)
+    write(stage.work / "live_preflight.json", pre)
     write(stage.work / "sample_store.json", sample | {"seconds": round(time.monotonic() - started)})
     report = stage_a_run(stage, isolate)
     report |= {"mode": f"rehearse {pct}", "rollback_restored": False}
@@ -876,7 +899,7 @@ def stage_a_rehearse(live: Stage, pct: int, isolate: bool = False) -> dict:
         steps, ok = run(stage, isolate, ("swap", "rollback"))
         report["steps"] += steps
         report["rollback_restored"] = ok and read(stage.record("rollback"))["rollback_restored"]
-    report["live_store_unchanged"] = sha256(live.store) == held["sha256"]
+    report["live_store_unchanged"] = sha256(live.store) == pre["sha256"]
     timed = {s["step"]: s for s in report["steps"] if not s["exit"]}
     if "build" in timed and "build" in report:
         # the census and the build scale with the store; both exports load his whole release
@@ -903,7 +926,601 @@ def stage_a_rehearse(live: Stage, pct: int, isolate: bool = False) -> dict:
     return write(stage.record("report"), report)
 
 
+# `deltas`. His rows are named here as in stage A: that one of them no longer holds a pair is
+# often why its line moved.
+DELTAS_MEMORY = "8GB"
+SKIPPED = ("export_stamp.json", "SHA256SUMS", "SHA256SUMS.stat", "candidates_unparsed.txt")
+UNVERIFIED = CANDIDATES_PATH.name  # beside each netnew folder, not in it
+PER_YEAR = (
+    (re.compile(r"(\d{4})\.txt"), "registrable"),
+    (re.compile(r"(\d{4})_hostnames\.txt"), "hostname"),
+    (re.compile(r"(\d{4})-ISC\.txt"), "isc"),
+)
+NAMED = {
+    "isc_candidates.txt": "isc",
+    "candidate_additions.txt": "candidate",
+    "header_candidates.txt": "header",
+    ATTESTED_NAME: "attested",
+}
+# A csv row follows the line its key names: the family, and the file its year picks
+FOLLOWS = {
+    "evidence_manifest.csv": ("manifest", "{}.txt"),
+    "hostnames_evidence_manifest.csv": ("manifest", "{}_hostnames.txt"),
+    "isc_survey_provenance.csv": ("provenance", "{}-ISC.txt"),
+    "header_candidates_provenance.csv": ("provenance", "header_candidates.txt"),
+    "header_candidates_exclusions.csv": ("exclusions", "header_candidates.txt"),
+}
+CANDIDATE_FAMILIES = ("candidate", "header", "isc", "unverified")
+PRICED = ("registrable", "hostname", *CANDIDATE_FAMILIES, "attested")
+# What he scores: the annual files and the candidate pool. The other candidate lists are parts
+# of the pool, and the attested list is never sent.
+CLAIM_FAMILIES = ("registrable", "hostname", "candidate")
+_CAND = f"c.family IN ({sql_list(list(CANDIDATE_FAMILIES))})"
+_TYPES = sql_list(sorted(CANDIDATE_ONLY_TYPES))
+# the rows of ours `held.our_domain_year` may cite
+_ELIGIBLE = f"w.evidence_type <> '{HIS_TYPE}' AND w.evidence_type NOT IN ({_TYPES})"
+_REG_ADDED = "c.family = 'registrable' AND c.change = 'added'"
+_REG_REMOVED = "c.family = 'registrable' AND c.change = 'removed' AND NOT p.cited_his"
+_HIS_ONLY = "c.family = 'attested' AND c.change = 'removed' AND p.cited_his AND NOT p.has_o"
+# First match wins: (reason, condition, detail) over `chg c` and the facts joined to it
+LINE_RULES = (
+    ("unexplained", "c.change = 'changed'", "c.row"),
+    (
+        "unexplained",
+        "c.change = 'added' AND c.family IN ('registrable', 'hostname') AND y.name IS NOT NULL",
+        "'in his ' || c.year || '.txt'",
+    ),
+    ("unexplained", f"c.change = 'added' AND {_CAND} AND f.in_his", "'in his files'"),
+    (
+        "superseded-only",
+        f"({_REG_ADDED} AND r.q_value IS NOT NULL OR {_HIS_ONLY}) AND s.marker IS NOT NULL",
+        "'his row ' || s.marker || ' only'",
+    ),
+    (
+        "released",
+        f"{_REG_ADDED} AND r.his_value IS NOT NULL AND r.q_value IS NOT NULL",
+        "'his row ' || r.his_value",
+    ),
+    (
+        "converter roll-up",
+        f"{_REG_REMOVED} AND r.q_value IS NULL AND p.cited_method = 'ia_cdx_collapsed_query' "
+        "AND regexp_matches(p.cited_value, '^cdx capture [0-9]{4}$')",
+        "'cited ' || p.cited_value",
+    ),
+    (
+        "withdrawn",
+        f"{_REG_REMOVED} AND r.q_value IS NULL AND NOT r.cited_exact",
+        "'cited ' || p.cited_value",
+    ),
+    (
+        "withdrawn",
+        "c.family = 'hostname' AND c.change = 'removed' AND h.cited_value IS NOT NULL "
+        "AND NOT h.cited_exact",
+        "'cited ' || h.cited_value",
+    ),
+    (
+        "candidate",
+        f"{_CAND} AND c.change = 'removed' AND f.moved_file IS NOT NULL",
+        "'moved to ' || f.moved_file",
+    ),
+    (
+        "candidate",
+        f"{_CAND} AND c.change = 'removed' AND f.claim_year IS NOT NULL",
+        "'own capture in ' || f.claim_year",
+    ),
+    (
+        "candidate",
+        f"{_CAND} AND c.change = 'added' AND (f.web_before AND f.claim_year IS NULL "
+        "OR f.host_web_before AND NOT f.host_now)",
+        "'years withdrawn'",
+    ),
+    (
+        "candidate",
+        f"{_CAND} AND c.change = 'added' AND f.his_named AND f.claim_year IS NULL "
+        "AND (c.family = 'candidate' OR NOT f.ody_named)",
+        "'his roll-up only'",
+    ),
+    # our own exact capture dates the pair now, where the row it cited did not qualify
+    (
+        "re-cited",
+        f"{_REG_ADDED} AND r.his_value IS NULL AND r.q_value IS NOT NULL "
+        "AND NOT p.cited_his AND NOT r.cited_qualifies",
+        "'own capture ' || r.q_value",
+    ),
+    # a pair only his rows dated leaves the attested list with them
+    ("his row only", _HIS_ONLY, "'his row ' || p.cited_value"),
+)
+
+
+def family_of(name: str) -> tuple[str, int | None] | None:
+    for pattern, family in PER_YEAR:
+        if found := pattern.fullmatch(name):
+            return family, int(found[1])
+    if name in NAMED:
+        return NAMED[name], None
+    if name in FOLLOWS:
+        return FOLLOWS[name][0], None
+    return None
+
+
+def _case(rules) -> str:
+    whens = " ".join(f"WHEN {cond} THEN ['{reason}', {detail}]" for reason, cond, detail in rules)
+    return f"CASE {whens} ELSE ['unexplained', c.row] END"
+
+
+def _same(sides: dict[str, Path]) -> bool:
+    return all(p.is_file() for p in sides.values()) and filecmp.cmp(*sides.values(), shallow=False)
+
+
+def _missing(sides: dict[str, Path]) -> dict:
+    gone = [side for side, path in sides.items() if not path.is_file()]
+    return {"missing": gone[0]} if gone else {}
+
+
+def _names(conn, file, family, year, sides, work, found) -> None:
+    """`comm -13` and `-23` of one list of names into `chg`, each side checked for order first.
+    The added lines are kept in `found`, to be checked against his files."""
+    use = {side: path if path.is_file() else work / "empty" for side, path in sides.items()}
+    for change, names, against in (
+        ("added", use["after"], use["before"]),
+        ("removed", use["before"], use["after"]),
+    ):
+        lines = work / change / file
+        if not held.minus(names, against, lines):
+            continue
+        held.read_names(conn, "_lines", lines)
+        if family == "attested":  # `YYYY<TAB>name`, compared as whole lines
+            conn.execute(
+                "INSERT INTO chg (file, family, year, name, change) SELECT ?, ?, "
+                "TRY_CAST(split_part(name, chr(9), 1) AS INTEGER), split_part(name, chr(9), 2), ? "
+                "FROM _lines",
+                [file, family, change],
+            )
+        else:
+            conn.execute(
+                "INSERT INTO chg (file, family, year, name, change) SELECT ?, ?, ?, name, ? "
+                "FROM _lines",
+                [file, family, year, change],
+            )
+        if change == "added":
+            found.setdefault((family, year), []).append(lines)
+
+
+def _rows(conn, file, family, follows, sides) -> None:
+    """The rows one csv gained and lost, each keyed by its first column and its year."""
+    reader = "read_csv(?, header=true, all_varchar=true, delim=',', quote='\"', escape='\"')"
+    present = [side for side, path in sides.items() if path.is_file()]
+    for side in present:
+        conn.execute(
+            f"CREATE OR REPLACE TEMP TABLE _rows_{side} AS SELECT * FROM {reader}",
+            [str(sides[side])],
+        )
+    for side in sides.keys() - present:
+        conn.execute(
+            f"CREATE OR REPLACE TEMP TABLE _rows_{side} AS SELECT * FROM _rows_{present[0]} "
+            "WHERE false"
+        )
+    cols = {s: [d[0] for d in conn.execute(f"FROM _rows_{s} LIMIT 0").description] for s in sides}
+    if cols["before"] != cols["after"]:
+        conn.execute(
+            "INSERT INTO chg (file, family, name, change, row) VALUES (?, ?, '', 'changed', ?)",
+            [file, family, f"columns {cols['before']} became {cols['after']}"],
+        )
+        return
+    quoted = ['"' + c.replace('"', '""') + '"' for c in cols["after"]]
+    year_col = next(
+        (q for c, q in zip(cols["after"], quoted, strict=True) if c.endswith("year")), None
+    )
+    year = f"TRY_CAST({year_col} AS INTEGER)" if year_col else "NULL::INTEGER"
+    line = f"format(?, {year})" if "{}" in follows else "?"
+    row = "concat_ws(' | ', " + ", ".join(f"coalesce({q}, '')" for q in quoted) + ")"
+    for change, gained, lost in (("added", "after", "before"), ("removed", "before", "after")):
+        conn.execute(
+            f"INSERT INTO chg SELECT ?, ?, {year}, {quoted[0]}, ?, {line}, {row} "
+            f"FROM (FROM _rows_{gained} EXCEPT ALL FROM _rows_{lost})",
+            [file, family, change, follows],
+        )
+
+
+def _summary_ok(path: Path) -> bool:
+    """A summary's `candidates` is the line count of the list it summarises."""
+    listed = path.with_name(path.name.removesuffix("_summary.json") + ".txt")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))["candidates"] == held.lines(listed)
+    except (OSError, KeyError, ValueError):
+        return False
+
+
+def _in_his(conn, his: held.Held, found: dict, work: Path) -> None:
+    """`_yh(name, year)`: added annual lines his file for that year holds; `_in_his(name)`:
+    added candidates any file of his holds. Both by `comm`, and both a bug in the export."""
+    conn.execute("CREATE OR REPLACE TEMP TABLE _yh (name VARCHAR, year INTEGER)")
+    for year in YEARS:
+        parts = found.get(("registrable", year), []) + found.get(("hostname", year), [])
+        if parts:
+            held.union(parts, work / f"year_{year}.txt")
+            held.intersect(work / f"year_{year}.txt", his.year(year), work / f"his_{year}.txt")
+            held.read_names(conn, "_lines", work / f"his_{year}.txt", year)
+            conn.execute("INSERT INTO _yh SELECT name, year FROM _lines")
+    conn.execute("CREATE OR REPLACE TEMP TABLE _in_his (name VARCHAR)")
+    parts = [p for (family, _), ps in found.items() if family in CANDIDATE_FAMILIES for p in ps]
+    if parts:
+        held.union(parts, work / "candidates.txt")
+        for against in (his.all, his.candidates):
+            held.intersect(work / "candidates.txt", against, work / "his_candidates.txt")
+            held.read_names(conn, "_lines", work / "his_candidates.txt")
+            conn.execute("INSERT INTO _in_his SELECT name FROM _lines")
+
+
+def _facts(conn, superseded: Path) -> None:
+    """What the store says about each changed key, one row per key, for the rules."""
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE _sup AS SELECT domain, TRY_CAST(year AS INTEGER) AS year, "
+        "min(marker) AS marker FROM read_csv(?, header=true, all_varchar=true) GROUP BY 1, 2",
+        [str(superseded)],
+    )
+    # the pairs of the registrable, attested and manifest lines, and the row each cited before
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE _pair AS SELECT DISTINCT name AS domain, year FROM chg
+        WHERE (family IN ('registrable', 'attested') OR file = 'evidence_manifest.csv')
+          AND year IS NOT NULL
+    """)
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE _pf AS
+        SELECT p.domain, p.year, e.{HIS} AS cited_his, e.evidence_value AS cited_value,
+               e.acquisition_method AS cited_method, o.domain IS NOT NULL AS has_o
+        FROM _pair p
+        LEFT JOIN domain_year dy ON dy.domain = p.domain AND dy.assigned_year = p.year
+        LEFT JOIN evidence e ON e.evidence_id = dy.evidence_id
+        LEFT JOIN (
+            SELECT DISTINCT w.domain, w.evidence_year FROM evidence w
+            SEMI JOIN _pair p ON p.domain = w.domain AND p.year = w.evidence_year
+            WHERE {_ELIGIBLE} AND w.evidence_value NOT LIKE 'cdx capture % www.' || w.domain
+        ) o ON o.domain = p.domain AND o.evidence_year = p.year
+    """)
+    # for a registrable pair: his row, whether the row it cited captured exactly its domain, and
+    # our lowest row that does
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE _rpair AS SELECT DISTINCT name AS domain, year FROM chg
+        WHERE (family = 'registrable' OR file = 'evidence_manifest.csv') AND year IS NOT NULL
+    """)
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE _rf AS
+        SELECT p.domain, p.year, h.his_value, q.q_value,
+               {exact_host_sql("e", "p.domain")} AS cited_exact,
+               {qualifies_sql("e", "p.domain")} AS cited_qualifies
+        FROM _rpair p
+        LEFT JOIN domain_year dy ON dy.domain = p.domain AND dy.assigned_year = p.year
+        LEFT JOIN evidence e ON e.evidence_id = dy.evidence_id
+        LEFT JOIN (
+            SELECT w.domain, w.evidence_year, min(w.evidence_value) AS his_value FROM evidence w
+            SEMI JOIN _rpair p ON p.domain = w.domain AND p.year = w.evidence_year
+            WHERE w.{HIS} GROUP BY 1, 2
+        ) h ON h.domain = p.domain AND h.evidence_year = p.year
+        LEFT JOIN (
+            SELECT w.domain, w.evidence_year, arg_min(w.evidence_value, w.evidence_id) AS q_value
+            FROM evidence w
+            SEMI JOIN _rpair p ON p.domain = w.domain AND p.year = w.evidence_year
+            WHERE {_ELIGIBLE} AND {qualifies_sql("w", "w.domain")} GROUP BY 1, 2
+        ) q ON q.domain = p.domain AND q.evidence_year = p.year
+    """)
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE _hf AS
+        SELECT p.name AS hostname, p.year, e.evidence_value AS cited_value,
+               {exact_host_sql("e", "p.name")} AS cited_exact
+        FROM (SELECT DISTINCT name, year FROM chg WHERE family = 'hostname') p
+        LEFT JOIN hostname_year hy ON hy.hostname = p.name AND hy.assigned_year = p.year
+        LEFT JOIN evidence e ON e.evidence_id = hy.evidence_id
+    """)
+    # a candidate: before, a year the method screen passed; now, a claim year of its own
+    conn.execute(
+        f"CREATE OR REPLACE TEMP TABLE _cand AS SELECT DISTINCT name FROM chg c WHERE {_CAND}"
+    )
+    held.our_domain_year(conn, "_cand", "_cand_ody")
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE _cf AS
+        SELECT n.name, i.name IS NOT NULL AS in_his, m.file AS moved_file, k.year AS claim_year,
+               wb.domain IS NOT NULL AS web_before, hb.hostname IS NOT NULL AS host_web_before,
+               hn.hostname IS NOT NULL AS host_now, hr.domain IS NOT NULL AS his_named,
+               od.domain IS NOT NULL AS ody_named
+        FROM _cand n
+        LEFT JOIN (SELECT DISTINCT name FROM _in_his) i ON i.name = n.name
+        LEFT JOIN (SELECT name, min(file) AS file FROM chg
+                   WHERE family IN ('registrable', 'hostname') AND change = 'added'
+                   GROUP BY 1) m ON m.name = n.name
+        LEFT JOIN (SELECT dy.domain, min(dy.assigned_year) AS year FROM _cand_ody dy
+                   WHERE {web_evidence_exists("dy.evidence_id", "dy.domain")}
+                   GROUP BY 1) k ON k.domain = n.name
+        LEFT JOIN (SELECT DISTINCT dy.domain FROM domain_year dy
+                   JOIN evidence e ON e.evidence_id = dy.evidence_id
+                   WHERE dy.domain IN (SELECT name FROM _cand) AND {web_evidence_sql("e")}
+                  ) wb ON wb.domain = n.name
+        LEFT JOIN (SELECT DISTINCT hy.hostname FROM hostname_year hy
+                   JOIN evidence e ON e.evidence_id = hy.evidence_id
+                   WHERE hy.hostname IN (SELECT name FROM _cand) AND {web_evidence_sql("e")}
+                  ) hb ON hb.hostname = n.name
+        LEFT JOIN (SELECT DISTINCT hy.hostname FROM hostname_year hy
+                   JOIN evidence e ON e.evidence_id = hy.evidence_id
+                   WHERE hy.hostname IN (SELECT name FROM _cand)
+                     AND {qualifies_sql("e", "hy.hostname")}
+                  ) hn ON hn.hostname = n.name
+        LEFT JOIN (SELECT DISTINCT domain FROM evidence
+                   WHERE {HIS} AND domain IN (SELECT name FROM _cand)) hr ON hr.domain = n.name
+        LEFT JOIN (SELECT DISTINCT domain FROM _cand_ody) od ON od.domain = n.name
+    """)
+
+
+def _classify(conn) -> None:
+    """`cls`: `chg` with a reason and a detail per line. A csv row takes its key's line's."""
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE cls AS
+        SELECT c.* EXCLUDE (rd), rd[1] AS reason, rd[2] AS detail FROM (
+            SELECT c.*, {_case(LINE_RULES)} AS rd FROM chg c
+            LEFT JOIN _sup s ON s.domain = c.name AND s.year = c.year
+            LEFT JOIN _pf p ON p.domain = c.name AND p.year = c.year
+            LEFT JOIN _rf r ON r.domain = c.name AND r.year = c.year
+            LEFT JOIN _hf h ON h.hostname = c.name AND h.year = c.year
+            LEFT JOIN _cf f ON f.name = c.name
+            LEFT JOIN _yh y ON y.name = c.name AND y.year = c.year
+            WHERE c.follows IS NULL
+        ) c
+    """)
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE _cls_rows AS
+        SELECT c.* EXCLUDE (rd), rd[1] AS reason, rd[2] AS detail FROM (
+            SELECT c.*, CASE
+                WHEN l.reason IS NOT NULL THEN [l.reason, l.detail]
+                WHEN c.file = 'evidence_manifest.csv' AND r.his_value IS NULL
+                     AND r.q_value IS NOT NULL AND NOT p.cited_his AND NOT r.cited_qualifies
+                  THEN ['re-cited', CASE c.change WHEN 'added' THEN 'own capture ' || r.q_value
+                                    ELSE 'cited ' || p.cited_value END]
+                ELSE ['unexplained', c.row] END AS rd
+            FROM chg c
+            LEFT JOIN (SELECT file, name, change, reason, detail FROM cls
+                       WHERE family <> 'attested') l
+              ON l.file = c.follows AND l.name = c.name AND l.change = c.change
+            LEFT JOIN _pf p ON p.domain = c.name AND p.year = c.year
+            LEFT JOIN _rf r ON r.domain = c.name AND r.year = c.year
+            WHERE c.follows IS NOT NULL
+        ) c
+    """)
+    conn.execute("INSERT INTO cls SELECT * FROM _cls_rows")
+
+
+def _price(conn, calculator: Path, priced_dir: Path, work: Path) -> list[dict]:
+    """His calculator over each (reason, change, family, year) list, one file per year: it
+    counts a name once per file, and a pair is the unit of an annual file."""
+    shutil.rmtree(priced_dir, ignore_errors=True)
+    groups = conn.execute(
+        "SELECT reason, change, family, year, count(*) FROM cls "
+        f"WHERE family IN ({sql_list(list(PRICED))}) GROUP BY ALL ORDER BY ALL"
+    ).fetchall()
+    priced = []
+    for reason, change, family, year, lines in groups:
+        stem = f"{family}_{year}" if year is not None else family
+        rel = Path(reason.replace(" ", "-"), change, stem)
+        path = (priced_dir / rel).with_suffix(".txt")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        conn.execute(
+            "CREATE OR REPLACE TEMP TABLE _group AS SELECT DISTINCT name FROM cls "
+            "WHERE reason = ? AND change = ? AND family = ? AND year IS NOT DISTINCT FROM ? "
+            "AND coalesce(name, '') <> ''",
+            [reason, change, family, year],
+        )
+        conn.execute(
+            f"COPY (SELECT name FROM _group ORDER BY name) TO '{path}' "
+            "(HEADER false, QUOTE '', ESCAPE '', DELIMITER '\x01')"
+        )
+        scored = work / "scored" / rel
+        subprocess.run(
+            [sys.executable, str(calculator), str(path), "--output-dir", str(scored)],
+            check=True,
+            capture_output=True,
+        )
+        summary = read(scored / "summary.json")
+        priced.append(
+            {
+                "reason": reason,
+                "change": change,
+                "family": family,
+                "year": year,
+                "lines": lines,
+                "ee": Decimal(str(summary["equivalent_english_domains"])),
+                "invalid": summary.get("invalid_records", 0),
+            }
+        )
+    return priced
+
+
+def _tally(counts: list[tuple], priced: list[dict], families: tuple[str, ...]) -> dict:
+    """{reason: {added: {lines, ee}, removed: {lines, ee}, net_ee}} over `families`. A csv row
+    is not a name, so a family of rows has lines and no EE."""
+    ee: dict[tuple, Decimal] = {}
+    for g in priced:
+        key = (g["family"], g["reason"], g["change"])
+        ee[key] = ee.get(key, Decimal(0)) + g["ee"]
+    has_ee = all(f in PRICED for f in families)
+    out: dict[str, dict] = {}
+    for reason in sorted({r for f, r, _, _ in counts if f in families}):
+        entry: dict = {}
+        for change in ("added", "removed", "changed"):
+            lines = sum(n for f, r, c, n in counts if f in families and r == reason and c == change)
+            if change == "changed" and not lines:
+                continue
+            total = sum((ee.get((f, reason, change), Decimal(0)) for f in families), Decimal(0))
+            entry[change] = {"lines": lines, "ee": _four(total) if has_ee else None}
+        entry["net_ee"] = _four(entry["added"]["ee"] - entry["removed"]["ee"]) if has_ee else None
+        out[reason] = entry
+    return out
+
+
+def _four(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.0001"))
+
+
+def deltas(
+    before: Path,
+    after: Path,
+    store: Path,
+    out: Path,
+    superseded: Path,
+    baseline: Path | None = None,
+) -> dict:
+    """Give every line the export in AFTER differs from the one in BEFORE by its reason.
+
+    Both folders are `output/netnew` copies from one store state, before and after a change to
+    the export; `store` is that store, opened read-only. Writes `out` (file, family, year,
+    name, change, reason, detail) sorted by file, name and year, `deltas.json` beside it, and
+    his calculator's input lists under the folder named like `out`.
+    """
+    for side in (before, after):
+        if not side.is_dir():
+            raise Refused(f"{side} is not an export folder")
+    if not superseded.is_file():
+        raise Refused(f"{superseded} is missing; stage A writes it")
+    calculator = calculator_path()
+    if not calculator.is_file():
+        raise Refused(f"his calculator is not at {calculator}")
+    his = held.load(baseline)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix=".deltas-", dir=out.parent))
+    try:
+        conn = connect_read_only_patiently(store)
+        try:
+            settings(conn, replace(Stage.at(REPO), temp=work / "duckdb_tmp"), DELTAS_MEMORY)
+            return _deltas(
+                conn, {"before": before, "after": after}, out, superseded, his, work, calculator
+            )
+        finally:
+            conn.close()
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _deltas(conn, folders, out, superseded, his, work, calculator) -> dict:
+    (work / "empty").touch()
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE chg (file VARCHAR, family VARCHAR, year INTEGER, "
+        "name VARCHAR, change VARCHAR, follows VARCHAR, row VARCHAR)"
+    )
+    files: dict[str, dict] = {}
+    skipped: list[str] = []
+    summaries: dict[str, bool] = {}
+    found: dict[tuple, list[Path]] = {}
+    listed = {p.name for folder in folders.values() for p in folder.iterdir() if p.is_file()}
+    for file in sorted(listed):
+        sides = {side: folder / file for side, folder in folders.items()}
+        known = family_of(file)
+        if file in SKIPPED:
+            skipped.append(file)
+        elif file.endswith("_summary.json"):
+            summaries |= {f"{s}/{file}": _summary_ok(p) for s, p in sides.items()}
+        elif known is None:
+            gone = _missing(sides)
+            files[file] = {"family": "unknown", **gone}
+            if not _same(sides):
+                what = f"is missing {gone['missing']}" if gone else "differs"
+                conn.execute(
+                    "INSERT INTO chg (file, family, name, change, row) "
+                    "VALUES (?, 'unknown', '', 'changed', ?)",
+                    [file, f"deltas has no family for this file, and it {what}"],
+                )
+        else:
+            family, year = known
+            files[file] = {"family": family, **_missing(sides)}
+            if _same(sides):
+                continue
+            if file in FOLLOWS:
+                _rows(conn, file, family, FOLLOWS[file][1], sides)
+            else:
+                _names(conn, file, family, year, sides, work, found)
+    sides = {side: folder.parent / UNVERIFIED for side, folder in folders.items()}
+    if not any(p.is_file() for p in sides.values()):
+        skipped.append(f"{UNVERIFIED}: beside neither folder")
+    else:
+        files[UNVERIFIED] = {"family": "unverified", **_missing(sides)}
+        if not _same(sides):
+            _names(conn, UNVERIFIED, "unverified", None, sides, work, found)
+
+    _in_his(conn, his, found, work)
+    _facts(conn, superseded)
+    _classify(conn)
+    part = out.with_name(out.name + ".part")
+    conn.execute(f"""
+        COPY (SELECT file, family, year, name, change, reason, detail
+              FROM cls ORDER BY file, name, year, change, detail)
+        TO '{part}' (HEADER true)
+    """)
+    os.replace(part, out)
+
+    for file, change, lines, bad in conn.execute(
+        "SELECT file, change, count(*), count(*) FILTER (WHERE reason = 'unexplained') "
+        "FROM cls GROUP BY ALL"
+    ).fetchall():
+        entry = files[file]
+        entry[change] = lines
+        entry["unexplained"] = entry.get("unexplained", 0) + bad
+    counts = conn.execute(
+        "SELECT family, reason, change, count(*) FROM cls GROUP BY ALL"
+    ).fetchall()
+    priced = _price(conn, calculator, out.with_suffix(""), work)
+    families = sorted({f for f, _, _, _ in counts})
+    return write(
+        out.with_suffix(".json"),
+        {
+            "his": his.marker,
+            "lines": sum(n for *_, n in counts),
+            "unexplained": sum(n for _, r, _, n in counts if r == "unexplained"),
+            "claim_families": list(CLAIM_FAMILIES),
+            "by_reason": _tally(counts, priced, CLAIM_FAMILIES),
+            "by_family": {f: _tally(counts, priced, (f,)) for f in families},
+            "by_file": {
+                f: {"added": 0, "removed": 0, "unexplained": 0, **files[f]} for f in sorted(files)
+            },
+            "priced": priced,
+            "invalid_records": sum(g["invalid"] for g in priced),
+            "skipped": skipped,
+            "summaries": summaries,
+            "summaries_consistent": all(summaries.values()),
+        },
+    )
+
+
+def deltas_main(argv: list[str], root: Path = REPO) -> int:
+    ap = argparse.ArgumentParser(
+        prog="migrate_store.py deltas", description=deltas.__doc__.split("\n\n")[0]
+    )
+    ap.add_argument("before", type=Path, help="netnew of the export before the change")
+    ap.add_argument("after", type=Path, help="netnew of the export after it")
+    ap.add_argument("--store", type=Path, help="the store both read; data/ark.duckdb")
+    ap.add_argument("--out", type=Path, help="data/migrate/stage_b/deltas.csv")
+    ap.add_argument("--superseded", type=Path, help="data/reports/his_superseded_only.csv")
+    ap.add_argument("--baseline", type=Path, help="his release; where held looks by default")
+    args = ap.parse_args(argv)
+    # the paths given are the caller's, so they resolve before the chdir; the defaults are ours
+    given = {k: v.resolve() if v is not None else None for k, v in vars(args).items()}
+    os.chdir(root)
+    try:
+        summary = deltas(
+            given["before"],
+            given["after"],
+            given["store"] or root / "data/ark.duckdb",
+            given["out"] or root / "data/migrate/stage_b/deltas.csv",
+            given["superseded"] or root / "data/reports/his_superseded_only.csv",
+            given["baseline"],
+        )
+    except (Refused, held.HeldError) as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+    shown = ("lines", "unexplained", "by_reason", "skipped", "summaries_consistent")
+    print(json.dumps({k: summary[k] for k in shown}, indent=2, default=str))
+    return 0 if summary["unexplained"] == 0 else 1
+
+
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["deltas"]:
+        return deltas_main(argv[1:])
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("stage", choices=["stage-a"])
     mode = ap.add_mutually_exclusive_group()
@@ -937,7 +1554,7 @@ def main(argv: list[str] | None = None) -> int:
             ok = report.get("swapped") or report.get("rollback_restored")
         else:
             ap.error("name one of --rehearse PCT, --run, --swap or --rollback")
-    except Refused as exc:
+    except (Refused, held.HeldError) as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
     shown = {k: v for k, v in report.items() if k not in ("census", "build")}

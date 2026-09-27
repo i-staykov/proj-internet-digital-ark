@@ -33,6 +33,21 @@ def _held_stays_in_tmp(tmp_path, monkeypatch):
     that wants his files stages them and passes the folder."""
     monkeypatch.setattr(held, "HELD_ROOT", tmp_path / "held")
     monkeypatch.setattr(held, "his_dir", lambda: tmp_path / "no-release-here")
+    # a store's spill and the readers' scratch, which would otherwise land in the live data/
+    monkeypatch.setattr(db, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+    monkeypatch.setattr(held, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+
+
+@pytest.fixture
+def his_files(tmp_path, monkeypatch):
+    """His release, staged from `tests/his_release.py` and prepared, where `held` looks for it.
+    A test that rewrites a file of his calls `held.prepare(his_files)` again before reading."""
+    from his_release import stage
+
+    folder = stage(tmp_path / "release")
+    monkeypatch.setattr(held, "his_dir", lambda: folder)
+    held.prepare(folder)
+    return folder
 
 
 @pytest.fixture(autouse=True, scope="session")

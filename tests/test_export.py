@@ -1,4 +1,4 @@
-"""Exports: net-new files, manifest, candidates, and merged masters."""
+"""Exports: net-new files, manifests and candidates, each net of his files by exact name."""
 
 import csv
 import json
@@ -8,7 +8,9 @@ from pathlib import Path
 
 import duckdb
 import pytest
+from his_release import WEB_METHOD, capture
 
+from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.english_share import weight_of
 from ark.export import (
@@ -39,24 +41,27 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
             cdx,
             1997,
             "cdx_timestamp",
-            "19970101000000",
-            acquisition_method="ia_cdx_domain_sweep",
+            capture("new.com", 1997),
+            acquisition_method=WEB_METHOD,
         ),
     )
     add_candidate(conn, "cand.org", cdx)
     return conn
 
 
-def _fake_baseline(tmp_path: Path) -> Path:
-    """A baseline directory holding only what the export diffs against. The export reads HIS
-    annual files and candidate pool at export time, so a test on the real ones would pass
-    or fail on whether a fixture name like `new.com` is in his 1997 file. It is.
+def _fake_baseline(tmp_path: Path, files: dict[str, str] | None = None) -> Path:
+    """A release of his holding only what the export diffs against, prepared as `ark intake`
+    prepares his real one. A test on the real one would pass or fail on whether a fixture
+    name like `new.com` is in his 1997 file. It is. `files` adds or replaces files of his.
     """
     baseline = tmp_path / "baseline"
-    baseline.mkdir()
-    for year in range(1996, 2002):
-        (baseline / f"{year}.txt").write_text("already-his.com\n")
-    (baseline / "candidate_pool.txt").write_text("already-his-candidate.com\n")
+    contents = {f"{year}.txt": "already-his.com\n" for year in YEARS}
+    contents["candidate_pool.txt"] = "already-his-candidate.com\n"
+    for rel, text in (contents | (files or {})).items():
+        path = baseline / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    held.prepare(baseline)
     return baseline
 
 
@@ -66,7 +71,6 @@ def test_export_all(tmp_path: Path) -> None:
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=_fake_baseline(tmp_path),
@@ -77,15 +81,14 @@ def test_export_all(tmp_path: Path) -> None:
     assert stats["netnew_1997"] == 1
     # the count is the written file's lines, and an empty year is an empty file
     assert stats["netnew_1996"] == 0
-    # the merged master holds baseline + addition, deduped and sorted
-    assert (tmp_path / "masters" / "1997.txt").read_text() == "base.com\nnew.com\n"
-    assert stats["master_1997"] == 2
+    # packaging builds the masters from his files and ours, so the export writes none
+    assert "master_1997" not in stats
     # unverified candidates are exported separately
     assert (tmp_path / "candidates.txt").read_text() == "cand.org\n"
     # the manifest carries provenance for net-new pairs only
     manifest = (tmp_path / "netnew" / "evidence_manifest.csv").read_text()
     assert "new.com" in manifest and "base.com" not in manifest
-    assert "ia_cdx" in manifest
+    assert "ia_cdx" in manifest and capture("new.com", 1997) in manifest
 
 
 def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
@@ -94,7 +97,6 @@ def test_every_export_destination_is_redirectable(tmp_path: Path) -> None:
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=_fake_baseline(tmp_path),
@@ -130,26 +132,24 @@ def test_no_export_destination_can_be_missed_by_a_test() -> None:
 
 
 def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: Path) -> None:
-    """ADR-008 supersedes ADR-007: `www.<a name already held that year>` SHIPS. His merges
-    hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of them, and
-    section XI says a base hostname and a distinct subdomain hostname may each be annual
-    records. This keeps the reversal from being undone and proves the two filters that DO
-    still bite were never part of it.
+    """`www.<a name already held that year>` SHIPS: a `www.` hostname is an annual record of its
+    own. His merges hold all 1,313,547 `www.` forms we sent, the bare name beside 1,106,188 of
+    them, and section XI says a base hostname and a distinct subdomain hostname may each be
+    annual records. This keeps the alias shipping and proves the two filters that DO still
+    bite were never part of it. Each hostname cites a capture of exactly itself.
     """
     conn = connect(":memory:")
     init_db(conn)
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
+
+    def web(parent: str, host: str, year: int) -> int:
+        value = capture(host, year)
+        return record_evidence(
+            conn, parent, cdx, year, "cdx_timestamp", value, acquisition_method=WEB_METHOD
+        )
+
     add_candidate(conn, "held.com", cdx)
-    eid = record_evidence(
-        conn,
-        "held.com",
-        cdx,
-        1999,
-        "cdx_timestamp",
-        "19990101000000",
-        acquisition_method="ia_cdx_domain_sweep",
-    )
-    assign_year(conn, eid)
+    assign_year(conn, web("held.com", "held.com", 1999))
     # the two parents the impossible hostnames hang off; `add_candidate` refuses `.arpa`
     # at the funnel, so that one goes in directly, exactly as the store's old rows did
     add_candidate(conn, "web.site", cdx)
@@ -158,7 +158,7 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
         [cdx],
     )
     rows = [
-        # www. of a hostname the store holds for that same year: SHIPS since ADR-008
+        # www. of a hostname the store holds for that same year: SHIPS
         ("www.deep.held.com", "held.com", 1999),
         ("deep.held.com", "held.com", 1999),
         # www. of a name held only in another year: always shipped
@@ -177,14 +177,13 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
         conn.execute(
             "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
             "VALUES (?, ?, ?, ?)",
-            [hostname, parent, year, eid],
+            [hostname, parent, year, web(parent, hostname, year)],
         )
 
     export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=_fake_baseline(tmp_path),
@@ -192,8 +191,8 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filter_still_bites(tmp_path: P
     shipped_1999 = (tmp_path / "netnew" / "1999_hostnames.txt").read_text().split()
     assert shipped_1999 == ["deep.held.com", "mail.held.com", "www.deep.held.com"]
     assert (tmp_path / "netnew" / "2000_hostnames.txt").read_text().split() == ["www.deep.held.com"]
-    # `.site` was delegated in 2015 and `.arpa` is never a website. Both survive ADR-008:
-    # the reversal was about the alias and touched neither.
+    # `.site` was delegated in 2015 and `.arpa` is never a website. Both still bite: shipping
+    # the alias touched neither.
     assert (tmp_path / "netnew" / "1996_hostnames.txt").read_text().split() == []
     assert "in-addr.arpa" not in (tmp_path / "netnew" / "1999_hostnames.txt").read_text()
     # the manifest carries the same rows as the files, or it reads as an addition it is not
@@ -222,8 +221,8 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
             cdx,
             1998,
             "cdx_timestamp",
-            "19980101000000",
-            acquisition_method="ia_cdx_domain_sweep",
+            capture("real.com", 1998),
+            acquisition_method=WEB_METHOD,
         ),
     )
     # .biz was delegated in 2001, so a 1998 pair under it can never ship.
@@ -236,8 +235,8 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
             cdx,
             1998,
             "cdx_timestamp",
-            "19980101000000",
-            acquisition_method="ia_cdx_domain_sweep",
+            capture("impossible.biz", 1998),
+            acquisition_method=WEB_METHOD,
         ),
     )
     # and one he already holds for that year, which the export drops and the guard must too
@@ -250,8 +249,8 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
             cdx,
             1998,
             "cdx_timestamp",
-            "19980101000000",
-            acquisition_method="ia_cdx_domain_sweep",
+            capture("already-his.com", 1998),
+            acquisition_method=WEB_METHOD,
         ),
     )
 
@@ -260,7 +259,6 @@ def test_shipped_pair_count_matches_what_the_export_writes(tmp_path: Path) -> No
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -288,7 +286,6 @@ def test_candidate_additions_are_one_pool_and_exclude_what_he_holds(tmp_path: Pa
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -314,13 +311,15 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
     loses what any file of his names, and only a `.txt` list counts.
     """
     conn = _populated_db()
-    baseline = _fake_baseline(tmp_path)
-    isc_dir = baseline / "isc_survey_hostnames"
-    isc_dir.mkdir()
-    (isc_dir / "1996-ISC.txt").write_text("isc-his.org\nhis.survey.net\n")
-    (isc_dir / "1997-ISC.txt").write_text(" SURVEY.net \n")
-    (isc_dir / "README.md").write_text("cand.org\n")
-    (baseline / "candidate_pool_unparsed_format.txt").write_text("mail.org\nrelay.mail.org\n")
+    baseline = _fake_baseline(
+        tmp_path,
+        {
+            "isc_survey_hostnames/1996-ISC.txt": "isc-his.org\nhis.survey.net\n",
+            "isc_survey_hostnames/1997-ISC.txt": " SURVEY.net \n",
+            "isc_survey_hostnames/README.md": "cand.org\n",
+            "candidate_pool_unparsed_format.txt": "mail.org\nrelay.mail.org\n",
+        },
+    )
 
     # the registrable arm
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
@@ -363,7 +362,6 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -393,10 +391,10 @@ def test_the_candidate_claim_excludes_every_name_his_release_holds_outside_the_p
 
 
 def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> None:
-    """C-90: a row the annual screen refuses is a candidate, not a loss. A registry list is
+    """A row the annual screen refuses is a candidate, not a loss. A registry list is
     `artifact_listing` by type and so earns a `domain_year`, and XIII then keeps it out of the
-    annual file by METHOD; until 2026-09-21 the candidate pool took only names with no year
-    at all, so 251,114 `.dk` rows shipped in neither file."""
+    annual file by METHOD; when the candidate pool took only names with no year at all,
+    251,114 `.dk` rows shipped in neither file."""
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path)
     registry = ensure_source(conn, "dk_zone_list", "timestamped")
@@ -417,7 +415,6 @@ def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> No
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -427,8 +424,73 @@ def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> No
     assert "zone-only.dk" not in (tmp_path / "netnew" / "2001.txt").read_text().split()
     # a name that earned a WEB year is still an annual record and never a candidate
     assert "new.com" not in additions
-    # and his own baseline names never enter the pool by the back door
+    # and a name only his release filed never enters the pool by the back door
     assert "base.com" not in additions
+
+
+def test_a_record_ships_only_on_a_capture_of_exactly_its_name(tmp_path: Path) -> None:
+    """A capture of `www.` or of any host beneath a registrable dates that host, never the
+    registrable, so the pair it dates is a candidate unless a capture of the name itself
+    backs it. And held is the exact name in his files: his `www.rolled.com` in 1999 does not
+    hold our `rolled.com` in 1999."""
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path, {"1999.txt": "already-his.com\nwww.rolled.com\n"})
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    # `both.com` is dated first by its `www.` capture, then captured itself
+    for domain, host in (
+        ("rolled.com", "rolled.com"),
+        ("sub.com", "a.sub.com"),
+        ("both.com", "www.both.com"),
+        ("both.com", "both.com"),
+    ):
+        add_candidate(conn, domain, cdx)
+        value = capture(host, 1999)
+        eid = record_evidence(
+            conn, domain, cdx, 1999, "cdx_timestamp", value, acquisition_method=WEB_METHOD
+        )
+        assign_year(conn, eid)
+    export_all(
+        conn,
+        netnew_dir=tmp_path / "netnew",
+        candidates_path=tmp_path / "candidates.txt",
+        report_dir=tmp_path / "reports",
+        provenance_dir=tmp_path / "provenance",
+        baseline=baseline,
+    )
+    netnew = tmp_path / "netnew"
+    assert (netnew / "1999.txt").read_text().split() == ["both.com", "rolled.com"]
+    # the pair that first cited the `www.` capture now cites the capture of the name itself
+    with (netnew / "evidence_manifest.csv").open(encoding="utf-8") as fh:
+        cited = {r["domain"]: r["evidence_value"] for r in csv.DictReader(fh)}
+    assert cited["both.com"] == capture("both.com", 1999)
+    assert "sub.com" not in cited
+    assert "sub.com" in (netnew / "candidate_additions.txt").read_text().split()
+    # every pair of ours is attested, whatever its row captured
+    attested = (netnew / ATTESTED_NAME).read_text().splitlines()
+    assert {"1999\tboth.com", "1999\trolled.com", "1999\tsub.com"} <= set(attested)
+
+
+def test_an_export_without_his_held_sets_writes_nothing(tmp_path: Path) -> None:
+    """Held sets `ark intake` did not write for his current release fail the export closed:
+    the old stamp is gone, so packaging refuses, and nothing is diffed against a file of his
+    that moved."""
+    conn = _populated_db()
+    baseline = _fake_baseline(tmp_path)
+    (baseline / "1997.txt").write_text("already-his.com\nnew.com\n")
+    netnew = tmp_path / "netnew"
+    netnew.mkdir()
+    (netnew / STAMP_NAME).write_text("{}\n")
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        export_all(
+            conn,
+            netnew_dir=netnew,
+            candidates_path=tmp_path / "candidates.txt",
+            report_dir=tmp_path / "reports",
+            provenance_dir=tmp_path / "provenance",
+            baseline=baseline,
+        )
+    assert list(netnew.iterdir()) == []
+    assert not (tmp_path / "candidates.txt").exists()
 
 
 def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
@@ -438,8 +500,7 @@ def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
     source-specific candidate asset with provenance; a host with a web-method year stays an
     annual record, and a host he already lists is reconciled out."""
     conn = _populated_db()
-    baseline = _fake_baseline(tmp_path)
-    (baseline / "1999.txt").write_text("already-his.com\nrelay.example.org\n")
+    baseline = _fake_baseline(tmp_path, {"1999.txt": "already-his.com\nrelay.example.org\n"})
     news = ensure_source(conn, "usenet_header_fqdn_hostnames", "timestamped")
     add_candidate(conn, "example.org", news)
 
@@ -461,8 +522,8 @@ def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
         news,
         2000,
         "cdx_timestamp",
-        "20000101000000",
-        acquisition_method="ia_cdx_domain_sweep",
+        capture("capture-ark-test.example.org", 2000),
+        acquisition_method=WEB_METHOD,
     )
     for host, year, eid in (
         ("news.example.org", 2000, header("news.example.org", 2000)),
@@ -481,7 +542,6 @@ def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -492,6 +552,8 @@ def test_a_hostname_whose_only_years_are_headers_is_a_candidate_with_provenance(
     assert "relay.example.org" not in additions
     assert "capture-ark-test.example.org" not in additions
     assert "capture-ark-test.example.org" in (netnew / "2000_hostnames.txt").read_text().split()
+    # the parent's only capture names a host beneath it, so the parent is a candidate
+    assert "example.org" in additions
     assert (netnew / "header_candidates.txt").read_text().split() == ["news.example.org"]
     with (netnew / "header_candidates_provenance.csv").open(encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
@@ -528,15 +590,14 @@ def test_the_annual_additions_never_repeat_a_line_he_already_has(tmp_path: Path)
             cdx,
             1997,
             "cdx_timestamp",
-            "19970101000000",
-            acquisition_method="ia_cdx_domain_sweep",
+            capture("already-his.com", 1997),
+            acquisition_method=WEB_METHOD,
         ),
     )
     export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
         candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
         report_dir=tmp_path / "reports",
         provenance_dir=tmp_path / "provenance",
         baseline=baseline,
@@ -562,47 +623,10 @@ def test_the_provenance_graph_is_off_unless_asked_for() -> None:
     assert inspect.signature(ex.export_all).parameters["claim_only"].default is False
 
 
-def test_the_masters_keep_every_row_of_his_and_filter_only_ours(tmp_path: Path) -> None:
-    """The shipping filter is about what we claim. A row of his under a TLD it refuses for that
-    year stays in his merged file; the same pair of ours does not ship."""
-    conn = _populated_db()
-    prior = ensure_source(conn, "prior_task", "timestamped")
-    cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    add_candidate(conn, "his-early.info", prior)
-    assign_year(
-        conn, record_evidence(conn, "his-early.info", prior, 1997, "prior_reused", "1997.txt")
-    )
-    add_candidate(conn, "our-early.info", cdx)
-    assign_year(
-        conn,
-        record_evidence(
-            conn,
-            "our-early.info",
-            cdx,
-            1997,
-            "cdx_timestamp",
-            "19970101000000",
-            acquisition_method="ia_cdx_domain_sweep",
-        ),
-    )
-    export_all(
-        conn,
-        netnew_dir=tmp_path / "netnew",
-        candidates_path=tmp_path / "candidates.txt",
-        masters_dir=tmp_path / "masters",
-        report_dir=tmp_path / "reports",
-        provenance_dir=tmp_path / "provenance",
-        baseline=_fake_baseline(tmp_path),
-    )
-    masters = (tmp_path / "masters" / "1997.txt").read_text().split()
-    assert "his-early.info" in masters
-    assert "our-early.info" not in masters
-    assert "our-early.info" not in (tmp_path / "netnew" / "1997.txt").read_text().split()
-
-
 def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
     """The same rows in either insertion order, as a store rewrite lays them down again: his
-    pair, ours, a web hostname, header-only hosts, a candidate and two ISC survey editions."""
+    pair, ours, a pair cited first by a capture of a host beneath it, a web hostname,
+    header-only hosts, a candidate and two ISC survey editions."""
     news = "https://archive.org/download/usenet-alt/alt.test.mbox.zip"
     zone = "http://nw.com/zone/WWW/9901/isc.hosts/net.gz"
     listing = "artifact_listing"
@@ -610,8 +634,17 @@ def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
     surveys = (("1999-01", "Mail.isc.net"), ("1999-07", "mail.isc.net"))
     rows = [
         ("prior_task", "base.com", 1997, "prior_reused", "1997.txt", None, None),
-        ("ia_cdx", "new.com", 1997, "cdx_timestamp", "19970101000000", None, None),
-        ("ia_cdx", "web.com", 1999, "cdx_timestamp", "19990101000000", None, "www2.web.com"),
+        ("ia_cdx", "new.com", 1997, "cdx_timestamp", capture("new.com", 1997), None, None),
+        ("ia_cdx", "web.com", 1999, "cdx_timestamp", capture("web.com", 1999), None, None),
+        (
+            "ia_cdx",
+            "web.com",
+            1999,
+            "cdx_timestamp",
+            capture("www2.web.com", 1999),
+            None,
+            "www2.web.com",
+        ),
         # a second type for one source, whose reported type must not follow the row order
         ("ia_cdx", "dir.com", 1998, "dated_directory", "1998/05 dir.com", None, None),
         *(("usenet", "example.org", y, listing, f"a#{y} {h}", news, h) for h, y in headers),
@@ -621,7 +654,7 @@ def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
         ),
         ("ia_cdx", "cand.org", None, None, None, None, None),
     ]
-    methods = {"ia_cdx": "ia_cdx_domain_sweep", "usenet": "usenet_server_written_header"}
+    methods = {"ia_cdx": WEB_METHOD, "usenet": "usenet_server_written_header"}
     conn = connect(":memory:")
     init_db(conn)
     for source, domain, year, kind, value, url, host in rows[::-1] if reverse else rows:
@@ -643,15 +676,13 @@ def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
     return conn
 
 
-def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path, monkeypatch) -> None:
+def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path) -> None:
     """A store swaps in only when its export matches the old one byte for byte, so the files
     depend on the rows and never on their physical order. `hostname_year`'s key already makes
     header provenance unique on hostname and year; its ORDER BY names every column anyway."""
     import hashlib
 
     baseline = _fake_baseline(tmp_path)
-    # the hostname half reads baseline_dir(), which is his real release in a checkout
-    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
 
     def export(conn: duckdb.DuckDBPyConnection, name: str) -> dict[str, str]:
         out = tmp_path / name
@@ -659,7 +690,6 @@ def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path, monkeypatch
             conn,
             netnew_dir=out / "netnew",
             candidates_path=out / "candidates.txt",
-            masters_dir=out / "exports",
             report_dir=out / "reports",
             provenance_dir=out / "provenance",
             baseline=baseline,
@@ -684,16 +714,13 @@ def test_two_exports_of_one_store_are_byte_identical(tmp_path: Path, monkeypatch
 
 @pytest.mark.parametrize("his_isc", [False, True], ids=["isc-name-ours", "isc-name-his"])
 def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
-    tmp_path: Path, monkeypatch, his_isc: bool
+    tmp_path: Path, his_isc: bool
 ) -> None:
     """The bank writes only the claim and ROUND.md quotes it, so the full export that ships
     must write the same bytes. The ISC reduction runs in both modes: an ISC name of his is
     counted in the summary's held names, and one of ours joins the candidate pool."""
-    baseline = _fake_baseline(tmp_path)
-    if his_isc:
-        (baseline / "isc_survey_hostnames").mkdir()
-        (baseline / "isc_survey_hostnames" / "1999-ISC.txt").write_text("mail.isc.net\n")
-    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
+    isc = {"isc_survey_hostnames/1999-ISC.txt": "mail.isc.net\n"} if his_isc else {}
+    baseline = _fake_baseline(tmp_path, isc)
     conn = _one_logical_store(reverse=False)
     for mode in ("claim", "full"):
         out = tmp_path / mode
@@ -701,7 +728,6 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
             conn,
             netnew_dir=out / "netnew",
             candidates_path=out / "candidates.txt",
-            masters_dir=out / "exports",
             report_dir=out / "reports",
             provenance_dir=out / "provenance",
             baseline=baseline,
@@ -712,7 +738,7 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
         for m in ("claim", "full")
     )
     assert [p.read_bytes() for p in claim] == [p.read_bytes() for p in full]
-    # no masters, manifests, ISC files, reports or provenance
+    # no manifests, ISC files, reports or provenance, and no scratch left behind
     written = {p for p in (tmp_path / "claim").rglob("*") if p.is_file()}
     assert written == {*claim, tmp_path / "claim" / "netnew" / STAMP_NAME}
     claim_stamp, full_stamp = (read_stamp(tmp_path / m / "netnew") for m in ("claim", "full"))
@@ -721,9 +747,10 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
 
     netnew = tmp_path / "claim" / "netnew"
     attested = (netnew / ATTESTED_NAME).read_text()
-    # example.org is dated only by headers, which the annual files refuse and this does not
+    # example.org is dated only by headers, which the annual files refuse and this does not;
+    # base.com is dated only by his row, so it is his pair and not ours to attest
     assert attested == (
-        "1997\tbase.com\n1997\tnew.com\n1998\tdir.com\n1998\texample.org\n"
+        "1997\tnew.com\n1998\tdir.com\n1998\texample.org\n"
         "1999\tweb.com\n2000\texample.org\n2001\texample.org\n"
     )
     for year in YEARS:
@@ -731,13 +758,10 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
         assert set((netnew / f"{year}.txt").read_text().split()) <= block
 
 
-def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(tmp_path: Path) -> None:
     """Only a full export of the store as it stands ships, and the bank's candidate claim set
     aside before it must equal the full export's byte for byte."""
     baseline = _fake_baseline(tmp_path)
-    monkeypatch.setattr("ark.export.baseline_dir", lambda: baseline)
     conn = _populated_db()
     netnew, claim = tmp_path / "netnew", tmp_path / "claim"
 
@@ -746,7 +770,6 @@ def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(
             conn,
             netnew_dir=netnew,
             candidates_path=tmp_path / "candidates.txt",
-            masters_dir=tmp_path / "exports",
             report_dir=tmp_path / "reports",
             provenance_dir=tmp_path / "provenance",
             baseline=baseline,
@@ -754,7 +777,7 @@ def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(
         )
 
     export(claim_only=True)
-    assert "data/exports/1996.txt" in stamp_problems(netnew_dir=netnew, claim_dir=claim)[0]
+    assert "evidence_manifest.csv" in stamp_problems(netnew_dir=netnew, claim_dir=claim)[0]
     claim.mkdir()
     for name in ("candidate_additions.txt", STAMP_NAME):
         shutil.copy(netnew / name, claim)

@@ -52,9 +52,9 @@ if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
 fi
 
 # The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
-# writes only the claim, so the masters, manifests and ISC files beside it are whatever the
-# last full export left; only a full export with provenance, against the current release and
-# with the bank's claim set aside, ships.
+# writes only the claim, so the manifests, ISC files and contribution tables beside it are
+# whatever the last full export left; only a full export with provenance, against the current
+# release and with the bank's claim set aside, ships.
 PROBLEMS=$(uv run python -c 'from ark.export import stamp_problems; print("\n".join(stamp_problems()))')
 if [ -n "$PROBLEMS" ]; then
     echo "refusing to package:" >&2
@@ -274,8 +274,26 @@ if [ "$OVERLAP" != 0 ]; then
 fi
 
 
-# merged master year lists + net-new additions + provenance
-cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
+# masters/: his year file merged with our two net-new files by exact name, no roll-up, as
+# README.md states it. `sort -m` on unsorted input is silently wrong, so each input is checked,
+# and a year `ark intake` had to copy refuses: his raw file would not reproduce the merge.
+HELD_YEARS=$(uv run python -c '
+import sys
+from ark import held
+try:
+    his = held.load()
+except held.HeldError as error:
+    sys.exit(f"refusing to package: {error}")
+for year, path in his.years.items():
+    if path != his.baseline / f"{year}.txt":
+        sys.exit(f"refusing to package: his {year}.txt is not sorted, unique and lowercase")
+    print(year, path)') || exit 1
+while read -r y HISY; do
+    for f in "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt"; do
+        LC_ALL=C sort -c -u "$f" || { echo "refusing to package: $f is not LC_ALL=C sorted and unique" >&2; exit 1; }
+    done
+    LC_ALL=C sort -m -u "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt" > "$STAGE/masters/$y.txt"
+done <<< "$HELD_YEARS"
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 # The second output unit (his acceptance of 2026-09-01): hostname records per year,
@@ -479,10 +497,10 @@ cat > "$STAGE/baseline/README.txt" <<BASELINES
 $MARKER/
     The reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued by the
     reviewer: the six annual files, candidate_pool.txt, candidate_pool_unparsed_format.txt
-    and isc_survey_hostnames/*.txt, $MERGED_LINES raw annual lines, copied unchanged. Keep normalized hostname identity when comparing these
-    files; a registrable roll-up is secondary. Every "net-new" figure in report.md
-    means "not present in these files". Additions scored against any earlier release
-    give a larger number than the report claims.
+    and isc_survey_hostnames/*.txt, $MERGED_LINES raw annual lines, copied unchanged.
+    Compare by exact name. Every "net-new" figure in report.md means "not present in
+    these files". Additions scored against any earlier release give a larger number
+    than the report claims.
 BASELINES
 
 # the provenance graph as Parquet: which source saw which domain in which year,
@@ -498,23 +516,6 @@ if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
     exit 1
 fi
 cp -R output/provenance/. "$STAGE/provenance/"
-
-# The FULL evidence table ships, baseline rows included, and the 429 MB they cost is
-# not optional. Dropping `prior_reused` was tried on 2026-08-17 and shipped once. It
-# looked free: those rows are the reviewer's own data returning to him, and
-# `verify.sh` passed because it reads the additions manifest rather than the parquet.
-#
-# Running the archive's own tier-2 reproduction against a freshly extracted copy is
-# what caught it. Without the baseline rows, 11,316,960 of 16,619,832 `domain_year`
-# rows point at an `evidence_id` that no longer exists, so `ark check` fails on
-# `evidence_wall_intact` and `every_pair_has_master_evidence`. Worse, net-new is
-# DEFINED as "no baseline evidence for this (domain, year)", so with those rows gone
-# the rebuild re-claims the entire corpus: 712,927 additions for 1996 against a true
-# 63,162. That is the exact failure `notes.md` records from phase 2, where shipping
-# would have claimed 1,339,783 pairs instead of 17,418.
-#
-# The lesson is not "keep the rows", it is that a size cut which no guard covers is
-# an unmeasured change. `verify_delivery.sh` now checks the evidence wall directly.
 
 # The reviewer's own scorer, so the archive can re-derive its headline figure without
 # reference to anything outside itself. `round_figures.py --verify` is named in the

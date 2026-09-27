@@ -8,16 +8,27 @@ reader the same prepared set, and refuses one his files have moved past.
 
 import json
 import os
+import shutil
 import subprocess
+import tempfile
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 from loguru import logger
 
 from ark import baseline as _baseline
 from ark.db import DB_MEMORY_LIMIT, DB_TEMP_DIR, DB_THREADS
-from ark.evidence_types import CANDIDATE_ONLY_TYPES, HIS_TYPE
+from ark.delegation import shipping_filter
+from ark.evidence_types import (
+    CANDIDATE_ONLY_TYPES,
+    HIS_SOURCE,
+    HIS_TYPE,
+    qualifies_sql,
+    web_evidence_exists,
+)
 from ark.ingest import YEARS
 
 # cwd-relative, like `data/ark.duckdb`: a delivery writes it beside its own store
@@ -196,15 +207,29 @@ def _his_files(baseline: Path) -> list[Path]:
     return years + candidate_files(baseline)
 
 
+def _marker(baseline: Path) -> str:
+    """The release's folder name, which keys its held sets: `--baseline .` names the folder."""
+    marker = Path(os.path.abspath(baseline)).name
+    if not marker:
+        raise HeldError(f"{baseline} has no folder name to key its held sets on")
+    return marker
+
+
 def prepare(baseline: Path | None = None) -> Held:
-    """Check every file of his release and write the held sets under `HELD_ROOT/<marker>/`."""
+    """Check every file of his release and write the held sets under `HELD_ROOT/<marker>/`.
+
+    The sets of any other release go, at 4 GB each: only the current release is diffed against.
+    """
     baseline = baseline or his_dir()
+    marker = _marker(baseline)
     files = _his_files(baseline)
-    out = HELD_ROOT / baseline.name
+    out = HELD_ROOT / marker
     out.mkdir(parents=True, exist_ok=True)
     (out / STAMP).unlink(missing_ok=True)
+    for part in out.rglob("*.part"):
+        part.unlink()
     conn = _connect()
-    stamp: dict = {"marker": baseline.name, "files": {}}
+    stamp: dict = {"marker": marker, "files": {}}
     prepared: dict[Path, Path] = {}
     for path in files:
         rel = path.relative_to(baseline)
@@ -247,6 +272,10 @@ def prepare(baseline: Path | None = None) -> Held:
     part = out / f"{STAMP}.part"
     part.write_text(json.dumps(stamp, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(part, out / STAMP)
+    for other in HELD_ROOT.iterdir():
+        if other != out and other.is_dir() and (other / STAMP).is_file():
+            shutil.rmtree(other)
+            logger.info(f"{other}: the held sets of a release that is not current, removed")
     return load(baseline)
 
 
@@ -254,12 +283,12 @@ def load(baseline: Path | None = None) -> Held:
     """The held sets `prepare` wrote for his current release, or `HeldError` if his files have
     changed since, or none were written. Nothing is re-sorted here."""
     baseline = baseline or his_dir()
-    out = HELD_ROOT / baseline.name
+    out = HELD_ROOT / _marker(baseline)
     fix = "run uv run ark intake"
     try:
         stamp = json.loads((out / STAMP).read_text(encoding="utf-8"))
     except FileNotFoundError:
-        raise HeldError(f"no held sets for {baseline.name} in {out}: {fix}") from None
+        raise HeldError(f"no held sets for {out.name} in {out}: {fix}") from None
     try:
         files = _his_files(baseline)
     except HeldError as error:
@@ -282,7 +311,7 @@ def load(baseline: Path | None = None) -> Held:
         if not (out / name).is_file() or _stat(out / name) != stamp[name]:
             raise HeldError(f"{out / name} changed since {out / STAMP} was written: {fix}")
     held = Held(
-        marker=baseline.name,
+        marker=out.name,
         baseline=baseline,
         dir=out,
         years={year: paths[f"{year}.txt"] for year in YEARS},
@@ -340,34 +369,224 @@ def dump(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     return lines(path)
 
 
-# **An assignment citing one of HIS evidence rows is re-pointed before it is dropped.** A
-# pair he already held was assigned against his marker only because his release was ingested
-# first, and many of those we can prove ourselves; dropping them left 32,432,586 of our own
-# observations unassigned, which `nothing_earned_is_left_unassigned` correctly reads as a
-# domain in the candidate pool holding proof of a year.
-#
-# **The row it is re-pointed at must be one the assigner would have accepted**, so
-# candidate-only types and `www.`-only captures are excluded here, the same two rules
-# `no_candidate_leakage` and `a_bare_record_is_not_inferred_from_www` read. A pair with
-# nothing left is dropped rather than re-pointed: we cannot prove it, and he can.
-OUR_DOMAIN_YEAR_SQL = f"""
-        WITH ours AS (
+# **Our assignments: none rests on one of his rows, and each cites its best row.** A pair his
+# release was loaded against keeps a row of ours when we hold one the assigner would accept
+# (no candidate-only type, no `www.`-only capture), and is dropped otherwise: we cannot prove
+# it, and he can. A pair citing a row that is not a capture of exactly its domain moves to the
+# lowest row of ours that is, when there is one. So a shipped pair cites its own row when that
+# row qualifies, else the lowest one that does, and `domain_year` rebuilt from this table
+# gives back this table.
+def _our_domain_year_sql(names: str | None = None) -> str:
+    only = f"AND domain IN (SELECT name FROM {names})" if names else ""
+    keep = f"AND dy.domain IN (SELECT name FROM {names})" if names else ""
+    return f"""
+        WITH q AS (
+            SELECT domain, evidence_year, min(evidence_id) AS evidence_id
+            FROM evidence w
+            WHERE evidence_type <> '{HIS_TYPE}' AND evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND {qualifies_sql("w", "w.domain")} {only}
+            GROUP BY 1, 2
+        ), ours AS (
             SELECT domain, evidence_year, min(evidence_id) AS evidence_id
             FROM evidence
-            WHERE evidence_type <> '{HIS_TYPE}'
-              AND evidence_type NOT IN ({_CANDIDATE_LIST})
-              AND evidence_value NOT LIKE 'cdx capture % www.' || domain
+            WHERE evidence_type <> '{HIS_TYPE}' AND evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND evidence_value NOT LIKE 'cdx capture % www.' || domain {only}
             GROUP BY 1, 2
         )
-        SELECT dy.* REPLACE (COALESCE(o.evidence_id, dy.evidence_id) AS evidence_id)
+        SELECT dy.* REPLACE (CASE
+            WHEN e.evidence_type <> '{HIS_TYPE}'
+                 AND (q.evidence_id IS NULL OR {qualifies_sql("e", "dy.domain")})
+              THEN dy.evidence_id
+            WHEN q.evidence_id IS NOT NULL THEN q.evidence_id
+            ELSE o.evidence_id END AS evidence_id)
         FROM domain_year dy
         JOIN evidence e ON e.evidence_id = dy.evidence_id
+        LEFT JOIN q ON q.domain = dy.domain AND q.evidence_year = dy.assigned_year
         LEFT JOIN ours o ON o.domain = dy.domain AND o.evidence_year = dy.assigned_year
-        WHERE e.evidence_type <> '{HIS_TYPE}' OR o.evidence_id IS NOT NULL
+        WHERE (e.evidence_type <> '{HIS_TYPE}' OR o.evidence_id IS NOT NULL) {keep}
     """
 
 
-def our_domain_year(conn: duckdb.DuckDBPyConnection) -> None:
-    """`our_domain_year`, a temp table: the store's assignments with none resting on his rows,
-    rebuilt on each call so it never outlives a write. `provenance` ships it as `domain_year`."""
-    conn.execute(f"CREATE OR REPLACE TEMP TABLE our_domain_year AS {OUR_DOMAIN_YEAR_SQL}")
+OUR_DOMAIN_YEAR_SQL = _our_domain_year_sql()
+
+
+def our_domain_year(
+    conn: duckdb.DuckDBPyConnection, names: str | None = None, table: str = "our_domain_year"
+) -> None:
+    """`table`, a temp table of our assignments, rebuilt on each call so it never outlives a
+    write; `provenance` ships the same rows as `domain_year`. `names`, a table with a `name`
+    column, keeps only those domains, for a reader that asks about a few."""
+    conn.execute(f"CREATE OR REPLACE TEMP TABLE {table} AS {_our_domain_year_sql(names)}")
+
+
+def our_domains(conn: duckdb.DuckDBPyConnection) -> None:
+    """`our_domains`, every domain one of our rows names, for `we_know`."""
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE our_domains AS "
+        f"SELECT DISTINCT domain FROM evidence WHERE evidence_type <> '{HIS_TYPE}'"
+    )
+
+
+def we_know(alias: str = "d") -> str:
+    """A `domain` row we found ourselves: a source of ours filed it, or a row of ours names it.
+    Needs `our_domains`. His release filed every name it holds, and those we never saw are his,
+    not ours to offer back."""
+    return (
+        f"({alias}.discovered_source IS DISTINCT FROM "
+        f"(SELECT source_id FROM source WHERE name = '{HIS_SOURCE}') "
+        f"OR {alias}.domain IN (SELECT domain FROM our_domains))"
+    )
+
+
+def ours(alias: str = "e") -> str:
+    """An evidence row of ours, not one of his."""
+    return f"{alias}.evidence_type <> '{HIS_TYPE}'"
+
+
+def read_names(
+    conn: duckdb.DuckDBPyConnection, table: str, path: Path, year: int | None = None
+) -> int:
+    """Load a one-name-per-line file into the temp table `table` (`name`, and `year` if given)."""
+    tag = f", {year} AS year" if year is not None else ""
+    conn.execute(
+        f"CREATE OR REPLACE TEMP TABLE {table} AS SELECT column0 AS name{tag} FROM {_read('?')}",
+        [str(path)],
+    )
+    return conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+
+
+def claim_pairs(conn: duckdb.DuckDBPyConnection) -> None:
+    """`claim_pair(domain, assigned_year, evidence_id)`: our assignments whose row is a web
+    capture of exactly that domain. Needs `our_domain_year`."""
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE claim_pair AS
+        SELECT dy.domain, dy.assigned_year, dy.evidence_id FROM our_domain_year dy
+        WHERE {web_evidence_exists("dy.evidence_id", "dy.domain")}
+    """)
+
+
+def netnew(
+    conn: duckdb.DuckDBPyConnection, his: Held, work: Path, netnew_dir: Path | None = None
+) -> dict[int, int]:
+    """Write each year's claim minus his file for that year, by exact name, to
+    `netnew_dir/<year>.txt` (else to `work`), and load `netnew_pair(domain, year, evidence_id)`.
+    Needs `claim_pair`. Returns the line count per year, which is `wc -l` of each file."""
+    out_dir = netnew_dir or work
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE netnew_pair "
+        "(domain VARCHAR, year INTEGER, evidence_id BIGINT)"
+    )
+    counts = {}
+    for year in YEARS:
+        claim = work / f"claim_{year}.txt"
+        dump(
+            conn,
+            f"SELECT DISTINCT dy.domain FROM claim_pair dy WHERE dy.assigned_year = {year} "
+            f"AND {shipping_filter('dy.')} ORDER BY 1",
+            claim,
+        )
+        counts[year] = minus(claim, his.year(year), out_dir / f"{year}.txt")
+        read_names(conn, "_netnew_names", out_dir / f"{year}.txt")
+        conn.execute(f"""
+            INSERT INTO netnew_pair
+            SELECT c.domain, c.assigned_year, c.evidence_id FROM claim_pair c
+            JOIN _netnew_names n ON n.name = c.domain WHERE c.assigned_year = {year}
+        """)
+    conn.execute("DROP TABLE _netnew_names")
+    return counts
+
+
+def held_any(conn: duckdb.DuckDBPyConnection, his: Held, work: Path) -> int:
+    """`held_any(name)`: the domains of `our_domain_year` his files hold in any year."""
+    dump(conn, "SELECT DISTINCT domain FROM our_domain_year ORDER BY 1", work / "dated.txt")
+    intersect(work / "dated.txt", his.all, work / "held_any.txt")
+    return read_names(conn, "held_any", work / "held_any.txt")
+
+
+def held_pairs(conn: duckdb.DuckDBPyConnection, his: Held, work: Path) -> int:
+    """`held_pair(domain, year)`: the pairs of `our_domain_year` his file for that year holds."""
+    conn.execute("CREATE OR REPLACE TEMP TABLE held_pair (domain VARCHAR, year INTEGER)")
+    for year in YEARS:
+        dated = work / f"dated_{year}.txt"
+        dump(
+            conn,
+            f"SELECT DISTINCT domain FROM our_domain_year WHERE assigned_year = {year} ORDER BY 1",
+            dated,
+        )
+        intersect(dated, his.year(year), work / f"held_{year}.txt")
+        read_names(conn, "_held_names", work / f"held_{year}.txt", year)
+        conn.execute("INSERT INTO held_pair SELECT name, year FROM _held_names")
+    conn.execute("DROP TABLE _held_names")
+    return conn.execute("SELECT count(*) FROM held_pair").fetchone()[0]
+
+
+def union(parts: list[Path], out: Path) -> int:
+    """`sort -m -u` of checked files into `out`, and its line count."""
+    for path in parts:
+        _ensure_sorted(path)
+    _merge(parts, out)
+    _mark(out)
+    return lines(out)
+
+
+def names_in(names: Iterable[str], against: Path) -> set[str]:
+    """The names his file `against` holds by exact name. Names that could not be a line of it
+    (empty, or holding a line break) are not written, so they are never held."""
+    keep = sorted({n for n in names if n and "\n" not in n and "\r" not in n})
+    if not keep:
+        return set()
+    with tempfile.TemporaryDirectory() as tmp:
+        asked, found = Path(tmp) / "asked.txt", Path(tmp) / "found.txt"
+        asked.write_text("".join(f"{n}\n" for n in keep), encoding="utf-8")
+        intersect(asked, against, found)
+        return set(found.read_text(encoding="utf-8").splitlines())
+
+
+def _asked(conn: duckdb.DuckDBPyConnection, names: list[str]) -> None:
+    conn.register("_asked_names", pa.table({"name": pa.array(names, pa.string())}))
+    try:
+        conn.execute(
+            "CREATE OR REPLACE TEMP TABLE _asked AS SELECT DISTINCT name FROM _asked_names"
+        )
+    finally:
+        conn.unregister("_asked_names")
+
+
+def attested(
+    conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
+) -> set[str]:
+    """The names dated in some year: by a pair of ours, or by his files."""
+    names = list(names)
+    his = his or load()
+    _asked(conn, names)
+    our_domain_year(conn, "_asked", "_our_asked")
+    ours_ = {d for (d,) in conn.execute("SELECT DISTINCT domain FROM _our_asked").fetchall()}
+    return ours_ | names_in(names, his.all)
+
+
+def known_years(
+    conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
+) -> set[tuple[str, int]]:
+    """The (name, year) pairs dated already: by a pair of ours, or by his file for that year."""
+    names = list(names)
+    his = his or load()
+    _asked(conn, names)
+    our_domain_year(conn, "_asked", "_our_asked")
+    pairs = set(conn.execute("SELECT domain, assigned_year FROM _our_asked").fetchall())
+    for year in YEARS:
+        pairs |= {(n, year) for n in names_in(names, his.year(year))}
+    return pairs
+
+
+def known_names(
+    conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
+) -> set[str]:
+    """The names already known: found by us, or in any file of his, dated or candidate."""
+    names = list(names)
+    his = his or load()
+    _asked(conn, names)
+    our_domains(conn)
+    found = conn.execute(
+        f"SELECT d.domain FROM domain d JOIN _asked a ON a.name = d.domain WHERE {we_know('d')}"
+    ).fetchall()
+    return {d for (d,) in found} | names_in(names, his.all) | names_in(names, his.candidates)

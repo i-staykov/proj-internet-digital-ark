@@ -12,8 +12,8 @@ evidence rows. Pricing must not do either.
 **It runs the ingest's own funnel**, imported from `ark.hostnames` rather than copied:
 the 14-digit stamp dates the row, `host_of` accepts RFC 1123 hosts only, the host must
 reduce to a parent registrable and not be it, and `www.<parent>` is the parent's own
-site. A hostname year is net-new when the store's `hostname_year` lacks it AND the
-reviewer's baseline file for that year lacks it, which is exactly the export's rule.
+site. A hostname year is net-new when the store's `hostname_year` lacks it AND his
+file for that year lacks the exact name, which is exactly the export's rule.
 The parent (registrable, year) pairs the same rows would assign are priced beside,
 because the ingest writes both and a corpus can pay in either.
 
@@ -40,10 +40,12 @@ from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 
+import pyarrow as pa
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from ark.baseline import baseline_dir  # noqa: E402
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.delegation import shipping_filter_for  # noqa: E402
@@ -162,11 +164,13 @@ def funnel(
 
 
 def price(  # noqa: ANN001
-    conn, rows: list[tuple[str, str, int]], pairs: list[tuple[str, int]], baseline: Path | None
+    conn, rows: list[tuple[str, str, int]], pairs: list[tuple[str, int]], his: held.Held
 ) -> dict:
-    """Difference both halves against the store and the baseline files, read-only."""
+    """Difference both halves against our pairs in the store and his files, read-only."""
     weights = english_weights()
-    conn.execute("CREATE TEMP TABLE cand (hostname TEXT, parent TEXT, year INTEGER, bare TEXT)")
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE cand (hostname TEXT, parent TEXT, year INTEGER, bare TEXT)"
+    )
     # `bare` is the name under a leading `www.`, so the seam below can be measured: the
     # ingest refuses `www.<parent>` and nothing refuses `www.<a hostname we already hold>`,
     # which is the same site under the name every crawler tries first.
@@ -174,31 +178,42 @@ def price(  # noqa: ANN001
         "INSERT INTO cand VALUES (?, ?, ?, ?)",
         [(h, p, y, h[4:] if h.startswith("www.") else None) for h, p, y in rows],
     )
-    # The registrable half the same capture rows assert. Diffed against `domain_year` AND
-    # his own files, because a registrable he already lists for that year is not ours to
-    # report any more than a hostname is.
-    conn.execute("CREATE TEMP TABLE reg_cand (domain TEXT, year INTEGER)")
+    # The registrable half the same capture rows assert. Diffed against our pairs AND his
+    # own files, because a registrable he already lists for that year is not ours to report
+    # any more than a hostname is.
+    conn.execute("CREATE OR REPLACE TEMP TABLE reg_cand (domain TEXT, year INTEGER)")
     conn.executemany("INSERT INTO reg_cand VALUES (?, ?)", pairs)
-    conn.execute("CREATE TEMP TABLE baseline_host (hostname TEXT, year INTEGER)")
-    years = sorted({y for _, _, y in rows} | {y for _, y in pairs})
-    baseline_years = []
-    for year in years:
-        path = (baseline / f"{year}.txt") if baseline else None
-        if path and path.exists():
-            baseline_years.append(year)
-            conn.execute(
-                f"""
-                INSERT INTO baseline_host
-                SELECT lower(trim(column0)), {year}
-                FROM read_csv('{path}', header=false, delim='\\x01',
-                              columns={{'column0': 'VARCHAR'}})
-                WHERE lower(trim(column0)) IN (
-                    SELECT hostname FROM cand WHERE year = {year}
-                    UNION SELECT bare FROM cand WHERE year = {year} AND bare IS NOT NULL
-                    UNION SELECT domain FROM reg_cand WHERE year = {year}
-                )
-                """
-            )
+    # His hold is the exact name in his file for that year, and his store rows are not read.
+    # Asked of each year's file: the hostnames, bare names and registrables of that year,
+    # and every parent, which is held when he holds it in any year.
+    parents = {parent for _, parent, _ in rows}
+    asked = {year: set(parents) for year in YEARS}
+    for host, _parent, year in rows:
+        asked[year].add(host)
+        if host.startswith("www."):
+            asked[year].add(host[4:])
+    for domain, year in pairs:
+        asked[year].add(domain)
+    found = [(name, year) for year in YEARS for name in held.names_in(asked[year], his.year(year))]
+    conn.register(
+        "_found",
+        pa.table(
+            {
+                "name": pa.array([name for name, _ in found], pa.string()),
+                "year": pa.array([year for _, year in found], pa.int32()),
+            }
+        ),
+    )
+    try:
+        conn.execute("CREATE OR REPLACE TEMP TABLE his_exact AS SELECT name, year FROM _found")
+    finally:
+        conn.unregister("_found")
+    # our assignments of the registrables and bare names asked about, as the export ships them
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE priced_names AS
+        SELECT domain AS name FROM reg_cand UNION SELECT bare FROM cand WHERE bare IS NOT NULL
+    """)
+    held.our_domain_year(conn, "priced_names", "our_pairs")
     # Price what could ship: a hostname under `.arpa` or under a TLD that did not exist in
     # its year never reaches a file, so counting it inflates the price of a corpus. The
     # hostname export applied neither rule until 2026-09-03.
@@ -208,26 +223,26 @@ def price(  # noqa: ANN001
         f"""
         SELECT c.hostname, c.parent, c.year,
                hy.hostname IS NOT NULL AS in_store,
-               b.hostname IS NOT NULL AS in_baseline,
-               d.domain IS NOT NULL AS parent_held,
-               (bb.hostname IS NOT NULL OR bh.hostname IS NOT NULL
+               b.name IS NOT NULL AS in_baseline,
+               (c.parent IN (SELECT domain FROM our_pairs)
+                OR c.parent IN (SELECT name FROM his_exact)) AS parent_held,
+               (bb.name IS NOT NULL OR bh.hostname IS NOT NULL
                 OR bd.domain IS NOT NULL) AS bare_held
         FROM cand c
         LEFT JOIN hostname_year hy ON hy.hostname = c.hostname AND hy.assigned_year = c.year
-        LEFT JOIN baseline_host b ON b.hostname = c.hostname AND b.year = c.year
-        LEFT JOIN domain d ON d.domain = c.parent
-        LEFT JOIN baseline_host bb ON bb.hostname = c.bare AND bb.year = c.year
+        LEFT JOIN his_exact b ON b.name = c.hostname AND b.year = c.year
+        LEFT JOIN his_exact bb ON bb.name = c.bare AND bb.year = c.year
         LEFT JOIN hostname_year bh ON bh.hostname = c.bare AND bh.assigned_year = c.year
-        LEFT JOIN domain_year bd ON bd.domain = c.bare AND bd.assigned_year = c.year
+        LEFT JOIN our_pairs bd ON bd.domain = c.bare AND bd.assigned_year = c.year
         WHERE {shipped_host}
         """
     ).fetchall()
     parent_new = conn.execute(
         f"""
         SELECT p.domain, p.year FROM reg_cand p
-        LEFT JOIN domain_year dy ON dy.domain = p.domain AND dy.assigned_year = p.year
-        LEFT JOIN baseline_host b ON b.hostname = p.domain AND b.year = p.year
-        WHERE dy.domain IS NULL AND b.hostname IS NULL AND {shipped_reg}
+        LEFT JOIN our_pairs dy ON dy.domain = p.domain AND dy.assigned_year = p.year
+        LEFT JOIN his_exact b ON b.name = p.domain AND b.year = p.year
+        WHERE dy.domain IS NULL AND b.name IS NULL AND {shipped_reg}
         """
     ).fetchall()
 
@@ -237,7 +252,6 @@ def price(  # noqa: ANN001
         "in_store": sum(1 for r in netnew if r[3]),
         "in_baseline_only": sum(1 for r in netnew if r[4] and not r[3]),
         "parent_held_share": (sum(1 for r in netnew if r[5]) / len(rows)) if rows else 0.0,
-        "baseline_years_checked": baseline_years,
     }
     new_rows = [r for r in netnew if not r[3] and not r[4]]
     by_year: Counter[int] = Counter()
@@ -295,17 +309,6 @@ def report(label: str, counts: Counter[str], priced: dict, sample_of: int | None
         f"already in store {priced['in_store']:,}  in his baseline only "
         f"{priced['in_baseline_only']:,}  parent held {priced['parent_held_share']:.1%}"
     )
-    # Per year, not once: a single missing year file passed silently and inflated that
-    # year, which the E9.5 adjudication caught while checking a 7,074 EE claim.
-    missing = [y for y in priced["netnew_by_year"] if y not in priced["baseline_years_checked"]]
-    if not priced["baseline_years_checked"]:
-        lines.append("WARNING: no baseline files found, every hostname counts as net-new")
-    elif missing:
-        lines.append(
-            "WARNING: no baseline file for "
-            + ", ".join(str(y) for y in missing)
-            + ", so those years count every hostname as net-new"
-        )
     lines.append(
         f"NET-NEW hostname years {priced['netnew_hostname_years']:,}  "
         f"{priced['netnew_ee']:,.4f} EE   (quote this)"
@@ -369,13 +372,17 @@ def main() -> int:
     files = journal_files(args.items if args.items else args.paths)
     seen, counts = read_rows(files, items=bool(args.items), head=args.head)
     rows, pairs = funnel(seen, counts)
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
     conn = connect_read_only_patiently()
     try:
         # several of these run side by side when a batch of corpora is priced, and
         # DuckDB's default is most of the machine per process
         conn.execute("SET memory_limit = '3GB'")
         conn.execute("SET threads = 2")
-        priced = price(conn, rows, pairs, baseline_dir())
+        priced = price(conn, rows, pairs, his)
     finally:
         conn.close()
     print(report(args.label, counts, priced, args.sample_of))

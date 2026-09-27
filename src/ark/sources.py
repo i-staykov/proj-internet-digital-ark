@@ -1900,11 +1900,26 @@ def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
         stats["truncated_tail"] += 1
 
 
+def _exact_capture(record: dict, host: str, year: int) -> str | None:
+    """The 14-digit stamp of a capture of exactly `host` in `year`, when the record keeps one:
+    the converter's per-year `stamps`, else the query's own earliest capture of that host."""
+    ts = (record.get("stamps") or {}).get(str(year))
+    if not ts:
+        ts = (record.get("hosts") or {}).get(host)
+    if isinstance(ts, str) and len(ts) == 14 and ts.isdigit() and int(ts[:4]) == year:
+        return ts
+    return None
+
+
 # An `ark cdx` run journal: one JSON object per queried domain, format documented
 # in ark.cdx. A returned in-window capture year is evidence for that year and no
 # other, so there is no inference to make here (IV.7).
 def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
-    """Yield one record per in-window year a CDX query returned for a domain."""
+    """Yield one record per in-window year a CDX query returned for a domain.
+
+    A year with a stamp for the exact domain names that capture and its host. A year without
+    one keeps the host-less `cdx capture <year>`, which names no host and so never ships.
+    """
     try:
         with open_journal(path) as fh:
             for line in fh:
@@ -1930,13 +1945,17 @@ def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
                 if not years:
                     stats["no_capture_in_window"] += 1
                     continue
+                host = str(domain).lower()
                 for year in years:
-                    yield BulkRecord(
-                        raw=domain,
-                        year=year,
-                        evidence_value=f"cdx capture {year}",
-                        evidence_url=f"https://web.archive.org/web/{year}/{domain}",
-                    )
+                    ts = _exact_capture(record, host, year)
+                    if ts:
+                        stats["exact_capture"] += 1
+                        value = f"cdx capture {ts} {host}"
+                        url = f"https://web.archive.org/web/{ts}/http://{host}/"
+                    else:
+                        value = f"cdx capture {year}"
+                        url = f"https://web.archive.org/web/{year}/{domain}"
+                    yield BulkRecord(raw=domain, year=year, evidence_value=value, evidence_url=url)
     except (EOFError, OSError):
         # journal from an interrupted run; the missing tail is re-queried next run
         stats["truncated_tail"] += 1

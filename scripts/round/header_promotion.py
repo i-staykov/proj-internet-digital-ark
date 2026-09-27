@@ -5,7 +5,7 @@
 Read-only; run it under the sync lock like any store reader. The header host-years come
 from the lane's own journals, `data/raw/usenet_header_items/`, through its ingest reader, so
 the count is the lane's. A host-year counts as captured when the store's row for that host
-and year cites web evidence under the evidence rule's own predicate.
+and year cites a web capture of exactly that host, under the claim's own test.
 
 **Every share is a lower bound, the same-year one most.** The store keeps one
 `hostname_year` row per host and year, so a header row written first keeps its place when a
@@ -36,7 +36,7 @@ def main() -> int:
     import tempfile
 
     from ark.db import connect_read_only_patiently
-    from ark.evidence_types import web_evidence_sql
+    from ark.evidence_types import qualifies_sql
 
     shards = [str(p) for p in sorted(JOURNALS.rglob("*.jsonl.gz"))]
     if not shards:
@@ -59,7 +59,7 @@ def main() -> int:
         CREATE TEMP TABLE web AS
         SELECT DISTINCT hy.hostname, hy.assigned_year AS y
         FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
-        WHERE {web_evidence_sql("e")} AND hy.hostname IN (SELECT hostname FROM hdr)
+        WHERE {qualifies_sql("e", "hy.hostname")} AND hy.hostname IN (SELECT hostname FROM hdr)
     """)
 
     def one(query: str) -> int:

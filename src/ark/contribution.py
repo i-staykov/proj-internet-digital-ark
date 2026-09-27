@@ -4,7 +4,7 @@ audit directory that ships in the delivery archive.
 `source_contribution.csv` answers "what did each source actually buy?", which decides
 whether a source is worth expanding. Evidence rows are reported separately from assigned
 pairs because the gap is the point: millions of rows and almost no new pairs makes a
-corroboration source rather than a growth source, which is a finding.
+corroboration source rather than a growth source, which is a finding. Only our rows count.
 
 `year_growth.csv` answers "how much did each annual file grow?", in the column shape of the
 supplied `merge_stats` file. `candidate_unique_not_merged` is deliberately not reproduced:
@@ -13,17 +13,19 @@ The pool is reported as a whole instead.
 """
 
 import csv
+import tempfile
 from pathlib import Path
 
 import duckdb
 
-from ark.delegation import shipping_filter as _shipping_filter
-from ark.evidence_types import web_evidence_exists, web_evidence_sql
+from ark import held
 from ark.ingest import YEARS
-from ark.stats import BASELINE_TYPE, _lineage_case_sql
+from ark.stats import _lineage_case_sql
 
 DEFAULT_REPORT_DIR = Path("data/reports")
 
+# Reads what `export_all` builds first: `our_domain_year`, `netnew_pair`, `held_any` and
+# `our_domains`.
 _SOURCE_SQL = f"""
 WITH per_source AS (
     SELECT s.name AS source,
@@ -35,57 +37,40 @@ WITH per_source AS (
     -- candidate pool has no evidence rows at all, and an inner join silently drops
     -- it, so the candidate column could not be reconciled with the reported pool.
     FROM source s
-    LEFT JOIN evidence e ON e.source_id = s.source_id
+    LEFT JOIN evidence e ON e.source_id = s.source_id AND {held.ours("e")}
     GROUP BY s.name
 ),
 backed AS (
     SELECT s.name AS source, count(*) AS pairs_backed
-    FROM domain_year dy
+    FROM our_domain_year dy
     JOIN evidence e ON e.evidence_id = dy.evidence_id
     JOIN source s ON s.source_id = e.source_id
     GROUP BY s.name
 ),
 -- A net-new PAIR and a net-new DOMAIN are different tests and must not share one.
--- A pair is net-new when the baseline held no evidence for that (domain, year),
--- which includes a baseline domain gaining a year it did not have. A domain is
--- net-new only when the baseline held nothing for it at all. Conflating them
--- silently zeroes every gap-filling source, since those add years to domains the
--- baseline already knew.
+-- A pair is net-new when it is a line of a shipped annual file, which includes a
+-- domain he holds gaining a year his file lacks. A domain is net-new only when no year
+-- file of his names it. Conflating them silently zeroes every gap-filling source, since
+-- those add years to domains he already holds.
+-- `netnew_pair` is the shipped registrable lines, each with the row it cites, so a
+-- per-source figure a reviewer reads here equals what he counts in
+-- `additions/evidence_manifest.csv`.
 netnew AS (
     SELECT s.name AS source,
-           count(*) FILTER (
-             WHERE NOT EXISTS (
-               SELECT 1 FROM evidence p
-               WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-                 AND p.evidence_type = '{BASELINE_TYPE}'
-             )
-           ) AS netnew_pairs,
-           count(DISTINCT dy.domain) FILTER (
-             WHERE NOT EXISTS (
-               SELECT 1 FROM evidence p
-               WHERE p.domain = dy.domain AND p.evidence_type = '{BASELINE_TYPE}'
-             )
-           ) AS netnew_domains
-    FROM domain_year dy
-    JOIN evidence e ON e.evidence_id = dy.evidence_id
+           count(*) AS netnew_pairs,
+           count(DISTINCT n.domain) FILTER (WHERE h.name IS NULL) AS netnew_domains
+    FROM netnew_pair n
+    LEFT JOIN held_any h ON h.name = n.domain
+    JOIN evidence e ON e.evidence_id = n.evidence_id
     JOIN source s ON s.source_id = e.source_id
-    -- Scoped to what reaches a shipped annual file, so a per-source figure a reviewer
-    -- reads here equals what he counts in `additions/evidence_manifest.csv`. Without
-    -- it the column summed 12 pairs above the headline and the round's largest source
-    -- was quoted four pairs above what ships.
-    -- and the XIII screen, the same one `stats.py` and `export.py` apply. A per-source
-    -- figure that counted rows the export refuses would not reconcile with the headline,
-    -- which is what `test_netnew_pairs_reconciles_with_the_scoreboard` exists to catch.
-    WHERE e.evidence_type <> '{BASELINE_TYPE}'
-      AND {_shipping_filter("dy.")}
-      AND {web_evidence_sql("e")}
     GROUP BY s.name
 ),
 candidates AS (
     SELECT s.name AS source, count(*) AS candidate_domains
     FROM domain d
     JOIN source s ON s.source_id = d.discovered_source
-    WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+    WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
+      AND {held.we_know("d")}
     GROUP BY s.name
 ),
 files AS (
@@ -120,31 +105,27 @@ SOURCE_COLUMNS = [
     "candidate_domains",
 ]
 
-_YEAR_SQL = f"""
-SELECT y.year,
-       count(*) FILTER (WHERE b.domain IS NOT NULL) AS base_unique,
-       count(*) FILTER (WHERE b.domain IS NULL) AS added_unique,
-       count(*) AS merged_unique
-FROM (SELECT unnest($years) AS year) y
-JOIN domain_year dy ON dy.assigned_year = y.year
-LEFT JOIN (
-    SELECT DISTINCT domain, evidence_year FROM evidence
-    WHERE evidence_type = '{BASELINE_TYPE}'
-) b ON b.domain = dy.domain AND b.evidence_year = dy.assigned_year
--- Same scope as the export, so `merged_unique` equals `wc -l masters/<year>.txt` and
--- `added_unique` equals `wc -l additions/<year>.txt`. Without it the table claimed to
--- reconcile the shipped files and was 70 lines above them in 1996 alone.
-WHERE {_shipping_filter("dy.")}
-  AND (b.domain IS NOT NULL OR {web_evidence_exists("dy.evidence_id")})
-GROUP BY y.year ORDER BY y.year
-"""
-
 YEAR_COLUMNS = ["year", "base_unique", "added_unique", "merged_unique", "growth_percent"]
 
 
+def _year_rows(his: held.Held, netnew_dir: Path) -> list[tuple[int, int, int, int]]:
+    """Each year from line counts: his year file, then our registrable and hostname files.
+    Each of ours had his year file taken out by `comm`, and packaging merges the three into
+    `masters/<year>.txt`, so `merged_unique` is its `wc -l` as long as ours share no line."""
+    rows = []
+    with tempfile.TemporaryDirectory(prefix="ark-growth-") as tmp:
+        for year in YEARS:
+            ours = netnew_dir / f"{year}.txt", netnew_dir / f"{year}_hostnames.txt"
+            if held.intersect(*ours, Path(tmp) / f"{year}.txt"):
+                raise ValueError(f"{ours[0]} and {ours[1]} share a line")
+            base = his.counts[str(year)]
+            added = sum(held.lines(path) for path in ours)
+            rows.append((year, base, added, base + added))
+    return rows
+
+
 def write_contribution_tables(
-    conn: duckdb.DuckDBPyConnection,
-    report_dir: Path = DEFAULT_REPORT_DIR,
+    conn: duckdb.DuckDBPyConnection, report_dir: Path, his: held.Held, netnew_dir: Path
 ) -> dict[str, int]:
     """Write both contribution tables and report how many rows each holds."""
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -156,7 +137,7 @@ def write_contribution_tables(
         writer.writerow(SOURCE_COLUMNS)
         writer.writerows(source_rows)
 
-    year_rows = conn.execute(_YEAR_SQL, {"years": list(YEARS)}).fetchall()
+    year_rows = _year_rows(his, netnew_dir)
     year_path = report_dir / "year_growth.csv"
     with year_path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)

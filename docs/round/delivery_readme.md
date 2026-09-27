@@ -26,7 +26,7 @@ Before opening anything:
 | Path | Contents |
 |---|---|
 | `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
-| `masters/<year>.txt` | **Secondary registrable roll-up**: the reference baseline normalized to registered domains, plus registrable additions. `audit/year_growth.csv` reconciles this roll-up. It is not the full hostname result: merge both `additions/` and `hostnames/` into the reference annual files without collapsing hostnames |
+| `masters/<year>.txt` | **Your annual file for that year merged with `additions/` and `hostnames/` by exact name**, no roll-up: `LC_ALL=C sort -m -u baseline/<release>/<year>.txt additions/<year>.txt hostnames/<year>_hostnames.txt`. `audit/year_growth.csv` reconciles it |
 | `additions/<year>.txt` | **Additions only**, against the reference baseline |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `hostnames/<year>_hostnames.txt` | **Annual hostname additions**: qualifying exact hostnames beneath held registrables, disjoint from `additions/` |
@@ -45,7 +45,7 @@ Before opening anything:
 | `candidates_unparsed.txt` | **The separately labelled unparsed file your specification asks for**, one row per malformed-but-recoverable value with the reason the parser refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`. Read from the capture journals on 4 September; in no figure |
 | `baseline/<release>/` | **The reference the additions are counted against**, including the six annual files and `candidate_pool.txt` for exact-name ISC reconciliation. See `baseline/README.txt` |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
-| `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` exactly |
+| `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` and `hostnames/` |
 | `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header, never hand-maintained. **Thirteen columns**, one per field of the schema you asked for (`coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link` among them). `n/a` means the source entry does not say; an empty cell means that page has no such column |
 | `journals/` | The raw response of every archive and page query, plus the extraction journals: the offline inputs of the full replay (step 3 under "Checking the result"). **Twelve journal sets are excluded on size** (about 39 GB against under 1 GB for the rest); `journals/README.txt` names them, every assignment they back remains checkable through `provenance/`, and they are available on request |
 | `logs/` | Execution logs from the runs that produced this |
@@ -75,10 +75,10 @@ Before opening anything:
 
 ## File formats
 
-- **Generated `.txt` name lists**: one name per line, lowercase ASCII, C-locale sorted, newline
-  terminated, no header, no blank lines. Masters and registrable additions use the Public Suffix
-  List boundary. Hostname additions and ISC candidates retain the exact hostname without collapsing
-  it to its parent or removing `www.`.
+- **Generated `.txt` name lists**: one name per line, lowercase, C-locale sorted, newline
+  terminated, no header, no blank lines; every name of ours is ASCII. Registrable additions are
+  registered domains at the Public Suffix List boundary. Masters, hostname additions and ISC
+  candidates keep each exact name without collapsing it to its parent or removing `www.`.
 - **Every `.csv`**: RFC 4180, comma separated, UTF-8, one header row.
 - **`journals/*.jsonl.gz`**: gzipped JSON Lines, one object per query made.
 - **`provenance/*.parquet`**: Parquet with ZSTD, readable by any engine. `LOAD.sql` recreates the
@@ -128,17 +128,15 @@ capture timestamp, with a link where one exists.
 ### 2. Rebuild the result from the evidence
 
 No source data and no network: the export holds every observation this project made and every
-assignment resting on one, but not your own rows (one evidence row per pair your release already
-carries was 3 GB of a 5 GB archive and repeated your own file). Two consequences. The rebuilt
-`masters/` are our own web-evidenced records, your rows not among them. And the registrable
-additions and the candidate lists come back as supersets, because the store also excludes a
-registrable domain your release holds only as hostnames beneath it, and the shipped provenance does
-not record that; every shipped line is among them, which the second block below checks.
+assignment resting on one, but not your own rows. What your release holds is your files in
+`baseline/`, compared by exact name: `ark intake` checks them and writes the sorted sets every
+comparison reads, 4.3 GB under `source/data/held/`.
 
 ```
 tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync
-uv run ark rebuild ../provenance     # annual files, candidates, manifest
+uv run ark intake                    # your release in ../baseline/, checked once
+uv run ark rebuild ../provenance     # annual files, candidates, manifests
 uv run ark check                     # the integrity invariants
 ```
 
@@ -146,26 +144,20 @@ Byte-identical:
 
 ```
 for y in 1996 1997 1998 1999 2000 2001; do
+    cmp output/netnew/$y.txt            ../additions/$y.txt
     cmp output/netnew/${y}_hostnames.txt ../hostnames/${y}_hostnames.txt
     cmp output/netnew/$y-ISC.txt        ../isc_survey_hostnames/$y-ISC.txt
 done
+cmp output/netnew/evidence_manifest.csv ../additions/evidence_manifest.csv
 cmp output/netnew/hostnames_evidence_manifest.csv ../hostnames/hostnames_evidence_manifest.csv
+cmp output/candidate_unverified.txt ../candidates.txt
+cmp output/netnew/candidate_additions.txt ../candidate_additions.txt
 cmp output/netnew/isc_candidates.txt ../isc_survey_hostnames/isc_candidates.txt
 cmp output/netnew/isc_survey_provenance.csv ../isc_survey_hostnames/isc_survey_provenance.csv
 cmp output/netnew/isc_candidates_summary.json ../isc_survey_hostnames/isc_candidates_summary.json
 for f in header_candidates.txt header_candidates_provenance.csv header_candidates_summary.json header_candidates_exclusions.csv; do
     cmp output/netnew/$f ../server_header_hostnames/$f
 done
-```
-
-Supersets, every shipped line present (each count is 0):
-
-```
-for y in 1996 1997 1998 1999 2000 2001; do
-    comm -23 <(sort ../additions/$y.txt) <(sort output/netnew/$y.txt) | wc -l
-done
-comm -23 <(sort ../candidates.txt) <(sort output/candidate_unverified.txt) | wc -l
-comm -23 <(sort ../candidate_additions.txt) <(sort output/netnew/candidate_additions.txt) | wc -l
 ```
 
 This proves the shipped lists follow from the shipped evidence. It does not re-derive the evidence
@@ -208,8 +200,8 @@ here) and the Internet Scout feed. The journals and the provenance export shippe
 ## Evidence standard
 
 **The evidence rule: the annual master is a website-evidence product.** A hostname-year enters
-`masters/`, `additions/` or `hostnames/` only on retained evidence of that exact hostname's web
-presence in that year, in one of the rule's four forms:
+`additions/` or `hostnames/` only on retained evidence of that exact hostname's web presence in
+that year, in one of the rule's four forms:
 
 - an exact-host Internet Archive CDX capture, with the captured URL or hostname and the target-year
   timestamp retained;

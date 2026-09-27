@@ -11,6 +11,11 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from his_release import WEB_METHOD, capture
+
+from ark import held
+from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 from ark.sources import SOURCES
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -75,3 +80,40 @@ def test_a_written_line_parses_back_to_the_same_evidence_value(tmp_path) -> None
     assert records[0].raw == "brownschool.com"
     assert records[0].year == 1997
     assert records[0].evidence_value == value
+
+
+def test_a_pair_held_by_us_or_by_his_exact_name_is_not_promoted(his_files) -> None:
+    """Held is our assignment or the exact name in his file for that year; his store rows
+    neither corroborate a mention nor hold one back."""
+    conn = connect(":memory:")
+    init_db(conn)
+    mention = ensure_source(conn, "usenet_mention", "candidate_only")
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    his = ensure_source(conn, HIS_SOURCE, "timestamped")
+    names = ("fresh.com", "already-his.com", "rolled.com", "his-only.com", "dated.com")
+    for name in names:
+        add_candidate(conn, name, cdx)
+    for name, year in [
+        ("fresh.com", 1998),
+        ("already-his.com", 1997),  # his 1997 file holds the name
+        ("rolled.com", 1999),  # his 1999 file holds only www.rolled.com
+        ("his-only.com", 1998),  # corroborated by his row alone
+        ("dated.com", 1998),  # ours already
+    ]:
+        record_evidence(conn, name, mention, year, "link_target", f"alt.test <{name}>", "u")
+    for name, year in [
+        ("fresh.com", 2000),
+        ("already-his.com", 2000),
+        ("rolled.com", 2000),
+        ("dated.com", 1998),
+    ]:
+        eid = record_evidence(
+            conn, name, cdx, year, "cdx_timestamp", capture(name, year), None, WEB_METHOD
+        )
+        assign_year(conn, eid)
+    row = record_evidence(conn, "his-only.com", his, 2000, HIS_TYPE, "2000.txt", None, HIS_SOURCE)
+    assign_year(conn, row)
+
+    held.our_domain_year(conn)
+    rows = promo.select(conn, "usenet_mention", held.load())
+    assert sorted((d, y) for d, y, _v, _u in rows) == [("fresh.com", 1998), ("rolled.com", 1999)]

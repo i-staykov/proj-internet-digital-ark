@@ -1,4 +1,4 @@
-"""The hostname pricer runs the ingest's funnel and differences against store and baseline.
+"""The hostname pricer runs the ingest's funnel and differences against our pairs and his files.
 
 Written with the 26 `keep_until_priced` corpora in view: every one was priced at registrable
 grain and never at hostname grain, and the only tool that could answer took the write lock.
@@ -9,7 +9,11 @@ import importlib.util
 import json
 from pathlib import Path
 
+from his_release import HIS_YEARS, text
+
+from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 
 _SPEC = importlib.util.spec_from_file_location(
     "price_hostnames",
@@ -41,7 +45,7 @@ def _store():
     return conn
 
 
-def test_funnel_matches_the_ingest(tmp_path: Path) -> None:
+def test_funnel_matches_the_ingest(tmp_path: Path, his_files: Path) -> None:
     journal = _journal(
         tmp_path / "x.jsonl.gz",
         [
@@ -68,10 +72,9 @@ def test_funnel_matches_the_ingest(tmp_path: Path) -> None:
     # hostname record: `held.com` itself and `www.held.com`, which date the parent
     assert pairs == [("fresh.org", 2001), ("held.com", 1999)]
 
-    baseline = tmp_path / "baseline"
-    baseline.mkdir()
-    (baseline / "2001.txt").write_text("a.fresh.org\n")  # his file already lists it
-    priced = ph.price(_store(), rows, pairs, baseline)
+    # his 2001 file already lists it
+    (his_files / "2001.txt").write_bytes(text(sorted([*HIS_YEARS[2001], "a.fresh.org"])))
+    priced = ph.price(_store(), rows, pairs, held.prepare(his_files))
     assert priced["candidates"] == 3
     assert priced["registrable_candidates"] == 2
     assert priced["in_store"] == 1
@@ -81,6 +84,37 @@ def test_funnel_matches_the_ingest(tmp_path: Path) -> None:
     assert priced["netnew_ee"] > 0
     # fresh.org/2001 is a registrable-year the ingest would assign; held.com/1999 is held
     assert priced["parent_pairs_netnew"] == 1
+
+
+def test_held_is_our_pair_or_his_exact_name_and_never_his_row(
+    tmp_path: Path, his_files: Path
+) -> None:
+    """His 1999 file lists `www.rolled.com` and his store row dates `rolled.com`: the pair
+    is still net-new. A name his file holds in any year makes its parent held."""
+    conn = _store()
+    his = ensure_source(conn, HIS_SOURCE, "timestamped")
+    add_candidate(conn, "rolled.com", his)
+    assign_year(conn, record_evidence(conn, "rolled.com", his, 1999, HIS_TYPE, "1999.txt"))
+    journal = _journal(
+        tmp_path / "z.jsonl.gz",
+        [
+            ("http://sub.rolled.com/", "19990101000000"),
+            ("http://www.deep.his-host.net/", "20010101000000"),  # his file holds the bare name
+            ("http://new.already-his.com/", "19990101000000"),
+        ],
+    )
+    seen, counts = ph.read_rows([journal], items=False, head=None)
+    rows, pairs = ph.funnel(seen, counts)
+    priced = ph.price(conn, rows, pairs, held.load())
+    assert sorted(priced["netnew_rows"]) == [
+        ("new.already-his.com", 1999, False),
+        ("sub.rolled.com", 1999, False),
+        ("www.deep.his-host.net", 2001, True),
+    ]
+    assert priced["www_of_held_name"] == 1
+    # already-his.com is his in every year; rolled.com and his-host.net are held by no one
+    assert priced["parent_held_share"] == 1 / 3
+    assert priced["parent_pairs_netnew"] == 2
 
 
 def test_items_mode_takes_a_year_and_several_hosts(tmp_path: Path) -> None:

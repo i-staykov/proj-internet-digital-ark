@@ -1,17 +1,21 @@
 """Read-only integrity checks over the provenance store.
 
-Each check is a SQL query that must return zero offending rows. `ark check` runs them all
-and exits non-zero if any fails, so it doubles as a release gate: no annual result ships
-unless every invariant below holds. Several encode a rule the delivery report states, so a
-reader who doubts the rule can run the gate instead of taking it on trust.
+Each check counts offending rows, by a SQL query or a function, and passes at zero. `ark
+check` runs them all and exits non-zero if any fails, so it doubles as a release gate: no
+annual result ships unless every invariant below holds. Several encode a rule the delivery
+report states, so a reader who doubts the rule can run the gate instead of taking it on trust.
 """
 
+import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import duckdb
 
-from ark.evidence_types import CANDIDATE_ONLY_TYPES, WEB_METHODS
+from ark import held
+from ark.evidence_types import CANDIDATE_ONLY_TYPES, WEB_METHODS, qualifies_sql
 from ark.hostnames import AUDITED_FAMILIES, FLEETREAD_SOURCE, WEB_FACING_HOST_SOURCES
+from ark.ingest import YEARS
 
 _CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
@@ -50,8 +54,39 @@ _MAX_HOST_LEN = 253
 _WEB_FACING_LIST = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
 _WEB_METHOD_LIST = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
 
-# name, human description, SQL returning a single count of offending rows (0 = pass)
-CHECKS: list[tuple[str, str, str]] = [
+_NO_EXPORT = "no exported files in {}; run `ark export` first"
+_EMPTY = "the exported files this check reads are empty, so there is nothing to verify yet"
+
+
+class _Skipped(Exception):
+    """A check that had nothing to read; the text says why."""
+
+
+def _braced(sql: str) -> str:
+    """SQL spliced into a template that is `.format`ted: its regex braces survive the format."""
+    return sql.replace("{", "{{").replace("}", "}}")
+
+
+def _additions_not_double_counted(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, baseline: Path | None
+) -> int:
+    """Lines of our annual files, registrable and hostname, that his file for that year holds.
+    Whether there is anything to compare is settled before his files are touched."""
+    ours = [(y, netnew_dir / f"{y}{s}.txt") for y in YEARS for s in ("", "_hostnames")]
+    ours = [(y, path) for y, path in ours if path.is_file()]
+    if not ours:
+        raise _Skipped(_NO_EXPORT.format(netnew_dir))
+    if all(path.stat().st_size == 0 for _, path in ours):
+        raise _Skipped(_EMPTY)
+    his = held.load(baseline)
+    with tempfile.TemporaryDirectory() as tmp:
+        return sum(held.intersect(path, his.year(y), Path(tmp) / path.name) for y, path in ours)
+
+
+# name, human description, and a SQL query or a function(conn, netnew_dir, baseline)
+# returning a single count of offending rows (0 = pass)
+Check = str | Callable[[duckdb.DuckDBPyConnection, Path, Path | None], int]
+CHECKS: list[tuple[str, str, Check]] = [
     (
         "evidence_wall_intact",
         "every annual assignment points at an evidence row for the same domain and year",
@@ -126,20 +161,9 @@ CHECKS: list[tuple[str, str, str]] = [
     ),
     (
         "additions_not_double_counted",
-        "no domain in the exported additions files carries baseline evidence for that year, "
-        "so the shipped net-new figure cannot be inflated by rows the baseline already had",
-        r"""
-        SELECT count(*)
-        FROM read_csv(
-            '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
-            columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
-        ) f
-        JOIN evidence p ON p.domain = f.domain
-         -- anchored to the file name: the year is the file, and an unanchored
-         -- match would take any four digits that happen to sit in the path
-         AND p.evidence_year = TRY_CAST(regexp_extract(f.filename, '([0-9]{{4}})\.txt$', 1) AS INT)
-        WHERE p.evidence_type = 'prior_reused'
-        """,
+        "no line of an exported annual file, registrable or hostname, is in his file for that "
+        "year by exact name",
+        _additions_not_double_counted,
     ),
     (
         "no_arpa_in_the_shipped_files",
@@ -255,32 +279,32 @@ CHECKS: list[tuple[str, str, str]] = [
         """,
     ),
     (
-        "a_bare_record_is_not_inferred_from_www",
-        "no registrable domain-year rests ONLY on a capture of `www.` in front of it. His "
-        "ruling of 2026-09-06 runs both ways: the bare parent does not establish the `www.` "
-        "host, and the presence of `www.` does not establish the bare one, so one observation "
-        "may not become two records in either direction",
-        """
-        SELECT count(*) FROM (
-          SELECT dy.domain, dy.assigned_year
-          FROM domain_year dy JOIN evidence e ON e.evidence_id = dy.evidence_id
-          GROUP BY 1, 2
-          HAVING sum(
-                   CASE WHEN e.evidence_value LIKE 'cdx capture % www.' || dy.domain
-                        THEN 1 ELSE 0 END) > 0
-             AND sum(
-                   CASE WHEN e.evidence_value NOT LIKE 'cdx capture % www.' || dy.domain
-                        THEN 1 ELSE 0 END) = 0
-        )
-        """,
+        "a_registrable_record_has_its_own_capture",
+        "every exported registrable line has a web row of ours capturing that exact name in "
+        "that year, so a capture of `www.` or of any other host beneath it never dates the "
+        "registrable",
+        r"""
+        WITH f AS (
+            SELECT domain,
+                   TRY_CAST(regexp_extract(filename, '([0-9]{{4}})\.txt$', 1) AS INT) AS year
+            FROM read_csv(
+                '{netnew_dir}/[0-9][0-9][0-9][0-9].txt',
+                columns = {{'domain': 'VARCHAR'}}, header = false, filename = true
+            )
+        ),
+        -- the exported names' rows first, so the host test reads those and not the store
+        e AS (SELECT * FROM evidence WHERE domain IN (SELECT domain FROM f))
+        SELECT count(*) FROM f WHERE NOT EXISTS (
+            SELECT 1 FROM e WHERE e.domain = f.domain AND e.evidence_year = f.year AND """
+        + _braced(qualifies_sql("e", "f.domain"))
+        + ")",
     ),
     (
         "nothing_earned_is_left_unassigned",
         "every master-eligible evidence row has its (domain, year) assigned, so a domain "
         "cannot sit in the candidate pool while already holding proof of a year. Evidence "
         "that names a SUBDOMAIN is exempt: it evidences that host, not the registrable "
-        "beneath it, which is his ruling of 2026-09-06 and the reason the sibling check "
-        "`a_bare_record_is_not_inferred_from_www` can refuse the inferred row at all",
+        "beneath it, so it never dates the registrable",
         f"""
         SELECT count(*) FROM evidence e
         WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
@@ -311,72 +335,59 @@ CHECKS: list[tuple[str, str, str]] = [
 ]
 
 
+def _count(conn: duckdb.DuckDBPyConnection, sql: str, netnew_dir: Path, audit: Path | None) -> int:
+    if "{audit}" in sql:
+        if audit is None or not audit.is_file():
+            raise _Skipped(f"no status audit at {audit}; run scripts/round/status_audit.py")
+        # replaced, not formatted: the SQL carries regex braces
+        sql = sql.replace("{audit}", str(audit)).replace("{audited}", _AUDITED)
+    if "{netnew_dir}" in sql:
+        sql = sql.format(netnew_dir=netnew_dir)
+    try:
+        return conn.execute(sql).fetchone()[0]
+    except duckdb.IOException:
+        raise _Skipped(_NO_EXPORT.format(netnew_dir)) from None
+    except (duckdb.BinderException, duckdb.InternalException) as exc:
+        # Every matching file is empty, so `read_csv` infers no columns and the query
+        # cannot bind. A real state, not a fault: a round that has added nothing exports
+        # six empty annual files. Reported as skipped rather than passed, because a
+        # check that examined nothing is not one that found nothing wrong. DuckDB 1.5
+        # words this InternalException "must return at least one column"; any other
+        # internal error is a fault and is re-raised.
+        if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
+            raise
+        raise _Skipped(_EMPTY) from None
+
+
 def collect_checks(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
     audit: Path | None = None,
+    baseline: Path | None = None,
 ) -> list[dict]:
     """Run every integrity check; return one result dict per check.
 
     A check that reads an exported file is reported as skipped when the export
     is absent, which is the normal state of a fresh clone before `ark export`.
     Skipped is shown rather than counted as a pass, so an empty output/ cannot be
-    mistaken for a satisfied invariant.
+    mistaken for a satisfied invariant. `baseline` is his release folder, `held`'s
+    default when None; held sets that are missing or stale fail the check that reads
+    them, with the reason, and the other checks still report.
     """
     results = []
-    for name, description, template in CHECKS:
-        if "{audit}" in template:
-            if audit is None or not audit.is_file():
-                results.append(
-                    {
-                        "name": name,
-                        "description": description,
-                        "offending": 0,
-                        "ok": True,
-                        "skipped": f"no status audit at {audit}; run scripts/round/status_audit.py",
-                    }
-                )
-                continue
-            # replaced, not formatted: the SQL carries regex braces
-            template = template.replace("{audit}", str(audit)).replace("{audited}", _AUDITED)
-        needs_export = "{netnew_dir}" in template
-        sql = template.format(netnew_dir=netnew_dir) if needs_export else template
+    for name, description, check in CHECKS:
+        result = {"name": name, "description": description, "offending": 0, "ok": True}
         try:
-            offending = conn.execute(sql).fetchone()[0]
-        except duckdb.IOException:
-            results.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "offending": 0,
-                    "ok": True,
-                    "skipped": f"no exported files in {netnew_dir}; run `ark export` first",
-                }
-            )
-            continue
-        except (duckdb.BinderException, duckdb.InternalException) as exc:
-            # Every matching file is empty, so `read_csv` infers no columns and the query
-            # cannot bind. A real state, not a fault: a round that has added nothing exports
-            # six empty annual files. Reported as skipped rather than passed, because a
-            # check that examined nothing is not one that found nothing wrong. DuckDB 1.5
-            # words this InternalException "must return at least one column"; any other
-            # internal error is a fault and is re-raised.
-            if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
-                raise
-            results.append(
-                {
-                    "name": name,
-                    "description": description,
-                    "offending": 0,
-                    "ok": True,
-                    "skipped": "the exported files this check reads are empty, so there is "
-                    "nothing to verify yet",
-                }
-            )
-            continue
-        results.append(
-            {"name": name, "description": description, "offending": offending, "ok": offending == 0}
-        )
+            if callable(check):
+                result["offending"] = check(conn, netnew_dir, baseline)
+            else:
+                result["offending"] = _count(conn, check, netnew_dir, audit)
+            result["ok"] = result["offending"] == 0
+        except _Skipped as skip:
+            result["skipped"] = str(skip)
+        except held.HeldError as error:
+            result |= {"ok": False, "error": str(error)}
+        results.append(result)
     return results
 
 
@@ -385,6 +396,9 @@ def format_checks(results: list[dict]) -> str:
     for r in results:
         if r.get("skipped"):
             lines.append(f"  [SKIP] {r['name']}: {r['skipped']}")
+            continue
+        if r.get("error"):
+            lines.append(f"  [FAIL] {r['name']}: {r['error']}")
             continue
         mark = "PASS" if r["ok"] else "FAIL"
         lines.append(f"  [{mark}] {r['name']}: {r['offending']:,} offending  ({r['description']})")

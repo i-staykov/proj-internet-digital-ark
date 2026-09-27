@@ -28,6 +28,15 @@ HIS_CANDIDATES = {
 README = "isc_survey_hostnames/README.md"
 
 
+# A web method whose rows name their host last, so a fixture row passes the exact-host test
+WEB_METHOD = "ia_cdx_domain_sweep"
+
+
+def capture(name: str, year: int) -> str:
+    """The value of an exact-host capture of `name` in `year`."""
+    return f"cdx capture {year}0601120000 {name}"
+
+
 def text(names: list[str]) -> bytes:
     return "".join(f"{name}\n" for name in names).encode()
 

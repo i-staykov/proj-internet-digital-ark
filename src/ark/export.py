@@ -1,12 +1,15 @@
 """Write the human-facing result files out of the provenance store.
 
-Three targets: net-new year files and their evidence manifest (small, the
-committed work product), the candidate list, and the merged master lists
-(baseline + additions, large, delivery-archive material).
+Two targets: the net-new year files, registrable and hostname, with their evidence manifests
+(small, the committed work product), and the candidate lists. Held by him is the exact name in
+his files, tested by `LC_ALL=C comm` through `held`. Packaging merges his year files with ours
+into the masters, so the export writes none.
 """
 
 import filecmp
 import json
+import os
+import tempfile
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -17,109 +20,38 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
-from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
+from ark import held
+from ark.baseline import CURRENT_BASELINE_MARKER
 from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
-from ark.held import candidate_files, his_lines
 from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR, write_provenance
-from ark.stats import BASELINE_TYPE
 
 NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
-MASTERS_DIR = Path("data/exports")
-# `YYYY<TAB>registrable` for every pair the store dates and his year file lacks, beside the claim
+# `YYYY<TAB>registrable` for every pair of ours whose name his file for that year lacks
 ATTESTED_NAME = "attested_registrables.txt"
 # Written last and removed first, so a crashed export leaves none. Packaging reads it.
 STAMP_NAME = "export_stamp.json"
 # Where ship sets the bank's claim aside before the full export, so packaging can compare them
-CLAIM_COPY_DIR = MASTERS_DIR / "claim"
+CLAIM_COPY_DIR = Path("data/exports/claim")
 
 
-# A pair is an addition when the baseline holds NO evidence for that (domain, year), the
-# test `stats.py` and `contribution.py` apply. Deliberately not "the row this assignment
-# points at is not baseline": the baseline rolls forward, so an absorbed addition still
-# points at its original CDX row while now also carrying baseline evidence, and the weaker
-# test re-exports every past addition as new.
-# **Spec XIII: the annual CLAIM is website evidence only** (C-90). The store keeps every
-# row, because a row that cannot date a year is still evidence and still a candidate; what
-# this filters is what we ASSERT. `evidence_types.WEB_METHODS` is the allowlist and an
-# unknown method fails closed.
+# **Spec XIII: the annual CLAIM is website evidence only**, from a row of ours capturing exactly
+# the shipped name (`evidence_types.qualifies_sql`). The store keeps every row, because a row
+# that cannot date a year is still evidence and still a candidate; what this filters is what
+# we ASSERT. `evidence_types.WEB_METHODS` is the allowlist and an unknown method fails closed.
 
 
-_NOT_IN_BASELINE = f"""
-    NOT EXISTS (
-        SELECT 1 FROM evidence p
-        WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-          AND p.evidence_type = '{BASELINE_TYPE}'
-    )
-"""
-
-
-# **The shipping filter: no `.arpa`, and no pair whose TLD did not yet exist.**
-# The rule is the whole TLD, not the reverse-DNS pattern: narrowing to `in-addr`/`ip6` left
-# `ignore.arpa` shipping at weight 1.0000, the model's maximum. Filtered here rather than
-# deleted from the store, which would be a destructive migration; `dropped_domains.txt`
-# ships the excluded baseline lines. `ark.delegation` owns the years, so the rule is in one
-# place for all four destinations it reaches.
-_NOT_REVERSE_DNS = _shipping_filter()
-
-
-# `www.<a name already held that year>` SHIPS. Measured on him: his merges hold all
-# 1,313,547 `www.` hostnames of the 2026-09-02 submission and he credited the round, so
-# withholding them cost 233,999.15 EE and bought nothing.
-#
-# Not applied to the export. Kept because `scripts/round/round_figures.py` imports it to
-# report the alias share, which tells us which corpus to read next: a bulk CDX index
-# re-read at hostname grain is 99.5% to 100.0% alias, a typed-URL corpus 22.2%.
-NOT_WWW_ALIAS = """
-    (hy.hostname NOT LIKE 'www.%' OR (
-        NOT EXISTS (SELECT 1 FROM baseline_hostname b
-                    WHERE b.hostname = substr(hy.hostname, 5) AND b.year = hy.assigned_year)
-        AND NOT EXISTS (SELECT 1 FROM hostname_year h2
-                        WHERE h2.hostname = substr(hy.hostname, 5)
-                          AND h2.assigned_year = hy.assigned_year)
-        AND NOT EXISTS (SELECT 1 FROM domain_year dy
-                        WHERE dy.domain = substr(hy.hostname, 5)
-                          AND dy.assigned_year = hy.assigned_year)
-    ))
-"""
-
-# A hostname is net-new against the baseline FILES, not against store membership, because the
-# store collapsed the baseline to registrables at ingest and so cannot answer "is
-# alice.cjb.net itself already a benchmark record".
-NOT_IN_BASELINE_HOSTNAME = """
-    NOT EXISTS (SELECT 1 FROM baseline_hostname b
-                WHERE b.hostname = hy.hostname AND b.year = hy.assigned_year)
-"""
-
-# The registrable half has refused `.arpa` and a pair predating its own TLD since 2026-08-18,
-# and the hostname half refused neither until 2026-09-03: `bust.web.site` at 1996 and
-# `comp.domaine.name` at 2000 were shipping. Same rule, same module, different column name.
+# **The shipping filter: no `.arpa`, and no pair whose TLD did not yet exist**, for the
+# registrable and the hostname half alike. The rule is the whole TLD, not the reverse-DNS
+# pattern: narrowing to `in-addr`/`ip6` left `ignore.arpa` shipping at weight 1.0000, the
+# model's maximum. Filtered here rather than deleted from the store, which would be a
+# destructive migration. `ark.delegation` owns the years, so the rule is in one place.
 HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year")
-
-
-def load_baseline_hostnames(conn: duckdb.DuckDBPyConnection) -> None:
-    """The reviewer's own annual files as a temp table, which both rules above read.
-
-    The directory is resolved, not hardcoded: inside a delivery the files sit at
-    `../baseline/<marker>/`, and the repository path alone silently exported every hostname
-    as net-new in the tier-2 rehearsal.
-    """
-    baseline_files = baseline_dir()
-    conn.execute("CREATE OR REPLACE TEMP TABLE baseline_hostname (hostname VARCHAR, year INTEGER)")
-    for year in YEARS:
-        baseline_file = baseline_files / f"{year}.txt"
-        if baseline_file.exists():
-            conn.execute(
-                f"INSERT INTO baseline_hostname SELECT name, {year} FROM ({his_lines('?')})",
-                [str(baseline_file)],
-            )
-        else:
-            logger.warning(f"no baseline file for {year}: every hostname exports as net-new")
 
 
 # DNS observations are candidates only. Annual promotion requires exact-host web evidence
@@ -213,30 +145,39 @@ def export_isc_provenance(
 
 
 def export_isc_hostnames(
-    conn: duckdb.DuckDBPyConnection,
-    netnew_dir: Path,
-    stats: dict[str, int],
-    baseline: Path | None = None,
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
-    """Write candidates absent by exact name from reviewer candidates and all annual years."""
-    _reduce_isc(conn, baseline)
+    """Write `isc_export`, as `reduce_isc` left it, per survey year and as one list."""
     for year in YEARS:
-        query = f"""
-            SELECT hostname FROM isc_export WHERE assigned_year = {year} ORDER BY hostname
-        """
-        stats[f"isc_{year}"] = _copy_query(conn, query, netnew_dir / f"{year}-ISC.txt")
-    stats["isc_candidates"] = _copy_query(
+        stats[f"isc_{year}"] = held.dump(
+            conn,
+            f"SELECT hostname FROM isc_export WHERE assigned_year = {year} ORDER BY hostname",
+            netnew_dir / f"{year}-ISC.txt",
+        )
+    stats["isc_candidates"] = held.dump(
         conn,
         "SELECT DISTINCT hostname FROM isc_export ORDER BY hostname",
         netnew_dir / "isc_candidates.txt",
     )
 
 
-def _reduce_isc(conn: duckdb.DuckDBPyConnection, baseline: Path | None) -> None:
-    """Build `isc_export`, the survey hostnames no file of his and no table of ours names.
+def _minus_his(names: Path, his: held.Held, out: Path, taken: Path | None = None) -> int:
+    """Write the lines of `names` that no candidate file and no year file of his holds, by
+    exact name, and count them. `taken` gets those his candidate files hold, which the
+    candidate summary counts."""
+    if taken:
+        held.intersect(names, his.candidates, taken)
+    rest = names.with_name(f"{names.stem}_not_candidate.txt")
+    held.minus(names, his.candidates, rest)
+    return held.minus(rest, his.all, out)
 
-    `baseline_hostname` must contain the current six annual files. A held parent or a
-    different `www.` form does not exclude a hostname. No annual table is modified.
+
+def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> Path | None:
+    """Build `isc_export`, the survey hostnames no file of his and no table of ours names, and
+    return the file of those his candidate files hold, or None when the survey gave none.
+
+    Exact names only: a held parent or a different `www.` form does not exclude a hostname.
+    Needs `our_domain_year`. No annual table is modified.
     """
     conn.execute(
         f"""
@@ -253,34 +194,20 @@ def _reduce_isc(conn: duckdb.DuckDBPyConnection, baseline: Path | None) -> None:
           AND {_shipping_filter_for("hy.hostname", "hy.assigned_year")}
         """
     )
-    if conn.execute("SELECT count(*) FROM isc_export").fetchone()[0]:
-        baseline = baseline or baseline_dir()
-        required = [baseline / f"{year}.txt" for year in YEARS] + [baseline / "candidate_pool.txt"]
-        absent = [str(path) for path in required if not path.is_file()]
-        if absent:
-            raise FileNotFoundError(f"ISC reconciliation requires current baseline files: {absent}")
-        _drop_names_he_holds(conn, "isc_export", "hostname", baseline)
-        for table, column in (
-            ("baseline_hostname", "hostname"),
-            ("hostname_year", "hostname"),
-            ("domain_year", "domain"),
-        ):
-            conn.execute(f"""
-                DELETE FROM isc_export
-                WHERE hostname IN (SELECT lower(trim({column})) FROM {table})
-            """)
-
-
-def _copy_query(
-    conn: duckdb.DuckDBPyConnection, query: str, path: Path, options: str = "HEADER false"
-) -> int:
-    """COPY `query` to `path` and return the written file's lines as its rows. Every exported
-    name passed a host or registrable validator, so none holds a newline, and an empty result
-    is an empty file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn.execute(f"COPY ({query}) TO '{path}' ({options})")
-    with path.open("rb") as fh:
-        return sum(chunk.count(b"\n") for chunk in iter(lambda: fh.read(1 << 20), b""))
+    if not conn.execute("SELECT count(*) FROM isc_export").fetchone()[0]:
+        return None
+    names, taken = work / "isc.txt", work / "isc_held.txt"
+    held.dump(conn, "SELECT DISTINCT hostname FROM isc_export ORDER BY 1", names)
+    _minus_his(names, his, work / "isc_kept.txt", taken)
+    held.read_names(conn, "isc_kept", work / "isc_kept.txt")
+    conn.execute("""
+        DELETE FROM isc_export
+        WHERE hostname NOT IN (SELECT name FROM isc_kept)
+           OR hostname IN (SELECT hostname FROM hostname_year)
+           OR hostname IN (SELECT domain FROM our_domain_year)
+    """)
+    conn.execute("DROP TABLE isc_kept")
+    return taken
 
 
 @contextmanager
@@ -294,82 +221,131 @@ def _phase(name: str) -> Iterator[None]:
 def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> int:
     """Net-new pairs that will actually reach the annual files.
 
-    **Not the store's raw net-new total, and the difference is the point.**
-    `_shipping_filter` drops a pair whose TLD did not exist in its year, so the store holds
-    more net-new pairs than any export writes. Packaging compares its exported line count
-    against this: against the raw total a current export looks permanently stale, 726,344
-    against 726,336.
-
-    The diff against his own annual files is part of the same argument: it drops 304 pairs
-    our ingested baseline evidence does not know he holds. The XIII screen is the third part:
-    without it the guard counted 252,019 against the 841 the export wrote (2026-09-22).
+    **Not the store's raw net-new total, and the difference is the point.** Packaging compares
+    its exported line count against this, so it is counted exactly as the export writes the
+    registrable files: `held.netnew` into a scratch folder, which is our claim screened by the
+    shipping filter and minus his year files by exact name. Each time the export learned a
+    filter the guard did not, a current export read as stale for ever.
     """
-    load_his_annual_files(conn, baseline)
-    total = 0
+    his = held.load(baseline)
+    held.our_domain_year(conn)
+    held.claim_pairs(conn)
+    with tempfile.TemporaryDirectory(prefix="ark-shipped-") as tmp:
+        return sum(held.netnew(conn, his, Path(tmp)).values())
+
+
+def _write_attested(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path, out: Path) -> int:
+    """Every year a pair of ours dates a registrable his file for that year lacks, by exact
+    name and screened by nothing else: a pricer asks whether a name is dated at all, and his
+    lines plus these are every dated name. The year is fixed width, so year then name is
+    `LC_ALL=C` line order."""
+    parts = {}
     for year in YEARS:
-        total += conn.execute(
-            f"""
-            SELECT COUNT(DISTINCT dy.domain) FROM domain_year dy
-            WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
-              AND {_shipping_filter("dy.")}
-              AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
-              AND {web_evidence_exists("dy.evidence_id")}
-            """
-        ).fetchone()[0]
-    return total
+        dated = work / f"our_{year}.txt"
+        held.dump(
+            conn,
+            f"SELECT domain FROM our_domain_year WHERE assigned_year = {year} ORDER BY 1",
+            dated,
+        )
+        parts[year] = work / f"attested_{year}.txt"
+        held.minus(dated, his.year(year), parts[year])
+    part = out.with_name(out.name + ".part")
+    try:
+        with part.open("wb") as fh:
+            for year in YEARS:
+                tag = f"{year}\t".encode()
+                with parts[year].open("rb") as names:
+                    for line in names:
+                        fh.write(tag + line)
+        os.replace(part, out)
+    finally:
+        part.unlink(missing_ok=True)
+    return held.lines(out)
 
 
-def load_his_annual_files(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> None:
-    """Load the reviewer's six annual files into `his_annual(name, year)`.
-
-    **The store's own baseline evidence is not a substitute.** That evidence is whatever
-    release was ingested, and his current release can add names after it: one such gap put
-    303 names into the 2001 additions that his `merged260908` already held. Diffing against
-    his files at export time makes the overlap zero by construction.
-    """
-    baseline = baseline or baseline_dir()
-    conn.execute("CREATE OR REPLACE TEMP TABLE his_annual(name VARCHAR, year INTEGER)")
-    if not baseline.is_dir():
-        # A store with no baseline beside it is a fresh init or a test, and there is
-        # nothing to diff against. A baseline that exists but is INCOMPLETE is the
-        # dangerous case and still raises below, because a half-loaded diff silently
-        # ships the half it could not read.
-        logger.warning(f"no baseline at {baseline}: shipped lists are not diffed against his")
-        return
+def _write_manifests(conn: duckdb.DuckDBPyConnection, netnew_dir: Path) -> None:
+    """One row per shipped line, read back from the written files, so a manifest describes no
+    line that does not ship and misses none that does. Each cites the row its record cites,
+    which qualifies. Needs `netnew_pair`."""
+    conn.execute("CREATE OR REPLACE TEMP TABLE shipped_hostname (name VARCHAR, year INTEGER)")
     for year in YEARS:
-        path = baseline / f"{year}.txt"
-        if not path.is_file():
-            raise FileNotFoundError(f"the export needs the reviewer's {year}.txt to diff against")
-        conn.execute(
-            f"INSERT INTO his_annual SELECT name, {year} FROM ({his_lines('?')})", [str(path)]
-        )
-
-
-def _drop_names_he_holds(
-    conn: duckdb.DuckDBPyConnection, table: str, column: str, baseline: Path, note: bool = True
-) -> None:
-    """Delete from `table` every name in any of `held.candidate_files`, noting each one in
-    `held_by_him` when `note`, so the summary can say how many names his files took out of
-    the claim."""
-    conn.execute("CREATE TEMP TABLE IF NOT EXISTS held_by_him (name VARCHAR)")
-    held = f"{column} IN (SELECT name FROM ({his_lines('?')}))"
-    for path in candidate_files(baseline):
-        if note:
-            conn.execute(
-                f"INSERT INTO held_by_him SELECT DISTINCT {column} FROM {table} WHERE {held}",
-                [str(path)],
-            )
-        conn.execute(f"DELETE FROM {table} WHERE {held}", [str(path)])
-
-
-def _not_in_his_annual(column: str, year_expr: str) -> str:
-    """SQL excluding a name the reviewer already lists for that year. Needs `his_annual`."""
-    return f"""
-        NOT EXISTS (
-            SELECT 1 FROM his_annual h
-            WHERE h.name = lower(trim({column})) AND h.year = {year_expr}
-        )
+        held.read_names(conn, "_shipped", netnew_dir / f"{year}_hostnames.txt", year)
+        conn.execute("INSERT INTO shipped_hostname SELECT name, year FROM _shipped")
+    conn.execute("DROP TABLE _shipped")
+    hostnames = """
+        SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type,
+               e.evidence_value, s.name AS source, e.acquisition_method, e.evidence_url
+        FROM shipped_hostname n
+        JOIN hostname_year hy ON hy.hostname = n.name AND hy.assigned_year = n.year
+        JOIN evidence e ON e.evidence_id = hy.evidence_id
+        JOIN source s ON s.source_id = e.source_id
+        ORDER BY hy.hostname, hy.assigned_year
     """
+    registrables = """
+        SELECT n.domain, n.year AS assigned_year, e.evidence_type, e.evidence_value,
+               s.name AS source, e.acquisition_method, e.evidence_url
+        FROM netnew_pair n
+        JOIN evidence e ON e.evidence_id = n.evidence_id
+        JOIN source s ON s.source_id = e.source_id
+        ORDER BY n.domain, n.year
+    """
+    for name, suffix, query in (
+        ("hostnames_evidence_manifest.csv", "_hostnames", hostnames),
+        ("evidence_manifest.csv", "", registrables),
+    ):
+        (rows,) = conn.execute(f"COPY ({query}) TO '{netnew_dir / name}' (HEADER true)").fetchone()
+        shipped = sum(held.lines(netnew_dir / f"{year}{suffix}.txt") for year in YEARS)
+        if rows != shipped:
+            raise ValueError(f"{name} has {rows} rows for {shipped} shipped lines")
+
+
+def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> list[Path]:
+    """Build `candidate_pool(name, unit)` and return the files of names his candidate files
+    took out of its two store arms. Needs `claim_pair`, `our_domains` and `isc_export`."""
+    arms = {
+        # a registrable we found with no year of ours that ships as a web capture of it
+        "registrable": f"""
+            SELECT d.domain FROM domain d
+            WHERE d.domain NOT IN (SELECT domain FROM claim_pair)
+              AND {held.we_know("d")} AND {_shipping_filter("d.", with_year=False)}
+            ORDER BY 1
+        """,
+        # **A hostname whose every year fails XIII is a candidate too.** XIII names the
+        # classes (mail and Usenet delivery headers, DNS listings, registry events, mentions)
+        # and says to store them as source-specific candidate assets with provenance; the ISC
+        # arm is that shape for one source. Same rule as the registrable arm: no web capture
+        # of the exact host in any year, then the hostname gate.
+        "hostname": f"""
+            SELECT DISTINCT hy.hostname FROM hostname_year hy
+            WHERE NOT EXISTS (SELECT 1 FROM hostname_year hz
+                              WHERE hz.hostname = hy.hostname
+                                AND {web_evidence_exists("hz.evidence_id", "hz.hostname")})
+              AND {HOSTNAME_SHIPPING_FILTER}
+            ORDER BY 1
+        """,
+    }
+    taken = []
+    for unit, query in arms.items():
+        names = work / f"pool_{unit}.txt"
+        held.dump(conn, query, names)
+        taken.append(work / f"pool_{unit}_held.txt")
+        _minus_his(names, his, work / f"pool_{unit}_kept.txt", taken[-1])
+        held.read_names(conn, f"_pool_{unit}", work / f"pool_{unit}_kept.txt")
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE candidate_pool AS
+        SELECT name, 'registrable' AS unit FROM _pool_registrable
+    """)
+    # the ISC survey hostnames, already reduced by `reduce_isc` against every candidate and
+    # annual name he holds, and against everything we hold ourselves
+    conn.execute("INSERT INTO candidate_pool SELECT DISTINCT hostname, 'hostname' FROM isc_export")
+    conn.execute("""
+        INSERT INTO candidate_pool
+        SELECT name, 'hostname' FROM _pool_hostname
+        WHERE name NOT IN (SELECT name FROM candidate_pool)
+    """)
+    conn.execute("DROP TABLE _pool_registrable")
+    conn.execute("DROP TABLE _pool_hostname")
+    return taken
 
 
 def export_header_candidates(
@@ -392,7 +368,7 @@ def export_header_candidates(
         WHERE c.unit = 'hostname' AND NOT ({web_evidence_sql("e")})
           AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
     """)
-    stats["header_candidates"] = _copy_query(
+    stats["header_candidates"] = held.dump(
         conn,
         "SELECT DISTINCT hostname FROM header_provenance ORDER BY hostname",
         netnew_dir / "header_candidates.txt",
@@ -466,7 +442,6 @@ def export_all(
     conn: duckdb.DuckDBPyConnection,
     netnew_dir: Path = NETNEW_DIR,
     candidates_path: Path = CANDIDATES_PATH,
-    masters_dir: Path = MASTERS_DIR,
     report_dir: Path = DEFAULT_REPORT_DIR,
     provenance_dir: Path = PROVENANCE_DIR,
     baseline: Path | None = None,
@@ -474,251 +449,151 @@ def export_all(
     claim_only: bool = False,
 ) -> dict[str, int]:
     """Write every result file, or with `claim_only` only `claim_files` and the stamp: no
-    masters, manifests, ISC files or contribution tables. Every destination is a parameter,
-    so a caller that redirects the outputs redirects all of them; leaving one hardcoded let
-    the test suite overwrite the real contribution tables with a test store."""
+    manifests, ISC files or contribution tables. Every destination is a parameter, so a
+    caller that redirects the outputs redirects all of them; leaving one hardcoded let the
+    test suite overwrite the real contribution tables with a test store.
+
+    `baseline` is his release folder, `held.his_dir()` by default. Without the held sets
+    `ark intake` wrote for it, `held.HeldError` stops the export before it writes a file, the
+    old stamp already gone."""
     if claim_only and with_provenance:
         raise ValueError("a claim export writes no provenance graph")
     (netnew_dir / STAMP_NAME).unlink(missing_ok=True)
     # read once: this connection holds the store, so nothing moves it before the stamp
     ledger = store_ledger(conn)
     stats: dict[str, int] = {}
-    baseline = baseline or baseline_dir()
-    with _phase("his annual files"):
-        load_his_annual_files(conn, baseline)
-        conn.execute(f"""
-            CREATE OR REPLACE TEMP TABLE not_his AS
-            SELECT dy.domain, dy.assigned_year, dy.evidence_id FROM domain_year dy
-            WHERE {_not_in_his_annual("dy.domain", "dy.assigned_year")}
-        """)
+    with _phase("held"):
+        his = held.load(baseline)
+        held.our_domain_year(conn)
+        held.claim_pairs(conn)
+        held.our_domains(conn)
+    netnew_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=netnew_dir.parent, prefix=".export-") as tmp:
+        work = Path(tmp)
+        with _phase("attested registrables"):
+            stats["attested_registrables"] = _write_attested(
+                conn, his, work, netnew_dir / ATTESTED_NAME
+            )
 
-    # Every year the store dates a registrable his file lacks, screened by nothing else: a
-    # pricer asks whether a name is dated at all, and his lines plus these are his lines plus
-    # the whole store. The year is fixed width, so year then name is `LC_ALL=C` line order.
-    with _phase("attested registrables"):
-        stats["attested_registrables"] = _copy_query(
-            conn,
-            "SELECT assigned_year, domain FROM not_his ORDER BY assigned_year, domain",
-            netnew_dir / ATTESTED_NAME,
-            "HEADER false, DELIMITER '\t'",
-        )
+        with _phase("netnew"):
+            for year, count in held.netnew(conn, his, work, netnew_dir).items():
+                stats[f"netnew_{year}"] = count
 
-    with _phase("netnew"):
-        for year in YEARS:
-            netnew_query = f"""
-                SELECT DISTINCT dy.domain FROM not_his dy
-                WHERE dy.assigned_year = {year} AND {_NOT_IN_BASELINE}
-                  AND {_shipping_filter("dy.")}
-                  AND {web_evidence_exists("dy.evidence_id")}
-                ORDER BY dy.domain
-            """
-            count = _copy_query(conn, netnew_query, netnew_dir / f"{year}.txt")
-            stats[f"netnew_{year}"] = count
-
-    if not claim_only:
-        with _phase("masters"):
+        # The hostname half of the annual contribution ships beside the registrable half.
+        # Brief IV.8 requires exact qualifying hostnames, not a registrable-only roll-up;
+        # these are annual records, not auxiliary seeds.
+        with _phase("hostnames"):
             for year in YEARS:
-                # His rows plus ours. Ours pass the shipping filter and the XIII screen the
-                # additions pass; his pass nothing, because his files are his truth and the
-                # filter is a rule about what WE claim, never a reason to drop a row of his.
-                masters_query = f"""
-                    SELECT DISTINCT dy.domain FROM domain_year dy
-                    WHERE dy.assigned_year = {year}
-                      AND (NOT ({_NOT_IN_BASELINE})
-                           OR ({_shipping_filter("dy.")}
-                               AND {web_evidence_exists("dy.evidence_id")}))
-                    ORDER BY dy.domain
-                """
-                stats[f"master_{year}"] = _copy_query(
-                    conn, masters_query, masters_dir / f"{year}.txt"
+                hosts = work / f"host_{year}.txt"
+                held.dump(
+                    conn,
+                    f"""
+                    SELECT DISTINCT hy.hostname FROM hostname_year hy
+                    WHERE hy.assigned_year = {year} AND {HOSTNAME_SHIPPING_FILTER}
+                      AND {web_evidence_exists("hy.evidence_id", "hy.hostname")}
+                    ORDER BY 1
+                    """,
+                    hosts,
+                )
+                stats[f"netnew_hostnames_{year}"] = held.minus(
+                    hosts, his.year(year), netnew_dir / f"{year}_hostnames.txt"
                 )
 
-    # The hostname half of the annual contribution ships beside the registrable half.
-    # Brief IV.8 requires exact qualifying hostnames, not a registrable-only roll-up;
-    # these are annual records, not auxiliary seeds. Shipping predicates are shared
-    # with `round_figures.py` so the reported and exported populations cannot drift.
-    with _phase("hostnames"):
-        load_baseline_hostnames(conn)
-        not_in_baseline = NOT_IN_BASELINE_HOSTNAME
-        conn.execute("CREATE OR REPLACE TEMP TABLE held_by_him (name VARCHAR)")
-        for year in YEARS:
-            hostname_query = f"""
-                SELECT DISTINCT hy.hostname FROM hostname_year hy
-                WHERE hy.assigned_year = {year} AND {not_in_baseline}
-                  AND {HOSTNAME_SHIPPING_FILTER}
-                  AND {_not_in_his_annual("hy.hostname", str(year))}
-                  AND {web_evidence_exists("hy.evidence_id")}
-                ORDER BY hy.hostname
-            """
-            count = _copy_query(conn, hostname_query, netnew_dir / f"{year}_hostnames.txt")
-            stats[f"netnew_hostnames_{year}"] = count
+        # The claim runs the ISC reduction too: the summary counts his survey names among the
+        # names he held, and what survives it joins the candidate pool.
+        with _phase("isc"):
+            isc_taken = reduce_isc(conn, his, work)
+            taken = [isc_taken] if isc_taken else []
+            if not claim_only:
+                export_isc_hostnames(conn, netnew_dir, stats)
+                export_isc_provenance(conn, netnew_dir, stats)
 
-    # The claim runs the ISC reduction too: it notes his survey names in `held_by_him`, which
-    # the candidate summary counts, and what survives it joins the candidate pool.
-    with _phase("isc"):
-        if claim_only:
-            _reduce_isc(conn, baseline)
-        else:
-            export_isc_hostnames(conn, netnew_dir, stats, baseline)
-            export_isc_provenance(conn, netnew_dir, stats)
+        if not claim_only:
+            with _phase("manifests"):
+                _write_manifests(conn, netnew_dir)
 
-    if not claim_only:
-        with _phase("manifests"):
-            # The manifest carries the same rows as the shipped files: a row for a hostname
-            # the benchmark already lists would read as an addition it is not.
-            hostname_manifest_query = f"""
-                SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type,
-                       e.evidence_value, s.name AS source, e.acquisition_method,
-                       e.evidence_url
-                FROM hostname_year hy
-                JOIN evidence e ON hy.evidence_id = e.evidence_id
-                JOIN source s ON e.source_id = s.source_id
-                WHERE {not_in_baseline} AND {HOSTNAME_SHIPPING_FILTER}
-                  AND {_not_in_his_annual("hy.hostname", "hy.assigned_year")}
-                  AND {web_evidence_sql("e")}
-                ORDER BY hy.hostname, hy.assigned_year
-            """
-            hostname_manifest = netnew_dir / "hostnames_evidence_manifest.csv"
-            hostname_manifest.parent.mkdir(parents=True, exist_ok=True)
-            conn.execute(f"COPY ({hostname_manifest_query}) TO '{hostname_manifest}' (HEADER true)")
-
-            manifest_query = f"""
-                SELECT dy.domain, dy.assigned_year, e.evidence_type, e.evidence_value,
-                       s.name AS source, e.acquisition_method, e.evidence_url
-                FROM domain_year dy
-                JOIN evidence e ON dy.evidence_id = e.evidence_id
-                JOIN source s ON e.source_id = s.source_id
-                WHERE e.evidence_type != '{BASELINE_TYPE}' AND {_NOT_IN_BASELINE}
-                  AND {_shipping_filter("dy.")}
-                  AND {_not_in_his_annual("dy.domain", "dy.assigned_year")}
-                  AND {web_evidence_sql("e")}
-                ORDER BY dy.domain, dy.assigned_year
-            """
-            path = netnew_dir / "evidence_manifest.csv"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            conn.execute(f"COPY ({manifest_query}) TO '{path}' (HEADER true)")
-
-    # `candidates.txt` ships beside the claim, so it holds none of his names either: it was a
-    # store-only list, and 341,674 of its 375,476 names were in his `candidate_pool.txt`.
-    with _phase("candidate_unverified"):
-        conn.execute(
-            """
-            CREATE OR REPLACE TEMP TABLE candidate_unverified AS
-            SELECT d.domain FROM domain d
-            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-              AND """
-            + _shipping_filter("d.", with_year=False)
-        )
-        _drop_names_he_holds(conn, "candidate_unverified", "domain", baseline, note=False)
-        conn.execute(
-            "DELETE FROM candidate_unverified WHERE domain IN (SELECT name FROM his_annual)"
-        )
-        stats["candidates"] = _copy_query(
-            conn, "SELECT domain FROM candidate_unverified ORDER BY domain", candidates_path
-        )
-
-    # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
-    # rate as annual records, so this is held to the same net-new standard: every candidate
-    # collection we hold, unioned, minus every name his release holds as a candidate
-    # (`held.candidate_files`) or lists in any of his six annual files.
-    #
-    # One file, not one per collection: provenance belongs in `provenance/` and
-    # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
-    # reconcile three files to count one track.
-    #
-    # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and 29,327
-    # of them were absent from his files, so shipping the pool as the contribution would
-    # overstate the registrable half of this track by 78x.
-    #
-    # **A registrable name whose every year fails XIII is a candidate, not nothing** (C-90:
-    # "failing rows re-track to candidates"). Until 2026-09-21 the pool took only names with
-    # NO year at all, so a registry list ingested as `artifact_listing` earned a year the
-    # annual screen then refused, and the name fell between the two tracks: the `.dk` zone
-    # list's 251,114 rows shipped in neither file. His own baseline rows are excluded by
-    # type rather than by method, because `prior_reused` is not a web method either and
-    # every one of his 33.7M names would otherwise enter the pool only to be deleted below.
-    with _phase("candidate pool"):
-        conn.execute(f"""
-            CREATE OR REPLACE TEMP TABLE candidate_pool AS
-            SELECT DISTINCT d.domain AS name, 'registrable' AS unit FROM domain d
-            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy
-                              WHERE dy.domain = d.domain
-                                AND {web_evidence_exists("dy.evidence_id")})
-              AND NOT EXISTS (SELECT 1 FROM evidence p
-                              WHERE p.domain = d.domain AND p.evidence_type = '{BASELINE_TYPE}')
-              AND {_shipping_filter("d.", with_year=False)}
-        """)
-        # the ISC survey hostnames, already reduced by `_reduce_isc` against every candidate
-        # and annual name he holds, and against everything we hold ourselves
-        conn.execute("""
-            INSERT INTO candidate_pool
-            SELECT DISTINCT hostname, 'hostname' FROM isc_export
-        """)
-        # **A hostname whose every year fails XIII is a candidate too.** XIII names the
-        # classes (mail and Usenet delivery headers, DNS listings, registry events, mentions)
-        # and says to store them as source-specific candidate assets with provenance; the ISC
-        # arm above is that shape for one source. Same rule as the registrable arm: no
-        # web-method year for the exact host, the hostname gate, then the reconciliation
-        # below against his files.
-        conn.execute(f"""
-            INSERT INTO candidate_pool
-            SELECT DISTINCT hy.hostname, 'hostname' FROM hostname_year hy
-            WHERE NOT EXISTS (SELECT 1 FROM hostname_year hz
-                              WHERE hz.hostname = hy.hostname
-                                AND {web_evidence_exists("hz.evidence_id")})
-              AND NOT EXISTS (SELECT 1 FROM candidate_pool c WHERE c.name = hy.hostname)
-              AND {HOSTNAME_SHIPPING_FILTER}
-        """)
-        his_pool = baseline / "candidate_pool.txt"
-        if baseline.is_dir() and not his_pool.is_file():
-            raise FileNotFoundError(
-                f"the candidate claim needs his pool to diff against: {his_pool}"
+        # `candidates.txt` ships beside the claim, so it holds none of his names either: it was a
+        # store-only list, and 341,674 of its 375,476 names were in his `candidate_pool.txt`.
+        # A name only his release filed is his, not ours to offer back.
+        with _phase("candidate_unverified"):
+            unverified = work / "unverified.txt"
+            held.dump(
+                conn,
+                f"""
+                SELECT d.domain FROM domain d
+                WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
+                  AND {held.we_know("d")} AND {_shipping_filter("d.", with_year=False)}
+                ORDER BY 1
+                """,
+                unverified,
             )
-        _drop_names_he_holds(conn, "candidate_pool", "name", baseline)
-        conn.execute("""
-            DELETE FROM candidate_pool WHERE name IN (SELECT name FROM his_annual)
-        """)
-        stats["candidate_additions"] = _copy_query(
-            conn,
-            "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
-            netnew_dir / "candidate_additions.txt",
-        )
-    with _phase("header candidates"):
-        export_header_candidates(conn, netnew_dir, stats)
-    weights = english_weights()
-    counts = conn.execute(
-        """
-        SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
-        FROM candidate_pool GROUP BY 1, 2 ORDER BY 1, 2
-        """
-    ).fetchall()
-    by_unit: dict[str, tuple[int, Decimal]] = {}
-    for unit, tld, n in counts:
-        held_n, held_ee = by_unit.get(unit, (0, Decimal(0)))
-        by_unit[unit] = (held_n + n, held_ee + weights.get(tld, Decimal(0)) * n)
-    summary = {
-        "baseline": CURRENT_BASELINE_MARKER,
-        "track": "candidate",
-        "counting_unit": "distinct name, registrable domains and exact hostnames in one pool",
-        "candidates": sum(n for n, _ in by_unit.values()),
-        "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
-        "by_unit": {
-            u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
-        },
-        # what his release already held, and so what the claim is net of
-        "held_by_him": {
-            "names": conn.execute("SELECT count(DISTINCT name) FROM held_by_him").fetchone()[0],
-            "files": [str(p.relative_to(baseline)) for p in candidate_files(baseline)],
-        },
-    }
-    (netnew_dir / "candidate_additions_summary.json").write_text(
-        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-    )
+            stats["candidates"] = _minus_his(unverified, his, candidates_path)
 
-    if not claim_only:
-        # per-source and per-year contribution tables, which ship in the audit folder
-        with _phase("contribution tables"):
-            stats.update(write_contribution_tables(conn, report_dir))
+        # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
+        # rate as annual records, so this is held to the same net-new standard: every
+        # candidate collection we hold, unioned, minus every name his release holds as a
+        # candidate (`held.candidate_files`) or lists in any of his six annual files.
+        #
+        # One file, not one per collection: provenance belongs in `provenance/` and
+        # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
+        # reconcile three files to count one track.
+        #
+        # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and
+        # 29,327 of them were absent from his files, so shipping the pool as the contribution
+        # would overstate the registrable half of this track by 78x.
+        #
+        # **A registrable name whose every year fails XIII is a candidate, not nothing**:
+        # failing rows re-track to candidates. When the pool took only names with NO year at
+        # all, a registry list ingested as `artifact_listing` earned a year the annual screen
+        # then refused, and the name fell between the two tracks: the `.dk` zone list's
+        # 251,114 rows shipped in neither file.
+        with _phase("candidate pool"):
+            taken += _candidate_pool(conn, his, work)
+            stats["candidate_additions"] = held.dump(
+                conn,
+                "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
+                netnew_dir / "candidate_additions.txt",
+            )
+            # the distinct names his candidate files took out of the claim, before his years
+            held_names = held.union(taken, work / "held_by_him.txt")
+
+        with _phase("header candidates"):
+            export_header_candidates(conn, netnew_dir, stats)
+        weights = english_weights()
+        counts = conn.execute(
+            """
+            SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
+            FROM candidate_pool GROUP BY 1, 2 ORDER BY 1, 2
+            """
+        ).fetchall()
+        by_unit: dict[str, tuple[int, Decimal]] = {}
+        for unit, tld, n in counts:
+            unit_n, unit_ee = by_unit.get(unit, (0, Decimal(0)))
+            by_unit[unit] = (unit_n + n, unit_ee + weights.get(tld, Decimal(0)) * n)
+        summary = {
+            "baseline": CURRENT_BASELINE_MARKER,
+            "track": "candidate",
+            "counting_unit": "distinct name, registrable domains and exact hostnames in one pool",
+            "candidates": sum(n for n, _ in by_unit.values()),
+            "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
+            "by_unit": {
+                u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
+            },
+            # what his release already held, and so what the claim is net of
+            "held_by_him": {
+                "names": held_names,
+                "files": [str(p.relative_to(his.baseline)) for p in his.candidate_files],
+            },
+        }
+        (netnew_dir / "candidate_additions_summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        )
+
+        if not claim_only:
+            # per-source and per-year contribution tables, which ship in the audit folder
+            with _phase("contribution tables"):
+                held.held_any(conn, his, work)
+                stats.update(write_contribution_tables(conn, report_dir, his, netnew_dir))
 
     # The provenance graph itself, so a reader can ask "why is this domain in this year?"
     # without the source data or a copy of the database.
@@ -797,8 +672,7 @@ def stamp_problems(
         full_only += [f"{year}-ISC.txt" for year in YEARS]
         full_only += ["isc_candidates.txt", "isc_candidates_summary.json"]
         full_only += ["isc_survey_provenance.csv"]
-        stale = [MASTERS_DIR / f"{year}.txt" for year in YEARS]
-        stale += [netnew_dir / name for name in full_only]
+        stale = [netnew_dir / name for name in full_only]
         stale += [
             DEFAULT_REPORT_DIR / "source_contribution.csv",
             DEFAULT_REPORT_DIR / "year_growth.csv",
@@ -819,12 +693,12 @@ def stamp_problems(
     if conn is None:
         return problems
     ledger = store_ledger(conn)
-    held = {key: stamp.get(key) for key in ledger}
-    if held != ledger:
+    stamped = {key: stamp.get(key) for key in ledger}
+    if stamped != ledger:
         problems.append(
-            f"the store moved after the export: its ledger is {ledger}, the stamp's {held}"
+            f"the store moved after the export: its ledger is {ledger}, the stamp's {stamped}"
         )
-    if copy is not None and {key: copy.get(key) for key in ledger} != held:
+    if copy is not None and {key: copy.get(key) for key in ledger} != stamped:
         problems.append("the bank's claim and the full export read different stores")
     ours, bank = netnew_dir / "candidate_additions.txt", claim_dir / "candidate_additions.txt"
     if not (ours.is_file() and bank.is_file() and filecmp.cmp(ours, bank, shallow=False)):

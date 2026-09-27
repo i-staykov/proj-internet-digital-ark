@@ -368,7 +368,7 @@ before pricing, which is the one that wastes days.
 **Two baselines, and they are not the same thing.** `legacy-data/` holds the *original* six annual
 files supplied with the task, which the normalization audit is computed against. The release additions
 are *scored* against is the reviewer's latest merge, and it lives in a `feedback-*/` folder named for
-it. Loading a round against a stale release is a silent error that reports already-credited work as
+it. Diffing a round against a stale release is a silent error that reports already-credited work as
 net-new, so the current one is named in `src/ark/baseline.py` and every command follows it.
 
 ```bash
@@ -397,7 +397,7 @@ runs one; the stage bodies are the authoritative list of what gets ingested.
 
 | Stage | Recipe | What it does, and what to look for |
 |---|---|---|
-| 1 | `just reproduce baseline` | `ark init`, then loads the current release, writes the exclusion droplist, writes the normalization audit. Expect **6 files ingested, 0 skipped**. `6 skipped` means the marker namespace already exists, which is the silent no-op described below |
+| 1 | `just reproduce baseline` | `ark init`, then `ark intake` checks the current release and writes the held sets, then the exclusion droplist and the normalization audit |
 | 2 | `just reproduce sources` | The bulk ingests: Early Web CDX, ISC surveys, Arquivo, AFNIC, Internet Scout, ODP, the UKWA link graph (sources, targets, bare targets), NCSA What's New |
 | 3 | `just reproduce candidates` | Grows the candidate pool from the year-unlabelled host lists |
 | 4 | `just reproduce journals` | Replays every stored network response: CDX, RDAP, page expansion, Usenet and its three re-read seams, UUCP, rtfm, Enron, mailing lists, trade press |
@@ -413,43 +413,39 @@ cat output/netnew/199[6-9].txt output/netnew/200[01].txt | wc -l   # the pairs p
 ```
 
 **`ark check` must run after `ark export`, not before.** One invariant,
-`additions_not_double_counted`, reads the exported annual files and asserts that no domain in them
-carries baseline evidence for that year. Run it against a store whose baseline has moved since the
-last export and it correctly reports every already-credited pair as a violation.
-`just reproduce deliver` has the order right.
+`additions_not_double_counted`, asserts by `LC_ALL=C comm -12` that no name in the exported annual
+files is in his year file. Run it after a new release and before the export, and it correctly
+reports every already-credited name as a violation. `just reproduce deliver` has the order right.
 
 ### Loading a new reviewer release
 
-He reissues the merged corpus after each round he accepts. `just intake` points the baseline at it
-**first**; loading it into the store stays a separate deliberate step:
+He reissues the merged corpus after each round he accepts. `just intake` does all of it; nothing of
+his enters the store.
 
 ```bash
-cp data/ark.duckdb data/ark.duckdb.pre-<release>.bak   # there is no unload command
-just intake <his.zip>       # verify the sha256, extract, remeasure, write data/baseline.json
-uv run ark ingest-legacy    # expect: 6 files ingested, 0 skipped
+just intake <his.zip>       # verify, extract, remeasure, write data/baseline.json and data/held/<marker>/
 just reproduce deliver      # export, stats, check, in that order
 uv run python scripts/round/round_figures.py --verify
 ```
 
-Two traps, both of which fail quietly:
-
-- **Loading with only `--legacy-dir` is a total no-op.** `--marker-prefix` defaults to the marker in
-  `data/baseline.json`, so the composed marker already exists in the ledger and all six files are
-  skipped behind six reassuring "already ingested" lines. Run `just intake` first, or pass both flags.
-- **`ark stats` prints the release it measured against.** If that is not the newest one he has sent,
-  every figure above it is overstated. That check is the whole reason the constant is centralised.
+`ark intake` checks each file of his once and writes `all.txt` and `candidates.txt` beside a sorted
+copy of any file that is not already sorted, unique and lowercase: 4.3 GB. Export and stats refuse,
+and the check that reads them fails, with "run uv run ark intake" when they are missing or stale.
+**`ark stats` prints the release it measured against.** If that is not the newest one he has sent,
+every figure above it is overstated. That check is the whole reason the constant is centralised.
 
 `round_figures.py --verify` re-scores the increment with **his own** `equivalent_english_domains.py`
 and refuses the numbers if his total differs from ours or if his validator rejects a record we counted.
-Its overlap guard reading zero is also the proof that the new release actually loaded.
+Its overlap guard reading zero is also the proof that the export diffed against the new release.
 
 ### Package the delivery archive
 
 **Use `just ship` rather than packaging by hand.** Packaging refuses unless
 `output/netnew/export_stamp.json` records a full export with provenance whose ledger matches the
 store, and the bank's claim, set aside in `data/exports/claim/`, equals the full one. A bank writes
-only the claim, so after one packaging refuses and names the stale masters. Each `just ship` stage
-that banks, packages or verifies holds the sync lock to its end, so no tick moves the store meanwhile.
+only the claim, so after one packaging refuses and names the files it left stale. Each `just ship`
+stage that banks, packages or verifies holds the sync lock to its end, so no tick moves the store
+meanwhile.
 
 ```bash
 just ship --help     # the whole chain, printed, nothing run

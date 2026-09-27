@@ -2,6 +2,7 @@
 
 import csv
 import gzip
+import json
 from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
@@ -11,7 +12,8 @@ import pytest
 
 from ark.bulk import BulkRecord, SourceSpec, ingest_files
 from ark.db import connect, init_db
-from ark.sources import parse_early_web_cdx
+from ark.evidence_types import qualifies_sql
+from ark.sources import SOURCES, parse_early_web_cdx
 from ark.work_queue import connect_queue
 
 
@@ -29,12 +31,14 @@ def _toy_parser(records: list[BulkRecord]):
     return parse
 
 
-def _spec(records: list[BulkRecord], evidence_type: str = "artifact_listing") -> SourceSpec:
+def _spec(
+    records: list[BulkRecord], evidence_type: str = "artifact_listing", method: str = "test"
+) -> SourceSpec:
     return SourceSpec(
         key="toy",
         source_name="toy_source",
         evidence_type=evidence_type,
-        acquisition_method="test",
+        acquisition_method=method,
         parse=_toy_parser(records),
     )
 
@@ -134,9 +138,50 @@ def test_earliest_capture_wins_within_file(tmp_path: Path) -> None:
 
     ingest_files(conn, _spec(records, "cdx_timestamp"), [_touch(tmp_path)], report_dir=tmp_path)
 
+    # method `test` is no web method, so neither row ships and the lowest value wins
     value, url = conn.execute("SELECT evidence_value, evidence_url FROM evidence").fetchone()
     assert value == "19980301000000"
     assert url == "early"
+
+
+def test_a_capture_of_the_exact_domain_wins_over_a_lower_value(tmp_path: Path) -> None:
+    """A host-less value and a `www.` capture both sort first, but only a capture of the
+    domain itself ships, so the earliest of those is the row kept."""
+    conn = _fresh_db()
+    records = [
+        BulkRecord(raw="x.com", year=2001, evidence_value="cdx capture 2001", evidence_url="a"),
+        BulkRecord(
+            raw="www.x.com",
+            year=2001,
+            evidence_value="cdx capture 20010101000000 www.x.com",
+            evidence_url="b",
+        ),
+        BulkRecord(
+            raw="x.com",
+            year=2001,
+            evidence_value="cdx capture 20010201000000 status 404 x.com",
+            evidence_url="c",
+        ),
+        BulkRecord(
+            raw="x.com",
+            year=2001,
+            evidence_value="cdx capture 20010401000000 x.com",
+            evidence_url="d",
+        ),
+        BulkRecord(
+            raw="x.com",
+            year=2001,
+            evidence_value="cdx capture 20010301000000 x.com",
+            evidence_url="e",
+        ),
+    ]
+    spec = _spec(records, "cdx_timestamp", method="ia_cdx_collapsed_query")
+
+    ingest_files(conn, spec, [_touch(tmp_path)], report_dir=tmp_path)
+
+    assert conn.execute("SELECT evidence_value, evidence_url FROM evidence").fetchall() == [
+        ("cdx capture 20010301000000 x.com", "e")
+    ]
 
 
 def test_same_source_pair_not_duplicated_across_files(tmp_path: Path) -> None:
@@ -152,6 +197,58 @@ def test_same_source_pair_not_duplicated_across_files(tmp_path: Path) -> None:
 
     # second file carries the same (domain, year): no second evidence row
     assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 1
+
+
+def test_an_exact_capture_joins_a_host_less_row_and_nothing_joins_an_exact_one(
+    tmp_path: Path,
+) -> None:
+    """`cdx capture <year>` names no host and ships nothing, so a later journal's stamp for
+    the same pair is admitted beside it; `domain_year` keeps its citation. A capture of
+    another host adds nothing, and once an exact row is held no second one joins."""
+    conn = _fresh_db()
+    journals = [
+        [
+            {"domain": "x.com", "status": 200, "years": [2001], "strategy": "suffix_sweep"},
+            {"domain": "y.com", "status": 200, "years": [2001], "strategy": "suffix_sweep"},
+        ],
+        [
+            {
+                "domain": "x.com",
+                "status": 200,
+                "years": [2001],
+                "stamps": {"2001": "20010301000000"},
+            },
+            {
+                "domain": "y.com",
+                "status": 200,
+                "years": [2001],
+                "hosts": {"www.y.com": "20010101000000"},
+            },
+        ],
+        [{"domain": "x.com", "status": 200, "years": [2001], "stamps": {"2001": "20010101000000"}}],
+    ]
+    paths = []
+    for index, records in enumerate(journals):
+        path = tmp_path / f"cdx_suffix_{index}.jsonl"
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        paths.append(path)
+
+    summary = ingest_files(conn, SOURCES["cdx_snapshot"], paths, report_dir=tmp_path)
+
+    assert summary["evidence_rows"] == 3
+    rows = conn.execute(
+        f"""
+        SELECT e.domain, e.evidence_value, {qualifies_sql("e", "e.domain")},
+               e.evidence_id = dy.evidence_id
+        FROM evidence e JOIN domain_year dy ON dy.domain = e.domain
+        ORDER BY e.domain, e.evidence_id
+        """
+    ).fetchall()
+    assert rows == [
+        ("x.com", "cdx capture 2001", False, True),
+        ("x.com", "cdx capture 20010301000000 x.com", True, False),
+        ("y.com", "cdx capture 2001", False, True),
+    ]
 
 
 def test_audit_csv_has_drops_and_corrections(tmp_path: Path) -> None:

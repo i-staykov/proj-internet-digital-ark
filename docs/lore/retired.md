@@ -46,3 +46,6 @@ does not rebuild it. The code itself is in git.
 - **The fleet leg's CDX seat** (`scripts/harness/cdx_slot.sh`, `tests/test_cdx_slot.py`): let a leg
   on the VPS ask the archive's CDX about one exact host, serialised behind one `flock`. No fleet
   leg queries CDX, so a seat for one was a way back into the channel the collectors meter.
+- **The baseline store loader** (`ark ingest-legacy`, `ingest_year_file`, `tests/test_ingest.py`):
+  copied his release into the store as one row per registrable, which rolled his hostnames up to
+  their parents. What he holds is the exact name in his files, by `comm` (`ark intake`, `held.py`).

@@ -57,10 +57,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
-from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
-from ark.stats import BASELINE_TYPE  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
 RAW = ROOT / "data/raw"
@@ -74,7 +72,6 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 # Derived artifacts, each with the thing that makes it stale. Every one is
 # regenerable, so a finding is "rebuild this", never "you have lost something".
 #
-#   baseline    the reviewer's release: a bigger merged corpus creates new gaps
 #   candidates  the newest domain with no year, which a pool queue should carry
 #   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
@@ -187,9 +184,8 @@ def ingest_globs() -> list[tuple[str, str, str]]:
         key, pattern = match.group(1), match.group(2)
         spec = SOURCES.get(key)
         if spec is None:
-            # `ingest-legacy` and any journal spec not in SOURCES; the ledger
-            # cannot be joined for those, so they are out of scope rather than
-            # silently reported as clean.
+            # A journal spec not in SOURCES: the ledger cannot be joined for it,
+            # so it is out of scope rather than silently reported as clean.
             continue
         out.append((key, spec.source_name, pattern))
     return out
@@ -364,7 +360,6 @@ def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
     to Python and it is not a dependency here.
     """
     marks: dict[str, float | None] = {}
-    marks["baseline"] = baseline_loaded_at(conn)
     row = conn.execute(
         """
         SELECT max(epoch(d.first_seen_at)) FROM domain d
@@ -386,34 +381,14 @@ def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
     return marks
 
 
-def baseline_loaded_at(conn: duckdb.DuckDBPyConnection) -> float | None:
-    """Unix time at which the newest `prior_reused` evidence landed.
-
-    Anchored on the evidence rather than on `ingested_file`, because the legacy
-    loader does not write a ledger row a file glob can find, and because the
-    evidence rows are what actually changed: they are the reason a queue built
-    earlier is blind to the release. Read as epoch seconds inside SQL, since
-    DuckDB needs `pytz` to hand a TIMESTAMPTZ to Python and it is not a
-    dependency here.
-    """
-    row = conn.execute(
-        "SELECT max(epoch(ingested_at)) FROM evidence WHERE evidence_type = ?", [BASELINE_TYPE]
-    ).fetchone()
-    return float(row[0]) if row and row[0] is not None else None
-
-
 def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
     """Derived artifacts older than the newest row that ought to be in them."""
     print("\n== stale_derived: built before the rows they should carry ==")
     marks = freshness_marks(conn)
-    if marks["baseline"] is None:
-        print("  skipped: no baseline evidence in the store, so nothing to be stale against")
-        return 0
-    for kind in ("baseline", "candidates", "pairs", "journals"):
+    for kind in ("candidates", "pairs", "journals"):
         when = marks[kind]
         shown = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(when)) if when else "none"
         label = {
-            "baseline": f"newest {CURRENT_BASELINE_MARKER} evidence",
             "candidates": "newest candidate with no year",
             "pairs": "newest assigned pair",
             "journals": "newest finished cdx journal",

@@ -27,7 +27,7 @@ from ark import approvals
 from ark.audit import FIELDS, change_reason
 from ark.canonical import reject_reason, to_registrable
 from ark.db import ensure_source
-from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
+from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES, qualifies_sql
 from ark.ingest import YEARS
 from ark.metrics import record_metrics
 from ark.seed import CDX_TASK
@@ -212,26 +212,43 @@ def ingest_file(
             """,
             [source_id, discovered_round],
         )
-        # one evidence row per (domain, year) per source: the earliest capture
-        # in this file, skipping pairs this source already evidenced; the
-        # struct keeps value and url from the same staged row
+        # one evidence row per (domain, year) per source from this file: a row that ships
+        # (a capture of exactly that domain) first, then the lowest value; the struct keeps
+        # value and url from the same staged row. A pair this source already evidenced is
+        # skipped, unless none of its rows ships and the new one does: an exact capture
+        # joins a host-less one, and domain_year keeps its citation either way
         last_evidence_id = conn.execute(
             "SELECT coalesce(max(evidence_id), 0) FROM evidence"
         ).fetchone()[0]
         stats["evidence_rows"] = conn.execute(
-            """
+            f"""
             INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
                                   evidence_value, evidence_url, acquisition_method)
-            SELECT s.domain, ?, s.year, ?, min(s.evidence_value),
-                   arg_min({'u': s.evidence_url}, s.evidence_value)['u'], ?
-            FROM bulk_stage s
+            WITH staged AS (
+                SELECT b.domain, b.year, b.evidence_value, b.evidence_url,
+                       {qualifies_sql("b", "b.domain")} AS ships
+                FROM (SELECT *, $method::TEXT AS acquisition_method FROM bulk_stage) b
+            ), picked AS (
+                SELECT domain, year,
+                       arg_min({{'v': evidence_value, 'u': evidence_url, 'ships': ships}},
+                               (NOT ships, evidence_value)) AS r
+                FROM staged
+                GROUP BY domain, year
+            )
+            SELECT p.domain, $source_id, p.year, $type, p.r['v'], p.r['u'], $method
+            FROM picked p
             WHERE NOT EXISTS (
                 SELECT 1 FROM evidence e
-                WHERE e.domain = s.domain AND e.evidence_year = s.year AND e.source_id = ?
+                WHERE e.domain = p.domain AND e.evidence_year = p.year
+                  AND e.source_id = $source_id
+                  AND (NOT p.r['ships'] OR {qualifies_sql("e", "e.domain")})
             )
-            GROUP BY s.domain, s.year
             """,
-            [source_id, spec.evidence_type, spec.acquisition_method, source_id],
+            {
+                "source_id": source_id,
+                "type": spec.evidence_type,
+                "method": spec.acquisition_method,
+            },
         ).fetchone()[0]
         # candidate-only evidence is provenance; it must never assign a year
         if not spec.is_candidate_only:
