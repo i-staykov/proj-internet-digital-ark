@@ -77,7 +77,11 @@ DB = REPO / "data/ark.duckdb"
 # The decisions that let a source's rows into the store at all.
 INGESTIBLE = frozenset({"master", "candidate-only"})
 
-_ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
+# The figure `price_items.py` says to quote: after the split, or with `--no-split` the whole
+# net-new set, which a lead of a no-split class is priced on.
+_ITEMS_EE = re.compile(
+    r"net-new(?: AFTER the split|, no split)\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE"
+)
 _HOST_EE = re.compile(r"NET-NEW hostname years ([\d,]+)\s+([\d,]+\.?\d*) EE")
 # The old ledger's first field: the drain's minute, as the tick's run label writes it.
 _STAMP = re.compile(r"\d{8}T\d{4}Z")
