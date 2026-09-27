@@ -5,7 +5,7 @@ records dated changes and email clarifications, not a second specification. Late
 override the packaged brief where they disagree.
 
 Historical sections describe the requirements and results on their stated dates, not the current
-round. The [original 2026-07-21 brief](ding/README.md#original-brief) remains in Git history.
+round. The [original 2026-07-21 brief](ding/README.md) remains in Git history.
 Unqualified clause references below use the current brief's numbering.
 
 Quotations are his words. Year ranges are written with a hyphen throughout, including inside
@@ -145,8 +145,8 @@ He put the same point more directly in an earlier message:
 
 Read together with priority 1, the instruction is not "find more places to download from". It is:
 **generate hypotheses, price them against dated evidence, and keep the ones that survive**, with the
-generating and the pricing both automated. That is the argument for building the discovery harness in
-[discovery.md](discovery.md) rather than adding another hand-run collector.
+generating and the pricing both automated. That is the argument for building the discovery harness
+rather than adding another hand-run collector.
 
 ### On targets
 

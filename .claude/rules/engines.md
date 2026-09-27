@@ -6,9 +6,8 @@ paths:
 
 # Collectors and anything that leaves the machine
 
-- Politeness and the client cap: `docs/lore/rules.md`, section Engines and politeness.
-- Read the terms and the host's whole robots.txt before the first request. Hosts that refuse us
-  by name, the measured tier costs and the 403 case are in `docs/lore/traps.md`.
+- Politeness, the client cap, terms and robots: `CLAUDE.md`, Channel. The hosts that refuse us by
+  name, the measured tier costs and the 403 case are in `docs/lore/laws.md`, Channel.
 - A collector takes an absolute deadline and outlives the session. Restart a loop after editing
   what it imports.
 - A journal is written first and priced afterwards; collectors write no evidence and so never

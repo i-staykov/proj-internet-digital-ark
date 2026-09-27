@@ -19,7 +19,7 @@ Thirteen columns since 2026-09-03: the eight of phase 7, in their old order so a
 consumer reading the first eight is unaffected, plus `coverage_period`,
 `retrieval_method`, `baseline_overlap`, `effort` and `source_link`. The first four are
 his own schema words (coverage, overlap, effort) that the register held and the CSV
-dropped; the fifth is the source URL every entry carries under rule 8. `n/a` is kept
+dropped; the fifth is the source URL every entry carries (`CLAUDE.md`, Registers). `n/a` is kept
 verbatim, because in the register it means the entry does not say, which is not the same
 as a column the page does not have.
 

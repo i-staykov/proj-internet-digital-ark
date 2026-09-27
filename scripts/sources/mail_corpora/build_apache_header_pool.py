@@ -188,8 +188,7 @@ def main() -> int:
     tranche's months would either recycle a shard name with different bytes, which the ledger
     refuses outright, or write a second evidence row for every host the first tranche already
     banked. Listing what has been read, and skipping it next time, avoids both: each tranche
-    goes to its own out dir and reads only months no tranche has read. The `alt` lane paid for
-    this lesson the hard way on 2026-09-08, see docs/lore/traps.md.
+    goes to its own out dir and reads only months no tranche has read.
     """
     root, outdir = Path(sys.argv[1]), Path(sys.argv[2])
     workers = int(sys.argv[3]) if len(sys.argv) > 3 else 8

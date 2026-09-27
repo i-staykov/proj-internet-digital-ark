@@ -128,8 +128,8 @@ read from files. A row without a command is a proposal nothing has run.
 
 | id | command | register anchor | result |
 |:------------------------|:------------------------------------------------------------|:--------------------------------|:----------------------------------------|
-| `q2-continuity-1999-2000` | `wc -l < <(LC_ALL=C comm -12 "$HIS/1999.txt" "$HIS/2000.txt"); wc -l < "$HIS/1999.txt"` | `docs/lore/laws.md#Compute headroom from the adjacent year only` | [Q2_CONTINUITY_1999_2000] |
-| `q2-continuity-2000-2001` | `wc -l < <(LC_ALL=C comm -12 "$HIS/2000.txt" "$HIS/2001.txt"); wc -l < "$HIS/2000.txt"` | `docs/lore/laws.md#Compute headroom from the adjacent year only` | [Q2_CONTINUITY_2000_2001] |
+| `q2-continuity-1999-2000` | `wc -l < <(LC_ALL=C comm -12 "$HIS/1999.txt" "$HIS/2000.txt"); wc -l < "$HIS/1999.txt"` | `docs/lore/laws.md#Headroom is held Y-1, missing Y` | [Q2_CONTINUITY_1999_2000] |
+| `q2-continuity-2000-2001` | `wc -l < <(LC_ALL=C comm -12 "$HIS/2000.txt" "$HIS/2001.txt"); wc -l < "$HIS/2000.txt"` | `docs/lore/laws.md#Headroom is held Y-1, missing Y` | [Q2_CONTINUITY_2000_2001] |
 | `q2-pool-his` | `wc -l < <(LC_ALL=C comm -12 "$HIS/candidate_pool.txt" <(LC_ALL=C sort -m -u "$HIS"/199[6-9].txt "$HIS"/200[01].txt))` | `docs/brief/ding/project-brief.md#candidate_pool.txt should be reconciled` | [Q2_POOL_HIS] |
 | `q2-pool-ours` | `wc -l < <(LC_ALL=C comm -12 "$NETNEW/candidate_additions.txt" <(LC_ALL=C sort -m -u "$HIS"/199[6-9].txt "$HIS"/200[01].txt))` | `docs/brief/ding/project-brief.md#candidate_pool.txt should be reconciled` | [Q2_POOL_OURS] |
 | `q2-status-share` | `uv run python scripts/round/orq.py --measure q2-status-share --inputs-from-env` | `CLAUDE.md#Error captures (4xx, 5xx)` | [Q2_STATUS_SHARE] |

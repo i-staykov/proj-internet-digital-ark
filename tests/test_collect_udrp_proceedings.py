@@ -1,6 +1,6 @@
 """The UDRP proceedings reader, and the rules that make it master evidence.
 
-This source takes **no corroboration split** (ADR-002), so there is no wall behind its
+This source takes **no corroboration split**, so there is no wall behind its
 pattern: anything it emits becomes a master claim. The tests pin what it refuses as tightly
 as what it accepts.
 """

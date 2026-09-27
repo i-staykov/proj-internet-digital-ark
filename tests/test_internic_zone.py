@@ -119,6 +119,6 @@ def test_the_parser_reports_reverse_dns_and_the_canonicaliser_refuses_it(tmp_pat
 def test_the_class_is_self_dating_and_master_eligible(tmp_path) -> None:
     """`artifact_listing` takes no corroboration split, which is why the pre-split figure is
     the one that would be banked. It is master-eligible, so it cannot date a year until a
-    human writes the Decision line, which is ADR-003 working rather than an obstacle."""
+    human writes the Decision line, which is the approval gate working rather than an obstacle."""
     assert SPEC.evidence_type == "artifact_listing"
     assert not SPEC.is_candidate_only

@@ -196,7 +196,7 @@ def main() -> None:
         "--no-split",
         action="store_true",
         help="the names sit in a delimited field of a self-dating artifact (a registry list, "
-        "a catalogue field, a docket column), which takes no corroboration split (C-86)",
+        "a catalogue field, a docket column), which takes no corroboration split",
     )
     args = ap.parse_args()
 
@@ -290,7 +290,7 @@ def main() -> None:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
 
     netnew = pairs - held_pairs
-    # C-86 (Ivo, 2026-09-16): a name in a delimited field of a self-dating artifact takes
+    # A name in a delimited field of a self-dating artifact takes
     # no corroboration split. `--no-split` says the items are that, so the figure to quote
     # is the whole net-new set; the split is still computed and printed for the record.
     corroborated = netnew if args.no_split else {(d, y) for d, y in netnew if d in attested}
@@ -308,7 +308,7 @@ def main() -> None:
     print()
     if args.no_split:
         split = {(d, y) for d, y in netnew if d in attested}
-        print(f"net-new, no split (C-86)   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE")
+        print(f"net-new, no split          : {len(netnew):,} pairs, {ee(netnew):,.1f} EE")
         print(
             f"  the split would have kept: {len(split):,} pairs, {ee(split):,.1f} EE"
             "  <- for the record"
@@ -385,7 +385,7 @@ def main() -> None:
 
     print()
     bar_pairs = len(corroborated) if not args.sample_of else None
-    print("== against the bar in docs/lore/discovery.md ==")
+    print("== against the ~5,000 net-new pair volume bar ==")
     if bar_pairs is not None:
         verdict = "clears it" if bar_pairs >= 5000 else "below the ~5,000 net-new pair bar"
         print(f"  volume      : {bar_pairs:,} net-new pairs, {verdict}")

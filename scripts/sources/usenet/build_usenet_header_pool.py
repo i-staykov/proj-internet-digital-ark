@@ -7,7 +7,7 @@ are comparable and the same ingest reads both.
 
 **Three fields, and the reason each one counts.** A news server writes them about itself
 or about the machine it just accepted an article from, in a transaction it completed, so
-the record is machine-written and self-dating in the sense C-83 settled for a
+the record is machine-written and self-dating in the sense the relay-host rule takes for a
 `Received: ... by` clause:
 
   `X-Trace:`            the trailing hostname token, the customer host the injecting

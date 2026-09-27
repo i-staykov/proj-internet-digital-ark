@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Fetch Arquivo.pt's `IA.cdxj` in parallel byte ranges, then assemble it in order.
 #
-# **Why this exists as a script.** The file is 50,930,113,941 bytes and the lane was ruled in
-# (C-81, Ivo 2026-09-08), so the fetch has to be restartable and its provenance has to be
+# **Why this exists as a script.** The file is 50,930,113,941 bytes and the lane is in, so
+# the fetch has to be restartable and its provenance has to be
 # reproducible. A single stream measured 1.7 MB/s on a domestic link and 13.6 MB/s on a fast one;
 # three parallel ranges measured 15.6, 11.4 and 9.0 MB/s at once, so the server does not cap a
 # client at one stream and the whole file is about 25 minutes rather than 8 hours.
@@ -15,8 +15,8 @@
 #
 # **Terms.** `arquivo.pt/robots.txt` has a `User-agent: *` group disallowing `/datasets` and
 # `/cdxj`, and the terms page permits educational, scientific and research use with a citation
-# while forbidding distribution of accessed content. Ivo ruled the lane in anyway on the precedent
-# that `arquivo_ia` is already in the ingest ledger with 14,819,170 record rows (C-81, issue #115).
+# while forbidding distribution of accessed content. The lane is in on the precedent that
+# `arquivo_ia` is already in the ingest ledger with 14,819,170 record rows (issue #115).
 # Cite as "[fonte: Arquivo.pt, dd/mm/aaaa]" wherever the derived records are described.
 #
 # Usage: bash scripts/sources/arquivo/fetch_ia_cdxj.sh [parallel] [part_gb]

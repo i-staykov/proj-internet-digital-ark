@@ -21,4 +21,4 @@ verdict:       admit | candidate-only | closed, with the reason in one line
 ```
 
 If a figure cannot be measured, say which and why. Never estimate one that a command could
-return, and never quote gross EE.
+return.

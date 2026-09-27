@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Read the `alt` hierarchy's body URLs, the partition C-68 was measured WITHOUT.
+# Read the `alt` hierarchy's body URLs, the partition the class was measured WITHOUT.
 #
 # **Why this needs no approval.** `usenet_body_url_hostnames / link_source` is master
-# (C-68, Ivo 2026-09-04). That decision was measured over "every hierarchy of the
+# on a measurement over "every hierarchy of the
 # catalogue except `alt`, all read whole": thirteen pools, 224 GB, 119,640 EE after the
 # alias seam and the sampled fiction rate. So `alt` is the same artifact, the same
-# extractor and the same class, on the partition nobody has read. C-77 says a different
+# extractor and the same class, on the partition nobody has read, and a different
 # partition is a fresh lead rather than a closed one.
 #
 # **What it is worth, and why the order is what it is.** Two measurements on 2026-09-08,
@@ -17,7 +17,7 @@
 #   Then the two biggest discussion groups, 1,872,269,724 B (`alt.answers`, `alt.religion`):
 #   43,590 distinct host-years, 17,385 already in the store, **NET-NEW 0, 0.0000 EE**.
 # So the big groups are saturated, and biggest-first was exactly backwards: `alt.answers` is
-# the FAQ group, its URLs are the most-posted URLs on Usenet, and the thirteen pools C-68
+# the FAQ group, its URLs are the most-posted URLs on Usenet, and the thirteen pools
 # already read hold every one of them. `alt.religion` returned 276,256 posts and NONE in
 # window at all, as `alt.folklore.computers` did, so a group's bytes are not its evidence.
 # The order is therefore ASCENDING size, and the 2 MB floor turned out to be the wrong edge.
@@ -27,13 +27,13 @@
 # four times better, and only 6.4% of it is the `www.<held name>` alias seam against 73.7% for
 # Arquivo's crawl. The reason is saturation: 63% of a small group's posts fall inside 1996-2001
 # and its URLs are the ones nobody else reposted, while a popular group's URLs are already held
-# from the thirteen pools C-68 read. **So the smallest groups are the densest, not the emptiest**,
+# from the thirteen pools already read. **So the smallest groups are the densest, not the emptiest**,
 # and the assumption that "under 2 MB is usually an archive with no in-window post" was wrong.
 # The band edges are parameters now, and each band's realised rate is measured before the next.
 #
 # **Which host this touches.** `archive.org/download/usenet-alt`, an item download. That
-# is NOT `web.archive.org/cdx`, which the two collectors meter, so this runs beside them
-# and is not a third CDX client (C-77, rule 6). One connection at a time per batch, an
+# is NOT `web.archive.org/cdx`, which the archive clients meter, so this runs beside them
+# and is not a CDX client. One connection at a time per batch, an
 # honest User-Agent naming the project and a contact.
 #
 # **Why it streams.** 193 GB of zips against 183 GB of free space, so a batch is fetched,

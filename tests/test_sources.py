@@ -508,7 +508,7 @@ def test_ukwa_target_is_registered_as_candidate_only() -> None:
     # its rows keep no host, so they cannot identify the name they would date
     assert spec.is_candidate_only is True
     assert SOURCES["ukwa_link_source"].is_candidate_only is False
-    # the bare-target half can (C-85); `test_link_graph_target.py` has why
+    # the bare-target half can; `test_link_graph_target.py` has why
     assert SOURCES["ukwa_link_target_bare"].is_candidate_only is False
 
 

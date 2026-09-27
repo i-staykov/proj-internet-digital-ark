@@ -18,7 +18,7 @@ this is an operating note.
   the tree, a log or a commit.
 - `robots.txt` is read whole before the first request to a host, and a by-name refusal anywhere in
   the file is honoured, whatever the `User-agent: *` block above it allows.
-  `scripts/harness/fetch.py` enforces it; the rule is in [../lore/rules.md](../lore/rules.md).
+  `scripts/harness/fetch.py` enforces it.
 - Nothing under `private/` ships. The delivery archive is built from the tracked tree with
   `export-ignore` applied, and a test pins the names that must stay out.
 

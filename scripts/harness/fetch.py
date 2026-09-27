@@ -65,9 +65,9 @@ USER_AGENT = (
 
 # **The names this project answers to, and it answers to all of them.** A host that
 # disallows any one of these has refused us: the crawler identity is not a costume to
-# change until a robots.txt lets us in. `docs/lore/traps.md` lists the sixteen hosts that
-# already refuse us this way, and `upenn`, `uoc` and `umu` name five of these together in
-# one group, which is why the list is a set rather than a guess about which name matters.
+# change until a robots.txt lets us in. `docs/lore/laws.md`, Channel, lists the hosts that
+# already refuse us this way, and `upenn`, `uoc` and `umu` name five of these together in one
+# group, which is why the list is a set rather than a guess about which name matters.
 OUR_ROBOT_NAMES = frozenset(
     {
         "internetdigitalark",

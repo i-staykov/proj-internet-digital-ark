@@ -11,7 +11,7 @@ ark-fleet (private repo, five self-hosted runners on a small VPS, systemd, survi
                Findings land as artifacts. No wave stops a collector.
    improver .. tunes lens weights from per-run telemetry, one knob per pull request.
 VPS
-   runners, plus the third CDX client (C-97): a `cdx_platform_walk.py` lane run standalone
+   runners, plus the third CDX client: a `cdx_platform_walk.py` lane run standalone
    with python3, writing into the old clone's `data/raw/cdx_suffix/`, which `just sync` pulls.
 Laptop
    two CDX clients on `web.archive.org/cdx`, which no agent may query: `cdx_platform_walk.py`
@@ -135,7 +135,7 @@ right thing to run *before* deciding what to collect.
 
 | check | what a finding means |
 |---|---|
-| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [discovery.md](../lore/discovery.md) |
+| `unread` | a documented ingest glob matches a file the ledger has never read. **The cheapest yield in the project**: price it against the live store before ingesting, per [laws.md](../lore/laws.md) |
 | `glob_too_narrow` | the ledger holds a file the documented glob cannot reach. Loses nothing now, but `just reproduce` rebuilds a store without it |
 | `unreferenced` | a directory under `data/raw/` that no ingest glob points into at all |
 | `usenet` | the corpus against its own `.processed` ledger and the catalogue: unread, size mismatches, partial files |
@@ -162,7 +162,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | fetch | `uv run python scripts/harness/fetch.py URL [--max-bytes 1G] [--to PATH]` | the fleet's only download path, and runnable by hand. Reads the whole robots.txt of the host in the download URL and refuses a by-name group wherever it sits (exit 3, with the artifact never asked for), re-reads the rules of every redirect hop before following it, honours `Retry-After` on 429, 503 and 504, caps at 1 GB by `Content-Length` and again by the stream (exit 5), refuses a body that ended short of its declared length (exit 7, nothing left on disk), allows only text, JSON, CSV, XML, gzip, mbox and CDX to disk, writes only under `$ARK_PROBE_DIR` or an approved download's corpus directory, extracts nothing, and prints one JSON receipt with the bytes and the sha256. `--to -` streams the payload to a pipe and puts the receipt on stderr, which is how a zip or an unnamed type is read at all |
 | re-open | `just reprobe` | re-asks every lead closed because something could not be **reached**. A measurement does not improve by waiting; a dead host might be alive |
 | recover | `uv run python scripts/engines/recover_dead_hosts.py` | asks the Wayback Machine for the **data files** of hosts the register wrote off as dead, which is a different question from re-probing the host. Proved twice on 2026-08-16: `nw.com/zone/9701.domains.gz` was recorded unrecoverable and is intact, worth 76,324 pairs; `cybermetrics.wlv.ac.uk` does not resolve and its whole `/database/` tree survives including a 166 MB zip. **It reports and never fetches**, because a file can be available, dated, and 100% already held |
-| probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec ([ADR-004](../lore/ADRs.md)). Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
+| probe | `just probe probes/x.toml` | turns a URL into a priceable journal from a TOML description, **writing no Python**, so a source can be measured before it earns a collector. Refuses to guess a column, reports what it threw away by reason, and **cannot date a year**: it has no ingest spec, so no path admits it. Validated by reproducing a 186-line collector's 8,923 records exactly, from seven lines of TOML |
 | price | `just price --items x.jsonl` | measures a dated corpus against the live store: net-new pairs and domains after the corroboration split, mean weight, typo bound, and both a linear and a saturating projection |
 | price-hosts | `just price-hosts data/raw/<x>_hostgrain/` | the same question at **hostname grain**, the second unit the reviewer accepted on 2026-09-01: runs the ingest's own funnel over `{url, timestamp}` journals (or `--items x.jsonl`), differences against `hostname_year` and his baseline files on a read-only connection, and prints net-new hostname years and EE per year with the parent pairs beside. `--head N --sample-of M` samples; the projection it prints is an upper bound and says so |
 | ship it | `just ship` | holds the sync lock throughout: `just bank --force` banks every class a human has newly moved to `master` and writes the claim, then the full export, the data invariants, the round state, the report and its `.docx`, packaging, a reviewer's check of the delivery, **his own calculator** over the totals, the mail draft and the gate issue's close. **Safe to rehearse before any decision arrives**: `bank_approved.py` reports and skips anything still `pending`, so a dry evening still exercises every later step. `just ship --help` prints the chain and runs none of it |
@@ -176,12 +176,12 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 | schedule | `just schedule install` / `just schedule status` / `just schedule remove` | enables and bootstraps the launchd jobs, and refuses while `just hold` holds the laptop. A second argument names one job, because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at :05 every hour (`just sync`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout lives under `~/GitHub` so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exits 126 while `launchctl list` looks normal. A 126 means a plist rendered from an old path or a checkout under a protected directory; launchd's bare PATH exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | hold | `just hold` / `just hold status` / `just hold off [name]` | writes `~/ark/state/hold`, one name per line, then `pause` and `pause-platform` with `human` on line 1 here and on the VPS, disables and boots out every `com.ark.*` job, letting a running sync finish first, and disables the fleet's Leg, Read and Improver workflows. `launchctl disable` persists, so a reboot and a login load nothing. `just sync`, `just bank` and the collector supervisor exit `held` while the file lists their job, `collectors resume` refuses while it lists `pause`, and `schedule install` refuses while it exists. `off <name>` lifts one name; bare `off` lifts all of them, including a `human` pause that predates the hold, and deletes the file. An unreachable VPS or `gh` prints unconfirmed, never fatal |
-| restart the collectors on a new deadline | `bash scripts/engines/extend_engines.sh <deadline_epoch>`, **on the laptop** | the lane is the laptop's and launchd owns it (C-84), so widening the window is a handover on this machine and nothing is done on the VPS, which runs no collector at all. `extend_engines.sh` performs one handover and exits rather than looping, because a job that restarted a collector on its own would eventually restart it with settings that had since been retuned. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. **Count CLIENTS BY OPEN JOURNAL, never by process**: one client is a `uv run` wrapper plus its python child, so a process count doubles it, and `local_clients()` in `scripts/harness/collectors.sh` is the definition. The VPS recipe, `restart_sweeps.sh`, is retired with the lane |
-| geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it, C-31. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
-| usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, C-29, which is an upper bound |
+| restart the collectors on a new deadline | `bash scripts/engines/extend_engines.sh <deadline_epoch>`, **on the laptop** | the lane is the laptop's and launchd owns it, so widening the window is a handover on this machine; the VPS's one client, the standalone `cdx_platform_walk.py` lane, is not part of it. `extend_engines.sh` performs one handover and exits rather than looping, because a job that restarted a collector on its own would eventually restart it with settings that had since been retuned. It ranks nothing; run `rank_platform_parents.py` first if the queue wants re-ranking. **Count CLIENTS BY OPEN JOURNAL, never by process**: one client is a `uv run` wrapper plus its python child, so a process count doubles it, and `local_clients()` in `scripts/harness/collectors.sh` is the definition. The VPS recipe, `restart_sweeps.sh`, is retired with the lane |
+| geoindex | `scripts/sources/ukwa/ukwa_geoindex_map.py`, then `scripts/sources/ukwa/ukwa_geoindex_pull.sh`, then `scripts/sources/ukwa/ukwa_geoindex_price.py` | the British Library geoindex, 11.2 GB at `bl.iro.bl.uk`, CC Public Domain, ranged GETs. `map` reads the ZIP64 central directory over HTTP without downloading anything; `pull` streams each member's 1996-2001 rows; `price` measures net-new against the store. **Priced at 77,749.1 equivalent-English on 2026-08-21, admitted at 4,493.0 over 4,591 pairs on 2026-08-24** against a store that had grown into it. The streamer counts timestamp decreases and cancels its own early abort the moment it sees one, because nine of the twelve members are sharded and aborting early on one of those reads 5% of it while looking normal. Different host from the collectors, so it runs beside them |
+| usenet | `bash scripts/sources/usenet/fetch_usenet_hierarchies.sh <epoch>` | downloads the unheld English-facing Usenet hierarchies, largest expected yield first. **Needs no approval**: `usenet_announce / dated_directory` and its siblings are already `master`, so this is collection under an existing decision. Touches `archive.org/download/`, a different service from the `web.archive.org` CDX the collectors meter against, so it runs beside them. Measured worth about 104,000 equivalent-English over roughly 52 GB, an upper bound |
 | usenet body URLs | `uv run python scripts/sources/usenet/build_usenet_pool.py <pool dir> <out dir> <workers>`, then `uv run ark ingest-usenet-hostnames <out dir>` | the `usenet_body_url_hostnames` lane, `Decision: master` since 2026-09-04 and worth 119,640 equivalent-English over thirteen pools. Reads every archive in a pool rather than a sample, one `{item, year, text}` shard per worker, and takes hosts ONLY from explicit `http`, `https` and `ftp` URLs after the header block. Six workers keeps a laptop responsive and reads about 45 GB an hour. Price with `just price-hosts --items <out dir> ...`, passing every pool in one command, because summing pools double counts by the saturation share |
 | mailing-list body URLs | `uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8`, then `uv run ark ingest-maillist-hostnames data/raw/maillists_items/` | the `maillist_body_url_hostnames` lane, admitted 2026-09-04: the pipermail month files already on disk, read at hostname grain |
-| IETF list relay hosts | `uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`, then `sweep`, then `uv run ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` | the `ietf_list_header_hostnames` lane, C-83's class at a SECOND host and so no new approval: the same `Received: ... by <host>` clause, read by the Apache lane's own parser. **Two mailbox formats**: the `ietf-mail-archive` months are mbox and the `concluded-wg-ietf-mail-archive` months are MMDF, delimited by four `\x01` bytes with no `From ` line, and the mbox boundary alone reads those as zero messages silently. **Single-threaded**: six parallel listings drew HTTP 429 inside a minute, one connection with a 0.75 s pause did 130 in 97 s. `robots.txt` disallows only `/admin/` and `/search/` and states no crawl delay. A month is read off the socket into the parser and never written to disk, so the 1.49 GB partition needs no `data/raw` budget. Both passes resume from what is on disk: `plan` caches a TSV per list, `sweep` appends to `swept.txt`. Not `web.archive.org/cdx`, so it runs beside the collectors |
+| IETF list relay hosts | `uv run python scripts/sources/mail_corpora/collect_ietf_mail_archive.py plan`, then `sweep`, then `uv run ark ingest-ietf-header-hostnames data/raw/ietf_header_items/` | the `ietf_list_header_hostnames` lane, the relay-host class (the receiving MTA's own `by` clause) at a SECOND host and so no new approval: the same `Received: ... by <host>` clause, read by the Apache lane's own parser. **Two mailbox formats**: the `ietf-mail-archive` months are mbox and the `concluded-wg-ietf-mail-archive` months are MMDF, delimited by four `\x01` bytes with no `From ` line, and the mbox boundary alone reads those as zero messages silently. **Single-threaded**: six parallel listings drew HTTP 429 inside a minute, one connection with a 0.75 s pause did 130 in 97 s. `robots.txt` disallows only `/admin/` and `/search/` and states no crawl delay. A month is read off the socket into the parser and never written to disk, so the 1.49 GB partition needs no `data/raw` budget. Both passes resume from what is on disk: `plan` caches a TSV per list, `sweep` appends to `swept.txt`. Not `web.archive.org/cdx`, so it runs beside the collectors |
 | Enron body URLs | `uv run python scripts/sources/mail_corpora/build_enron_pool.py data/raw/enron/enron_mail_20150507.tar.gz data/raw/enron_items`, then `uv run ark ingest-enron-hostnames data/raw/enron_items/` | the `enron_body_url_hostnames` lane, admitted 2026-09-04: the CMU release of the Enron mailbox (443 MB, one request at `Crawl-delay: 10`), streamed without extraction and read at hostname grain; the third member of the body-URL family |
 | unparsed pool | `uv run python scripts/round/unparsed_pool.py`, and inside packaging | the labelled unparsed file of his XI, derived by re-reading the journals and applying the same funnel, so it needed no ingest change while collectors were mid-run. **Exhaustive by default**, about nine minutes over 328M values: the refused set does NOT saturate, and a 25-journal sample of it undercounted 1,178,435 distinct values as 4,306 |
 | yield priors | `uv run python scripts/harness/yield_priors.py` | the positive half of his XI's last sentence, feeding measured yield back into hypothesis generation. Read the SPREAD and not the median: every shape's median is three figures or less and its best is six or seven, so shape does not predict a lead's worth. What does is how much of the artifact can be read whole |
@@ -360,8 +360,8 @@ widened; `typed` takes the split, which is what makes wide extraction safe; `und
 It **exits 2 if no dating claim is made**, because that answer decides what the source can ever be.
 
 It prices nothing, on purpose: pricing is a sample measured against the live store with a parser per
-source, and [discovery.md](../lore/discovery.md) is the method. What this removes is the step
-before pricing, which is the one that wastes days.
+source (`just price`, the price-source skill); `docs/lore/laws.md` holds what it has measured.
+What this removes is the step before pricing, which is the one that wastes days.
 
 ### Part 1: get the inputs (tier 3 only)
 
@@ -502,14 +502,13 @@ All three are scored on the one scale that decides the allocation, **expected ne
 per query**, and merged into a single queue.
 
 **The edge population existed for a month before any queue could express it**, which is why it is worth
-naming here rather than only in an ADR. A bracketed gap needs a year held at Y-1 *and* Y+1, so 1996
+naming here. A bracketed gap needs a year held at Y-1 *and* Y+1, so 1996
 would need 1995 and 2001 would need 2002: both outside the window. A domain held in 2000 and missing
 2001 was therefore not a gap target, and not a pool target either because it already carries a year.
 Measured on 2026-08-18: **5,358,097 such slots, 99.8% never asked**, at a measured 94.4% conditional
 rate for 2001 and 60.0% for 1996, against a bracketed control of 98.2% on the same method. The best
 10,000 rows run at **1.52 expected equivalent-English per query** against 1.249 for the bracketed queue.
-The rate is a ceiling and a pilot is what settles it. See ADR-006; nothing points an engine at it yet,
-because that allocation is a `key-decisions.md` question.
+The rate is a ceiling and a pilot is what settles it; nothing points an engine at it.
 
 ```bash
 just query-queue --dry-run          # what it would return, writes nothing
@@ -553,7 +552,7 @@ and the fix is **fewer** workers, not more.
 
 **More workers do not buy more throughput.** The archive limits concurrent connections per IP, and 8
 and 12 workers measure the same, 506 against 510 queries an hour. Only another address raises that
-ceiling, and C-88 caps the clients on this one.
+ceiling, and the client cap (CLAUDE.md, Channel) binds this one.
 
 **Widen a window rather than restarting it**: every unattended loop exits at an absolute epoch, and a
 restart kills the batch in flight. `bash scripts/engines/extend_engines.sh <deadline_epoch>` waits for
@@ -591,9 +590,8 @@ same page twice for the same harvest. `--roots-only` reproduces the old behaviou
 
 ### The registries, retired
 
-`ark rdap` is gone and the registries are closed on their own terms; [../lore/retired.md](../lore/retired.md)
-carries the retirement. Its journals still ingest through the `ark ingest rdap_snapshot` lines in the
-justfile, and `attested_years` still reads them.
+`ark rdap` is gone: querying is closed for good on the registries' own terms. Its journals still
+ingest through the `ark ingest rdap_snapshot` lines in the justfile, and `attested_years` still reads them.
 
 **Probe any registry or bulk endpoint with about 150 queries before spending a night on it.** Every
 failure so far is a row of [../registers/sources-closed.md](../registers/sources-closed.md), and
@@ -637,14 +635,11 @@ flag is there either, or a pause longer than `PARENT_CAP` would park a good pare
 during it. `resume` removes the file and nothing else, and each parent continues from its own state
 file, so no page is re-fetched.
 
-**The budget is the channel's, not the machine's.** Two archive clients maximum binds
-`web.archive.org/cdx` across every machine (C-77), and since C-84 both of them are this laptop's: the
-VPS runs no sweep, and what it may take is one flock-guarded slot for an exact-host query by a price or
-verify leg, never a namespace walk. The supervisor still counts the journals held open here and still
+**The budget is the channel's, not the machine's.** The client cap (CLAUDE.md, Channel) binds
+`web.archive.org/cdx` across every machine: two clients on this laptop and one on the VPS, the
+`cdx_platform_walk.py` lane. The supervisor still counts the journals held open here and still
 asks the VPS before each window, counting a machine that does not answer as holding ONE client rather
-than none, because reading silence as zero is how a third client starts. That remote answer is now
-always zero, so the pessimistic default costs the laptop a sweep whenever the link is down: removing
-the remote question belongs with `collectors.sh` in the laptop issue, not here. `ARK_CDX_BUDGET` raises
+than none, because reading silence as zero is how a fourth client starts. `ARK_CDX_BUDGET` raises
 the number and is only for an overlap that has been asked for deliberately.
 
 ### The namespace sweep, which feeds the hostname unit
@@ -700,7 +695,7 @@ just collect enron                # the FERC corpus, dated per message
 just collect maillists            # public pipermail archives, dated per message
 just collect tucows               # software release dates plus the vendor's home page
 just collect pandora-seed         # the PANDORA title index into the candidate pool
-just collect apache-headers       # Apache list relay hosts, dated per message (C-83); not CDX, so it runs beside the collectors
+just collect apache-headers       # Apache list relay hosts, dated per message; not CDX, so it runs beside the collectors
 just expand round <seeds> <n>     # archived page expansion, the outbound-link route
 just expand loop                  # the closed loop: engine hits become the next seeds
 ```
@@ -776,7 +771,7 @@ feedback-*/    git-ignored: what the reviewer sent back, including the current m
 src/ark/       the pipeline package and the `ark` CLI
 scripts/       collectors, splitters, supervisors, packaging, measurement
 tests/         pytest, network mocked
-docs/          the brief and its amendments, sources, discovery method, design notes, decision log
+docs/          the brief and its amendments, the registers, lore/laws.md, the runbook
 submissions/   one folder per round: the report as sent, its checksum and manifest
 ```
 
@@ -848,5 +843,5 @@ walked. All three figures, and why the peak is not a planning rate, are in `docs
 
 One archive client, so run it only when a slot is free. The sweeps idle on
 `touch ~/ark/state/pause` and resume when it is removed. **That flag is now for a human and
-for this probe only**: since C-77 no fleet lane sets it, and `platform_sweep_loop.sh` treats it
+for this probe only**: no fleet lane sets it, and `platform_sweep_loop.sh` treats it
 as a heartbeat that expires, so a forgotten flag cannot idle a collector for a night.

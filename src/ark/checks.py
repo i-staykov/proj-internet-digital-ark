@@ -245,7 +245,7 @@ CHECKS: list[tuple[str, str, str]] = [
     (
         "a_www_record_has_its_own_evidence",
         "every `www.<parent>` hostname record points at an evidence row naming that exact "
-        "host, so admitting the shape (ADR-009) never turned into asserting it: the parent's "
+        "host, so admitting the shape never turned into asserting it: the parent's "
         "own capture may not stand in for a capture of `www.` in front of it",
         """
         SELECT count(*) FROM hostname_year hy

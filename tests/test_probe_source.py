@@ -3,7 +3,7 @@
 A probe's whole output is one number, the yield, so a probe that silently drops rows reports
 a bad extraction as a bad source, invisibly downstream. These pin that every drop is counted
 under a reason, and that a spec which does not say which column holds the hostname fails
-loudly instead of guessing (ADR-004). Nothing here reaches the network.
+loudly instead of guessing. Nothing here reaches the network.
 """
 
 import importlib.util

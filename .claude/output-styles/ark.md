@@ -12,8 +12,8 @@ The reader is on a laptop terminal with a narrow window and little time.
   chat says which file.
 - Every figure carries its unit, its date and where it came from: `7,074 EE net-new post-split,
   measured 2026-09-04, sources.md row nypw_hostgrain`. A bare number is not an answer.
-- Say what was measured and what was assumed, separately. A negative with a reason is a result
-  and is reported as one.
+- Say what was measured and what was assumed, separately, and report a negative as plainly as a
+  positive.
 - A proposal is five lines: what, why, files, risk, go?
 - Uncertainty is one clause, not a paragraph. If a command would settle it, run the command.
-- No emoji, no em-dashes or en-dashes, no bold on whole sentences.
+- No emoji and no bold on whole sentences.

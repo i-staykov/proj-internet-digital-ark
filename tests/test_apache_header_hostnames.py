@@ -1,6 +1,6 @@
 """Relay hosts from the `Received: ... by <host>` clause of dated Apache list messages.
 
-Approved 2026-09-09 (C-83) for the `by` clause alone. The funnel is the body-URL family's;
+Admitted for the `by` clause alone. The funnel is the body-URL family's;
 new are the field read and the item pointer `<list domain>/<list>__<YYYY-MM>#<n>`. Tested
 against the four `Received:` shapes in `httpd/dev` 1999-01, three of which defeat a naive
 `by (\\S+)`.
@@ -68,7 +68,7 @@ def test_the_item_pointer_resolves_to_the_mbox_export_of_that_list_month(tmp_pat
 
 
 def test_the_lane_writes_hostname_years_and_is_the_only_non_web_one() -> None:
-    """C-83 widened the wall to "in use"; the DNS lanes it did NOT widen stay out."""
+    """The wall reads "in use" for this one field; the DNS lanes stay out."""
     assert writes_hostname_years("apache_list_header_hostnames")
     assert "apache_list_header_hostnames" in WEB_FACING_HOST_SOURCES
     for name in ("isc_survey_hostnames", "ripe_nserver_hostnames", "internic_zone_hostnames"):

@@ -25,7 +25,7 @@ THE METRIC. Each (domain, year) scores its TLD's English share: .uk 0.9813, .au 
 A large non-English source is a SMALL source. Say so.
 
 THE SIZE BAR. Where the round stands is in docs/ROUND.md, which is generated; read it rather than
-any figure quoted in a brief. If it is absent, the standing bar in docs/lore/discovery.md applies.
+any figure quoted in a brief. If it is absent, the filing floor in docs/lore/laws.md, Pricing, applies.
 A candidate worth a few thousand equivalent-English is a rounding error against a gate measured in
 hundreds of thousands: say plainly when your best candidate is two orders short. That is useful; a
 padded number is not.
@@ -57,7 +57,7 @@ READ THESE FIRST, the registers through \`just find <term>\` and the rest by gre
 - docs/registers/sources.md and sources-closed.md   one row per source: every source developed, and every
                     family already CLOSED with the measurement that closed it. Anything here is worthless.
                     Search by NAME and by POPULATION: the same population closed under another name is dead.
-- docs/lore/discovery.md the pricing bar and the three laws in full.
+- docs/lore/laws.md      the filing floor, and the measured laws of what a corpus can contain.
 - docs/brief/ding/project-brief.md sections V, VI and IX, the reviewer's own list of what to try, which
                     names ready-made historical datasets, bulk dated corpora, national web-archive link
                     graphs, academic repositories and registry datasets, and asks directly whether
