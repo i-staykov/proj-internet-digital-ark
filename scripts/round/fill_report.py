@@ -600,7 +600,6 @@ def substitutions(f: dict) -> dict[str, str]:
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),
-        "CUMULATIVE": cumulative(f, growth),
         "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
@@ -742,41 +741,11 @@ def score_rows(growth: Decimal) -> list[ScoreRow]:
     return rows
 
 
-def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow], list[ScoreRow]]:
-    """Cumulative percentage, his S_total, the rounds he scored and the ones before the rule."""
+def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow]]:
+    """Cumulative percentage, round 1 on records, and his S_total over the rounds he scored."""
     pct = sum((r.p for r in rows), Decimal(0))
     scored = [r for r in rows if r.scored]
-    early = [r for r in rows[:-1] if not r.scored]
-    return pct, score_total(r.s for r in scored), scored, early
-
-
-def _per_round(rows: list[ScoreRow]) -> str:
-    """`label: p / t = S`, p at the six places he awards so the division checks by hand."""
-    return "; ".join(f"{r.label.split()[0]}: {r.p:.6f}% / {r.t}d = {r.s:.6f}" for r in rows)
-
-
-def cumulative(f: dict, growth: Decimal) -> str:
-    """Both official records: the cumulative percentage and the time-weighted score.
-
-    The percentage record is the direct arithmetic sum of what he awarded, round 1
-    included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
-    The score record is the sum of S_i over the rounds he has scored, which his rule
-    only covers from its 2026-08-20 update: earlier rounds get their would-be S in a
-    clause of their own, and this round its prediction, labelled as such.
-    """
-    rows = score_rows(growth)
-    pct, total, scored, early = _score_parts(rows)
-    this = rows[-1]
-    early_labels = ", ".join(r.label for r in early[:-1]) + f" and {early[-1].label}"
-    return (
-        f"**Score, by both rules in your brief.** Cumulative verified percentage "
-        f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
-        f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
-        f"({_per_round(scored)}), each at the divisor you used. This round would add "
-        f"{this.s:.6f} at t = {this.t}, whole days since the 2 August assignment, if received "
-        f"now. Rounds {early_labels} predate the rule; timed from release to receipt they "
-        f"would have scored {_per_round(early)}."
-    )
+    return pct, score_total(r.s for r in scored), scored
 
 
 def merge_reconciliation() -> str:
@@ -855,7 +824,7 @@ def cumulative_sentence(f: dict, growth: Decimal) -> str:
     him. It is not one: the divisor he used is the answer.
     """
     rows = score_rows(growth)
-    pct, total, scored, _early = _score_parts(rows)
+    pct, total, scored = _score_parts(rows)
     t_now = t_days_assignment(now_in_his_clock())
     addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
     labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
