@@ -47,7 +47,7 @@ Decision: master
 
 ### ia_cdx_bulk / cdx_timestamp
 - ingest specs: `cdx_snapshot`
-- authority: phase 1 onward, the reviewer's own named route ([2026-07-21 brief](../brief/ding/README.md#original-brief), VI; current brief VII)
+- authority: phase 1 onward, the reviewer's own named route ([2026-07-21 brief](../brief/ding/README.md), VI; current brief VII)
 Decision: master
 
 ### ia_cdx_hostnames / cdx_timestamp
@@ -93,12 +93,12 @@ Decision: master
 
 ### page_directory / dated_directory
 - ingest specs: `expansion_directory`
-- authority: phase 1; the curated-catalogue assertion is made per seed and on the record ([2026-07-21 brief](../brief/ding/README.md#original-brief), IV, directory-harvesting paragraph)
+- authority: phase 1; the curated-catalogue assertion is made per seed and on the record ([2026-07-21 brief](../brief/ding/README.md), IV, directory-harvesting paragraph)
 Decision: master
 
 ### rdap_snapshot / whois_creation
 - ingest specs: `rdap_snapshot`
-- authority: phase 4, merged and credited 2026-08-10; the [2026-07-21 brief](../brief/ding/README.md#original-brief), III.6, allows a creation date for its own year (current brief IV.6)
+- authority: phase 4, merged and credited 2026-08-10; the [2026-07-21 brief](../brief/ding/README.md), III.6, allows a creation date for its own year (current brief IV.6)
 - **the evidential question was settled in phase 4 and the TERMS question was never asked, and on 2026-08-27 it was.** All four registries this class has queried publish a terms notice inside the RDAP response itself, so it has been on disk the whole time. Read from our own journals and, for Verisign, from the page its notice links to: - **Verisign (`.com`, `.net`)**, `verisign.com/legal-center/rdap-terms/`: you will not use the data to "(2) enable high volume, automated, electronic processes that send queries or data to the systems of Verisign or an ICANN-accredited registrar, except as reasonably necessary to register domain names or modify existing registrations" - **PIR (`.org`)**: the same clause with the same registration-only carve-out, plus "Abuse of the RDAP system through data mining is mitigated by detecting and limiting bulk query access" - **Nominet (`.uk`)**: the same clause **with no carve-out at all**, and a second one that goes further than any of the others: "You are explicitly prohibited from extracting, copying and/or using or re-using in any form and by any means (electronically or not) all or part (quantitatively or qualitatively) of the contents of the RDAP database without prior and explicit permission from the Registry Operator" - **CIRA (`.ca`)**: rejected on the same clause this morning, before any of this was checked
 - **so the rule this project already had, applied consistently, closes the class**: trap 8 in `CLAUDE.md` says to read past the record because the terms follow the data, names `.nz` as having cost 7,586 EE that way, and says in as many words that **`.uk` says the same thing**. The engine was pointed at Nominet on 2026-08-24 with the commit message "needing no approval", which was true of the evidence class and false of the terms
 - **both engines were stopped on 2026-08-27 at 07:47 and 07:51** and no RDAP query has been sent since
@@ -143,7 +143,7 @@ Decision: master
 ### usenet_bare / dated_directory
 - ingest specs: `usenet_bare_dated`
 - authority: phase 4, merged and credited 2026-08-10, and takes the corroboration split
-- 2026-08-30, re-priced by the whole-spool census: the 9,050 archives this collector has never run over are worth a few hundred EE at most, since the same names already carry the year (`docs/lore/discovery.md`, the re-selection law). Not worth the CPU.
+- 2026-08-30, re-priced by the whole-spool census: the 9,050 archives this collector has never run over are worth a few hundred EE at most, since the same names already carry the year (`docs/lore/laws.md`, Pricing). Not worth the CPU.
 Decision: master
 
 ### uucp_map_creation / whois_creation
@@ -734,7 +734,7 @@ Decision: master
 - **the projection is a ceiling and the Apache lane is the reason to distrust it.** A log-log fit on the sample's pair curve gives 4.53x at the full partition, about 22,261 EE. The same class measured on lists.apache.org saturated hard across three bands, 5.5 times the messages for 2.4 times the EE, because a busy list's relay hosts recur month to month and the second sighting is not net-new. The realised sweep is the number
 - terms: the IETF Trust Legal Provisions, `https://trustee.ietf.org/documents/trust-legal-provisions/`. `robots.txt` (read 2026-09-10) disallows only `/admin/` and `/search/` and states no crawl delay. Fetched single-threaded at 0.75 s between requests, the rate the fleet's scout measured safe; six parallel listings drew HTTP 429 inside a minute. Not `web.archive.org/cdx`, so not a third client
 - the four conditions of the standing rule, checked: the class `link_source` is already master, and `apache_list_header_hostnames` is this same field at another host under the relay-host rule; a machine-written stamp inside the artifact dates one item and is quoted above; the terms permit it; and `ark check` passed after the ingest
-- linked in `docs/registers/sources.md` before the ingest, per rule 8
+- linked in `docs/registers/sources.md` before the ingest (`CLAUDE.md`, Registers)
 Decision: master
 
 ### poland_pl_extract_hostnames / cdx_timestamp

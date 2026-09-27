@@ -1,12 +1,12 @@
 ---
 name: package-round
-description: Build, verify and freeze a round's delivery archive. Use when a round is ready to send, and never package by hand.
+description: Build, verify and freeze a round's delivery archive. The owner runs it; no agent packages or sends a round, and nobody packages by hand.
 ---
 
 # Package a round
 
 `docs/ops/runbook.md` holds the shipping section and what each step should print;
-`docs/round/delivery_readme.md` is the README that ships at the archive root and
+`docs/round/delivery_readme.md` is the README that ships at the archive root.
 The package layout is read from his own package, which ships a `Task_Package_File_Guide.txt`.
 
 ```
@@ -22,10 +22,8 @@ Rules that bite here:
   matching the store, correctly.
 - Report artifacts are regenerated and committed BEFORE packaging, which `just ship`
   does in that order.
-- The round lands in `submissions/<round>/` and is frozen: never edited afterwards, and
-  `docs/report.md` and `docs/ROUND.md` are never edited by hand.
-- `docs/brief/ding/project-brief.md` is the canonical brief; regenerate it from his originals.
-- `private/` never ships, and the tarball stays out of git.
+- The round lands in `submissions/<round>/`: what is generated and what is frozen is `CLAUDE.md`,
+  Files, and what never ships is `CLAUDE.md`, Git. `.gitignore` keeps the tarball in it out of git.
 - The last word on the totals is his own calculator, which `just ship` runs with
   `--verify` (`just ship calculator` runs it alone).
 

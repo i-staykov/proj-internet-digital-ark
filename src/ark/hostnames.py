@@ -19,10 +19,10 @@ The evidence wall is the registrable unit's, unchanged:
 - **the observation must show the host IN USE**, a capture of a URL on it or a URL listing
   naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
   answered, not a site, so those lanes date the parent registrable and write no hostname
-  year. C-83 admits one non-web observation by name, the `Received: ... by <host>` clause
-  of a dated message. Spec XIII narrows what such a record may ENTER an annual file with:
-  only exact-host year-specific web evidence, the rest being candidates;
-- **`www.<parent>` is its own record** (ADR-009/ADR-010) and neither form establishes the
+  year. Server-written headers are admitted by name: a dated message's `Received: ... by`
+  clause and its news-server twin. Spec XIII narrows what such a record may ENTER an annual
+  file with: only exact-host year-specific web evidence, the rest being candidates;
+- **`www.<parent>` is its own record** and neither form establishes the
   other, so a `www.` capture dates that host and NOT the bare parent.
 
 The registrable half of the same journal is `cdx_suffix_convert.py`'s job: captures whose host
@@ -62,7 +62,7 @@ EARLY_WEB_SOURCE = "early_web_cdx_hostnames"
 EARLY_WEB_METHOD = "early_web_hostgrain"
 USFEDGOV_SOURCE = "usfedgov_extract_hostnames"
 USFEDGOV_METHOD = "usfedgov_extract_hostgrain"
-# Arquivo.pt's donated IA index, read at hostname grain on Ivo's ruling (C-81). Its OWN source
+# Arquivo.pt's donated IA index, read at hostname grain. Its OWN source
 # row, not the IA sweep's: it is a different archive with its own terms, which require the
 # citation "[fonte: Arquivo.pt, dd/mm/aaaa]", so a row of it must not read as an IA capture.
 ARQUIVO_SOURCE = "arquivo_ia_hostnames"
@@ -219,8 +219,8 @@ def status_required(path: Path) -> bool:
 # The lanes whose observation shows the host IN USE in the year. Only these write
 # hostname_year; a lane missing here still runs and still dates the parent registrable
 # from the same row, so nothing is lost if the reviewer later rules DNS listings count.
-# Every member but the last is a web-serving observation, which is what the set held
-# until C-83. The name is kept because `ark check`, two round scripts and a test read it.
+# Every member but the header lanes is a web-serving observation. The name is kept because
+# `ark check`, two round scripts and a test read it.
 WEB_FACING_HOST_SOURCES = frozenset(
     {
         SOURCE_NAME,
@@ -239,21 +239,21 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "maillist_body_url_hostnames",
         # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`, 2026-09-04).
         "enron_body_url_hostnames",
-        # The one non-web observation in this set (`APACHE_FAMILY`, C-83). A
+        # A non-web observation (`APACHE_FAMILY`). A
         # `Received: ... by <host>` clause is written by the MTA at that host, about itself,
         # in a message the ASF's own archive dated independently. It proves the host was in
         # use rather than that it served a page, the reading his section IV.1 allows.
         "apache_list_header_hostnames",
-        # The same clause in the IETF mail archive (`IETF_FAMILY`, C-83 at a second host).
+        # The same clause in the IETF mail archive (`IETF_FAMILY`).
         "ietf_list_header_hostnames",
         # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
         # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
         # article, about itself or the machine it came from, in a transaction it completed.
-        # Same reading as C-83, different protocol.
+        # Same reading as the `Received: ... by` clause, different protocol.
         "usenet_header_fqdn_hostnames",
     }
 )
-# `www.<parent>` is a record here, per ADR-009 and his section XI ("a valid base hostname and
+# `www.<parent>` is a record here, per his section XI ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
 # evidence"). The shape is native to his own corpus: 1,450,310 of his names begin `www.`,
 # 1,221,065 with the bare name in the SAME year file, 114,875 of those from nobody but him.
@@ -567,7 +567,7 @@ def _ingest_rows(
         # A capture under the domain evidences the parent registrable in that year too, in
         # the same cdx_timestamp class: one row per (parent, year).
         #
-        # **Except `www.` in front of the parent** (ADR-010, his words): "the existence of
+        # **Except `www.` in front of the parent** (his words): "the existence of
         # the bare parent does not automatically establish the www hostname, nor does the
         # presence of www automatically establish the bare hostname". Letting it through
         # ships one observation as two records, in `additions/` and in `hostnames/`. Any
@@ -1505,7 +1505,7 @@ def _enron_url(item: str) -> str:
 ENRON_FAMILY = ItemFamily(ENRON_SOURCE, ENRON_METHOD, "enron message", _ENRON_ITEM, _enron_url)
 
 # The fourth member, and the first that is NOT a body URL: the `Received: ... by <host>`
-# clause of a dated message in the Ponymail archive at `lists.apache.org`, C-83, for the `by`
+# clause of a dated message in the Ponymail archive at `lists.apache.org`, for the `by`
 # clause alone. `build_apache_header_pool.py` writes the shards and carries the parsing traps.
 #
 # The item is `<list domain>/<list>__<YYYY-MM>#<n>`, message n of one list-month's mbox
@@ -1531,7 +1531,7 @@ def _apache_url(item: str) -> str:
 
 APACHE_FAMILY = ItemFamily(APACHE_SOURCE, APACHE_METHOD, "list header", _APACHE_ITEM, _apache_url)
 
-# The fifth member, C-83's class at a SECOND host rather than a new class: the same
+# The fifth member, the Apache class at a SECOND host rather than a new class: the same
 # `Received: ... by <host>` clause in the IETF mail archive, read by
 # `scripts/sources/mail_corpora/collect_ietf_mail_archive.py`, which imports the Apache
 # lane's parser so the two figures are comparable.
@@ -1559,10 +1559,10 @@ IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _i
 # The sixth member: the server-written header fields of a dated Usenet post.
 #
 # **Three fields, all written by a news server about a transaction it completed**, the
-# reading C-83 settled for a `Received: ... by` clause: the trailing hostname of `X-Trace:`,
-# the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:` hop, the site
-# that injected the article. `Message-ID` is NOT read: Turnpike and Demon clients stamp it
-# from a configured nodename, so it is client-written and needs its own ruling.
+# reading the Apache lane takes for a `Received: ... by` clause: the trailing hostname of
+# `X-Trace:`, the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:`
+# hop, the site that injected the article. `Message-ID` is NOT read: Turnpike and Demon
+# clients stamp it from a configured nodename, so it is client-written and needs its own ruling.
 # `build_usenet_header_pool.py` writes the shards and carries the parsing traps.
 #
 # The item is `<group>.mbox.zip#<n>`, the same pointer shape and archive as the body-URL

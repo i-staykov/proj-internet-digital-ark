@@ -169,7 +169,7 @@ def test_neither_form_infers_the_other(tmp_path: Path) -> None:
 
 
 def test_a_www_form_and_its_parent_are_two_records(tmp_path: Path) -> None:
-    """ADR-010, in his words: neither form automatically establishes the other. The store
+    """In his words, neither form automatically establishes the other. The store
     carries a check for each direction, so a pricer that folded a `www.` capture onto the
     parent would quote a figure the ingest is forbidden to bank.
     """

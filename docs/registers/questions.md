@@ -1,6 +1,6 @@
 # Questions put to the reviewer, with his answers when they come. `just ship` copies every open row past its remind-on into the mail draft, one line each.
 
-Status is `open`, `answered` or `withdrawn`. An answered row moves to `docs/lore/key-decisions.md`.
+Status is `open`, `answered` or `withdrawn`. An answered row states its answer in the row.
 An asked-on of `draft` means the row has not been sent: approve the wording or delete it before the ship.
 Export-ignored: the page does not travel in the delivery.
 

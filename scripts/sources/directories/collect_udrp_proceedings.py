@@ -25,8 +25,9 @@ the highest share of any source measured on this project, and it is structural r
 than lucky: a disputed name is often a typosquat taken down within weeks, which is
 exactly the population a crawl never visits.
 
-**Evidence type `artifact_listing`, master, no corroboration split.** See ADR-002 for
-the reasoning and `docs/registers/sources.md` for the measured figures under both readings.
+**Evidence type `artifact_listing`, master, no corroboration split**: a docket column is
+a delimited field of a self-dating artifact. `docs/registers/sources.md` has the measured
+figures under both readings.
 
 **ICANN's own caveat, carried through rather than hidden:** the page describes itself
 as "an incomplete list of UDRP proceedings". So this is a floor, not a census, and the

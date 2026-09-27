@@ -1,6 +1,6 @@
 """Relay hosts from the `Received: ... by <host>` clause of dated IETF list messages.
 
-C-83's class at a second host, so the field, the wall and the parser are the Apache lane's
+The Apache class at a second host, so the field, the wall and the parser are the Apache lane's
 and are tested there. New here: the item pointer carries the month file's own name, because
 this archive spells the same month `1996-03` early and `1999-05.mail` from 1998 on, and the
 MMDF boundary, without which the concluded working groups read as zero messages.

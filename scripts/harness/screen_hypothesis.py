@@ -1,8 +1,8 @@
 """Price a source proposal against what is already known, before it costs a request.
 
-`docs/lore/discovery.md` says the dead-lead register is an input rather than an
-afterthought, and that an automated discovery agent will walk straight back into
-closed families unless it reads that register first. Reading it is the cheapest step
+The dead-lead register is an input rather than an afterthought: an automated
+discovery agent walks straight back into closed families unless it reads that
+register first. Reading it is the cheapest step
 in the process and also the one most likely to be skipped, so this does it mechanically.
 
 Two gates, in the order that costs least:
@@ -466,7 +466,7 @@ def main() -> None:
     if args.dating is None:
         print("  NOT STATED. Pass --dating self|typed|undated.")
         print("  If you cannot answer it in one sentence, the source is seed-only and")
-        print("  the conversation is over, per docs/lore/discovery.md section 3.")
+        print("  the conversation is over (docs/lore/laws.md, Pricing).")
         sys.exit(2)
     label, notes = DATING[args.dating]
     print(f"  {label}")

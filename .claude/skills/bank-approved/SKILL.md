@@ -5,13 +5,11 @@ description: Bank the sources a human has newly approved into the store, then ex
 
 # Bank approved sources
 
-The evidence bar and the standing approval rule are in `docs/lore/rules.md`; the command table is in
-`docs/ops/runbook.md`. Order:
+The approval rule is `CLAUDE.md`, Autonomy; the command table is in `docs/ops/runbook.md`. Order:
 
-1. The source has a link and its dating sentence in `docs/registers/sources.md`. No link, no ingest.
-2. The class has a `Decision:` line in `docs/registers/approved-sources-list.md`. The loop may write that
-   line itself only when all four conditions of the standing approval rule hold, and cites the
-   rule in the line. Failing any one, park the source as `pending` and stop here.
+1. The source has its row in `docs/registers/sources.md` (`CLAUDE.md`, Registers).
+2. The class has a `Decision:` line in `docs/registers/approved-sources-list.md`, or the loop writes
+   one under `CLAUDE.md`, Autonomy. Otherwise it is `pending`: stop here.
 3. `uv run python scripts/harness/bank_approved.py` reports what it would ingest and skips
    anything still `pending`. Read that list before adding `--write`.
 4. `uv run python scripts/harness/bank_approved.py --write`, then `uv run ark export` and
@@ -21,8 +19,7 @@ The evidence bar and the standing approval rule are in `docs/lore/rules.md`; the
 `just ship` runs steps 3 and 4 in its first stage, `just bank --force`, so a rehearsal
 exercises every later step and banks nothing still pending.
 
-Traps worth re-reading in `docs/lore/traps.md`: an already-ingested journal shows zero net-new by
-construction, and a partition's real yield is the `year_rows` the ingest ledger printed, not an
-argument about the partition.
+`docs/lore/laws.md`, Pricing: an already-ingested journal shows zero net-new by construction, and a
+partition's real yield is the `year_rows` the ingest ledger printed.
 
 Needs the store, so this runs on the main checkout.

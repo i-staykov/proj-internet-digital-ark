@@ -10,68 +10,27 @@ edit that adds a rule deletes the rule it replaces. No restating, no preamble, n
 **No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
 ---
-Rebuild the domains that existed 1996-2001 for Prof. Ding, scored on **equivalent-English (EE)**:
-each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable
-is demonstrated research capability**, so a measured negative with a reason is a result and the
-METHOD outranks the source.
+Rebuild the domains that existed in 1996 to 2001 for Prof. Ding, scored on **equivalent-English (EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable is demonstrated research capability**, and the harness is that research: a measured negative with a reason is a result, and the METHOD outranks the source.
 
-**The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that
-answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph
-record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry,
-RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate.
+- **Only 1996 to 2001.** Nothing dated outside it is banked or shipped, not even as a candidate; it may be studied. No `www` or bare variant is generated.
+- **The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate. A candidate needs no approval. Every annual `(name, year)` points at the evidence row that dates it, and nothing is interpolated.
+- **Held by him** is the exact name in his files, tested by LC_ALL=C comm. Both tracks ship net-new against them. Overlap with them corroborates a reading and never justifies one, and a large drop in his release is a question for him, not a find.
+- **Nothing ships under the 5% gate.** We may ASK Ding to accept less when the research side carries it; he decides. Where the round stands is in `docs/ROUND.md`.
+- **Autonomy.** A lead inside the standing size, terms, robots and class bounds gets its `Decision:` line from the loop and proceeds without approval; its register row and ledger line document it for review with the submission. Outside any bound it parks `pending`. The owner approves a new evidence class, and packages and sends every round; no agent does either. The bounds live once, in ark-fleet `policy.json` `standing`. A material change to a class's extraction re-opens its `Decision:` line.
+- **Asks.** An open ask is an issue labelled `needs-owner`.
+- **Price** net-new post-split EE, never gross. A lever under 300 EE per client-hour closes.
+- **Registers.** Every source gets one row with a LINK in `docs/registers/sources.md` before ingest, beside the sentence saying what dates one item; a closed row moves to `docs/registers/sources-closed.md`. Every result, hit or miss, replaces its row, so nobody re-tests it.
+- **Channel.** Three archive clients at most, all on `web.archive.org/cdx`, two on the laptop and one on the VPS, and no agent queries it. The rest of archive.org is open to a research lane, and no lane pauses a collector. Before the first request to a host, read its terms and whole robots.txt; send an honest User-Agent, honour `Retry-After` and back off on 429, 503 and 504; on throttling, retire a client, never add one.
+- **Accounts.** Model work runs only in the harness. Legs run on the primary token; only a PR the owner merges flips ark-fleet `policy.json` `token`.
+- **Git.** Any branch but `main` may be pushed; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface; every other PR is merged by the owner or a session the owner names, after review. Treat both repos as PUBLIC: no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, and big data never reaches git.
+- The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
+- **Files.** A rule lives only here, a measured fact only in `docs/lore/laws.md`. His files stay append-only. Generated files are never hand-edited, the brief in `docs/brief/ding/` and every page `docs/index.md` marks generated among them, and frozen `submissions/` are never edited.
+- **Hunting.** A bulk dated HOSTNAME corpus that meets the XIII standard comes first. One lens per leg, never the same twice running, even when the last one paid; two empty hunts change the method, not the effort.
+- **No em or en dashes.**
 
-**The 5% gate is a floor on sending and nothing ships under it.** We may ASK Ding to
-accept less when the research side carries it; he decides. Never package a short round unasked.
-Past the floor, submit at once. **Where the round stands is in `docs/ROUND.md`, generated.**
-
-## Before task X, read page Y
-
-| doing this | read |
+| before | read |
 |---|---|
-| pricing a source | [docs/lore/laws.md](docs/lore/laws.md) |
-| touching a number | [docs/lore/traps.md](docs/lore/traps.md) |
-| an ingest or a commit | [docs/lore/rules.md](docs/lore/rules.md) |
+| pricing, hunting or quoting a figure | [docs/lore/laws.md](docs/lore/laws.md) |
 | running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
-| quoting a round figure | `docs/ROUND.md` |
-| proposing a lens | `just find <term>` over [sources.md](docs/registers/sources.md) and [sources-closed.md](docs/registers/sources-closed.md) |
-
-Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/key-decisions.md](docs/lore/key-decisions.md).
-
-## When prompted, in this order
-
-1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **GATHER CANDIDATES.** Both tracks score at the same rate and a candidate costs no dating
-   argument, approval or evidence class. Held by him is the exact name in his files, tested by LC_ALL=C comm.
-3. **Hunt a bulk dated HOSTNAME corpus that meets the XIII standard.**
-4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
-5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
-   confirmed FIND, writes the `Decision:` line or raises the approval, and pushes.
-6. Log the result as the source's one register row whatever the answer; closed goes to `sources-closed.md`.
-
-## The ten rules
-
-1. **Any branch but `main` may be pushed; `main` only by PR.** `origin` is PUBLIC, so a commit
-   message names no host, IP, email body or personal context.
-2. The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
-3. Never hand-edit the canonical brief in `docs/brief/ding/`; never edit `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
-4. `private/` never ships.
-5. **Big data must never reach git.**
-6. **Three archive clients maximum**: all three hold `web.archive.org/cdx`, two on the
-   laptop and one on the VPS, and no agent may query it. The rest of archive.org is open to a
-   research lane; no lane pauses a collector. Honest User-Agent, honour `Retry-After`. **On
-   throttling, retire a client, never add one.**
-7. **Autonomy.** A lead inside the standing size, terms, robots and class bounds gets its
-   `Decision:` line from the loop and proceeds without approval; its register row and ledger line
-   document it for review with the submission. Outside any bound it parks `pending`. The owner
-   approves a new evidence class and every send. The bounds live once, in ark-fleet `policy.json` `standing`.
-8. **Every source gets one register row with a LINK before ingest**, beside the sentence saying
-   what dates one item. A new measurement replaces the row; git keeps the old ones.
-9. No AI attribution in commits.
-10. **No em-dashes or en-dashes.**
-
-## How to work
-
-**Two hunts returning nothing: change the method, not the effort.** Ask what *kind* of artifact you
-have never looked for, not which host you have not tried.
-
-**One lens per cycle, never the same twice running.** Rotate even when the last one paid.
+| proposing a source or briefing an agent | `just find <term>` over the registers |
+| arguing what Ding accepts | [the brief](docs/brief/ding/project-brief.md), then `private/personal-context.md` |
