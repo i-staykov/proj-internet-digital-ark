@@ -16,7 +16,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - Export fails unless each ISC host has an `isc_survey_provenance.csv` row naming edition, file, URL, location, method and a target year matching the edition (`export_isc_provenance`).
 - 1.419% of the ISC survey's 13,347,250 hosts are in his files; `just find isc_survey_hostnames`.
 - Hosts with only non-web evidence ship in `server_header_hostnames/` with provenance and exclusion ledger: 39,812 names, 30,384 EE (`src/ark/export.py` `export_header_candidates`).
-- A registrable with no web-method year and no baseline row enters the candidate claim; 189,251 `.dk` zone list names ship there (`src/ark/export.py` `candidate_pool`).
+- A registrable we found with no capture of its own name in any year, and not in his files by exact name, enters the candidate claim: 207,680 registrables ship there (`src/ark/export.py` `_candidate_pool`).
 - A self-dating record (capture stamp, registry creation date, dated listing) takes no corroboration split: `just price --no-split`.
 - Only a name recovered from free text takes the corroboration split, counting once another source dates that domain; on a delimited field it costs 1.3x to 5.5x, 255,254 to 56,707 DK zone list pairs (`scripts/pricing/price_items.py`, `src/ark/sources.py`).
 - The split, not the regex, is the wall on a human-typed corpus; a self-dating corpus takes no split, so its regex is its only screen (`scripts/harness/screen_hypothesis.py` `DATING`).
@@ -41,7 +41,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - The `www.` alias share of hostname EE: bulk CDX indexes run 99.5% to 100% `www.<held name>` (`ukwa` geoindex, `nypw_firstcdx`), typed-URL corpora 27.3% to 33.8% (`just price-hosts`).
 - `www.<registrable>` is its own hostname record where evidence names that exact host (`a_www_record_has_its_own_evidence`); 1,221,065 of his names carry both forms in one year.
 - His merge kept all 1,313,547 `www.` names of one round, 1,106,188 beside the bare name in the same year, and credited it 7.562846%, so the alias ships (`scripts/round/round_figures.py` `www_alias_share`).
-- Neither `www.` nor the bare name evidences the other: a bare record resting only on `www.` evidence is refused, 47,004 domain-years (`a_bare_record_is_not_inferred_from_www`).
+- Neither `www.` nor any other host evidences the registrable: a registrable line ships only on a capture of its own name, and 790 of 806 shipped lines rested on another host's capture (`src/ark/checks.py` `a_registrable_record_has_its_own_capture`).
 - A 3xx filter adds 2.4% more CDX rows; dropping the status filter adds another 3.3%, all 4xx and 5xx: the server answered, the host served nothing (`scripts/engines/cdx_suffix_sweep.py`).
 - A replay status is not the page: a 200 can be a period IIS 404, and a 301 an acquisition redirect onto a live 404 (FTP Search); `just find ftp_index_server_inventories`.
 
@@ -226,7 +226,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 
 ## Do not rebuild
 
-- Baseline store loader (`ark ingest-legacy`, `ingest_year_file`): it rolled his hostnames up to registrables, which dated 19.5M (domain, year) pairs his files do not list by exact name; `src/ark/held.py` compares his files as released.
+- Baseline store loader (`ark ingest-legacy`, `ingest_year_file`): it rolled his hostnames up to registrables, which dated 19,477,252 (domain, year) pairs his files do not list by exact name; `src/ark/held.py` compares his files as released.
 - RDAP client (`src/ark/rdap.py`, `ark rdap`): the terms in every RDAP response forbid bulk querying at all four registries.
 - `parse_rdap_snapshot`, `attested_years` and `RDAP_REDIRECTOR` stay in `src/ark/sources.py`: they replay the RDAP journals already on disk.
 - Sibling RDAP queue ranker (`rank_sibling_queue.py`): no RDAP queue is left, and the candidate-pool headroom it fed measured 0.107 points, not 1.47.

@@ -273,7 +273,8 @@ def prepare(baseline: Path | None = None) -> Held:
     part.write_text(json.dumps(stamp, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(part, out / STAMP)
     for other in HELD_ROOT.iterdir():
-        if other != out and other.is_dir() and (other / STAMP).is_file():
+        # samefile: on a case-insensitive disk another spelling of the marker is this folder
+        if other.is_dir() and not other.samefile(out) and (other / STAMP).is_file():
             shutil.rmtree(other)
             logger.info(f"{other}: the held sets of a release that is not current, removed")
     return load(baseline)

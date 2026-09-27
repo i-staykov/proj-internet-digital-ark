@@ -382,6 +382,8 @@ def test_the_report_figures_are_the_shipped_net_new_and_our_own_store(
     ]
     assert f["ee_netnew"] == Decimal("1.5")
     assert f["baseline_by_year"] == {1996: 2, 1997: 3, 1998: 1, 1999: 2, 2000: 1, 2001: 2}
+    # the completeness table sets both of our units against his lines
+    assert set(f["hostname_lines_by_year"]) == set(f["baseline_by_year"])
     assert f["candidate_pool"] == 3
     # less his two pairs, his-only.com and his two rows
     assert f["store"] == {

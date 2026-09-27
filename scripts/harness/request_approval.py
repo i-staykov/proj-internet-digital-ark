@@ -50,6 +50,10 @@ from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
+# The exit when his held sets are missing or stale: nothing was refused, so `fleet_request.py`
+# writes no block and the next bank asks again.
+NOT_NOW = 3
+
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 SAMPLE_SIZE = 6
 
@@ -211,7 +215,9 @@ def main() -> None:
     try:
         his = held.load()
     except held.HeldError as error:
-        raise SystemExit(str(error)) from None
+        # nothing is decided without his files: the bank asks again once `ark intake` has run
+        print(error, file=sys.stderr)
+        raise SystemExit(NOT_NOW) from None
     conn = read_only_store()
     try:
         # dated already: a pair of ours, or the exact name in his file for that year

@@ -58,6 +58,7 @@ from ark.db import connect_read_only_patiently, init_db  # noqa: E402
 from ark.evidence_types import (  # noqa: E402
     ALL_TYPES,
     CANDIDATE_ONLY_TYPES,
+    HIS_SOURCE,
     HIS_TYPE,
     exact_host_sql,
     qualifies_sql,
@@ -1016,7 +1017,7 @@ LINE_RULES = (
     ),
     (
         "candidate",
-        f"{_CAND} AND c.change = 'added' AND f.his_named AND f.claim_year IS NULL "
+        f"{_CAND} AND c.change = 'added' AND f.his_named AND f.we_know AND f.claim_year IS NULL "
         "AND (c.family = 'candidate' OR NOT f.ody_named)",
         "'his roll-up only'",
     ),
@@ -1222,7 +1223,7 @@ def _facts(conn, superseded: Path) -> None:
         SELECT n.name, i.name IS NOT NULL AS in_his, m.file AS moved_file, k.year AS claim_year,
                wb.domain IS NOT NULL AS web_before, hb.hostname IS NOT NULL AS host_web_before,
                hn.hostname IS NOT NULL AS host_now, hr.domain IS NOT NULL AS his_named,
-               od.domain IS NOT NULL AS ody_named
+               od.domain IS NOT NULL AS ody_named, wk.domain IS NOT NULL AS we_know
         FROM _cand n
         LEFT JOIN (SELECT DISTINCT name FROM _in_his) i ON i.name = n.name
         LEFT JOIN (SELECT name, min(file) AS file FROM chg
@@ -1247,6 +1248,13 @@ def _facts(conn, superseded: Path) -> None:
         LEFT JOIN (SELECT DISTINCT domain FROM evidence
                    WHERE {HIS} AND domain IN (SELECT name FROM _cand)) hr ON hr.domain = n.name
         LEFT JOIN (SELECT DISTINCT domain FROM _cand_ody) od ON od.domain = n.name
+        LEFT JOIN (SELECT d.domain FROM domain d
+                   WHERE d.domain IN (SELECT name FROM _cand)
+                     AND (d.discovered_source IS DISTINCT FROM
+                            (SELECT source_id FROM source WHERE name = '{HIS_SOURCE}')
+                          OR EXISTS (SELECT 1 FROM evidence e
+                                     WHERE e.domain = d.domain AND e.{OURS}))
+                  ) wk ON wk.domain = n.name
     """)
 
 
@@ -1272,6 +1280,7 @@ def _classify(conn) -> None:
                 WHEN l.reason IS NOT NULL THEN [l.reason, l.detail]
                 WHEN c.file = 'evidence_manifest.csv' AND r.his_value IS NULL
                      AND r.q_value IS NOT NULL AND NOT p.cited_his AND NOT r.cited_qualifies
+                     AND (c.change = 'removed' OR strpos(c.row, ' | ' || r.q_value || ' | ') > 0)
                   THEN ['re-cited', CASE c.change WHEN 'added' THEN 'own capture ' || r.q_value
                                     ELSE 'cited ' || p.cited_value END]
                 ELSE ['unexplained', c.row] END AS rd
@@ -1287,10 +1296,17 @@ def _classify(conn) -> None:
     conn.execute("INSERT INTO cls SELECT * FROM _cls_rows")
 
 
+PRICED_MARK = ".deltas"
+
+
 def _price(conn, calculator: Path, priced_dir: Path, work: Path) -> list[dict]:
     """His calculator over each (reason, change, family, year) list, one file per year: it
     counts a name once per file, and a pair is the unit of an annual file."""
+    if priced_dir.exists() and not (priced_dir / PRICED_MARK).is_file():
+        raise Refused(f"{priced_dir} exists and was not written by deltas: move it first")
     shutil.rmtree(priced_dir, ignore_errors=True)
+    priced_dir.mkdir(parents=True)
+    (priced_dir / PRICED_MARK).write_text("his calculator's inputs, written by deltas\n")
     groups = conn.execute(
         "SELECT reason, change, family, year, count(*) FROM cls "
         f"WHERE family IN ({sql_list(list(PRICED))}) GROUP BY ALL ORDER BY ALL"
@@ -1373,6 +1389,8 @@ def deltas(
     name, change, reason, detail) sorted by file, name and year, `deltas.json` beside it, and
     his calculator's input lists under the folder named like `out`.
     """
+    if out.suffix != ".csv":
+        raise Refused(f"{out} must end in .csv: its calculator lists go in the folder beside it")
     for side in (before, after):
         if not side.is_dir():
             raise Refused(f"{side} is not an export folder")

@@ -165,6 +165,19 @@ def test_prepare_keeps_only_the_current_release_and_no_stale_part(tmp_path: Path
     assert not list(his.dir.rglob("*.part"))
 
 
+def test_prepare_never_prunes_its_own_folder_under_another_spelling(tmp_path: Path) -> None:
+    folder = stage(tmp_path)
+    held.prepare(folder)
+    kept = held.HELD_ROOT / MARKER
+    (held.HELD_ROOT / "other").mkdir()
+    ((held.HELD_ROOT / "other") / held.STAMP).write_text("{}")
+    alias = held.HELD_ROOT / "alias"
+    alias.symlink_to(kept, target_is_directory=True)
+    held.prepare(folder)
+    assert kept.is_dir() and (kept / held.STAMP).is_file()
+    assert not (held.HELD_ROOT / "other").exists()
+
+
 def test_the_marker_is_the_folder_name_even_for_a_dot(tmp_path: Path, monkeypatch) -> None:
     folder = stage(tmp_path)
     monkeypatch.chdir(folder)

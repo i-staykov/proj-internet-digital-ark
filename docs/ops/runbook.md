@@ -31,7 +31,7 @@ the improver may change on its own.
 | Tier | What it proves | Cost | How |
 |---|---|---|---|
 | **1. Verify the shipped result** | Nothing has changed and every pair traces to a recorded observation | ~10 s | `bash verify.sh` at the delivery archive's root |
-| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~1 min | `uv run ark rebuild ../provenance` |
+| **2. Rebuild from the evidence** | The shipped lists follow from the shipped evidence, byte for byte | ~8 min, and ~3 min for `ark intake` | `uv run ark intake`, then `uv run ark rebuild ../provenance` |
 | **3. Rebuild from the original sources** | The evidence follows from the source data | a large download, then ~20 min | Parts 1 and 2 below |
 
 Tiers 1 and 2 need no network and no source data. Tier 1 needs nothing from this repository at all.
