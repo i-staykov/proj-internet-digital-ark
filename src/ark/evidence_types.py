@@ -70,8 +70,8 @@ WEB_METHODS = frozenset(
 # qualifier attaches to the custodian-extract pattern, not to the IA CDX pattern beside it,
 # and a NYPW TimeMap row IS the IA index read through Memento. So the status alone does not
 # disqualify it, and the binding test is the section's opening sentence: web presence in the
-# target year. A 3xx is a server for the exact host answering deliberately and is admitted.
-# 4xx and 5xx stay candidates: a wildcard vhost can answer 404 for any name pointed at it.
+# target year. A 2xx or 3xx is a server for the exact host answering deliberately and is
+# admitted. 4xx and 5xx stay candidates: a wildcard vhost answers 404 for any name.
 REDIRECT_METHOD = "nypw_timemap_non_200"
 _STATUS_IN_VALUE = r"status (\d{3})"
 # **A capture enters the masters only when the exact host answered 2xx or 3xx.** An error
@@ -87,7 +87,8 @@ def web_evidence_sql(alias: str = "e") -> str:
         f"({alias}.acquisition_method IN ({allowed})"
         f" AND NOT regexp_matches({alias}.evidence_value, '{ERROR_STATUS}')"
         f" OR ({alias}.acquisition_method = '{REDIRECT_METHOD}'"
-        f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1) LIKE '3%'))"
+        f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1)"
+        " SIMILAR TO '[23]..'))"
     )
 
 

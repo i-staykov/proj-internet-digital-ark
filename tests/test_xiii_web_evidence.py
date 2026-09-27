@@ -60,11 +60,12 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
     its method, because a wildcard vhost answers 404 for any name pointed at it.
 
     Driven through DuckDB rather than asserted on the string: the whole rule lives in a
-    `regexp_extract` and a `LIKE`, and only the engine can say those are right.
+    `regexp_extract` and a `SIMILAR TO`, and only the engine can say those are right.
     """
     rows = [
         ("nypw_timemap_non_200", "nypw timemap capture status 301 19990412235959", True),
         ("nypw_timemap_non_200", "nypw timemap capture status 302 20010704120000", True),
+        ("nypw_timemap_non_200", "nypw timemap capture status 206 20010704120000", True),
         ("nypw_timemap_non_200", "nypw timemap capture status 404 20010704120000", False),
         ("nypw_timemap_non_200", "nypw timemap capture status 500 20010704120000", False),
         ("nypw_timemap", "nypw timemap capture 20010704120000", True),
