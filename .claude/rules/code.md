@@ -10,7 +10,7 @@ paths:
 - Why the code has its shape lives in its own docstring or comment: short, human, objective, at the
   density of the file around it. A schema, gate or evidence-class change states its rule in
   `CLAUDE.md` in the same PR.
-- Look for the existing tool before writing one; `docs/ops/runbook.md` lists what each command prints.
+- Look for the existing tool before writing one: `just` alone lists every recipe.
 - The gate is the hook gate in `CLAUDE.md`. Its scan, `uv run python -m ark.hygiene`, catches
   secrets, machine addresses, local paths and dashes, not `private/` text or big data.
 - A new acquisition method dates a year only once added to `evidence_types.WEB_METHODS`.

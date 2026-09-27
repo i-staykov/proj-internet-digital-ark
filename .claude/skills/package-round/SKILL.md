@@ -5,7 +5,7 @@ description: Build, verify and freeze a round's delivery archive. The owner runs
 
 # Package a round
 
-`docs/ops/runbook.md` holds the shipping section and what each step should print;
+`docs/ops/runbook.md` has the owner's ship procedure;
 `docs/round/delivery_readme.md` is the README that ships at the archive root.
 The package layout is read from his own package, which ships a `Task_Package_File_Guide.txt`.
 
