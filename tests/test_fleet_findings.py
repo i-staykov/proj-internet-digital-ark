@@ -216,9 +216,53 @@ def test_the_grain_decides_which_pricer_answers(tmp_path):
 
 def test_both_pricers_net_new_lines_are_read_the_way_they_are_printed():
     items = "net-new AFTER the split    : 1,234 pairs, 4,786.2 EE"
+    no_split = "net-new, no split          : 2,345 pairs, 5,897.3 EE"
     hosts = "NET-NEW hostname years 9,001  12,345.6789 EE   (quote this)"
     assert module._ITEMS_EE.search(items).group(2) == "4,786.2"
+    assert module._ITEMS_EE.search(no_split).groups() == ("2,345", "5,897.3")
     assert module._HOST_EE.search(hosts).group(2) == "12,345.6789"
+    # Neither the figure the split would not quote nor the one it would have kept is read.
+    for other in (
+        "net-new BEFORE the split   : 9,999 pairs, 9,999.9 EE  <- DO NOT QUOTE",
+        "  the split would have kept: 1,111 pairs, 1,111.1 EE  <- for the record",
+    ):
+        assert module._ITEMS_EE.search(other) is None, other
+
+
+def test_the_no_split_line_is_the_one_price_items_prints():
+    """The parser and the pricer agree on the line's words, so a reworded print fails here."""
+    source = (ROOT / "scripts/pricing/price_items.py").read_text(encoding="utf-8")
+    assert 'f"net-new, no split          : {len(netnew):,} pairs, {ee(netnew):,.1f} EE"' in source
+
+
+def test_a_no_split_lead_is_priced_on_its_whole_net_new_set(tmp_path, monkeypatch):
+    """A lead of a no-split class is priced with `--no-split`, and the line that prints is read
+    as its store price, a number, where it used to leave the price at None."""
+    from ark.price_snapshot import NO_SPLIT_CLASSES
+
+    lead = tmp_path / "incoming" / "a-listing"
+    lead.mkdir(parents=True)
+    (lead / "lead.json").write_text(
+        json.dumps({"grain": "registrable", "evidence_class": sorted(NO_SPLIT_CLASSES)[0]}),
+        "utf-8",
+    )
+    items = tmp_path / "items.jsonl"
+    monkeypatch.setattr(module, "fetch_items", lambda _lead: items)
+    ran = []
+
+    def fake_run(cmd, **_kwargs):
+        ran.append(cmd)
+        out = (
+            "net-new, no split          : 2,345 pairs, 5,897.3 EE\n"
+            "  the split would have kept: 1,111 pairs, 1,111.1 EE  <- for the record\n"
+        )
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    result = module.price(lead, {"verdict": "FIND"})
+    pricer = ["uv", "run", "python", "scripts/pricing/price_items.py", "--items", str(items)]
+    assert ran == [pricer + ["--no-split"]]
+    assert (result["status"], result["netnew"], result["ee"]) == ("priced", 2345, 5897.3)
 
 
 def test_the_artifacts_lead_file_moves_into_the_lead_directory(tmp_path):
