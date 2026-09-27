@@ -41,7 +41,7 @@ Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/lore/ke
 
 1. `just cycle`. Fix anything it flags that a program cannot decide.
 2. **GATHER CANDIDATES.** Both tracks score at the same rate and a candidate costs no dating
-   argument, approval or evidence class. Both ship net-new against HIS files, diffed at export.
+   argument, approval or evidence class. Held by him is the exact name in his files, tested by LC_ALL=C comm.
 3. **Hunt a bulk dated HOSTNAME corpus that meets the XIII standard.**
 4. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
 5. `just sync` banks what clears the bar: it drains the fleet's findings, re-prices each
