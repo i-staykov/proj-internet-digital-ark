@@ -3,16 +3,15 @@
 **Why a pull request is the approval.** The register's `Decision:` line is what the ingest
 gate reads, so approving a source means editing one line of one file. That is a one-tap merge
 on a phone, it is auditable afterwards, and it cannot be misread: nothing is approved until
-the line changes, and the line changes only by merging. Ivo asked for exactly this rather than
-for a reply he then has to remember to act on (2026-09-08).
+the line changes, and the line changes only by merging, with no reply the owner then has to
+remember to act on.
 
 **Why the reasoning lives elsewhere.** The pull request carries the one-line diff and nothing
 else, because the project repository is public. The measurement, the condition that failed and
 the terms question go in the private fleet issue that links to it.
 
-**The filing floor is the bar, not a token.** Four issues sat open for a week at four and five
-figures and were closed unread, because a source under the bar is not worth a decision (Ivo,
-2026-09-08). Below it the register block is the whole record.
+**The filing floor is the bar, not a token.** A source under the bar is not worth a decision, so
+below it the register block is the whole record.
 
     uv run python scripts/harness/sync_approvals.py [--dry-run] [--floor 5000]
 """
@@ -46,7 +45,7 @@ _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
 # The reasons `fleet_request.py` writes into a block the standing rule parks.
 _PARKED = re.compile(r"^-\s*parked:\s*(.+)$", re.M)
 # Which of the four conditions of the standing rule a human can actually settle. 1 is the
-# evidence class and 3 is the terms: both are judgements only Ivo makes. 2 is a missing stamp
+# evidence class and 3 is the terms: both are judgements only the owner makes. 2 is a missing stamp
 # and 4 is a missing ingest, which are WORK, and an issue asking him to approve work he has
 # not been given is noise. Those stay in the register until the work is done.
 HUMAN_CONDITIONS = ("1", "3")

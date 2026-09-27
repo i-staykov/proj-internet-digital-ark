@@ -62,11 +62,9 @@ JOURNAL_DIR = ROOT / "data/raw/cdx"
 RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
 
 
-# **The CDX prefixes are discovered, not listed.** They used to be listed, as `cdx_pool`
-# and `cdx_gap`, on the authority of the supervisor's own header. The header states
-# intent and the directory holds the facts: on 2026-08-12 it held six prefixes, and the
-# VPS had spent 31 hours writing `cdx_q1` against an exhausted shard for zero captures
-# while every yield line here read clean, because none of them was looking for it.
+# **The CDX prefixes are discovered, not listed.** A supervisor's header states intent
+# and the directory holds the facts: a prefix no list names can spend 31 hours on an
+# exhausted shard for zero captures while every yield line here reads clean.
 #
 # RDAP stays named because it is a different journal format needing its own verdict: a
 # 404 is a real answer and a 429 is not, and a creation year outside 1996-2001 is an
@@ -88,9 +86,9 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
     """(output, ran). `ran` is False when the step could not complete.
 
     Returned rather than swallowed, because a step that did not run must not read
-    like a step that found nothing. The first version of this script omitted the
-    residual section entirely when it timed out behind a writer, which is the exact
-    failure `ark check` already guards against by reporting SKIP rather than PASS.
+    like a step that found nothing: a residual section omitted when it times out
+    behind a writer is the exact failure `ark check` guards against by reporting SKIP
+    rather than PASS.
     """
     try:
         done = subprocess.run(
@@ -149,7 +147,7 @@ def check_residual() -> tuple[list[str], list[str]]:
                     # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
                     # the threshold and asks for a human only when it cannot act, which
                     # is a failed rebuild. An alarm nobody can clear is
-                    # the same defect as the 982 MB the unreferenced check used to report.
+                    # noise that teaches the reader to skip the alarms.
     return findings, attention
 
 
@@ -260,12 +258,10 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
             # it has no sample, and a high English share then floats namespaces nobody
             # registered in to the head of the queue.
             #
-            # **Widened on 2026-08-15 as the sweep neared exhaustion.** The first five were
-            # the only TLDs with a sample when this was written; 122,458 queries later,
-            # seven more have one. `.sg` is the pick of them at 28.6% in-window on weight
-            # 0.9476. The others are small, and the reason to add them is not their yield
-            # but that `rdap_pool_sweep.sh` STOPS when its list runs out, which would have
-            # ended RDAP's contribution entirely with 20 hours still to run.
+            # **Twelve TLDs have a sample.** `.sg` is the pick at 28.6% in-window on weight
+            # 0.9476. The small ones are here not for their yield but because
+            # `rdap_pool_sweep.sh` STOPS when its list runs out, which ends RDAP's
+            # contribution while the sweep still has hours to run.
             # `.uk` stays out: Nominet, not arithmetic.
             _o, ok = run(
                 [
@@ -365,12 +361,9 @@ def check_ledger() -> tuple[list[str], list[str]]:
     stuck = [r for r in rows if r.get("status") in UNFINISHED]
     findings.append(f"hypotheses: {len(rows)} total, {len(stuck)} unfinished")
     if stuck:
-        # Reported as the agent's own work queue, NOT as attention. Ivo's instruction,
-        # 2026-08-11: "Hypothesis should be tested and confirmed by yourself until a
-        # relevant key decision that I would have to sign off can be formulated.
-        # Otherwise, you make your own judgment on them and continue." He had not
-        # known these existed, which is the point: raising them at him buried the
-        # things that genuinely need him.
+        # Reported as the agent's own work queue, NOT as attention: the agent tests and
+        # settles a hypothesis until it is a key decision the owner signs off, and
+        # raising each one at him buries the things that genuinely need him.
         findings.append(
             "the next work, yours to settle without asking: "
             + ", ".join(

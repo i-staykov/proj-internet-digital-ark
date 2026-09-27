@@ -10,16 +10,15 @@ collision report is computed HERE, by `screen_hypothesis.py`, and pasted into th
 brief. The agent starts knowing the nearest closed verdict and the screen it was
 closed on, and spends its budget arguing with that verdict instead of finding it.
 
-**2. A researcher that kills its hypothesis in five minutes idled for the rest of
+**2. A researcher that kills its hypothesis in five minutes idles for the rest of
 the round.** The per-round cap is 2,400 s and a probe often settles a hypothesis in
-a tenth of that, so the slot sat finished while its round-mates worked. Each brief
-now carries a QUEUE, and the agent is told to work down it until the budget runs
+a tenth of that, so a one-hypothesis slot sits finished while its round-mates work.
+Each brief carries a QUEUE, and the agent is told to work down it until the budget runs
 out. The fixed cost of a round, reading CLAUDE.md and orienting, is paid once and
 amortised over every hypothesis in the queue rather than over one.
 
-**3. A closure can rest on a screen that has since been retired.** The novelty
-screen was retired on 2026-08-25 and the free-hosting family had to be re-tested
-because of it; the same happened to Stanford WebBase. So the brief names that
+**3. A closure can rest on a screen that has since been retired**, as the free-hosting
+family and Stanford WebBase did on the novelty screen. So the brief names that
 possibility explicitly and tells the agent what to do about it, which is the one
 judgement a collision report cannot make for it.
 

@@ -1,5 +1,5 @@
 """Reduce a USFEDGOV-EXTRACT merged CDX index to one capture per host (fleet finding
-usfedgov_extract_hostname_grain, admitted 2026-09-02).
+usfedgov_extract_hostname_grain).
 
 The item's `<item>.cdx.gz` is a ZipNum index: concatenated gzip members whose first line
 is `CDX N b a m s k r M S V g`, then one classic CDX row per capture. 48 million rows name

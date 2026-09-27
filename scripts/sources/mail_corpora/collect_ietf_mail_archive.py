@@ -33,9 +33,9 @@ a pipe, the parser reads lines as they arrive, and what lands on disk is the der
 `{item, year, text}` shard. That is the same rule the CDX collectors run under and it is why
 this lane does not need a `data/raw` budget.
 
-**One connection, because six drew a 429 inside a minute.** Measured by the fleet's scout on
-2026-09-09: six parallel listing requests were throttled within the minute, while one
-connection with a pause did 130 listings in 97 seconds untouched. `robots.txt` (read
+**One connection, because six drew a 429 inside a minute.** Measured 2026-09-09: six parallel
+listing requests were throttled within the minute, while one connection with a pause did 130
+listings in 97 seconds untouched. `robots.txt` (read
 2026-09-10) disallows only `/admin/` and `/search/` and states no crawl delay, so the delay
 here is the measured one and not a stated one.
 

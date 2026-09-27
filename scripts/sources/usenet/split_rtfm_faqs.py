@@ -21,10 +21,8 @@ rather than early, which is the safe direction for an existence claim.
 
 **Re-run it after `probe_texts_corpus.domains_in` changes.** The extractor is
 imported, not copied, so this corpus inherits its bugs and its fixes without a
-line changing here. The pattern used to require two labels before the TLD, which
-read `www.foo.com` and dropped `foo.com`; a FAQ drops the `www.` constantly. Pass
-a `--tag` on any re-run, because the ingest ledger keys on content and rewriting
-an already-ingested journal is refused as a hash mismatch.
+line changing here. Pass a `--tag` on any re-run, because the ingest ledger keys on
+content and rewriting an already-ingested journal is refused as a hash mismatch.
 
     uv run python scripts/sources/usenet/split_rtfm_faqs.py --write
     uv run python scripts/sources/usenet/split_rtfm_faqs.py --write --tag reextract

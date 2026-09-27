@@ -47,9 +47,9 @@ provenance values above to check it.
 # source file, output name, title. Filenames carry his own dates, so a package
 # that renames one is a signal to look rather than something to guess around.
 # **The brief's filename carries its own date, so it changes with every package**:
-# `..._0815_Update.docx` became `..._0820_Update_v2.docx`. Hardcoding it meant the
-# 2026-08-20 package raised FileNotFoundError, which reads like a missing document
-# rather than a renamed one. The glob is anchored on the stable part of the name and
+# `..._0815_Update.docx`, then `..._0820_Update_v2.docx`. A hardcoded name raises
+# FileNotFoundError on the next package, which reads like a missing document rather
+# than a renamed one. The glob is anchored on the stable part of the name and
 # `_pick` fails loudly if it matches none or several, because silently transcribing
 # the wrong one of two briefs is worse than not transcribing at all.
 # **One file, and it is the current state of the task.** `Update_Log.docx` is a changelog of

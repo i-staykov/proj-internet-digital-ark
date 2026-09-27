@@ -322,7 +322,7 @@ def gate(
     percent = brief["field5_percent"]
     target = float(brief.get("gate_pct", 5.0))
     label = str(brief.get("round", "?"))
-    # The brief carries Ivo's numbering as a bare label ("8"), and the open-issue
+    # The brief carries the round number as a bare label ("8"), and the open-issue
     # query keys on the title, so the word belongs here and only here.
     round_name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))

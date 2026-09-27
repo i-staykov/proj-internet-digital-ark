@@ -1,7 +1,7 @@
 """Server-written header hostnames from a whole Usenet mbox pool, one shard per worker.
 
-This is the `usenet_header_fqdn_hostnames` lane, approved master-eligible by Ivo on
-2026-09-10. It is the header twin of `build_usenet_pool.py` and shares that file's post
+This is the `usenet_header_fqdn_hostnames` lane, approved master-eligible. It is the
+header twin of `build_usenet_pool.py` and shares that file's post
 boundary, its `Date:` reading and its `{item, year, text}` shard shape, so the two lanes
 are comparable and the same ingest reads both.
 
@@ -27,7 +27,7 @@ the record is machine-written and self-dating in the sense the relay-host rule t
 
 **`Message-ID:` is deliberately not read.** Turnpike and Demon's clients stamp it from a
 configured nodename, so it is client-written, and it needs its own ruling before it counts
-at all. The 2026-09-02 probe priced it separately at 4,054 EE and it is excluded here.
+at all. A probe priced it separately at 4,054 EE and it is excluded here.
 
 **Ephemeral pool shapes are dropped**, about 6.9% of novel rows in the probe. A name that
 encodes its own address, or announces itself as a dial-up pool slot, dates a lease and not

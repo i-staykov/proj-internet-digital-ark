@@ -66,8 +66,8 @@ CALCULATOR = REPO / calculator_path()
 # The fleet's record of the claim the pushed snapshot carries, which every leg checks.
 EXPECTED = "snapshot.json"
 # **Both of these must exist for every year, or the build is refused.** They are the two
-# units we ship, registrables and the hostnames beneath them (the second accepted
-# 2026-09-01), so a missing one means `output/netnew` is stale or half-written, and every
+# units we ship, registrables and the hostnames beneath them, so a missing one
+# means `output/netnew` is stale or half-written, and every
 # name we have already delivered for that year would price as net-new. An EMPTY one is
 # different and allowed: a year can legitimately have no net-new names, and that says so.
 NETNEW_REQUIRED = ("{year}.txt", "{year}_hostnames.txt")

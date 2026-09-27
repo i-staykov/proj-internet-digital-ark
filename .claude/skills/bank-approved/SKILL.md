@@ -5,7 +5,7 @@ description: Bank the sources a human has newly approved into the store, then ex
 
 # Bank approved sources
 
-The approval rule is `CLAUDE.md`, Autonomy; the command table is in `docs/ops/runbook.md`. Order:
+The approval rule is `CLAUDE.md`, Autonomy; the commands are in `docs/ops/runbook.md`. Order:
 
 1. The source has its row in `docs/registers/sources.md` (`CLAUDE.md`, Registers).
 2. The class has a `Decision:` line in `docs/registers/approved-sources-list.md`, or the loop writes

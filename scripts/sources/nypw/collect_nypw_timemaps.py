@@ -16,7 +16,7 @@ published example of a TimeMap row drops it and the two look alike at a glance.
 **The folder year is the year of FIRST capture, not the year of the content**, so folder Y
 can only add years Y+1..2001 to domains held at Y. The 1996 folder is therefore the
 saturated head and the 2001 folder is held by construction; 1997-2000 is where the payload
-is. That is what the 2026-08-24 closure got wrong by testing only 1996.
+is, and a test of 1996 alone reads the family as spent.
 
 **Why the year filter lives here.** A TimeMap runs to 2021, and the in-window rows are a
 small minority of the bytes. Writing the whole thing would put gigabytes on disk for
@@ -48,7 +48,7 @@ OUT = Path("data/raw/nypw_timemaps")
 UA = "internet-digital-ark/1.0 (research; ivaylo.staykov@student.hpi.uni-potsdam.de)"
 YEARS = range(1996, 2002)
 
-# The three parts priced on 2026-09-01. The 2001 deeplinks part is here because it was
+# The three parts priced. The 2001 deeplinks part is here because it was
 # measured, not because it pays: 108,863 of its 108,870 pairs were already held.
 PARTS = (
     "2000/nypw_timemaps2000_deeplinks_part00o.tar.gz",

@@ -1653,8 +1653,8 @@ def parse_ukwa_link_target_bare(path: Path, stats: Counter) -> Iterator[BulkReco
     The brief: "UK Web Archive host/link graph records may serve as direct annual evidence when
     their year association is explicit and documented", and XIII admits "a dated web link-graph
     record that identifies the target hostname". A registrable is identified only when the
-    target IS it: a `www.` or deeper target dates that host, never the name beneath it (his
-    ruling of 2026-09-06). The host stays in the value.
+    target IS it: a `www.` or deeper target dates that host, never the name beneath it. The
+    host stays in the value.
     """
     for record in _parse_ukwa(path, stats, _UKWA_TARGET_COL):
         host = record.raw.strip().lower()
@@ -2199,7 +2199,7 @@ SOURCES: dict[str, SourceSpec] = {
     ),
     # Federal Audit Clearinghouse Single Audit filings 1998-2001, dated by each row's own
     # signature date. Two lanes: the corroborated half dates a year, the rest parks.
-    # Bytes downloaded by hand by Ivo 2026-08-31, since app.fac.gov is Disallow: /.
+    # Bytes downloaded by hand on 2026-08-31, since app.fac.gov is Disallow: /.
     "fac_dated": SourceSpec(
         key="fac_dated",
         source_name="fac_single_audit",
@@ -2380,7 +2380,7 @@ SOURCES: dict[str, SourceSpec] = {
         parse=parse_odp,
     ),
     # kept distinct from the legacy `rdap` source, whose rows predate the
-    # journal and so cannot be replayed from a file (2026-07-25)
+    # journal and so cannot be replayed from a file
     "rdap_snapshot": SourceSpec(
         key="rdap_snapshot",
         source_name="rdap_snapshot",

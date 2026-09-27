@@ -1,7 +1,7 @@
 # ark: the command set. `just` alone lists it.
 #
 # Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong; the raw
-# commands stay the reproducibility contract. docs/ops/runbook.md is the long form.
+# commands stay the reproducibility contract. docs/ops/runbook.md has the procedures.
 
 set quiet := true
 
@@ -85,7 +85,7 @@ check what="all":
     *) echo "check: all code data lint fmt test scan" >&2; exit 2 ;;
     esac
 
-# Prove what is on DISK, as opposed to the code or the store. Long form: docs/ops/runbook.md.
+# Prove what is on DISK, as opposed to the code or the store.
 #
 #   raw       checksum every data entry and regenerate docs/registers/retention.md. A
 #             path with no row in that table is not deletable.
@@ -1082,8 +1082,8 @@ reproduce stage="all":
     *) echo "reproduce: all baseline sources candidates journals seeds deliver" >&2; exit 2 ;;
     esac
 
-# Needs no source data at all, only the held sets `ark intake` writes. About a minute, and
-# byte-identical.
+# Needs no source data at all, only the held sets `ark intake` writes. About eight minutes, plus
+# about three for `ark intake`, and byte-identical.
 #
 # tier 2: regenerate every result file from a provenance export. `ark export` does not
 # write that export unless asked, so refresh it with `ark export --provenance` first or
@@ -1342,7 +1342,7 @@ collect source="" *args:
         echo "  attrition enron maillists pandora-seed rtfm-faqs trade-press"
         echo "  trade-press-american trade-press-reextract tucows usenet-addresses"
         echo "  usenet-bare usenet-ingest usenet-measure usenet-whois uucp-maps"
-        echo "Arguments and what each one reads: docs/ops/runbook.md"
+        echo "Arguments and what each one reads: the collect recipe in the justfile"
         ;;
     *) echo "collect: no source called '{{source}}'; run 'just collect' for the list" >&2; exit 2 ;;
     esac
@@ -1626,7 +1626,7 @@ ship stage="all" *args:
 
 # --- unattended ---------------------------------------------------------------
 
-# Long form: the header of scripts/harness/hold.sh and the runbook's hold row.
+# Long form: the header of scripts/harness/hold.sh.
 #
 # stop every laptop job, flag and fleet workflow until lifted by hand: on off status
 hold what="on" name="":

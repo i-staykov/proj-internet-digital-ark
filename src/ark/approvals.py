@@ -39,10 +39,10 @@ _DECISION_RE = re.compile(r"^\s*Decision:\s*(?P<value>[a-z-]+)\s*$", re.IGNORECA
 _SECTION_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
 
 # The heading under which a source found but not yet priced waits. Entries here are a
-# work queue that grows without bound by design (Ivo, 2026-08-12), which is exactly why
-# the section has to be identifiable: a priced request earns its own line on his review
-# surface, and forty unpriced ones must collapse to a single count or that surface stops
-# being readable and therefore stops being read.
+# work queue that grows without bound by design, which is exactly why the section has
+# to be identifiable: a priced request earns its own line on the owner's review surface,
+# and forty unpriced ones must collapse to a single count or that surface stops being
+# readable and therefore stops being read.
 TRIAGE_SECTION = "Found, awaiting triage"
 
 

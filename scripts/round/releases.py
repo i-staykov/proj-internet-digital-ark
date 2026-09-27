@@ -153,7 +153,7 @@ def find_zips(feedback: Path) -> dict[str, list[Path]]:
         try:
             markers = zip_markers(z)
         except zipfile.BadZipFile:
-            print(f"  skip {z}: not a zip", file=sys.stderr)
+            print(f"  skip {z.relative_to(feedback.parent)}: not a zip", file=sys.stderr)
             continue
         for marker in markers:
             zips.setdefault(marker, []).append(z)
