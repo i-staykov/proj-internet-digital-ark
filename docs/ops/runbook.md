@@ -1,7 +1,6 @@
 # Runbook
 
-Rules are in `CLAUDE.md`, cited here by name (what runs without asking is its Autonomy); facts are
-in `docs/lore/laws.md`; the fleet's side is ark-fleet `docs/harness.md`.
+Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
 
 ## When prompted, in this order
 
@@ -9,9 +8,10 @@ in `docs/lore/laws.md`; the fleet's side is ark-fleet `docs/harness.md`.
 2. Pick one lens (`CLAUDE.md`, Hunting). Before any request, ask the disk: `just find <term>`,
    `just screen --dating <self|typed|undated> "<what the source is>"`, a grep of `data/raw/`.
 3. Price what you find on both tracks, as Figures says (`CLAUDE.md`, The annual masters; Price;
-   Only 1996 to 2001).
-4. Write the source's register row with its link (`CLAUDE.md`, Registers); the tick and the bank
-   then bank it, and a hand ingest follows "The sync lock".
+   Only 1996 to 2001). A candidate needs no approval: `uv run ark seed <file>` pools it.
+4. Write the source's register row with its link (`CLAUDE.md`, Registers). A fleet find banks
+   through the tick and the bank; your own through `just approve <spec> --journal <j>` and its
+   `Decision:` line, then a hand ingest as "The sync lock" shows.
 5. Replace the row with the result.
 
 ## Working in the checkout
@@ -25,11 +25,10 @@ in `docs/lore/laws.md`; the fleet's side is ark-fleet `docs/harness.md`.
   after `git pull --rebase origin live` if it refused a diverged clone.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
-  store, and "The sync lock", once it runs `git update-index --skip-worktree data/baseline.json`,
-  removes its `data/` and links `data`, `output`, `feedback` and `local.env` to the checkout's.
-- Read the registers through `just find <term>` (`--detail` for one approved-page entry) or the
-  `register-reader` agent. `.claude/settings.json` denies reading `docs/registers/sources*.md`, so
-  append to those by python heredoc.
+  store: in the worktree, `git update-index --skip-worktree data/baseline.json`, remove its own
+  `data/`, then link `data`, `output`, `feedback` and `local.env` to the checkout's.
+- Read the registers through `just find <term>` (`--detail`: one approved entry) or the
+  `register-reader` agent; `.claude/settings.json` denies reading `sources*.md`: append by heredoc.
 
 ## The sync lock
 
@@ -51,10 +50,9 @@ A bare `uv run ark ingest` or `export` skips the space check, so run
 `uv run python scripts/harness/bank_hygiene.py space` first. When an output name may have been
 recycled, compare the ledger's sha256 with the bytes on disk before ingesting or deleting anything.
 
-**The gate.** Its store half is the block above (`CLAUDE.md`, the hook gate). Once
-`bash scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half through
-the hook `just hooks` installs (by hand, `just check code` and `just check scan`, never piped); a
-second pytest, `ark check` or commit beside it makes the hook refuse a green commit.
+**The gate** (`CLAUDE.md`, the hook gate): its store half is the block above. Once `bash
+scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half through the
+hook `just hooks` installs; a second pytest, `ark check` or commit beside it refuses a green one.
 
 ## The loop
 
@@ -98,6 +96,7 @@ issue and one PR per park at or above its `--floor`; its merge (`CLAUDE.md`, Git
 and on the VPS, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`.
 `just hold status` shows each name, `just hold off <name>` lifts one. It survives a reboot, the
 tick and the bank exit `held` while it lists `com.ark.sync`, and `just schedule install` refuses.
+A dry run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run.
 Run `just bank --force` by hand right after `just hold off com.ark.sync`: with no
 `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass takes
 about an hour.
@@ -113,6 +112,7 @@ about an hour.
 | re-price a parked source | `just price` or `just price-hosts` before reopening it: its net-new falls as the store grows |
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
 | prove what is on disk | `just verify raw`, `just verify offsite --verify`; `just schedule status` for the jobs |
+| a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
 | retention | `just prune`; `just prune --round --write` removes only what has its proofs, a `data/ark.duckdb.pre-*.bak` once a later credited round is in `data/baseline.json`; a backup needs no Drive copy |
 | triage a VPS scanner alert | its File and Malware panes first: a corpus path with `JS/Obfuscator`, `HTML/` or an era worm is expected; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer, check `auth.log` for non-publickey logins, `ss -tulpn`, crontabs and recently modified units. A laptop alert: `docs/ops/security-posture.md` |
 
@@ -148,7 +148,7 @@ labelled `needs-owner`, opens.
 
 ## Intake
 
-Nothing of his enters the store. Run this in the sync-lock script, for its ingest and export lines:
+Nothing of his enters the store. In the sync-lock script, this replaces the ingest and export lines:
 
 ```bash
 just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, then `ark intake`
