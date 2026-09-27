@@ -1,11 +1,6 @@
-"""The one download path, tested against a local server that counts what it is asked.
-
-The expensive properties. A by-name robots refusal must cost the artifact host zero requests,
-because the breach that put this program here was a read that happened anyway. A cap must
-hold when the server lies about `Content-Length` as well as when it tells the truth. And a
-destination outside the two allowed roots must be refused before a socket opens. Nothing here
-reaches the network: `http.server` on a loopback port, and the request log is the assertion.
-"""
+"""fetch.py on loopback hosts that log each request: a robots refusal costs the artifact zero
+requests, the cap holds when `Content-Length` lies, and a destination outside the roots opens no
+socket."""
 
 import gzip
 import hashlib
@@ -19,6 +14,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -32,16 +28,30 @@ fetch = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(fetch)
 
 PERMISSIVE = "User-agent: *\nDisallow:\n"
-# The `tomocha.net` shape: a permissive group first, the refusal far below it.
+# A permissive group first and the refusal by name far below it.
 BY_NAME_REFUSAL = PERMISSIVE + ("\n# padding\n" * 40) + "User-agent: ClaudeBot\nDisallow: /\n"
+NAMED = "User-agent: *\nAllow: /\n\nUser-agent: {}\nDisallow: /data\n"
+OURS = ("Claude-User", "anthropic-ai", "InternetDigitalArk")
+NARROW = "User-agent: *\nDisallow: /data\nAllow: /data/public\n"
+PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
+SECOND, WHOLE, BIG = b"second-half", b"first-halfsecond-half", 1 << 40
+RANGE0 = {"content-range": "bytes 0-20/21"}
+CASES = pytest.mark.parametrize("case", [str.title, str.lower], ids=["title-case", "lower-case"])
+
+
+def page(body: bytes = b"ok\n", kind: str = "text/plain") -> tuple:
+    return 200, {"Content-Type": kind}, body
+
+
+def hop(to: str, status: int = 302) -> tuple:
+    return status, {"Location": to}, b""
 
 
 class Server:
-    """A loopback host with a routing table and a log of every path it was asked for."""
+    """A loopback host logging every path and `Range` asked; a callable route gets the handler."""
 
     def __init__(self, routes: dict):
-        self.routes = routes
-        self.asked: list[str] = []
+        self.routes, self.asked, self.ranges = routes, [], []
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -52,197 +62,153 @@ class Server:
 
             def do_GET(self):
                 outer.asked.append(self.path)
-                route = outer.routes.get(self.path)
-                if route is None:
-                    self.send_response(404)
-                    self.send_header("Content-Length", "0")
-                    self.end_headers()
+                outer.ranges.append(self.headers.get("Range"))
+                route = outer.routes.get(self.path, (404, {}, b""))
+                if callable(route) and (route := route(self)) is None:
                     return
-                status, headers, body = route() if callable(route) else route
-                headers = dict(headers)
-                # A server that promises more than it sends, then hangs up: the mid-stream
-                # failure that used to traceback out with no receipt at all.
-                truncate = headers.pop("X-Ark-Truncate", None)
+                status, headers, body = route
                 self.send_response(status)
                 for key, value in headers.items():
                     self.send_header(key, value)
-                named = {k.lower() for k in headers}
-                if truncate:
-                    self.send_header("Content-Length", str(len(body) + int(truncate)))
-                elif "content-length" not in named and "transfer-encoding" not in named:
+                if not {k.lower() for k in headers} & {"content-length", "transfer-encoding"}:
                     self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                if body:
-                    self.wfile.write(body)
-                if truncate:
-                    self.close_connection = True
+                self.wfile.write(body)
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
-        self.thread.start()
-
-    @property
-    def base(self) -> str:
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
         host, port = self.httpd.server_address[:2]
-        return f"http://{host}:{port}"
+        self.base = f"http://{host}:{port}"
 
-    def close(self):
-        self.httpd.shutdown()
-        self.httpd.server_close()
+
+def dropping(payload: bytes, drop: int, reset=False, drop_ranges=False, honour=True):
+    """A route serving `bytes=S-E` of `payload` that hangs up or resets `drop` bytes into a 200."""
+
+    def answer(handler):
+        span = (handler.headers.get("Range") or "").removeprefix("bytes=")
+        body, cut = payload, drop
+        if span and honour:
+            first, _, last = span.partition("-")
+            start, stop = int(first), int(last or len(payload) - 1)
+            body = payload[start : stop + 1]
+            cut = drop if drop_ranges else len(body)
+            handler.send_response(206)
+            handler.send_header("Content-Range", f"bytes {start}-{stop}/{len(payload)}")
+        else:
+            handler.send_response(200)
+        handler.send_header("Content-Type", "text/plain")
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        handler.wfile.write(body[:cut])
+        if cut < len(body):
+            handler.wfile.flush()
+            if reset:
+                # Time for the reader to take what arrived, then a linger of zero.
+                time.sleep(0.2)
+                linger = struct.pack("ii", 1, 0)
+                handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
+            handler.close_connection = True
+            handler.connection.close()
+
+    return answer
 
 
 @pytest.fixture
-def serve():
+def leg(tmp_path, monkeypatch):
+    """The probe root fetch.py writes under, and `serve` for hosts shut down at teardown."""
+    probe = tmp_path / "probe"
+    probe.mkdir()
+    monkeypatch.setenv("ARK_PROBE_DIR", str(probe))
+    monkeypatch.delenv("ARK_FETCH_DEST_ROOT", raising=False)
     made = []
 
-    def factory(routes: dict) -> Server:
-        server = Server(routes)
-        made.append(server)
-        return server
+    def serve(routes: dict, robots: str | None = PERMISSIVE) -> Server:
+        if robots is not None:
+            routes = {"/robots.txt": page(robots.encode()), **routes}
+        made.append(Server(routes))
+        return made[-1]
 
-    yield factory
+    yield types.SimpleNamespace(probe=probe, serve=serve)
     for server in made:
-        server.close()
+        server.httpd.shutdown()
+        server.httpd.server_close()
 
 
-@pytest.fixture
-def probe(tmp_path, monkeypatch):
-    directory = tmp_path / "probe"
-    directory.mkdir()
-    monkeypatch.setenv("ARK_PROBE_DIR", str(directory))
-    monkeypatch.delenv("ARK_FETCH_DEST_ROOT", raising=False)
-    return directory
+def run(url: str, *args, env: dict | None = None) -> tuple[int, dict, str, bytes]:
+    """fetch.py as a leg runs it: (exit code, receipt, stderr, stdout bytes)."""
+    cmd, environ = [sys.executable, str(FETCH), url, *args], {**os.environ, **(env or {})}
+    result = subprocess.run(cmd, capture_output=True, env=environ, cwd=ROOT, timeout=60)
+    err = result.stderr.decode()
+    where = err if "-" in args else result.stdout.decode()
+    lines = [line for line in where.splitlines() if line.startswith("{")]
+    return result.returncode, json.loads(lines[-1]) if lines else {}, err, result.stdout
 
 
-def run(url: str, *args, env: dict | None = None) -> tuple[int, dict, str]:
-    """fetch.py as a leg runs it, returning (exit code, receipt, stderr)."""
-    result = subprocess.run(
-        [sys.executable, str(FETCH), url, *args],
-        capture_output=True,
-        text=True,
-        env={**os.environ, **(env or {})},
-        cwd=ROOT,
-    )
-    where = result.stderr if "-" in args else result.stdout
-    receipt = {}
-    for line in where.splitlines():
-        if line.startswith("{"):
-            receipt = json.loads(line)
-    return result.returncode, receipt, result.stderr
-
-
-# ---------------------------------------------------------------- robots
-
-
-def test_a_by_name_refusal_exits_three_with_zero_requests_for_the_artifact(serve, probe):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, BY_NAME_REFUSAL.encode()),
-            "/zones/1999.txt": (200, {"Content-Type": "text/plain"}, b"never read\n"),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/zones/1999.txt")
+def test_a_by_name_refusal_exits_three_with_zero_requests_for_the_artifact(leg):
+    server = leg.serve({"/zones/1999.txt": page(b"never read\n")}, robots=BY_NAME_REFUSAL)
+    code, receipt, *_ = run(f"{server.base}/zones/1999.txt")
     assert code == fetch.ROBOTS_REFUSED
     assert receipt["robots"] == "refused"
     assert "claudebot" in receipt["reason"].lower()
     assert server.asked == ["/robots.txt"], "the artifact was asked for anyway"
-    assert list(probe.iterdir()) == []
+    assert list(leg.probe.iterdir()) == []
 
 
-def test_a_permissive_star_group_does_not_override_a_group_further_down():
-    verdict, _, why = fetch.robots_verdict(BY_NAME_REFUSAL, "/zones/1999.txt")
-    assert verdict == "refused", why
-    # And the refusal is honoured whichever of our names carries it.
-    for name in ("Claude-User", "anthropic-ai", "InternetDigitalArk"):
-        text = f"User-agent: *\nAllow: /\n\nUser-agent: {name}\nDisallow: /data\n"
-        assert fetch.robots_verdict(text, "/data/x.gz")[0] == "refused", name
+ROBOTS = {
+    "by-name-below-star": (BY_NAME_REFUSAL, "/zones/1999.txt", ("refused", 0.0)),
+    **{n: (NAMED.format(n), "/data/x.gz", ("refused", 0.0)) for n in OURS},
+    "star": ("User-agent: *\nDisallow: /private\n", "/private/x", ("refused", 0.0)),
+    "outside-the-narrow-allow": (NARROW, "/data/private/x", ("refused", 0.0)),
+    "narrower-allow-wins": (NARROW, "/data/public/x", ("allowed", 0.0)),
+    "crawl-delay-is-read": ("User-agent: *\nCrawl-delay: 5\nDisallow:\n", "/x", ("allowed", 5.0)),
+}
 
 
-def test_a_star_refusal_is_honoured_and_a_narrower_allow_wins_inside_its_group():
-    assert fetch.robots_verdict("User-agent: *\nDisallow: /private\n", "/private/x")[0] == "refused"
-    text = "User-agent: *\nDisallow: /data\nAllow: /data/public\n"
-    assert fetch.robots_verdict(text, "/data/private/x")[0] == "refused"
-    assert fetch.robots_verdict(text, "/data/public/x")[0] == "allowed"
-    # An empty Disallow permits everything, and a crawl delay is read, not a refusal.
-    verdict, delay, _ = fetch.robots_verdict("User-agent: *\nCrawl-delay: 5\nDisallow:\n", "/x")
-    assert (verdict, delay) == ("allowed", 5.0)
+@pytest.mark.parametrize(("text", "path", "expected"), list(ROBOTS.values()), ids=list(ROBOTS))
+def test_a_refusal_in_any_of_our_groups_refuses_the_path(text, path, expected):
+    assert fetch.robots_verdict(text, path)[:2] == expected
 
 
-def test_a_host_with_no_robots_is_allowed_and_an_unreadable_one_fails_closed(serve, probe):
-    open_host = serve({"/x.txt": (200, {"Content-Type": "text/plain"}, b"ok\n")})
-    code, receipt, _ = run(f"{open_host.base}/x.txt")
+def test_no_robots_is_allowed_and_an_unreadable_or_dead_one_fails_closed(leg):
+    open_host = leg.serve({"/x.txt": page()}, robots=None)
+    code, receipt, *_ = run(f"{open_host.base}/x.txt")
     assert (code, receipt["robots"]) == (fetch.OK, "allowed")
-
-    broken = serve(
-        {
-            "/robots.txt": (500, {"Content-Type": "text/plain"}, b"oops\n"),
-            "/x.txt": (200, {"Content-Type": "text/plain"}, b"ok\n"),
-        }
-    )
-    code, receipt, _ = run(f"{broken.base}/x.txt")
-    assert code == fetch.ROBOTS_UNREADABLE
-    assert receipt["robots"] == "unknown"
+    broken = leg.serve({"/robots.txt": (500, {}, b"oops\n"), "/x.txt": page()})
+    code, receipt, *_ = run(f"{broken.base}/x.txt")
+    assert (code, receipt["robots"]) == (fetch.ROBOTS_UNREADABLE, "unknown")
     assert broken.asked == ["/robots.txt"]
-
-
-def test_a_dead_host_is_unknown_rather_than_allowed():
-    # A closed port, so no server is involved at all: a refused connection must never
-    # read as permission.
-    with socket.socket() as probe_socket:
-        probe_socket.bind(("127.0.0.1", 0))
-        port = probe_socket.getsockname()[1]
+    with socket.socket() as closed:
+        closed.bind(("127.0.0.1", 0))
+        port = closed.getsockname()[1]
     verdict, _, why = fetch.read_robots(f"http://127.0.0.1:{port}/x.txt", timeout=2.0)
     assert verdict == "unknown", why
 
 
-# ---------------------------------------------------------------- the cap
-
-
-def test_a_two_gigabyte_content_length_stops_at_the_cap_and_reads_no_body(serve, probe):
+@CASES
+def test_a_two_gigabyte_content_length_stops_at_the_cap_and_reads_no_body(leg, case):
     two_gb = 2 * 1024**3
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/IA.cdxj.gz": (
-                200,
-                {"Content-Type": "application/gzip", "Content-Length": str(two_gb)},
-                b"",
-            ),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/IA.cdxj.gz", "--max-bytes", "1G")
-    assert code == fetch.OVER_CAP
+    headers = {case("content-type"): "application/gzip", case("content-length"): str(two_gb)}
+    server = leg.serve({"/IA.cdxj.gz": (200, headers, b"")})
+    code, receipt, *_ = run(f"{server.base}/IA.cdxj.gz")  # the default cap is 1G
+    assert code == fetch.OVER_CAP, receipt
     assert receipt["capped"] is True
     assert receipt["bytes"] == two_gb
     assert "downloads.md" in receipt["reason"]
-    assert list(probe.iterdir()) == [], "a capped fetch must leave nothing behind"
+    assert list(leg.probe.iterdir()) == [], "a capped fetch must leave nothing behind"
 
 
-def test_the_stream_is_counted_when_the_server_understates_its_length(serve, probe):
-    # The second count, and the reason there are two: this server claims 10 bytes and
-    # sends 40,000, which the Content-Length check believes.
-    payload = b"x" * 40_000
-
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/liar.txt": (
-                200,
-                {"Content-Type": "text/plain", "Transfer-Encoding": "identity"},
-                payload,
-            ),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/liar.txt", "--max-bytes", "1024")
+def test_the_stream_is_counted_when_the_server_understates_its_length(leg):
+    liar = {"Content-Type": "text/plain", "Transfer-Encoding": "identity"}
+    server = leg.serve({"/liar.txt": (200, liar, b"x" * 40_000)})
+    code, receipt, *_ = run(f"{server.base}/liar.txt", "--max-bytes", "1024")
     assert code == fetch.OVER_CAP
     assert receipt["capped"] is True
     assert receipt["path"] is None
-    assert list(probe.iterdir()) == []
+    assert list(leg.probe.iterdir()) == []
 
 
 def test_sizes_parse_in_binary_units():
-    assert fetch.parse_size("1G") == 1024**3
-    assert fetch.parse_size("1GiB") == 1024**3
+    assert fetch.parse_size("1G") == fetch.parse_size("1GiB") == 1024**3
     assert fetch.parse_size("512m") == 512 * 1024**2
     assert fetch.parse_size("1073741824") == 1024**3
     for bad in ("", "1X", "-1", "0", "lots"):
@@ -250,661 +216,230 @@ def test_sizes_parse_in_binary_units():
             fetch.parse_size(bad)
 
 
-# ---------------------------------------------------------------- what it writes
-
-
-def test_a_clean_fetch_writes_one_file_and_prints_the_receipt(serve, probe):
+@CASES
+def test_a_clean_fetch_writes_one_file_and_prints_the_receipt(leg, case):
     body = gzip.compress(b"org,example)/ 19991128153001\n")
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/zones/1999.cdx.gz": (200, {"Content-Type": "application/gzip"}, body),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/zones/1999.cdx.gz")
+    gz = {case("content-type"): "application/gzip"}
+    server = leg.serve({"/zones/1999.cdx.gz": (200, gz, body)})
+    code, receipt, *_ = run(f"{server.base}/zones/1999.cdx.gz")
     assert code == fetch.OK, receipt
-    written = probe / "1999.cdx.gz"
+    written = leg.probe / "1999.cdx.gz"
     assert written.read_bytes() == body
     assert receipt["bytes"] == len(body)
     assert receipt["path"] == str(written)
     assert receipt["content_type"] == "application/gzip"
-    import hashlib
-
     assert receipt["sha256"] == hashlib.sha256(body).hexdigest()
 
 
-def test_the_payload_owns_stdout_and_the_receipt_stderr_when_streamed(serve, probe):
-    body = b"a,b\n1,2\n"
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.csv": (200, {"Content-Type": "text/csv"}, body),
-        }
-    )
-    result = subprocess.run(
-        [sys.executable, str(FETCH), f"{server.base}/x.csv", "--to", "-"],
-        capture_output=True,
-        env={**os.environ},
-        cwd=ROOT,
-    )
-    assert result.returncode == fetch.OK, result.stderr
-    assert result.stdout == body
-    assert json.loads(result.stderr.decode().splitlines()[-1])["bytes"] == len(body)
-    assert list(probe.iterdir()) == [], "a streamed fetch writes no file"
-
-
-def test_a_destination_outside_the_roots_is_refused_before_a_request(serve, probe, tmp_path):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.txt": (200, {"Content-Type": "text/plain"}, b"ok\n"),
-        }
-    )
+def test_a_destination_outside_the_roots_is_refused_before_a_request(leg, tmp_path):
+    server = leg.serve({"/x.txt": page()})
     outside = tmp_path / "workspace" / "x.txt"
     outside.parent.mkdir()
-    code, receipt, _ = run(f"{server.base}/x.txt", "--to", str(outside))
+    code, receipt, *_ = run(f"{server.base}/x.txt", "--to", str(outside))
     assert code == fetch.USAGE
     assert "outside" in receipt["reason"]
-    assert server.asked == [], "robots was read for a fetch that could never write"
-
-    # A symlinked parent is the same escape by another route.
-    link = probe / "elsewhere"
-    link.symlink_to(outside.parent, target_is_directory=True)
-    code, _, _ = run(f"{server.base}/x.txt", "--to", str(link / "x.txt"))
+    # A symlinked parent is the same escape by another route, and so is a symlinked target.
+    (leg.probe / "elsewhere").symlink_to(outside.parent, target_is_directory=True)
+    code, *_ = run(f"{server.base}/x.txt", "--to", str(leg.probe / "elsewhere" / "x.txt"))
     assert code == fetch.USAGE
-
-    # And with neither root set there is nowhere to write at all.
-    code, receipt, _ = run(f"{server.base}/x.txt", env={"ARK_PROBE_DIR": ""})
+    outside.write_text("mine\n")
+    (leg.probe / "x.txt").symlink_to(outside)
+    code, receipt, *_ = run(f"{server.base}/x.txt", "--to", str(leg.probe / "x.txt"))
+    assert code == fetch.USAGE
+    assert "symlink" in receipt["reason"]
+    assert outside.read_text() == "mine\n", "it wrote through the link"
+    code, receipt, *_ = run(f"{server.base}/x.txt", env={"ARK_PROBE_DIR": ""})
     assert code == fetch.USAGE
     assert "nowhere" in receipt["reason"]
+    assert server.asked == [], "robots was read for a fetch that could never write"
 
 
-def test_the_second_root_is_the_one_an_approved_download_uses(serve, probe, tmp_path):
+def test_the_content_type_decides_where_the_bytes_may_go(leg, tmp_path):
     corpus = tmp_path / "corpora" / "arquivo-ia-cdxj"
     corpus.mkdir(parents=True)
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/IA.cdxj": (200, {"Content-Type": "application/octet-stream"}, b"a line\n"),
-        }
+    risky, exe = (
+        page(b"a line\n", "application/octet-stream"),
+        page(b"MZ\n", "application/x-msdownload"),
     )
-    # Unnamed and zip types are the download backlog's whole population, so a leg may not
-    # put one on disk...
-    code, receipt, _ = run(f"{server.base}/IA.cdxj")
-    assert code == fetch.BAD_TYPE
-    assert "downloads.md" in receipt["reason"]
-    # ...but reading it in-stream is always allowed, and so is the approved destination.
-    code, _, _ = run(f"{server.base}/IA.cdxj", "--to", "-")
-    assert code == fetch.OK
-    code, receipt, _ = run(
-        f"{server.base}/IA.cdxj",
-        "--to",
-        str(corpus),
-        env={"ARK_FETCH_DEST_ROOT": str(corpus)},
-    )
+    server = leg.serve({"/IA.cdxj": risky, "/setup.exe": exe})
+    approved = {"ARK_FETCH_DEST_ROOT": str(corpus)}
+    # A risky type stays off the probe root, even with the approved root set elsewhere.
+    for env in (None, approved):
+        code, receipt, *_ = run(f"{server.base}/IA.cdxj", env=env)
+        assert code == fetch.BAD_TYPE, env
+        assert "downloads.md" in receipt["reason"]
+        assert receipt["path"].startswith(str(leg.probe))
+    # In-stream it may be read: the payload owns stdout and the receipt goes to stderr.
+    code, receipt, err, out = run(f"{server.base}/IA.cdxj", "--to", "-")
+    assert (code, out) == (fetch.OK, b"a line\n"), err
+    assert json.loads(err.splitlines()[-1])["bytes"] == receipt["bytes"] == len(out)
+    assert list(leg.probe.iterdir()) == [], "a streamed fetch writes no file"
+    code, receipt, *_ = run(f"{server.base}/IA.cdxj", "--to", str(corpus), env=approved)
     assert code == fetch.OK, receipt
     assert (corpus / "IA.cdxj").read_bytes() == b"a line\n"
-
-
-def test_an_executable_is_refused_whatever_the_destination(serve, probe, tmp_path):
-    corpus = tmp_path / "corpus"
-    corpus.mkdir()
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/setup.exe": (200, {"Content-Type": "application/x-msdownload"}, b"MZ\n"),
-        }
-    )
-    approved = {"ARK_FETCH_DEST_ROOT": str(corpus)}
+    # An executable is refused whatever the destination.
     for args, env in (([], None), (["--to", "-"], None), (["--to", str(corpus)], approved)):
-        code, receipt, _ = run(f"{server.base}/setup.exe", *args, env=env)
+        code, receipt, *_ = run(f"{server.base}/setup.exe", *args, env=env)
         assert code == fetch.BAD_TYPE, receipt
         assert "allowlist" in receipt["reason"]
 
 
-# ---------------------------------------------------------------- redirects
-
-
-def test_a_redirect_onto_a_refusing_host_is_refused_and_never_fetched(serve, probe):
-    """The `www.fac.gov` shape with the check skipped: urllib would follow this."""
-    refuser = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, BY_NAME_REFUSAL.encode()),
-            "/data.txt": (200, {"Content-Type": "text/plain"}, b"never read\n"),
-        }
-    )
-    landing = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/get": (302, {"Location": f"{refuser.base}/data.txt"}, b""),
-        }
-    )
-    code, receipt, _ = run(f"{landing.base}/get")
+def test_a_redirect_onto_a_refusing_host_is_refused_and_never_fetched(leg):
+    refuser = leg.serve({"/data.txt": page(b"never read\n")}, robots=BY_NAME_REFUSAL)
+    landing = leg.serve({"/get": hop(f"{refuser.base}/data.txt")})
+    code, receipt, *_ = run(f"{landing.base}/get")
     assert code == fetch.ROBOTS_REFUSED, receipt
     assert receipt["url"].endswith("/data.txt"), "the receipt must name the host that refused"
     assert refuser.asked == ["/robots.txt"], "the second host was fetched without a check"
-    assert list(probe.iterdir()) == []
+    assert list(leg.probe.iterdir()) == []
 
 
-def test_a_redirect_within_one_host_rechecks_the_new_path(serve, probe):
-    robots = "User-agent: *\nDisallow: /private\n"
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, robots.encode()),
-            "/public": (302, {"Location": "/private/x.txt"}, b""),
-            "/private/x.txt": (200, {"Content-Type": "text/plain"}, b"never read\n"),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/public")
+def test_a_redirect_within_one_host_rechecks_the_new_path(leg):
+    routes = {"/public": hop("/private/x.txt"), "/private/x.txt": page(b"never read\n")}
+    server = leg.serve(routes, robots="User-agent: *\nDisallow: /private\n")
+    code, receipt, *_ = run(f"{server.base}/public")
     assert code == fetch.ROBOTS_REFUSED, receipt
     assert "/private/x.txt" not in server.asked
-    # Robots was read once and reused for the second hop rather than fetched twice.
-    assert server.asked.count("/robots.txt") == 1
+    assert server.asked.count("/robots.txt") == 1, "robots is reused for the second hop"
 
 
-def test_an_allowed_redirect_is_followed_and_fetched(serve, probe):
-    body = b"a,b\n1,2\n"
-    final = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/real.csv": (200, {"Content-Type": "text/csv"}, body),
-        }
-    )
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/get": (301, {"Location": f"{final.base}/real.csv"}, b""),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/get")
-    assert code == fetch.OK, receipt
-    assert receipt["bytes"] == len(body)
-    assert receipt["url"].endswith("/real.csv")
-    # Named from the URL the caller asked for, not from the hop: where this writes is
-    # settled before the first request and a redirect must not move it.
-    assert (probe / "get").read_bytes() == body
-    assert not (probe / "real.csv").exists()
-
-
-def test_a_redirect_loop_stops_rather_than_spinning(serve, probe):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/a": (302, {"Location": "/b"}, b""),
-            "/b": (302, {"Location": "/a"}, b""),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/a")
+@pytest.mark.parametrize(
+    ("routes", "reason"),
+    [
+        ({"/a": hop("/b"), "/b": hop("/a")}, "redirects"),
+        ({"/a": hop("file:///x")}, "not http or https"),
+    ],
+    ids=["loop", "off-http"],
+)
+def test_a_redirect_that_leads_nowhere_fails(leg, routes, reason):
+    server = leg.serve(routes)
+    code, receipt, *_ = run(f"{server.base}/a")
     assert code == fetch.HTTP_FAILED
-    assert "redirects" in receipt["reason"]
+    assert reason in receipt["reason"]
     assert len([p for p in server.asked if p in ("/a", "/b")]) <= fetch.MAX_HOPS + 1
-
-
-def test_a_redirect_off_http_is_refused(serve, probe):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x": (302, {"Location": "file:///etc/passwd"}, b""),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/x")
-    assert code == fetch.HTTP_FAILED
-    assert "not http or https" in receipt["reason"]
-
-
-# ---------------------------------------------------------------- header casing
-
-
-def test_lower_case_headers_are_read_like_any_other(serve, probe):
-    # HTTP field names are case-insensitive. A `dict()` of them is not, which read a
-    # lower-case content-type as unnamed and skipped the first cap check entirely.
-    two_gb = 2 * 1024**3
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.gz": (200, {"content-type": "application/gzip"}, b"body\n"),
-            "/big.gz": (
-                200,
-                {"content-type": "application/gzip", "content-length": str(two_gb)},
-                b"",
-            ),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/x.gz")
-    assert code == fetch.OK, receipt
-    assert receipt["content_type"] == "application/gzip"
-
-    code, receipt, _ = run(f"{server.base}/big.gz", "--max-bytes", "1G")
-    assert code == fetch.OVER_CAP, receipt
-    assert receipt["bytes"] == two_gb
-
-
-def test_a_lower_case_retry_after_and_location_are_read(serve, probe):
-    state = {"asks": 0}
-
-    def flaky():
-        state["asks"] += 1
-        if state["asks"] == 1:
-            return 503, {"retry-after": "0", "content-type": "text/plain"}, b""
-        return 302, {"location": "/final.txt"}, b""
-
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.txt": flaky,
-            "/final.txt": (200, {"content-type": "text/plain"}, b"ok\n"),
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/x.txt")
-    assert code == fetch.OK, receipt
-    assert receipt["url"].endswith("/final.txt")
-
-
-# ---------------------------------------------------------------- a broken transfer
-
-
-def test_a_connection_that_dies_mid_body_exits_seven_and_leaves_nothing(serve, probe):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/half.txt": (
-                200,
-                {"Content-Type": "text/plain", "X-Ark-Truncate": "5000"},
-                b"the first part only\n",
-            ),
-        }
-    )
-    code, receipt, err = run(f"{server.base}/half.txt")
-    assert code == fetch.HTTP_FAILED, (receipt, err)
-    assert "Traceback" not in err
-    # It now tries to continue with Range first; this server answers 200 to one, which
-    # means "starting over", and appending that would duplicate what is already here.
-    assert "ignored the Range header" in receipt["reason"], receipt["reason"]
-    assert receipt["path"] is None
-    assert list(probe.iterdir()) == [], "a part-file was left behind"
-
-
-# ------------------------------------------------------- continuing a short transfer
-
-
-class _Body(io.BytesIO):
-    """A response body: bytes that can be read and closed like a stream."""
-
-
-def _opener(rounds):
-    """A fake server: each call returns the next (status, headers, body) in the list."""
-    calls = []
-
-    def opener(url, timeout, start=None, end=None):
-        calls.append((start, end))
-        status, headers, body = rounds[min(len(calls) - 1, len(rounds) - 1)]
-        return status, headers, _Body(body)
-
-    opener.calls = calls
-    return opener
-
-
-def test_a_wall_at_two_gibibytes_is_continued_with_range(tmp_path):
-    """The UKWA dataset ends every continuous stream at exactly 2 GiB and answers 206."""
-    path = tmp_path / "artifact.gz"
-    path.write_bytes(b"first-half")
-    digest = hashlib.sha256(b"first-half")
-    opener = _opener([(206, {}, b"second-half")])
-    total, why = fetch.resume(
-        "https://host/x.gz", str(path), 10, 21, digest, 1 << 40, 5.0, opener=opener
-    )
-    assert (total, why) == (21, None)
-    assert path.read_bytes() == b"first-halfsecond-half"
-    assert digest.hexdigest() == hashlib.sha256(b"first-halfsecond-half").hexdigest()
-    # Bounded, not open-ended: `bytes=N-` past 2 GiB is answered 206 and then delivers
-    # nothing, while `bytes=N-M` comes back with a correct Content-Range.
-    assert opener.calls == [(10, 20)], "it asks for a bounded span from where it stopped"
-
-
-def test_a_server_that_ignores_the_range_is_refused(tmp_path):
-    """200 to a Range means starting over, and appending that duplicates the artifact."""
-    path = tmp_path / "artifact.gz"
-    path.write_bytes(b"first-half")
-    total, why = fetch.resume(
-        "https://host/x.gz",
-        str(path),
-        10,
-        21,
-        hashlib.sha256(b"first-half"),
-        1 << 40,
-        5.0,
-        opener=_opener([(200, {}, b"first-halfsecond-half")]),
-    )
-    assert total == 10
-    assert "ignored the Range header" in why
-    assert path.read_bytes() == b"first-half", "nothing was appended"
-
-
-def test_a_resume_that_stops_making_progress_gives_up(tmp_path):
-    path = tmp_path / "artifact.gz"
-    path.write_bytes(b"first-half")
-    total, why = fetch.resume(
-        "https://host/x.gz",
-        str(path),
-        10,
-        21,
-        hashlib.sha256(b"first-half"),
-        1 << 40,
-        5.0,
-        opener=_opener([(206, {}, b"")]),
-    )
-    assert total == 10
-    assert "stopped making progress" in why
-
-
-def test_the_cap_still_binds_while_resuming(tmp_path):
-    """What is already on disk counts, so a resume cannot walk past the caller's ceiling."""
-    path = tmp_path / "artifact.gz"
-    path.write_bytes(b"first-half")
-    total, why = fetch.resume(
-        "https://host/x.gz",
-        str(path),
-        10,
-        21,
-        hashlib.sha256(b"first-half"),
-        15,
-        5.0,
-        opener=_opener([(206, {}, b"second-half")]),
-    )
-    assert "passed the 15 byte cap" in why
-    assert total >= 10
-
-
-def test_a_throttled_round_waits_and_carries_on(tmp_path):
-    path = tmp_path / "artifact.gz"
-    path.write_bytes(b"first-half")
-    slept = []
-    opener = _opener([(503, {"retry-after": "3"}, b""), (206, {}, b"second-half")])
-    total, why = fetch.resume(
-        "https://host/x.gz",
-        str(path),
-        10,
-        21,
-        hashlib.sha256(b"first-half"),
-        1 << 40,
-        5.0,
-        sleep=slept.append,
-        opener=opener,
-    )
-    assert (total, why) == (21, None)
-    assert slept == [3.0]
-
-
-def test_a_part_file_from_an_earlier_run_is_continued(serve, probe, monkeypatch):
-    """The runner kills the job at 90 minutes and a 20 GB artifact may need longer. Without
-    this each dispatch starts at zero and the fetch can never finish.
-    """
-    whole = b"the first part only\n" + b"x" * 80
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/half.txt": (
-                200,
-                {"Content-Type": "text/plain", "Content-Length": str(len(whole))},
-                whole[:20],
-            ),
-        }
-    )
-    part = probe / "half.txt"
-    part.write_bytes(whole[:20])
-
-    rounds = [(206, {}, whole[20:])]
-    calls = []
-    plain = fetch.get
-
-    def opener(url, timeout, start=None, end=None):
-        if start is None:
-            return plain(url, timeout)
-        calls.append((start, end))
-        status, headers, body = rounds[0]
-        return status, headers, io.BytesIO(body)
-
-    monkeypatch.setattr(fetch, "get", opener)
-    code, receipt = fetch.fetch(f"{server.base}/half.txt", 1 << 30, str(probe), 10.0)
-    assert code == fetch.OK, receipt
-    assert receipt["bytes"] == len(whole)
-    assert receipt["sha256"] == hashlib.sha256(whole).hexdigest()
-    assert part.read_bytes() == whole
-    assert calls == [(20, len(whole) - 1)]
-
-
-# ------------------------------------------------------- continuing a streamed read
-
-
-class DroppingServer:
-    """One payload that honours `bytes=S-E` and hangs up after `drop` bytes of a response.
-
-    `reset` makes the hang-up a TCP reset, which raises in the reader, rather than a clean
-    close, which reads as an early EOF. `drop_ranges` decides whether a 206 drops too.
-    """
-
-    def __init__(self, payload: bytes, drop: int, reset=False, drop_ranges=False, honour=True):
-        self.payload, self.asked = payload, []
-        outer = self
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def log_message(self, *_):
-                pass
-
-            def do_GET(self):
-                outer.asked.append((self.path, self.headers.get("Range")))
-                if self.path == "/robots.txt":
-                    self.send_response(404)
-                    self.send_header("Content-Length", "0")
-                    self.end_headers()
-                    return
-                span = (self.headers.get("Range") or "").removeprefix("bytes=")
-                if span and honour:
-                    first, _, last = span.partition("-")
-                    start, stop = int(first), int(last or len(payload) - 1)
-                    body = payload[start : stop + 1]
-                    self.send_response(206)
-                    self.send_header("Content-Range", f"bytes {start}-{stop}/{len(payload)}")
-                    cut = drop if drop_ranges else len(body)
-                else:
-                    body, cut = payload, drop
-                    self.send_response(200)
-                self.send_header("Content-Type", "text/plain")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body[:cut])
-                if cut < len(body):
-                    self.wfile.flush()
-                    if reset:
-                        # Time for the reader to take what arrived, then a linger of zero,
-                        # which makes the close a TCP reset.
-                        time.sleep(0.2)
-                        self.connection.setsockopt(
-                            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
-                        )
-                    self.close_connection = True
-                    self.connection.close()
-
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-
-    @property
-    def url(self) -> str:
-        host, port = self.httpd.server_address[:2]
-        return f"http://{host}:{port}/read.cdx"
-
-    def close(self):
-        self.httpd.shutdown()
-        self.httpd.server_close()
-
-
-def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
-    """fetch.py `--to -` as a read runs it: (exit code, stdout bytes, receipt)."""
-    result = subprocess.run(
-        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G"],
-        capture_output=True,
-        env={**os.environ},
-        cwd=ROOT,
-        timeout=60,
-    )
-    lines = [x for x in result.stderr.decode().splitlines() if x.startswith("{")]
-    return result.returncode, result.stdout, json.loads(lines[-1]) if lines else {}
-
-
-PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
-
-
-@pytest.mark.parametrize("reset", [False, True], ids=["early-eof", "reset"])
-def test_a_dropped_stream_resumes_in_process_and_hashes_the_whole_artifact(reset, probe):
-    server = DroppingServer(PAYLOAD, drop=600_000, reset=reset)
-    try:
-        code, out, receipt = stream_read(server)
-    finally:
-        server.close()
-    assert code == fetch.OK, receipt
-    assert out == PAYLOAD, "the pipe saw every byte once and in order"
-    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
-    assert receipt["bytes"] == len(PAYLOAD)
-    assert receipt["resumes"] == 1
-    if not reset:
-        assert server.asked[-1][1] == f"bytes=600000-{len(PAYLOAD) - 1}"
-    assert list(probe.iterdir()) == [], "a streamed read writes no file"
-
-
-def test_a_stream_that_drops_on_every_round_still_arrives_whole(probe):
-    server = DroppingServer(PAYLOAD, drop=300_000, reset=True, drop_ranges=True)
-    try:
-        code, out, receipt = stream_read(server)
-    finally:
-        server.close()
-    assert code == fetch.OK, receipt
-    assert out == PAYLOAD
-    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
-    assert receipt["resumes"] >= len(PAYLOAD) // 300_000
-
-
-def test_a_stream_whose_server_ignores_the_range_fails_after_the_first_part(probe):
-    server = DroppingServer(PAYLOAD, drop=600_000, honour=False)
-    try:
-        code, out, receipt = stream_read(server)
-    finally:
-        server.close()
-    assert code == fetch.HTTP_FAILED
-    assert "ignored the Range header" in receipt["reason"]
-    assert out == PAYLOAD[:600_000], "nothing was written twice"
-
-
-def test_a_range_that_starts_at_the_wrong_byte_is_refused():
-    out = io.BytesIO()
-    total, why = fetch.resume(
-        "https://host/x.cdx",
-        None,
-        10,
-        21,
-        hashlib.sha256(b"first-half"),
-        1 << 40,
-        5.0,
-        opener=_opener([(206, {"content-range": "bytes 0-20/21"}, b"first-halfsecond-half")]),
-        out=out,
-    )
-    assert total == 10
-    assert "from byte 0, not 10" in why
-    assert out.getvalue() == b""
-
-
-# ---------------------------------------------------------------- the two roots
-
-
-def test_a_symlink_as_the_target_itself_is_refused(serve, probe, tmp_path):
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.txt": (200, {"Content-Type": "text/plain"}, b"ok\n"),
-        }
-    )
-    elsewhere = tmp_path / "elsewhere.txt"
-    elsewhere.write_text("mine\n")
-    link = probe / "x.txt"
-    link.symlink_to(elsewhere)
-    code, receipt, _ = run(f"{server.base}/x.txt", "--to", str(link))
-    assert code == fetch.USAGE
-    assert "symlink" in receipt["reason"]
-    assert elsewhere.read_text() == "mine\n", "it wrote through the link"
-    assert server.asked == []
-
-
-def test_the_approved_root_admits_a_risky_type_only_for_a_file_going_into_it(
-    serve, probe, tmp_path
-):
-    # The nit: `approved` used to be true whenever the variable was set, so a probe write
-    # inherited a decision made about a different directory.
-    corpus = tmp_path / "corpora" / "one"
-    corpus.mkdir(parents=True)
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.bin": (200, {"Content-Type": "application/octet-stream"}, b"bytes\n"),
-        }
-    )
-    approved = {"ARK_FETCH_DEST_ROOT": str(corpus)}
-    code, receipt, _ = run(f"{server.base}/x.bin", env=approved)
-    assert code == fetch.BAD_TYPE, "the probe root took a risky type on someone else's decision"
-    assert receipt["path"].startswith(str(probe))
-    code, receipt, _ = run(f"{server.base}/x.bin", "--to", str(corpus), env=approved)
-    assert code == fetch.OK, receipt
-
-
-# ---------------------------------------------------------------- throttling
 
 
 def test_retry_after_is_honoured_in_seconds_and_as_a_date():
     assert fetch.retry_after_seconds({"Retry-After": "30"}) == 30.0
     header = {"retry-after": "Wed, 09 Sep 2026 12:00:30 GMT"}
-    later = fetch.retry_after_seconds(header, now=1789300800.0)
-    assert 0 <= later <= 120
+    assert 0 <= fetch.retry_after_seconds(header, now=1789300800.0) <= 120
     assert fetch.retry_after_seconds({}) is None
     assert fetch.retry_after_seconds({"Retry-After": "soon"}) is None
 
 
-def test_a_503_is_retried_once_the_server_says_it_may_be(serve, probe):
-    state = {"asks": 0}
+@CASES
+def test_a_503_is_retried_and_an_allowed_redirect_followed_to_the_asked_name(leg, case):
+    body, asks = b"a,b\n1,2\n", []
+    final = leg.serve({"/real.csv": (200, {case("content-type"): "text/csv"}, body)})
 
-    def flaky():
-        state["asks"] += 1
-        if state["asks"] == 1:
-            return 503, {"Retry-After": "0", "Content-Type": "text/plain"}, b""
-        return 200, {"Content-Type": "text/plain"}, b"ok\n"
+    def flaky(_handler):
+        asks.append(1)
+        if len(asks) == 1:
+            return 503, {case("retry-after"): "0"}, b""
+        return 301, {case("location"): f"{final.base}/real.csv"}, b""
 
-    server = serve(
-        {
-            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
-            "/x.txt": flaky,
-        }
-    )
-    code, receipt, _ = run(f"{server.base}/x.txt")
+    server = leg.serve({"/x.txt": flaky})
+    code, receipt, *_ = run(f"{server.base}/x.txt")
     assert code == fetch.OK, receipt
-    assert state["asks"] == 2
-
+    assert (receipt["url"].endswith("/real.csv"), receipt["bytes"], len(asks)) == (True, 8, 2)
+    # Named from the URL the caller asked for: a redirect must not move where it writes.
+    assert (leg.probe / "x.txt").read_bytes() == body
+    assert not (leg.probe / "real.csv").exists()
     # A wait longer than the leg has is a refusal for now, not a nap.
     slept = []
-    server.routes["/x.txt"] = (503, {"Retry-After": "9000", "Content-Type": "text/plain"}, b"")
+    server.routes["/x.txt"] = (503, {"Retry-After": "9000"}, b"")
     code, receipt = fetch.fetch(f"{server.base}/x.txt", 1024, None, 30.0, sleep=slept.append)
-    assert code == fetch.HTTP_FAILED
-    assert slept == []
+    assert (code, slept) == (fetch.HTTP_FAILED, [])
     assert "longer than we wait" in receipt["reason"]
 
 
-def test_a_404_on_the_artifact_is_an_http_failure_not_an_empty_success(serve, probe):
-    server = serve({"/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode())})
-    code, receipt, _ = run(f"{server.base}/gone.txt")
-    assert code == fetch.HTTP_FAILED
-    assert receipt["bytes"] == 0
-    assert receipt["sha256"] is None
-
-
-def test_only_http_and_https(probe):
-    code, _, err = run("file:///etc/passwd")
+def test_a_404_or_a_non_http_url_is_a_failure_not_an_empty_success(leg):
+    code, receipt, *_ = run(f"{leg.serve({}).base}/gone.txt")
+    assert (code, receipt["bytes"], receipt["sha256"]) == (fetch.HTTP_FAILED, 0, None)
+    code, _, err, _ = run("file:///etc/passwd")
     assert code == fetch.USAGE
     assert "http" in err
+
+
+RESUME = {
+    "2gib-wall": ([(206, {}, SECOND)], BIG, False, 21, None, 1),
+    "range-ignored": ([(200, {}, WHOLE)], BIG, False, 10, "ignored the Range header", 1),
+    "no-progress": ([(206, {}, b"")], BIG, False, 10, "stopped making progress", 2),
+    "cap-binds": ([(206, {}, SECOND)], 15, False, 21, "passed the 15 byte cap", 1),
+    "throttled": ([(503, {"retry-after": "3"}, b""), (206, {}, SECOND)], BIG, False, 21, None, 2),
+    "wrong-byte": ([(206, RANGE0, WHOLE)], BIG, True, 10, "from byte 0, not 10", 1),
+}
+
+
+@pytest.mark.parametrize(
+    ("rounds", "cap", "pipe", "total", "why", "asks"), list(RESUME.values()), ids=list(RESUME)
+)
+def test_resume_appends_only_the_next_bytes(tmp_path, rounds, cap, pipe, total, why, asks):
+    path, calls, slept = tmp_path / "artifact.gz", [], []
+    path.write_bytes(b"first-half")
+    digest, sink = hashlib.sha256(b"first-half"), io.BytesIO() if pipe else None
+
+    def opener(url, timeout, start=None, end=None):
+        calls.append((start, end))
+        status, headers, body = rounds[min(len(calls), len(rounds)) - 1]
+        return status, headers, io.BytesIO(body)
+
+    dest = None if pipe else str(path)
+    got, reason = fetch.resume("h", dest, 10, 21, digest, cap, 5.0, slept.append, opener, sink)
+    assert got == total
+    assert reason is None if why is None else why in reason, reason
+    # A bounded span from where it stopped: `bytes=N-` past 2 GiB is answered 206 and empty.
+    assert calls == [(10, 20)] * asks
+    assert slept == [3.0] * (rounds[0][0] == 503)
+    kept = b"" if pipe else b"first-half"
+    want = kept + SECOND if why is None else kept
+    assert (sink.getvalue() if pipe else path.read_bytes()) == want
+    if why is None:
+        assert digest.hexdigest() == hashlib.sha256(WHOLE).hexdigest()
+
+
+def test_a_part_file_from_an_earlier_run_is_continued(leg):
+    whole = b"the first part only\n" + b"x" * 80
+    server = leg.serve({"/half.txt": dropping(whole, len(whole))})
+    (leg.probe / "half.txt").write_bytes(whole[:20])
+    code, receipt = fetch.fetch(f"{server.base}/half.txt", 1 << 30, str(leg.probe), 10.0)
+    assert code == fetch.OK, receipt
+    assert receipt["bytes"] == len(whole)
+    assert receipt["sha256"] == hashlib.sha256(whole).hexdigest()
+    assert (leg.probe / "half.txt").read_bytes() == whole
+    assert [r for r in server.ranges if r] == [f"bytes=20-{len(whole) - 1}"]
+
+
+@pytest.mark.parametrize(
+    ("drop", "reset", "every_round"),
+    [(600_000, False, False), (600_000, True, False), (300_000, True, True)],
+    ids=["early-eof", "reset", "drops-every-round"],
+)
+def test_a_dropped_stream_resumes_and_hashes_the_whole_artifact(leg, drop, reset, every_round):
+    server = leg.serve({"/read.cdx": dropping(PAYLOAD, drop, reset, every_round)}, robots=None)
+    code, receipt, _, out = run(f"{server.base}/read.cdx", "--to", "-", "--max-bytes", "1G")
+    assert code == fetch.OK, receipt
+    assert out == PAYLOAD, "the pipe saw every byte once and in order"
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert receipt["bytes"] == len(PAYLOAD)
+    if every_round:
+        assert receipt["resumes"] >= len(PAYLOAD) // drop
+    else:
+        assert receipt["resumes"] == 1
+    if not reset:
+        assert server.ranges[-1] == f"bytes=600000-{len(PAYLOAD) - 1}"
+    assert list(leg.probe.iterdir()) == [], "a streamed read writes no file"
+
+
+@pytest.mark.parametrize("pipe", [False, True], ids=["file", "pipe"])
+def test_a_transfer_that_dies_where_the_range_is_ignored_fails_and_writes_nothing_twice(leg, pipe):
+    server = leg.serve({"/half.txt": dropping(PAYLOAD, 600_000, honour=False)})
+    code, receipt, err, out = run(f"{server.base}/half.txt", *(("--to", "-") if pipe else ()))
+    assert code == fetch.HTTP_FAILED, (receipt, err)
+    assert "Traceback" not in err
+    assert "ignored the Range header" in receipt["reason"], receipt["reason"]
+    assert list(leg.probe.iterdir()) == [], "a part-file was left behind"
+    if pipe:
+        assert out == PAYLOAD[:600_000], "nothing was written twice"
+    else:
+        assert receipt["path"] is None

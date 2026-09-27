@@ -1,170 +1,113 @@
-"""The verdict-mail parser writes the ledger row and never reads his score off the mail.
-
-The two fixtures are his template: round 6 without the candidate-pool line or a quoted score,
-round 7 with both. What is pinned is that S and t come out of `ark.figures` and match the two
-figures he has quoted, and that writing one row does not touch another.
-"""
+"""The verdict-mail parser writes one ledger row, and S and t come from `ark.figures`."""
 
 import importlib.util
+import re
 import sys
-from decimal import Decimal
+from decimal import Decimal as D
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-PAGE = ROOT / "docs/registers/rounds.md"
+_spec = importlib.util.spec_from_file_location(
+    "rounds_page", Path(__file__).resolve().parents[1] / "scripts/round/rounds.py"
+)
+rounds = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(rounds)
+
+COLUMNS = (
+    "round|sent records|sent EE|sent %|credited records|credited EE|awarded p_i|against|"
+    "released|received|days|t_i|S_i computed|S_i quoted|note"
+).split("|")
 
 
-def _load():
-    spec = importlib.util.spec_from_file_location("rounds_page", ROOT / "scripts/round/rounds.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _line(cells) -> str:
+    return "| " + " | ".join(cells) + " |"
 
 
-rounds = _load()
-
-
-def _cells(line: str) -> list[str]:
-    return [c.strip() for c in line.strip().strip("|").split("|")]
+PAGE = "\n".join(
+    ["# Rounds", "", "Prose above the table.", "", _line(COLUMNS), _line(["---"] * len(COLUMNS))]
+    + [_line([label] + ["old"] * (len(COLUMNS) - 1)) for label in ("1", "6", "7", "9")]
+    + ["", "Prose below it.", ""]
+)
+SIX, SEVEN = ((FIXTURES / f"verdict_round{n}.txt").read_text() for n in (6, 7))
+WANT_6 = {"total_records": D("25467416"), "total_ee": D("13607793.2733"), "growth": D("4.130718")}
+WANT_6 |= {"increment_records": D("1684903"), "increment_ee": D("562099.5294")}
+WANT_6 |= {"marker": "merged260826"}
+WANT_7 = {"increment_records": D("2538900"), "increment_ee": D("1456458.1029")}
+WANT_7 |= {"growth": D("7.562846"), "candidate_growth": D("0.225249")}
+WANT_7 |= {"quoted_score": D("6.302372"), "marker": "merged260902-2"}
+ROUND_7 = ["2,538,900", "1,456,458.1029", "7.562846", "merged260902-2 (not received)"]
+ROUND_7 += ["2026-08-21 11:19", "2026-09-02 05:50", "11.77", "12", "6.302372", "6.302372"]
 
 
 def _row(text: str, label: str) -> list[str]:
-    for line in text.splitlines():
-        if line.startswith("|") and _cells(line)[0] == label:
-            return _cells(line)
-    raise AssertionError(f"no row for round {label}")
-
-
-def _run(monkeypatch, page: Path, mail: Path, label: str, received: str, **extra) -> None:
-    argv = [
-        "rounds.py",
-        "--mail",
-        str(mail),
-        "--round",
-        label,
-        "--received",
-        received,
-        "--page",
-        str(page),
-    ]
-    for flag, value in extra.items():
-        argv += [f"--{flag.replace('_', '-')}", str(value)]
-    monkeypatch.setattr(sys, "argv", argv)
-    rounds.main()
+    return next(rounds.cells_of(ln) for ln in text.splitlines() if ln.startswith(f"| {label} |"))
 
 
 @pytest.fixture
-def page(tmp_path) -> Path:
-    copy = tmp_path / "rounds.md"
-    copy.write_text(PAGE.read_text(encoding="utf-8"), encoding="utf-8")
-    return copy
+def run(tmp_path, monkeypatch):
+    """Run `rounds.py` on a copy of the page, with no feedback tree unless one is given."""
+    page = tmp_path / "rounds.md"
+    page.write_text(PAGE, encoding="utf-8")
+
+    def go(label: str, received: str, mail: str = "", **extra) -> str:
+        mail = str(FIXTURES / (mail or f"verdict_round{label}.txt"))
+        argv = ["rounds.py", "--mail", mail, "--round", label, "--received", received]
+        extra = {"page": page, "feedback": tmp_path / "feedback", **extra}
+        for flag, value in extra.items():
+            argv += [f"--{flag.replace('_', '-')}", str(value)]
+        monkeypatch.setattr(sys, "argv", argv)
+        rounds.main()
+        return page.read_text(encoding="utf-8")
+
+    return go
 
 
-def test_the_fixtures_parse_to_his_five_figures() -> None:
-    six = rounds.parse_mail((FIXTURES / "verdict_round6.txt").read_text())
-    assert six["total_records"] == Decimal("25467416")
-    assert six["total_ee"] == Decimal("13607793.2733")
-    assert six["increment_records"] == Decimal("1684903")
-    assert six["increment_ee"] == Decimal("562099.5294")
-    assert six["growth"] == Decimal("4.130718")
-    assert six["marker"] == "merged260826"
-    assert "quoted_score" not in six and "candidate_growth" not in six
-
-    seven = rounds.parse_mail((FIXTURES / "verdict_round7.txt").read_text())
-    assert seven["increment_records"] == Decimal("2538900")
-    assert seven["increment_ee"] == Decimal("1456458.1029")
-    assert seven["growth"] == Decimal("7.562846")
-    assert seven["candidate_growth"] == Decimal("0.225249")
-    assert seven["quoted_score"] == Decimal("6.302372")
-    assert seven["marker"] == "merged260902-2"
+@pytest.mark.parametrize(
+    ("mail", "want", "absent"),
+    [
+        (SIX, WANT_6, ("quoted_score", "candidate_growth")),
+        (re.sub(r"^\d\. | domain-year records", "", SIX, flags=re.M), WANT_6, ()),
+        (SEVEN, WANT_7, ()),
+    ],
+    ids=["round-6-no-pool-line-no-score", "unnumbered-no-record-suffix", "round-7-pool-and-score"],
+)
+def test_the_mail_parses_to_his_figures(mail, want, absent) -> None:
+    parsed = rounds.parse_mail(mail)
+    assert {key: parsed[key] for key in want} == want
+    assert not set(absent) & set(parsed)
 
 
-def test_numbering_and_the_record_suffix_are_optional() -> None:
-    parsed = rounds.parse_mail(
-        "Original domain-year total: 25,467,416\n"
-        "Equivalent-English total: 13,607,793.2733\n"
-        "Increment: 1,684,903\n"
-        "Equivalent-English increment: 562,099.5294\n"
-        "Equivalent-English growth rate: 4.130718%\n"
-    )
-    assert parsed["increment_records"] == Decimal("1684903")
-    assert parsed["growth"] == Decimal("4.130718")
-
-
-def test_round_7_reproduces_his_6_302372(monkeypatch, page, capsys) -> None:
-    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", "7", "2026-09-02 05:50")
-    row = _row(page.read_text(), "7")
-    assert row[4:7] == ["2,538,900", "1,456,458.1029", "7.562846"]
-    assert row[8:14] == [
-        "2026-08-21 11:19",
-        "2026-09-02 05:50",
-        "11.77",
-        "12",
-        "6.302372",
-        "6.302372",
-    ]
-    assert "WARNING" not in capsys.readouterr().out
-
-
-def test_round_6_gives_6_884530(monkeypatch, page) -> None:
-    _run(monkeypatch, page, FIXTURES / "verdict_round6.txt", "6", "2026-08-26 15:51")
-    row = _row(page.read_text(), "6")
-    assert row[10:14] == ["5.19", "6", "6.884530", "not quoted"]
-
-
-def test_a_quoted_score_that_disagrees_is_a_warning_not_a_cell(monkeypatch, page, capsys) -> None:
-    """His clock is the record of what he scored; ours is the record of the rule."""
-    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", "7", "2026-09-03 05:50")
+@pytest.mark.parametrize(
+    ("label", "received", "at", "cells", "warned"),
+    [
+        ("7", "2026-09-02 05:50", 4, ROUND_7, ()),
+        ("6", "2026-08-26 15:51", 10, ["5.19", "6", "6.884530", "not quoted"], ()),
+        ("7", "2026-09-03 05:50", 12, ["5.817574"], ("WARNING", "6.302372", "5.817574")),
+    ],
+    ids=["round-7-gives-his-6.302372", "round-6-gives-6.884530", "disagreeing-score-warns"],
+)
+def test_one_row_is_written_and_every_other_line_is_left(
+    run, capsys, label, received, at, cells, warned
+) -> None:
+    after = run(label, received)
+    assert _row(after, label)[at : at + len(cells)] == cells
     out = capsys.readouterr().out
-    assert "WARNING" in out and "6.302372" in out and "5.817574" in out
-    assert _row(page.read_text(), "7")[12] == "5.817574"
+    assert all(text in out for text in warned) and ("WARNING" in out) == bool(warned)
+    changed = [a for a, b in zip(PAGE.split("\n"), after.split("\n"), strict=True) if a != b]
+    assert [rounds.cells_of(line)[0] for line in changed] == [label]
 
 
-def test_a_marker_with_no_directory_is_not_received(monkeypatch, page, tmp_path) -> None:
-    feedback = tmp_path / "feedback"
-    feedback.mkdir()
-    _run(
-        monkeypatch,
-        page,
-        FIXTURES / "verdict_round6.txt",
-        "6",
-        "2026-08-26 15:51",
-        feedback=feedback,
-    )
-    assert _row(page.read_text(), "6")[7] == "merged260826 (not received)"
-
-    (feedback / "phase-6" / "merged260826").mkdir(parents=True)
-    _run(
-        monkeypatch,
-        page,
-        FIXTURES / "verdict_round6.txt",
-        "6",
-        "2026-08-26 15:51",
-        feedback=feedback,
-    )
-    assert _row(page.read_text(), "6")[7] == "merged260826"
+def test_a_marker_with_no_directory_is_not_received(run, tmp_path) -> None:
+    assert _row(run("6", "2026-08-26 15:51"), "6")[7] == "merged260826 (not received)"
+    (tmp_path / "feedback" / "phase-6" / "merged260826").mkdir(parents=True)
+    assert _row(run("6", "2026-08-26 15:51"), "6")[7] == "merged260826"
 
 
-def test_updating_one_row_leaves_the_others_byte_identical(monkeypatch, page) -> None:
-    before = page.read_text().splitlines()
-    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", "7", "2026-09-02 05:50")
-    after = page.read_text().splitlines()
-    assert len(before) == len(after)
-    changed = [i for i, (a, b) in enumerate(zip(before, after, strict=True)) if a != b]
-    assert [_cells(after[i])[0] for i in changed] == ["7"]
-
-
-def test_a_round_the_page_lacks_is_inserted_in_order(monkeypatch, page) -> None:
-    # The round to insert is DERIVED, not "8". The page is the live ledger, so a hardcoded
-    # label tests nothing the moment that round is recorded, which is what happened when
-    # round 8 landed: the assertion started reading a filled row as if it were a new one.
-    present = {_cells(line)[0] for line in page.read_text().splitlines() if line.startswith("| ")}
-    nxt = str(max(int(x) for x in present if x.isdigit()) + 1)
-    _run(monkeypatch, page, FIXTURES / "verdict_round7.txt", nxt, "2026-09-03 05:50", note="new")
-    labels = [_cells(line)[0] for line in page.read_text().splitlines() if line.startswith("| ")]
-    assert labels[-1] == nxt
-    row = _row(page.read_text(), nxt)
+def test_a_round_the_page_lacks_is_inserted_in_order(run) -> None:
+    after = run("8", "2026-09-03 05:50", mail="verdict_round7.txt", note="new")
+    labels = [rounds.cells_of(ln)[0] for ln in after.splitlines() if ln.startswith("| ")]
+    assert labels == ["round", "---", "1", "6", "7", "8", "9"]
+    row = _row(after, "8")
     assert row[1] == "pending" and row[14] == "new"

@@ -1,12 +1,18 @@
 """Bulk source parsers: field handling, filters, per-file stats, registration."""
 
 import gzip
+import importlib.util
 import json
 from collections import Counter
+from email.header import Header
 from pathlib import Path
 
+import pytest
+
+from ark.canonical import to_registrable
 from ark.sources import (
     SOURCES,
+    _parse_usenet_whois_journal,
     attested_years,
     parse_afnic_fr,
     parse_arquivo_cdxj,
@@ -16,16 +22,112 @@ from ark.sources import (
     parse_early_web_cdx,
     parse_expansion_directory,
     parse_expansion_links,
+    parse_iedr_register,
     parse_internet_scout,
     parse_isc_survey,
+    parse_ncsa_whats_new,
     parse_odp,
     parse_rdap_snapshot,
+    parse_registry_items,
     parse_ripe_dbase_1999,
     parse_ripe_dbase_changed,
     parse_ripe_dbase_split_2004,
+    parse_ukwa_geoindex,
     parse_ukwa_link_source,
     parse_ukwa_link_target,
 )
+from ark.usenet import (
+    bare_domains_in_body,
+    body_of,
+    domains_in_message,
+    is_moderated_announce,
+    message_year,
+    parse_usenet,
+)
+
+
+def _script(name: str, rel: str):
+    path = Path(__file__).resolve().parent.parent / "scripts" / rel
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+whois = _script("collect_usenet_whois", "sources/usenet/collect_usenet_whois.py")
+texts = _script("probe_texts_corpus", "pricing/probe_texts_corpus.py")
+_zone = SOURCES["internic_zone"].parse
+
+
+def _parse(parser, tmp_path: Path, name: str, text: str):
+    """Write `text` to `name`, gzipped when it ends `.gz`, and return the records and stats."""
+    path = tmp_path / name
+    if name.endswith(".gz"):
+        path.write_bytes(gzip.compress(text.encode("utf-8")))
+    else:
+        path.write_text(text, encoding="utf-8")
+    stats: Counter = Counter()
+    return list(parser(path, stats)), stats
+
+
+def _lines(rows: list[str]) -> str:
+    return "\n".join(rows) + "\n"
+
+
+def _jsonl(rows: list[dict]) -> str:
+    return "".join(json.dumps(r) + "\n" for r in rows)
+
+
+REGISTERED = {
+    "early_web": ("cdx_timestamp", False),
+    "isc_survey": ("artifact_listing", False),
+    "arquivo_roteiro": ("cdx_timestamp", False),
+    "arquivo_ia": ("cdx_timestamp", False),
+    "afnic_fr": ("whois_creation", False),
+    "odp": ("artifact_listing", False),
+    "internet_scout": ("dated_directory", False),
+    "ukwa_link_source": ("link_source", False),
+    # its rows keep no host, so they cannot identify the name they would date
+    "ukwa_link_target": ("link_target", True),
+    "ukwa_link_target_bare": ("artifact_listing", False),
+    "rdap_snapshot": ("whois_creation", False),
+    "cdx_snapshot": ("cdx_timestamp", False),
+    "expansion_directory": ("dated_directory", False),
+    "expansion_links": ("link_target", True),
+    "usenet_dated": ("dated_directory", False),
+    "usenet_candidates": ("link_target", True),
+    "usenet_whois_dated": ("whois_creation", False),
+    "usenet_whois_candidates": ("link_target", True),
+    "domain_creation_bulk": ("whois_creation", False),
+    "internic_zone": ("artifact_listing", False),
+    "dk_hostmaster_dk_zonen_domains_txt_wayback_2001": ("artifact_listing", False),
+    "ukwa_geoindex": ("cdx_timestamp", False),
+}
+
+
+@pytest.mark.parametrize(("key", "registered"), list(REGISTERED.items()), ids=list(REGISTERED))
+def test_each_source_is_registered_at_its_evidence_class(key, registered) -> None:
+    """A source's class and candidate flag decide whether its rows can date a year."""
+    assert (SOURCES[key].evidence_type, SOURCES[key].is_candidate_only) == registered
+
+
+def test_each_source_files_under_its_own_name_and_method() -> None:
+    """A parser shared between specs still files each under its own source name."""
+    assert SOURCES["arquivo_ia"].parse is SOURCES["arquivo_roteiro"].parse is parse_arquivo_cdxj
+    assert SOURCES["arquivo_ia"].source_name == "arquivo_ia"
+    dated, candidates = SOURCES["usenet_whois_dated"], SOURCES["usenet_whois_candidates"]
+    assert dated.parse is candidates.parse is _parse_usenet_whois_journal
+    assert dated.source_name != candidates.source_name
+    dk = SOURCES["dk_hostmaster_dk_zonen_domains_txt_wayback_2001"]
+    assert dk.parse is parse_registry_items
+    assert SOURCES["rdap_snapshot"].source_name == "rdap_snapshot"
+    assert SOURCES["rdap_snapshot"].acquisition_method == "rdap_journal_file"
+    assert SOURCES["cdx_snapshot"].source_name == "ia_cdx_bulk"
+    assert SOURCES["cdx_snapshot"].acquisition_method == "ia_cdx_collapsed_query"
+    assert SOURCES["domain_creation_bulk"].source_name == "domain_creation_bulk"
+    assert SOURCES["ukwa_geoindex"].acquisition_method == "bl_geoindex_extract"
+
 
 CDX_LINES = [
     " CDX N b a m s c k r V v D d g M n",
@@ -38,17 +140,9 @@ CDX_LINES = [
 ]
 
 
-def _write_gzip_fixture(path: Path) -> None:
-    path.write_bytes(gzip.compress(("\n".join(CDX_LINES) + "\n").encode("utf-8")))
-
-
-def test_parser_filters_and_yields(tmp_path: Path) -> None:
-    fixture = tmp_path / "sample.cdx.gz"
-    _write_gzip_fixture(fixture)
-    stats: Counter = Counter()
-
-    records = list(parse_early_web_cdx(fixture, stats))
-
+@pytest.mark.parametrize("name", ["sample.cdx.gz", "sample.cdx"], ids=["gzip", "plain"])
+def test_early_web_filters_and_yields(tmp_path: Path, name: str) -> None:
+    records, stats = _parse(parse_early_web_cdx, tmp_path, name, _lines(CDX_LINES))
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("http://www.vetcontrol.at:80/", 1998, "19981212033831"),
         ("http://example.com:80/", 1997, "19970601120000"),
@@ -56,67 +150,22 @@ def test_parser_filters_and_yields(tmp_path: Path) -> None:
     assert records[0].evidence_url == (
         "https://web.archive.org/web/19981212033831/http://www.vetcontrol.at:80/"
     )
-    assert stats["lines"] == 7
-    assert stats["header_lines"] == 1
-    assert stats["non_200"] == 1
+    assert (stats["lines"], stats["header_lines"], stats["non_200"]) == (7, 1, 1)
     assert stats["out_of_window"] == 1
     # both the short line and the 4-digit timestamp line are malformed
     assert stats["malformed"] == 2
 
 
-def test_parser_reads_plain_text_too(tmp_path: Path) -> None:
-    fixture = tmp_path / "sample.cdx"
-    fixture.write_text(CDX_LINES[1] + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_early_web_cdx(fixture, stats))
-
-    assert len(records) == 1
-    assert records[0].year == 1998
-
-
-def test_early_web_is_registered_as_master_cdx_source() -> None:
-    spec = SOURCES["early_web"]
-    assert spec.evidence_type == "cdx_timestamp"
-    assert spec.is_candidate_only is False
-
-
-ISC_LINES = ["banc-agricol.ad", "1.2.3.4 test.eowyn.fr.eu.org", "", "ad"]
-
-
 def test_isc_reads_domains_and_host_lists(tmp_path: Path) -> None:
-    fixture = tmp_path / "wb_nw_9607.domains.gz"
-    fixture.write_bytes(gzip.compress(("\n".join(ISC_LINES) + "\n").encode("utf-8")))
-    stats: Counter = Counter()
-
-    records = list(parse_isc_survey(fixture, stats))
-
-    # survey date 9607 -> 1996; the last whitespace token is the host
+    rows = ["banc-agricol.ad", "1.2.3.4 test.eowyn.fr.eu.org", "", "ad"]
+    records, stats = _parse(parse_isc_survey, tmp_path, "wb_nw_9607.domains.gz", _lines(rows))
+    # survey date 9607 is 1996; the last whitespace token is the host
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("banc-agricol.ad", 1996, "1996-07"),
         ("test.eowyn.fr.eu.org", 1996, "1996-07"),
         ("ad", 1996, "1996-07"),
     ]
     assert stats["lines"] == 4
-
-
-def test_isc_skips_pre_window_survey_file(tmp_path: Path) -> None:
-    # the Jul 1995 survey is before the window and must be skipped whole
-    fixture = tmp_path / "wb_nw_9507.domains.gz"
-    fixture.write_bytes(gzip.compress(b"foo.com\n"))
-    stats: Counter = Counter()
-
-    records = list(parse_isc_survey(fixture, stats))
-
-    assert records == []
-    assert stats["out_of_window_file"] == 1
-    assert stats["lines"] == 0
-
-
-def test_isc_is_registered_as_artifact_master() -> None:
-    spec = SOURCES["isc_survey"]
-    assert spec.evidence_type == "artifact_listing"
-    assert spec.is_candidate_only is False
 
 
 CDXJ_LINES = [
@@ -129,14 +178,8 @@ CDXJ_LINES = [
 
 
 def test_arquivo_cdxj_filters_and_yields(tmp_path: Path) -> None:
-    fixture = tmp_path / "Roteiro.cdxj"
-    fixture.write_text("\n".join(CDXJ_LINES) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_arquivo_cdxj(fixture, stats))
-
-    # the raw url comes from the JSON; the parser does not canonicalize, so the
-    # bare-IP capture is still yielded (the loader's canonicalizer drops it)
+    records, stats = _parse(parse_arquivo_cdxj, tmp_path, "Roteiro.cdxj", _lines(CDXJ_LINES))
+    # the parser does not canonicalize, so the bare-IP capture is yielded for the loader to drop
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("http://www.example.com:80/", 1996, "19961013223438"),
         ("http://204.96.208.1:80/", 1996, "19961013223438"),
@@ -144,66 +187,35 @@ def test_arquivo_cdxj_filters_and_yields(tmp_path: Path) -> None:
     assert records[0].evidence_url == (
         "https://arquivo.pt/wayback/19961013223438/http://www.example.com:80/"
     )
-    assert stats["non_200"] == 1
-    assert stats["out_of_window"] == 1
-    assert stats["malformed"] == 1
+    assert (stats["non_200"], stats["out_of_window"], stats["malformed"]) == (1, 1, 1)
     assert stats["lines"] == 5
 
 
-def test_arquivo_is_registered_as_cdx_master() -> None:
-    spec = SOURCES["arquivo_roteiro"]
-    assert spec.evidence_type == "cdx_timestamp"
-    assert spec.is_candidate_only is False
-
-
-def test_arquivo_ia_shares_the_roteiro_parser_under_its_own_source_name() -> None:
-    spec = SOURCES["arquivo_ia"]
-    assert spec.source_name == "arquivo_ia"
-    assert spec.evidence_type == "cdx_timestamp"
-    assert spec.is_candidate_only is False
-    # same tested CDXJ parser, so no new parsing logic to trust
-    assert spec.parse is SOURCES["arquivo_roteiro"].parse
-
-
-# name;PaysBE;DeptBE;VilleBE;NomBE;Sousdomaine;Type;PaysTit;DeptTit;IDN;Creation;Retrait
-AFNIC_HEADER = (
-    '"Nom de domaine";"Pays BE";"Departement BE";"Ville BE";"Nom BE";'
-    '"Sous domaine";"Type du titulaire";"Pays titulaire";"Departement titulaire";'
-    '"Domaine IDN";"Date de création";"Date de retrait du WHOIS"'
-)
 AFNIC_ROWS = [
-    "keep.fr;FR;75;PARIS;REG;fr;;;;0;15-03-1998;",  # created 1998, still active -> 1998-2001
-    "wd.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1997;10-06-1999",  # withdrawn 1999 -> 1997-1999
-    "old.fr;FR;75;PARIS;REG;fr;;;;0;20-05-1994;",  # created pre-window, active -> 1996-2001
-    "future.fr;FR;75;PARIS;REG;fr;;;;0;10-10-2012;",  # created after window -> nothing
-    "predrop.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1993;15-02-1995",  # withdrawn pre-window -> nothing
-    "nodate.fr;FR;75;PARIS;REG;fr;;;;0;;",  # no creation date -> skipped
+    '"Nom de domaine";"Pays BE";"Departement BE";"Ville BE";"Nom BE";"Sous domaine";'
+    '"Type du titulaire";"Pays titulaire";"Departement titulaire";"Domaine IDN";'
+    '"Date de création";"Date de retrait du WHOIS"',
+    "keep.fr;FR;75;PARIS;REG;fr;;;;0;15-03-1998;",  # created 1998, still active
+    "wd.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1997;10-06-1999",  # withdrawn 1999
+    "old.fr;FR;75;PARIS;REG;fr;;;;0;20-05-1994;",  # created pre-window, active
+    "future.fr;FR;75;PARIS;REG;fr;;;;0;10-10-2012;",  # created after window
+    "predrop.fr;FR;75;PARIS;REG;fr;;;;0;01-01-1993;15-02-1995",  # withdrawn pre-window
+    "nodate.fr;FR;75;PARIS;REG;fr;;;;0;;",  # no creation date
 ]
 
 
 def test_afnic_emits_every_in_window_registered_year(tmp_path: Path) -> None:
-    fixture = tmp_path / "afnic.csv"
-    fixture.write_text("\n".join([AFNIC_HEADER, *AFNIC_ROWS]) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-    records = list(parse_afnic_fr(fixture, stats))
-
-    pairs = {(r.raw, r.year) for r in records}
-    assert pairs == (
-        {("keep.fr", y) for y in (1998, 1999, 2000, 2001)}  # created 1998, still active
-        | {("wd.fr", y) for y in (1997, 1998, 1999)}  # withdrawn mid-1999
-        | {("old.fr", y) for y in range(1996, 2002)}  # created pre-window, active
+    records, stats = _parse(parse_afnic_fr, tmp_path, "afnic.csv", _lines(AFNIC_ROWS))
+    assert {(r.raw, r.year) for r in records} == (
+        {("keep.fr", y) for y in (1998, 1999, 2000, 2001)}
+        | {("wd.fr", y) for y in (1997, 1998, 1999)}
+        | {("old.fr", y) for y in range(1996, 2002)}
     )
     # every record carries its auditable registration interval, no year outside window
     assert all(r.evidence_value.startswith("registered ") for r in records)
     assert all(1996 <= r.year <= 2001 for r in records)
     assert stats["no_creation_date"] == 1  # nodate.fr
-    assert stats["out_of_window"] == 2  # future.fr + predrop.fr
-
-
-def test_afnic_is_registered_as_whois_creation_master() -> None:
-    spec = SOURCES["afnic_fr"]
-    assert spec.evidence_type == "whois_creation"
-    assert spec.is_candidate_only is False
+    assert stats["out_of_window"] == 2  # future.fr and predrop.fr
 
 
 ODP_RDF = [
@@ -223,25 +235,14 @@ ODP_RDF = [
 
 
 def test_odp_extracts_dated_external_sites_only(tmp_path: Path) -> None:
-    fixture = tmp_path / "c2000.rdf"  # plain (no .gz) -> read as text
-    fixture.write_text("\n".join(ODP_RDF) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-    records = list(parse_odp(fixture, stats))
-
+    records, _ = _parse(parse_odp, tmp_path, "c2000.rdf", _lines(ODP_RDF))
     # the generation stamp fixes the year; the internal topic ref is excluded
     assert {(r.raw, r.year) for r in records} == {
         ("http://www.example.com/", 2000),
         ("http://sub.example.org:80/path", 2000),
         ("https://www.another.net/home", 2000),
     }
-    # every row is stamped with the dump date for provenance
     assert {r.evidence_value for r in records} == {"odp 2000-08-07"}
-
-
-def test_odp_is_registered_as_artifact_listing_master() -> None:
-    spec = SOURCES["odp"]
-    assert spec.evidence_type == "artifact_listing"
-    assert spec.is_candidate_only is False
 
 
 def _scout_record(oai_id: str, year: str, urls: list[str], extra: str = "") -> str:
@@ -255,39 +256,24 @@ def _scout_record(oai_id: str, year: str, urls: list[str], extra: str = "") -> s
 
 
 def test_internet_scout_extracts_in_window_reviewed_sites(tmp_path: Path) -> None:
-    fixture = tmp_path / "scout_oai.xml"
-    fixture.write_text(
+    xml = (
         "<OAI-PMH><ListRecords>"
         + _scout_record("oai:scout:1", "1998", ["http://www.example.com/"])
-        + _scout_record("oai:scout:2", "1989", ["http://old.example.org/"])  # out of window
+        + _scout_record("oai:scout:2", "1989", ["http://old.example.org/"])
         + _scout_record("oai:scout:3", "2000", ["http://a.net/", "https://b.org/x"])
-        + _scout_record(
-            "oai:scout:4", "1997", [], extra="<dc:identifier>internal-id-999</dc:identifier>"
-        )
-        + "</ListRecords></OAI-PMH>",
-        encoding="utf-8",
+        + _scout_record("oai:scout:4", "1997", [], extra="<dc:identifier>id-999</dc:identifier>")
+        + "</ListRecords></OAI-PMH>"
     )
-    stats: Counter = Counter()
-    records = list(parse_internet_scout(fixture, stats))
-
+    records, stats = _parse(parse_internet_scout, tmp_path, "scout_oai.xml", xml)
     assert {(r.raw, r.year) for r in records} == {
         ("http://www.example.com/", 1998),
         ("http://a.net/", 2000),
         ("https://b.org/x", 2000),
     }
     # the OAI record id is the auditable evidence reference
-    assert (
-        next(r.evidence_value for r in records if r.raw == "http://www.example.com/")
-        == "oai:scout:1"
-    )
+    assert {r.raw: r.evidence_value for r in records}["http://www.example.com/"] == "oai:scout:1"
     assert stats["out_of_window"] == 1  # the 1989 record
     assert stats["no_url"] == 1  # record 4 has only a non-URL identifier
-
-
-def test_internet_scout_is_registered_as_dated_directory_master() -> None:
-    spec = SOURCES["internet_scout"]
-    assert spec.evidence_type == "dated_directory"
-    assert spec.is_candidate_only is False
 
 
 UKWA_LINES = [
@@ -300,44 +286,22 @@ UKWA_LINES = [
 
 
 def test_ukwa_link_source_takes_source_host_in_window(tmp_path: Path) -> None:
-    fixture = tmp_path / "host-linkage.tsv.gz"
-    fixture.write_bytes(gzip.compress(("\n".join(UKWA_LINES) + "\n").encode("utf-8")))
-    stats: Counter = Counter()
-
-    records = list(parse_ukwa_link_source(fixture, stats))
-
-    # only the source host, only in-window years; the 1995 row is dropped
+    records, stats = _parse(parse_ukwa_link_source, tmp_path, "hl.tsv.gz", _lines(UKWA_LINES))
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("acorn.educ.nottingham.ac.uk", 1996, "host_link_graph:1996"),
         ("albert.hep.ph.ic.ac.uk", 1998, "host_link_graph:1998"),
         ("foo.co.uk", 2001, "host_link_graph:2001"),
     ]
-    assert stats["out_of_window"] == 1
-    assert stats["malformed"] == 1
+    assert (stats["out_of_window"], stats["malformed"]) == (1, 1)
 
 
 def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
-    """The file is 15 internally sorted shards, so an out-of-window year is not the end. A
-    `break` at the first row past 2001 read 166,890 of the 2,468,674 in-window rows, 6.76%.
-    The fixture is that shape in miniature.
-    """
-    rows = [
-        # shard one, sorted, running out of the window
-        "2000|a.co.uk|x.com\t1",
-        "2001|b.co.uk|y.com\t1",
-        "2002|c.co.uk|z.com\t1",
-        "2010|d.co.uk|w.com\t1",
-        # shard two starts over, and everything here used to be silently lost
-        "1996|e.co.uk|v.com\t1",
-        "2001|f.co.uk|u.com\t1",
-        "2004|g.co.uk|t.com\t1",
-    ]
-    fixture = tmp_path / "host-linkage.tsv.gz"
-    fixture.write_bytes(gzip.compress(("\n".join(rows) + "\n").encode("utf-8")))
-    stats: Counter = Counter()
-
-    records = list(parse_ukwa_link_source(fixture, stats))
-
+    """The file is internally sorted shards, so an out-of-window year is not the end."""
+    rows = ["2000|a.co.uk|x.com\t1", "2001|b.co.uk|y.com\t1", "2002|c.co.uk|z.com\t1"]
+    rows += ["2010|d.co.uk|w.com\t1"]
+    # the second shard starts over
+    rows += ["1996|e.co.uk|v.com\t1", "2001|f.co.uk|u.com\t1", "2004|g.co.uk|t.com\t1"]
+    records, stats = _parse(parse_ukwa_link_source, tmp_path, "hl.tsv.gz", _lines(rows))
     assert [(r.raw, r.year) for r in records] == [
         ("a.co.uk", 2000),
         ("b.co.uk", 2001),
@@ -350,725 +314,359 @@ def test_ukwa_reads_every_shard_and_not_just_the_first(tmp_path: Path) -> None:
 def test_ukwa_tolerates_truncated_gzip(tmp_path: Path) -> None:
     rows = "\n".join(f"199{y}|host{y}.co.uk|t.com\t1" for y in range(6, 10)) + "\n"
     blob = gzip.compress(rows.encode("utf-8"))
-    # lop off the gzip tail so decompression raises partway through
     fixture = tmp_path / "host-linkage.tsv.gz"
     fixture.write_bytes(blob[: len(blob) - 20])
     stats: Counter = Counter()
-
     # must not raise; yields the intact prefix and records the truncation
-    records = list(parse_ukwa_link_source(fixture, stats))
-
-    assert len(records) >= 1
+    assert len(list(parse_ukwa_link_source(fixture, stats))) >= 1
     assert stats["truncated_tail"] == 1
 
 
-def test_ukwa_link_source_is_master() -> None:
-    spec = SOURCES["ukwa_link_source"]
-    assert spec.evidence_type == "link_source"
-    assert spec.is_candidate_only is False
+def test_ukwa_source_and_target_read_different_columns(tmp_path: Path) -> None:
+    rows = ["1998|source-a.co.uk|target-a.com\t3", "1999|source-b.co.uk|target-b.de\t1"]
+    text = _lines([*rows, "2003|late.co.uk|late-target.com\t9"])
+    sources, src_stats = _parse(parse_ukwa_link_source, tmp_path, "hl.tsv", text)
+    targets, tgt_stats = _parse(parse_ukwa_link_target, tmp_path, "hl.tsv", text)
+    assert [(r.raw, r.year) for r in sources] == [
+        ("source-a.co.uk", 1998),
+        ("source-b.co.uk", 1999),
+    ]
+    assert [(r.raw, r.year) for r in targets] == [("target-a.com", 1998), ("target-b.de", 1999)]
+    assert src_stats["lines"] == 3 and tgt_stats["lines"] == 3
 
 
-_JOURNAL_NAME = "rdap_20260725T120000Z.jsonl"
+GEOINDEX_ROWS = [
+    "19990412183021/http://www.example.co.uk/index.html\tOX11 0QX",
+    "20010101000000/http://sub.host.ac.uk/a/b\tSW1A 1AA",
+    # junk stamps are in the real file, so the window filter rejects them
+    "19800101000000/http://www.old.co.uk/\tE1 6AN",
+    "19941231235959/http://www.early.co.uk/\tE1 6AN",
+    "20051231235959/http://www.late.co.uk/\tE1 6AN",
+    "notatimestamp/http://www.bad.co.uk/\tE1 6AN",
+]
 
 
-def _journal(tmp_path: Path, records: list[dict], name: str = _JOURNAL_NAME) -> Path:
-    path = tmp_path / name
-    body = "".join(json.dumps(r) + "\n" for r in records)
-    if name.endswith(".gz"):
-        with gzip.open(path, "wt", encoding="utf-8") as fh:
-            fh.write(body)
-    else:
-        path.write_text(body, encoding="utf-8")
-    return path
+def test_ukwa_geoindex_dates_in_window_rows_by_their_own_stamp(tmp_path: Path) -> None:
+    """The year is read from the capture stamp kept verbatim, never supplied alongside it."""
+    records, stats = _parse(parse_ukwa_geoindex, tmp_path, "geo.tsv.gz", _lines(GEOINDEX_ROWS))
+    assert [r.year for r in records] == [1999, 2001]
+    assert (stats["out_of_window"], stats["malformed"]) == (3, 1)
+    assert records[0].evidence_value == "19990412183021"
+    assert records[0].evidence_value.startswith(str(records[0].year))
+    assert "19990412183021" in records[0].evidence_url
 
 
-def test_attested_years_is_the_creation_year_alone() -> None:
-    # brief IV.6: the creation date attests its own year and no later one
-    assert attested_years(1998) == (1998,)
-    assert attested_years(1996) == (1996,)
-    assert attested_years(2001) == (2001,)
+@pytest.mark.parametrize(
+    ("year", "attested"),
+    [(1998, (1998,)), (1996, (1996,)), (2001, (2001,)), (1995, ()), (1970, ()), (2004, ())],
+    ids=["1998", "window-start", "window-end", "before", "long-before", "after"],
+)
+def test_attested_years_is_the_creation_year_alone(year, attested) -> None:
+    """A creation date attests its own year and no later one, and nothing outside the window."""
+    assert attested_years(year) == attested
 
 
-def test_attested_years_empty_outside_the_window() -> None:
-    # created before the window: existed by then, but no single year is attested
-    assert attested_years(1995) == ()
-    assert attested_years(1970) == ()
-    assert attested_years(2004) == ()
-
-
-def test_rdap_snapshot_yields_only_the_creation_year(tmp_path) -> None:
-    path = _journal(
-        tmp_path,
-        [
-            {"domain": "in.com", "status": 200, "creation_year": 1998, "response": {}},
-            {"domain": "early.com", "status": 200, "creation_year": 1995, "response": {}},
-            {"domain": "late.com", "status": 200, "creation_year": 2004, "response": {}},
-            {"domain": "gone.com", "status": 404, "creation_year": None, "response": None},
-        ],
-    )
-    stats: Counter = Counter()
-    records = list(parse_rdap_snapshot(path, stats))
-    # one record, for the creation year alone; out-of-window years attest nothing
+def test_rdap_snapshot_yields_only_the_creation_year(tmp_path: Path) -> None:
+    rows = [
+        {"domain": "in.com", "status": 200, "creation_year": 1998, "response": {}},
+        {"domain": "early.com", "status": 200, "creation_year": 1995, "response": {}},
+        {"domain": "late.com", "status": 200, "creation_year": 2004, "response": {}},
+        {"domain": "gone.com", "status": 404, "creation_year": None, "response": None},
+    ]
+    records, stats = _parse(parse_rdap_snapshot, tmp_path, "rdap_1.jsonl", _jsonl(rows))
     assert [(r.raw, r.year) for r in records] == [("in.com", 1998)]
     assert records[0].evidence_value == "rdap creation 1998"
     assert records[0].evidence_url == "https://rdap.org/domain/in.com"
-    assert stats["journal_lines"] == 4
-    assert stats["outside_window"] == 2
-    assert stats["not_dated"] == 1
+    assert (stats["journal_lines"], stats["outside_window"], stats["not_dated"]) == (4, 2, 1)
 
 
-def test_rdap_snapshot_reads_gzip_and_skips_junk_lines(tmp_path) -> None:
-    path = tmp_path / "rdap_20260725T130000Z.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as fh:
-        fh.write(json.dumps({"domain": "ok.fr", "creation_year": 2000}) + "\n")
-        fh.write("\n")
-        fh.write("{not json\n")
-        fh.write(json.dumps({"creation_year": 1997}) + "\n")  # no domain
-    stats: Counter = Counter()
-    records = list(parse_rdap_snapshot(path, stats))
+def test_rdap_snapshot_reads_gzip_and_skips_junk_lines(tmp_path: Path) -> None:
+    ok, nameless = json.dumps({"domain": "ok.fr", "creation_year": 2000}), '{"creation_year": 1997}'
+    text = f"{ok}\n\n{{not json\n{nameless}\n"
+    records, stats = _parse(parse_rdap_snapshot, tmp_path, "rdap_2.jsonl.gz", text)
     assert [(r.raw, r.year) for r in records] == [("ok.fr", 2000)]
-    assert stats["unparseable_line"] == 1
-    assert stats["no_domain"] == 1
+    assert (stats["unparseable_line"], stats["no_domain"]) == (1, 1)
 
 
-def test_rdap_snapshot_is_registered_apart_from_the_legacy_source() -> None:
-    spec = SOURCES["rdap_snapshot"]
-    assert spec.source_name == "rdap_snapshot"
-    assert spec.evidence_type == "whois_creation"
-    assert spec.acquisition_method == "rdap_journal_file"
-    assert spec.is_candidate_only is False
-
-
-def test_cdx_snapshot_yields_a_record_per_returned_year(tmp_path) -> None:
-    path = _journal(
-        tmp_path,
-        [
-            {"domain": "hit.com", "status": 200, "years": [1997, 1999], "truncated": False},
-            {"domain": "none.com", "status": 200, "years": [], "truncated": False},
-            {"domain": "err.com", "status": 503, "years": [], "truncated": False},
-            {"domain": "out.com", "status": 200, "years": [2005], "truncated": False},
-        ],
-        name="cdx_20260725T120000Z.jsonl",
-    )
-    stats: Counter = Counter()
-    records = list(parse_cdx_snapshot(path, stats))
-
+def test_cdx_snapshot_yields_a_record_per_returned_year(tmp_path: Path) -> None:
+    rows = [
+        {"domain": "hit.com", "status": 200, "years": [1997, 1999], "truncated": False},
+        {"domain": "none.com", "status": 200, "years": [], "truncated": False},
+        {"domain": "err.com", "status": 503, "years": [], "truncated": False},
+        {"domain": "out.com", "status": 200, "years": [2005], "truncated": False},
+        {"domain": "big.com", "status": 200, "years": [1998], "truncated": True},
+    ]
+    records, stats = _parse(parse_cdx_snapshot, tmp_path, "cdx_1.jsonl", _jsonl(rows))
     # one record per year actually returned, no inference of adjacent years
-    assert [(r.raw, r.year) for r in records] == [("hit.com", 1997), ("hit.com", 1999)]
+    assert [(r.raw, r.year) for r in records] == [
+        ("hit.com", 1997),
+        ("hit.com", 1999),
+        ("big.com", 1998),
+    ]
     assert records[0].evidence_value == "cdx capture 1997"
-    assert stats["journal_lines"] == 4
-    assert stats["query_failed"] == 1
+    assert (stats["journal_lines"], stats["query_failed"]) == (5, 1)
     assert stats["no_capture_in_window"] == 2  # none.com and the out-of-window one
-
-
-def test_cdx_snapshot_counts_truncated_responses(tmp_path) -> None:
-    path = _journal(
-        tmp_path,
-        [{"domain": "big.com", "status": 200, "years": [1998], "truncated": True}],
-        name="cdx_20260725T130000Z.jsonl",
-    )
-    stats: Counter = Counter()
-    assert len(list(parse_cdx_snapshot(path, stats))) == 1
     assert stats["truncated_response"] == 1
 
 
 def test_cdx_snapshot_names_the_exact_capture_when_the_record_keeps_its_stamp(tmp_path) -> None:
-    """The converter's per-year `stamps`, or the query's `hosts` entry for the domain itself,
-    give `cdx capture <ts> <domain>`. A `www.` stamp, a stamp from another year or a malformed
-    one leave that year host-less."""
-    path = _journal(
-        tmp_path,
-        [
-            {
-                "domain": "conv.com",
-                "status": 200,
-                "years": [1997, 1998],
-                "stamps": {"1998": "19981205115848"},
-                "strategy": "suffix_sweep_exact",
-            },
-            {
-                "domain": "Host.com",
-                "status": 200,
-                "years": [1997, 1999],
-                "hosts": {"www.host.com": "19970101000000", "host.com": "19990301000000"},
-                "strategy": "by_host",
-            },
-            {"domain": "bad.com", "status": 200, "years": [2000], "stamps": {"2000": "2000"}},
-            {"domain": "off.com", "status": 200, "years": [2001], "stamps": {"2001": "19991231"}},
-        ],
-        name="cdx_20260927T120000Z.jsonl",
-    )
-    stats: Counter = Counter()
-
-    records = list(parse_cdx_snapshot(path, stats))
-
-    assert [(r.raw, r.year, r.evidence_value, r.evidence_url) for r in records] == [
-        ("conv.com", 1997, "cdx capture 1997", "https://web.archive.org/web/1997/conv.com"),
-        (
-            "conv.com",
-            1998,
-            "cdx capture 19981205115848 conv.com",
-            "https://web.archive.org/web/19981205115848/http://conv.com/",
-        ),
-        ("Host.com", 1997, "cdx capture 1997", "https://web.archive.org/web/1997/Host.com"),
-        (
-            "Host.com",
-            1999,
-            "cdx capture 19990301000000 host.com",
-            "https://web.archive.org/web/19990301000000/http://host.com/",
-        ),
-        ("bad.com", 2000, "cdx capture 2000", "https://web.archive.org/web/2000/bad.com"),
-        ("off.com", 2001, "cdx capture 2001", "https://web.archive.org/web/2001/off.com"),
+    """A per-year stamp or the domain's own `hosts` entry names the capture; nothing else does."""
+    hosts = {"www.host.com": "19970101000000", "host.com": "19990301000000"}
+    stamps = {"1998": "19981205115848"}
+    rows = [
+        {"domain": "conv.com", "status": 200, "years": [1997, 1998], "stamps": stamps},
+        {"domain": "Host.com", "status": 200, "years": [1997, 1999], "hosts": hosts},
+        {"domain": "bad.com", "status": 200, "years": [2000], "stamps": {"2000": "2000"}},
+        {"domain": "off.com", "status": 200, "years": [2001], "stamps": {"2001": "19991231"}},
     ]
+    records, stats = _parse(parse_cdx_snapshot, tmp_path, "cdx_2.jsonl", _jsonl(rows))
+    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
+        ("conv.com", 1997, "cdx capture 1997"),
+        ("conv.com", 1998, "cdx capture 19981205115848 conv.com"),
+        ("Host.com", 1997, "cdx capture 1997"),
+        ("Host.com", 1999, "cdx capture 19990301000000 host.com"),
+        ("bad.com", 2000, "cdx capture 2000"),
+        ("off.com", 2001, "cdx capture 2001"),
+    ]
+    assert [r.evidence_url.removeprefix("https://web.archive.org/web/") for r in records] == [
+        "1997/conv.com",
+        "19981205115848/http://conv.com/",
+        "1997/Host.com",
+        "19990301000000/http://host.com/",
+        "2000/bad.com",
+        "2001/off.com",
+    ]
+    assert all(r.evidence_url.startswith("https://web.archive.org/web/") for r in records)
     assert stats["exact_capture"] == 2
 
 
-def test_cdx_snapshot_is_registered_as_a_cdx_master_source() -> None:
-    spec = SOURCES["cdx_snapshot"]
-    assert spec.source_name == "ia_cdx_bulk"
-    assert spec.evidence_type == "cdx_timestamp"
-    assert spec.acquisition_method == "ia_cdx_collapsed_query"
-    assert spec.is_candidate_only is False
-
-
-UKWA_ROWS = [
-    "1998|source-a.co.uk|target-a.com\t3",
-    "1999|source-b.co.uk|target-b.de\t1",
-    "2003|late.co.uk|late-target.com\t9",
-]
-
-
-def test_ukwa_source_and_target_read_different_columns(tmp_path: Path) -> None:
-    fixture = tmp_path / "host-linkage.tsv"
-    fixture.write_text("\n".join(UKWA_ROWS) + "\n", encoding="utf-8")
-
-    src_stats: Counter = Counter()
-    sources = [(r.raw, r.year) for r in parse_ukwa_link_source(fixture, src_stats)]
-    tgt_stats: Counter = Counter()
-    targets = [(r.raw, r.year) for r in parse_ukwa_link_target(fixture, tgt_stats)]
-
-    assert sources == [("source-a.co.uk", 1998), ("source-b.co.uk", 1999)]
-    assert targets == [("target-a.com", 1998), ("target-b.de", 1999)]
-    # the scan stops at the first out-of-window year rather than reading on
-    assert src_stats["lines"] == 3 and tgt_stats["lines"] == 3
-
-
-def test_ukwa_target_is_registered_as_candidate_only() -> None:
-    spec = SOURCES["ukwa_link_target"]
-    assert spec.evidence_type == "link_target"
-    # its rows keep no host, so they cannot identify the name they would date
-    assert spec.is_candidate_only is True
-    assert SOURCES["ukwa_link_source"].is_candidate_only is False
-    # the bare-target half can; `test_link_graph_target.py` has why
-    assert SOURCES["ukwa_link_target_bare"].is_candidate_only is False
+def _page(url: str, status: int, timestamp: str | None, curated: bool, domains: list[str]):
+    row = {"domain": url, "page_url": url, "status": status, "timestamp": timestamp}
+    row |= {"year": int(timestamp[:4]) if timestamp else None}
+    return row | {"curated": curated, "domains": domains}
 
 
 EXPANSION_RECORDS = [
-    {
-        "domain": "http://dir.example/",
-        "page_url": "http://dir.example/",
-        "status": 200,
-        "timestamp": "19980101000000",
-        "year": 1998,
-        "curated": True,
-        "domains": ["listed-a.com", "listed-b.org"],
-    },
-    {
-        "domain": "http://blog.example/",
-        "page_url": "http://blog.example/",
-        "status": 200,
-        "timestamp": "19990101000000",
-        "year": 1999,
-        "curated": False,
-        "domains": ["linked-c.net"],
-    },
-    {
-        "domain": "http://dead.example/",
-        "page_url": "http://dead.example/",
-        "status": 503,
-        "timestamp": None,
-        "year": None,
-        "curated": True,
-        "domains": [],
-    },
+    _page("http://dir.example/", 200, "19980101000000", True, ["listed-a.com", "listed-b.org"]),
+    _page("http://blog.example/", 200, "19990101000000", False, ["linked-c.net"]),
+    _page("http://dead.example/", 503, None, True, []),
 ]
 
 
-def test_expansion_sources_split_the_same_journal_by_curation(tmp_path) -> None:
-    path = _journal(tmp_path, EXPANSION_RECORDS, name="expand_20260726T000000Z.jsonl")
-
-    dir_stats: Counter = Counter()
-    directory = [(r.raw, r.year) for r in parse_expansion_directory(path, dir_stats)]
-    link_stats: Counter = Counter()
-    links = [(r.raw, r.year) for r in parse_expansion_links(path, link_stats)]
-
-    # a curated page's entries are master evidence for its capture year
-    assert directory == [("listed-a.com", 1998), ("listed-b.org", 1998)]
-    # an ordinary page's outbound links are candidates only
-    assert links == [("linked-c.net", 1999)]
+def test_expansion_sources_split_the_same_journal_by_curation(tmp_path: Path) -> None:
+    name, text = "expand_1.jsonl", _jsonl(EXPANSION_RECORDS)
+    directory, dir_stats = _parse(parse_expansion_directory, tmp_path, name, text)
+    links, link_stats = _parse(parse_expansion_links, tmp_path, name, text)
+    # a curated page's entries date its capture year; an ordinary page's links are candidates
+    assert [(r.raw, r.year) for r in directory] == [("listed-a.com", 1998), ("listed-b.org", 1998)]
+    assert [(r.raw, r.year) for r in links] == [("linked-c.net", 1999)]
     # each half counts the other half and the failed fetch, so nothing is silent
     assert dir_stats["other_half"] == 1 and dir_stats["fetch_failed"] == 1
     assert link_stats["other_half"] == 1 and link_stats["fetch_failed"] == 1
-
-
-def test_expansion_evidence_records_the_page_it_came_from(tmp_path) -> None:
-    path = _journal(tmp_path, EXPANSION_RECORDS[:1], name="expand_20260726T010000Z.jsonl")
-    records = list(parse_expansion_directory(path, Counter()))
-    assert records[0].evidence_value == "linked from http://dir.example/ captured 19980101000000"
-    assert records[0].evidence_url == (
+    # the evidence records the page it came from
+    assert directory[0].evidence_value == "linked from http://dir.example/ captured 19980101000000"
+    assert directory[0].evidence_url == (
         "https://web.archive.org/web/19980101000000/http://dir.example/"
     )
 
 
-def test_expansion_specs_carry_the_right_dispositions() -> None:
-    assert SOURCES["expansion_links"].is_candidate_only is True
-    assert SOURCES["expansion_directory"].is_candidate_only is False
-    assert SOURCES["expansion_directory"].evidence_type == "dated_directory"
-
-
-def test_ncsa_whats_new_dates_each_entry_by_its_issue(tmp_path) -> None:
-    from ark.sources import parse_ncsa_whats_new
-
-    path = tmp_path / "ncsa.tsv"
-    path.write_text("example.com\t1996-01-01\nother.org\t1996-07-15\nundated.net\t\n")
-    stats: Counter = Counter()
-    records = list(parse_ncsa_whats_new(path, stats))
-
+def test_ncsa_whats_new_dates_each_entry_by_its_issue(tmp_path: Path) -> None:
+    text = "example.com\t1996-01-01\nother.org\t1996-07-15\nundated.net\t\n"
+    records, stats = _parse(parse_ncsa_whats_new, tmp_path, "ncsa.tsv", text)
     assert [(r.raw, r.year) for r in records] == [("example.com", 1996), ("other.org", 1996)]
     # an entry the harvest could not date is counted, never dated by assumption
     assert stats["no_date"] == 1
     assert records[0].evidence_value == "ncsa whats-new entry 1996-01-01"
 
 
-# --- NYPW first-capture index ------------------------------------------------
-
-
-def _nypw_line(timestamp: str, original: str, status: str = "200") -> str:
-    """One line in the eight-field NYPW first-capture format."""
-    return (
-        f"https://example/ com,example)/ {timestamp} {original} text/html {status} DIGEST123 1097\n"
+def _nypw(*rows: tuple[str, str, str]) -> str:
+    """Lines in the eight-field NYPW first-capture format: (timestamp, url, status)."""
+    return "".join(
+        f"https://example/ com,example)/ {ts} {url} text/html {status} DIGEST123 1097\n"
+        for ts, url, status in rows
     )
 
 
-def test_nypw_reads_timestamp_and_url_from_their_own_columns(tmp_path):
-    """The format is not classic CDX: the timestamp is field 2 and the URL
-    field 3, where early_web has them at 1 and 2. Reading the wrong column
-    silently yields a SURT as a domain and no year at all."""
-    path = tmp_path / "nypw.txt"
-    path.write_text(_nypw_line("19970326221054", "http://0-0-0checkmate.com:80/"))
-    stats = Counter()
-    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
-    assert len(records) == 1
-    assert records[0].year == 1997
-    assert records[0].raw == "http://0-0-0checkmate.com:80/"
-
-
-def test_nypw_drops_out_of_window_and_non_200(tmp_path):
-    path = tmp_path / "nypw.txt"
-    path.write_text(
-        _nypw_line("20070717010807", "http://late.com/")
-        + _nypw_line("19980101000000", "http://redirect.com/", status="302")
-        + _nypw_line("19980101000000", "http://good.com/")
+def test_nypw_reads_its_own_columns_and_keeps_in_window_200s(tmp_path: Path) -> None:
+    """The timestamp is field 2 and the URL field 3, and a row evidences its own year alone."""
+    text = _nypw(
+        ("19970326221054", "http://0-0-0checkmate.com:80/", "200"),
+        ("20070717010807", "http://late.com/", "200"),
+        ("19980101000000", "http://redirect.com/", "302"),
+        ("19980101000000", "http://good.com/", "200"),
     )
-    stats = Counter()
-    records = list(SOURCES["nypw_firstcdx"].parse(path, stats))
-    assert [r.raw for r in records] == ["http://good.com/"]
-    assert stats["out_of_window"] == 1
-    assert stats["non_200"] == 1
+    records, stats = _parse(SOURCES["nypw_firstcdx"].parse, tmp_path, "nypw.txt", text)
+    assert [(r.raw, r.year) for r in records] == [
+        ("http://0-0-0checkmate.com:80/", 1997),
+        ("http://good.com/", 1998),
+    ]
+    assert (stats["out_of_window"], stats["non_200"]) == (1, 1)
 
 
-def test_nypw_evidences_only_the_year_it_names(tmp_path):
-    """A first-capture row says the URL was archived in that year and nothing
-    about any later one, which is IV.7 applied to this source."""
-    path = tmp_path / "nypw.txt"
-    path.write_text(_nypw_line("19990601120000", "http://once.com/"))
-    records = list(SOURCES["nypw_firstcdx"].parse(path, Counter()))
-    assert [r.year for r in records] == [1999]
-
-
-def test_nypw_nonok_takes_exactly_the_lane_the_200_parser_drops(tmp_path):
-    """The two specs must partition the in-window rows, never overlap them: the
-    200 lane is the control group for the relaxation and an overlap would make
-    a pair look net-new when the sibling had already banked it."""
-    path = tmp_path / "nypw.txt"
-    path.write_text(
-        _nypw_line("20070717010807", "http://late.com/", status="404")
-        + _nypw_line("19980101000000", "http://redirect.com/", status="302")
-        + _nypw_line("20010101000000", "http://gone.com/", status="404")
-        + _nypw_line("19980101000000", "http://good.com/")
+def test_nypw_nonok_takes_exactly_the_lane_the_200_parser_drops(tmp_path: Path) -> None:
+    """The 200 and non-200 specs partition the in-window rows; a `-` status is no answer."""
+    text = _nypw(
+        ("20070717010807", "http://late.com/", "404"),
+        ("19980101000000", "http://redirect.com/", "302"),
+        ("20010101000000", "http://gone.com/", "404"),
+        ("19980101000000", "http://good.com/", "200"),
+        ("19990101000000", "http://nothing.com/", "-"),
+        ("20010305101500", "http://hmcfunding.com:80/", "500"),
     )
-    stats = Counter()
-    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, stats))
-    assert [r.raw for r in records] == ["http://redirect.com/", "http://gone.com/"]
-    assert [r.year for r in records] == [1998, 2001]
-    assert stats["out_of_window"] == 1
-    assert stats["ok_lane"] == 1
-
-
-def test_nypw_nonok_keeps_the_status_in_the_evidence_value(tmp_path):
-    """What the row proves is that a server answered, so the code it answered
-    with belongs in the evidence rather than only in the parser."""
-    path = tmp_path / "nypw.txt"
-    path.write_text(_nypw_line("20010305101500", "http://hmcfunding.com:80/", status="302"))
-    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, Counter()))
-    assert records[0].evidence_value == "nypw timemap capture status 302 20010305101500"
-    assert records[0].evidence_url == (
+    records, stats = _parse(SOURCES["nypw_timemaps_nonok"].parse, tmp_path, "nypw.txt", text)
+    assert [(r.raw, r.year) for r in records] == [
+        ("http://redirect.com/", 1998),
+        ("http://gone.com/", 2001),
+        ("http://hmcfunding.com:80/", 2001),
+    ]
+    assert (stats["out_of_window"], stats["ok_lane"], stats["no_response"]) == (1, 1, 1)
+    # the status the server answered with is part of the evidence
+    assert records[2].evidence_value == "nypw timemap capture status 500 20010305101500"
+    assert records[2].evidence_url == (
         "https://web.archive.org/web/20010305101500/http://hmcfunding.com:80/"
     )
 
 
-def test_nypw_nonok_drops_a_status_that_is_not_a_server_answering(tmp_path):
-    """A CDX row can carry `-` where no response was received. That evidences
-    no delegation and so no year, which is the whole basis of this lane."""
-    path = tmp_path / "nypw.txt"
-    path.write_text(
-        _nypw_line("19990101000000", "http://nothing.com/", status="-")
-        + _nypw_line("19990101000000", "http://answered.com/", status="500")
-    )
-    stats = Counter()
-    records = list(SOURCES["nypw_timemaps_nonok"].parse(path, stats))
-    assert [r.raw for r in records] == ["http://answered.com/"]
-    assert stats["no_response"] == 1
+DATES = {
+    "rfc822": ("Tue, 18 Jun 1996 12:00:00 GMT", 1996),
+    "giganews-slash": ("1997/06/18", 1997),
+    "iso": ("1998-06-18", 1998),
+    "out-of-window-still-read": ("2010/06/18", 2010),
+    "garbage": ("not a date", None),
+    "empty": ("", None),
+    "header-rfc822": (Header("Tue, 18 Jun 1996 12:00:00 GMT"), 1996),
+    "header-slash": (Header("1997/06/18"), 1997),
+    "header-garbage": (Header("not a date"), None),
+}
 
 
-# --- Usenet announcement archives --------------------------------------------
+@pytest.mark.parametrize(("raw", "year"), list(DATES.values()), ids=list(DATES))
+def test_usenet_reads_every_date_header_form(raw, year) -> None:
+    """A Date reads as RFC 822, a bare YYYY/MM/DD or ISO date, as a string or an RFC 2047 Header."""
+    assert message_year(raw) == year
 
 
-def test_usenet_reads_the_giganews_iso_date_format(tmp_path):
-    """The Giganews donation rewrote a large share of dates as a bare YYYY/MM/DD, which
-    parsedate_to_datetime rejects: 21,346 of 23,282 messages in
-    comp.infosystems.www.announce, so RFC 822 alone discards 92% of the archive."""
-    from ark.usenet import message_year
-
-    assert message_year("Tue, 18 Jun 1996 12:00:00 GMT") == 1996
-    assert message_year("1997/06/18") == 1997
-    assert message_year("1998-06-18") == 1998
-    assert message_year("2010/06/18") == 2010  # readable, filtered later by window
-    assert message_year("not a date") is None
-    assert message_year("") is None
-
-
-def test_usenet_reads_a_date_header_that_is_not_a_string():
-    """`Message.get` hands back a `Header`, not a `str`, when the value is RFC 2047 encoded,
-    and `Header` has no `.strip()`. The splitter parses a batch in one call, so one
-    archive in 8,258 aborts all 2,500 of them and every bank retries them."""
-    from email.header import Header
-
-    from ark.usenet import message_year
-
-    assert message_year(Header("Tue, 18 Jun 1996 12:00:00 GMT")) == 1996
-    assert message_year(Header("1997/06/18")) == 1997
-    assert message_year(Header("not a date")) is None
-
-
-def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path):
-    """One counter for both hides which problem a barren source has: an archive entirely out
-    of window should be dropped, while one whose dates cannot be parsed means the parser
-    is wrong."""
-    from ark.usenet import parse_usenet
-
-    path = tmp_path / "g.mbox"
-    path.write_text(
-        "From x\nDate: 2008/01/01\nMessage-ID: <a@h>\nFrom: p@vendor.com\n\nhttp://a.com/\n"
-        "From x\nDate: garbled nonsense\nMessage-ID: <b@h>\nFrom: p@vendor.com\n\nhttp://b.com/\n"
-        "From x\nDate: 1998/01/01\nMessage-ID: <c@h>\nFrom: p@vendor.com\n\nhttp://c.com/\n"
-    )
-    stats = Counter()
-    records = list(parse_usenet(path, stats))
-    assert stats["out_of_window"] == 1
-    assert stats["unreadable_date"] == 1
+def test_usenet_separates_out_of_window_from_unreadable_dates(tmp_path: Path) -> None:
+    post = "From x\nDate: {}\nMessage-ID: <{}@h>\nFrom: p@vendor.com\n\nhttp://{}.com/\n"
+    text = "".join(post.format(*row) for row in [("2008/01/01", "a", "a"), ("garbled", "b", "b")])
+    text += post.format("1998/01/01", "c", "c")
+    records, stats = _parse(parse_usenet, tmp_path, "g.mbox", text)
+    assert (stats["out_of_window"], stats["unreadable_date"]) == (1, 1)
     assert {r.year for r in records} == {1998}
 
 
-def test_usenet_extracts_body_urls_and_the_sender_domain(tmp_path):
-    """The From: domain counts because in vendor and announcement posts the
-    sender is very often the site itself, and it is the one string a mail system
-    validated rather than a human typed into a message body."""
-    from ark.usenet import domains_in_message
-
-    found = domains_in_message(
+MESSAGE_DOMAINS = {
+    "body-urls-and-sender": (
         "Check out http://www.example.com/new and https://other.co.uk/x",
         "Someone <person@vendor.net>",
-    )
-    assert set(found) == {"example.com", "other.co.uk", "vendor.net"}
+        ["example.com", "other.co.uk", "vendor.net"],
+    ),
+    "scheme-less-www": (
+        "Try www.warehouse.co.uk for prices, or WWW.UPPER.COM",
+        "",
+        ["upper.com", "warehouse.co.uk"],
+    ),
+    "bare-host-in-prose": ("I work at bigcorp.com these days", "", []),
+    "bare-path-is-its-own-source": ("we launched bigcorp.com last week", "", []),
+    "www-inside-an-address": ("mail me at bob@www.baz.net", "", []),
+    "both-spellings-once": ("http://www.foo.com/x and later just www.foo.com", "", ["foo.com"]),
+    "infrastructure": ("see http://groups.google.com/x", "a@deja.com", []),
+}
 
 
-def test_usenet_reads_an_address_written_without_a_scheme():
-    """A URL regex requiring `https?://` cannot see `www.foo.com`, the ordinary way to write
-    an address in 1996-1999. Same artifact, same date header, same kind of claim."""
-    from ark.usenet import domains_in_message
-
-    found = domains_in_message("Try www.warehouse.co.uk for prices, or WWW.UPPER.COM", "")
-    assert set(found) == {"warehouse.co.uk", "upper.com"}
-
-
-def test_a_bare_host_is_only_read_when_it_says_www():
-    """A bare `foo.com` in running prose is more often a company name, a file name
-    or half an email address than an address, and the evidence wall is worth more
-    than the extra recall."""
-    from ark.usenet import domains_in_message
-
-    assert domains_in_message("I work at bigcorp.com these days", "") == []
+@pytest.mark.parametrize(
+    ("body", "sender", "expected"), list(MESSAGE_DOMAINS.values()), ids=list(MESSAGE_DOMAINS)
+)
+def test_usenet_message_domains(body, sender, expected) -> None:
+    """URLs, `www.` hosts and the sender's domain are read; a bare host and plumbing are not."""
+    assert sorted(domains_in_message(body, sender)) == expected
 
 
-def test_a_scheme_less_host_is_not_read_out_of_an_email_address():
-    from ark.usenet import domains_in_message
-
-    assert domains_in_message("mail me at bob@www.baz.net", "") == []
-
-
-def test_the_same_domain_is_not_counted_twice_for_both_spellings():
-    from ark.usenet import domains_in_message
-
-    found = domains_in_message("http://www.foo.com/x and later just www.foo.com", "")
-    assert found == ["foo.com"]
-
-
-def test_usenet_drops_infrastructure_hosts():
-    """Archive and Usenet plumbing is not a website anyone announced."""
-    from ark.usenet import domains_in_message
-
-    found = domains_in_message("see http://groups.google.com/x", "a@deja.com")
-    assert found == []
-
-
-def test_usenet_journal_records_the_message_id_as_evidence(tmp_path):
-    """The Message-ID is globally unique by design, so it names the exact post a
-    year assignment came from and a reviewer can go and read it."""
-    import gzip
-    import json
-
-    path = tmp_path / "usenet_dated.jsonl.gz"
-    with gzip.open(path, "wt", encoding="utf-8") as fh:
-        fh.write(
-            json.dumps(
-                {
-                    "domain": "example.com",
-                    "year": 1997,
-                    "message_id": "<abc@host>",
-                    "group": "comp.infosystems.www.announce",
-                }
-            )
-            + "\n"
-        )
-    records = list(SOURCES["usenet_dated"].parse(path, Counter()))
-    assert len(records) == 1
-    assert records[0].year == 1997
+def test_usenet_journal_records_the_message_id_as_evidence(tmp_path: Path) -> None:
+    row = {"domain": "example.com", "year": 1997, "message_id": "<abc@host>", "group": "g"}
+    records, _ = _parse(SOURCES["usenet_dated"].parse, tmp_path, "ud.jsonl.gz", _jsonl([row]))
+    assert [r.year for r in records] == [1997]
     assert "<abc@host>" in records[0].evidence_value
 
 
-def test_usenet_dated_is_master_and_mentions_are_candidate_only():
-    """The split is the whole safety argument: a corroborated domain can carry
-    the post date, an uncorroborated name cannot assign a year at all."""
-    assert SOURCES["usenet_dated"].evidence_type == "dated_directory"
-    assert not SOURCES["usenet_dated"].is_candidate_only
-    assert SOURCES["usenet_candidates"].is_candidate_only
-
-
-def test_moderated_announce_follows_usenet_naming_convention():
-    """A group whose last component is announce or moderated is moderated by convention, so
-    the rule is a suffix test rather than a list nobody will maintain. The named set
-    covers the forums that are moderated without saying so."""
-    from ark.usenet import is_moderated_announce
-
+def test_moderated_announce_follows_usenet_naming_convention() -> None:
+    """A group with an announce or moderated component, or on the named list, is moderated."""
     assert is_moderated_announce("comp.os.linux.announce")
     assert is_moderated_announce("misc.business.moderated")
     assert is_moderated_announce("comp.internet.net-happenings")
-    # the marker is not always last: a suffix test reports these as ordinary
-    # discussion groups, which is how the flaw was found
+    # the marker is not always last
     assert is_moderated_announce("news.announce.conferences")
     assert is_moderated_announce("news.announce.newgroups")
     assert not is_moderated_announce("alt.internet.commerce")
     assert not is_moderated_announce("biz.marketplace")
 
 
-def _printed_domains_in(text: str) -> set[str]:
-    """The extractor `collect_trade_press.py` and `split_rtfm_faqs.py` share. It lives in
-    `scripts/`, which is not an installed package, so the import follows the same
-    sys.path convention those scripts use.
-    """
-    import sys
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parent.parent
-    for part in (root / "src", root / "scripts"):
-        if str(part) not in sys.path:
-            sys.path.insert(0, str(part))
-    from probe_texts_corpus import domains_in
-
-    return domains_in(text)
+PRINTED = {
+    "bare-two-label": ("visit foo.com today", {"foo.com"}),
+    "url": ("http://foo.com/pricing", {"foo.com"}),
+    "address": ("mail bob@foo.com", {"foo.com"}),
+    "www": ("see www.foo.com", {"foo.com"}),
+    "bare-in-prose": ("I work at bigcorp.com these days", {"bigcorp.com"}),
+    "sentence-punctuation": ("the sentence end.Company said so", set()),
+    "file-name": ("open the readme.txt file", set()),
+    "html-file": ("index.html", set()),
+    "abbreviation": ("U.S. Government offices", set()),
+    "deep-host": ("a.b.c.foo.com", {"foo.com"}),
+    "one-name-per-host": ("www.bbc.co.uk and bbc.co.uk", {"bbc.co.uk"}),
+}
 
 
-def test_printed_text_reads_a_bare_two_label_domain():
-    """Same shape as the `www.` hole in the Usenet extractor: a pattern requiring two labels
-    before the TLD reads `www.foo.com` and drops `foo.com`, `http://foo.com/` and
-    `bob@foo.com`. Printed copy drops the `www.` constantly, and re-reading the cached
-    issues found 12,788 (domain, year) rows the old pattern never saw."""
-    assert _printed_domains_in("visit foo.com today") == {"foo.com"}
-    assert _printed_domains_in("http://foo.com/pricing") == {"foo.com"}
-    assert _printed_domains_in("mail bob@foo.com") == {"foo.com"}
-    assert _printed_domains_in("see www.foo.com") == {"foo.com"}
+@pytest.mark.parametrize(("text", "expected"), list(PRINTED.values()), ids=list(PRINTED))
+def test_printed_text_domains(text, expected) -> None:
+    """Printed copy reads a bare name as an address, refuses punctuation and file names."""
+    assert texts.domains_in(text) == expected
 
 
-def test_printed_text_still_refuses_sentence_punctuation_and_file_names():
-    """The reason the pattern was narrow in the first place. OCR runs a full stop
-    into the next word, and a permissive dot rule turns that into a hostname."""
-    assert _printed_domains_in("the sentence end.Company said so") == set()
-    assert _printed_domains_in("open the readme.txt file") == set()
-    assert _printed_domains_in("index.html") == set()
-    assert _printed_domains_in("U.S. Government offices") == set()
+NEWS_HEADERS = b"From: a@b.com\r\nNewsgroups: alt.isd.net\r\n"
+NEWS_HEADERS += b"Path: news.relay.org!feeder!not-for-mail\r\n\r\nthe site is realsite.com\r\n"
+BARE = {
+    "bare-host": ("we launched bigcorp.com last week", {"bigcorp.com"}),
+    "upper-case": ("prices at WAREHOUSE.CO.UK", {"warehouse.co.uk"}),
+    "host-with-path": ("mirror at ftp.example.org/pub", {"example.org"}),
+    "url": ("see http://foo.com/x", set()),
+    "address": ("mail bob@foo.com", set()),
+    "inside-a-url-path": ("http://host.net/path/other.com/", set()),
+    "sentence-punctuation": ("the sentence end.Company said so", set()),
+    "file-name": ("open the readme.txt file", set()),
+    "html-file": ("index.html", set()),
+    "version-number": ("upgraded to 4.0.2.au", set()),
+    "multi-label-suffix": ("order from shop.com.au today", {"shop.com.au"}),
+    "deep-host": ("a.b.c.foo.com", {"foo.com"}),
+    "full-stop": ("Visit foo.com. The site is new.", {"foo.com"}),
+    "domain-shaped-local-part": ("john.com@example.org wrote", set()),
+    "infrastructure": ("archived at groups.google.com and archive.org", set()),
+    # `Path:`, `Xref:` and `Newsgroups:` are dotted by construction, so only the body is read
+    "body-only": (body_of(NEWS_HEADERS), {"realsite.com"}),
+}
 
 
-def test_printed_text_collapses_a_host_to_its_registrable_domain():
-    """One OCR smear must not become several fabricated names, which is what the
-    lookbehind is for: the match cannot start inside a longer dotted token."""
-    assert _printed_domains_in("a.b.c.foo.com") == {"foo.com"}
-    assert _printed_domains_in("www.bbc.co.uk and bbc.co.uk") == {"bbc.co.uk"}
-
-
-def test_printed_text_and_usenet_differ_on_bare_hosts_deliberately():
-    """These two extractors disagree and should. A bare name printed in a
-    directory or a magazine is an address; the same characters in conversational
-    Usenet prose are more often a company name or half an email address."""
-    from ark.usenet import domains_in_message
-
-    assert _printed_domains_in("I work at bigcorp.com these days") == {"bigcorp.com"}
-    assert domains_in_message("I work at bigcorp.com these days", "") == []
-
-
-def _bare(text: str) -> set[str]:
-    from ark.usenet import bare_domains_in_body
-
-    return set(bare_domains_in_body(text))
-
-
-def test_a_bare_usenet_host_is_read_on_its_own_extraction_path():
-    """The recall `domains_in_message` refuses. It is safe here because every row
-    from this corpus passes the corroboration split before it can date anything,
-    so a name no independent lineage attests becomes a candidate, not a fact."""
-    assert _bare("we launched bigcorp.com last week") == {"bigcorp.com"}
-    assert _bare("prices at WAREHOUSE.CO.UK") == {"warehouse.co.uk"}
-    assert _bare("mirror at ftp.example.org/pub") == {"example.org"}
-
-
-def test_the_bare_path_leaves_the_shipped_extractor_alone():
-    """Two extraction paths, two source names, so the addition can be measured and
-    dropped without disturbing anything `usenet_announce` already claimed."""
-    from ark.usenet import domains_in_message
-
-    assert domains_in_message("we launched bigcorp.com last week", "") == []
-
-
-def test_a_bare_host_is_not_read_out_of_a_url_or_an_email_address():
-    """`_URL` and the `usenet_address` patterns own those forms. Reading them here
-    too would double-count them under a second source name."""
-    assert _bare("see http://foo.com/x") == set()
-    assert _bare("mail bob@foo.com") == set()
-    assert _bare("http://host.net/path/other.com/") == set()
-
-
-def test_a_bare_host_refuses_sentence_punctuation_file_names_and_versions():
-    """The reason the pattern was refused in the first place, and each of these is
-    in the corpus. A permissive dot rule turns all four into hostnames."""
-    assert _bare("the sentence end.Company said so") == set()
-    assert _bare("open the readme.txt file") == set()
-    assert _bare("index.html") == set()
-    # without the all-digits guard this canonicalises to the invented name `2.au`
-    assert _bare("upgraded to 4.0.2.au") == set()
-
-
-def test_a_bare_host_keeps_a_multi_label_suffix_whole():
-    """`foo.com.au` must not be read as `foo.com`, which would invent a name and
-    date it. Greedy labels before the TLD are what stop that."""
-    assert _bare("order from shop.com.au today") == {"shop.com.au"}
-    assert _bare("a.b.c.foo.com") == {"foo.com"}
-
-
-def test_a_bare_host_survives_a_full_stop_but_not_a_trailing_label():
-    """ "Visit foo.com." is the ordinary way to end a sentence and must still read;
-    a domain-shaped email local part must not."""
-    assert _bare("Visit foo.com. The site is new.") == {"foo.com"}
-    assert _bare("john.com@example.org wrote") == set()
-
-
-def test_a_bare_host_is_taken_only_from_the_body(tmp_path):
-    """`Path:`, `Xref:` and `Newsgroups:` are dotted tokens by construction, and a
-    bare rule over them reads news servers and vanity newsgroup names as announced
-    websites. `body_of` is the guard."""
-    from ark.usenet import body_of
-
-    raw = (
-        b"From: a@b.com\r\n"
-        b"Newsgroups: alt.isd.net\r\n"
-        b"Path: news.relay.org!feeder!not-for-mail\r\n"
-        b"\r\n"
-        b"the site is realsite.com\r\n"
-    )
-    assert _bare(body_of(raw)) == {"realsite.com"}
-
-
-def test_a_bare_host_drops_infrastructure_like_every_other_usenet_path():
-    assert _bare("archived at groups.google.com and archive.org") == set()
-
-
-# The Internet Archive's own per-year capture census, published as an ordinary item
-# alongside the Dartmouth/NBER corporate crawl. Rows are host, year, capture count.
+@pytest.mark.parametrize(("text", "expected"), list(BARE.values()), ids=list(BARE))
+def test_bare_usenet_host(text, expected) -> None:
+    """The bare-host path reads names in prose; URLs and addresses belong to the other paths."""
+    assert set(bare_domains_in_body(text)) == expected
 
 
 def test_domain_year_captures_keeps_only_in_window_rows(tmp_path: Path) -> None:
-    rows = [
-        "petrosys.com.au\t1997\t155",
-        "petrosys.com.au\t1998\t75",
-        "21.com\t2003\t246",  # out of window
-        "other\t2001\t8",  # not a hostname, canonicalisation drops it later
-        "example.com\t1995\t3",  # out of window on the early side
-    ]
-    fixture = tmp_path / "domain-year-captures.txt"
-    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_domain_year_captures(fixture, stats))
-
+    rows = ["petrosys.com.au\t1997\t155", "petrosys.com.au\t1998\t75", "21.com\t2003\t246"]
+    rows += ["other\t2001\t8"]  # not a hostname, canonicalisation drops it later
+    rows += ["example.com\t1995\t3", "missing-a-column\t1999", "bad-year\tnineteen\t5"]
+    rows += ["good.com\t1999\tmany"]  # the count is provenance, so it never gates a row
+    records, stats = _parse(parse_domain_year_captures, tmp_path, "dyc.txt", _lines(rows))
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("petrosys.com.au", 1997, "ia_captures:1997:155"),
         ("petrosys.com.au", 1998, "ia_captures:1998:75"),
         ("other", 2001, "ia_captures:2001:8"),
+        ("good.com", 1999, "ia_captures:1999:?"),
     ]
-    assert stats["out_of_window"] == 2
-    # every row carries the Wayback calendar for that host and year, so an approval
-    # request built from these is checkable rather than merely readable
-    assert records[0].evidence_url == ("https://web.archive.org/web/1997*/http://petrosys.com.au/")
+    assert (stats["out_of_window"], stats["malformed"]) == (2, 2)
+    # the Wayback calendar for that host and year makes an approval request checkable
+    assert records[0].evidence_url == "https://web.archive.org/web/1997*/http://petrosys.com.au/"
 
-
-def test_domain_year_captures_counts_malformed_rather_than_raising(tmp_path: Path) -> None:
-    """A 228 MB file must not be abandoned because one line is short."""
-    rows = ["good.com\t1999\t5", "missing-a-column\t1999", "bad-year\tnineteen\t5"]
-    fixture = tmp_path / "domain-year-captures.txt"
-    fixture.write_text("\n".join(rows) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_domain_year_captures(fixture, stats))
-
-    assert [r.raw for r in records] == ["good.com"]
-    assert stats["malformed"] == 2
-
-
-def test_domain_year_captures_tolerates_a_non_numeric_count(tmp_path: Path) -> None:
-    """The count is provenance, not evidence, so it must never gate a real row."""
-    fixture = tmp_path / "domain-year-captures.txt"
-    fixture.write_text("good.com\t1999\tmany\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_domain_year_captures(fixture, stats))
-
-    assert [(r.raw, r.year, r.evidence_value) for r in records] == [
-        ("good.com", 1999, "ia_captures:1999:?")
-    ]
-
-
-# A published bulk of registry creation dates, CC BY 4.0, 171M domains. Same claim and
-# same authority as `rdap_snapshot`, arriving as a file rather than as 171 million
-# queries we could never afford to make.
 
 CREATION_ROWS = [
     "domain;tld;dnssec;registrar;created_at;records_ns;records_ds;records_dnskey;analyzed_at",
@@ -1081,56 +679,187 @@ CREATION_ROWS = [
 ]
 
 
-def test_creation_csv_keeps_only_in_window_years(tmp_path: Path) -> None:
-    fixture = tmp_path / "domains.csv"
-    fixture.write_text("\n".join(CREATION_ROWS) + "\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_domain_creation_csv(fixture, stats))
-
+def test_creation_csv_dates_each_domain_by_its_creation_year_alone(tmp_path: Path) -> None:
+    """A creation date dates its own year only, with ICANN's lookup for the exact name."""
+    records, stats = _parse(parse_domain_creation_csv, tmp_path, "d.csv", _lines(CREATION_ROWS))
     assert [(r.raw, r.year, r.evidence_value) for r in records] == [
         ("stdominic.net", 1999, "registry created 1999-09-01"),
         ("oncall.org", 1997, "registry created 1997-11-26"),
     ]
+    assert records[0].evidence_url == "https://lookup.icann.org/en/lookup?q=stdominic.net"
     assert stats["out_of_window"] == 2
-    # Two, not one: the `nodate.nl` row AND the header, whose fifth field is the
-    # literal string `created_at`. Skipping the header by not special-casing it is
-    # deliberate; a header line is just a row whose date does not parse.
+    # the header is a row whose date does not parse, counted beside `nodate.nl`
     assert stats["no_creation_date"] == 2
-    assert stats["malformed"] == 1  # the deliberately short row
+    assert stats["malformed"] == 1
 
 
-def test_creation_csv_emits_one_year_per_domain(tmp_path: Path) -> None:
-    """A creation date says the name was created that day and nothing about later. A span
-    would be the inference the brief forbids by name: continued registration in a later
-    year is a separate fact needing separate evidence.
-    """
-    fixture = tmp_path / "domains.csv"
-    fixture.write_text("a.com;com;f;R;1998-06-06;{};{};{};2024-10-12\n", encoding="utf-8")
-    stats: Counter = Counter()
-
-    records = list(parse_domain_creation_csv(fixture, stats))
-
-    assert [(r.raw, r.year) for r in records] == [("a.com", 1998)]
-    # Every row carries ICANN's lookup for that exact name, so a reviewer checking an
-    # approval request checks the registry rather than reading our argument.
-    assert records[0].evidence_url == "https://lookup.icann.org/en/lookup?q=a.com"
-
-
-def test_creation_bulk_is_registered_as_whois_master() -> None:
-    spec = SOURCES["domain_creation_bulk"]
-    assert spec.evidence_type == "whois_creation"
-    assert spec.is_candidate_only is False
-    assert spec.source_name == "domain_creation_bulk"
+IEDR_PAGE = """<html><body>
+<p>[ <a href="0-9-doms.html">0-9</a> | <a href="a-doms.html">A</a> ]</p>
+aardvark.ie<br>
+a-and-d.ie<br>
+WWW.Mixed-Case.IE<br>
+sub.deeper.ie<br>
+domainregistry.ie<br>
+<p><font size="1">This page was <b>updated automatically</b>
+ at 14:51 GMT on Friday, 21 December 2001</font></p>
+</body></html>
+"""
+IEDR_LISTS_PAGE = """<html><body>
+<p>[ 0-9 | A | B ]</p>
+oldname.ie<br>
+another.ie<br>
+<p>Last updated 27 Nov 1999</p>
+</body></html>
+"""
 
 
-# The 1999 RIPE snapshot is used under a written permission whose terms Ivo set out in
-# his request: derive (domain, 1999) pairs and publish NO personal data. The file has no
-# `person:` objects, which makes it easy to believe there is nothing to protect, but the
-# contact details are inline in the domain objects under `*de`, `*ac`, `*tc` and `*ch`.
-# These tests exist so that promise cannot be broken by a later edit that widens the
-# attribute pattern, which is the one change that would break it silently.
-_RIPE_FIXTURE = """#
+def test_iedr_page_dates_every_registrable_name_on_it(tmp_path: Path) -> None:
+    """The footer date is read with tags stripped, since it spans a `<b>`."""
+    records, stats = _parse(parse_iedr_register, tmp_path, "a-doms.html", IEDR_PAGE)
+    assert {r.year for r in records} == {2001}
+    assert "iedr register listing" in records[0].evidence_value
+    assert stats["no_footer_date"] == 0
+    names = {r.raw for r in records}
+    # a www- or subdomain-prefixed form is the same registration, counted once
+    assert {"aardvark.ie", "a-and-d.ie", "mixed-case.ie", "deeper.ie"} <= names
+    assert len(names) == len(records)
+    # the registry's own host is not a registration it found
+    assert "domainregistry.ie" not in names
+    assert stats["registry_own_host"] >= 1
+
+
+def test_iedr_earlier_lists_tree_wording_is_also_read(tmp_path: Path) -> None:
+    name = "19991128191652_a-doms.html"
+    records, stats = _parse(parse_iedr_register, tmp_path, name, IEDR_LISTS_PAGE)
+    assert {r.year for r in records} == {1999}
+    assert {r.raw for r in records} == {"oldname.ie", "another.ie"}
+    assert stats["no_footer_date"] == 0
+
+
+ZONE = """ORG.\tIN\tSOA\tA.ROOT-SERVERS.NET.\thostmaster.INTERNIC.NET. (
+\t\t\t\t1997041800\t;serial
+\t\t\t\t10800  ;refresh every 3 hours
+\t\t\t\t)
+ORG.                      518400 IN  NS    A.ROOT-SERVERS.NET.
+A.ROOT-SERVERS.NET.       518400     A     198.41.0.4
+EXAMPLE.ORG.              172800     NS    NS1.PROVIDER.NET.
+                          172800     NS    NS2.PROVIDER.NET.
+SUB.DEEPER.ORG.           172800     NS    NS1.PROVIDER.NET.
+OTHER.ORG.                172800     NS    NS.OTHER.ORG.
+;End of file.
+"""
+
+
+def test_internic_delegation_is_the_owner_and_never_the_nameserver(tmp_path: Path) -> None:
+    """A deeper owner is skipped, not truncated; the apex and a continuation line are counted."""
+    records, stats = _parse(_zone, tmp_path, "org.zone.gz", ZONE)
+    names = {r.raw for r in records}
+    assert names == {"example.org", "other.org"}
+    assert not any("provider.net" in n for n in names)
+    assert {"a.root-servers.net", "deeper.org", "org"}.isdisjoint(names)
+    assert (stats["deeper_than_one_label"], stats["apex_delegation"]) == (1, 1)
+    assert stats["owner_outside_zone"] >= 1
+
+
+def test_internic_year_comes_from_the_serial_inside_the_file(tmp_path: Path) -> None:
+    """A renamed file still dates itself by its SOA serial."""
+    records, _ = _parse(_zone, tmp_path, "something-else.gz", ZONE)
+    assert records
+    assert {r.year for r in records} == {1997}
+    assert all("serial 1997041800" in r.evidence_value for r in records)
+
+
+def test_internic_reports_reverse_dns_and_the_canonicaliser_refuses_it(tmp_path: Path) -> None:
+    """The parser reports what the zone delegates; the funnel decides what is storable."""
+    arpa = ZONE.replace("ORG", "ARPA").replace("EXAMPLE.ARPA.", "IN-ADDR.ARPA.")
+    records, _ = _parse(_zone, tmp_path, "arpa.zone.gz", arpa)
+    assert "in-addr.arpa" in {r.raw for r in records}
+    assert to_registrable("in-addr.arpa") is None
+    assert to_registrable("206.in-addr.arpa") is None
+
+
+def test_registry_item_is_filed_at_the_year_its_stamp_names(tmp_path: Path) -> None:
+    rows = [
+        {"host": "Example.dk", "year": 2001, "text": "DK Zonen header 20010413"},
+        {"host": "other.dk", "year": 2000, "text": "DK Zonen header 20001231"},
+    ]
+    records, stats = _parse(parse_registry_items, tmp_path, "i.jsonl", _jsonl(rows) + "\n")
+    assert [(r.raw, r.year) for r in records] == [("example.dk", 2001), ("other.dk", 2000)]
+    assert records[0].evidence_value.startswith("20010413: ")
+    assert stats["journal_lines"] == 2
+
+
+WHOIS_BLOCK = """
+   Registrant:
+   The OpenSSL Project
+
+      Domain Name: OPENSSL.ORG
+
+      Administrative Contact:
+         Someone  someone@openssl.org
+      Technical Contact:
+         Someone  someone@openssl.org
+
+      Record last updated on 12-Jan-2001.
+      Record expires on 18-Dec-2002.
+      Record created on 19-Dec-1998.
+
+      Domain servers in listed order:
+      NS1.EXAMPLE.NET
+      NS2.EXAMPLE.NET
+
+      Domain Name: ENGELSCHALL.COM
+
+      Administrative Contact:
+         Someone  rse@engelschall.com
+
+      Record created on 30-Jun-1996.
+"""
+WHOIS_PAIRS = [("openssl.org", 1998), ("engelschall.com", 1996)]
+# the same block as a mail client rewrote it, leading runs become `&nbsp;`
+WHOIS_ESCAPED = "\n".join(
+    "&nbsp;" * (len(line) - len(line.lstrip(" "))) + line.lstrip(" ")
+    for line in WHOIS_BLOCK.split("\n")
+)
+WHOIS_FILLER = "\n".join(f"   line {i}" for i in range(whois.MAX_BACK + 5))
+CREATIONS = {
+    "own-name": (WHOIS_BLOCK, WHOIS_PAIRS),
+    # the escaped copy must not bind 1998 to the name that follows it
+    "escaped-copy": (WHOIS_BLOCK + WHOIS_ESCAPED, WHOIS_PAIRS + WHOIS_PAIRS),
+    "far-below-its-name": (
+        f"      Domain Name: EXAMPLE.COM\n{WHOIS_FILLER}\n      Record created on 04-Jul-1997.\n",
+        [],
+    ),
+    "out-of-window-and-unregistrable": (
+        "      Domain Name: EXAMPLE.COM\n      Record created on 04-Jul-2004.\n"
+        "      Domain Name: DOMAIN.BILLING\n      Record created on 04-Jul-1997.\n",
+        [],
+    ),
+    "nominet-next-line": (
+        "    Domain Name:\n        example.co.uk\n\n    Registered on: 01-Feb-1999\n",
+        [("example.co.uk", 1999)],
+    ),
+}
+
+
+@pytest.mark.parametrize(("text", "expected"), list(CREATIONS.values()), ids=list(CREATIONS))
+def test_a_pasted_whois_creation_line_binds_to_its_own_name(text, expected) -> None:
+    """A creation line dates the nearest name above it, in window and registrable, or none."""
+    assert [(d, y) for d, _c, y, _b in whois.creations_in(text)] == expected
+
+
+def test_usenet_whois_evidence_value_leads_with_the_registry_stamp(tmp_path: Path) -> None:
+    """`ark check` reads the first four-digit run, so a year in the group name must not lead."""
+    row = {"domain": "example.com", "year": 1998, "created": "1998-12-19"}
+    row |= {"group": "microsoft.public.win2000.dns", "message_id": "<abc@example>"}
+    records, _ = _parse(_parse_usenet_whois_journal, tmp_path, "uw.jsonl.gz", _jsonl([row]))
+    assert [r.year for r in records] == [1998]
+    assert records[0].evidence_value.startswith("record created 1998-12-19 ")
+
+
+# The RIPE NCC permission: derive (domain, year) pairs and publish no personal data. Contact
+# details sit inline in the domain objects, so every leak case fails on a widened pattern.
+RIPE_SNAPSHOT = """#
 # 990804 00:07:01
 #
 # Restricted rights.
@@ -1156,58 +885,7 @@ _RIPE_FIXTURE = """#
 *na: FUNET
 *ch: ripe-dbm@ripe.net 19990711
 """
-
-
-def _ripe_records(tmp_path: Path):
-    path = tmp_path / "ripe.db"
-    path.write_text(_RIPE_FIXTURE)
-    stats: Counter = Counter()
-    return list(parse_ripe_dbase_1999(path, stats)), stats
-
-
-def test_ripe_reads_domain_objects_and_dates_them_1999(tmp_path: Path) -> None:
-    records, stats = _ripe_records(tmp_path)
-    assert [r.raw for r in records] == ["OULU.FI", "TuKKK.FI"]
-    assert {r.year for r in records} == {1999}
-    assert stats["header_year"] == 1999
-    assert stats["reverse_zone_skipped"] == 1
-
-
-def test_ripe_emits_no_personal_data(tmp_path: Path) -> None:
-    """The promise made to RIPE NCC, enforced rather than documented: every emitted value is a
-    bare hostname, with no `@`, no telephone `+`, no comma or space and nothing from a `*de`,
-    `*ac`, `*tc` or `*ch` line. The fixture holds a postal address, a phone number and three
-    e-mail addresses.
-    """
-    records, _ = _ripe_records(tmp_path)
-    emitted = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
-    for forbidden in ("@", "+358", "Rehtorinpellonkatu", "TURKU", "abo.fi", "utu.fi", "ripe-dbm"):
-        assert forbidden not in emitted, f"parser leaked {forbidden!r}"
-    for record in records:
-        assert " " not in record.raw and "," not in record.raw
-
-
-def test_ripe_refuses_a_file_with_no_stamp(tmp_path: Path) -> None:
-    """A 20-million-line dump dated by guesswork is the worst available failure."""
-    path = tmp_path / "nostamp.db"
-    path.write_text("#\n# no date here\n\n" + "*dn: EXAMPLE.FI\n" * 60)
-    stats: Counter = Counter()
-    assert list(parse_ripe_dbase_1999(path, stats)) == []
-    assert stats["no_header_stamp"] == 1
-
-
-def test_ripe_refuses_an_out_of_window_stamp(tmp_path: Path) -> None:
-    path = tmp_path / "y2003.db"
-    path.write_text("#\n# 030804 00:07:01\n\n*dn: EXAMPLE.FI\n")
-    stats: Counter = Counter()
-    assert list(parse_ripe_dbase_1999(path, stats)) == []
-    assert stats["stamp_out_of_window"] == 1
-
-
-# The `changed:` audit trail reaches 1996-1998, which the snapshot's own date cannot. Every
-# line it touches carries an e-mail address before the date, so these tests are the guard on
-# the promise made to the RIPE NCC: take the date, never the address.
-_RIPE_CHANGED_FIXTURE = """#
+RIPE_CHANGED = """#
 # 990804 00:07:01
 #
 
@@ -1227,46 +905,7 @@ _RIPE_CHANGED_FIXTURE = """#
 *ch: hostmaster@example.net 19980101
 *so: RIPE
 """
-
-
-def _ripe_changed(tmp_path: Path):
-    path = tmp_path / "ripe.db"
-    path.write_text(_RIPE_CHANGED_FIXTURE)
-    stats: Counter = Counter()
-    return list(parse_ripe_dbase_changed(path, stats)), stats
-
-
-def test_ripe_changed_reaches_the_years_the_snapshot_cannot(tmp_path: Path) -> None:
-    records, stats = _ripe_changed(tmp_path)
-    assert sorted((r.raw, r.year) for r in records) == [
-        ("OULU.FI", 1997),
-        ("OULU.FI", 1999),
-        ("TuKKK.FI", 1998),
-    ]
-    # 1991 is before the window; the second 1998 line on TuKKK adds nothing.
-    assert stats["changed_out_of_window"] == 1
-    assert stats["same_year_repeat"] == 1
-    assert stats["reverse_zone_skipped"] == 1
-
-
-def test_ripe_changed_emits_no_address(tmp_path: Path) -> None:
-    """The promise to RIPE NCC, enforced on the one attribute that always carries an address."""
-    records, _ = _ripe_changed(tmp_path)
-    blob = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
-    for forbidden in ("@", "finou", "cwi.nl", "ripe-dbm", "abo.fi", "mniemi"):
-        assert forbidden not in blob, f"parser leaked {forbidden!r}"
-
-
-def test_ripe_changed_evidence_value_year_matches_its_row(tmp_path: Path) -> None:
-    """`ark check` compares the year inside the value against the assigned year."""
-    records, _ = _ripe_changed(tmp_path)
-    for record in records:
-        assert str(record.year) in record.evidence_value
-
-
-# FUNET's `split/` edition spells both keys in full and froze in 2004, so it is the only
-# reachable RIPE file carrying 2000 and 2001 transactions. Same reading, same guard.
-_RIPE_SPLIT_FIXTURE = """#
+RIPE_SPLIT = """#
 #       Restricted rights.
 #
 
@@ -1286,30 +925,115 @@ domain:       200.193.193.in-addr.arpa
 changed:      mx@lucky.net 20010716
 source:       RIPE
 """
+RIPE_LEAKS = {
+    "snapshot": (
+        parse_ripe_dbase_1999,
+        RIPE_SNAPSHOT,
+        "@ +358 Rehtorinpellonkatu TURKU abo.fi utu.fi ripe-dbm",
+    ),
+    "changed": (parse_ripe_dbase_changed, RIPE_CHANGED, "@ finou cwi.nl ripe-dbm abo.fi mniemi"),
+    "split": (parse_ripe_dbase_split_2004, RIPE_SPLIT, "@ ovema a.sol.no lucky.net hostmaster"),
+}
 
 
-def _ripe_split(tmp_path: Path):
-    path = tmp_path / "ripe.db.domain"
-    path.write_text(_RIPE_SPLIT_FIXTURE)
-    stats: Counter = Counter()
-    return list(parse_ripe_dbase_split_2004(path, stats)), stats
+@pytest.mark.parametrize(
+    ("parser", "text", "forbidden"), list(RIPE_LEAKS.values()), ids=list(RIPE_LEAKS)
+)
+def test_ripe_emits_no_personal_data(tmp_path: Path, parser, text, forbidden) -> None:
+    """Every emitted value is a bare hostname and a date: no address, phone or contact line."""
+    records, _ = _parse(parser, tmp_path, "ripe.db", text)
+    assert records
+    emitted = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
+    for needle in forbidden.split():
+        assert needle not in emitted, f"parser leaked {needle!r}"
+    for record in records:
+        assert " " not in record.raw and "," not in record.raw
+
+
+def test_ripe_snapshot_reads_domain_objects_and_dates_them_1999(tmp_path: Path) -> None:
+    records, stats = _parse(parse_ripe_dbase_1999, tmp_path, "ripe.db", RIPE_SNAPSHOT)
+    assert [r.raw for r in records] == ["OULU.FI", "TuKKK.FI"]
+    assert {r.year for r in records} == {1999}
+    assert (stats["header_year"], stats["reverse_zone_skipped"]) == (1999, 1)
+
+
+def test_ripe_changed_reaches_the_years_the_snapshot_cannot(tmp_path: Path) -> None:
+    records, stats = _parse(parse_ripe_dbase_changed, tmp_path, "ripe.db", RIPE_CHANGED)
+    assert sorted((r.raw, r.year) for r in records) == [
+        ("OULU.FI", 1997),
+        ("OULU.FI", 1999),
+        ("TuKKK.FI", 1998),
+    ]
+    # 1991 is before the window; the second 1998 line on TuKKK adds nothing
+    assert (stats["changed_out_of_window"], stats["same_year_repeat"]) == (1, 1)
+    assert stats["reverse_zone_skipped"] == 1
+    # `ark check` compares the year inside the value against the assigned year
+    assert all(str(r.year) in r.evidence_value for r in records)
 
 
 def test_ripe_split_reads_the_long_keys_and_reaches_2000_and_2001(tmp_path: Path) -> None:
-    records, stats = _ripe_split(tmp_path)
+    records, stats = _parse(parse_ripe_dbase_split_2004, tmp_path, "ripe.db", RIPE_SPLIT)
     assert sorted((r.raw, r.year) for r in records) == [
         ("example.bg", 2000),
         ("example.bg", 2001),
         ("hasselblad.gm", 1997),
     ]
-    # 2003 is after the window and the reverse zone never becomes current.
-    assert stats["changed_out_of_window"] == 1
-    assert stats["reverse_zone_skipped"] == 1
+    # 2003 is after the window and the reverse zone never becomes current
+    assert (stats["changed_out_of_window"], stats["reverse_zone_skipped"]) == (1, 1)
 
 
-def test_ripe_split_emits_no_address(tmp_path: Path) -> None:
-    """The same promise to RIPE NCC, on the same attribute, in the other spelling."""
-    records, _ = _ripe_split(tmp_path)
-    blob = " ".join(r.raw for r in records) + " ".join(r.evidence_value for r in records)
-    for forbidden in ("@", "ovema", "a.sol.no", "lucky.net", "hostmaster"):
-        assert forbidden not in blob, f"parser leaked {forbidden!r}"
+REGISTRY_REFUSED = [
+    {"host": "late.dk", "year": 2001, "text": "DK Zonen header 20020105"},
+    {"host": "undated.dk", "year": 2001, "text": "no stamp"},
+    {"host": "old.dk", "year": 1995, "text": "DK Zonen header 19950101"},
+    {"year": 2001, "text": "DK Zonen header 20010101"},
+]
+WHOIS_REFUSED = [
+    {"domain": "example.com", "year": 1998, "created": "1997-12-19", "group": "g"},
+    {"domain": "other.com", "year": 2004, "created": "2004-01-01", "group": "g"},
+]
+IEDR_LATE = IEDR_PAGE.replace("21 December 2001", "28 March 2002")
+IEDR_UNDATED = "<html><body>orphan.ie<br></body></html>"
+ZONE_1993 = ZONE.replace("1997041800", "1993041800")
+ZONE_NO_SERIAL = "\n".join(line for line in ZONE.splitlines() if ";serial" not in line)
+RIPE_UNSTAMPED = "#\n# no date here\n\n" + "*dn: EXAMPLE.FI\n" * 60
+RIPE_2003 = "#\n# 030804 00:07:01\n\n*dn: EXAMPLE.FI\n"
+ISC_UNREAD = {"out_of_window_file": 1, "lines": 0}  # skipped whole, not read line by line
+REFUSED = {
+    "isc-pre-window": (parse_isc_survey, "wb_nw_9507.domains.gz", "x.com\n", ISC_UNREAD),
+    "iedr-out-of-window": (parse_iedr_register, "l-doms.html", IEDR_LATE, "out_of_window_page"),
+    "iedr-no-date-line": (parse_iedr_register, "a-doms.html", IEDR_UNDATED, "no_footer_date"),
+    "internic-out-of-window": (_zone, "org.zone.gz", ZONE_1993, "out_of_window_file"),
+    "internic-no-serial": (_zone, "org.zone.gz", ZONE_NO_SERIAL, "no_soa_serial"),
+    "ripe-no-stamp": (parse_ripe_dbase_1999, "ns.db", RIPE_UNSTAMPED, "no_header_stamp"),
+    "ripe-out-of-window": (parse_ripe_dbase_1999, "y2003.db", RIPE_2003, "stamp_out_of_window"),
+    "registry-stamp-names-another-year": (
+        parse_registry_items,
+        "i.jsonl",
+        _jsonl(REGISTRY_REFUSED),
+        {"stamp_does_not_name_the_year": 2, "malformed": 2},
+    ),
+    "usenet-whois-stamp-disagrees": (
+        _parse_usenet_whois_journal,
+        "uw.jsonl.gz",
+        _jsonl(WHOIS_REFUSED),
+        {"created_year_mismatch": 1, "malformed": 1},
+    ),
+}
+# pending applications and the registry's own prose pages list no registration
+for page in ("19991128233948_stalled", "19991129020519_weekly", "19991128213509_dom-list"):
+    case = (parse_iedr_register, f"{page}.html", IEDR_LISTS_PAGE, "not_a_register_page")
+    REFUSED[f"iedr-{page[15:]}"] = case
+
+
+@pytest.mark.parametrize(
+    ("parser", "name", "text", "counted"), list(REFUSED.values()), ids=list(REFUSED)
+)
+def test_an_undatable_file_or_row_yields_nothing_and_says_why(
+    tmp_path: Path, parser, name, text, counted
+) -> None:
+    """A file or row that cannot be dated in window is refused whole, never guessed."""
+    records, stats = _parse(parser, tmp_path, name, text)
+    assert records == []
+    counted = {counted: 1} if isinstance(counted, str) else counted
+    assert {key: stats[key] for key in counted} == counted
