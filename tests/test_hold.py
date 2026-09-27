@@ -194,6 +194,7 @@ def test_the_sync_the_bank_and_the_install_obey_the_hold(box):
     assert box.launchd_calls()[before:] == []
 
 
+@pytest.mark.skipif(JUST is None, reason="just not on PATH")
 def test_a_dry_run_hand_run_passes_the_hold_and_lifts_nothing(box):
     """`ARK_HOLD_BYPASS=dry-run` lets one hand run of the sync or the bank past the hold and
     says so; any other value is held, and the hold file, the jobs and the flags stay as they are.
