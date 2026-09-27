@@ -6,8 +6,9 @@
 # A reboot undoes a bootout, because launchd loads every plist in ~/Library/LaunchAgents at
 # login. `launchctl disable` is what persists, so `on` disables a job before booting it out and
 # `off` enables it before bootstrapping it. The hold file names what is held, one name per line
-# under `human` and a UTC stamp: `just sync`, `just bank` and the collector supervisor exit
-# `held` while it lists their job, and `just schedule install` refuses while it exists.
+# under `human` and a UTC stamp. While it lists their job, the collector supervisor exits `held`,
+# and so do `just sync` and `just bank` unless one hand run sets `ARK_HOLD_BYPASS=dry-run` inline;
+# `just schedule install` refuses while the file exists.
 #
 # The VPS and GitHub are asked, never relied on: without them the jobs and the local flags
 # still go, and what could not be confirmed is printed, not fatal.

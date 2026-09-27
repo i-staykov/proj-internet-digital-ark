@@ -2,8 +2,8 @@
 
 `origin` is public and every branch but `main` may be pushed, so a secret, a machine address
 or a local path in a tracked file is published the moment the push lands. One scan covers
-those and the house ban on em and en dashes; `tests/test_hygiene.py` proves it catches each,
-and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
+those and the house bans on em and en dashes and on decision numbers; `tests/test_hygiene.py`
+proves it catches each, and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
 
 The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
 in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
@@ -77,7 +77,12 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
     # No em or en dash in any file the scan reads: quote a 1999 artifact with a hyphen.
     ("dash", re.compile(r"[\u2013\u2014]"), True),
+    # A rule is cited by its words or a pointer, never a decision number.
+    ("decision number", re.compile(r"\bC-\d{1,3}\b|ADR-\d+"), True),
 )
+
+# Frozen submissions are never edited, so they keep the decision numbers they were sent with.
+FROZEN = "submissions"
 
 # Every pattern above is written so that its own source line does not match it, which is
 # why the separators sit outside the character classes. Keep that true when editing one.
@@ -111,11 +116,14 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
         text = text_of(Path(path))
         if text is None:
             continue
+        frozen = FROZEN in Path(path).parts
         for number, line in enumerate(text.splitlines(), 1):
             for rule, pattern, may_print in _RULES:
                 for match in pattern.finditer(line):
                     hit = match.group(0)
                     if rule == "host login" and any(r in hit for r in DOCUMENTATION_RANGES):
+                        continue
+                    if rule == "decision number" and frozen:
                         continue
                     detail = hit[:120] if may_print else f"{len(hit)} chars, not printed"
                     findings.append(Finding(Path(path), number, rule, detail))
@@ -152,8 +160,8 @@ def main() -> int:
     if findings:
         print(
             f"\n{len(findings)} finding(s). Read each in context: a real leak is fixed and never "
-            "committed, a dash becomes a hyphen, and an address that is a fixture or a public host "
-            "joins KNOWN_ADDRESSES "
+            "committed, a dash becomes a hyphen, a decision number becomes the rule's words, and "
+            "an address that is a fixture or a public host joins KNOWN_ADDRESSES "
             "in src/ark/hygiene.py with a comment saying why."
         )
         return 1

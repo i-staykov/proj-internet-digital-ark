@@ -77,7 +77,11 @@ DB = REPO / "data/ark.duckdb"
 # The decisions that let a source's rows into the store at all.
 INGESTIBLE = frozenset({"master", "candidate-only"})
 
-_ITEMS_EE = re.compile(r"net-new AFTER the split\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE")
+# The figure `price_items.py` says to quote: after the split, or with `--no-split` the whole
+# net-new set, which a lead of a no-split class is priced on.
+_ITEMS_EE = re.compile(
+    r"net-new(?: AFTER the split|, no split)\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE"
+)
 _HOST_EE = re.compile(r"NET-NEW hostname years ([\d,]+)\s+([\d,]+\.?\d*) EE")
 # The old ledger's first field: the drain's minute, as the tick's run label writes it.
 _STAMP = re.compile(r"\d{8}T\d{4}Z")
@@ -142,11 +146,10 @@ def drain(incoming: Path, fleet: Path | None = None) -> int:
     for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
         for lead in sorted(p for p in run.rglob("*") if p.is_dir() and _lead_dir(p)):
             # **The slug in the sidecar names the directory, never the directory's own name.**
-            # A leg artifact's root directory is called `findings`, so a copy of one banked
-            # beside its lead directory as a second lead, and the same finding went into the
-            # register twice under the same slug (measured 2026-09-09 on
-            # `ietf-mail-archive-received-by`). Keying on the slug makes the two collide, and
-            # the collision is then resolved on which copy is more settled.
+            # A leg artifact's root directory is called `findings`, so keyed on that name a copy
+            # of one banks beside its lead directory as a second lead, and the same finding
+            # enters the register twice under the same slug. Keying on the slug makes the two
+            # collide, and the collision is then resolved on which copy is more settled.
             slug = str(load(lead / SIDECAR).get("slug") or lead.name)
             target = incoming / slug
             side = lead.parent / f"{slug}.json"

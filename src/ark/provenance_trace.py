@@ -18,9 +18,7 @@ from pathlib import Path
 
 # `domain_language` is loaded but optional: an export written before the English
 # standard existed has no such file, and this tool must still open that archive.
-# It was previously omitted from this list while its Parquet file shipped beside
-# the others, so a reviewer listing the tables was told the archive held five
-# when it held six, and the English verdicts looked absent.
+# Left off this list, it ships unlisted and its English verdicts look absent.
 TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 OPTIONAL_TABLES = ("domain_language", "hostname_year")
 

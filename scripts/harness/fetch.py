@@ -28,19 +28,34 @@ Anything else exits 2 before a request is made.
 here: each hop reads the robots.txt of the host it points at, so a 302 from a host that
 permits us onto a host that disallows us is refused instead of fetched. Five hops maximum.
 
+**No request is the Wayback CDX API's, the first or a hop.** The CDX has three clients, two
+on the laptop and one on the VPS, and none of them is a fetch. A url that asks it, by any
+path it answers on and however its host or path is spelled, exits 8 before anything is
+asked of any host, its robots.txt included. `cdx_query` is the rule, and ark-fleet's
+`read.py` keeps a copy of it, so a read refuses such a url before it starts.
+
+**`--fault-after-bytes N` drops the first response once, to prove the resume on a real
+artifact.** The first 200's body ends after N bytes as a server that hangs up ends it, and
+the Range continuation below takes the rest, so `resumes` counts the drop. It never cuts a
+range request, and it needs a declared length above N, or the run exits 2: without one the
+rest has no known end.
+
 Exit codes, because the caller is a workflow and a workflow reads numbers:
 
     0  fetched, receipt on stdout
-    2  usage, or a destination outside the allowed roots
+    2  usage, a destination outside the allowed roots, or a `--fault-after-bytes` the
+       declared length cannot honour
     3  robots refuses this path, by name or by `*`; the artifact was never asked for
     4  robots could not be read, so nothing may be assumed; the artifact was never asked
     5  over the cap, by `Content-Length` or by the stream
     6  the content type is not on the allowlist
     7  the server did not serve it: HTTP error, or the network failed
+    8  the url or a redirect hop asks the Wayback CDX API; nothing was asked of it
 
 The receipt is one JSON line: `url, bytes, sha256, content_type, robots`, plus the path it
-landed on, whether the cap stopped it, and `resumes`, the range requests that continued a
-transfer that ended early, a streamed one included. With `--to -` the payload owns stdout and the
+landed on, whether the cap stopped it, `resumes`, the range requests that continued a
+transfer that ended early, a streamed one included, and `fault_after_bytes` when one was
+asked for. With `--to -` the payload owns stdout and the
 receipt goes to stderr; every other invocation prints the receipt on stdout, success or
 failure, so a workflow always has something to record.
 """
@@ -49,9 +64,12 @@ import argparse
 import email.utils
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
+import posixpath
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -123,6 +141,7 @@ ATTEMPTS = 4
 MAX_SLEEP_SECONDS = 300
 
 OK, USAGE, ROBOTS_REFUSED, ROBOTS_UNREADABLE, OVER_CAP, BAD_TYPE, HTTP_FAILED = 0, 2, 3, 4, 5, 6, 7
+CDX_REFUSED = 8
 
 SIZE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*([kmgt]?)i?b?\s*$", re.IGNORECASE)
 UNIT = {"": 1, "k": 1024, "m": 1024**2, "g": 1024**3, "t": 1024**4}
@@ -158,6 +177,63 @@ _OPENER = urllib.request.build_opener(_NoRedirect)
 REDIRECTS = {301, 302, 303, 307, 308}
 MAX_HOPS = 5
 
+# The Wayback CDX API and every endpoint it answers: the timemaps, the Wayback's own `/__wb/`
+# calls such as `sparkline` and `calendarcaptures`, and the availability API, which archive.org
+# serves as well. A host given as an address could be the Wayback's, so it takes the Wayback's
+# paths.
+WAYBACK_HOSTS = ("web.archive.org", "wayback.archive.org")
+CDX_PATHS = ("/cdx", "/web/timemap", "/__wb", "/wayback/available")
+ARCHIVE_HOSTS = ("archive.org", "www.archive.org")
+ARCHIVE_CDX_PATHS = ("/wayback/available",)
+
+
+def address(host: str) -> bool:
+    """Whether a host is an address and not a name, in any form the resolver takes: an IPv6
+    literal, or an IPv4 one dotted, as one integer, in hex or in octal."""
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+    try:
+        socket.inet_aton(host)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def resolver_name(host: str) -> str:
+    """A host as the resolver takes it: IDNA-mapped, so a full-width `ｗｅｂ` is `web`,
+    lowercased and with no trailing dot."""
+    try:
+        host = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        pass
+    return host.lower().rstrip(".")
+
+
+def request_host(url: str) -> str:
+    """The host `get` connects to for a url. urllib percent-decodes the host before it
+    connects, so `web%2Earchive.org` and `web.archive.org%3A443` are `web.archive.org`.
+    Raises ValueError for a url that cannot be parsed."""
+    netloc = urllib.parse.urlsplit(url).netloc.rpartition("@")[2]
+    decoded = urllib.parse.urlsplit("//" + urllib.parse.unquote(netloc))
+    return resolver_name(decoded.hostname or "")
+
+
+def cdx_query(url: str) -> bool:
+    """Whether a url asks the Wayback CDX API, however its host and path are spelled. Raises
+    ValueError for a url that cannot be parsed."""
+    host = request_host(url)
+    path = urllib.parse.unquote(urllib.parse.urlsplit(url).path).lower()
+    # A `;` parameter is not part of a segment's name to a server that routes on names.
+    path = re.sub(r"/+", "/", re.sub(r";[^/]*", "", path))
+    # The server resolves `.` and `..` before it routes, so `/web/../cdx` is `/cdx`.
+    path = posixpath.normpath(path) if path else path
+    if host in WAYBACK_HOSTS or address(host):
+        return path.startswith(CDX_PATHS)
+    return host in ARCHIVE_HOSTS and path.startswith(ARCHIVE_CDX_PATHS)
+
 
 def get(
     url: str, timeout: float, start: int | None = None, end: int | None = None
@@ -172,7 +248,7 @@ def get(
     early is continued rather than restarted. **The span is bounded on purpose.** An
     open-ended `bytes=N-` past 2 GiB is answered 206 by the archive and then delivers
     nothing at all, while the same byte asked for as `bytes=N-M` comes back with a correct
-    `Content-Range`. Measured against the UKWA artifact on 2026-09-11.
+    `Content-Range`. Measured against the UKWA artifact.
     """
     fields = {"User-Agent": USER_AGENT}
     if start is not None:
@@ -405,6 +481,23 @@ class TransferBroke(http.client.HTTPException):
         self.got = got
 
 
+class DropAfter:
+    """The first response's body, ended after `limit` bytes as a server that hangs up ends
+    it: `--fault-after-bytes`. `stream` reads the early EOF as a short body and the Range
+    continuation takes the rest, so `resumes` counts the drop."""
+
+    def __init__(self, body, limit: int):
+        self.body, self.left = body, limit
+
+    def read(self, amt: int = -1) -> bytes:
+        if self.left <= 0:
+            self.body.close()
+            return b""
+        chunk = self.body.read(self.left if amt is None or amt < 0 else min(amt, self.left))
+        self.left -= len(chunk)
+        return chunk
+
+
 def stream(body, out, cap: int, digest=None, seen: int = 0) -> tuple[int, str, bool]:
     """Copy up to `cap` bytes, hashing as it goes. Returns (bytes, sha256, over the cap).
 
@@ -571,7 +664,14 @@ def _open_no_symlink(path: str):
     return os.fdopen(os.open(path, flags, 0o600), "wb")
 
 
-def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) -> tuple[int, dict]:
+def fetch(
+    url: str,
+    cap: int,
+    to: str | None,
+    timeout: float,
+    sleep=time.sleep,
+    fault_after: int | None = None,
+) -> tuple[int, dict]:
     receipt = {
         "url": url,
         "bytes": 0,
@@ -600,6 +700,21 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
     hops = 0
 
     while True:
+        # **The CDX is asked nothing, the robots.txt of its host included**, whether the url
+        # is the caller's or a hop's. One that cannot be parsed could be anything, so it
+        # stops the same way.
+        try:
+            asks = cdx_query(url)
+        except ValueError:
+            asks = True
+        if asks:
+            receipt["url"] = url
+            receipt["reason"] = (
+                "the url asks the Wayback CDX API, or cannot be parsed so it could, and "
+                "no fetch is its client: nothing was asked of it"
+            )
+            return CDX_REFUSED, receipt
+
         # **Every hop is checked, not just the first.** urllib follows no redirect here, so
         # a 302 onto a second host reads that host's robots.txt before anything is asked of
         # it, and a 302 within one host re-matches the new path against rules in hand.
@@ -671,10 +786,10 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
 
                 # **Two ways a body ends early, and neither may read as success.** A dead
                 # connection raises `http.client.HTTPException`, which is not an `OSError`,
-                # so it used to traceback out with no receipt and a part-file on disk. And
+                # so uncaught it tracebacks out with no receipt and a part-file on disk. And
                 # a server that hangs up after a short body raises NOTHING at all:
                 # `HTTPResponse.read(amt)` returns b"" and the loop calls it EOF, so a
-                # truncated corpus banked a sha256 of the part that arrived. The declared
+                # truncated corpus banks a sha256 of the part that arrived. The declared
                 # length is checked against what was counted, below.
                 # The hash is kept as an object rather than a hex string, because a
                 # transfer continued with `Range` has to go on hashing where it stopped.
@@ -713,12 +828,30 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                         return HTTP_FAILED, receipt
                     receipt["reason"] = f"fetched {total} bytes, continuing an earlier run"
                     return OK, receipt
+                source = body
+                if fault_after is not None:
+                    # Only a declared length says where the rest starts; without one the
+                    # drop would bank a truncated artifact as whole.
+                    if declared is None or declared <= fault_after:
+                        receipt["reason"] = (
+                            f"--fault-after-bytes {fault_after} needs a declared length above "
+                            f"it to resume against, and the server declared {declared}"
+                        )
+                        return USAGE, receipt
+                    receipt["fault_after_bytes"] = fault_after
+                    print(
+                        f"fetch: dropping the connection after {fault_after} bytes, as "
+                        "--fault-after-bytes asks",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    source = DropAfter(body, fault_after)
                 try:
                     if to_pipe:
                         # A dropped connection is continued below when the length is
                         # known: the bytes already on the pipe are what the hasher holds.
                         try:
-                            total, digest, over = stream(body, sys.stdout.buffer, cap, hasher)
+                            total, digest, over = stream(source, sys.stdout.buffer, cap, hasher)
                         except TransferBroke as broke:
                             if declared is None:
                                 raise
@@ -727,7 +860,7 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                     else:
                         os.makedirs(os.path.dirname(receipt["path"]), exist_ok=True)
                         with _open_no_symlink(receipt["path"]) as out:
-                            total, digest, over = stream(body, out, cap, hasher)
+                            total, digest, over = stream(source, out, cap, hasher)
                 except (OSError, http.client.HTTPException) as exc:
                     if not to_pipe:
                         _discard(receipt)
@@ -799,6 +932,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-bytes", default="1G", help="the cap, binary units (default 1G)")
     ap.add_argument("--to", default=None, help="a file, a directory, or - for stdout")
     ap.add_argument("--timeout", type=float, default=60.0, help="per-request seconds")
+    ap.add_argument(
+        "--fault-after-bytes",
+        type=int,
+        default=None,
+        metavar="N",
+        help="end the first response after N bytes, once, so the Range resume runs on a real "
+        "artifact (the dry run's D1)",
+    )
     args = ap.parse_args(argv)
 
     scheme = urllib.parse.urlsplit(args.url).scheme
@@ -810,8 +951,11 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"fetch: {exc}", file=sys.stderr)
         return USAGE
+    if args.fault_after_bytes is not None and args.fault_after_bytes < 1:
+        print("fetch: --fault-after-bytes must be at least 1", file=sys.stderr)
+        return USAGE
 
-    code, receipt = fetch(args.url, cap, args.to, args.timeout)
+    code, receipt = fetch(args.url, cap, args.to, args.timeout, fault_after=args.fault_after_bytes)
     line = json.dumps(receipt)
     print(line, file=sys.stderr if args.to == "-" else sys.stdout, flush=True)
     return code

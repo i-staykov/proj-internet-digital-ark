@@ -5,12 +5,10 @@ used: "unprocessed files, failed parses, truncated runs, unqueried candidates,
 missing date partitions". This answers the file half of that in one command, with
 no network and no write lock, so it can run before every collection decision.
 
-**It exists because the answer was worth 14,956 equivalent-English on 2026-08-10.**
-496 per-TLD ISC survey shards had been on disk since 5 August, matched by a glob
-`just reproduce sources` already documented, and no ingest had ever read them. Nothing here
-searched for a new source; it diffed disk against the ingest ledger. Every
-measurement the project takes starts from the store, so every one of them was
-blind to those files.
+**Every measurement starts from the store, so a file no ingest has read is invisible
+to all of them.** This searches for no new source; it diffs disk against the ingest
+ledger. Its first finding, 496 unread per-TLD ISC survey shards matched by a documented
+glob, was worth 14,956 equivalent-English.
 
 Five checks, each of which has caught something real:
 
@@ -18,8 +16,8 @@ Five checks, each of which has caught something real:
                  read, per source. The ISC case, and the first thing to look at.
 `glob_too_narrow` files the ledger holds that the documented glob does NOT match.
                  Not lost yield: a reproduction defect, because `just reproduce`
-                 rebuilds a store missing them. Found twice on 2026-07-26, where
-                 `isc_survey/*.domains.gz` silently missed `wb_nw_9607_org.gz`.
+                 rebuilds a store missing them: `isc_survey/*.domains.gz`
+                 silently misses `wb_nw_9607_org.gz`.
 `unreferenced`   directories under data/raw/ that no ingest glob points into at
                  all. These are the "bytes nothing reads" in `docs/registers/sources.md`,
                  and one of them is a National Library of Australia title index.
@@ -31,11 +29,8 @@ Five checks, each of which has caught something real:
                  for a gap queue, newest candidates for a pool queue, and for the
                  pool queue also the newest **journal**, because its ordering is a
                  measured hit rate and that is measured out of the journals rather
-                 than out of the store. It used to compare against the baseline
-                 release alone, which changes monthly. Each correction found
-                 staleness the previous form called fine: three lists the first
-                 time, and the pool queue's own ranking the second. A blind queue
-                 once hid 102,628 targets.
+                 than out of the store. The baseline release alone, which changes
+                 monthly, misses every one of these marks.
 
 Nothing here is a gate. It reports and exits 0, because "there is unread material
 on disk" is a fact about the round rather than a broken invariant, and a check
@@ -75,13 +70,12 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 #   candidates  the newest domain with no year, which a pool queue should carry
 #   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
-    # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
-    # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
-    # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
-    # a measured in-window rate, because the builder falls back to the pool-wide rate where
-    # it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com` for a measured
-    # 1 in-window date in 97 queries. Five TLDs qualified when this was written and twelve
-    # do now, which is why the set lives in one place rather than in a comment.
+    # The list the RDAP sweep actually reads: watching any other file is the same defect
+    # as watching the wrong journal prefix, the alarm stays quiet about the list in use.
+    # Restricted to TLDs with a measured in-window rate, because the builder falls back to
+    # the pool-wide rate where it has no sample and that floated `.vi`, `.bm` and `.pn`
+    # above `.com` for a measured 1 in-window date in 97 queries. The set grows with the
+    # sample, which is why it lives in one place rather than in a comment.
     (
         "data/raw/rdap/pool_targets_measured.txt",
         "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
@@ -117,7 +111,7 @@ ACCOUNTED = {
     # collection, so these three journals are held where no ingest or bank glob matches
     # them.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
-    # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
+    # 511 MB that is three byte-for-byte duplicates: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
     # that pool's `.processed` ledger, so the announce, address, header and bare
     # extractors have each already read them.
@@ -131,13 +125,13 @@ ACCOUNTED = {
     # clear it on its own: seeds candidates, evidences nothing, has no date column
     "pandora-titles": "seed-only, read by scripts/sources/directories/seed_pandora_titles.py",
     "pandora": "byte-identical duplicate of pandora-titles/pandora-titles.csv",
-    # 982 MB that read as the largest opportunity on disk for five days and is not
-    # one. Traced on 2026-08-11: `enron.tar.gz` is the input
+    # 982 MB that looks like the largest opportunity on disk and is not one:
+    # `enron.tar.gz` is the input
     # scripts/sources/mail_corpora/collect_enron.py
     # names directly, `mlists` and `attrition` fed ingested sources, and
     # `hathitrust_ef` is the HathiTrust route already closed on measurement inside the
-    # printed-directory verdict. Re-measured to be sure: 74 net-new pairs and 49.4 EE
-    # after the split, against the bar, then ~5,000 pairs and 10,000 EE since 2026-09-04.
+    # printed-directory verdict. Measured at 74 net-new pairs and 49.4 EE after the
+    # split, under the bar.
     "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
     "hathitrust_ef route closed on measurement, see docs/registers/sources.md",
     "probes": "cached pages and journals from scripts/pricing/probe_source.py, read by "
@@ -225,10 +219,9 @@ def check_glob_too_narrow(ledger: dict[str, set[str]], verbose: bool) -> int:
     the reproduction path claims more than it delivers.
 
     **The two causes need separating, because they have different fixes and the
-    lumped total misleads.** Reported as one number this read 1,798 on 2026-08-27
-    and a hand estimate the same night put it at "about 20": both were describing
-    a real thing and neither was the same thing. Widening a glob fixes one of
-    them; nothing fixes the other, and saying so is the honest claim.
+    lumped total misleads.** As one number it conflates two real things of very
+    different size. Widening a glob fixes one of them; nothing fixes the other, and
+    saying so is the honest claim.
 
     `narrow`  the file is on disk and no documented glob matches its name.
     `absent`  the file is not on disk at all, so no glob can reach it and the

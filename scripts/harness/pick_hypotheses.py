@@ -41,8 +41,7 @@ def main() -> None:
     # **A findings file that exists but carries no `result:` line yet is IN FLIGHT.**
     # The harvester runs in the background so the next round can start immediately, which
     # means it has usually not written its `result:` lines by the time the next round
-    # picks. Without this the loop relaunches the slugs it just finished, which it did on
-    # 2026-08-27 at 23:09.
+    # picks. Without this the loop relaunches the slugs it just finished.
     if args.pending_dir and args.pending_dir.is_dir():
         pending = {f.stem for f in args.pending_dir.glob("*.md")}
         slugs = [s for s in slugs if s not in pending]

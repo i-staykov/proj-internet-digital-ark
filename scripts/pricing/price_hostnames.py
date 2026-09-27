@@ -2,11 +2,11 @@
 
 **Why a second pricer.** `price_items.py` collapses every name to its registrable and
 prices the (domain, year) unit, which is right for the annual masters and wrong for
-the second unit the reviewer accepted on 2026-09-01: 180 suffix journals it priced at
+the second unit the reviewer accepts: 180 suffix journals it priced at
 0 were worth 301,650 EE once the hostnames beneath the held registrables were counted.
 The 26 `keep_until_priced` corpora in `docs/registers/retention.md` were all priced the first
-way, so none of them has a number at this grain, and until now the only way to get
-one was `ark ingest-hostnames`, which takes the store's single write lock and writes
+way, so none of them has a number at this grain, and without this the only way to get
+one is `ark ingest-hostnames`, which takes the store's single write lock and writes
 evidence rows. Pricing must not do either.
 
 **It runs the ingest's own funnel**, imported from `ark.hostnames` rather than copied:
@@ -220,8 +220,7 @@ def price(  # noqa: ANN001
         WHERE domain IN (SELECT name FROM priced_names)
     """)
     # Price what could ship: a hostname under `.arpa` or under a TLD that did not exist in
-    # its year never reaches a file, so counting it inflates the price of a corpus. The
-    # hostname export applied neither rule until 2026-09-03.
+    # its year never reaches a file, so counting it inflates the price of a corpus.
     shipped_host = shipping_filter_for("c.hostname", "c.year")
     shipped_reg = shipping_filter_for("p.domain", "p.year")
     netnew = conn.execute(

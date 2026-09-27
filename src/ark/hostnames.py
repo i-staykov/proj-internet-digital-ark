@@ -80,15 +80,14 @@ ARQUIVO_METHOD = "arquivo_ia_cdxj_hostgrain"
 POLAND_SOURCE = "poland_pl_extract_hostnames"
 POLAND_METHOD = "poland_pl_extract_hostgrain"
 # The Internet Archive's per-item aggregate CDX beside the DARTMOUTH-NBER-RESEARCH-2017 ARCs:
-# a bulk IA CDX file, read at hostname grain for the items whose stamps fall in the window
-# (found 2026-09-21 by the fleet at 5,107 EE on a tenth of one item). Its own source row
-# because it is its own collection; the method is the allowlist's bulk-CDX name, since a row
-# is an IA capture with the URL and stamp retained, which is XIII's reference pattern.
+# a bulk IA CDX file, read at hostname grain for the items whose stamps fall in the window.
+# Its own source row because it is its own collection; the method is the allowlist's bulk-CDX
+# name, since a row is an IA capture with the URL and stamp retained, XIII's reference pattern.
 DARTMOUTH_ARCS_SOURCE = "dartmouth_arcs_cdx_hostnames"
 DARTMOUTH_ARCS_METHOD = "bulk_cdx_file"
 
 # The public CDX of one IA storage node, item `host_cdx_ia600702`, the same class read the same
-# way (2026-09-21). Its own source row because it is a different collection.
+# way. Its own source row because it is a different collection.
 HOSTCDX_SOURCE = "ia_node_host_cdx_hostnames"
 HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
 
@@ -240,9 +239,9 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
         # A person typing `http://host/` in a post is naming a host that served them a page.
         "usenet_body_url_hostnames",
-        # The same shape in a dated mailing-list message (`MAILLIST_FAMILY`, 2026-09-04).
+        # The same shape in a dated mailing-list message (`MAILLIST_FAMILY`).
         "maillist_body_url_hostnames",
-        # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`, 2026-09-04).
+        # And in a dated message of the released Enron mailbox (`ENRON_FAMILY`).
         "enron_body_url_hostnames",
         # A non-web observation (`APACHE_FAMILY`). A
         # `Received: ... by <host>` clause is written by the MTA at that host, about itself,
@@ -750,7 +749,7 @@ def ingest_zone_hostnames(
         return stats
     apex, year = header
     # One source row per zone year, because the two lanes stand on different terms: the
-    # 1997 files are the nic.mil captures Ivo decided on, the 1999 files came off a
+    # 1997 files are the approved nic.mil captures, the 1999 files came off a
     # mirror whose refusal is still unresolved in the register, so they wait for their
     # own Decision line and the 1997 approval cannot be borrowed for them.
     source_name = ZONE_SOURCE_NAME if year == 1997 else f"{ZONE_SOURCE_NAME}_{year}"

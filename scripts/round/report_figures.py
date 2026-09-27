@@ -156,8 +156,8 @@ def figures(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> di
     # the shared merged baseline". Once the reviewer reissues the baseline that
     # split answers itself: everything net-new against the CURRENT release was
     # harvested after he last merged, because anything older is already in it.
-    # This used to subtract a hardcoded 32,698, which stopped meaning anything the
-    # moment the baseline moved and would have silently understated the round.
+    # A hardcoded subtraction stops meaning anything the moment the baseline moves
+    # and silently understates the round.
     out["harvested_this_round"] = out["netnew_pairs"]
 
     out["syntax_anomalous"] = 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch the 19 item-level CDX indexes of the archive.org collection
-# `Poland_pl-ccTLD_2001-12-31`, approved master by Ivo on 2026-09-10.
+# `Poland_pl-ccTLD_2001-12-31`, approved as a master.
 #
 # The ARCs of that collection are `private: true` and are never touched. Only the
 # `<item>.cdx.gz` index is fetched, and each one is public and served with 200.

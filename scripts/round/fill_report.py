@@ -64,13 +64,13 @@ DB = Path("data/ark.duckdb")
 #
 # The email is filled too, but ONLY out of `private/`, which is git-ignored.
 # `package_delivery.sh` ships `git archive HEAD`, so every tracked file reaches the
-# reviewer, and the 2 August archive carried an email draft's "notes for Ivo" section:
-# private reasoning about how to present the work to him. A template addressed to a
-# person is one edit away from carrying that again, so the whole pair stays outside git
+# reviewer, and an email draft's notes section holds private reasoning about how to
+# present the work to him. A template addressed to a person is one edit away from
+# carrying that, so the whole pair stays outside git
 # and the fill is what keeps its five figures identical to the report's.
 # (template, target, an unwritten round section is fatal). Fatal for the report, which
 # ships: an empty section 5 reaching the reviewer is the failure the whole token
-# mechanism exists to prevent. Not fatal for the email, which is a draft Ivo finishes by
+# mechanism exists to prevent. Not fatal for the email, which is a draft the owner finishes by
 # hand at submission time and which never leaves `private/`. Making it fatal there would
 # block every packaging run for a document nobody is sending yet.
 DOCUMENTS = (
@@ -83,7 +83,7 @@ def per_year_table(f: dict) -> str:
     """Volume and equivalent-English per year, read from the shipped merge audit.
 
     **Read from the audit rather than from the store, because the two disagree by a few
-    records and the report used to print both.** The store counts a canonicalised
+    records and a report printing both contradicts itself.** The store counts a canonicalised
     (domain, year); the audit counts what survives export into the annual files and is
     then scored by the reviewer's own calculator, so a name his validator refuses is in
     the first and not the second. His figure is the one that matters and it is the one
@@ -393,11 +393,9 @@ def newest_audit(merge_dir: Path) -> Path | None:
     """The most recently WRITTEN merge audit, or None.
 
     **By modification time, never by name, and there is exactly one of these because two
-    call sites disagreeing is how the report contradicted itself twice on 2026-08-26.**
-    Sorting alphabetically picks `merge_audit_ark_20260824c.json` over a freshly written
-    `merge_audit_ark.json`, since the tagged name sorts last. That put a 488,722 increment
-    beside a 5.3344% growth rate in section 1, and after that was fixed in one place it did
-    the same again in section 8's merge table.
+    call sites that disagree make the report contradict itself.** Sorting alphabetically
+    picks `merge_audit_ark_20260824c.json` over a freshly written `merge_audit_ark.json`,
+    since the tagged name sorts last, and puts a stale increment beside a live growth rate.
     """
     audits = list(merge_dir.glob("merge_audit_ark*.json"))
     if not audits:
@@ -424,7 +422,7 @@ def accepted_totals() -> dict | None:
 
 
 # A source is named in the report when it carries at least this much of the round; the rest
-# is one row pointing at the register (Ivo, 2026-09-22: nothing under 4,000 EE by name).
+# is one row pointing at the register: nothing under 4,000 EE by name.
 ATTRIBUTION_FLOOR_EE = Decimal(4000)
 
 
@@ -446,8 +444,8 @@ def attribution_rows(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> list[tup
 
 def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     """The few sources that carry the round, one row each; the long tail is one row
-    pointing at the register. Ivo, 2026-09-02: the full table cost a page of the
-    report and belongs in `sources.md` and `audit/source_contribution.csv`."""
+    pointing at the register. The full table costs a page of the report and
+    belongs in `sources.md` and `audit/source_contribution.csv`."""
     rows = attribution_rows(f, hosts)
     shown = [r for r in rows if r[5] >= ATTRIBUTION_FLOOR_EE]
     rest = rows[len(shown) :]
@@ -538,12 +536,11 @@ def substitutions(f: dict) -> dict[str, str]:
     )
     reg_pairs = int(accepted["submitted_registrable_records"]) if accepted else f["netnew_pairs"]
     # **The headline increment comes from the MERGE AUDIT and the growth rate from the
-    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5.** Caught on
-    # 2026-08-26 with the audit reading 769,438 records and 488,722 EE beside a live
-    # 5.3344% that implies 712,801. Both numbers were individually right and the table was
-    # nonsense. Re-run `merge_against_baseline.py` after the last ingest of a round; this
-    # refuses to fill rather than shipping a self-contradicting table. The audit scores
-    # both units, so the store side of the comparison is registrables plus hostnames.
+    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5**, each number
+    # right on its own and the table nonsense. Re-run `merge_against_baseline.py` after the
+    # last ingest of a round; this refuses to fill rather than shipping a self-contradicting
+    # table. The audit scores both units, so the store side of the comparison is
+    # registrables plus hostnames.
     if accepted:
         store_ee = Decimal(f["ee_netnew"]) + h_ee
         drift = abs(store_ee - ee_total)
@@ -902,10 +899,9 @@ def datasets_searched(docs: Path | None = None) -> str:
 
 # The template marks each section whose prose a human must write for this round as
 # `<!-- ROUND [ROUND]: ... -->`. An unwritten one is exactly the failure the token
-# mechanism exists to prevent, and it slipped through: on 2026-08-18 `docs/report.md`
-# held four of them, `--check` said "would fill cleanly", and `just ship` would have
-# packaged a report whose sections 2, 4, 5 and 6 were empty. Sections 5 and 6 are the
-# ones the template itself calls the ones he reads most closely.
+# mechanism exists to prevent: without this `--check` says "would fill cleanly" over a
+# report with empty sections, and sections 5 and 6 are the ones the template itself
+# says he reads most closely.
 UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
 
 # A stub can also be satisfied from a tracked file rather than by hand, which is why

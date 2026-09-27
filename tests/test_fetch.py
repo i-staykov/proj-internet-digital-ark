@@ -452,6 +452,135 @@ def test_a_redirect_off_http_is_refused(serve, probe):
     assert "not http or https" in receipt["reason"]
 
 
+# ---------------------------------------------------------------- the Wayback CDX API
+
+CDX = "/cdx/search/cdx?url=example.com&matchType=domain"
+
+
+def test_a_cdx_url_is_refused_before_any_request(serve, probe):
+    """The loopback host is an address, so it could be the Wayback's: not even its robots.txt
+    is asked for."""
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            CDX: (200, {"Content-Type": "text/plain"}, b"com,example)/ 19990101000000\n"),
+        }
+    )
+    code, receipt, _ = run(f"{server.base}{CDX}")
+    assert code == fetch.CDX_REFUSED, receipt
+    assert "Wayback CDX API" in receipt["reason"]
+    assert receipt["bytes"] == 0
+    assert server.asked == []
+    assert list(probe.iterdir()) == []
+
+
+@pytest.mark.parametrize("to", [[], ["--to", "-"]], ids=["file", "stream"])
+def test_a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop(serve, probe, to):
+    """The host's robots.txt is already read, so without the check the hop would be the very
+    next request."""
+    server = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/list.txt": (302, {"Location": CDX}, b""),
+            CDX: (200, {"Content-Type": "text/plain"}, b"com,example)/ 19990101000000\n"),
+        }
+    )
+    code, receipt, err = run(f"{server.base}/list.txt", *to)
+    assert code == fetch.CDX_REFUSED, receipt
+    assert receipt["url"] == f"{server.base}{CDX}", "the receipt names the hop it refused"
+    assert receipt["bytes"] == 0
+    assert server.asked == ["/robots.txt", "/list.txt"]
+    assert f"to {server.base}{CDX}, reading its robots" in err
+    assert list(probe.iterdir()) == []
+
+
+def test_a_redirect_onto_the_cdx_of_another_host_asks_that_host_nothing(serve, probe):
+    wayback = serve({"/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode())})
+    landing = serve(
+        {
+            "/robots.txt": (200, {"Content-Type": "text/plain"}, PERMISSIVE.encode()),
+            "/get": (301, {"Location": f"{wayback.base}/__wb/sparkline?url=example.com"}, b""),
+        }
+    )
+    code, receipt, _ = run(f"{landing.base}/get")
+    assert code == fetch.CDX_REFUSED, receipt
+    assert wayback.asked == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://web.archive.org/cdx/search/cdx?url=example.com&matchType=domain",
+        "http://WEB.archive.org.:80//cdx/search/cdx",
+        "https://wayback.archive.org/%63dx/search/cdx",
+        "https://web.archive.org/web/timemap/cdx?url=example.com",
+        "https://web.archive.org/__wb/sparkline?output=json&url=example.com&collection=web",
+        "https://web.archive.org/__WB/calendarcaptures/2?url=example.com&date=1999",
+        "https://archive.org/wayback/available?url=example.com&timestamp=19990101",
+        "http://www.archive.org/wayback/available?url=example.com",
+        "https://wayback.archive.org/wayback/available?url=example.com",
+        "http://127.0.0.1/cdx/search/cdx?url=example.com",
+        "http://[::1]:8080/__wb/sparkline?url=example.com",
+        "https://web.archive.org/web/../cdx/search/cdx?url=example.com",
+        "https://web.archive.org/x%3F/%2e%2e/cdx/search/cdx?url=example.com",
+        "https://web.archive.org/;/cdx/search/cdx?url=example.com",
+        "https://\uff57\uff45\uff42.archive.org/cdx/search/cdx?url=example.com",
+        "https://web%2Earchive.org/cdx/search/cdx?url=example.com",
+        "https://%77eb.archive.org/cdx/search/cdx?url=example.com",
+        "https://archive%2Eorg/wayback/available?url=example.com",
+        "https://web.archive.org%3A443/cdx/search/cdx?url=example.com",
+        "http://127%2E0%2E0%2E1/cdx/search/cdx?url=example.com",
+    ],
+)
+def test_a_cdx_url_is_one_however_it_is_spelled(url):
+    assert fetch.cdx_query(url)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "127.0.0.1",
+        "2130706433",
+        "0x7f000001",
+        "0177.0.0.01",
+        "127.1",
+        "[::1]",
+        "[::ffff:127.0.0.1]",
+        "\uff11\uff12\uff17.\uff10.\uff10.\uff11",
+    ],
+)
+def test_an_address_in_any_form_the_resolver_takes_could_be_the_wayback(host):
+    assert fetch.cdx_query(f"http://{host}/cdx/search/cdx?url=example.com")
+    assert fetch.cdx_query(f"http://{host}/web/timemap/json?url=example.com")
+    assert not fetch.cdx_query(f"http://{host}/download/x/x.cdx.gz")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://archive.org/download/some-item/big.cdx.gz",
+        "https://archive.org/download/some-item/wayback/available.txt",
+        "https://archive%2Eorg/download/some-item/big.cdx.gz",
+        "https://archive.org/cdx/search/cdx",
+        "https://ia800100.us.archive.org/cdx/x.cdx.gz",
+        "https://web.archive.org/web/2001id_/http://example.com/cdx/list.txt",
+        "https://web.archive.org/web/19991128153001/http://example.com/",
+        "https://example.org/cdx/search/cdx",
+        "https://example.org/__wb/sparkline?url=example.com",
+        "http://127.0.0.1/small.cdx",
+    ],
+)
+def test_a_replay_a_download_or_another_host_is_no_cdx_url(url):
+    assert not fetch.cdx_query(url)
+
+
+def test_a_url_whose_decoded_host_cannot_be_parsed_is_refused_as_one_would_be(serve, probe):
+    with pytest.raises(ValueError):
+        fetch.cdx_query("http://%5B::1/x.txt")
+    code, receipt, _ = run("http://%5B::1/x.txt")
+    assert code == fetch.CDX_REFUSED, receipt
+
+
 # ---------------------------------------------------------------- header casing
 
 
@@ -740,10 +869,10 @@ class DroppingServer:
         self.httpd.server_close()
 
 
-def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
+def stream_read(server: DroppingServer, *extra: str) -> tuple[int, bytes, dict]:
     """fetch.py `--to -` as a read runs it: (exit code, stdout bytes, receipt)."""
     result = subprocess.run(
-        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G"],
+        [sys.executable, str(FETCH), server.url, "--to", "-", "--max-bytes", "1G", *extra],
         capture_output=True,
         env={**os.environ},
         cwd=ROOT,
@@ -754,6 +883,62 @@ def stream_read(server: DroppingServer) -> tuple[int, bytes, dict]:
 
 
 PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
+
+
+def ranges(server: DroppingServer) -> list:
+    return [asked for path, asked in server.asked if path == "/read.cdx"]
+
+
+def test_a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it(probe):
+    """A server that never hangs up, so the one drop is the one `--fault-after-bytes` asked
+    for, and the Range continuation is not cut."""
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, receipt = stream_read(server, "--fault-after-bytes", "600000")
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert out == PAYLOAD, "the pipe saw every byte once and in order"
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert (receipt["resumes"], receipt["fault_after_bytes"]) == (1, 600000)
+    assert ranges(server) == [None, f"bytes=600000-{len(PAYLOAD) - 1}"]
+
+
+def test_a_fault_on_a_file_fetch_resumes_into_the_same_file(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, receipt, _ = run(
+            server.url, "--to", str(probe / "read.cdx"), "--fault-after-bytes", "600000"
+        )
+    finally:
+        server.close()
+    assert code == fetch.OK, receipt
+    assert (probe / "read.cdx").read_bytes() == PAYLOAD
+    assert receipt["resumes"] == 1
+    assert ranges(server) == [None, f"bytes=600000-{len(PAYLOAD) - 1}"]
+
+
+def test_a_fault_at_or_past_the_declared_length_exits_two_and_writes_nothing(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, receipt = stream_read(server, "--fault-after-bytes", str(len(PAYLOAD)))
+    finally:
+        server.close()
+    assert code == fetch.USAGE, receipt
+    assert out == b""
+    assert "needs a declared length above" in receipt["reason"]
+    assert ranges(server) == [None], "no range was asked for"
+
+
+def test_a_fault_under_one_byte_is_refused_before_any_request(probe):
+    server = DroppingServer(PAYLOAD, drop=len(PAYLOAD))
+    try:
+        code, out, _ = stream_read(server, "--fault-after-bytes", "0")
+    finally:
+        server.close()
+    assert code == fetch.USAGE
+    assert out == b""
+    assert server.asked == []
 
 
 @pytest.mark.parametrize("reset", [False, True], ids=["early-eof", "reset"])

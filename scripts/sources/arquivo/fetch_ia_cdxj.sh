@@ -7,16 +7,16 @@
 # three parallel ranges measured 15.6, 11.4 and 9.0 MB/s at once, so the server does not cap a
 # client at one stream and the whole file is about 25 minutes rather than 8 hours.
 #
-# **Why ranges rather than `curl -C -`.** Resuming a stream twice into the same output file left
-# 4.27M NUL bytes of holes on 2026-09-08 and a stalled resume left an 900 MB prefix of unknown
-# contiguity. A part covers a stated byte range, is retried on its own, and is verified by size
-# before assembly, so the failure mode is a missing part rather than a silently holed file.
+# **Why ranges rather than `curl -C -`.** Resuming a stream twice into the same output file
+# leaves holes of NUL bytes, and a stalled resume leaves a prefix of unknown contiguity. A
+# part covers a stated byte range, is retried on its own, and is verified by size before
+# assembly, so the failure mode is a missing part rather than a silently holed file.
 # Arquivo's own file legitimately contains NUL runs, so NULs cannot be used to detect corruption.
 #
 # **Terms.** `arquivo.pt/robots.txt` has a `User-agent: *` group disallowing `/datasets` and
 # `/cdxj`, and the terms page permits educational, scientific and research use with a citation
 # while forbidding distribution of accessed content. The lane is in on the precedent that
-# `arquivo_ia` is already in the ingest ledger with 14,819,170 record rows (issue #115).
+# `arquivo_ia` is already in the ingest ledger with 14,819,170 record rows.
 # Cite as "[fonte: Arquivo.pt, dd/mm/aaaa]" wherever the derived records are described.
 #
 # Usage: bash scripts/sources/arquivo/fetch_ia_cdxj.sh [parallel] [part_gb]

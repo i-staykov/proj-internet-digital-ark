@@ -23,8 +23,8 @@ What matters while running it:
 - A marker already recorded under a different sha256 stops the run. Do not force it: ask which
   zip is the artifact of record.
 - A second run on the same zip changes nothing, so a doubtful run is safe to repeat.
-- It then runs `uv run ark intake`, which writes the held sets every diff against him reads.
-  Nothing of his enters the store.
+- Nothing of his enters the store: `just intake` ends with `ark intake`, which writes the held
+  sets under `data/held/<marker>/`; `docs/ops/runbook.md` has the intake order.
 - The new baseline moves the denominator, so any EE figure quoted from before the intake is
   stale. Re-run `just brief` before quoting one.
 

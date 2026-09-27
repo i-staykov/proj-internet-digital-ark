@@ -440,19 +440,28 @@ def _receipted(root: Path, path: Path, receipt: dict) -> str:
 def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
     """Superseded release trees (a `merged*` directory with a year file), the release zips
     holding none but superseded markers, and the repacked `data/archive/*.tar.zst`. The
-    reviewer's own documents beside a release are never listed, nor is the current release,
-    matched by its resolved path, case-folded, or by its marker."""
+    reviewer's own documents are never listed, nor is the current release, matched by its
+    resolved path, case-folded, or by its marker, nor a newer one. With no marker to go by,
+    every release is held."""
     releases = sibling("releases")
     current = json.loads((root / "data/baseline.json").read_text(encoding="utf-8"))["current"]
     here = str((root / current["directory"]).resolve()).casefold()
-    marker = str(current.get("marker") or Path(current["directory"]).name).casefold()
+    # The current release by either name baseline.json gives it: its marker and its folder.
+    names = {str(n).casefold() for n in (current.get("marker"), Path(current["directory"]).name)}
+    keys = []
+    for name in names:
+        try:
+            keys.append(releases.marker_key(name))
+        except ValueError:
+            pass
+    unknown = "" if keys else "data/baseline.json names no release marker, so none is superseded"
 
     def kept(found: str) -> bool:
         """The current release, or one newer than it that intake has not recorded yet."""
-        if found.casefold() == marker:
+        if found.casefold() in names:
             return True
         try:
-            return releases.marker_key(found) >= releases.marker_key(marker)
+            return bool(keys) and releases.marker_key(found) >= min(keys)
         except ValueError:
             return False
 
@@ -474,9 +483,8 @@ def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
         inside = f"{str(path.resolve()).casefold()}/".startswith(f"{here}/")
         if path.name == ".DS_Store" or path.is_symlink() or never(root, path) or inside:
             continue
-        out.append(
-            Candidate("releases", path, path.stat().st_size, _receipted(root, path, receipt))
-        )
+        held = unknown or _receipted(root, path, receipt)
+        out.append(Candidate("releases", path, path.stat().st_size, held))
     return out
 
 
@@ -562,12 +570,12 @@ def backups_listed(root: Path) -> list[Candidate]:
 
 def holds() -> dict[str, str]:
     """Repository-relative path -> why it is held, from disk_holds.tsv. A path ending in `/`
-    holds everything under it."""
+    holds everything under it; a line with no reason still holds its path."""
     out = {}
     for line in HOLDS.read_text().splitlines() if HOLDS.is_file() else []:
         if line.strip() and not line.startswith("#"):
             rel, _, why = line.partition("\t")
-            out[rel.strip()] = why.strip()
+            out[rel.strip()] = why.strip() or "held by disk_holds.tsv"
     return out
 
 
@@ -700,15 +708,21 @@ def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
     listed = {c.path for c in cands}
     failed = {}
     for marker, tree_paths in trees.items():
-        tree = tree_paths[0]
-        if not zips.get(marker) or not any(tree in p.parents for p in listed):
-            continue
-        try:
-            counts, problems = releases.verify_tree(tree, zips[marker][0], marker)
-        except (OSError, zipfile.BadZipFile, zlib.error, RuntimeError) as exc:
-            counts, problems = {"members": 0}, [str(exc)]
-        if not counts["members"] or problems:
-            failed[tree] = f"CRC check of {marker} against its zip failed: {problems[:2]}"
+        for tree in tree_paths:
+            if not zips.get(marker) or not any(tree in p.parents for p in listed):
+                continue
+            # A tree passes against any zip that holds its marker.
+            problems: list[str] = []
+            for archive in zips[marker]:
+                try:
+                    counts, problems = releases.verify_tree(tree, archive, marker)
+                except (OSError, ValueError, zipfile.BadZipFile, zlib.error, RuntimeError) as exc:
+                    # An unsafe or duplicate member holds this tree, not the whole run.
+                    counts, problems = {"members": 0}, [str(exc)]
+                if counts["members"] and not problems:
+                    break
+            else:
+                failed[tree] = f"CRC check of {marker} against its zip failed: {problems[:2]}"
     return failed
 
 

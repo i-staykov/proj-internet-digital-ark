@@ -15,10 +15,9 @@
 # reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
 # research questions folders, their questions, headings, labels and files.
 #
-# Checks 5 to 8 police the four deliverables he added on 2026-08-17, called D1 to D4
-# throughout this project. They are checks rather than a checklist for one reason: the
-# evidence wall broke in a shipped archive because the requirement lived only in
-# prose, and the evidence-wall check exists because of that.
+# Checks 5 to 8 police the four deliverables he added, called D1 to D4 throughout
+# this project. They are checks rather than a checklist because a requirement that
+# lives only in prose breaks in a shipped archive.
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
@@ -86,7 +85,7 @@ if missing:
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
 
-# The second output unit (accepted 2026-09-01): hostnames/NNNN_hostnames.txt, each line a
+# The second output unit: hostnames/NNNN_hostnames.txt, each line a
 # valid hostname beneath a registrable, each traced to its own capture in the hostname
 # manifest, and none of them repeating a line of the registrable file for that year.
 hostnames = {}
@@ -175,12 +174,10 @@ else
 fi
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
-# Added 2026-08-17, after an archive shipped with 11,316,960 of 16,619,832
-# assignments pointing at an `evidence_id` that was not in the file beside them. A
-# packaging change had filtered the evidence table to save 429 MB; every check above
-# passed, because they all read the additions manifest and none of them read the
-# parquet. The archive's central claim is that any line of any annual file traces to
-# an observation IN THIS ARCHIVE, and nothing was testing it.
+# Every check above reads the additions manifest and none reads the parquet, so a
+# packaging change that filters the evidence table leaves assignments pointing at an
+# `evidence_id` not in the file beside them while all of them pass. The archive's central
+# claim is that any line of any annual file traces to an observation IN THIS ARCHIVE.
 #
 # `uv` is optional here on purpose: the rest of this script needs only coreutils and
 # python3, and a reviewer who has not installed uv should still get the first three
@@ -216,7 +213,7 @@ else
     say "evidence wall intact" "SKIP  no provenance export here"
 fi
 
-# --- 5 to 8. the four deliverables added on 2026-08-17 -----------------------
+# --- 5 to 8. the four added deliverables -------------------------------------
 python3 - <<'PY' || fail=1
 import json
 import subprocess

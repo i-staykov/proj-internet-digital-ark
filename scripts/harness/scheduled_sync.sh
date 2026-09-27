@@ -18,11 +18,10 @@ set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
 # **Machine-local config, the same file `collectors.sh` and the recipes read.** Without
-# it this wrapper ran on the packaged defaults, and `build_round_state.py` died on
-# 2026-09-19 at the 40% cap: `Out of Memory Error: could not allocate block of size
-# 256.0 KiB (13.0 GiB/13.0 GiB used)` inside `stats.py::_corroboration`. That cap was
-# measured right when the store was 52 GB and it is 61 GB now, so the laptop sets
-# ARK_DB_MEMORY_LIMIT here rather than raising a default the 7 GB VPS also reads.
+# it this wrapper runs on the packaged defaults, and `build_round_state.py` dies at the
+# 40% cap with a DuckDB `Out of Memory Error` inside `stats.py::_corroboration`. The
+# laptop sets ARK_DB_MEMORY_LIMIT here rather than raising a default the 7 GB VPS also
+# reads.
 # Sourcing alone is not enough: `local.env` assigns without `export`, so the value is a
 # shell variable this wrapper can read and every `uv run` child still gets the default.
 # Only this one is exported, so the VPS address stays out of child environments.
@@ -34,10 +33,10 @@ mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 
-# **No lock here.** This wrapper used to hold its own, which protected it from itself and
-# from nothing else: a hand-run `just sync` took no lock at all and the two met in the store.
-# The lock moved into the recipe (`sync_lock.sh`), so both paths take the same one; a run
-# that finds it held prints why and stops, and that line lands in this log like any other.
+# **No lock here.** A lock held by this wrapper protects it from itself and from nothing
+# else. The lock is in the recipe (`sync_lock.sh`), so this and a hand-run `just sync` take
+# the same one; a run that finds it held prints why and stops, and that line lands in this
+# log like any other.
 
 ship_now() {
     local n body

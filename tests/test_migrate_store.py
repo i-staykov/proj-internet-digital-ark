@@ -870,7 +870,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, required=True)
     out = ap.parse_args().out
-    names = {"ours.com", "rolled.com", "old.com", "already-his.com", "novel.net"}
+    names = {"ours.com", "rolled.com", "old.com", "already-his.com", "early.his.org", "novel.net"}
     conn = duckdb.connect("data/ark.duckdb", read_only=True)
     attested, known = held.attested(conn, names), held.known_years(conn, names)
     conn.close()
@@ -924,6 +924,9 @@ def test_lane_deltas_explains_a_rolled_up_name(tmp_path, monkeypatch, his_files)
     assert (tmp_path / migrate.LANE_CSV).read_text().splitlines() == [
         ",".join(migrate.LANE_COLUMNS),
         "gone,gone_split.py,,,,,,input_absent,data/raw/gone.zip",
+        # his 1996 file names early.his.org exactly, which the store's domain_year never did
+        f"toy,toy_split.py,early.his.org,{migrate.weight_of('early.his.org')},1,candidate,dated,"
+        "his_exact_name,his all.txt",
         f"toy,{moved.format('old.com')},his_superseded_release,{OLDER}/1998.txt",
         f"toy,{moved.format('rolled.com')},his_rolled_up_hostname,{MARKER}/1999.txt www.rolled.com",
     ]
@@ -935,13 +938,17 @@ def test_lane_deltas_explains_a_rolled_up_name(tmp_path, monkeypatch, his_files)
         "his_rolled_up_hostname": 1,
         "his_superseded_release": 1,
     }
+    assert (
+        toy["pairs"]["gained_his_exact"] == 1
+        and toy["gained_by_reason"]["his_exact_name"]["names"] == 1
+    )
     # already-his.com is his exact name, so it stays dated
     assert toy["files"] == {
-        "toy_cand.txt": {"before": 1, "after": 3, "only_before": 0, "only_after": 2},
-        "toy_dated.jsonl.gz": {"before": 4, "after": 2, "only_before": 2, "only_after": 0},
+        "toy_cand.txt": {"before": 2, "after": 3, "only_before": 1, "only_after": 2},
+        "toy_dated.jsonl.gz": {"before": 4, "after": 3, "only_before": 2, "only_after": 1},
     }
     assert toy["previous"] == {
-        "toy_cand.txt": {"previous_only": 1, "before_only": 0},
+        "toy_cand.txt": {"previous_only": 1, "before_only": 1},
         "toy_dated.jsonl.gz": "absent",
     }
     # each run's output goes once diffed; its log and record stay

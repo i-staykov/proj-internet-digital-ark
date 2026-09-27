@@ -1,11 +1,14 @@
 """Round cleanup must preserve every local-only or unverified artifact."""
 
 import hashlib
+import http.client
 import importlib.util
+import io
 import json
 import os
 import subprocess
 import sys
+import urllib.error
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -269,7 +272,11 @@ def disk_repo(root):
         json.dumps({"current": {"directory": current}, "rounds": []}).encode(),
     )
     file(root, f"{current}/1996.txt", b"current.example\n")
-    file(root, "feedback/Current_Release.zip", b"current zip")
+    newer = "feedback/Newer_Release/merged270101"
+    file(root, f"{newer}/1996.txt", b"newer.example\n")
+    for tree, name in ((current, "Current_Release"), (newer, "Newer_Release")):
+        with zipfile.ZipFile(root / f"feedback/{name}.zip", "w") as zf:
+            zf.write(root / tree / "1996.txt", f"{Path(tree).name}/1996.txt")
     old = root / "feedback/Old_Release/merged260101"
     file(root, f"{old.relative_to(root)}/1996.txt", b"old.example\n")
     file(root, f"{old.relative_to(root)}/README.md", b"his words")
@@ -277,6 +284,11 @@ def disk_repo(root):
         for name in ("1996.txt", "README.md"):
             zf.write(old / name, f"merged260101/{name}")
     file(root, "data/archive/merged250101.tar.zst", b"repacked release")
+    file(root, "data/archive/merged270101.tar.zst", b"a newer release, repacked")
+    file(root, "feedback/partial.zip", b"a download cut short")
+    with zipfile.ZipFile(root / "feedback/Both.zip", "w") as zf:  # an old and the current
+        zf.write(old / "1996.txt", "merged260101/1996.txt")
+        zf.write(root / current / "1996.txt", "merged261231/1996.txt")
     for rel in (  # the reviewer's own words, beside a release and inside one
         "feedback/feedback-phase-9/Round_9_feedback.docx",
         "feedback/feedback-phase-9/feedback-round-9.md",
@@ -328,7 +340,7 @@ def archive_org(monkeypatch, files):
     monkeypatch.setattr(prune, "ia_file", ia_file)
 
 
-def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeypatch):
+def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeypatch, capsys):
     disk_repo(tmp_path)
     offsite = prune.sibling("offsite")
     monkeypatch.setattr(offsite, "rclone", lambda *a, **k: pytest.fail("the dry run went to Drive"))
@@ -346,8 +358,11 @@ def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeyp
     assert "HELD data/raw/usenet_bulk/alt.cut.mbox.zip: 7 B here, 999 B in the catalog" in text
     assert "HELD feedback/Old_Release.zip: no Drive receipt" in text
     assert "Current_Release" not in text and "jsonl.gz" not in text and NEW_STAGE not in text
+    assert "Newer_Release" not in text and "merged270101" not in text and "Both.zip" not in text
     assert "his words" not in text and "feedback-phase-9" not in text and "README.md" not in text
-    assert str(tmp_path) not in text  # the list goes on a public issue
+    out, err = capsys.readouterr()
+    assert "skip feedback/partial.zip: not a zip" in err
+    assert str(tmp_path) not in text + out + err  # the list goes on a public issue
     assert "\nprivate:" not in text  # the private group only with --private
     assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
 
@@ -416,6 +431,8 @@ def test_disk_write_deletes_only_what_is_proven(tmp_path, monkeypatch):
 
 def test_a_spent_file_stays_when_archive_org_does_not_match_it(tmp_path, monkeypatch):
     parts = disk_repo(tmp_path)
+    # As verify_raw writes it: the catalog's sha1, copied, which our bytes need not match.
+    (parts["bulk"] / "SHA1SUMS").write_text(f"{'0' * 40}  ./alt.test.mbox.zip\n")
     proofs(tmp_path, [], monkeypatch)
     archive_org(
         monkeypatch,
@@ -427,7 +444,7 @@ def test_a_spent_file_stays_when_archive_org_does_not_match_it(tmp_path, monkeyp
     _, lines = prune.disk_cleanup(tmp_path, write=True)
     text = "\n".join(lines)
     assert (parts["host"] / "ia600702.hostcdx.gz").exists()
-    assert (parts["bulk"] / "alt.test.mbox.zip").exists()  # the sidecar sha1 matches, our bytes not
+    assert (parts["bulk"] / "alt.test.mbox.zip").exists()  # the sidecar agrees, our bytes do not
     assert "archive.org holds 999 B" in text and "sha1 of our bytes differs" in text
     assert not (parts["host"] / "DELETED.tsv").exists()
 
@@ -497,6 +514,9 @@ def test_a_file_another_issue_reads_is_held(tmp_path, monkeypatch):
     shipped = prune.holds()  # the real file: rtfm and the 46 zips #180's lanes read
     assert prune.held_by("data/raw/rtfm/any/file.txt", shipped).startswith("#180 lane input")
     assert sum(k.startswith("data/raw/usenet_bulk/") for k in shipped) == 46
+    for line in prune.HOLDS.read_text().splitlines()[1:]:
+        path, reason = line.split("\t")
+        assert path.startswith("data/raw/") and reason.startswith("#180"), line
     parts = disk_repo(tmp_path)
     holds = file(tmp_path, "holds.tsv", b"# path\treason\n")
     holds.write_text(
@@ -512,17 +532,32 @@ def test_a_file_another_issue_reads_is_held(tmp_path, monkeypatch):
     assert "  HELD data/raw/usenet_bulk/alt.test.mbox.zip: #180 lane input" in lines
 
 
-@pytest.mark.parametrize("spelling", ["case", "absolute"])
+@pytest.mark.parametrize("spelling", ["link", "absolute link", "case", "marker", "no marker"])
 def test_the_current_release_is_never_selected(tmp_path, spelling):
     disk_repo(tmp_path)
     current = "feedback/Current_Release/merged261231"
-    named = current.upper() if spelling == "case" else str(tmp_path / current)
+    (tmp_path / "feedback/current_link").symlink_to("Current_Release/merged261231")
+    # The links name no marker, and the marker is later than the tree but earlier than the
+    # newer release, so only the resolved path keeps the current tree; "case" and "marker"
+    # keep it by name.
+    named, marker = {
+        "link": ("feedback/current_link", "merged261231-2"),
+        "absolute link": (str(tmp_path / "feedback/current_link"), "merged261231-2"),
+        "case": (current.upper(), "merged271231"),
+        "marker": ("feedback/moved/merged261231", "merged261231"),
+        "no marker": ("feedback/Current_Release", "unreadable"),  # neither name is a marker
+    }[spelling]
     (tmp_path / "data/baseline.json").write_text(
-        json.dumps({"current": {"directory": named, "marker": "other"}})
+        json.dumps({"current": {"directory": named, "marker": marker}})
     )
-    paths = [c.path for c in prune.releases_selected(tmp_path, {})]
+    cands = prune.releases_selected(tmp_path, {})
+    paths = [c.path for c in cands]
     assert tmp_path / "feedback/Old_Release/merged260101/1996.txt" in paths
-    assert not any("Current_Release" in str(p) for p in paths)
+    if spelling == "no marker":  # nothing can be called superseded, so everything is held
+        assert all("no release marker" in c.held for c in cands)
+        return
+    assert not any("Current_Release/" in str(p) for p in paths)
+    assert not any("Newer_Release" in str(p) for p in paths)
 
 
 @pytest.mark.parametrize(
@@ -547,6 +582,61 @@ def test_a_file_archive_org_does_not_serve_openly_stays(
     assert ("HELD data/raw/host_cdx/ia600702.hostcdx.gz: archive.org" in "\n".join(lines)) is stays
 
 
+def test_the_metadata_lookup_and_the_ranged_get(monkeypatch):
+    meta = {
+        "metadata": {"access-restricted-item": "true"},
+        "files": [{"name": "news.admin.net-abuse.sightings.(3902507).mbox.7z", "size": "3"}],
+    }
+
+    class Reply(io.BytesIO):
+        status = 206
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def urlopen(request, timeout):
+        if "/metadata/" in request.full_url:
+            return Reply(json.dumps(meta if "FULL" in request.full_url else {}).encode())
+        if request.headers.get("Range") != "bytes=0-0":
+            pytest.fail("not a ranged GET")
+        if "walled" in request.full_url:
+            raise urllib.error.HTTPError(request.full_url, 401, "", {}, None)
+        return Reply(b"x")
+
+    monkeypatch.setattr(prune.urllib.request, "urlopen", urlopen)
+    cache = {}
+    found = prune.ia_file("FULL", "news.admin.net-abuse.sightings.(3902507).mbox.7z", cache)
+    assert found == {**meta["files"][0], "restricted": True}
+    assert prune.ia_file("gone", "x", cache) is None
+    cache = {
+        "dark": {"is_dark": True, "files": [{"name": "f"}]},
+        "open": {"files": [{"name": "f"}]},
+    }
+    assert prune.ia_file("dark", "f", cache)["restricted"] is True
+    assert prune.ia_file("open", "f", cache)["restricted"] is False
+    assert prune.ia_serves("https://archive.org/download/open/x")
+    assert not prune.ia_serves("https://archive.org/download/walled/x")
+
+
+@pytest.mark.parametrize("error", [http.client.IncompleteRead(b""), KeyboardInterrupt()])
+def test_an_archive_org_failure_or_an_interrupt_keeps_the_list(tmp_path, monkeypatch, error):
+    parts = disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)
+
+    def ia_file(*a):
+        raise error
+
+    monkeypatch.setattr(prune, "ia_file", ia_file)
+    code, lines = prune.disk_cleanup(tmp_path, write=True)
+    text = "\n".join(lines)
+    assert code == 1 and (parts["host"] / "ia600702.hostcdx.gz").exists()
+    assert "HELD data/raw/host_cdx/ia600702.hostcdx.gz" in text or "interrupted at" in text
+    assert "releases:" in text
+
+
 def test_a_release_tree_that_fails_its_crc_check_is_held(tmp_path, monkeypatch):
     parts = disk_repo(tmp_path)
     (parts["old"] / "1996.txt").write_bytes(b"edited after zipping\n")
@@ -556,6 +646,23 @@ def test_a_release_tree_that_fails_its_crc_check_is_held(tmp_path, monkeypatch):
     _, lines = prune.disk_cleanup(tmp_path, write=True)
     assert (parts["old"] / "1996.txt").exists()  # the zip goes behind its own receipt
     assert "HELD feedback/Old_Release/merged260101/1996.txt: CRC check" in "\n".join(lines)
+
+
+def test_a_zip_with_a_duplicate_member_holds_its_tree(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    with (
+        pytest.warns(UserWarning),
+        zipfile.ZipFile(tmp_path / "feedback/Old_Release.zip", "w") as zf,
+    ):
+        for _ in range(2):
+            zf.write(parts["old"] / "1996.txt", "merged260101/1996.txt")
+    proofs(tmp_path, [parts["old"] / "1996.txt"], monkeypatch)
+    archive_org(monkeypatch, {})
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (parts["old"] / "1996.txt").exists()
+    text = "\n".join(lines)
+    assert "HELD feedback/Old_Release/merged260101/1996.txt: CRC check" in text
+    assert "unsafe or duplicate zip member" in text
 
 
 def test_round_cleanup_keeps_a_held_backup(tmp_path, monkeypatch):
