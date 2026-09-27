@@ -4,11 +4,6 @@
 .gitattributes export-ignore
 # Every round's plan, by pattern, so a new round needs no line.
 docs/phase*-plan.md export-ignore
-# **Anything addressed to a person.** `submissions/phase-5/email-draft.md` is a letter to
-# the reviewer. Nothing addressed to a person is tracked, and `private/` is where drafts
-# belong; this one is already in history, so this is the containment.
-# `tests/test_delivery_privacy.py` fails if the shape reappears.
-submissions/*/email-draft.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans:
 # working documents about how to approach the round, and corrections owed. Neither is a
 # deliverable and neither is his business.
