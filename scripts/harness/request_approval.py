@@ -123,7 +123,7 @@ def nearest_closed(source_name: str) -> str:
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "screen_hypothesis", ROOT / "scripts" / "screen_hypothesis.py"
+        "screen_hypothesis", ROOT / "scripts" / "harness" / "screen_hypothesis.py"
     )
     screen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(screen)
