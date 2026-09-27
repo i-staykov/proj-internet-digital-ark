@@ -19,11 +19,11 @@ Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 - Several agents share the main checkout, which stays on `live`: edit on a branch in a git
   worktree, and never switch branches in a shared tree.
 - The agent shell is zsh: an unquoted `$VAR` never splits; spell a list out, or use `${=VAR}`.
-- The tick and the bank commit `docs/registers/` on whatever branch is out and push `live`. Their
-  preflight refuses `main`, a diverged clone, a modified tracked file other than `sources.md`,
-  `sources-closed.md` and `queue.md`, and an untracked file under `docs/registers/`: leave no edit
-  there at :05. A refused tick banks nothing that hour: clean the tree (`git pull --rebase origin
-  live` for a diverged clone), then run `just sync`.
+- The tick and the bank commit `docs/registers/` on the branch that is out and push `live`; their
+  preflight refuses `main`, a diverged clone, any modified tracked file but `sources.md`,
+  `sources-closed.md` and `queue.md`, and an untracked file under `docs/registers/`, so leave no
+  edit there at :05. A refused tick banks nothing that hour: clean the tree (`git pull --rebase
+  origin live` for a diverged clone), then `just sync`.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
   store: in the worktree, `git update-index --skip-worktree data/baseline.json`, remove its own
@@ -59,13 +59,6 @@ chain: commit alone, and rerun `uv run pytest -q -x` alone before believing a re
 
 ## The loop
 
-| step | who | what |
-|---|---|---|
-| names | fleet legs, a session | names he lacks, each with its source link |
-| validate | three `cdx_platform_walk.py` lanes | each platform walked to the end of the CDX index into `data/raw/cdx_suffix/` |
-| tick | launchd `com.ark.sync`, hourly at :05 | `just sync` |
-| bank | the tick, or by hand | `just bank` |
-
 **Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop and one on the
 VPS from its clone with `--max-local 1`, whose journals the tick pulls: `python3
 scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts
@@ -89,10 +82,10 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, run the lo
 and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
 **Standing admissions** (`CLAUDE.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
-`standing` clause on the lead; `scripts/harness/standing_rule.py` writes the `Decision:` line
-citing "CLAUDE.md, Autonomy", or parks the lead naming the clause; the line stands only if
-`ark check` passes after the ingest. `scripts/harness/sync_approvals.py` files one `needs-owner`
-issue and one PR per park at or above its `--floor`; its merge (`CLAUDE.md`, Git) approves it.
+`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "CLAUDE.md,
+Autonomy", or parks it naming the clause; the line stands only if `ark check` passes after the
+ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
+above its `--floor`; its merge (`CLAUDE.md`, Git) approves it.
 
 **The hold.** `just hold` disables every `com.ark.*` job, writes `pause` and `pause-platform` here
 and on the VPS, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
@@ -139,11 +132,12 @@ labelled `needs-owner`, opens.
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks, exports in full, runs `ark check`, commits the
-   regenerated report and `.docx`, packages, verifies as a reviewer would, prunes verified round
-   copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent and
-   closes the gate issue. It refuses while `just hold status` lists `com.ark.sync`.
-   `just ship --help` prints the chain; `just ship orq` prints Word's page count. Away from a
-   session, the owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
+   regenerated report and `.docx`, packages (`masters/` is his year file and ours by `LC_ALL=C sort
+   -m -u`; a claim file left stale refuses it, named), verifies as a reviewer would, prunes verified
+   round copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent
+   and closes the gate issue. It refuses while `just hold status` lists `com.ark.sync`. `just ship
+   --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
+   owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
 3. Extract the tarball outside the repository and follow its README through tier 2, cold
    (`docs/round/delivery_readme.md`). Then send.
 
@@ -158,8 +152,13 @@ uv run python scripts/round/round_figures.py --verify
 uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
 ```
 
-`ark intake` checks each of his files once, writes `data/held/<marker>/` (`all.txt`,
-`candidates.txt`, `held.json`) and drops the previous release's; while those are missing or stale,
-every export, check, stats, seed and pricer refuses. On `just intake`, `--mail <file> --round <n>
---received '<stamp>'` also writes his verdict's row in `docs/registers/rounds.md`. Commit
-`data/baseline.json`, `releases.md` and `rounds.md` before :05, or the next tick refuses the tree.
+`ark intake` checks each of his files once and writes `data/held/<marker>/` (`all.txt`,
+`candidates.txt`, `held.json`, and a sorted copy of any file of his that is not sorted, unique and
+lowercase), about 4.3 GB, dropping the previous release's. While those are missing or stale, export,
+stats, seed and the pricers refuse and `ark check` FAILs, each naming `ark intake`. Export before
+the check: a check after a new release but before the export flags every credited name. `ark stats`
+prints the release it measured against, and `--verify` reading zero overlap proves the export diffed
+against the new one; a round diffed against a stale release counts credited work as net-new. On
+`just intake`, `--mail <file> --round <n> --received '<stamp>'` also writes his verdict's row in
+`docs/registers/rounds.md`. Commit `data/baseline.json`, `releases.md` and `rounds.md` before :05,
+or the next tick refuses the tree.

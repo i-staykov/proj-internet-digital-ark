@@ -23,6 +23,8 @@ just check       # lint, format, tests, then the store invariants
 A delivery archive verifies itself without this repository: `bash verify.sh` inside a fresh
 extraction. All three reproduction tiers are in
 [docs/round/delivery_readme.md](docs/round/delivery_readme.md), the archive's own README.
+`just intake <zip>` takes a new release of his and runs `uv run ark intake`; without its
+held sets every export refuses and `ark check` fails.
 
 ## Collect unattended
 

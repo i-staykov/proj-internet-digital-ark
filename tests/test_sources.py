@@ -472,6 +472,57 @@ def test_cdx_snapshot_counts_truncated_responses(tmp_path) -> None:
     assert stats["truncated_response"] == 1
 
 
+def test_cdx_snapshot_names_the_exact_capture_when_the_record_keeps_its_stamp(tmp_path) -> None:
+    """The converter's per-year `stamps`, or the query's `hosts` entry for the domain itself,
+    give `cdx capture <ts> <domain>`. A `www.` stamp, a stamp from another year or a malformed
+    one leave that year host-less."""
+    path = _journal(
+        tmp_path,
+        [
+            {
+                "domain": "conv.com",
+                "status": 200,
+                "years": [1997, 1998],
+                "stamps": {"1998": "19981205115848"},
+                "strategy": "suffix_sweep_exact",
+            },
+            {
+                "domain": "Host.com",
+                "status": 200,
+                "years": [1997, 1999],
+                "hosts": {"www.host.com": "19970101000000", "host.com": "19990301000000"},
+                "strategy": "by_host",
+            },
+            {"domain": "bad.com", "status": 200, "years": [2000], "stamps": {"2000": "2000"}},
+            {"domain": "off.com", "status": 200, "years": [2001], "stamps": {"2001": "19991231"}},
+        ],
+        name="cdx_20260927T120000Z.jsonl",
+    )
+    stats: Counter = Counter()
+
+    records = list(parse_cdx_snapshot(path, stats))
+
+    assert [(r.raw, r.year, r.evidence_value, r.evidence_url) for r in records] == [
+        ("conv.com", 1997, "cdx capture 1997", "https://web.archive.org/web/1997/conv.com"),
+        (
+            "conv.com",
+            1998,
+            "cdx capture 19981205115848 conv.com",
+            "https://web.archive.org/web/19981205115848/http://conv.com/",
+        ),
+        ("Host.com", 1997, "cdx capture 1997", "https://web.archive.org/web/1997/Host.com"),
+        (
+            "Host.com",
+            1999,
+            "cdx capture 19990301000000 host.com",
+            "https://web.archive.org/web/19990301000000/http://host.com/",
+        ),
+        ("bad.com", 2000, "cdx capture 2000", "https://web.archive.org/web/2000/bad.com"),
+        ("off.com", 2001, "cdx capture 2001", "https://web.archive.org/web/2001/off.com"),
+    ]
+    assert stats["exact_capture"] == 2
+
+
 def test_cdx_snapshot_is_registered_as_a_cdx_master_source() -> None:
     spec = SOURCES["cdx_snapshot"]
     assert spec.source_name == "ia_cdx_bulk"

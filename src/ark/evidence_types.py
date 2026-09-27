@@ -99,17 +99,59 @@ def web_evidence_sql(alias: str = "e") -> str:
     )
 
 
-def web_evidence_exists(id_column: str) -> str:
-    """The XIII screen for a row that names its evidence, e.g. `dy.evidence_id`.
+_TS = "[0-9]{14}"
+_CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?[^ ]+$"
+_LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
+_STAMPED = "^([0-9]{14}|nypw (first capture|timemap capture) (status [0-9]{3} )?[0-9]{14})$"
+_MIRROR = "/mirror/[0-9]{4}/[0-9]{2}/[0-9]{2}/([^/]+)/?$"
 
-    Lives here, beside the allowlist, because the CLAIM and the FIGURES quoted about the
-    claim must apply the same screen. They did not until 2026-09-18: `export.py` filtered
-    and `stats.py` did not, so `docs/ROUND.md` reported 251,125 net-new registrable rows
-    for 2001 where the export shipped 3.
+
+def exact_host_expr(alias: str) -> str:
+    """The one host a row's capture names, or NULL.
+
+    Chosen by the value's format, one branch per format a web method writes, never by the URL
+    alone: a format this does not know names no host, so it fails closed. `cdx capture <ts>
+    [status <nnn>] <host>` and `host_link_graph:<year> <host>` name it last; a bare stamp and
+    a TimeMap stamp take the URL's host, only when the URL carries the same stamp; a defacement
+    mirror names it in its path. `cdx capture <year>` and `host_link_graph:<year>` name none.
+    """
+    v, u = f"{alias}.evidence_value", f"lower({alias}.evidence_url)"
+    url_host = (
+        f"rtrim(regexp_extract({u}, '^https?://[^/]+/(web|wayback)/({_TS})/"
+        f"([a-z][a-z0-9+.-]*://)?([^/@]*@)?([^/:?#]+)', 5), '.')"
+    )
+    url_ts = f"regexp_extract({u}, '^https?://[^/]+/(web|wayback)/({_TS})/', 2)"
+    return f"""(CASE
+        WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
+          THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
+        WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
+          THEN nullif({url_host}, '')
+        WHEN {alias}.acquisition_method = 'attrition_defacement_mirror_index'
+          THEN nullif(regexp_extract({u}, '{_MIRROR}', 1), '')
+        END)"""
+
+
+def exact_host_sql(alias: str, name: str) -> str:
+    """True only when the row names exactly `name`; unknown is false, so `NOT (...)` is safe."""
+    return f"coalesce({exact_host_expr(alias)} = {name}, false)"
+
+
+def qualifies_sql(alias: str, name: str) -> str:
+    """The test a shipped record's row passes: the XIII method screen, and a capture of exactly
+    `name`. A capture of `www.` or any other host beneath it never dates the registrable."""
+    return f"coalesce(({web_evidence_sql(alias)}) AND {exact_host_sql(alias, name)}, false)"
+
+
+def web_evidence_exists(id_column: str, name_column: str) -> str:
+    """The claim's screen for a record that names its evidence row and its own name, e.g.
+    `dy.evidence_id` and `dy.domain`: that row passes `qualifies_sql`.
+
+    Lives here, beside the allowlist, because the CLAIM and the FIGURES quoted about the claim
+    must apply the same screen.
     """
     return f"""
     EXISTS (
         SELECT 1 FROM evidence w
-        WHERE w.evidence_id = {id_column} AND {web_evidence_sql("w")}
+        WHERE w.evidence_id = {id_column} AND {qualifies_sql("w", name_column)}
     )
 """

@@ -1,17 +1,17 @@
 """The reviewer's per-item "extraction method" is `evidence.acquisition_method`.
 
-The column is nullable, so nothing structural forces it; what forces it is that both
-production writers stamp it unconditionally, the baseline loader with `prior_task` and the
-bulk loader with whatever the source's `SourceSpec` declares. These tests drive both into a
-temp store, run the export and read the shipped files back.
+The column is nullable, so nothing structural forces it; what forces it is that the bulk loader
+stamps it unconditionally with whatever the source's `SourceSpec` declares. These tests drive it
+into a temp store beside a release of his, run the export and read the shipped files back.
 """
 
 import duckdb
+from his_release import stage
 from typer.testing import CliRunner
 
+from ark import held
 from ark.cli import app
 from ark.export import NETNEW_DIR
-from ark.ingest import YEARS
 from ark.provenance import PROVENANCE_DIR
 from ark.sources import SOURCES
 
@@ -27,16 +27,14 @@ def test_every_registered_source_declares_an_extraction_method() -> None:
 
 def test_every_exported_evidence_row_names_its_extraction_method(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    legacy = tmp_path / "legacy"
-    legacy.mkdir()
-    for year in YEARS:
-        (legacy / f"{year}.txt").write_text("base.org\n", encoding="utf-8")
+    release = stage(tmp_path / "release")
+    monkeypatch.setattr(held, "his_dir", lambda: release)
     cdx = tmp_path / "sample.cdx"
     cdx.write_text(CDX_LINE, encoding="utf-8")
 
     assert runner.invoke(app, ["init"]).exit_code == 0
-    legacy_run = runner.invoke(app, ["ingest-legacy", "--legacy-dir", str(legacy)])
-    assert legacy_run.exit_code == 0, legacy_run.output
+    intake_run = runner.invoke(app, ["intake", "--baseline", str(release)])
+    assert intake_run.exit_code == 0, intake_run.output
     bulk_run = runner.invoke(app, ["ingest", "early_web", str(cdx)])
     assert bulk_run.exit_code == 0, bulk_run.output
     assert runner.invoke(app, ["export", "--provenance"]).exit_code == 0
@@ -49,10 +47,7 @@ def test_every_exported_evidence_row_names_its_extraction_method(tmp_path, monke
         "count(DISTINCT acquisition_method) FROM read_parquet(?)",
         [str(parquet)],
     ).fetchone()
-    # **One row, not seven.** Both writers stamped a method and the store holds all
-    # seven, but the export stopped shipping the reviewer's own `prior_reused` rows on
-    # 2026-09-11: they were 3 GB of an archive that has to fit 5 GB. What has to hold
-    # here is that every row he DOES receive names how it was acquired.
+    # every row he receives names how it was acquired
     assert total == 1
     assert blank == 0
     assert methods == 1
@@ -63,7 +58,7 @@ def test_every_exported_evidence_row_names_its_extraction_method(tmp_path, monke
         "OR acquisition_method = '') FROM evidence"
     ).fetchone()
     stored.close()
-    assert kinds == (7, 0), "both writers still stamp the method in the store"
+    assert kinds == (1, 0), "his release writes no row, and ours stamps the method"
 
     manifest = NETNEW_DIR / "evidence_manifest.csv"
     rows = reader.execute(

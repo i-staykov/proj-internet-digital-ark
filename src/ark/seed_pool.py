@@ -18,12 +18,15 @@ only its own rows.
 """
 
 import csv
+import tempfile
 from collections import Counter
 from pathlib import Path
 
 import duckdb
 from loguru import logger
 
+from ark import db as ark_db
+from ark import held
 from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
 from ark.ingest import YEARS
@@ -77,9 +80,8 @@ def combine_parts(
 ) -> dict[str, int]:
     """Merge every part file into the two shipped seed files.
 
-    Given a store connection, also reports how many seeds belong to domains the
-    baseline did not have, which is the figure that says whether the pool is
-    worth downloading.
+    Given a store connection, also reports how many of the seeds' domains his files do
+    not hold, which is the figure that says whether the pool is worth downloading.
     """
     parts = sorted(parts_dir.glob("*.csv"))
     if not parts:
@@ -90,6 +92,7 @@ def combine_parts(
     # never carried between two connections in Python. Doing that with
     # executemany once took minutes and held the store's write lock throughout.
     owned = conn is None
+    his = None if owned else held.load()
     db = duckdb.connect(":memory:") if owned else conn
     union = " UNION ALL ".join(
         f"SELECT seed, domain, year, '{p.stem}' AS source FROM read_csv_auto('{p}')" for p in parts
@@ -116,15 +119,17 @@ def combine_parts(
         "domains": db.execute("SELECT count(DISTINCT domain) FROM seed_pool").fetchone()[0],
     }
     if not owned:
-        result["domains_not_in_baseline"] = db.execute(
-            """
-            SELECT count(*) FROM (SELECT DISTINCT domain FROM seed_pool) sd
-            WHERE NOT EXISTS (
-                SELECT 1 FROM evidence e
-                WHERE e.domain = sd.domain AND e.evidence_type = 'prior_reused'
+        Path(ark_db.DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ark_db.DB_TEMP_DIR) as tmp:
+            names = Path(tmp) / "domains.txt"
+            # `dump` refuses a byte our names never hold: one odd part row must not fail it
+            held.dump(
+                db,
+                "SELECT DISTINCT domain FROM seed_pool "
+                "WHERE regexp_matches(domain, '^[a-z0-9.-]+$') ORDER BY 1",
+                names,
             )
-            """
-        ).fetchone()[0]
+            result["domains_not_in_his_files"] = held.minus(names, his.all, Path(tmp) / "new.txt")
 
     db.execute("DROP TABLE IF EXISTS seed_pool")
     if owned:

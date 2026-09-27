@@ -7,11 +7,12 @@ it. One without the other reads as clean.
 """
 
 import importlib.util
+import os
 from pathlib import Path
 
 import duckdb
 
-from ark.db import connect, init_db
+from ark.db import add_candidate, connect, ensure_source, init_db
 
 _SPEC = importlib.util.spec_from_file_location(
     "audit_residual",
@@ -135,11 +136,20 @@ def test_a_non_lock_error_is_not_swallowed(tmp_path: Path, monkeypatch) -> None:
         assert "valid DuckDB database" in str(exc)
 
 
-def test_stale_derived_skips_a_store_with_no_baseline() -> None:
-    """No baseline evidence means nothing to be stale against, which is a skip
-    rather than a pass: a check that examined nothing must not read like one that
-    found nothing wrong."""
+def test_stale_derived_judges_every_list_in_a_store_with_no_rows_of_his(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    """His rows leave the store, and no derived list is judged against them: a candidate
+    newer than the pool queue still makes it stale."""
     conn: duckdb.DuckDBPyConnection = connect(":memory:")
     init_db(conn)
-    assert audit_residual.baseline_loaded_at(conn) is None
-    assert audit_residual.check_stale_derived(conn) == 0
+    add_candidate(conn, "fresh.com", ensure_source(conn, "demo", "candidate_only"))
+    (rel, _rebuild, _against) = audit_residual.DERIVED[0]
+    queue = tmp_path / rel
+    queue.parent.mkdir(parents=True)
+    queue.write_text("a.com\n")
+    os.utime(queue, (0, 0))
+    monkeypatch.setattr(audit_residual, "ROOT", tmp_path)
+    assert audit_residual.check_stale_derived(conn) == 1
+    out = capsys.readouterr().out
+    assert f"[STALE] {rel}" in out and "newest candidates" in out

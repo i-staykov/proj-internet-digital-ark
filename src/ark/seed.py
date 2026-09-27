@@ -8,7 +8,8 @@ candidates and enqueues work, so each stage reruns and resumes independently.
 on file with no year assigned is exactly what a candidate is: reached by a candidate-only
 source, dated outside 1996-2001, or queried and unanswered. Skipping those leaves them
 permanently unqueued while `ark export` still lists them, which is why the classification
-below distinguishes three states rather than one.
+below distinguishes three states rather than one. A year is confirmed by a pair of ours or
+by his files, which hold the exact name whether or not the store does.
 """
 
 import sqlite3
@@ -18,6 +19,7 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
+from ark import held
 from ark.canonical import to_registrable
 from ark.db import add_candidates, ensure_source
 from ark.metrics import record_metrics
@@ -27,14 +29,8 @@ CDX_TASK = "cdx_verify"
 
 # One pass over the store instead of a query per line: at 600k-domain seed files
 # the per-row round trips dominate, and the classification is a set operation.
-_CLASSIFY_SQL = """
-SELECT d.domain,
-       EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain) AS has_year,
-       EXISTS (
-         SELECT 1 FROM evidence e
-         WHERE e.domain = d.domain AND e.evidence_type = 'prior_reused'
-       ) AS in_baseline
-FROM (SELECT unnest($domains) AS domain) d
+_ON_FILE_SQL = """
+SELECT d.domain FROM (SELECT unnest($domains) AS domain) d
 WHERE EXISTS (SELECT 1 FROM domain s WHERE s.domain = d.domain)
 """
 
@@ -46,6 +42,7 @@ def seed_from_file(
     limit: int | None = None,
 ) -> dict[str, int]:
     """Canonicalize up to `limit` lines, register candidates, queue what is unproven."""
+    his = held.load()
     source_id = ensure_source(conn, path.stem, "candidate_only")
     stats = {
         "lines": 0,
@@ -97,27 +94,24 @@ def seed_from_file(
         record_metrics(conn, "seed", path.stem, stats)
         return stats
 
-    known = {
-        domain: (has_year, in_baseline)
-        for domain, has_year, in_baseline in conn.execute(
-            _CLASSIFY_SQL, {"domains": sorted(seen)}
-        ).fetchall()
-    }
+    names = sorted(seen)
+    confirmed = held.attested(conn, names, his)
+    in_his = held.names_in(names, his.all)
+    on_file = {d for (d,) in conn.execute(_ON_FILE_SQL, {"domains": names}).fetchall()}
 
     mark("classify")
     unproven: set[str] = set()
     fresh: list[str] = []
-    for domain in sorted(seen):
-        state = known.get(domain)
-        if state is None:
+    for domain in names:
+        # before the on-file test: a name his files hold is settled even if the store lacks it
+        if domain in confirmed:
+            his_or_ours = "baseline" if domain in in_his else "own_evidence"
+            stats[f"already_confirmed_{his_or_ours}"] += 1
+            continue
+        if domain not in on_file:
             fresh.append(domain)
             stats["new_candidates"] += 1
             unproven.add(domain)
-            continue
-        has_year, in_baseline = state
-        if has_year:
-            key = "already_confirmed_baseline" if in_baseline else "already_confirmed_own_evidence"
-            stats[key] += 1
             continue
         # on file, no confirmed year: a candidate that was never queued
         stats["already_candidate"] += 1

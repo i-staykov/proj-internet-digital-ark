@@ -12,9 +12,14 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+import duckdb
 import pytest
+from his_release import WEB_METHOD, capture, text
 
+from ark import held
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS, awarded_score_of
+from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 from ark.figures import (
     TASK_ASSIGNED_DATE,
     cumulative,
@@ -207,8 +212,6 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     """The bank quotes field 5 while it may hold the writer, so the default mode reads only
     files. A `www.` host counts as an alias only when its bare name is held that same year.
     """
-    import duckdb
-
     spec = importlib.util.spec_from_file_location(
         "round_figures_default", ROOT / "scripts/round/round_figures.py"
     )
@@ -237,7 +240,7 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     monkeypatch.setattr(rf, "REPO", tmp_path)
     monkeypatch.setattr(rf, "NETNEW", netnew)
     monkeypatch.setattr(rf, "ATTESTED", netnew / "attested_registrables.txt")
-    monkeypatch.setattr(rf, "MERGED_BASELINE", his)
+    monkeypatch.setattr(rf, "his_year", lambda year: his / f"{year}.txt")
     monkeypatch.setattr(sys, "argv", ["round_figures.py"])
 
     rf.main()
@@ -257,6 +260,143 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     with pytest.raises(SystemExit, match="lacks 1996.txt: run ark export --claim"):
         rf.main()
 
+    # `--verify` refuses the round when a shipped line is his for that year, by exact name
+    assert rf.already_in_his_files() == 0
+    (netnew / "2000.txt").write_text("b.com\n")
+    (netnew / "2001.txt").write_text("A.com\nd.com\n")
+    assert rf.already_in_his_files() == 1
+
+
+def _script(name: str, rel: str):
+    spec = importlib.util.spec_from_file_location(name, ROOT / rel)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _store_beside_his_release(folder: Path):
+    """Our pairs beside his files: new.com and old.com are net-new, already-his.com is his that
+    year, rested.com his in 1997 only, nocapture.com has no capture, and one pair of each of
+    rested.com and his-only.com rests on his row. Three usenet names wait to be dated."""
+    (folder / "1997.txt").write_bytes(text(["already-his.com", "gone.com", "rested.com"]))
+    held.prepare(folder)
+    conn = connect(":memory:")
+    init_db(conn)
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    usenet = ensure_source(conn, "usenet_mention", "timestamped")
+    his = ensure_source(conn, HIS_SOURCE, "timestamped")
+    for name in ("new.com", "old.com", "already-his.com", "rested.com", "nocapture.com"):
+        add_candidate(conn, name, cdx)
+    for name in ("u.com", "gone.com"):
+        add_candidate(conn, name, usenet)
+    add_candidate(conn, "his-only.com", his)
+
+    def dated(name: str, source: int, year: int, kind: str, value: str, method=None) -> None:
+        assign_year(conn, record_evidence(conn, name, source, year, kind, value, None, method))
+
+    for name, year in (("new.com", 1999), ("old.com", 2000), ("already-his.com", 1999)):
+        dated(name, cdx, year, "cdx_timestamp", capture(name, year), WEB_METHOD)
+    dated("rested.com", cdx, 1999, "cdx_timestamp", capture("rested.com", 1999), WEB_METHOD)
+    dated("nocapture.com", cdx, 1999, "whois_creation", "1999-03-01")
+    for name, year in (("rested.com", 1997), ("his-only.com", 1998)):
+        dated(name, his, year, HIS_TYPE, f"{year}.txt", HIS_SOURCE)
+    for name in ("u.com", "gone.com", "new.com"):
+        record_evidence(conn, name, usenet, 1998, "artifact_listing", f"news {name}")
+    conn.execute(
+        "UPDATE domain_year SET verified_at = TIMESTAMPTZ '1999-06-01 00:00:00+00' "
+        "WHERE domain = 'old.com'"
+    )
+    return conn
+
+
+def test_the_round_so_far_counts_only_what_would_ship_and_he_lacks(
+    his_files, tmp_path, monkeypatch
+) -> None:
+    """`--full` counts a pair verified this round only when the export would ship it: a
+    capture of exactly its name, and not in his file for its year. A held-back name his files
+    hold in any year is his, not ours to hold back."""
+    rf = _script("round_figures_full", "scripts/round/round_figures.py")
+    monkeypatch.setattr(rf, "DB_TEMP_DIR", str(tmp_path / "scratch"))
+    monkeypatch.setattr(rf, "SINCE", "2000-01-01 00:00:00+00")
+    monkeypatch.setattr(rf, "english_weights", lambda: {"com": Decimal("0.5")})
+    m = rf.increment(_store_beside_his_release(his_files))
+    # new.com and rested.com in 1999; old.com was verified before the round opened
+    assert (m["pairs"], m["ee"], m["domains"]) == (2, Decimal("1.0"), 2)
+    assert m["by_source"] == {"ia_cdx": [2, Decimal("1.0")]}
+    # u.com; gone.com is his, new.com is dated
+    assert m["held"] == 1
+
+
+def test_the_report_figures_are_the_shipped_net_new_and_our_own_store(
+    his_files, tmp_path, monkeypatch
+) -> None:
+    """Every net-new figure reads the pairs the year files hold, the completeness table divides
+    by his own line counts, and the store counts only what is ours."""
+    rf = _script("report_figures_for_test", "scripts/round/report_figures.py")
+    candidates = tmp_path / "candidate_unverified.txt"
+    candidates.write_text("a.edu\nb.com\nc.org\n")
+    monkeypatch.setattr(rf, "CANDIDATES_PATH", candidates)
+    monkeypatch.setattr(rf, "DB_TEMP_DIR", str(tmp_path / "scratch"))
+    monkeypatch.setattr(rf, "english_weights", lambda: {"com": Decimal("0.5")})
+    f = rf.figures(_store_beside_his_release(his_files))
+    assert f["netnew_by_year"] == {1999: 2, 2000: 1}
+    assert (f["netnew_pairs"], f["netnew_unique_domains"]) == (3, 3)
+    # rested.com is his in 1997
+    assert f["netnew_domains_absent_from_baseline"] == 2
+    assert f["capture_backed_by_year"] == {1999: 2, 2000: 1}
+    assert f["by_source"] == [
+        {
+            "source": "ia_cdx",
+            "kind": "timestamped",
+            "evidence_type": "cdx_timestamp",
+            "master": True,
+            "pairs": 3,
+            "domains": 3,
+            "ee": Decimal("1.5"),
+        }
+    ]
+    assert f["ee_netnew"] == Decimal("1.5")
+    assert f["baseline_by_year"] == {1996: 2, 1997: 3, 1998: 1, 1999: 2, 2000: 1, 2001: 2}
+    # the completeness table sets both of our units against his lines
+    assert set(f["hostname_lines_by_year"]) == set(f["baseline_by_year"])
+    assert f["candidate_pool"] == 3
+    # less his two pairs, his-only.com and his two rows
+    assert f["store"] == {
+        "pairs_total": 5,
+        "domains_total": 7,
+        "evidence_rows": 8,
+        "ingested_files": 0,
+    }
+    candidates.unlink()
+    with pytest.raises(SystemExit, match="candidate_unverified.txt is missing"):
+        rf.figures(connect(":memory:"))
+
+
+def test_the_report_counts_restricted_names_and_isc_names_he_holds_from_files(
+    his_files, tmp_path, monkeypatch
+) -> None:
+    """The restricted share is of the pool that shipped, and the ISC names he holds are
+    his exact names, read through `held`."""
+    fill_report = _script("fill_report_for_counts", "scripts/round/fill_report.py")
+    candidates = tmp_path / "candidate_unverified.txt"
+    candidates.write_text("a.edu\nb.com\nc.gov\nd.mil\ne.edu.au\n")
+    monkeypatch.setattr(fill_report, "CANDIDATES_PATH", candidates)
+    assert fill_report.pool_restricted() == "3"
+
+    store = tmp_path / "store.duckdb"
+    conn = connect(store)
+    init_db(conn)
+    isc = ensure_source(conn, "isc_survey", "timestamped")
+    for name in ("already-his.com", "new.com"):
+        add_candidate(conn, name, isc)
+        record_evidence(conn, name, isc, 1997, "artifact_listing", f"isc {name}")
+    conn.close()
+    monkeypatch.setattr(
+        "ark.db.connect_read_only_patiently",
+        lambda *_a, **_k: duckdb.connect(str(store), read_only=True),
+    )
+    assert fill_report.isc_registrables_he_holds() == 1
+
 
 def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     tmp_path, monkeypatch, capsys
@@ -264,8 +404,6 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     """The bank writes ROUND.md while it holds the writer, so the default build runs
     round_figures once, opens no store, and the brief carries the field 5 ROUND.md prints."""
     import json
-
-    import duckdb
 
     spec = importlib.util.spec_from_file_location(
         "build_round_state", ROOT / "scripts/round/build_round_state.py"

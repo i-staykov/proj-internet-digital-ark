@@ -1,9 +1,25 @@
-"""Scoreboard: net-new vs the baseline, and cross-source corroboration."""
+"""Scoreboard: net-new against his files, and cross-source corroboration."""
 
 import duckdb
+import pytest
+from his_release import HIS_YEARS, WEB_METHOD, capture, stage, text
 
+from ark import db, held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_TYPE
 from ark.stats import collect_stats, format_stats
+
+# the names his files hold beyond the staged release's own
+HIS = {1996: ["foo.com", "mixed.com"], 1997: ["base.com"]}
+
+
+@pytest.fixture(autouse=True)
+def his(his_files, tmp_path, monkeypatch):
+    """His release with `HIS` added, prepared; scratch stays in tmp."""
+    stage(his_files.parent, {f"{y}.txt": text(sorted(HIS_YEARS[y] + n)) for y, n in HIS.items()})
+    held.prepare(his_files)
+    monkeypatch.setattr(db, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+    return his_files
 
 
 def _fresh_db() -> duckdb.DuckDBPyConnection:
@@ -12,18 +28,29 @@ def _fresh_db() -> duckdb.DuckDBPyConnection:
     return conn
 
 
-# The scoreboard applies the XIII screen, so an assignment in a fixture needs a real
-# acquisition method or it is a candidate and counts nowhere. `ia_cdx_collapsed_query`
-# is the reference standard: an exact-host capture with its stamp.
-WEB = "ia_cdx_collapsed_query"
+# The scoreboard applies the claim's screen, so an assignment in a fixture needs a web method
+# and a capture of exactly its domain, or it is a candidate and counts nowhere.
+WEB = WEB_METHOD
 
 
 def _assign(
-    conn, domain: str, source: int, year: int, etype: str, value: str, method: str = WEB
+    conn,
+    domain: str,
+    source: int,
+    year: int,
+    etype: str,
+    value: str | None = None,
+    method: str = WEB,
 ) -> None:
+    value = capture(domain, year) if value is None else value
     assign_year(
         conn, record_evidence(conn, domain, source, year, etype, value, acquisition_method=method)
     )
+
+
+def _his_row(conn, domain: str, source: int, year: int) -> None:
+    """One of his rows in the store, assigned, as the store holds them until they leave."""
+    assign_year(conn, record_evidence(conn, domain, source, year, HIS_TYPE, f"{year}.txt"))
 
 
 def _populated_db() -> duckdb.DuckDBPyConnection:
@@ -33,23 +60,24 @@ def _populated_db() -> duckdb.DuckDBPyConnection:
     art = ensure_source(conn, "isc_survey", "timestamped")
     link = ensure_source(conn, "ukwa_link", "candidate_only")
 
-    # baseline pair, cross-confirmed by a second master source (and a same-source
-    # duplicate row that must NOT inflate the distinct-source count)
+    # a pair his 1997 file holds, cross-confirmed by two sources of ours (and a same-source
+    # duplicate row that must NOT inflate the distinct-source count); his row is no source
     add_candidate(conn, "base.com", prior)
-    _assign(conn, "base.com", prior, 1997, "prior_reused", "1997.txt")
+    _his_row(conn, "base.com", prior, 1997)
     record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970101000000")
     record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970202000000")
+    record_evidence(conn, "base.com", art, 1997, "artifact_listing", "isc-1997")
     # net-new pair, plus a candidate-only link_target row that must NOT corroborate
     add_candidate(conn, "new.com", cdx)
-    _assign(conn, "new.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "new.com", cdx, 1998, "cdx_timestamp")
     record_evidence(conn, "new.com", link, 1998, "link_target", "graph-row")
-    # one baseline year, one net-new year on the same domain
+    # a year his files hold, and a net-new year on the same domain
     add_candidate(conn, "mixed.com", prior)
-    _assign(conn, "mixed.com", prior, 1996, "prior_reused", "1996.txt")
-    _assign(conn, "mixed.com", cdx, 1999, "cdx_timestamp", "19990101000000")
-    # net-new pair cross-confirmed by two master sources (no baseline)
+    _his_row(conn, "mixed.com", prior, 1996)
+    _assign(conn, "mixed.com", cdx, 1999, "cdx_timestamp")
+    # net-new pair cross-confirmed by two master sources
     add_candidate(conn, "corr.com", cdx)
-    _assign(conn, "corr.com", cdx, 2000, "cdx_timestamp", "20000101000000")
+    _assign(conn, "corr.com", cdx, 2000, "cdx_timestamp")
     record_evidence(conn, "corr.com", art, 2000, "artifact_listing", "isc-2000")
     # unverified candidate
     add_candidate(conn, "cand.org", cdx)
@@ -61,21 +89,23 @@ def test_collect_stats_counts() -> None:
     assert stats["netnew_domains"] == 2
     assert stats["netnew_pairs_total"] == 3
     assert stats["netnew_pairs_by_year"] == {1998: 1, 1999: 1, 2000: 1}
-    assert stats["baseline_domains"] == 2
+    # the distinct names in his six files, his hostnames among them
+    assert stats["baseline_domains"] == 7
     assert stats["total_domains"] == 5
-    assert stats["total_pairs"] == 5
+    # mixed.com/1996 rests on his row alone, so it is not a pair of ours
+    assert stats["total_pairs"] == 4
     assert stats["candidate_pool"] == 1
 
 
 def test_two_outcomes_partition_the_netnew_total() -> None:
     """Discovery and completeness are disjoint and exhaustive over net-new pairs. The near miss
     is counting distinct domains over net-new pairs, which once reported 1,161,961 domains
-    against a true 463,566: a domain the baseline already holds gaining a year is a new pair
-    on an old domain.
+    against a true 463,566: a domain his files already hold gaining a year is a new pair on
+    an old domain.
     """
     stats = collect_stats(_populated_db())
-    # new.com and corr.com carry no baseline evidence; mixed.com/1999 is a year
-    # filled on a domain the baseline already holds
+    # his files hold new.com and corr.com in no year; mixed.com/1999 is a year filled on a
+    # domain his 1996 file holds
     assert stats["discovery_pairs"] == 2
     assert stats["completeness_pairs"] == 1
     assert stats["discovery_pairs"] + stats["completeness_pairs"] == stats["netnew_pairs_total"]
@@ -89,8 +119,8 @@ def test_a_discovered_domain_with_two_years_is_one_discovery() -> None:
     conn = _fresh_db()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "found.com", cdx)
-    _assign(conn, "found.com", cdx, 1998, "cdx_timestamp", "19980101000000")
-    _assign(conn, "found.com", cdx, 1999, "cdx_timestamp", "19990101000000")
+    _assign(conn, "found.com", cdx, 1998, "cdx_timestamp")
+    _assign(conn, "found.com", cdx, 1999, "cdx_timestamp")
 
     stats = collect_stats(conn)
     assert stats["netnew_domains"] == 1
@@ -102,18 +132,20 @@ def test_a_discovered_domain_with_two_years_is_one_discovery() -> None:
 
 def test_corroboration_counts_distinct_master_sources() -> None:
     stats = collect_stats(_populated_db())
-    assert stats["evidence_rows"] == 9
+    # his two rows are not ours
+    assert stats["evidence_rows"] == 8
     assert list(stats["evidence_rows_by_type"].items()) == [
         ("cdx_timestamp", 5),
-        ("prior_reused", 2),
-        ("artifact_listing", 1),
+        ("artifact_listing", 2),
         ("link_target", 1),
     ]
-    # base.com/1997 and corr.com/2000 each have two master sources; the
-    # same-source duplicate and the link_target row add no source
-    assert stats["avg_sources_per_pair"] == 1.4
+    # base.com/1997 and corr.com/2000 each have two master sources of ours; the
+    # same-source duplicate and the link_target row add no source: 6 over 4 pairs
+    assert stats["avg_sources_per_pair"] == 1.5
     assert stats["corroborated_pairs"] == 2
+    # base.com/1997, which his 1997 file holds
     assert stats["baseline_corroborated"] == 1
+    assert stats["independently_corroborated_netnew"] == 1
 
 
 def test_candidate_only_evidence_never_corroborates() -> None:
@@ -121,7 +153,7 @@ def test_candidate_only_evidence_never_corroborates() -> None:
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     link = ensure_source(conn, "ukwa_link", "candidate_only")
     add_candidate(conn, "foo.com", cdx)
-    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp")
     record_evidence(conn, "foo.com", link, 1998, "link_target", "graph-row")
 
     stats = collect_stats(conn)
@@ -133,7 +165,7 @@ def test_same_source_rows_count_once() -> None:
     conn = _fresh_db()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "foo.com", cdx)
-    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp")
     record_evidence(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980202000000")
 
     stats = collect_stats(conn)
@@ -142,16 +174,16 @@ def test_same_source_rows_count_once() -> None:
     assert stats["avg_sources_per_pair"] == 1.0
 
 
-def test_netnew_pair_survives_unrelated_baseline_year() -> None:
+def test_netnew_pair_survives_another_year_his_files_hold() -> None:
     conn = _fresh_db()
     prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "foo.com", prior)
-    _assign(conn, "foo.com", prior, 1996, "prior_reused", "1996.txt")
-    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _his_row(conn, "foo.com", prior, 1996)
+    _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp")
 
     stats = collect_stats(conn)
-    # 1998 is net-new even though the domain is in the baseline for 1996
+    # 1998 is net-new even though his 1996 file holds the domain
     assert stats["netnew_pairs_by_year"] == {1998: 1}
     assert stats["netnew_domains"] == 0
 
@@ -162,13 +194,13 @@ def test_scoreboard_counts_only_what_ships() -> None:
     conn = _fresh_db()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "real.com", cdx)
-    _assign(conn, "real.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "real.com", cdx, 1998, "cdx_timestamp")
     # .info was delegated in 2001, so a 1996 pair predates its own TLD
     add_candidate(conn, "early.info", cdx)
-    _assign(conn, "early.info", cdx, 1996, "cdx_timestamp", "19960101000000")
+    _assign(conn, "early.info", cdx, 1996, "cdx_timestamp")
     # the reverse-DNS tree never ships
     add_candidate(conn, "x.arpa", cdx)
-    _assign(conn, "x.arpa", cdx, 1999, "cdx_timestamp", "19990101000000")
+    _assign(conn, "x.arpa", cdx, 1999, "cdx_timestamp")
     # a candidate under a TLD that did not exist in the window
     add_candidate(conn, "never.sucks", cdx)
     add_candidate(conn, "maybe.org", cdx)
@@ -191,22 +223,23 @@ def test_format_stats_renders() -> None:
     assert "1998: 1" in out
     assert "cross-source corroboration" in out
     assert "avg sources per assigned pair" in out
+    assert "names in his files" in out and "merged260922" in out
 
 
 def test_independent_corroboration_ignores_same_lineage_agreement() -> None:
     conn = connect(":memory:")
     init_db(conn)
-    # three Internet-Archive-derived sources: the baseline itself, an IA dataset,
-    # and the IA-donated Arquivo index. Agreement among them is coverage, not
-    # independent confirmation.
+    # three Internet-Archive-derived sources: the IA index, an IA dataset, and the
+    # IA-donated Arquivo index. Agreement among them is coverage, not independent
+    # confirmation.
     ia_sources = [
-        ensure_source(conn, n, "timestamped") for n in ("prior_task", "early_web_cdx", "arquivo_ia")
+        ensure_source(conn, n, "timestamped") for n in ("ia_cdx", "early_web_cdx", "arquivo_ia")
     ]
     add_candidate(conn, "ia-only.com", ia_sources[0])
-    for sid, etype in zip(
-        ia_sources, ("prior_reused", "cdx_timestamp", "cdx_timestamp"), strict=True
-    ):
-        assign_year(conn, record_evidence(conn, "ia-only.com", sid, 1998, etype, "19980101000000"))
+    for sid in ia_sources:
+        assign_year(
+            conn, record_evidence(conn, "ia-only.com", sid, 1998, "cdx_timestamp", "19980101000000")
+        )
 
     # a domain confirmed by a DNS survey and a registry file: different lineages
     isc = ensure_source(conn, "isc_survey", "timestamped")
@@ -272,7 +305,7 @@ def test_the_scoreboard_counts_only_what_the_export_would_ship() -> None:
 
     # web evidence: enters the annual claim
     add_candidate(conn, "web.com", cdx)
-    _assign(conn, "web.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+    _assign(conn, "web.com", cdx, 1998, "cdx_timestamp")
     # a registry zone list captured from Wayback dates a DELEGATION, not a page, and is
     # 98% of our registrable net-new by EE. It is a candidate, and must not be counted.
     add_candidate(conn, "zone.com", zone)
@@ -290,3 +323,82 @@ def test_the_scoreboard_counts_only_what_the_export_would_ship() -> None:
     assert stats["netnew_pairs_total"] == 1, "the zone row is a candidate, not an annual record"
     assert stats["netnew_pairs_by_year"] == {1998: 1}
     assert stats["netnew_domains"] == 1
+
+
+def test_his_files_decide_what_he_holds_and_his_rows_hold_nothing() -> None:
+    """Held is the exact name in his files. His rows in the store, a roll-up among them,
+    neither hold a pair nor count as ours."""
+    conn = _fresh_db()
+    prior = ensure_source(conn, "prior_task", "timestamped")
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    # his 1999 file holds www.rolled.com; his row rolled it up to rolled.com
+    add_candidate(conn, "rolled.com", prior)
+    _his_row(conn, "rolled.com", prior, 1999)
+    record_evidence(
+        conn,
+        "rolled.com",
+        cdx,
+        1999,
+        "cdx_timestamp",
+        capture("rolled.com", 1999),
+        acquisition_method=WEB,
+    )
+    # his 1997 file holds base.com, and no row of his says so; 1998 is a year we fill
+    add_candidate(conn, "base.com", cdx)
+    _assign(conn, "base.com", cdx, 1997, "cdx_timestamp")
+    _assign(conn, "base.com", cdx, 1998, "cdx_timestamp")
+    # a name only his rows date is his, not ours
+    add_candidate(conn, "his-only.com", prior)
+    _his_row(conn, "his-only.com", prior, 1998)
+
+    stats = collect_stats(conn)
+    assert stats["netnew_pairs_by_year"] == {1998: 1, 1999: 1}
+    assert stats["netnew_domains"] == 1
+    assert stats["discovery_pairs"] == 1
+    assert stats["completeness_pairs"] == 1
+    assert stats["total_domains"] == 2
+    assert stats["total_pairs"] == 3
+    assert stats["evidence_rows"] == 3
+    assert stats["candidate_pool"] == 0
+
+
+def test_a_capture_of_another_host_dates_nothing() -> None:
+    """A shipped pair needs a capture of exactly its domain: `www.` is another name, which his
+    files are diffed by. A pair citing such a row moves to an exact row of ours if it has one."""
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    add_candidate(conn, "alias.com", cdx)
+    _assign(conn, "alias.com", cdx, 1998, "cdx_timestamp", capture("www.alias.com", 1998))
+    add_candidate(conn, "exact.com", cdx)
+    _assign(conn, "exact.com", cdx, 1998, "cdx_timestamp", capture("www.exact.com", 1998))
+    record_evidence(
+        conn,
+        "exact.com",
+        cdx,
+        1998,
+        "cdx_timestamp",
+        capture("exact.com", 1998),
+        acquisition_method=WEB,
+    )
+
+    stats = collect_stats(conn)
+    assert stats["netnew_pairs_by_year"] == {1998: 1}
+    assert stats["netnew_domains"] == 1
+    assert stats["total_pairs"] == 2
+
+
+def test_a_candidate_his_files_hold_is_not_counted() -> None:
+    """The pool is what `ark export` writes to `candidate_unverified.txt`: names we found and
+    could not date, less every name his files hold, dated or candidate."""
+    conn = _fresh_db()
+    cdx = ensure_source(conn, "wayback_cdx", "timestamped")
+    for name in ("maybe.org", "held-candidate.com", "already-his.com"):
+        add_candidate(conn, name, cdx)
+
+    assert collect_stats(conn)["candidate_pool"] == 1
+
+
+def test_no_prepared_release_is_refused(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(held, "his_dir", lambda: tmp_path / "gone")
+    with pytest.raises(held.HeldError, match="ark intake"):
+        collect_stats(_fresh_db())

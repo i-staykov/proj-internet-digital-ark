@@ -1,6 +1,7 @@
 """The provenance export: the archive's answer to "why is this domain in this year?"."""
 
 import duckdb
+from his_release import WEB_METHOD, capture
 
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.provenance import TABLES, write_provenance
@@ -11,8 +12,12 @@ def _store() -> duckdb.DuckDBPyConnection:
     init_db(conn)
     cdx = ensure_source(conn, "ia_cdx_bulk", "timestamped")
     add_candidate(conn, "example.com", cdx)
+    value = capture("example.com", 1998)
     assign_year(
-        conn, record_evidence(conn, "example.com", cdx, 1998, "cdx_timestamp", "19980101000000")
+        conn,
+        record_evidence(
+            conn, "example.com", cdx, 1998, "cdx_timestamp", value, acquisition_method=WEB_METHOD
+        ),
     )
     return conn
 
@@ -47,7 +52,7 @@ def test_the_export_reloads_and_still_joins(tmp_path) -> None:
         WHERE dy.domain = 'example.com' AND dy.assigned_year = 1998
         """
     ).fetchall()
-    assert traced == [("ia_cdx_bulk", "cdx_timestamp", "19980101000000")]
+    assert traced == [("ia_cdx_bulk", "cdx_timestamp", capture("example.com", 1998))]
     reader.close()
 
 
@@ -126,23 +131,33 @@ def test_the_load_instructions_ship_next_to_the_data(tmp_path) -> None:
     conn.close()
 
 
-def test_a_provenance_export_rebuilds_the_same_result(tmp_path) -> None:
+def test_a_provenance_export_rebuilds_the_same_result(tmp_path, his_files) -> None:
     """The export must regenerate the deliverable, not merely describe it. This is the
-    reproduction path that needs no source data: measured on the shipped export, all thirteen
-    result files come back byte-identical in about six seconds.
+    reproduction path that needs no source data: a store rebuilt from the export, diffed
+    against the same release of his, writes every claim file back byte for byte.
     """
-    from ark.export import export_all
+    from ark.export import claim_files, export_all
     from ark.provenance import load_provenance
 
     conn = _store()
+    # his rows do not ship: a pair of ours cited first by his row, and a pair only he dates
+    prior = ensure_source(conn, "prior_task", "timestamped")
+    cdx = ensure_source(conn, "ia_cdx_bulk", "timestamped")
+    for name in ("both.com", "his-only.com"):
+        add_candidate(conn, name, prior)
+        assign_year(conn, record_evidence(conn, name, prior, 1999, "prior_reused", "1999.txt"))
+    value = capture("both.com", 1999)
+    record_evidence(
+        conn, "both.com", cdx, 1999, "cdx_timestamp", value, acquisition_method=WEB_METHOD
+    )
     first = tmp_path / "first"
     export_all(
         conn,
         netnew_dir=first / "netnew",
         candidates_path=first / "cand.txt",
-        masters_dir=first / "masters",
         report_dir=first / "reports",
         provenance_dir=first / "prov",
+        baseline=his_files,
         with_provenance=True,
     )
     conn.close()
@@ -155,15 +170,15 @@ def test_a_provenance_export_rebuilds_the_same_result(tmp_path) -> None:
         rebuilt,
         netnew_dir=second / "netnew",
         candidates_path=second / "cand.txt",
-        masters_dir=second / "masters",
         report_dir=second / "reports",
         provenance_dir=second / "prov",
+        baseline=his_files,
         with_provenance=True,
     )
     rebuilt.close()
 
-    for year in (1996, 1997, 1998, 1999, 2000, 2001):
-        for kind in ("netnew", "masters"):
-            a, b = first / kind / f"{year}.txt", second / kind / f"{year}.txt"
-            assert a.read_bytes() == b.read_bytes(), f"{kind}/{year}.txt differs after rebuild"
-    assert (first / "cand.txt").read_bytes() == (second / "cand.txt").read_bytes()
+    assert (first / "netnew" / "1998.txt").read_text() == "example.com\n"
+    assert (first / "netnew" / "1999.txt").read_text() == "both.com\n"
+    before, after = (claim_files(out / "netnew", out / "cand.txt") for out in (first, second))
+    for a, b in zip(before, after, strict=True):
+        assert a.read_bytes() == b.read_bytes(), f"{a.name} differs after rebuild"

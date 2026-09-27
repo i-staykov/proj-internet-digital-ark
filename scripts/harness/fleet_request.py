@@ -54,6 +54,8 @@ from ark.hostnames import fleet_read_source_name  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
+# request_approval.py's exit when his held sets are missing or stale: nothing was refused
+NOT_NOW = 3
 SECTION = "## Pending requests"
 FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
@@ -211,12 +213,13 @@ def append(register: Path, text: str) -> None:
     register.write_text(rest.rstrip("\n") + "\n", encoding="utf-8")
 
 
-def by_the_tool(key: str, lead_dir: Path, lead: dict, artifact: dict) -> bool:
+def by_the_tool(key: str, lead_dir: Path, lead: dict, artifact: dict) -> bool | None:
     """`request_approval.py` for a spec this repository can already ingest. True when it wrote.
 
-    Its refusals are all good ones (a rejected class, a decided class, a store that already
-    holds the source's rows), so a non-zero exit is reported and the short block is written
-    instead of nothing.
+    Its refusals are good ones (a rejected class, a decided class, a store that already holds
+    the source's rows), so a non-zero exit is reported and the short block is written instead
+    of nothing. Exit 3 is not a refusal: his held sets are missing or stale, so it returns None
+    and nothing is written until a later bank.
     """
     items = lead_dir / "items.jsonl"
     if not items.is_file():
@@ -243,6 +246,9 @@ def by_the_tool(key: str, lead_dir: Path, lead: dict, artifact: dict) -> bool:
         print(f"request: {key} written by request_approval.py, with its sample")
         return True
     why = done.stdout.strip() or done.stderr.strip()
+    if done.returncode == NOT_NOW:
+        print(f"request: {key} waits for the next bank: {why}")
+        return None
     print(f"request: request_approval.py refused {key}: {why}")
     return False
 
@@ -289,7 +295,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"would write: {key} / {etype}, {find['ee']:,.1f} EE by {by}, {said}")
             continue
         artifact = (lead.get("artifact") or {}) | (finding.get("artifact") or {})
-        if not (SOURCES.get(key) and by_the_tool(key, lead_dir, lead, artifact)):
+        wrote = by_the_tool(key, lead_dir, lead, artifact) if SOURCES.get(key) else False
+        if wrote is None:
+            continue
+        if not wrote:
             append(args.register, block(lead_dir, finding, lead, find, parked))
             print(f"request: wrote a pending block for {key} / {etype}, {said}")
         written += 1

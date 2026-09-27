@@ -3,8 +3,11 @@
 from pathlib import Path
 
 import duckdb
+from his_release import HIS_YEARS, stage, text
 
+from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import HIS_TYPE
 from ark.seed import seed_from_file
 from ark.work_queue import connect_queue, counts
 
@@ -15,7 +18,7 @@ def _stores() -> tuple[duckdb.DuckDBPyConnection, object]:
     return conn, connect_queue(":memory:")
 
 
-def test_seed_funnel(tmp_path: Path) -> None:
+def test_seed_funnel(tmp_path: Path, his_files: Path) -> None:
     conn, queue_conn = _stores()
     # on file but with no confirmed year: this is a candidate, not settled work
     sid = ensure_source(conn, "prior_task", "timestamped")
@@ -40,13 +43,17 @@ def test_seed_funnel(tmp_path: Path) -> None:
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
 
 
-def test_seed_skips_only_domains_with_a_confirmed_year(tmp_path: Path) -> None:
+def test_seed_skips_only_domains_with_a_confirmed_year(tmp_path: Path, his_files: Path) -> None:
     conn, queue_conn = _stores()
-    sid = ensure_source(conn, "prior_task", "timestamped")
-    # one domain confirmed from the baseline, one confirmed by collected evidence
-    for domain, evidence_type in (("base.com", "prior_reused"), ("ours.com", "cdx_timestamp")):
-        add_candidate(conn, domain, sid)
-        assign_year(conn, record_evidence(conn, domain, sid, 1997, evidence_type, "19970101000000"))
+    sid = ensure_source(conn, "wayback_cdx", "timestamped")
+    # one domain confirmed by collected evidence
+    add_candidate(conn, "ours.com", sid)
+    assign_year(
+        conn, record_evidence(conn, "ours.com", sid, 1997, "cdx_timestamp", "19970101000000")
+    )
+    # and one his 1997 file holds, which the store need not: his file alone settles it
+    stage(his_files.parent, {"1997.txt": text(sorted(HIS_YEARS[1997] + ["base.com"]))})
+    held.prepare(his_files)
 
     fixture = tmp_path / "seeds.txt"
     fixture.write_text("base.com\nours.com\nnew.com\n", encoding="utf-8")
@@ -60,7 +67,24 @@ def test_seed_skips_only_domains_with_a_confirmed_year(tmp_path: Path) -> None:
     assert stats["enqueued"] == 1
 
 
-def test_seed_limit(tmp_path: Path) -> None:
+def test_a_name_his_row_rolled_up_is_still_a_candidate(tmp_path: Path, his_files: Path) -> None:
+    """His row dates rolled.com because his 1999 file holds www.rolled.com. The exact name is
+    not his, and no year of ours dates it, so it is queued."""
+    conn, queue_conn = _stores()
+    prior = ensure_source(conn, "prior_task", "timestamped")
+    add_candidate(conn, "rolled.com", prior)
+    assign_year(conn, record_evidence(conn, "rolled.com", prior, 1999, HIS_TYPE, "1999.txt"))
+
+    fixture = tmp_path / "seeds.txt"
+    fixture.write_text("rolled.com\n", encoding="utf-8")
+    stats = seed_from_file(conn, queue_conn, fixture)
+
+    assert stats["already_confirmed_baseline"] == 0
+    assert stats["already_candidate"] == 1
+    assert stats["enqueued"] == 1
+
+
+def test_seed_limit(tmp_path: Path, his_files: Path) -> None:
     conn, queue_conn = _stores()
     fixture = tmp_path / "seeds.txt"
     fixture.write_text("a.com\nb.com\nc.com\n", encoding="utf-8")

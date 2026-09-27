@@ -181,7 +181,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
 
-    doc = args.hypotheses.read_text(encoding="utf-8")
+    # no hypotheses file is no hypothesis block, said below, not a traceback
+    doc = args.hypotheses.read_text(encoding="utf-8") if args.hypotheses.is_file() else ""
     slugs = [s.strip() for s in args.slugs.split(",") if s.strip()]
 
     parts: list[str] = []

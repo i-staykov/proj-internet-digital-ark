@@ -700,8 +700,8 @@ reprobe *args:
 # --- reproducing the result ---------------------------------------------------
 
 # The whole result from an empty store, offline, in six stages. Needs the bulk sources in
-# data/raw/ AND the supplied baseline in legacy-data/, since the annual masters are baseline
-# plus additions and net-new is defined against it. To collect NEW evidence, see the network
+# data/raw/, the supplied baseline in legacy-data/ that the audit measures, AND his current
+# release, since net-new is defined against his files. To collect NEW evidence, see the network
 # recipes below. `just reproduce` runs all six in order; a stage name runs one.
 #
 # rebuild offline: all (default) baseline sources candidates journals seeds deliver
@@ -714,11 +714,11 @@ reproduce stage="all":
             just reproduce "$s"
         done
         ;;
-    # stage 1: create the stores, load the supplied baseline read-only (~2 min)
+    # stage 1: create the stores, check his release and write the held sets
     baseline)
         uv run ark init
         uv run python scripts/harness/bank_hygiene.py space
-        uv run ark ingest-legacy
+        uv run ark intake
         uv run ark legacy-review
         uv run ark audit
         ;;
@@ -1069,9 +1069,9 @@ reproduce stage="all":
         uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
         ;;
     # stage 6: write the deliverable, then prove it. Export FIRST, always: `check`'s
-    # `additions_not_double_counted` invariant reads the exported annual files, so running
-    # it first compares this round's files against last round's store and reports every
-    # already-credited pair as a violation.
+    # `additions_not_double_counted` invariant looks up each exported name in his year file, so
+    # running it first compares last round's files against his new release and reports every
+    # already-credited name as a violation.
     deliver)
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
@@ -1082,7 +1082,8 @@ reproduce stage="all":
     *) echo "reproduce: all baseline sources candidates journals seeds deliver" >&2; exit 2 ;;
     esac
 
-# Needs no source data at all. About a minute, and byte-identical.
+# Needs no source data at all, only the held sets `ark intake` writes. About eight minutes, plus
+# about three for `ark intake`, and byte-identical.
 #
 # tier 2: regenerate every result file from a provenance export. `ark export` does not
 # write that export unless asked, so refresh it with `ark export --provenance` first or
@@ -1363,16 +1364,17 @@ releases *args:
 # the new marker and refresh docs/registers/releases.md; `--mail` also writes the round's row
 # in docs/registers/rounds.md. Every figure comes from the extracted files, never from his
 # mail. A second run on the same zip changes nothing, `--dry-run` says what it would do, and a
-# marker already recorded under a different sha256 stops the run. It does NOT load the release
-# into the store: that stays a separate deliberate `ark ingest-legacy` step.
+# marker already recorded under a different sha256 stops the run. Then `ark intake` writes the
+# held sets every diff against him reads; nothing of his enters the store.
 #
 # take one reviewer release: verify, extract, remeasure, record
 intake *args:
     #!/usr/bin/env bash
     set -euo pipefail
     uv run python scripts/round/intake.py {{args}}
-    # a new baseline the fleet cannot see prices every wave against a stale ceiling
     case "{{args}}" in *--dry-run*) exit 0 ;; esac
+    uv run ark intake
+    # a new baseline the fleet cannot see prices every wave against a stale ceiling
     bash scripts/harness/sync_fleet.sh
     FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
     LABEL=$(date -u +%Y%m%dT%H%MZ)
@@ -1393,11 +1395,11 @@ intake *args:
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
-# Legacy mode reports only. --round previews scoped backup/release cleanup;
-# --round --write executes only when the retained copy is verified.
-# Never deletes submissions/ or output/.
+# The report reads the retention register and deletes nothing. --round and --disk list
+# what they would delete, each file with its proof, and --write deletes what is proven;
+# --disk never touches submissions/, a journal, a sidecar or a store backup.
 #
-# report retention or preview/execute verified round cleanup
+# report retention, or list and delete what somebody serves again
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 
@@ -1422,7 +1424,7 @@ ship stage="all" *args:
     [ -f local.env ] && . ./local.env
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
-    newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
+    newest_stage() { ls -d output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {

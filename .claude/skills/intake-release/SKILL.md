@@ -28,4 +28,4 @@ What matters while running it:
 - The new baseline moves the denominator, so any EE figure quoted from before the intake is
   stale. Re-run `just brief` before quoting one.
 
-Needs `feedback/` and the store, so it runs on the main checkout, never in a worktree.
+Needs `feedback/`, so it runs on the main checkout, never in a worktree.

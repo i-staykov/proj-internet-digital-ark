@@ -3,10 +3,9 @@
 **The figures live in `data/baseline.json`; this module only loads them.** Point the JSON
 at the new release and every command follows. `docs/registers/releases.md` lists them.
 
-Each release loads under its OWN marker namespace, the ingest ledger keying on file name
-alone, so pass `--marker-prefix` when loading a release the JSON does not yet name or all
-six files are skipped behind reassuring "already ingested" lines. Loading a round against a
-stale baseline is silent: it reports work the reviewer already holds as net-new.
+`ark intake` checks the release the JSON names and writes the held sets every diff against
+him reads (`ark.held`). Diffing against a stale release is silent: it reports work the
+reviewer already holds as net-new.
 """
 
 import json
