@@ -2,9 +2,9 @@
 
 These come from the same messages as `usenet_announce` and `usenet_mention` and
 carry the same risk: a human typed the address. So they take the same rule. A
-domain another source already places in an annual file carries the post's date as
-`dated_directory`; a name appearing only here goes to the candidate pool and
-earns its year from a capture.
+domain we already date in some year, or that his files name exactly, carries the
+post's date as `dated_directory`; a name appearing only here goes to the
+candidate pool and earns its year from a capture.
 
 The 120-archive sample measured on 8 August put 12,512 of 14,581 net-new pairs on
 domains never seen anywhere, so the split is not a formality here: it is most of
@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
@@ -57,7 +58,18 @@ def main() -> None:
         default="usenet_addr",
         help="journal basename, so a second mode cannot overwrite the first",
     )
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="where to write both journals; defaults to --in-dir, whose glob reads them back",
+    )
     args = ap.parse_args()
+    out_dir = args.out or args.in_dir
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
 
     seen: dict[tuple[str, int], dict] = {}
     for path in sorted(args.in_dir.glob("usenet_*.jsonl.gz")):
@@ -76,14 +88,11 @@ def main() -> None:
     if not seen:
         raise SystemExit(f"no journals in {args.in_dir}")
 
+    names = {domain for domain, _ in seen}
     conn = open_store()
     try:
-        rows = conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        attested = {r[0] for r in rows}
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, names, his)
+        known = held.known_years(conn, names, his)
     finally:
         conn.close()
 
@@ -101,13 +110,16 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(out)
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 fresh += 1
                 fresh_ee += weights.get(domain.rsplit(".", 1)[-1], Decimal(0))
         else:
             candidates.append(out)
 
     print(f"recovered (domain, year) rows: {len(seen):,}")
+    print(
+        f"  {len(attested):,} of {len(names):,} names are dated by us or named exactly in his files"
+    )
     print(f"  corroborated -> dated_directory : {len(dated):,}")
     print(f"    of those, not yet held        : {fresh:,}  worth {fresh_ee:,.1f} EE")
     print(f"  seen only here -> candidates    : {len(candidates):,}")
@@ -115,8 +127,9 @@ def main() -> None:
         print("\ndry run; pass --write to create both journals")
         return
 
+    out_dir.mkdir(parents=True, exist_ok=True)
     for suffix, batch in (("dated", dated), ("candidates", candidates)):
-        path = args.in_dir / f"{args.out_prefix}_{suffix}.jsonl.gz"
+        path = out_dir / f"{args.out_prefix}_{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)

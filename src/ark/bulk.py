@@ -12,6 +12,7 @@ rows reach the CSV only after the commit. A failing file is logged and skipped.
 import csv
 import hashlib
 import sqlite3
+import tempfile
 from collections import Counter
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ import pyarrow as pa
 from loguru import logger
 from tqdm import tqdm
 
-from ark import approvals
+from ark import approvals, held
 from ark.audit import FIELDS, change_reason
 from ark.canonical import reject_reason, to_registrable
 from ark.db import ensure_source
@@ -147,22 +148,37 @@ def _stage_records(
 def _enqueue_unverified(
     conn: duckdb.DuckDBPyConnection, queue_conn: sqlite3.Connection, source_id: int
 ) -> int:
-    """Queue this source's domains that still lack any year assignment.
+    """Queue this source's domains that no year dates: no pair of ours, and no line of his
+    files naming the exact domain in any year. These are the names `held.attested` leaves.
 
     Reads the durable evidence rows, not the staging table, so a crashed or
-    skipped run can always be repaired by running the ingest again.
+    skipped run can always be repaired by running the ingest again. The names stay in the
+    store and on disk, never in a Python set: a candidate-only source can hold millions.
     """
-    cursor = conn.execute(
-        "SELECT DISTINCT e.domain FROM evidence e WHERE e.source_id = ? AND NOT EXISTS "
-        "(SELECT 1 FROM domain_year dy WHERE dy.domain = e.domain)",
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE _source_names AS "
+        "SELECT DISTINCT domain AS name FROM evidence WHERE source_id = ?",
         [source_id],
     )
-    added = 0
-    while True:
-        rows = cursor.fetchmany(100_000)
-        if not rows:
-            return added
-        added += enqueue(queue_conn, CDX_TASK, (row[0] for row in rows))
+    try:
+        if not conn.execute("SELECT count(*) FROM _source_names").fetchone()[0]:
+            return 0
+        his = held.load()
+        held.our_domain_year(conn, "_source_names", "_source_ours")
+        with tempfile.TemporaryDirectory() as tmp:
+            undated, queued = Path(tmp) / "undated.txt", Path(tmp) / "queued.txt"
+            held.dump(
+                conn,
+                "SELECT name FROM _source_names "
+                "WHERE name NOT IN (SELECT domain FROM _source_ours) ORDER BY 1",
+                undated,
+            )
+            held.minus(undated, his.all, queued)
+            with queued.open(encoding="utf-8") as fh:
+                return enqueue(queue_conn, CDX_TASK, (line.rstrip("\n") for line in fh))
+    finally:
+        conn.execute("DROP TABLE IF EXISTS _source_ours")
+        conn.execute("DROP TABLE IF EXISTS _source_names")
 
 
 def ingest_file(

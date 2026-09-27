@@ -6,6 +6,7 @@
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --swap
     caffeinate -i uv run python scripts/round/migrate_store.py stage-a --rollback
     uv run python scripts/round/migrate_store.py deltas BEFORE AFTER [--store DB] [--out CSV]
+    uv run python scripts/round/migrate_store.py lane-deltas [--only K1,K2] [--witness-lines]
 
 `evidence` keeps every row of his current release; one row per pair only his older releases
 hold, the one `domain_year` cites or else the highest id; and of ours every row a record cites,
@@ -24,6 +25,12 @@ runs every step, a swap and a rollback included, on the `hash(domain) % 100 < PC
 `LC_ALL=C comm`, and classes each changed line from the store, read-only, and his held sets. It
 writes `data/migrate/stage_b/deltas.csv`, prices each reason with his calculator into
 `deltas.json` beside it, and exits 0 only when no line is unexplained.
+
+`lane-deltas` runs each lane in `LANES` twice on one store and one input: `before` answers
+`held.attested` and `held.known_years` by table membership, `after` by held. It gives every name
+whose answer moved its reason from the store in `data/migrate/stage_b/lane_deltas.csv`, writes
+`lane_deltas.json` beside it, and exits 0 only when every lane whose input is on disk ran and
+nothing is unexplained.
 """
 
 from __future__ import annotations
@@ -36,11 +43,13 @@ import json
 import os
 import re
 import resource
+import runpy
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import traceback
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -50,11 +59,14 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
+import pyarrow as pa  # noqa: E402
 
 from ark import held  # noqa: E402
 from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir, calculator_path  # noqa: E402
+from ark.canonical import to_registrable  # noqa: E402
 from ark.checks import collect_checks, format_checks  # noqa: E402
 from ark.db import connect_read_only_patiently, init_db  # noqa: E402
+from ark.english_share import weight_of  # noqa: E402
 from ark.evidence_types import (  # noqa: E402
     ALL_TYPES,
     CANDIDATE_ONLY_TYPES,
@@ -1535,10 +1547,859 @@ def deltas_main(argv: list[str], root: Path = REPO) -> int:
     return 0 if summary["unexplained"] == 0 else 1
 
 
+# `lane-deltas`. A lane asks held two questions. `before` answers them by the table the lane
+# tested, restricted to the names asked, and `after` by held, so the two runs write the same
+# outputs but for the names whose answer moved. His rows are named here to say why each moved.
+LANE_ROOT = Path("data/migrate/stage_b/lanes")  # <lane>/{before,after}/, <lane>/<mode>.{log,json}
+LANE_CSV = Path("data/migrate/stage_b/lane_deltas.csv")
+LANE_JSON = Path("data/migrate/stage_b/lane_deltas.json")
+SUPERSEDED_CSV = Path("data/reports/his_superseded_only.csv")
+LANE_MEMORY = "8GB"
+MODES = ("before", "after")
+LANE_COLUMNS = (
+    "lane",
+    "script",
+    "domain",
+    "weight",
+    "records_moved",
+    "before",
+    "after",
+    "reason",
+    "witness",
+)
+ROLLED, SUPERSEDED = "his_rolled_up_hostname", "his_superseded_release"
+CANDIDATE_ONLY, UNEXPLAINED = "candidate_only_name", "unexplained"
+# a name the old test did not know that his files hold as an exact line: the new rule gains it
+HIS_EXACT = "his_exact_name"
+# membership of `_lane_names`, the names one call asked
+LEGACY = {
+    "domain_year": (
+        "SELECT DISTINCT dy.domain FROM domain_year dy JOIN _lane_names n ON n.name = dy.domain"
+    ),
+    "domain": "SELECT DISTINCT d.domain FROM domain d JOIN _lane_names n ON n.name = d.domain",
+}
+LEGACY_PAIRS = (
+    "SELECT dy.domain, dy.assigned_year FROM domain_year dy "
+    "JOIN _lane_names n ON n.name = dy.domain"
+)
+# split_usenet's last batch, bulk082403: lines 9221 to 9266 of its ledger of archives done,
+# each the name of a file in that folder
+BULK = Path("data/raw/usenet_bulk")
+BULK_BATCH = (9220, 9266)
+
+
+@dataclass(frozen=True)
+class Lane:
+    """A lane's last run. In `argv`, `{out}` is the run's own output folder and `{batch}` the
+    usenet batch. An `inputs` pattern that matches nothing leaves the lane unrun."""
+
+    script: str
+    argv: tuple[str, ...]
+    inputs: tuple[str, ...]
+    legacy: str = "domain_year"  # the table the lane tested
+    previous: str | None = None  # where it writes by default, compared for information only
+    labels: tuple[str, str] = ("dated", "candidate")
+
+    @property
+    def files(self) -> bool:
+        return "{out}" in self.argv
+
+
+OUT_ARG = ("--out", "{out}")
+SOURCES = "scripts/sources"
+TRADEPRESS = "data/raw/tradepress/tradepress_reextract_20260808T191538Z.jsonl.gz"
+# the only sample400 journal; the recorded command names its journal as <file>
+SAMPLE400 = "data/raw/usenet_bare/usenet_bare_sample400_20260808T181656Z.jsonl.gz"
+EXPANSION = "data/raw/expand/round4/expand_round4.jsonl.gz"
+LANES = {
+    # first, the three whose raw input a prune may free
+    "rtfm": Lane(
+        f"{SOURCES}/usenet/split_rtfm_faqs.py",
+        ("--write", "--tag", "reextract", *OUT_ARG),
+        ("data/raw/rtfm/rtfm.mit.edu/pub/usenet-by-group",),
+        previous="data/raw/rtfm",
+    ),
+    # one worker: a pool would pickle functions of runpy's temporary __main__
+    "usenet": Lane(
+        f"{SOURCES}/usenet/split_usenet.py",
+        ("{batch}", "--write", "--tag", "bulk082403", "--out-dir", "{out}", "--workers", "1"),
+        ("{batch}",),
+        previous="data/raw/usenet",
+    ),
+    "measure": Lane(
+        f"{SOURCES}/usenet/measure_usenet_yield.py", ("{batch}",), ("{batch}",), legacy="domain"
+    ),
+    "chastity": Lane(
+        f"{SOURCES}/blocklists/split_chastity.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/chastity/chastity-list-0.5/db/*/domains",),
+        previous="data/raw/chastity",
+    ),
+    "junkfilter": Lane(
+        f"{SOURCES}/blocklists/split_junkfilter.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/junkfilter/jf-domains.*",),
+        previous="data/raw/junkfilter",
+    ),
+    "tucows": Lane(
+        f"{SOURCES}/directories/split_tucows.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/tucows/tucows_1996_2001.json",),
+        previous="data/raw/tucows",
+    ),
+    "urlmerchant": Lane(
+        f"{SOURCES}/directories/split_urlmerchant.py",
+        ("--write", "--tag", "b1", *OUT_ARG),
+        ("data/raw/urlmerchant/pages/_domains_*.html",),
+        previous="data/raw/urlmerchant",
+    ),
+    "enron": Lane(
+        f"{SOURCES}/mail_corpora/collect_enron.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/source_probe_260806/enron.tar.gz",),
+        previous="data/raw/enron",
+    ),
+    # never --harvest, which downloads
+    "maillists": Lane(
+        f"{SOURCES}/mail_corpora/collect_mailing_lists.py",
+        ("--write", "--host", "gnome", "--host", "python", *OUT_ARG),
+        ("data/raw/maillists/gnome", "data/raw/maillists/python"),
+        previous="data/raw/maillists",
+    ),
+    "fac": Lane(
+        f"{SOURCES}/mail_corpora/split_fac.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/fac/header-*.csv",),
+        previous="data/raw/fac",
+    ),
+    "jeb": Lane(
+        f"{SOURCES}/mail_corpora/split_jeb_mail.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/jeb_bush/jeb_bush_anchored.jsonl.gz",),
+        previous="data/raw/jeb_bush",
+    ),
+    "cctld": Lane(
+        f"{SOURCES}/registries/split_cctld_capture.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/cctld_capture/*.html",),
+        previous="data/raw/cctld_capture",
+    ),
+    "granitecanyon": Lane(
+        f"{SOURCES}/registries/split_granitecanyon.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/granitecanyon/prune-19991130.txt", "data/raw/granitecanyon/zonerejects-*.html"),
+        previous="data/raw/granitecanyon",
+    ),
+    # the default glob would read its own old outputs back
+    "tradepress": Lane(
+        f"{SOURCES}/trade_press/split_trade_press.py",
+        ("--write", "--journal", TRADEPRESS, "--tag", "american_bare", *OUT_ARG),
+        (TRADEPRESS,),
+        previous="data/raw/tradepress",
+    ),
+    "usenet_addr": Lane(
+        f"{SOURCES}/usenet/split_usenet_addresses.py",
+        ("--write", "--in-dir", "data/raw/usenet_addr", "--out-prefix", "usenet_addr", *OUT_ARG),
+        ("data/raw/usenet_addr/usenet_*.jsonl.gz",),
+        previous="data/raw/usenet_addr",
+    ),
+    "usenet_bare": Lane(
+        f"{SOURCES}/usenet/split_usenet_addresses.py",
+        ("--write", "--in-dir", "data/raw/usenet_bare", "--out-prefix", "usenet_bare", *OUT_ARG),
+        ("data/raw/usenet_bare/usenet_*.jsonl.gz",),
+        previous="data/raw/usenet_bare",
+    ),
+    "whois": Lane(
+        f"{SOURCES}/usenet/split_usenet_whois.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/usenet_whois/usenet_whois_usenet_*",),
+        previous="data/raw/usenet_whois",
+    ),
+    "project_bare": Lane(
+        f"{SOURCES}/usenet/project_usenet_bare.py",
+        ("--journal", SAMPLE400, "--archives", "400"),
+        (SAMPLE400,),
+    ),
+    "uucp": Lane(
+        f"{SOURCES}/usenet/split_uucp_maps.py",
+        ("--write", *OUT_ARG),
+        ("data/raw/usenet/comp.mail.maps.mbox.zip",),
+        previous="data/raw/uucp",
+    ),
+    "expansion": Lane(
+        "scripts/engines/split_expansion_journal.py",
+        (EXPANSION, "--write", *OUT_ARG),
+        (EXPANSION,),
+        legacy="domain",
+        previous="data/raw/expand/round4",
+        labels=("corroborated", "unverified"),
+    ),
+}
+
+
+class Absent(Exception):
+    """A lane's input is not on disk, so the lane is not run."""
+
+
+def usenet_batch(root: Path) -> list[str]:
+    ledger = root / BULK / ".processed"
+    lo, hi = BULK_BATCH
+    lines = ledger.read_text(encoding="utf-8").splitlines() if ledger.is_file() else []
+    names = [n.strip() for n in lines[lo:hi] if n.strip()]
+    if len(names) != hi - lo:
+        raise Absent(f"{BULK / '.processed'} lines {lo + 1} to {hi}")
+    return [str(BULK / n) for n in names]
+
+
+def _size(path: Path) -> dict:
+    if path.is_dir():
+        files = [p for p in path.rglob("*") if p.is_file()]
+        return {"bytes": sum(p.stat().st_size for p in files), "files": len(files)}
+    return {"bytes": path.stat().st_size}
+
+
+def lane_inputs(lane: Lane, root: Path) -> tuple[list[str], list[dict]]:
+    """The usenet batch when the lane reads it, and every input with its size. `Absent` names
+    the first one missing."""
+    batch = usenet_batch(root) if "{batch}" in lane.argv + lane.inputs else []
+    found = []
+    for pattern in lane.inputs:
+        paths = [root / p for p in batch] if pattern == "{batch}" else sorted(root.glob(pattern))
+        missing = [p for p in paths if not p.exists()]
+        if missing or not paths:
+            raise Absent(str(missing[0].relative_to(root)) if missing else pattern)
+        found += [{"path": str(p.relative_to(root)), **_size(p)} for p in paths]
+    return batch, found
+
+
+def lane_argv(lane: Lane, out: str, batch: list[str]) -> list[str]:
+    argv: list[str] = []
+    for arg in lane.argv:
+        argv += batch if arg == "{batch}" else [arg.replace("{out}", out)]
+    return argv
+
+
+def _as_table(conn: duckdb.DuckDBPyConnection, name: str, data: pa.Table) -> None:
+    conn.register(f"{name}_in", data)
+    try:
+        conn.execute(f"CREATE OR REPLACE TEMP TABLE {name} AS SELECT DISTINCT * FROM {name}_in")
+    finally:
+        conn.unregister(f"{name}_in")
+
+
+def _names_table(names: list[str]) -> pa.Table:
+    return pa.table({"name": pa.array(names, pa.string())})
+
+
+def _exit_code(code) -> int:
+    if code is None or isinstance(code, int):
+        return code or 0
+    print(code, file=sys.stderr)
+    return 1
+
+
+def lane_run(spec: dict) -> int:
+    """One run of one lane, alone in this process. Every call of `held.attested` and
+    `held.known_years` is answered both ways and both answers are recorded; `before` returns
+    table membership of the names asked, `after` held's answer. The script then runs as
+    `python <script> <argv>` runs it."""
+    baseline = Path(spec["baseline"])
+    held.HELD_ROOT = Path(spec["held_root"])
+    held.his_dir = lambda: baseline
+    real_attested, real_known = held.attested, held.known_years
+    calls: list[dict] = []
+
+    def ask(conn, names: list, sql: str) -> list[tuple]:
+        _as_table(conn, "_lane_names", _names_table(names))
+        return conn.execute(sql).fetchall()
+
+    def answer(fn: str, names: list, legacy: set, real: set) -> set:
+        calls.append(
+            {
+                "fn": fn,
+                "names": len(set(names)),
+                "legacy_only": sorted(legacy - real),
+                "real_only": sorted(real - legacy),
+            }
+        )
+        return legacy if spec["mode"] == "before" else real
+
+    def attested(conn, names, his=None):
+        names = list(names)
+        real = real_attested(conn, names, his)
+        legacy = {d for (d,) in ask(conn, names, LEGACY[spec["legacy"]])}
+        return answer("attested", names, legacy, real)
+
+    def known_years(conn, names, his=None):
+        names = list(names)
+        real = real_known(conn, names, his)
+        return answer("known_years", names, set(ask(conn, names, LEGACY_PAIRS)), real)
+
+    held.attested, held.known_years = attested, known_years
+    script = Path(spec["script"])
+    if spec["out"]:
+        Path(spec["out"]).mkdir(parents=True, exist_ok=True)
+    sys.argv = [str(script), *spec["argv"]]
+    sys.path.insert(0, str(script.parent))
+    try:
+        runpy.run_path(str(script), run_name="__main__")
+        code = 0
+    except SystemExit as done:
+        code = _exit_code(done.code)
+    except Exception:
+        traceback.print_exc()
+        code = 1
+    sys.stdout.flush()
+    write(Path(spec["record"]), {**spec, "exit": code, "calls": calls})
+    return code
+
+
+def run_child(root: Path, spec: dict, base: Path) -> dict:
+    """`lane-run` in a child process, which writes `<mode>.log`; its seconds and peak RSS are
+    its own, as `step` measures them."""
+    mode = spec["mode"]
+    path = base / f"{mode}.spec.json"
+    write(path, spec)
+    started = time.monotonic()
+    with (base / f"{mode}.log").open("w", encoding="utf-8") as log:
+        child = subprocess.Popen(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "lane-run",
+                "--lane",
+                spec["lane"],
+                "--mode",
+                mode,
+                "--spec",
+                str(path),
+            ],
+            cwd=root,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+        )
+        _, status, usage = os.wait4(child.pid, 0)
+    child.returncode = code = os.waitstatus_to_exitcode(status)
+    path.unlink()
+    return {
+        "seconds": round(time.monotonic() - started, 1),
+        "peak_rss_bytes": peak_rss(usage),
+        "exit": code,
+    }
+
+
+_LINES = (
+    "(SELECT line FROM read_csv(?, header=false, delim='\x01', quote='', escape='', "
+    "auto_detect=false, strict_mode=false, new_line='\\n', columns={'line': 'VARCHAR'}) "
+    "WHERE coalesce(line, '') <> '')"
+)
+_AFTER_TAB = (
+    "CASE WHEN contains(line, chr(9)) THEN substr(line, strpos(line, chr(9)) + 1) ELSE '' END"
+)
+
+
+def load_items(conn: duckdb.DuckDBPyConnection, mode: str, rel: str, path: Path) -> None:
+    """One output file as `items(mode, file, domain, rest)`: each line of a `.txt` is a name, a
+    `.tsv` line is keyed by its first field, and a journal record by its `domain`, or once for
+    each of its `domains` with the rest of the record. Records are compared as decompressed
+    lines, and a blank line is no item."""
+    head, args = "INSERT INTO items SELECT ?, ?,", [mode, rel, str(path)]
+    if rel.endswith((".jsonl", ".jsonl.gz")):
+        conn.execute(
+            f"{head} coalesce(line ->> 'domain', ''), line FROM {_LINES} "
+            "WHERE coalesce(json_type(line -> 'domains'), '') <> 'ARRAY'",
+            args,
+        )
+        conn.execute(
+            f"""{head} unnest(from_json(line -> 'domains', '["VARCHAR"]')),
+            json_merge_patch(line, '{{"domains": null}}') FROM {_LINES}
+            WHERE json_type(line -> 'domains') = 'ARRAY'""",
+            args,
+        )
+    elif rel.endswith(".tsv"):
+        conn.execute(f"{head} split_part(line, chr(9), 1), {_AFTER_TAB} FROM {_LINES}", args)
+    elif rel.endswith(".txt"):
+        conn.execute(f"{head} line, '' FROM {_LINES}", args)
+    else:
+        conn.execute(f"{head} '', line FROM {_LINES}", args)
+
+
+def lane_diff(conn: duckdb.DuckDBPyConnection, base: Path) -> tuple[dict, dict]:
+    """Per output file, the items of each run and those only one run holds; per domain, how many
+    items only `before` and only `after` hold."""
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE items (mode VARCHAR, file VARCHAR, domain VARCHAR, "
+        "rest VARCHAR)"
+    )
+    files: dict[str, dict] = {}
+    for mode in MODES:
+        folder = base / mode
+        for path in sorted(p for p in folder.rglob("*") if p.is_file()):
+            rel = str(path.relative_to(folder))
+            files.setdefault(
+                rel, dict.fromkeys(("before", "after", "only_before", "only_after"), 0)
+            )
+            load_items(conn, mode, rel, path)
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE moved AS
+        SELECT 'before' AS side, * FROM (
+            SELECT file, domain, rest FROM items WHERE mode = 'before'
+            EXCEPT ALL SELECT file, domain, rest FROM items WHERE mode = 'after')
+        UNION ALL
+        SELECT 'after' AS side, * FROM (
+            SELECT file, domain, rest FROM items WHERE mode = 'after'
+            EXCEPT ALL SELECT file, domain, rest FROM items WHERE mode = 'before')
+    """)
+    for file, mode, n in conn.execute(
+        "SELECT file, mode, count(*) FROM items GROUP BY ALL"
+    ).fetchall():
+        files[file][mode] = n
+    for file, side, n in conn.execute(
+        "SELECT file, side, count(*) FROM moved GROUP BY ALL"
+    ).fetchall():
+        files[file][f"only_{side}"] = n
+    moved = conn.execute(
+        "SELECT domain, count(*) FILTER (WHERE side = 'before'), "
+        "count(*) FILTER (WHERE side = 'after') FROM moved GROUP BY 1"
+    ).fetchall()
+    return files, {d: (b, a) for d, b, a in moved}
+
+
+def previous_check(conn: duckdb.DuckDBPyConnection, previous: Path, before: Path) -> dict:
+    """For information, per file of the `before` run: the names the file of that name the lane
+    last wrote holds and `before` does not, and the reverse. The store has grown since, so both
+    move; a large first count says the last input was misread."""
+    out: dict = {}
+    for path in sorted(p for p in before.rglob("*") if p.is_file()):
+        rel = str(path.relative_to(before))
+        if not (previous / rel).is_file():
+            out[rel] = "absent"
+            continue
+        load_items(conn, "previous", rel, previous / rel)
+        counts = conn.execute(
+            """
+            WITH p AS (SELECT DISTINCT domain FROM items WHERE mode = 'previous' AND file = ?),
+                 b AS (SELECT DISTINCT domain FROM items WHERE mode = 'before' AND file = ?)
+            SELECT (SELECT count(*) FROM p ANTI JOIN b USING (domain)),
+                   (SELECT count(*) FROM b ANTI JOIN p USING (domain))
+            """,
+            [rel, rel],
+        ).fetchone()
+        out[rel] = dict(zip(("previous_only", "before_only"), counts, strict=True))
+        conn.execute("DELETE FROM items WHERE mode = 'previous'")
+    return out
+
+
+def lane_reasons(
+    conn: duckdb.DuckDBPyConnection, names: list[str], pairs: list, marker: str, legacy: str
+) -> tuple[dict[str, tuple[str, str]], dict[str, int]]:
+    """Why each lost name and pair lost its answer, with the row of his that says so. A row of
+    his current release means a line of that file rolls up to the name without being it, since
+    `all.txt` would hold it otherwise; a row of an older release alone means only that release
+    held it. A name the lane found in `domain` with no row of his is a candidate of ours."""
+    current = f"{marker}/"
+    reasons: dict[str, tuple[str, str]] = {}
+    if names:
+        _as_table(conn, "_lane_lost", _names_table(names))
+        found = conn.execute(
+            f"""
+            SELECT l.name, h.current_file, h.older_file, d.domain IS NOT NULL
+            FROM _lane_lost l
+            LEFT JOIN (
+                SELECT e.domain,
+                       max(e.evidence_value) FILTER (WHERE starts_with(e.evidence_value, ?))
+                         AS current_file,
+                       max(e.evidence_value) FILTER (WHERE NOT starts_with(e.evidence_value, ?))
+                         AS older_file
+                FROM evidence e SEMI JOIN _lane_lost l ON l.name = e.domain
+                WHERE e.{HIS} GROUP BY 1
+            ) h ON h.domain = l.name
+            LEFT JOIN domain d ON d.domain = l.name
+            """,
+            [current, current],
+        ).fetchall()
+        for name, now, older, in_domain in found:
+            if now:
+                reasons[name] = (ROLLED, now)
+            elif older:
+                reasons[name] = (SUPERSEDED, older)
+            elif legacy == "domain" and in_domain:
+                reasons[name] = (CANDIDATE_ONLY, "")
+            else:
+                reasons[name] = (UNEXPLAINED, "")
+    if not pairs:
+        return reasons, {}
+    domains, years = zip(*pairs, strict=True)
+    _as_table(
+        conn,
+        "_lane_pairs",
+        pa.table({"domain": pa.array(domains, pa.string()), "year": pa.array(years, pa.int32())}),
+    )
+    by_pair = conn.execute(
+        f"""
+        SELECT reason, count(*) FROM (
+            SELECT CASE WHEN bool_or(starts_with(e.evidence_value, ?)) THEN '{ROLLED}'
+                        WHEN bool_or(e.evidence_value IS NOT NULL) THEN '{SUPERSEDED}'
+                        ELSE '{UNEXPLAINED}' END AS reason
+            FROM _lane_pairs p
+            LEFT JOIN (
+                SELECT w.domain, w.evidence_year, w.evidence_value FROM evidence w
+                SEMI JOIN _lane_pairs q ON q.domain = w.domain AND q.year = w.evidence_year
+                WHERE w.{HIS}
+            ) e ON e.domain = p.domain AND e.evidence_year = p.year
+            GROUP BY p.domain, p.year
+        ) GROUP BY 1 ORDER BY 1
+        """,
+        [current],
+    ).fetchall()
+    return reasons, dict(by_pair)
+
+
+def lane_witnesses(his: held.Held, rolled: dict[str, str], scratch: Path) -> dict[str, str]:
+    """`<his file> <line>` for each rolled-up name: the first line of the year file his row
+    names whose registrable is the name, by one fixed-string grep of each file."""
+    by_file: dict[str, set[str]] = {}
+    for name, value in rolled.items():
+        by_file.setdefault(value, set()).add(name)
+    found: dict[str, str] = {}
+    for value, names in sorted(by_file.items()):
+        year = re.search(r"(\d{4})\.txt$", value)
+        if not year or int(year[1]) not in his.years:
+            continue
+        scratch.write_text("".join(f"{n}\n" for n in sorted(names)), encoding="utf-8")
+        pending = set(names)
+        grep = subprocess.Popen(
+            ["grep", "-F", "-w", "-f", str(scratch), str(his.year(int(year[1])))],
+            stdout=subprocess.PIPE,
+            env={**os.environ, "LC_ALL": "C"},
+            encoding="utf-8",
+            errors="replace",
+        )
+        try:
+            for line in grep.stdout:
+                name = to_registrable(line.rstrip("\n"))
+                if name in pending:
+                    found[name] = f"{value} {line.rstrip()}"
+                    pending.discard(name)
+                    if not pending:
+                        break
+        finally:
+            grep.kill()
+            grep.wait()
+            grep.stdout.close()
+    return found
+
+
+def lane_row(
+    key: str, lane: Lane, domain="", records=None, labels=("", ""), reason="", witness=""
+) -> dict:
+    return {
+        "lane": key,
+        "script": lane.script,
+        "domain": domain,
+        "weight": str(weight_of(domain)) if domain else "",
+        "records_moved": "" if records is None else records,
+        "before": labels[0],
+        "after": labels[1],
+        "reason": reason,
+        "witness": witness,
+    }
+
+
+def _lane_settings(conn: duckdb.DuckDBPyConnection, base: Path) -> None:
+    (base / "duckdb_tmp").mkdir(parents=True, exist_ok=True)
+    for statement in (
+        f"SET memory_limit='{LANE_MEMORY}'",
+        "SET threads=2",
+        f"SET temp_directory='{base / 'duckdb_tmp'}'",
+    ):
+        conn.execute(statement)
+
+
+def _fingerprint(path: Path) -> list[int]:
+    st = path.stat()
+    return [st.st_size, st.st_mtime_ns, len(wal_files(path))]
+
+
+def explain_lane(key, lane, root, base, records, his, marker, witness) -> tuple[dict, list[dict]]:
+    """Diff the two runs' outputs, give every name whose answer moved its reason, and check that
+    nothing else moved: an item of a name held answered alike both ways is unexplained, and so
+    is a name only `after` attests."""
+    calls = [(mode, c) for mode in MODES for c in records[mode]["calls"]]
+
+    def union(fn: str, side: str) -> set:
+        return {
+            tuple(x) if isinstance(x, list) else x
+            for m, c in calls
+            if c["fn"] == fn
+            for x in c[side]
+        }
+
+    lost, gained = union("attested", "legacy_only"), union("attested", "real_only")
+    lost_pairs, gained_pairs = (
+        union("known_years", "legacy_only"),
+        union("known_years", "real_only"),
+    )
+    entry: dict = {
+        "calls": [
+            {
+                "mode": m,
+                "fn": c["fn"],
+                "names": c["names"],
+                "lost": len(c["legacy_only"]),
+                "gained": len(c["real_only"]),
+            }
+            for m, c in calls
+        ]
+    }
+    files, moved = {}, {}
+    if lane.files:
+        conn = duckdb.connect()
+        try:
+            _lane_settings(conn, base)
+            files, moved = lane_diff(conn, base)
+            if lane.previous:
+                entry["previous"] = previous_check(conn, root / lane.previous, base / "before")
+        finally:
+            conn.close()
+    conn = connect_read_only_patiently(root / "data/ark.duckdb")
+    try:
+        _lane_settings(conn, base)
+        reasons, pair_reasons = lane_reasons(
+            conn, sorted(lost), sorted(lost_pairs), marker, lane.legacy
+        )
+    finally:
+        conn.close()
+    rolled = {name: file for name, (reason, file) in reasons.items() if reason == ROLLED}
+    witnesses = lane_witnesses(his, rolled, base / "witness.txt") if witness else {}
+    labels = lane.labels if lane.files else ("attested", "not attested")
+
+    def records_of(name: str) -> int | None:
+        return max(moved.get(name, (0, 0))) if lane.files else None
+
+    rows, by_reason = [], {}
+    for name in sorted(lost):
+        reason, file = reasons[name]
+        rows.append(
+            lane_row(key, lane, name, records_of(name), labels, reason, witnesses.get(name, file))
+        )
+        tally = by_reason.setdefault(reason, {"names": 0, "records": 0, "ee": Decimal(0)})
+        count = records_of(name)
+        tally["names"] += 1
+        tally["records"] += count or 0
+        tally["ee"] += weight_of(name) * (1 if count is None else count)
+    his_exact = held.names_in(gained, his.all) if gained else set()
+    gained_tally = {"names": 0, "records": 0, "ee": Decimal(0)}
+    for name in sorted(gained):
+        exact = name in his_exact
+        reason, why = (HIS_EXACT, "his all.txt") if exact else (UNEXPLAINED, "after only")
+        rows.append(lane_row(key, lane, name, records_of(name), labels[::-1], reason, why))
+        if reason == HIS_EXACT:
+            count = records_of(name)
+            gained_tally["names"] += 1
+            gained_tally["records"] += count or 0
+            gained_tally["ee"] += weight_of(name) * (1 if count is None else count)
+    exact_pairs = {
+        (name, year)
+        for year in YEARS
+        for name in held.names_in({n for n, y in gained_pairs if y == year}, his.year(year))
+    }
+    for name in sorted(moved.keys() - lost - gained):
+        rows.append(
+            lane_row(key, lane, name, records_of(name), ("", ""), UNEXPLAINED, "answer unchanged")
+        )
+    silent = sorted(n for n in lost if n not in moved) if lane.files else []
+    entry |= {
+        "files": files,
+        "lost": len(lost),
+        "gained": len(gained),
+        "lost_by_reason": {r: t | {"ee": _four(t["ee"])} for r, t in sorted(by_reason.items())},
+        "gained_by_reason": {HIS_EXACT: gained_tally | {"ee": _four(gained_tally["ee"])}},
+        "pairs": {
+            "lost": len(lost_pairs),
+            "gained": len(gained_pairs),
+            "lost_by_reason": pair_reasons,
+            "gained_his_exact": len(exact_pairs),
+        },
+        "unexplained": sum(r["reason"] == UNEXPLAINED for r in rows),
+        "pairs_unexplained": pair_reasons.get(UNEXPLAINED, 0) + len(gained_pairs - exact_pairs),
+        "warnings": {"lost_with_no_moved_item": len(silent), "sample": silent[:20]},
+    }
+    listed = root / SUPERSEDED_CSV
+    if listed.is_file():
+        with listed.open(encoding="utf-8", newline="") as fh:
+            orphans = {row["domain"] for row in csv.DictReader(fh)}
+        entry["superseded_not_in_csv"] = sorted(
+            n for n, (reason, _) in reasons.items() if reason == SUPERSEDED and n not in orphans
+        )
+    return entry, rows
+
+
+def run_lane(
+    key: str, lane: Lane, root: Path, his: held.Held, marker: str, witness: bool
+) -> tuple[dict, list[dict]]:
+    """Both runs of one lane, then its diff and reasons. Both output folders are deleted; each
+    run's log and record stay."""
+    base = root / LANE_ROOT / key
+    entry: dict = {"script": lane.script, "legacy": lane.legacy}
+    try:
+        batch, inputs = lane_inputs(lane, root)
+    except Absent as gone:
+        entry["input_absent"] = str(gone)
+        return entry, [lane_row(key, lane, reason="input_absent", witness=str(gone))]
+    entry |= {"argv": lane_argv(lane, "{out}", batch), "inputs": inputs, "runs": {}}
+    store = root / "data/ark.duckdb"
+    was = _fingerprint(store)
+    base.mkdir(parents=True, exist_ok=True)
+    try:
+        records = {}
+        for mode in MODES:
+            out, record = base / mode, base / f"{mode}.json"
+            shutil.rmtree(out, ignore_errors=True)
+            record.unlink(missing_ok=True)
+            spec = {
+                "lane": key,
+                "mode": mode,
+                "script": str(root / lane.script),
+                "argv": lane_argv(lane, str(out), batch),
+                "legacy": lane.legacy,
+                "out": str(out) if lane.files else None,
+                "record": str(record),
+                "held_root": str(root / held.HELD_ROOT),
+                "baseline": str((root / held.his_dir()).resolve()),
+            }
+            run = entry["runs"][mode] = run_child(root, spec, base)
+            if run["exit"] or not record.is_file():
+                entry["failed"] = f"the {mode} run exited {run['exit']}; see {mode}.log"
+                return entry, []
+            records[mode] = read(record)
+        if _fingerprint(store) != was:
+            entry["failed"] = "the store changed between the runs"
+            return entry, []
+        try:
+            found, rows = explain_lane(key, lane, root, base, records, his, marker, witness)
+        except Exception as exc:  # one lane's diff failing must not lose the lanes after it
+            traceback.print_exc()
+            entry["failed"] = f"the diff failed: {exc}"
+            return entry, []
+        return entry | found, rows
+    finally:
+        for folder in (*MODES, "duckdb_tmp"):
+            shutil.rmtree(base / folder, ignore_errors=True)
+        (base / "witness.txt").unlink(missing_ok=True)
+
+
+def _lane_rows(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as fh:
+        return list(csv.DictReader(fh))
+
+
+def lane_deltas(
+    root: Path = REPO,
+    lanes: dict[str, Lane] | None = None,
+    only: list[str] | None = None,
+    witness: bool = False,
+    marker: str = CURRENT_BASELINE_MARKER,
+) -> dict:
+    """Run each lane before and after on one store and one input, and give every name whose
+    answer moved its reason.
+
+    Reads the store only, and writes under `root`: `LANE_ROOT` (each run's output, deleted once
+    diffed), `LANE_CSV` and `LANE_JSON`. A lane not run keeps its rows and entry from its last
+    run, so the lanes can run in batches.
+    """
+    lanes = LANES if lanes is None else lanes
+    keys = only or list(lanes)
+    if unknown := [k for k in keys if k not in lanes]:
+        raise Refused(f"no lane is named {unknown[0]}")
+    store = root / "data/ark.duckdb"
+    if not store.is_file():
+        raise Refused(f"{store} is missing")
+    quiet(store)
+    his = held.load()
+    if his.marker != marker:
+        raise Refused(f"the held sets are {his.marker}'s, the store's rows of his {marker}'s")
+    rows = _lane_rows(root / LANE_CSV)
+    report = read(root / LANE_JSON) if (root / LANE_JSON).is_file() else {"lanes": {}}
+    report |= {"his": his.marker, "ran": keys}
+    for key in keys:
+        entry, lane_rows = run_lane(key, lanes[key], root, his, marker, witness)
+        report["lanes"][key] = entry
+        rows = [r for r in rows if r["lane"] != key] + lane_rows
+        save_lanes(root, rows, report)
+    return report
+
+
+def save_lanes(root: Path, rows: list[dict], report: dict) -> None:
+    """Both files, after each lane, so a batch cut short keeps the lanes it finished. The CSV is
+    in `LC_ALL=C` order by lane and domain: code points sort as their UTF-8 bytes do."""
+    path = root / LANE_CSV
+    path.parent.mkdir(parents=True, exist_ok=True)
+    part = path.with_name(path.name + ".part")
+    with part.open("w", encoding="utf-8", newline="") as fh:
+        out = csv.DictWriter(fh, LANE_COLUMNS, lineterminator="\n")
+        out.writeheader()
+        out.writerows(sorted(rows, key=lambda r: (r["lane"], r["domain"], r["reason"])))
+    os.replace(part, path)
+    every = report["lanes"]
+    report |= {
+        "unexplained": sum(e.get("unexplained", 0) for e in every.values()),
+        "pairs_unexplained": sum(e.get("pairs_unexplained", 0) for e in every.values()),
+        "failed": sorted(k for k, e in every.items() if "failed" in e),
+    }
+    write(root / LANE_JSON, report)
+
+
+def lane_deltas_main(argv: list[str], root: Path = REPO) -> int:
+    ap = argparse.ArgumentParser(
+        prog="migrate_store.py lane-deltas", description=lane_deltas.__doc__.split("\n\n")[0]
+    )
+    ap.add_argument("--only", help="lanes to run, comma separated; the rest keep their last rows")
+    ap.add_argument(
+        "--witness-lines",
+        action="store_true",
+        help="find the line of his each rolled-up name comes from, one grep per year file",
+    )
+    args = ap.parse_args(argv)
+    os.chdir(root)
+    try:
+        report = lane_deltas(
+            root, only=args.only.split(",") if args.only else None, witness=args.witness_lines
+        )
+    except (Refused, held.HeldError) as exc:
+        print(f"REFUSED: {exc}", file=sys.stderr)
+        return 2
+    shown = ("input_absent", "failed", "lost", "lost_by_reason", "unexplained", "pairs_unexplained")
+    ran = {k: report["lanes"][k] for k in report["ran"]}
+    shown_ran = {k: {f: e[f] for f in shown if f in e} for k, e in ran.items()}
+    print(json.dumps(shown_ran, indent=2, default=str))
+    bad = [k for k, e in ran.items() if "failed" in e or e.get("unexplained")]
+    return 1 if bad or any(e.get("pairs_unexplained") for e in ran.values()) else 0
+
+
+def lane_run_main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(prog="migrate_store.py lane-run")
+    ap.add_argument("--lane", required=True)
+    ap.add_argument("--mode", choices=MODES, required=True)
+    ap.add_argument("--spec", type=Path, required=True)
+    args = ap.parse_args(argv)
+    spec = read(args.spec)
+    if (spec["lane"], spec["mode"]) != (args.lane, args.mode):
+        ap.error(f"{args.spec} is the {spec['mode']} run of {spec['lane']}")
+    return lane_run(spec)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["deltas"]:
         return deltas_main(argv[1:])
+    if argv[:1] == ["lane-deltas"]:
+        return lane_deltas_main(argv[1:])
+    # one run of one lane in a child process, spawned by lane-deltas
+    if argv[:1] == ["lane-run"]:
+        return lane_run_main(argv[1:])
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("stage", choices=["stage-a"])
     mode = ap.add_mutually_exclusive_group()

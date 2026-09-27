@@ -7,10 +7,11 @@ already dates is real and the edition's date settles its year; a name appearing 
 has no independent evidence it ever resolved and goes to the candidate pool to earn its own.
 
 **The predicate, and there are two candidates in this repo so this one is stated explicitly.**
-`split_expansion_journal.py` treats every row of the `domain` table as known, which includes
-names that are themselves only candidates. That is too weak for a blocklist. Used here:
-**a domain is corroborated when it already carries an assigned year in `domain_year`**, which
-is what CLAUDE.md means by "another source needs to date that domain first".
+Presence in the `domain` table counts names that are themselves only candidates. That is too
+weak for a blocklist. Used here: **a domain is corroborated when `held.attested` finds it
+dated**, by a year of ours in `our_domain_year` or by a line of his files that is exactly the
+name, so his `www.x.com` does not corroborate `x.com`. That is what the corroboration split
+in `docs/lore/laws.md` means by "once another source dates that domain".
 
 **Nothing is discarded.** Both halves are written; the loader routes the uncorroborated half
 to the candidate pool as `link_target`, which never dates a year.
@@ -32,13 +33,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
 
 SRC = Path("data/raw/junkfilter")
-DATED = SRC / "dated"
-CAND = SRC / "cand"
 EDITION = re.compile(r"^jf-domains\.(\d{4})(\d{2})(\d{2})$")
 
 
@@ -59,22 +59,32 @@ def names_in(path: Path) -> set[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="write the two lanes")
+    ap.add_argument(
+        "--out", type=Path, default=SRC, help="root of `dated/` and `cand/` (default %(default)s)"
+    )
     args = ap.parse_args()
+    dated_dir, cand_dir = args.out / "dated", args.out / "cand"
 
     editions = sorted(p for p in SRC.glob("jf-domains.*") if EDITION.match(p.name))
     if not editions:
         print(f"no editions in {SRC}; run collect_junkfilter.py first")
         return 1
 
+    names_by = {path: names_in(path) for path in editions}
+    mentioned = set().union(*names_by.values())
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
-    corroborated = {
-        row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-    }
-    print(f"{len(corroborated):,} domains already carry an assigned year\n")
+    try:
+        corroborated = held.attested(conn, mentioned)
+    finally:
+        conn.close()
+    print(
+        f"{len(corroborated):,} of {len(mentioned):,} names are dated by us "
+        "or named exactly in his files\n"
+    )
 
     if args.write:
-        DATED.mkdir(parents=True, exist_ok=True)
-        CAND.mkdir(parents=True, exist_ok=True)
+        dated_dir.mkdir(parents=True, exist_ok=True)
+        cand_dir.mkdir(parents=True, exist_ok=True)
 
     total_dated = total_cand = 0
     dated_ee = Decimal(0)
@@ -82,7 +92,7 @@ def main() -> int:
         match = EDITION.match(path.name)
         assert match is not None
         stamp = "".join(match.groups())
-        names = names_in(path)
+        names = names_by[path]
         keep = sorted(n for n in names if n in corroborated)
         park = sorted(n for n in names if n not in corroborated)
         total_dated += len(keep)
@@ -90,8 +100,8 @@ def main() -> int:
         dated_ee += sum(weight_of(n.rsplit(".", 1)[-1]) for n in keep)
         print(f"  {stamp}: {len(names):,} names -> {len(keep):,} dated, {len(park):,} candidate")
         if args.write:
-            (DATED / f"junkfilter-dated.{stamp}.txt").write_text("\n".join(keep) + "\n")
-            (CAND / f"junkfilter-cand.{stamp}.txt").write_text("\n".join(park) + "\n")
+            (dated_dir / f"junkfilter-dated.{stamp}.txt").write_text("\n".join(keep) + "\n")
+            (cand_dir / f"junkfilter-cand.{stamp}.txt").write_text("\n".join(park) + "\n")
 
     print(f"\ntotal across editions: {total_dated:,} dated rows, {total_cand:,} candidate rows")
     print(f"gross EE of the dated lane (before removing pairs already held): {dated_ee:,.1f}")

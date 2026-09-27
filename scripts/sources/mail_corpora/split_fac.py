@@ -42,6 +42,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -83,6 +84,7 @@ def pairs_in(path: Path, stats: Counter) -> set[tuple[str, int]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="write the two lanes per year")
+    ap.add_argument("--out", type=Path, default=SRC, help="lane directory (default %(default)s)")
     args = ap.parse_args()
 
     headers = sorted(SRC.glob("header-*.csv"))
@@ -98,15 +100,19 @@ def main() -> int:
     print(f"  signed OUT of 1996-2001 : {dropped:,}  <- AUDITYEAR would import these")
     print(f"  no parsable date        : {stats['no_parsable_signature_date']:,}")
 
+    domains = {domain for pairs in by_file.values() for domain, _ in pairs}
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        corroborated = {
-            row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
+        corroborated = held.attested(conn, domains)
     finally:
         conn.close()
-    print(f"\n{len(corroborated):,} domains already carry an assigned year\n")
+    print(
+        f"\n{len(corroborated):,} of {len(domains):,} names are dated by us "
+        "or named exactly in his files\n"
+    )
 
+    if args.write:
+        args.out.mkdir(parents=True, exist_ok=True)
     dated_ee = Decimal(0)
     total_dated = total_cand = 0
     for path, pairs in by_file.items():
@@ -124,7 +130,7 @@ def main() -> int:
                 if not rows:
                     continue
                 text = "".join(f"{domain}\t{year}\n" for domain, year in rows)
-                (SRC / f"fac-{lane}.{stem}.tsv").write_text(text)
+                (args.out / f"fac-{lane}.{stem}.tsv").write_text(text)
 
     print(f"\ntotal: {total_dated:,} dated rows, {total_cand:,} candidate rows")
     print(f"gross EE of the dated lane (before removing pairs already held): {dated_ee:,.1f}")

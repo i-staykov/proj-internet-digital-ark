@@ -19,6 +19,7 @@ from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, 
 from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 from ark.hostnames import ISC_METHOD, ISC_SOURCE_NAME
 from ark.hostnames import SOURCE_NAME as HOST_SOURCE
+from ark.ingest import YEARS
 from ark.provenance import write_provenance
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -526,3 +527,116 @@ def test_an_unexplained_line_exits_1_and_a_refusal_2(tmp_path, monkeypatch):
     mark.write_text("")
     (held.HELD_ROOT / MARKER / "held.json").unlink()
     assert migrate.deltas_main(argv, root=tmp_path) == 2
+
+
+# A lane in miniature: it asks held about five names, writes the attested ones as a journal and
+# the rest as a list, as the splitters do.
+TOY_LANE = """
+import argparse
+from pathlib import Path
+
+import duckdb
+
+from ark import held
+from ark.journal import journal_writer, write_journal_line
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", type=Path, required=True)
+    out = ap.parse_args().out
+    names = {"ours.com", "rolled.com", "old.com", "already-his.com", "early.his.org", "novel.net"}
+    conn = duckdb.connect("data/ark.duckdb", read_only=True)
+    attested, known = held.attested(conn, names), held.known_years(conn, names)
+    conn.close()
+    with journal_writer(out / "toy_dated.jsonl.gz") as fh:
+        for name in sorted(attested):
+            write_journal_line(fh, {"domain": name, "year": 1999})
+    (out / "toy_cand.txt").write_text("".join(f"{n}\\n" for n in sorted(names - attested)))
+    print(f"{len(known)} pairs already dated")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+"""
+
+
+def test_lane_deltas_explains_a_rolled_up_name(tmp_path, monkeypatch, his_files):
+    monkeypatch.setattr(migrate, "loaded_jobs", lambda: [])
+    monkeypatch.setattr(migrate, "holders", lambda path: [])
+    monkeypatch.setenv("ARK_DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))  # the children's spill
+    store = tmp_path / "data" / "ark.duckdb"
+    store.parent.mkdir()
+    conn = connect(store)
+    init_db(conn)
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    his_source = ensure_source(conn, HIS_SOURCE, "timestamped")
+    add_candidate(conn, "ours.com", cdx)
+    value = capture("ours.com", 1999)
+    assign_year(
+        conn, record_evidence(conn, "ours.com", cdx, 1999, "cdx_timestamp", value, None, SWEEP)
+    )
+    # his rows as his releases were loaded: rolled.com from his www.rolled.com, old.com from an
+    # older release alone, already-his.com in each year his files hold it
+    his = [("rolled.com", 1999, MARKER), ("old.com", 1998, OLDER)]
+    his += [("already-his.com", year, MARKER) for year in YEARS]
+    for domain, year, marker in his:
+        add_candidate(conn, domain, his_source)
+        value = f"{marker}/{year}.txt"
+        eid = record_evidence(conn, domain, his_source, year, HIS_TYPE, value, None, HIS_SOURCE)
+        assign_year(conn, eid)
+    conn.close()
+    (tmp_path / "toy_input.txt").write_text("five names\n")
+    (tmp_path / "toy_split.py").write_text(TOY_LANE)
+    # what it wrote last time, against an older store
+    (tmp_path / "prev").mkdir()
+    (tmp_path / "prev" / "toy_cand.txt").write_text("novel.net\nstale.org\n")
+    lanes = {
+        "toy": migrate.Lane(
+            "toy_split.py", ("--out", "{out}"), ("toy_input.txt",), previous="prev"
+        ),
+        "gone": migrate.Lane("gone_split.py", ("--out", "{out}"), ("data/raw/gone.zip",)),
+    }
+    monkeypatch.setattr(migrate, "LANES", lanes)
+    monkeypatch.chdir(tmp_path)  # restored after the test; lane_deltas_main chdirs into `root`
+    assert migrate.lane_deltas_main(["--only", "toy,gone", "--witness-lines"], root=tmp_path) == 0
+
+    moved = f"toy_split.py,{{}},{migrate.weight_of('x.com')},1,dated,candidate"
+    assert (tmp_path / migrate.LANE_CSV).read_text().splitlines() == [
+        ",".join(migrate.LANE_COLUMNS),
+        "gone,gone_split.py,,,,,,input_absent,data/raw/gone.zip",
+        # his 1996 file names early.his.org exactly, which the store's domain_year never did
+        f"toy,toy_split.py,early.his.org,{migrate.weight_of('early.his.org')},1,candidate,dated,"
+        "his_exact_name,his all.txt",
+        f"toy,{moved.format('old.com')},his_superseded_release,{OLDER}/1998.txt",
+        f"toy,{moved.format('rolled.com')},his_rolled_up_hostname,{MARKER}/1999.txt www.rolled.com",
+    ]
+    report = json.loads((tmp_path / migrate.LANE_JSON).read_text())
+    assert report["unexplained"] == report["pairs_unexplained"] == 0 and not report["failed"]
+    toy = report["lanes"]["toy"]
+    assert [run["exit"] for run in toy["runs"].values()] == [0, 0]
+    assert toy["pairs"]["lost_by_reason"] == {
+        "his_rolled_up_hostname": 1,
+        "his_superseded_release": 1,
+    }
+    assert (
+        toy["pairs"]["gained_his_exact"] == 1
+        and toy["gained_by_reason"]["his_exact_name"]["names"] == 1
+    )
+    # already-his.com is his exact name, so it stays dated
+    assert toy["files"] == {
+        "toy_cand.txt": {"before": 2, "after": 3, "only_before": 1, "only_after": 2},
+        "toy_dated.jsonl.gz": {"before": 4, "after": 3, "only_before": 2, "only_after": 1},
+    }
+    assert toy["previous"] == {
+        "toy_cand.txt": {"previous_only": 1, "before_only": 1},
+        "toy_dated.jsonl.gz": "absent",
+    }
+    # each run's output goes once diffed; its log and record stay
+    assert sorted(p.name for p in (tmp_path / migrate.LANE_ROOT / "toy").iterdir()) == [
+        "after.json",
+        "after.log",
+        "before.json",
+        "before.log",
+    ]

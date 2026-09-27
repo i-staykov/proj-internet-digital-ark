@@ -5,18 +5,19 @@ right unit for the assertion (the page either is an editorially maintained
 catalogue or it is not) and the wrong unit for the risk, which is per name:
 archived HTML carries typos, and a curated page can still list `arvard.edu`.
 
-So a curated journal is split before ingest. Names some other source already
-attests stay curated and are ingested as `expansion_directory`, where the page's
-capture date evidences the year. Names appearing nowhere else are
-written as ordinary links and ingested as `expansion_links`, which is
-candidate-only, so they earn their year from their own capture instead.
+So a curated journal is split before ingest. Names a year already dates, by a pair
+of ours or as an exact name in his files (`held.attested`), stay curated and are
+ingested as `expansion_directory`, where the page's capture date evidences the year.
+The rest, candidates of ours included, are written as ordinary links and ingested as
+`expansion_links`, which is candidate-only, so they earn their year from their own
+capture instead.
 
 Nothing is discarded, and both halves are hashed into the file ledger like any
 other source file.
 
 Usage:
     uv run python scripts/engines/split_expansion_journal.py
-      data/raw/expand/round4/expand_round4.jsonl.gz
+      data/raw/expand/round4/expand_round4.jsonl.gz [--write] [--out DIR]
 """
 
 import argparse
@@ -29,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.expand import split_by_corroboration  # noqa: E402
 from ark.journal import journal_writer, open_journal, write_journal_line  # noqa: E402
 
@@ -62,27 +64,40 @@ def open_store() -> duckdb.DuckDBPyConnection:
     raise AssertionError("unreachable")
 
 
-def known_domains() -> set[str]:
+def known_domains(names: set[str], his: held.Held) -> set[str]:
+    """The names some year dates already: a pair of ours, or the exact name in his files."""
+    if not names:
+        return set()
     conn = open_store()
     try:
-        return {row[0] for row in conn.execute("SELECT domain FROM domain").fetchall()}
+        return held.attested(conn, names, his)
     finally:
         conn.close()
 
 
-def _sibling(path: Path, suffix: str) -> Path:
+def _sibling(path: Path, suffix: str, out: Path | None = None) -> Path:
     stem = path.name.replace(".jsonl.gz", "")
-    return path.with_name(f"{stem}_{suffix}.jsonl.gz")
+    return (out or path.parent) / f"{stem}_{suffix}.jsonl.gz"
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("journal", type=Path, help="Expansion journal to split.")
     parser.add_argument("--write", action="store_true", help="Write the two journals.")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Directory for the two journals (default: beside it).",
+    )
     args = parser.parse_args()
 
     records = [r for r in read_records(args.journal) if r.get("status") == 200]
-    known = known_domains()
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
+    known = known_domains({d for r in records for d in r.get("domains") or []}, his)
     corroborated, uncorroborated = split_by_corroboration(records, known)
     yes = {d for r in corroborated for d in r["domains"]}
     no = {d for r in uncorroborated for d in r["domains"]}
@@ -93,7 +108,10 @@ def main() -> None:
     if not args.write:
         print("dry run; pass --write to create both journals")
         return
-    out_yes, out_no = _sibling(args.journal, "corroborated"), _sibling(args.journal, "unverified")
+    out_yes = _sibling(args.journal, "corroborated", args.out)
+    out_no = _sibling(args.journal, "unverified", args.out)
+    if args.out:
+        args.out.mkdir(parents=True, exist_ok=True)
     for path, batch in ((out_yes, corroborated), (out_no, uncorroborated)):
         if batch:
             with journal_writer(path) as fh:

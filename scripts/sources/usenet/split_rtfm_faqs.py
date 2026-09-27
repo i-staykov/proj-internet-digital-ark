@@ -38,11 +38,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(ROOT / "scripts/pricing"))
 
 import duckdb  # noqa: E402
 from probe_texts_corpus import domains_in  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
@@ -99,10 +100,15 @@ def main() -> None:
         help="suffix for the journal names, required on a re-run: the file ledger keys on "
         "content, so rewriting a journal already ingested is refused as a hash mismatch",
     )
+    ap.add_argument("--out", type=Path, default=OUT_DIR, help="where to write both journals")
     args = ap.parse_args()
 
     if not args.root.is_dir():
         raise SystemExit(f"corpus not found at {args.root}")
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
 
     stats: Counter = Counter()
     seen: dict[tuple[str, int], str] = {}
@@ -125,15 +131,11 @@ def main() -> None:
         for domain in domains_in(text):
             seen.setdefault((domain, year), str(path.relative_to(args.root)))
 
+    names = {domain for domain, _ in seen}
     conn = open_store()
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, names, his)
+        known = held.known_years(conn, names, his)
     finally:
         conn.close()
 
@@ -151,7 +153,7 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(record)
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 fresh += 1
                 fresh_ee += weights.get(domain.rsplit(".", 1)[-1], Decimal(0))
         else:
@@ -159,17 +161,20 @@ def main() -> None:
 
     print("documents:", dict(stats))
     print(f"in-window (domain, year) rows: {len(seen):,}")
-    print(f"  corroborated elsewhere -> dated_directory : {len(dated):,}")
+    print(
+        f"  {len(attested):,} of {len(names):,} names are dated by us or named exactly in his files"
+    )
+    print(f"  corroborated -> dated_directory           : {len(dated):,}")
     print(f"    of those, not yet held                  : {fresh:,}  worth {fresh_ee:,.1f} EE")
     print(f"  seen only here -> candidate pool          : {len(candidates):,}")
     if not args.write:
         print("\ndry run; pass --write to create both journals")
         return
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
     suffix = f"_{args.tag}" if args.tag else ""
     for name, batch in (("rtfm_dated", dated), ("rtfm_candidates", candidates)):
-        path = OUT_DIR / f"{name}{suffix}.jsonl.gz"
+        path = args.out / f"{name}{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)

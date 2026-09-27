@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 from ark.uucp import records_in_archive  # noqa: E402
 
@@ -50,7 +51,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--archives", nargs="*", default=list(ARCHIVES))
+    ap.add_argument("--out", type=Path, default=OUT_DIR, help="where to write the journals")
     args = ap.parse_args()
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
 
     stats: Counter = Counter()
     by_basis: dict[str, dict[tuple[str, int], str]] = {
@@ -58,41 +64,44 @@ def main() -> None:
         "registry_creation": {},
         "uncorroborated": {},
     }
+    read = 0
     for name in args.archives:
         path = USENET / name
         if not path.is_file():
             print(f"  missing, skipped: {path}")
             continue
         print(f"reading {path}")
+        read += 1
         for record in records_in_archive(path):
             stats[record.basis] += 1
             by_basis[record.basis].setdefault((record.domain, record.year), record.identifier)
+    # empty journals would replace the three already ingested
+    if args.write and not read:
+        raise SystemExit("no archive was read, so nothing is written")
 
+    names = {domain for pairs in by_basis.values() for domain, _ in pairs}
     conn = open_store()
     try:
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        known = held.known_years(conn, names, his)
     finally:
         conn.close()
 
     print("\nrows read per evidence class:", dict(stats))
     for basis, pairs in by_basis.items():
-        fresh = sum(1 for key in pairs if key not in held)
+        fresh = sum(1 for key in pairs if key not in known)
         print(f"  {basis:<18} {len(pairs):>8,} distinct pairs, {fresh:>8,} not yet held")
 
     if not args.write:
         print("\ndry run; pass --write to create the journals")
         return
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
     for basis, filename in (
         ("registry_listing", "uucp_listing.jsonl.gz"),
         ("registry_creation", "uucp_creation.jsonl.gz"),
         ("uncorroborated", "uucp_mentions.jsonl.gz"),
     ):
-        path = OUT_DIR / filename
+        path = args.out / filename
         with journal_writer(path) as fh:
             for (domain, year), identifier in sorted(by_basis[basis].items()):
                 write_journal_line(

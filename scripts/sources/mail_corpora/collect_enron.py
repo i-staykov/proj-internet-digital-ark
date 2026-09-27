@@ -32,9 +32,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-import duckdb  # noqa: E402
-
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 from ark.usenet import INFRASTRUCTURE, message_year  # noqa: E402
 
@@ -57,6 +57,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument(
+        "--out", type=Path, default=OUT_DIR, help="journal directory (default %(default)s)"
+    )
     args = ap.parse_args()
 
     stats: Counter = Counter()
@@ -92,15 +95,11 @@ def main() -> None:
     print(f"read {stats['files']:,} messages in {time.time() - started:.0f}s: {dict(stats)}")
     print(f"distinct in-window (domain, year): {len(pairs):,}")
 
-    conn = duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
+    domains = {domain for domain, _ in pairs}
+    conn = connect_read_only_patiently(ROOT / "data/ark.duckdb")
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, domains)
+        known = held.known_years(conn, domains)
     finally:
         conn.close()
 
@@ -116,7 +115,7 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(record)
-            fresh += (domain, year) not in held
+            fresh += (domain, year) not in known
         else:
             candidates.append(record)
     print(f"  corroborated -> dated_directory : {len(dated):,}, of which {fresh:,} net-new")
@@ -125,9 +124,9 @@ def main() -> None:
         print("\ndry run; pass --write to create both journals")
         return
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
     for name, batch in (("enron_dated", dated), ("enron_candidates", candidates)):
-        path = OUT_DIR / f"{name}.jsonl.gz"
+        path = args.out / f"{name}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)

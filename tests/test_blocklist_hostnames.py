@@ -12,7 +12,9 @@ from collections import Counter
 from pathlib import Path
 
 import duckdb
+import his_release
 
+from ark import held
 from ark.db import init_db
 from ark.hostnames import (
     CHASTITY_HOST_SOURCE,
@@ -88,14 +90,14 @@ def test_squidguard_rows_are_dated_by_the_compile_stamp_and_idempotent(tmp_path)
     ).fetchone() == (2,)
 
 
-def test_chastity_reads_the_tar_member_header_and_takes_the_split(tmp_path) -> None:
+def test_chastity_reads_the_tar_member_header_and_takes_the_split(tmp_path, his_files) -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
     squid = tmp_path / "squidguard-adult-domains"
     squid.write_text(SQUIDGUARD)
-    ingest_blocklist_hostnames(conn, squid)  # tripod.com now carries 2001
+    ingest_blocklist_hostnames(conn, squid)  # tripod.com now carries 2001, a pair of ours
     stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path))
-    # a, c and d under the corroborated tripod.com; b.novel.com parked; mail skipped
+    # a, c and d under the dated tripod.com; b.novel.com parked; mail skipped
     assert stats["hostname_year_rows"] == 3
     assert stats["split_parked"] == 1
     assert stats["mail_list_skipped"] == 1
@@ -108,6 +110,21 @@ def test_chastity_reads_the_tar_member_header_and_takes_the_split(tmp_path) -> N
     assert conn.execute(
         "SELECT count(*) FROM ingested_file WHERE source_name = ?", [CHASTITY_HOST_SOURCE]
     ).fetchone() == (1,)
+
+
+def test_a_parent_his_files_name_exactly_is_dated_without_a_store_year(tmp_path, his_files) -> None:
+    """His 2001 file holds novel.com and www.tripod.com. The first dates b.novel.com's parent;
+    the second dates no tripod.com, so a, c and d are parked."""
+    names = his_release.HIS_YEARS[2001] + ["novel.com", "www.tripod.com"]
+    his_release.stage(his_files.parent, {"2001.txt": his_release.text(sorted(names))})
+    held.prepare(his_files)
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path))
+    assert stats["hostname_year_rows"] == 1
+    assert stats["split_parked"] == 3
+    assert conn.execute("SELECT hostname FROM hostname_year").fetchall() == [("b.novel.com",)]
+    assert conn.execute("SELECT domain FROM domain").fetchall() == [("novel.com",)]
 
 
 def test_a_member_stamped_outside_the_window_writes_nothing(tmp_path) -> None:

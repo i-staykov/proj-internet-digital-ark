@@ -18,10 +18,11 @@ stamps, and both sets are dropped here.
 
 **The split applies, because the names are a person's.** An owner submitted each name to
 the broker by hand, so the DATE is a machine's and the NAME is a human's typing. Under the
-project's rule a name another source already dates carries the page's stamp year as
-`artifact_listing`; a name appearing only here parks in the candidate pool as `link_target`
-and earns no year. The measured typo upper bound on the novel half is 44.8%, which is why
-that half cannot be admitted on the broker's word alone.
+project's rule a name already dated, by a year of ours or by a line of his files that is
+exactly the name, carries the page's stamp year as `artifact_listing`; a name appearing only
+here parks in the candidate pool as `link_target` and earns no year. The measured typo upper
+bound on the novel half is 44.8%, which is why that half cannot be admitted on the broker's
+word alone.
 
 **Rule 6: one page evidences its own year and no other.** Every in-window stamp in the
 snapshot is 2001, so every dated row is 2001. The site's "Copyright (c) 1998-2001" implies
@@ -49,6 +50,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -107,6 +109,9 @@ def main() -> int:
         help="suffix for the output names, so a later batch of pages does not overwrite "
         "a journal already in the ingest ledger",
     )
+    parser.add_argument(
+        "--out", type=Path, default=OUT, help="journal directory (default %(default)s)"
+    )
     args = parser.parse_args()
 
     paths = sorted(SRC.glob("_domains_*.html"))
@@ -131,13 +136,8 @@ def main() -> int:
 
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        attested = {
-            row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (row[0], row[1])
-            for row in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, domains)
+        known = held.known_years(conn, domains)
     finally:
         conn.close()
 
@@ -155,7 +155,7 @@ def main() -> int:
         }
         if domain in attested:
             dated.append(row)
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 netnew_pairs += 1
                 netnew_ee += weight_of(domain)
         else:
@@ -174,16 +174,18 @@ def main() -> int:
         return 0
 
     suffix = f"_{args.tag}" if args.tag else ""
-    OUT.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
+    written = []
     for name, batch in (("urlmerchant_dated", dated), ("urlmerchant_candidates", candidates)):
-        path = OUT / f"{name}{suffix}.jsonl.gz"
+        path = args.out / f"{name}{suffix}.jsonl.gz"
         with journal_writer(path) as handle:
             for row in batch:
                 write_journal_line(handle, row)
         print(f"wrote {path} ({len(batch):,} rows)")
+        written.append((name, path))
     print("\nnext:")
-    for key in ("urlmerchant_dated", "urlmerchant_candidates"):
-        print(f"  uv run ark ingest {key} data/raw/urlmerchant/{key}{suffix}.jsonl.gz")
+    for key, path in written:
+        print(f"  uv run ark ingest {key} {path}")
     return 0
 
 
