@@ -129,7 +129,7 @@ def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
     assert "7: 7.562846% / 12d = 6.302372" in text
     assert "8: 18.769714% / 33d = 5.687792" in text
     assert "9: 3.682488% / 39d = 0.944228" in text
-    assert "would add 15.000000 at t = 1" in text
+    assert "would add 0.468750 at t = 32, whole days since the 2 August assignment" in text
     assert "Rounds 1, 3, 4 and 5 predate the rule" in text
     assert "5: 14.901054% / 2d = 74.505270" in text
     # The email's one-liner was cut to fit a mail he reads in a minute, so it quotes the

@@ -33,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_figures import BASELINE, figures  # noqa: E402
 
 from ark.baseline import (  # noqa: E402
-    CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
@@ -720,8 +719,8 @@ def score_rows(growth: Decimal) -> list[ScoreRow]:
 
     The awarded percentages and both timestamps are quoted in
     `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
-    it. This round uses its own unverified growth and this minute as its receipt, and is
-    never marked scored, because he has not seen it.
+    it. This round uses its own unverified growth, this minute as its receipt and the
+    assignment clock, and is never marked scored, because he has not seen it.
     """
     rows = []
     for r in SUBMITTED_ROUNDS:
@@ -736,7 +735,7 @@ def score_rows(growth: Decimal) -> list[ScoreRow]:
         if his is not None:
             t, s = his.divisor, his.score
         rows.append(ScoreRow(r[0], r[5], t, s, scored_under_rule(r[7])))
-    t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
+    t_now = t_days_assignment(now_in_his_clock())
     rows.append(
         ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
     )
@@ -773,11 +772,10 @@ def cumulative(f: dict, growth: Decimal) -> str:
         f"**Score, by both rules in your brief.** Cumulative verified percentage "
         f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
         f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
-        f"({_per_round(scored)}), with t_i the elapsed time from the release of the package "
-        "a round is measured against to receipt, rounded up to whole days in your clock, "
-        "which reproduces the 6.88 and 6.302372 you quoted. This round would add "
-        f"{this.s:.6f} at t = {this.t} if received now. Rounds {early_labels} predate the "
-        f"rule; under it they would have scored {_per_round(early)}."
+        f"({_per_round(scored)}), each at the divisor you used. This round would add "
+        f"{this.s:.6f} at t = {this.t}, whole days since the 2 August assignment, if received "
+        f"now. Rounds {early_labels} predate the rule; timed from release to receipt they "
+        f"would have scored {_per_round(early)}."
     )
 
 

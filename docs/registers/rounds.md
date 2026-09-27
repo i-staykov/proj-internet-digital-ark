@@ -9,8 +9,8 @@ Stamps are US Pacific, his clock. Round 1 is a percentage of records. `just roun
 
 | round | sent records | sent EE | sent % | credited records | credited EE | awarded p_i | against | released | received | days | t_i | S_i computed | S_i quoted | note |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 1,429,524 | n/a | n/a | 1,429,524 | n/a | 17.38 | merged260715-2 | 2026-07-21 12:24 | 2026-07-26 18:30 | 5.25 | 6 | 28.966667 | not quoted | a percentage of records, not EE |
-| 2 | 17,418 pairs | n/a | n/a | n/a | n/a | n/a | merged260727 | n/a | n/a | n/a | n/a | n/a | n/a | never scored; rolled into round 3 |
+| 1 | 1,429,524 | n/a | n/a | 1,429,524 | n/a | 17.38 | merged260715-2 | 2026-07-21 12:24 | 2026-07-26 18:30 | 5.25 | 6 | 28.966667 | not quoted | a percentage of records, not EE; derived EE 756,559.2864, the gap between his two releases, never quoted by him |
+| 2 | 17,418 pairs | n/a | n/a | n/a | n/a | n/a | merged260727 | n/a | n/a | n/a | n/a | n/a | n/a | never scored; rolled into round 3; merged260727 to merged260730 (+609,145 records) is an external contributor's work and never a row |
 | 3 | 152,773 | 105,676.0387 | 1.879358 | 151,949 | 91,814.6880 | 1.659986 | merged260730 | 2026-07-31 17:25 | 2026-08-01 19:42 | 1.10 | 2 | 8.299930 | not quoted |  |
 | 4 | 946,266 | 603,401.7811 | 10.730988 | 946,266 | 603,401.7811 | 10.730988 | merged260802-2 | 2026-08-03 05:36 | 2026-08-09 07:58 | 6.10 | 7 | 15.329983 | not quoted |  |
 | 5 | 2,838,732 | 1,697,225.1735 | 20.333700 | 2,608,322 | 1,566,229.7613 | 14.901054 | merged260817 | 2026-08-15 10:27 | 2026-08-17 03:03 | 1.69 | 2 | 74.505270 | not quoted |  |
