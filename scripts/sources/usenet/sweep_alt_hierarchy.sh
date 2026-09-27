@@ -28,8 +28,8 @@
 # Arquivo's crawl. The reason is saturation: 63% of a small group's posts fall inside 1996-2001
 # and its URLs are the ones nobody else reposted, while a popular group's URLs are already held
 # from the thirteen pools already read. **So the smallest groups are the densest, not the emptiest**,
-# and the assumption that "under 2 MB is usually an archive with no in-window post" was wrong.
-# The band edges are parameters now, and each band's realised rate is measured before the next.
+# and the assumption that "under 2 MB is usually an archive with no in-window post" is wrong.
+# The band edges are parameters, and each band's realised rate is measured before the next.
 #
 # **Which host this touches.** `archive.org/download/usenet-alt`, an item download. That
 # is NOT `web.archive.org/cdx`, which the archive clients meter, so this runs beside them

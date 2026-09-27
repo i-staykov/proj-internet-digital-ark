@@ -86,9 +86,9 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
     """(output, ran). `ran` is False when the step could not complete.
 
     Returned rather than swallowed, because a step that did not run must not read
-    like a step that found nothing. The first version of this script omitted the
-    residual section entirely when it timed out behind a writer, which is the exact
-    failure `ark check` already guards against by reporting SKIP rather than PASS.
+    like a step that found nothing: a residual section omitted when it times out
+    behind a writer is the exact failure `ark check` guards against by reporting SKIP
+    rather than PASS.
     """
     try:
         done = subprocess.run(

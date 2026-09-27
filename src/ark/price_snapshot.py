@@ -683,8 +683,8 @@ def _tally(rows: list[tuple], calculated: dict[int | None, tuple[Decimal, int]])
         # domains plus the ISC survey hostnames and nothing else, while the candidate
         # filter here admits any name that is not `.arpa` and not already held. So a
         # hostname-grain source prices here and exports nowhere, and a leg that quotes the
-        # headline alone reports EE the claim will never contain: `ddn-hosts-txt` prices
-        # at 6,401.3 EE this way and ships 0.
+        # headline alone reports EE the claim will never contain: `ddn-hosts-txt` measured
+        # 6,401.3 EE this way and ships 0.
         "ee_hostname": f"{host_ee:.4f}",
         # The unit `price_hostnames.py` quotes as NET-NEW hostname years: names beneath a
         # registrable, never the registrable itself and never `www.<parent>`.

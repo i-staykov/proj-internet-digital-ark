@@ -131,8 +131,8 @@ NAMED_AS_DATA = {
 
 # **A host that answers is not a source that exists**, and the commonest way a dead
 # lead comes back to life is that somebody parked the domain: `web-caching.com`, the
-# IRCache proxy-trace host, answers a 27,223-byte HTTP 200 that is a consent-manager
-# parking page. A checker that reads status and not content cries wolf every wake,
+# IRCache proxy-trace host, was measured answering a 27,223-byte HTTP 200 that is a
+# consent-manager parking page. A checker that reads status and not content cries wolf every wake,
 # which is how a reader is trained to skip it. These strings are matched against the
 # 2 KB the probe already reads, so the detection is free.
 PARKED_MARKERS = (
@@ -149,8 +149,8 @@ PARKED_MARKERS = (
     "buy this domain",
     "this domain is parked",
     # a bot wall, which answers 200 and is equally not a source: two New Zealand National
-    # Library hosts serve a 952-byte Incapsula block page under HTTP 200, exactly what the
-    # register records for them.
+    # Library hosts were measured serving a 952-byte Incapsula block page under HTTP 200,
+    # exactly what the register records for them.
     "incapsula incident",
     "_incapsula_resource",
     "request unsuccessful",
@@ -241,9 +241,9 @@ EXPECTED_ALIVE = (
     # **A claim about what a host does NOT CONTAIN is not a claim that it is down.**
     # The zone-file and Archie verdicts both name `wuarchive.wustl.edu`, `ftp.uu.net`,
     # `ftp.cdrom.com` and `ftp.funet.fi` as mirrors that "return **zero** Wayback captures
-    # matching `zone`". Every one of those hosts answers, and without these phrases each
-    # reads as an unexpected revival. An HTTP 200 cannot touch a content claim, so it is
-    # foretold here.
+    # matching `zone`". Every one of those hosts was measured answering, and without these
+    # phrases each reads as an unexpected revival. An HTTP 200 cannot touch a content
+    # claim, so it is foretold here.
     "return **zero**",
     "returns **zero**",
     "return zero",
@@ -330,9 +330,9 @@ def targets_in(entry) -> list[str]:
     # **When a verdict names a PATH, the path is what was tried, so the host root is not
     # the test.** `lists.debian.org` (whose 1999 monthly mbox 404s), `seclists.org` (which
     # serves MHonArc HTML with the headers stripped) and `marc.info` (whose mbox export is
-    # 410 Gone) all answer 200 at the root. Probing the root asks a question the verdict
-    # never asked, and the answer reads as news. Dropping it also frees a slot in the
-    # five-target budget for a URL that can actually change.
+    # 410 Gone) were all measured answering 200 at the root. Probing the root asks a
+    # question the verdict never asked, and the answer reads as news. Dropping it also
+    # frees a slot in the five-target budget for a URL that can actually change.
     out = [
         url
         for url in out

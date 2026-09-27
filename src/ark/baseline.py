@@ -29,8 +29,8 @@ CURRENT_BASELINE_MARKER = _CURRENT["marker"]
 # closes; kept apart they drift and re-report held candidates in our favour.
 CURRENT_ROUND_SINCE = _CURRENT["round_since"]
 
-# What to call the round now being collected, in Ivo's numbering. The report heading,
-# the cumulative table's last row and the submission directory all read it from here.
+# What to call the round now being collected, in the project's numbering. The report
+# heading, the cumulative table's last row and the submission directory all read it here.
 CURRENT_ROUND_LABEL = _CURRENT["round_label"]
 
 # The current release's stamp for the time-weighted score, in his clock like the round
@@ -51,8 +51,8 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
 }
 
 # The corpus before this project's FIRST submission, `merged260715-2`, shipped as
-# `legacy-data/`. **Not the cumulative denominator**: Ivo's instruction is to quote the
-# cumulative contribution against the CURRENT corpus, `REVIEWER_BASELINE_EE`. Kept as the
+# `legacy-data/`. **Not the cumulative denominator**: the cumulative contribution is
+# quoted against the CURRENT corpus, `REVIEWER_BASELINE_EE`. Kept as the
 # only release predating every contribution, so phase 1's increment stays checkable.
 ORIGINAL_BASELINE_PAIRS = _DATA["original"]["pairs"]
 ORIGINAL_BASELINE_EE = Decimal(_DATA["original"]["ee"])
@@ -90,8 +90,8 @@ def awarded_score_of(label: str) -> AwardedScore | None:
     """His own `S_i` for a round, where he has quoted one, else None.
 
     **Recorded because it does not reproduce.** Round 8 he wrote as
-    `S = 10 x (18.769714 / 33) = 5.687792`, and 33 is neither reading of `t_i` we put to
-    him. His figures are stored as quoted facts, like the awarded percentages, and
+    `S = 10 x (18.769714 / 33) = 5.687792`, and 33 matches neither reading of `t_i`. His
+    figures are stored as quoted facts, like the awarded percentages, and
     `figures.score` stays the model of the rule we can defend.
     """
     for row in _DATA["rounds"]:
@@ -105,13 +105,13 @@ def awarded_score_of(label: str) -> AwardedScore | None:
 
 
 # Round 1's percentage was awarded on RECORDS, so it is not commensurable with the
-# equivalent-English percentages of later rounds. Summed with them anyway, on Ivo's
-# instruction, and every place that prints the sum says so.
+# equivalent-English percentages of later rounds. Summed with them anyway, and every
+# place that prints the sum says so.
 ROUND_ONE_IS_RECORD_BASED = _DATA["round_one_is_record_based"]
 
 # `k` in the RANKING score `S_i = k * (p_i / t_i)`, which is not the cumulative
-# percentage and is what decides positions. It makes speed worth as much as size, so
-# round length is Ivo's call; `docs/registers/rounds.md` works the arithmetic through.
+# percentage and is what decides positions. It makes speed worth as much as size;
+# `docs/registers/rounds.md` works the arithmetic of round length through.
 SUBMISSION_SPEED_K = _DATA["speed_k"]
 
 # The annual file every candidate directory must hold to be the baseline: the earliest

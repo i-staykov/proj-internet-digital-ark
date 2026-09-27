@@ -55,8 +55,8 @@ SYNC_STALL_HOURS = 3.0
 
 # The fleet repository is private, so it is named here and never in what gets posted.
 FLEET = "i-staykov/ark-fleet"
-# Three hours is nine watchdog starts. Fewer would alarm on a queue; more lets a dead plan
-# job run for a day and a half while this page reports green.
+# Three hours is nine watchdog starts. Fewer would alarm on a queue; more delays the alarm
+# on a dead plan job, which this page otherwise reports green.
 FLEET_STALL_HOURS = 3.0
 # The Leg runs asked for. The watchdog's three an hour are among them and are skipped.
 LEG_RUNS = 50

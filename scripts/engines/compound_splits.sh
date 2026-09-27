@@ -56,10 +56,10 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         [ -d "$dir" ] || continue
         # **Sweep the orphans of earlier passes BEFORE making more.**
         # Each pass renames its output to a per-pass `_cmp<tag>` name and then ingests it,
-        # so a pass killed between the two (a watchdog restart) leaves tagged journals that
-        # no later pass sees. This makes the loop find them itself. An ingest of an
-        # already-ingested file is a cheap no-op, so sweeping unconditionally costs nothing
-        # and needs no state of its own.
+        # so a pass killed between the two (a watchdog restart) leaves tagged journals nothing
+        # else ingests. `audit_residual.py --check unread` reports them; this sweep ingests
+        # them on the next pass. An ingest of an already-ingested file is a cheap no-op, so
+        # sweeping unconditionally costs nothing and needs no state of its own.
         for lane in dated candidates; do
             for orphan in "${dir}/${prefix}_${lane}_cmp"*.jsonl.gz; do
                 [ -f "$orphan" ] || continue

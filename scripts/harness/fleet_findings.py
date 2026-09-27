@@ -145,8 +145,7 @@ def drain(incoming: Path, fleet: Path | None = None) -> int:
             # A leg artifact's root directory is called `findings`, so keyed on that name a copy
             # of one banks beside its lead directory as a second lead, and the same finding
             # enters the register twice under the same slug. Keying on the slug makes the two
-            # collide, and
-            # the collision is then resolved on which copy is more settled.
+            # collide, and the collision is then resolved on which copy is more settled.
             slug = str(load(lead / SIDECAR).get("slug") or lead.name)
             target = incoming / slug
             side = lead.parent / f"{slug}.json"

@@ -44,9 +44,9 @@ LEDGER = REPO / "data/logs/query_health.jsonl"
 LOG_DIR = REPO / "data/logs"
 LOG_GLOB = "cdx_*.log"
 # **Every batch is logged twice**, once through the logger with a clock and the journal it
-# wrote, `21:22:19 | INFO | cdx: {...} -> data/raw/cdx/...`, and once bare. The first version
-# anchored on the end of the line, so it matched only the bare copy and every row came back
-# without a time. Both forms are read here and the duplicate is dropped below.
+# wrote, `21:22:19 | INFO | cdx: {...} -> data/raw/cdx/...`, and once bare. An anchor on the
+# end of the line matches only the bare copy and loses every time, so both forms are read
+# here and the duplicate is dropped below.
 # The clock is captured because it is what a human reads back; the date it belongs to is not
 # in the line, so nothing here pretends to know it.
 _STATS = re.compile(r"^(?:(\d{2}:\d{2}:\d{2})\s*\|[^|]*\|\s*)?cdx: (\{[^}]*\})(?:\s*->.*)?$")
