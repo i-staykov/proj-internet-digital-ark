@@ -443,3 +443,18 @@ def test_a_read_lead_asks_for_its_hostname_source_with_the_ingest_line(tmp_path,
 def test_a_read_lead_whose_parts_never_arrived_says_so(tmp_path, monkeypatch):
     text = write(*read_world(tmp_path, monkeypatch, receipt=False))
     assert "- journal sha256: no receipt on this machine, 0 part(s)" in text
+
+
+def test_a_spec_waits_for_the_next_bank_while_his_held_sets_are_not_ready(tmp_path, monkeypatch):
+    """request_approval.py exits 3 when his held sets are missing or stale. That refuses
+    nothing, so no short block is written in place of the request with its sample."""
+    incoming, register = world(tmp_path)
+    (incoming / "a-lead" / "items.jsonl").write_text("{}\n", encoding="utf-8")
+    monkeypatch.setitem(request.SOURCES, "a_lead", object())
+
+    class Done:
+        returncode, stdout, stderr = request.NOT_NOW, "", "no held sets: run uv run ark intake"
+
+    monkeypatch.setattr(request.subprocess, "run", lambda *a, **k: Done())
+    assert request.by_the_tool("a_lead", incoming / "a-lead", LEAD, {}) is None
+    assert write(incoming, register) == REGISTER

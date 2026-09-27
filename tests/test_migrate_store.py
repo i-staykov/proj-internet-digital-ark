@@ -491,9 +491,13 @@ def test_deltas_gives_every_changed_line_its_reason(tmp_path, monkeypatch):
 
 
 def test_an_unexplained_line_exits_1_and_a_refusal_2(tmp_path, monkeypatch):
-    # nothing dates the first; his 2000.txt and his pool hold the others by exact name
+    # nothing dates the first; his 2000.txt and his pool hold the others by exact name; only
+    # his rolled-up row names rollup.com and no source of ours filed it, so the export keeps it out
     case = deltas_case(
-        tmp_path, monkeypatch, ["planted.com", "already-his.com"], ["held-candidate.com"]
+        tmp_path,
+        monkeypatch,
+        ["planted.com", "already-his.com"],
+        ["held-candidate.com", "rollup.com"],
     )
     monkeypatch.chdir(tmp_path)  # restored after the test; deltas_main chdirs into `root`
     argv = [str(case["before"]), str(case["after"]), "--store", str(case["store"])]
@@ -507,11 +511,20 @@ def test_an_unexplained_line_exits_1_and_a_refusal_2(tmp_path, monkeypatch):
         "candidate_additions.txt,candidate,,held-candidate.com,added,unexplained,in his files"
     )
     assert held_line in written
+    assert "candidate_additions.txt,candidate,,rollup.com,added,unexplained," in written
     pool = ["known.com", "mx.hd.com", "roll.com", "sub.com"]
     (case["after"] / "2000.txt").write_text(names("keep.com", "keep2.com", "sup.com"))
     (case["after"] / "candidate_additions.txt").write_text(names(*pool))
     (case["after"] / "candidate_additions_summary.json").write_text(json.dumps({"candidates": 4}))
     assert migrate.deltas_main(argv, root=tmp_path) == 0
+    # the calculator lists go in the folder named like --out, never one deltas did not write
+    no_csv = [*argv]
+    no_csv[no_csv.index("--out") + 1] = str(tmp_path / "deltas_out")
+    assert migrate.deltas_main(no_csv, root=tmp_path) == 2
+    mark = case["out"].with_suffix("") / migrate.PRICED_MARK
+    mark.unlink()
+    assert migrate.deltas_main(argv, root=tmp_path) == 2
+    mark.write_text("")
     (held.HELD_ROOT / MARKER / "held.json").unlink()
     assert migrate.deltas_main(argv, root=tmp_path) == 2
 

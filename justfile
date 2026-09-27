@@ -165,7 +165,11 @@ cycle *args:
 sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
     # One lock, whoever started this: it lives here, where the work is, rather than around
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
@@ -321,7 +325,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
 bank *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
     # ARK_LOCK_HELD names the pid that holds the lock and is trusted only while the lock
     # agrees, so a value some later shell inherits takes the lock like anyone else.
     if [ -n "${ARK_LOCK_HELD:-}" ] \
@@ -474,6 +482,8 @@ bank *args:
         RAN_B=yes
         uv run python scripts/harness/bank_hygiene.py space
         BANK_LOG=$(mktemp)
+        # A row ingested before this instant is not this bank's, so a red never takes it.
+        B_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         set +e
         uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
         RC=${PIPESTATUS[0]}
@@ -504,15 +514,20 @@ bank *args:
                 # the scribe's rows are this bank's too, and a dirty register refuses every
                 # later tick at the preflight.
                 echo "GATE RED after an approved ingest: taking the rows and the lines back"
+                KEPT=""
                 if [ -n "$INGESTED" ]; then
-                    uv run python scripts/harness/unbank_source.py $INGESTED --write
+                    uv run python scripts/harness/unbank_source.py $INGESTED --write \
+                        --run-start "$B_START" || KEPT=unbank
                 fi
                 git checkout HEAD -- docs/registers/
                 uv run python scripts/harness/bank_trigger.py red --step b \
-                    --ingested "$INGESTED" --check "$CHECK_LOG"
+                    --ingested "$INGESTED" --failed "$KEPT" --check "$CHECK_LOG"
                 uv run python scripts/harness/bank_hygiene.py space
                 uv run ark export --claim >/dev/null || true
-                if uv run ark check; then
+                if [ -n "$KEPT" ]; then
+                    echo "STILL RED: the unbank left rows in the store, as a source that held rows"
+                    echo "  before this bank is never taken back. Read 'uv run ark check' first."
+                elif uv run ark check; then
                     echo "the store is green again; the sources are pending and nothing was banked"
                 else
                     echo "STILL RED after the rollback, so the red was not this ingest's:"
@@ -1478,8 +1493,8 @@ ship stage="all" *args:
         echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
         uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
+        if ! git diff --quiet -- docs/report.md docs/report.docx; then
+            git add docs/report.md docs/report.docx
             git commit -q -m "Regenerate the round report and its .docx before packaging"
             echo "== committed the regenerated report artifacts =="
         fi

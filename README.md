@@ -22,8 +22,8 @@ just check       # lint, format, tests, then the store invariants
 
 A delivery archive verifies itself without this repository: `bash verify.sh` inside a fresh
 extraction. The other two reproduction tiers, and what each command should print, are in the
-runbook. A new release of his goes through `just intake <zip>`, which ends in `uv run ark intake`:
-every export and check refuses until the held sets match his current files.
+runbook. `just intake <zip>` takes a new release of his and runs `uv run ark intake`, without
+which every export and check refuses.
 
 ## Collect unattended
 

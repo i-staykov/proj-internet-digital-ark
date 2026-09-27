@@ -29,7 +29,7 @@ from ark import held  # noqa: E402
 from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.export import CANDIDATES_PATH  # noqa: E402
+from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 
@@ -144,8 +144,13 @@ def figures(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> di
     out["ee_baseline"] = REVIEWER_BASELINE_EE
     out["ee_mean_weight"] = netnew_ee / out["netnew_pairs"] if out["netnew_pairs"] else Decimal(0)
 
-    # His lines per year, hostnames included, as `ark intake` counted his files.
+    # His lines per year, hostnames included, as `ark intake` counted his files; against them,
+    # our additions in both units, the registrable and the hostname file of the year.
     out["baseline_by_year"] = {year: his.counts[str(year)] for year in his.years}
+    hosts = {year: NETNEW_DIR / f"{year}_hostnames.txt" for year in his.years}
+    out["hostname_lines_by_year"] = {
+        year: held.lines(path) if path.is_file() else 0 for year, path in hosts.items()
+    }
     out["baseline_pairs"] = sum(out["baseline_by_year"].values())
 
     # Feedback section 3 and section 7 ask to separate "records newly harvested
@@ -270,10 +275,10 @@ def markdown(f: dict) -> str:
 
     add("### Completeness")
     add("")
-    add("| Year | Additions | Growth vs baseline | Under 10,000? | Under 0.1%? |")
+    add("| Year | Additions, both units | Growth vs his lines | Under 10,000? | Under 0.1%? |")
     add("|---|--:|--:|:-:|:-:|")
     for year in sorted(f["netnew_by_year"]):
-        added = f["netnew_by_year"][year]
+        added = f["netnew_by_year"][year] + f["hostname_lines_by_year"].get(year, 0)
         base = f["baseline_by_year"].get(year, 0)
         growth = 100.0 * added / base if base else 0.0
         add(
