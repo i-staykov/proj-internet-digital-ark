@@ -474,6 +474,8 @@ bank *args:
         RAN_B=yes
         uv run python scripts/harness/bank_hygiene.py space
         BANK_LOG=$(mktemp)
+        # A row ingested before this instant is not this bank's, so a red never takes it.
+        B_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         set +e
         uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
         RC=${PIPESTATUS[0]}
@@ -504,15 +506,20 @@ bank *args:
                 # the scribe's rows are this bank's too, and a dirty register refuses every
                 # later tick at the preflight.
                 echo "GATE RED after an approved ingest: taking the rows and the lines back"
+                KEPT=""
                 if [ -n "$INGESTED" ]; then
-                    uv run python scripts/harness/unbank_source.py $INGESTED --write
+                    uv run python scripts/harness/unbank_source.py $INGESTED --write \
+                        --run-start "$B_START" || KEPT=unbank
                 fi
                 git checkout HEAD -- docs/registers/
                 uv run python scripts/harness/bank_trigger.py red --step b \
-                    --ingested "$INGESTED" --check "$CHECK_LOG"
+                    --ingested "$INGESTED" --failed "$KEPT" --check "$CHECK_LOG"
                 uv run python scripts/harness/bank_hygiene.py space
                 uv run ark export --claim >/dev/null || true
-                if uv run ark check; then
+                if [ -n "$KEPT" ]; then
+                    echo "STILL RED: the unbank left rows in the store, as a source that held rows"
+                    echo "  before this bank is never taken back. Read 'uv run ark check' first."
+                elif uv run ark check; then
                     echo "the store is green again; the sources are pending and nothing was banked"
                 else
                     echo "STILL RED after the rollback, so the red was not this ingest's:"
