@@ -1,11 +1,11 @@
 """Turn a URL into a priceable journal from a TOML description, writing no Python.
 
 **What this is for.** The discovery loop's own output says it cannot write the
-fetcher that turns a source into dated items, and that step used to stand between
-a hypothesis and a number: 186 lines of collector before anyone could find out
-whether the source was worth 186 lines. Of the last four sources considered, two
-were rejected on measurement and never needed a parser at all. So the thing worth
-making cheap is the **measurement**, not the ingest.
+fetcher that turns a source into dated items, and without this that step stands
+between a hypothesis and a number: a collector written before anyone can find out
+whether the source is worth it. Many sources are rejected on measurement and never
+need a parser at all. So the thing worth making cheap is the **measurement**, not the
+ingest.
 
     uv run python scripts/pricing/probe_source.py probes/example.toml
     just price --items data/raw/probes/example.jsonl --label example

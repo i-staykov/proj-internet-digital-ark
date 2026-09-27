@@ -2,8 +2,8 @@
 # Download and bank the unheld English-facing Usenet hierarchies.
 #
 # **Why this can run without asking anyone.** `usenet_announce / dated_directory`
-# and its siblings are already `master` in `docs/registers/approved-sources-list.md`, decided
-# by Ivo in phase 4, and the corroboration split is applied by `split_usenet.py`
+# and its siblings are already `master` in `docs/registers/approved-sources-list.md`,
+# and the corroboration split is applied by `split_usenet.py`
 # rather than by anything here. So this is collection under an existing decision,
 # not a new source class.
 #
@@ -54,11 +54,10 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     exit 1
 fi
 echo "$$" > "$LOCK/pid"
-# **The handler must exit, and the first version did not.** A bare `trap 'rm -rf
-# "$LOCK"'` on TERM runs the handler and then carries on with the loop, so a TERM
-# released the lock while leaving the process downloading. A second copy could then
-# start, and did: two fetchers ran against archive.org for two minutes, duplicating
-# every request. INT and TERM therefore clean up and leave.
+# **The handler must exit.** A bare `trap 'rm -rf "$LOCK"'` on TERM runs the handler
+# and then carries on with the loop, so a TERM releases the lock while leaving the
+# process downloading, and a second copy can start and duplicate every request against
+# archive.org. INT and TERM therefore clean up and leave.
 cleanup() { rm -rf "$LOCK"; }
 trap 'cleanup' EXIT
 trap 'cleanup; exit 143' TERM

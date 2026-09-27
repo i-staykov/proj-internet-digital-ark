@@ -1,7 +1,6 @@
 """Sort the triage queue by potential, so the most promising source is signed off first.
 
-Ivo, 2026-08-12: *"Always sort the open sources in approved-sources-list.md by potential, such
-that I sign-off more promising sources first."*
+The owner signs off the open sources in `approved-sources-list.md` most promising first.
 
 **Why this is a program and not a habit.** The queue grows on every wake and is meant to grow
 indefinitely, so an ordering maintained by hand decays on the first pass somebody is in a hurry.
@@ -97,7 +96,7 @@ def main() -> int:
         return 0
 
     # Anything already decided sinks below everything still open, whatever it scored. The
-    # instruction is to sort the OPEN sources so the most promising is signed off first, and a
+    # OPEN sources are what is signed off, most promising first, and a
     # high-scoring entry that has already been rejected sitting at rank 3 wastes the only
     # attention this file gets. Then descending by score, then by title so equal scores hold a
     # stable order rather than shuffling and producing a diff that says nothing.

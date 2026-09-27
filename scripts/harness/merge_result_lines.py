@@ -1,11 +1,11 @@
 """Replay our result lines onto the fleet's current `hypotheses.md` after a rejected push.
 
-**Why this is a script and not a shell one-liner.** Three times on 2026-09-08 a stale branch
-silently dropped work: the generator's `git pull --rebase` stopped on a content conflict and still
-reported success, a PR of mine was branched off a main that had moved, and the 21:37Z bank's result
-lines were rejected as non-fast-forward with the failure swallowed by `|| true`. That last one made
-`origin/main` report 24 open hypotheses when 6 were left, so the generator's gate correctly refused
-to refill and the lane that finds sources sat idle on a queue that only looked full.
+**Why this is a script and not a shell one-liner.** A stale branch drops work silently three
+ways: a `git pull --rebase` that stops on a content conflict and still reports success, a PR
+branched off a main that has moved, and result lines rejected as non-fast-forward with the failure
+swallowed by `|| true`. The last leaves `origin/main` reporting settled hypotheses as open, so the
+generator's gate correctly refuses to refill and the lane that finds sources sits idle on a queue
+that only looks full.
 
 **Why a merge rather than a rebase.** Both sides only ever add: the generator appends whole
 `## slug` blocks, and a bank adds `result:` lines inside blocks that exist. So the merge is

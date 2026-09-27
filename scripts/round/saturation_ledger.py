@@ -15,7 +15,7 @@ Every cell is located by its header NAME, never by position, so a column added o
 in the register cannot shift a cell here, and a required column that goes missing raises
 with the headers it did find instead of exporting a wrong ledger.
 
-Thirteen columns since 2026-09-03: the eight of phase 7, in their old order so a
+Thirteen columns: the eight of phase 7 first, in their order, so a
 consumer reading the first eight is unaffected, plus `coverage_period`,
 `retrieval_method`, `baseline_overlap`, `effort` and `source_link`. The first four are
 his own schema words (coverage, overlap, effort) that the register held and the CSV
@@ -292,7 +292,7 @@ def main() -> int:
     rows = rows_from_contribution(args.contribution)
     for path in (args.sources, args.closed):
         if path.is_file():
-            # both registers live under docs/registers/ since 2026-09-06
+            # both registers live under docs/registers/
             page = f"docs/registers/{path.name}"
             rows += rows_from_register(path.read_text(encoding="utf-8"), page)
     args.out.parent.mkdir(parents=True, exist_ok=True)

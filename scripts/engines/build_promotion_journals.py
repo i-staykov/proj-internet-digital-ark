@@ -4,8 +4,7 @@
 that year only if some other source already places that domain in an annual file.
 Names that failed that test when they were first read have since been dated by the
 CDX and RDAP engines, so the same unchanged rule, applied to a store that has grown,
-admits them now. The staged re-split called this category `PROMOTED` since
-2026-08-06, when it was 4,154 pairs.
+admits them now. The staged re-split calls this category `PROMOTED`.
 
 **It is a re-file rather than a re-parse.** Each mention source has a dated sibling
 that shares the *same parser and the same journal format*, differing only in the
@@ -28,8 +27,8 @@ reconstructed from the evidence row, since the loader stores `evidence_value` as
   not contra-   the registry does not say the domain was created AFTER the year the
   dicted        message claims. Measured 2026-08-15: 35.0% of the raw promotion set
                 fails this against 16.5% of the Usenet pairs the store has already
-                accepted, so the promotion population was twice as contradicted as
-                the accepted one until this filter was added. Registry dates read
+                accepted, so without this filter the promotion population is twice
+                as contradicted as the accepted one. Registry dates read
                 late for a re-registered name, which inflates both figures; the
                 comparison is what justifies the filter, not the absolute level.
 

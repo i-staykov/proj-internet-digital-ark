@@ -13,7 +13,7 @@ year is DROPPED rather than assigned to either: the GNOME lane measured that fai
 1 message in 64, a sender's clock set to the wrong year, and here the partition gives a second
 opinion for free.
 
-**Why only the `by` clause.** Ivo approved this class on 2026-09-09 for the `by` clause alone.
+**Why only the `by` clause.** The class is approved for the `by` clause alone.
 The receiving MTA writes its own name there, so the field is machine-written and self-dating,
 which is why it takes no corroboration split. Three other fields in the same header are NOT
 taken, each for its own reason:

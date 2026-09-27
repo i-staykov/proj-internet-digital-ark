@@ -117,12 +117,11 @@ def main() -> None:
     num_pages = None
     # `fl` turns the count into a row of dashes, so it is left out of this one query
     count_q = {k: v for k, v in base.items() if k != "fl"}
-    # **This query is also the availability check.** There used to be a separate probe on a
-    # fixed small URL, retried at a minute and then longer, and it gated every parent behind
-    # a request the sweep did not otherwise need. Measured 2026-09-08 at 03:35, that probe's
-    # exact shape returned 503 while this parent's own `matchType=domain` count returned 200
-    # in 0.45 s, so the check was refusing work the archive was willing to do. Asking the
-    # question the sweep actually needs is one request fewer and cannot disagree with itself.
+    # **This query is also the availability check.** A separate probe on a fixed small URL
+    # gates every parent behind a request the sweep does not otherwise need, and can answer
+    # 503 while this parent's own `matchType=domain` count answers 200 in 0.45 s, refusing
+    # work the archive is willing to do. Asking the question the sweep actually needs is one
+    # request fewer and cannot disagree with itself.
     #
     # A 503 here is transient rather than a throttle signal, on that same evidence, so the
     # first retries are quick before settling into the long wait an outage deserves.
