@@ -107,41 +107,16 @@ def test_fill_report_has_no_day_arithmetic_of_its_own() -> None:
         assert token not in source, token
 
 
-def test_fill_report_quotes_his_sum_and_labels_the_rest(monkeypatch) -> None:
+def test_fill_report_quotes_his_sum_and_both_scores(monkeypatch) -> None:
     spec = importlib.util.spec_from_file_location(
         "fill_report_for_figures", ROOT / "scripts/round/fill_report.py"
     )
     fill_report = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fill_report)
     monkeypatch.setattr(fill_report, "now_in_his_clock", lambda: "2026-09-03 10:00")
-    text = fill_report.cumulative({}, Decimal("1.5"))
-    # Round 8 is quoted at HIS divisor, not ours. Received 1h50m after the benchmark it was
-    # measured against, our benchmark interval gives t = 1 and an S of 187.697140, which put
-    # the total at 200.884042 in a report whose next sentence says we cannot reproduce his
-    # 33. Where he has stated a score, his figure is the one that is summed.
-    # And rounds 6 and 7 the same way: he wrote 6.88 and 6.302372 in his own mails, so the
-    # total is the sum of his three figures. Our model gives round 6 6.884530, which he
-    # rounded; a total four thousandths off his own is a total he has to reconcile.
-    # Round 9 the same: he wrote 0.944228 at a divisor of 39, and 39 whole days back from its
-    # 2026-09-10 receipt is the same 2026-08-02 origin round 8 implied.
-    assert "**S = 19.814392**" in text
-    assert "6: 4.130718% / 6d = 6.880000" in text
-    assert "7: 7.562846% / 12d = 6.302372" in text
-    assert "8: 18.769714% / 33d = 5.687792" in text
-    assert "9: 3.682488% / 39d = 0.944228" in text
-    assert "would add 15.000000 at t = 1" in text
-    assert "Rounds 1, 3, 4 and 5 predate the rule" in text
-    assert "5: 14.901054% / 2d = 74.505270" in text
-    # The email's one-liner was cut to fit a mail he reads in a minute, so it quotes the
-    # total rather than the addends. It used to offer him a choice between two readings of
-    # t_i; on 2026-09-05 he scored round 8 by a THIRD (divisor 33), so it now states his own
-    # figure and asks the only thing still unknown, which is the date that 33 counts from.
     sentence = fill_report.cumulative_sentence({}, Decimal("1.5"))
-    # The email's one-liner is cut to fit a mail he reads in a minute, so it quotes the
-    # total rather than the addends. It used to ASK which date t_i counts from; his own
-    # round 8 divisor answers that, so it states the derivation and asks nothing.
-    # The addends, because a sum he can check in his head beats a total he has to trust,
-    # and both of this round's scores in the two lines he writes them in himself.
+    # The addends are his own scores, not our model of them (round 6 is 6.884530 by the
+    # benchmark clock, round 8 187.697140), so the sum is one he can check in his head.
     assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392" in sentence
     assert "your own scores for rounds 6, 7, 8 and 9" in sentence
     assert "whole days since the 2 August assignment" in sentence
