@@ -48,9 +48,10 @@ lists, and with `--write` deletes:
 
 It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
 sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
-`keep_until_*`. Store backups are listed and never deleted here: their delete is for the
-agents that own the store, and `ark.duckdb.pre-stage-a.bak` is held until #181's rebuild
-restores the rows only it holds. The dry run makes no network call.
+`keep_until_*`. A write removes each folder it empties, and no other. Store backups are
+listed and never deleted here: their delete is for the agents that own the store, and
+`ark.duckdb.pre-stage-a.bak` is held until #181's rebuild restores the rows only it holds.
+The dry run makes no network call.
 """
 
 from __future__ import annotations
@@ -700,6 +701,31 @@ def remove_plain(root: Path, path: Path, *, under: str, write: bool) -> str:
     return f"{'removed' if write else 'would remove'}: {rel}"
 
 
+def remove_emptied(root: Path, removed: list[Path]) -> list[Path]:
+    """The folders this run emptied, deepest first, and no other. A folder goes once nothing but
+    a `.DS_Store` is left in it; `private/`, `output/`, `feedback/` and `data/` down to each
+    `data/raw` entry are where the selectors work, so they stay."""
+    gone: list[Path] = []
+    todo = {p.parent for p in removed}
+    while todo:
+        folder = max(todo, key=lambda p: len(p.parts))
+        todo.discard(folder)
+        rel = folder.relative_to(root)
+        if not rel.parts or len(rel.parts) <= (3 if rel.parts[0] == "data" else 1):
+            continue
+        if folder.is_symlink() or not folder.is_dir():
+            continue
+        left = list(folder.iterdir())
+        if any(p.name != ".DS_Store" or p.is_symlink() or not p.is_file() for p in left):
+            continue
+        for p in left:
+            p.unlink()
+        folder.rmdir()
+        gone.append(folder)
+        todo.add(folder.parent)
+    return gone
+
+
 def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
     """Release trees that fail the CRC check against a zip still here, by tree."""
     releases = sibling("releases")
@@ -754,6 +780,7 @@ def disk_cleanup(
         groups.append(("private", private_selected(root)))
     lines = [f"--disk {'--write' if write else 'dry run'}"]
     held_any, freed, listed = False, 0, 0
+    removed: list[Path] = []
     stage_held = newest_on_drive(root) if write and groups[2][1] else ""
     if groups[2][1] and not write:
         notes.append("output stages go at --write only once the newest's tarball is on Drive")
@@ -788,6 +815,7 @@ def disk_cleanup(
                 else:
                     line = remove_plain(root, cand.path, under="private", write=write)
                 freed += cand.size
+                removed += [cand.path] if write else []
                 lines.append(f"  {line}")
             except (
                 OSError,
@@ -802,6 +830,7 @@ def disk_cleanup(
             except KeyboardInterrupt:
                 lines.append(f"\ninterrupted at {rel}: everything above it ran")
                 return 1, lines
+    lines += [f"  removed folder: {f.relative_to(root)}" for f in remove_emptied(root, removed)]
     if notes:
         lines += ["", *notes]
     verb = "removed" if write else "would remove"
