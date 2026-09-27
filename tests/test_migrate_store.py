@@ -1,18 +1,15 @@
 """Stage B rebuilds the store with only our rows from the provenance Parquet, the new file exports
-byte for byte what the old one did, and the restore brings back the captures stage A dropped.
-`deltas` and `lane-deltas` give every line two exports or two lane runs differ by its reason."""
+byte for byte what the old one did, and the restore brings back the captures stage A dropped."""
 
 import hashlib
 import importlib.util
-import json
 import sys
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 import pytest
-from his_release import MARKER, WEB_METHOD, capture, stage, text
+from his_release import MARKER, WEB_METHOD, capture, stage
 
 from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db
@@ -30,7 +27,6 @@ SPEC.loader.exec_module(migrate)
 
 HIS_TYPE, HIS_SOURCE = migrate.HIS_TYPE, migrate.HIS_SOURCE
 OLDER = "merged260101"
-SWEEP = "ia_cdx_domain_sweep"
 
 # The schema of a store stage B has not rebuilt: his rows' type in the CHECK, a key on
 # `evidence` and foreign keys. The code no longer makes it, so the fixtures do.
@@ -325,9 +321,9 @@ def stage_a_store(tmp: Path, monkeypatch) -> tuple:
 def test_the_new_store_holds_our_rows_alone_exports_the_same_and_rolls_back(tmp_path, monkeypatch):
     s, ids = stage_a_store(tmp_path, monkeypatch)
     assert migrate.Stage.load(s.save()) == s
-    # the diffs' own files beside the run are never cleared
+    # files beside the run are never cleared
     (s.work.parent / "before").mkdir(parents=True)
-    (s.work.parent / "deltas.csv").write_text("kept\n")
+    (s.work.parent / "other.csv").write_text("kept\n")
     before = sha(s.store)
     report = migrate.stage_b_run(s)
     checks = report.get("verify", {}).get("checks", {})
@@ -337,7 +333,7 @@ def test_the_new_store_holds_our_rows_alone_exports_the_same_and_rolls_back(tmp_
     )
     assert "ALL PASS" in checks["integrity_checks"]["report"]
     assert checks["exports_byte_identical"]["files"] > 20
-    assert (s.work.parent / "deltas.csv").read_text() == "kept\n"
+    assert (s.work.parent / "other.csv").read_text() == "kept\n"
     assert (s.work.parent / "before").is_dir()
 
     planned = report["plan"]
@@ -548,24 +544,8 @@ def test_the_restore_explains_only_the_lines_of_the_pairs_it_dated(tmp_path):
     assert changes["unexplained"] == 3
 
 
-# His calculator, stubbed: one EE per distinct name in the file. Like `test_intake.py`'s stub, it
-# writes no `invalid_records`.
-CALCULATOR = """
-import json, pathlib, sys
-names = {n for n in pathlib.Path(sys.argv[1]).read_text().splitlines() if n.strip()}
-out = pathlib.Path(sys.argv[sys.argv.index("--output-dir") + 1])
-out.mkdir(parents=True, exist_ok=True)
-(out / "summary.json").write_text(json.dumps({"equivalent_english_domains": f"{len(names)}.0000"}))
-"""
 MANIFEST = (
     "domain,assigned_year,evidence_type,evidence_value,source,acquisition_method,evidence_url"
-)
-HOST_MANIFEST = (
-    "hostname,parent_domain,assigned_year,evidence_type,evidence_value,source,"
-    "acquisition_method,evidence_url"
-)
-HEADER_PROVENANCE = (
-    "hostname,target_year,source,acquisition_method,evidence_type,record_location,source_url"
 )
 
 
@@ -573,388 +553,5 @@ def names(*lines: str) -> str:
     return "".join(f"{line}\n" for line in lines)
 
 
-# the attested pairs both exports hold, as `year name` words
-KEPT = "1998 recite.com 1999 rolled.com 2000 keep.com 2000 keep2.com 2000 sup.com 2001 roll.com"
-KEPT += " 2001 sub.com"
-GONE = "1998 gone.com"
-
-
-def attested(*words: str) -> str:
-    """`YYYY<TAB>name` lines in `LC_ALL=C` order, from `year name` words."""
-    w = " ".join(words).split()
-    return names(*sorted(f"{y}\t{d}" for y, d in zip(w[::2], w[1::2], strict=True)))
-
-
 def row(domain: str, year: int, value: str, method: str = WEB_METHOD) -> str:
     return f"{domain},{year},cdx_timestamp,{value},ia_cdx,{method},"
-
-
-def export(folder: Path, files: dict[str, str]) -> Path:
-    """An export: `netnew/` with the files every export writes, and the list beside it."""
-    netnew = folder / "netnew"
-    netnew.mkdir(parents=True)
-    empty = {f"{y}{s}.txt": "" for y in range(1996, 2002) for s in ("", "_hostnames", "-ISC")}
-    common = {
-        "isc_candidates.txt": "",
-        "isc_candidates_summary.json": json.dumps({"candidates": 0}),
-        "isc_survey_provenance.csv": names("hostname,target_year,survey_edition,source_file"),
-        "header_candidates_exclusions.csv": names("hostname,scope,source_file"),
-        "candidates_unparsed.txt": "unparsed.example\n",
-        "export_stamp.json": json.dumps({"mode": "full", "written_at": str(folder)}),
-    }
-    for name, body in (empty | common | files).items():
-        (folder / name if name == "candidate_unverified.txt" else netnew / name).write_text(body)
-    for name in ("candidate_additions", "header_candidates"):
-        count = len((netnew / f"{name}.txt").read_text().splitlines())
-        (netnew / f"{name}_summary.json").write_text(json.dumps({"candidates": count}))
-    return netnew
-
-
-def deltas_case(tmp: Path, monkeypatch, planted=(), planted_candidates=()) -> dict:
-    """His release, a store, and two exports of it that differ by a line of every reason. What
-    each domain stands for:
-
-    keep.com     our exact capture, in both exports
-    keep2.com    cited a capture of shop.keep2.com, and now our exact capture: re-cited row
-    recite.com   cited a WHOIS row, and now our exact capture: re-cited, out of the pool
-    rolled.com   his www.rolled.com was loaded as it, and we capture it exactly: released
-    sup.com      only his older release held it, and we capture it exactly: superseded-only
-    gone.com     only his older release dated it: superseded-only, out of the attested list
-    sub.com      only a capture of shop.sub.com dated it: withdrawn, into the pool
-    roll.com     only `cdx capture 2001` dated it: converter roll-up, into the pool
-    rollup.com   only his www.rollup.com dated it: his row only
-    known.com    as rollup.com, and a source of ours filed it: into the pool and the list
-    mx.hd.com    dated in 1999 by a capture of hd.com, in 2000 by a header: withdrawn, into
-                 the pool and the header candidates
-    """
-    his_1997 = ["already-his.com", "www.known.com", "www.rollup.com"]
-    folder = stage(tmp / "release", {"1997.txt": text(sorted(his_1997))})
-    held.prepare(folder)
-    calculator = tmp / "equivalent_english_domains.py"
-    calculator.write_text(CALCULATOR)
-    monkeypatch.setattr(migrate, "calculator_path", lambda: calculator)
-
-    store = tmp / "store" / "ark.duckdb"
-    conn = old_db(store)
-    cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    whois = ensure_source(conn, "domain_creation_bulk", "timestamped")
-    hosts = ensure_source(conn, HOST_SOURCE, "timestamped")
-    his_source = ensure_source(conn, HIS_SOURCE, "timestamped")
-
-    def ours(domain, year, value, method=WEB_METHOD, kind="cdx_timestamp", source=cdx):
-        return ev(conn, domain, source, year, kind, value, None, method)
-
-    def his(domain, year, marker):
-        eid = ev(conn, domain, his_source, year, HIS_TYPE, marker, None, HIS_SOURCE)
-        assign_year(conn, eid)
-        return eid
-
-    assign_year(conn, ours("keep.com", 2000, capture("keep.com", 2000)))
-    assign_year(conn, ours("keep2.com", 2000, capture("shop.keep2.com", 2000)))
-    ours("keep2.com", 2000, capture("keep2.com", 2000))
-    assign_year(conn, ours("recite.com", 1998, "1998-03-01", "whois_bulk", "whois_creation", whois))
-    ours("recite.com", 1998, capture("recite.com", 1998))
-    his("rolled.com", 1999, f"{MARKER}/1999.txt")
-    ours("rolled.com", 1999, capture("rolled.com", 1999))
-    superseded = {
-        "gone.com": (1998, his("gone.com", 1998, f"{OLDER}/1998.txt")),
-        "sup.com": (2000, his("sup.com", 2000, f"{OLDER}/2000.txt")),
-    }
-    ours("sup.com", 2000, capture("sup.com", 2000))
-    assign_year(conn, ours("sub.com", 2001, capture("shop.sub.com", 2001)))
-    assign_year(conn, ours("roll.com", 2001, "cdx capture 2001", "ia_cdx_collapsed_query"))
-    his("rollup.com", 1997, f"{MARKER}/1997.txt")
-    add_candidate(conn, "known.com", cdx)
-    his("known.com", 1997, f"{MARKER}/1997.txt")
-    add_candidate(conn, "lonely.com", cdx)
-    parent = ours("hd.com", 1999, capture("hd.com", 1999), source=hosts)
-    header = ours("hd.com", 2000, "header 2000 mx.hd.com", "usenet", "artifact_listing", hosts)
-    for year, eid in ((1999, parent), (2000, header)):
-        conn.execute(
-            "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
-            "VALUES ('mx.hd.com', 'hd.com', ?, ?)",
-            [year, eid],
-        )
-    conn.close()
-    csv_path = tmp / "his_superseded_only.csv"
-    csv_path.write_text(
-        names("domain,year,marker,evidence_id,cited")
-        + "".join(f"{d},{y},{OLDER}/{y}.txt,{i},true\n" for d, (y, i) in superseded.items())
-    )
-
-    before = export(
-        tmp / "before",
-        {
-            "2000.txt": names("keep.com", "keep2.com"),
-            "2001.txt": names("roll.com", "sub.com"),
-            "1999_hostnames.txt": names("mx.hd.com"),
-            "candidate_additions.txt": names("recite.com"),
-            "header_candidates.txt": "",
-            "attested_registrables.txt": attested("1997 known.com 1997 rollup.com", KEPT, GONE),
-            "evidence_manifest.csv": names(
-                MANIFEST,
-                row("keep.com", 2000, capture("keep.com", 2000)),
-                row("keep2.com", 2000, capture("shop.keep2.com", 2000)),
-                row("roll.com", 2001, "cdx capture 2001", "ia_cdx_collapsed_query"),
-                row("sub.com", 2001, capture("shop.sub.com", 2001)),
-            ),
-            "hostnames_evidence_manifest.csv": names(
-                HOST_MANIFEST,
-                f"mx.hd.com,hd.com,1999,cdx_timestamp,{capture('hd.com', 1999)},{HOST_SOURCE},"
-                f"{WEB_METHOD},",
-            ),
-            "header_candidates_provenance.csv": names(HEADER_PROVENANCE),
-            "SHA256SUMS": "stale\n",
-            "candidate_unverified.txt": names("lonely.com"),
-        },
-    )
-    after = export(
-        tmp / "after",
-        {
-            "1998.txt": names("recite.com"),
-            "1999.txt": names("rolled.com"),
-            "2000.txt": names(*sorted(["keep.com", "keep2.com", "sup.com", *planted])),
-            "candidate_additions.txt": names(
-                *sorted(["known.com", "mx.hd.com", "roll.com", "sub.com", *planted_candidates])
-            ),
-            "header_candidates.txt": names("mx.hd.com"),
-            "attested_registrables.txt": attested(KEPT),
-            "evidence_manifest.csv": names(
-                MANIFEST,
-                row("keep.com", 2000, capture("keep.com", 2000)),
-                row("keep2.com", 2000, capture("keep2.com", 2000)),
-                row("recite.com", 1998, capture("recite.com", 1998)),
-                row("rolled.com", 1999, capture("rolled.com", 1999)),
-                row("sup.com", 2000, capture("sup.com", 2000)),
-            ),
-            "hostnames_evidence_manifest.csv": names(HOST_MANIFEST),
-            "header_candidates_provenance.csv": names(
-                HEADER_PROVENANCE,
-                f"mx.hd.com,2000,{HOST_SOURCE},usenet,artifact_listing,header 2000 mx.hd.com,",
-            ),
-            "candidate_unverified.txt": names("known.com", "lonely.com"),
-        },
-    )
-    return {
-        "before": before,
-        "after": after,
-        "store": store,
-        "out": tmp / "stage_b" / "deltas.csv",
-        "superseded": csv_path,
-        "baseline": folder,
-    }
-
-
-# What `deltas` writes for `deltas_case`, in its order: file, name, year, change, detail
-c, NOW, OLD, K2 = capture, f"his row {MARKER}", f"his row {OLDER}", capture("keep2.com", 2000)
-EXPECTED = f"""file,family,year,name,change,reason,detail
-1998.txt,registrable,1998,recite.com,added,re-cited,own capture {c("recite.com", 1998)}
-1999.txt,registrable,1999,rolled.com,added,released,{NOW}/1999.txt
-1999_hostnames.txt,hostname,1999,mx.hd.com,removed,withdrawn,cited {c("hd.com", 1999)}
-2000.txt,registrable,2000,sup.com,added,superseded-only,{OLD}/2000.txt only
-2001.txt,registrable,2001,roll.com,removed,converter roll-up,cited cdx capture 2001
-2001.txt,registrable,2001,sub.com,removed,withdrawn,cited {c("shop.sub.com", 2001)}
-attested_registrables.txt,attested,1998,gone.com,removed,superseded-only,{OLD}/1998.txt only
-attested_registrables.txt,attested,1997,known.com,removed,his row only,{NOW}/1997.txt
-attested_registrables.txt,attested,1997,rollup.com,removed,his row only,{NOW}/1997.txt
-candidate_additions.txt,candidate,,known.com,added,candidate,his roll-up only
-candidate_additions.txt,candidate,,mx.hd.com,added,candidate,years withdrawn
-candidate_additions.txt,candidate,,recite.com,removed,candidate,moved to 1998.txt
-candidate_additions.txt,candidate,,roll.com,added,candidate,years withdrawn
-candidate_additions.txt,candidate,,sub.com,added,candidate,years withdrawn
-candidate_unverified.txt,unverified,,known.com,added,candidate,his roll-up only
-evidence_manifest.csv,manifest,2000,keep2.com,added,re-cited,own capture {K2}
-evidence_manifest.csv,manifest,2000,keep2.com,removed,re-cited,cited {c("shop.keep2.com", 2000)}
-evidence_manifest.csv,manifest,1998,recite.com,added,re-cited,own capture {c("recite.com", 1998)}
-evidence_manifest.csv,manifest,2001,roll.com,removed,converter roll-up,cited cdx capture 2001
-evidence_manifest.csv,manifest,1999,rolled.com,added,released,{NOW}/1999.txt
-evidence_manifest.csv,manifest,2001,sub.com,removed,withdrawn,cited {c("shop.sub.com", 2001)}
-evidence_manifest.csv,manifest,2000,sup.com,added,superseded-only,{OLD}/2000.txt only
-header_candidates.txt,header,,mx.hd.com,added,candidate,years withdrawn
-header_candidates_provenance.csv,provenance,2000,mx.hd.com,added,candidate,years withdrawn
-hostnames_evidence_manifest.csv,manifest,1999,mx.hd.com,removed,withdrawn,cited {c("hd.com", 1999)}
-"""
-
-
-def test_deltas_gives_every_changed_line_its_reason(tmp_path, monkeypatch):
-    case = deltas_case(tmp_path, monkeypatch)
-    store = sha(case["store"])
-    summary = migrate.deltas(**case)
-
-    assert case["out"].read_text() == EXPECTED
-    assert summary["lines"] == 25 and summary["unexplained"] == 0
-    one = Decimal("1.0000")
-    assert summary["by_reason"]["withdrawn"]["removed"] == {"lines": 2, "ee": 2 * one}
-    assert summary["by_reason"]["candidate"]["added"] == {"lines": 4, "ee": 4 * one}
-    assert summary["by_reason"]["candidate"]["net_ee"] == 3 * one
-    assert summary["by_reason"]["released"]["net_ee"] == one
-    # the attested list is priced apart, and it is not a claim
-    assert "his row only" not in summary["by_reason"]
-    assert summary["by_family"]["attested"]["his row only"]["removed"] == {
-        "lines": 2,
-        "ee": 2 * one,
-    }
-    assert summary["by_family"]["manifest"]["re-cited"]["added"] == {"lines": 2, "ee": None}
-    assert summary["invalid_records"] == 0
-    assert summary["skipped"] == ["SHA256SUMS", "candidates_unparsed.txt", "export_stamp.json"]
-    assert summary["summaries_consistent"] and len(summary["summaries"]) == 6
-    assert summary["by_file"]["attested_registrables.txt"] == {
-        "family": "attested",
-        "added": 0,
-        "removed": 3,
-        "unexplained": 0,
-    }
-    listed = case["out"].parent / "deltas" / "candidate" / "added" / "candidate.txt"
-    assert listed.read_text() == names("known.com", "mx.hd.com", "roll.com", "sub.com")
-    assert json.loads(case["out"].with_suffix(".json").read_text())["unexplained"] == 0
-    assert sorted(p.name for p in case["out"].parent.iterdir()) == [
-        "deltas",
-        "deltas.csv",
-        "deltas.json",
-    ]
-    assert sha(case["store"]) == store
-
-
-def test_an_unexplained_line_exits_1_and_a_refusal_2(tmp_path, monkeypatch):
-    # nothing dates the first; his 2000.txt and his pool hold the others by exact name; only
-    # his rolled-up row names rollup.com and no source of ours filed it, so the export keeps it out
-    case = deltas_case(
-        tmp_path,
-        monkeypatch,
-        ["planted.com", "already-his.com"],
-        ["held-candidate.com", "rollup.com"],
-    )
-    monkeypatch.chdir(tmp_path)  # restored after the test; deltas_main chdirs into `root`
-    argv = [str(case["before"]), str(case["after"]), "--store", str(case["store"])]
-    argv += ["--out", str(case["out"]), "--superseded", str(case["superseded"])]
-    argv += ["--baseline", str(case["baseline"])]
-    assert migrate.deltas_main(argv, root=tmp_path) == 1
-    written = case["out"].read_text().splitlines()
-    assert "2000.txt,registrable,2000,planted.com,added,unexplained," in written
-    assert "2000.txt,registrable,2000,already-his.com,added,unexplained,in his 2000.txt" in written
-    held_line = (
-        "candidate_additions.txt,candidate,,held-candidate.com,added,unexplained,in his files"
-    )
-    assert held_line in written
-    assert "candidate_additions.txt,candidate,,rollup.com,added,unexplained," in written
-    pool = ["known.com", "mx.hd.com", "roll.com", "sub.com"]
-    (case["after"] / "2000.txt").write_text(names("keep.com", "keep2.com", "sup.com"))
-    (case["after"] / "candidate_additions.txt").write_text(names(*pool))
-    (case["after"] / "candidate_additions_summary.json").write_text(json.dumps({"candidates": 4}))
-    assert migrate.deltas_main(argv, root=tmp_path) == 0
-    # the calculator lists go in the folder named like --out, never one deltas did not write
-    no_csv = [*argv]
-    no_csv[no_csv.index("--out") + 1] = str(tmp_path / "deltas_out")
-    assert migrate.deltas_main(no_csv, root=tmp_path) == 2
-    mark = case["out"].with_suffix("") / migrate.PRICED_MARK
-    mark.unlink()
-    assert migrate.deltas_main(argv, root=tmp_path) == 2
-    mark.write_text("")
-    (held.HELD_ROOT / MARKER / "held.json").unlink()
-    assert migrate.deltas_main(argv, root=tmp_path) == 2
-
-
-# A lane in miniature: it asks held about five names, writes the attested ones as a journal and
-# the rest as a list, as the splitters do.
-TOY_LANE = """
-import argparse
-from pathlib import Path
-
-import duckdb
-
-from ark import held
-from ark.journal import journal_writer, write_journal_line
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, required=True)
-    out = ap.parse_args().out
-    names = {"ours.com", "rolled.com", "old.com", "already-his.com", "early.his.org", "novel.net"}
-    conn = duckdb.connect("data/ark.duckdb", read_only=True)
-    attested, known = held.attested(conn, names), held.known_years(conn, names)
-    conn.close()
-    with journal_writer(out / "toy_dated.jsonl.gz") as fh:
-        for name in sorted(attested):
-            write_journal_line(fh, {"domain": name, "year": 1999})
-    (out / "toy_cand.txt").write_text("".join(f"{n}\\n" for n in sorted(names - attested)))
-    print(f"{len(known)} pairs already dated")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-"""
-
-
-def test_lane_deltas_explains_a_rolled_up_name(tmp_path, monkeypatch, his_files):
-    monkeypatch.setattr(migrate, "loaded_jobs", lambda: [])
-    monkeypatch.setattr(migrate, "holders", lambda path: [])
-    monkeypatch.setenv("ARK_DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))  # the children's spill
-    store = tmp_path / "data" / "ark.duckdb"
-    conn = old_db(store)
-    cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    his_source = ensure_source(conn, HIS_SOURCE, "timestamped")
-    value = capture("ours.com", 1999)
-    assign_year(conn, ev(conn, "ours.com", cdx, 1999, "cdx_timestamp", value, None, SWEEP))
-    # his rows as his releases were loaded: rolled.com from his www.rolled.com, old.com from an
-    # older release alone, already-his.com in each year his files hold it
-    his = [("rolled.com", 1999, MARKER), ("old.com", 1998, OLDER)]
-    his += [("already-his.com", year, MARKER) for year in YEARS]
-    for domain, year, marker in his:
-        value = f"{marker}/{year}.txt"
-        assign_year(conn, ev(conn, domain, his_source, year, HIS_TYPE, value, None, HIS_SOURCE))
-    conn.close()
-    (tmp_path / "toy_input.txt").write_text("five names\n")
-    (tmp_path / "toy_split.py").write_text(TOY_LANE)
-    # what it wrote last time, against an older store
-    (tmp_path / "prev").mkdir()
-    (tmp_path / "prev" / "toy_cand.txt").write_text("novel.net\nstale.org\n")
-    lanes = {
-        "toy": migrate.Lane(
-            "toy_split.py", ("--out", "{out}"), ("toy_input.txt",), previous="prev"
-        ),
-        "gone": migrate.Lane("gone_split.py", ("--out", "{out}"), ("data/raw/gone.zip",)),
-    }
-    monkeypatch.setattr(migrate, "LANES", lanes)
-    monkeypatch.chdir(tmp_path)  # restored after the test; lane_deltas_main chdirs into `root`
-    assert migrate.lane_deltas_main(["--only", "toy,gone", "--witness-lines"], root=tmp_path) == 0
-
-    moved = f"toy_split.py,{{}},{migrate.weight_of('x.com')},1,dated,candidate"
-    assert (tmp_path / migrate.LANE_CSV).read_text().splitlines() == [
-        ",".join(migrate.LANE_COLUMNS),
-        "gone,gone_split.py,,,,,,input_absent,data/raw/gone.zip",
-        # his 1996 file names early.his.org exactly, which the store's domain_year never did
-        f"toy,toy_split.py,early.his.org,{migrate.weight_of('early.his.org')},1,candidate,dated,"
-        "his_exact_name,his all.txt",
-        f"toy,{moved.format('old.com')},his_superseded_release,{OLDER}/1998.txt",
-        f"toy,{moved.format('rolled.com')},his_rolled_up_hostname,{MARKER}/1999.txt www.rolled.com",
-    ]
-    report = json.loads((tmp_path / migrate.LANE_JSON).read_text())
-    assert report["unexplained"] == report["pairs_unexplained"] == 0 and not report["failed"]
-    toy = report["lanes"]["toy"]
-    assert [run["exit"] for run in toy["runs"].values()] == [0, 0]
-    assert toy["pairs"]["lost_by_reason"] == {
-        "his_rolled_up_hostname": 1,
-        "his_superseded_release": 1,
-    }
-    assert (
-        toy["pairs"]["gained_his_exact"] == 1
-        and toy["gained_by_reason"]["his_exact_name"]["names"] == 1
-    )
-    # already-his.com is his exact name, so it stays dated
-    assert toy["files"] == {
-        "toy_cand.txt": {"before": 2, "after": 3, "only_before": 1, "only_after": 2},
-        "toy_dated.jsonl.gz": {"before": 4, "after": 3, "only_before": 2, "only_after": 1},
-    }
-    assert toy["previous"] == {
-        "toy_cand.txt": {"previous_only": 1, "before_only": 1},
-        "toy_dated.jsonl.gz": "absent",
-    }
-    # each run's output goes once diffed; its log and record stay
-    assert sorted(p.name for p in (tmp_path / migrate.LANE_ROOT / "toy").iterdir()) == [
-        "after.json",
-        "after.log",
-        "before.json",
-        "before.log",
-    ]

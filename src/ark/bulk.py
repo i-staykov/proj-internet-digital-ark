@@ -33,6 +33,7 @@ from ark.canonical import reject_reason, to_registrable
 from ark.db import ensure_source
 from ark.evidence_types import (
     ALL_TYPES,
+    CANDIDATE_ONLY_SQL,
     CANDIDATE_ONLY_TYPES,
     exact_host_expr,
     qualifies_sql,
@@ -58,7 +59,6 @@ _STAGE_SCHEMA = pa.schema(
         ("record_location", pa.string()),
     ]
 )
-_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 
 @dataclass(frozen=True)
@@ -286,7 +286,7 @@ def _date_fresh_rows(conn: duckdb.DuckDBPyConnection) -> tuple[int, int]:
             SELECT dy.domain, dy.assigned_year, min(w.evidence_id) AS evidence_id
             FROM domain_year dy
             JOIN at_pairs w ON w.domain = dy.domain AND w.evidence_year = dy.assigned_year
-            WHERE w.evidence_type NOT IN ({_CANDIDATE_LIST})
+            WHERE w.evidence_type NOT IN ({CANDIDATE_ONLY_SQL})
               AND {qualifies_sql("w", "w.domain")}
               AND NOT EXISTS (
                 SELECT 1 FROM at_pairs c

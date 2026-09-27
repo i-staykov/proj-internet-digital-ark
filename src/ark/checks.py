@@ -15,11 +15,9 @@ import duckdb
 
 from ark import held
 from ark.bulk import names_another_host_sql
-from ark.evidence_types import CANDIDATE_ONLY_TYPES, WEB_METHODS, qualifies_sql
+from ark.evidence_types import CANDIDATE_ONLY_SQL, WEB_METHODS, qualifies_sql
 from ark.hostnames import AUDITED_FAMILIES, FLEETREAD_SOURCE, WEB_FACING_HOST_SOURCES
 from ark.ingest import YEARS
-
-_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 # Where `ark export` writes the annual additions. A parameter rather than a
 # constant inside the SQL: a hardcoded path would make the test suite assert
@@ -120,7 +118,7 @@ CHECKS: list[tuple[str, str, Check]] = [
         f"""
         SELECT count(*) FROM domain_year dy
         JOIN evidence e ON e.evidence_id = dy.evidence_id
-        WHERE e.evidence_type IN ({_CANDIDATE_LIST})
+        WHERE e.evidence_type IN ({CANDIDATE_ONLY_SQL})
         """,
     ),
     (
@@ -130,7 +128,7 @@ CHECKS: list[tuple[str, str, Check]] = [
         SELECT count(*) FROM domain_year dy WHERE NOT EXISTS (
             SELECT 1 FROM evidence e
             WHERE e.domain = dy.domain AND e.evidence_year = dy.assigned_year
-              AND e.evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND e.evidence_type NOT IN ({CANDIDATE_ONLY_SQL})
         )
         """,
     ),
@@ -327,7 +325,7 @@ CHECKS: list[tuple[str, str, Check]] = [
         f"""
         WITH unassigned AS MATERIALIZED (
             SELECT e.* FROM evidence e
-            WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
+            WHERE e.evidence_type NOT IN ({CANDIDATE_ONLY_SQL})
               AND NOT EXISTS (
                 SELECT 1 FROM domain_year dy
                 WHERE dy.domain = e.domain AND dy.assigned_year = e.evidence_year
