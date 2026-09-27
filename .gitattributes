@@ -8,8 +8,6 @@ docs/phase*-plan.md export-ignore
 # working documents about how to approach the round, and corrections owed. Neither is a
 # deliverable and neither is his business.
 handoff-*.md export-ignore
-# The round email prose, read by fill_report. Working document, not a deliverable.
-docs/round/email-sections.md export-ignore
 # Questions put to the reviewer, written to him in the second person. Same class as the
 # email prose: read by the ship step, never delivered.
 docs/registers/questions.md export-ignore

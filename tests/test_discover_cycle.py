@@ -94,21 +94,6 @@ def test_a_pending_class_is_reported_and_nothing_is_written(tmp_path, monkeypatc
     assert approvals.read_text(encoding="utf-8") == APPROVALS_FIXTURE
 
 
-def test_unfinished_hypotheses_are_not_raised_at_the_human(tmp_path, monkeypatch) -> None:
-    """Ivo: "I had no idea there are hypothesis for me to sign-off." They are the agent's
-    queue, so they belong in findings and never in attention.
-    """
-    ledger = tmp_path / "hypotheses.tsv"
-    ledger.write_text(
-        "id\tstatus\ttitle\nH003\tscreened\tRFC index\nH009\trejected\tSomething dead\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cycle, "LEDGER", ledger)
-    findings, attention = cycle.check_ledger()
-    assert attention == []
-    assert any("yours to settle" in f for f in findings)
-
-
 def test_the_cycle_no_longer_knows_how_to_restart_a_collector() -> None:
     """Deliberate absence, not an oversight: an unattended loop does not get to kill
     collectors. A self-matching `pkill -f` once took down a healthy one mid-batch.

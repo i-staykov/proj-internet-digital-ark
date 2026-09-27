@@ -139,11 +139,7 @@ def nearest_closed(source_name: str) -> str:
 
 
 def append(text: str, block: str) -> str:
-    """The page with the block last in `## Pending requests`, whose `None.` then goes.
-
-    Inside the section, not at the end of the file: after the last section the block would
-    land in `## Found, awaiting triage`, where `approvals.py` reads it as a triage line.
-    """
+    """The page with the block last in `## Pending requests`, whose `None.` then goes."""
     marker = "## Pending requests"
     if marker not in text:
         return text.rstrip("\n") + "\n\n" + marker + "\n\n" + block

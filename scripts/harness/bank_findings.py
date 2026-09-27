@@ -1,10 +1,10 @@
 """The scribe, as code: book fleet findings into the register, deterministically.
 
-The sonnet scribe did four mechanical things every round: append one register row per
-finding, write the result line onto the hypothesis block, re-rank the triage queue, and
-leave the working tree ready to commit. Nothing in that list needs a model once the
-findings carry their fields in a fixed shape, and a model was the second-largest token
-cost in the loop. So this is that scribe, at zero tokens.
+The sonnet scribe did three mechanical things every round: append one register row per
+finding, write the result line onto the hypothesis block, and leave the working tree ready
+to commit. Nothing in that list needs a model once the findings carry their fields in a
+fixed shape, and a model was the second-largest token cost in the loop. So this is that
+scribe, at zero tokens.
 
 It never ingests and never decides: a FIND is booked exactly like a CLOSED, and the
 approval path (`standing_rule.py`, then `sync_approvals.py`) is the only thing that reaches

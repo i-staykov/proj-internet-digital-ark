@@ -157,8 +157,8 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - Nominet's RDAP terms forbid extracting or re-using any part of the database, so `.uk` RDAP journals sit in `rdap_hold_uk`, where no ingest reaches (`scripts/harness/audit_residual.py`).
 - lists.apache.org honours only `d=YYYY-MM`: a ten-day 2001 range answers 200 with 15,001 newest-month messages, `d=1999` a 13-message stub, and the echoed `searchParams` repeat the range it ignored (`scripts/sources/mail_corpora/collect_apache_lists.py`).
 - lists.apache.org `stats.lua list=*` caps silently at 15,001 messages a month from 2000-07 and drops quiet lists, a largest value that repeats; per-list `active_months` is exact (`collect_apache_lists.py --expand`).
-- archive.org `services/search/v1/scrape` lies under load: 6 items for five collections, total=28330 for five queries, six false zeros in one batch (`scripts/harness/dataset_discovery.py` asks `advancedsearch.php`).
-- archive.org `services/search/v1/scrape` rejects `count<100` (`scripts/harness/dataset_discovery.py`).
+- archive.org `services/search/v1/scrape` lies under load: 6 items for five collections, total=28330 for five queries, six false zeros in one batch.
+- archive.org `services/search/v1/scrape` rejects `count<100`.
 - One request clears an FTP host: its `ls-lR.gz` or `locatedb.gz` grepped offline, where `ftp.gwdg.de`'s 926 MB locatedb indexes an 8.8 GB tree; `just find locatedb`.
 - A size floor passes a wrong artifact: a replay URL missing the slash in `id_/` served seven objects as one 154,263-byte interstitial, and a floor at half the expected bytes passed all seven (`scripts/harness/fetch.py` prints each object's bytes and sha256).
 
