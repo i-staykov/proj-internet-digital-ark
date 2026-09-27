@@ -1483,8 +1483,8 @@ ship stage="all" *args:
         echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
         uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
+        if ! git diff --quiet -- docs/report.md docs/report.docx; then
+            git add docs/report.md docs/report.docx
             git commit -q -m "Regenerate the round report and its .docx before packaging"
             echo "== committed the regenerated report artifacts =="
         fi
