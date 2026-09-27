@@ -6,17 +6,18 @@ both: either invented domains reach an annual file, or a large body of genuine
 dated evidence is thrown away.
 
 So the same split `expand.py` applies to archived directory pages applies here.
-A domain **another source already places in an annual file** is real, and the
-only open question is the year, which the post answers with an auditable
-Message-ID. That half is written as `dated_directory`. A name appearing only in
-Usenet has neither its existence nor its year independently attested, and 35.4%
-of such names in this corpus are within a single edit of a name the store
-already holds, so that half is written as `link_target` and routed to the
-candidate pool to earn its own evidence.
+A domain **we already date in some year, or that his files name exactly**, is
+real, and the only open question is the year, which the post answers with an
+auditable Message-ID. That half is written as `dated_directory`. A name
+appearing only in Usenet has neither its existence nor its year independently
+attested, and 35.4% of such names in this corpus are within a single edit of a
+name the store already holds, so that half is written as `link_target` and
+routed to the candidate pool to earn its own evidence.
 
-The test is deliberately "appears in `domain_year`", not "appears in `domain`".
-The latter includes the candidate pool, so a typo that some earlier round also
-recorded as a candidate would corroborate itself.
+The test is deliberately `held.attested`, a year of ours or his exact name, and
+not any name the store has seen. That would include the candidate pool, so a
+typo that some earlier round also recorded as a candidate would corroborate
+itself. His `www.foo.com` does not attest `foo.com`.
 
     uv run python scripts/sources/usenet/split_usenet.py data/raw/usenet/*.zip --write
 """
@@ -32,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 from ark.usenet import is_moderated_announce, parse_usenet  # noqa: E402
 
@@ -121,6 +123,11 @@ def main() -> None:
         "serial run whatever this is set to.",
     )
     args = parser.parse_args()
+    # checked before hours of parsing, not after
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
     suffix = f"_{args.tag}" if args.tag else ""
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -165,11 +172,10 @@ def main() -> None:
         for index, path in enumerate(args.archives, 1):
             absorb(index, *parse_one(path))
 
+    names = {domain for domain, _ in seen}
     conn = _open_store()
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, names, his)
     finally:
         conn.close()
 
@@ -191,10 +197,11 @@ def main() -> None:
 
     print(f"parse stats: {dict(stats)}")
     print(f"extracted pairs: {len(seen):,}")
-    print(f"  corroborated (another source places the domain in an annual file): {len(dated):,}")
     print(
-        f"  uncorroborated (candidate pool only)                             : {len(candidates):,}"
+        f"  {len(attested):,} of {len(names):,} names are dated by us or named exactly in his files"
     )
+    print(f"  corroborated (dated by us in some year, or in his files): {len(dated):,}")
+    print(f"  uncorroborated (candidate pool only)                    : {len(candidates):,}")
     # Reported, not enforced: admission is decided by corroboration alone. A
     # reviewer who wants only moderated announcements can filter on the group
     # name, which every evidence row carries.

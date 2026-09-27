@@ -4,33 +4,24 @@
 .gitattributes export-ignore
 # Every round's plan, by pattern, so a new round needs no line.
 docs/phase*-plan.md export-ignore
-# **Anything addressed to a person.** `submissions/phase-5/email-draft.md` is a letter to
-# the reviewer. Nothing addressed to a person is tracked, and `private/` is where drafts
-# belong; this one is already in history, so this is the containment.
-# `tests/test_delivery_privacy.py` fails if the shape reappears.
-submissions/*/email-draft.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans:
 # working documents about how to approach the round, and corrections owed. Neither is a
 # deliverable and neither is his business.
 handoff-*.md export-ignore
-# The round email prose, read by fill_report. Working document, not a deliverable.
-docs/round/email-sections.md export-ignore
 # Questions put to the reviewer, written to him in the second person. Same class as the
 # email prose: read by the ship step, never delivered.
 docs/registers/questions.md export-ignore
 # The rounds ledger: sent against credited figures and the ranking arithmetic, with the
 # reviewer's mail stamps. Bookkeeping about him, not a deliverable.
 docs/registers/rounds.md export-ignore
-# The agent harness: settings and the hunt workflows. They configure the fleet from a clone
-# of this branch, and say nothing about the domains, so they are working apparatus not delivery.
+# The agent harness: it configures the fleet from a clone of this branch and says nothing
+# about the domains, so it is working apparatus not delivery.
 .claude/settings.json export-ignore
-.claude/workflows/ export-ignore
 # The compaction handoff: what the next context needs, written from a transcript. Working
 # note about a session, not a deliverable.
 private/handoff.md export-ignore
-# The harness's skills, subagents, path-scoped rules and output style: they configure a
-# session, say nothing about the domains, and belong with settings.json above.
+# The harness's skills, subagents and path-scoped rules: they configure a session, say
+# nothing about the domains, and belong with settings.json above.
 .claude/skills/ export-ignore
 .claude/agents/ export-ignore
 .claude/rules/ export-ignore
-.claude/output-styles/ export-ignore

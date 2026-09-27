@@ -189,12 +189,16 @@ def test_a_red_gate_unbanks_only_the_reads_source(tmp_path, monkeypatch, capsys)
             " (domain, discovered_source) VALUES ('o.com', 1), ('n.com', 1), ('r.com', 2);"
             "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value,"
             " ingested_at) SELECT domain, discovered_source, 1998, 'cdx_timestamp', 'x',"
-            " if(domain = 'o.com', '2026-01-01'::TIMESTAMPTZ, now()) FROM domain"
+            " if(domain = 'o.com', '2026-01-01'::TIMESTAMPTZ, now()) FROM domain;"
+            "INSERT INTO domain_year SELECT domain, 1998, evidence_id, now() FROM evidence;"
+            "INSERT INTO hostname_year SELECT 'www.' || domain, domain, 1998, evidence_id, now()"
+            " FROM evidence; INSERT INTO ingested_file SELECT s.name, domain, 'abc', 1,"
+            " ingested_at FROM evidence JOIN source s USING (source_id)"
         )
         held = unbank.counts(conn, "ia_cdx_bulk")
     args = [*awk.stdout.split(), "--db", db, "--write", "--run-start", start.stdout.strip()]
     assert unbank.main(args) == 1
     assert "REFUSED ia_cdx_bulk" in capsys.readouterr().err
     with duckdb.connect(db, read_only=True) as conn:
-        assert unbank.counts(conn, "ia_cdx_bulk") == held and held["evidence"] == 2
+        assert unbank.counts(conn, "ia_cdx_bulk") == held == dict.fromkeys(held, 2), "every grain"
         assert not any(unbank.counts(conn, "fleet_x_hostnames").values())

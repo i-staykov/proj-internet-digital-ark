@@ -89,7 +89,7 @@ WITH mention AS (
     AND s.name = ?
 ),
 corroborated AS (
-  SELECT DISTINCT dy.domain FROM our_domain_year dy
+  SELECT DISTINCT dy.domain FROM domain_year dy
   JOIN evidence e2 ON e2.evidence_id = dy.evidence_id
   JOIN source s2 ON s2.source_id = e2.source_id
   WHERE e2.evidence_type <> 'link_target' AND s2.name NOT LIKE 'usenet%'
@@ -102,7 +102,7 @@ SELECT DISTINCT m.domain, m.y, m.val, m.url
 FROM mention m LEFT JOIN created c ON c.domain = m.domain
 WHERE m.domain IN (SELECT domain FROM corroborated)
   AND NOT EXISTS (
-    SELECT 1 FROM our_domain_year dy WHERE dy.domain = m.domain AND dy.assigned_year = m.y)
+    SELECT 1 FROM domain_year dy WHERE dy.domain = m.domain AND dy.assigned_year = m.y)
   AND (c.first_year IS NULL OR m.y >= c.first_year)
 """
 
@@ -127,8 +127,7 @@ def journal_line(domain: str, year: int, value: str, url: str | None) -> dict:
 
 
 def select(conn, mention_source: str, his: held.Held) -> list[tuple]:
-    """The promotable mentions of one source, less the pairs his file for that year holds.
-    Needs `our_domain_year`."""
+    """The promotable mentions of one source, less the pairs his file for that year holds."""
     rows = conn.execute(_SELECT, [mention_source]).fetchall()
     by_year: dict[int, set[str]] = defaultdict(set)
     for domain, year, _v, _u in rows:
@@ -150,7 +149,6 @@ def main() -> None:
         raise SystemExit(str(error)) from None
     conn = connect_read_only_patiently(STORE, patience_s=900)
     try:
-        held.our_domain_year(conn)
         seen: set[tuple[str, int]] = set()
         total_pairs = 0
         commands: list[str] = []

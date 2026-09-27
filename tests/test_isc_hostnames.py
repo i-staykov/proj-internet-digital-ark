@@ -50,14 +50,15 @@ def test_ingest_dates_by_the_survey_code_and_is_idempotent(tmp_path) -> None:
     init_db(conn)
     path = write(tmp_path, HOSTS)
     stats = ingest_isc_hostnames(conn, path)
-    # A reverse-DNS walk observes a machine, not a site, so since 2026-09-02 the lane
-    # writes evidence and the parent's year but no hostname record.
+    # A reverse-DNS walk observes a machine, not a site, so the lane writes evidence and no
+    # hostname record, and a host never dates its parent.
     assert stats["hostname_year_candidates"] == 3
     assert stats["hostname_year_rows"] == 0
     assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 0
     rows = conn.execute(
         """
-        SELECT e.domain, e.evidence_year, e.evidence_type, e.evidence_value, e.evidence_url
+        SELECT e.domain, e.evidence_year, e.evidence_type, e.evidence_value, e.evidence_url,
+               e.source_file, e.record_location
         FROM evidence e ORDER BY e.evidence_value
         """
     ).fetchall()
@@ -67,9 +68,10 @@ def test_ingest_dates_by_the_survey_code_and_is_idempotent(tmp_path) -> None:
         "artifact_listing",
         "isc survey 1996-07 host dummy.custard.co.uk",
         "http://nw.com/zone/9607.hosts/uk.gz",
+        "wb_nw_9607_uk.gz",
+        "line 1",
     )
-    # each parent earns 1996 from the same observation, once
-    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 3
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     assert ingest_isc_hostnames(conn, path)["skipped"] is True
     assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 3
     assert (

@@ -66,7 +66,6 @@ def observe(conn, source, hostname, year=1996, month="07", parent="example.com")
 
 def write_collection(conn, baseline: Path, out: Path):
     his = held.load(baseline)
-    held.our_domain_year(conn)
     stats = {}
     with tempfile.TemporaryDirectory(dir=out.parent) as work:
         export.reduce_isc(conn, his, Path(work))

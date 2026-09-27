@@ -6,15 +6,23 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from his_release import HIS_CANDIDATES, HIS_YEARS, MARKER, all_names, digests, stage, text
+from his_release import (
+    HIS_CANDIDATES,
+    HIS_YEARS,
+    MARKER,
+    WEB_METHOD,
+    all_names,
+    capture,
+    digests,
+    stage,
+    text,
+)
 from typer.testing import CliRunner
 
 from ark import held
 from ark.cli import app
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 from ark.ingest import YEARS
-from ark.provenance import SHIPPED
 
 # CRLF, a blank line, padding, upper case, a duplicate, a quote, a tab, and one not a host at all
 HOSTILE = b'B.com\r\na.com\na.com\n\n  d.com  \nWWW.E.COM \r\nf"quoted,x.com\n\tt.com\nnot a host\n'
@@ -202,26 +210,105 @@ def test_ark_intake_writes_the_held_sets(tmp_path: Path, monkeypatch) -> None:
     assert read(held.load(folder).all) == sorted(all_names())
 
 
-def test_our_domain_year_ships_no_pair_resting_on_his_rows() -> None:
-    """A pair citing his row is re-pointed to our own row, or dropped when we have none."""
+# Asked of `attested`, `known_years` and `known_names`: ours.com is ours in 1998; his 1997 file
+# holds his.com, which the store lacks; his 1999 file holds www.rolled.com, which is not
+# rolled.com; both.com is ours in 1998 and in his 1997 file; www-only.com has only a capture of
+# www.www-only.com, which dates no pair; cand.org is a candidate of ours
+ASKED = "ours.com his.com rolled.com both.com www-only.com cand.org nobody.net".split()
+
+
+def _ours(conn, domain: str, year: int, host: str | None = None, assign: bool = True) -> int:
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    add_candidate(conn, domain, cdx)
+    value = capture(host or domain, year)
+    row = record_evidence(conn, domain, cdx, year, "cdx_timestamp", value, None, WEB_METHOD)
+    if assign:
+        assign_year(conn, row)
+    return row
+
+
+@pytest.fixture
+def asked_store(his_files: Path) -> duckdb.DuckDBPyConnection:
+    stage(his_files.parent, {"1997.txt": text(sorted(HIS_YEARS[1997] + ["both.com", "his.com"]))})
+    held.prepare(his_files)
     conn = connect(":memory:")
     init_db(conn)
-    his = ensure_source(conn, HIS_SOURCE, "timestamped")
-    cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    for name in ("a.com", "b.com", "c.com"):
-        add_candidate(conn, name, cdx)
-    his_a = record_evidence(conn, "a.com", his, 1999, HIS_TYPE, "1999.txt", None, HIS_SOURCE)
-    his_b = record_evidence(conn, "b.com", his, 1998, HIS_TYPE, "1998.txt", None, HIS_SOURCE)
-    www = record_evidence(conn, "a.com", cdx, 1999, "cdx_timestamp", "cdx capture 1999 www.a.com")
-    ours_a = record_evidence(conn, "a.com", cdx, 1999, "cdx_timestamp", "cdx capture 1999 a.com")
-    ours_c = record_evidence(conn, "c.com", cdx, 2000, "cdx_timestamp", "cdx capture 2000 c.com")
-    for eid in (his_a, his_b, ours_c):
-        assign_year(conn, eid)
-    held.our_domain_year(conn)
-    rows = conn.execute(
-        "SELECT domain, assigned_year, evidence_id FROM our_domain_year ORDER BY 1"
+    _ours(conn, "ours.com", 1998)
+    _ours(conn, "both.com", 1998)
+    _ours(conn, "www-only.com", 1998, host="www.www-only.com", assign=False)
+    add_candidate(conn, "cand.org", ensure_source(conn, "links", "candidate_only"))
+    return conn
+
+
+def test_attested_is_our_years_plus_his_exact_names(asked_store) -> None:
+    """His www.rolled.com attests no rolled.com."""
+    assert held.attested(asked_store, ASKED) == {"ours.com", "his.com", "both.com"}
+
+
+def test_known_years_is_per_year(asked_store) -> None:
+    assert held.known_years(asked_store, ASKED) == {
+        ("ours.com", 1998),
+        ("his.com", 1997),
+        ("both.com", 1997),
+        ("both.com", 1998),
+    }
+
+
+def test_attested_is_the_names_of_known_years(asked_store) -> None:
+    """His all.txt is his six year files merged, so the two answers agree on every name."""
+    names = ASKED + ["already-his.com", "early.his.org", "www.rolled.com"]
+    known = held.known_years(asked_store, names)
+    assert {name for name, _ in known} == held.attested(asked_store, names)
+    assert {year for name, year in known if name == "already-his.com"} == set(YEARS)
+
+
+def test_a_name_no_pair_dates_is_not_attested(asked_store) -> None:
+    """A capture of `www.` beside the name, or a candidate row, dates no pair of its own."""
+    assert held.attested(asked_store, ["www-only.com", "cand.org"]) == set()
+
+
+def test_the_pairs_asked_for_are_domain_year_on_those_names(asked_store) -> None:
+    asked = ["ours.com", "www-only.com", "cand.org"]
+    rows = asked_store.execute(
+        "SELECT domain, assigned_year FROM domain_year WHERE list_contains(?, domain)", [asked]
     ).fetchall()
-    assert rows == [("a.com", 1999, ours_a), ("c.com", 2000, ours_c)]
-    assert www < ours_a
-    shipped = conn.execute(f"SELECT domain FROM ({SHIPPED['domain_year']}) ORDER BY 1").fetchall()
-    assert shipped == [("a.com",), ("c.com",)]
+    assert held.known_years(asked_store, asked) == set(rows) == {("ours.com", 1998)}
+
+
+def test_known_names_are_the_names_we_found_or_he_holds(asked_store) -> None:
+    """Every `domain` row is a name we found, dated or not; his files add their exact lines."""
+    names = ASKED + ["held-candidate.com", "www.rolled.com"]
+    assert held.known_names(asked_store, names) == {
+        "ours.com",
+        "both.com",
+        "www-only.com",
+        "cand.org",
+        "his.com",
+        "held-candidate.com",
+        "www.rolled.com",
+    }
+
+
+def test_an_empty_ask_admits_nothing_and_needs_no_release() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    assert held.attested(conn, []) == set()
+    assert held.known_years(conn, iter(())) == set()
+
+
+@pytest.mark.parametrize("name", ["Foo.com", " foo.com", "foo.com\n", "a\nb.com", "a\tb.com", ""])
+def test_held_names_refuse_raw_text(name: str, his_files: Path) -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    for ask in (held.attested, held.known_years):
+        with pytest.raises(ValueError, match="not a lowercase name"):
+            ask(conn, ["ok.com", name])
+
+
+def test_attested_fails_closed_without_his_files() -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        held.attested(conn, ["a.com"])
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        held.known_years(conn, ["a.com"])

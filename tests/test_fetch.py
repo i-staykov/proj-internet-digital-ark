@@ -319,6 +319,108 @@ def test_a_redirect_that_leads_nowhere_fails(leg, routes, reason):
     assert len([p for p in server.asked if p in ("/a", "/b")]) <= fetch.MAX_HOPS + 1
 
 
+CDX, WB = "/cdx/search/cdx?url=example.com&matchType=domain", "/__wb/sparkline?url=example.com"
+
+
+@pytest.mark.parametrize(
+    ("start", "to", "refused", "asked"),
+    [
+        ("{cdx}" + CDX, (), "{cdx}" + CDX, []),
+        ("{cdx}/list.txt", (), "{cdx}" + CDX, ["/robots.txt", "/list.txt"]),
+        ("{cdx}/list.txt", ("--to", "-"), "{cdx}" + CDX, ["/robots.txt", "/list.txt"]),
+        ("{landing}/get", (), "{cdx}" + WB, []),
+        ("http://%5B::1/x.txt", (), "http://%5B::1/x.txt", []),
+    ],
+    ids=[
+        "a_cdx_url_is_refused_before_any_request",
+        "a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop-file",
+        "a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop-stream",
+        "a_redirect_onto_the_cdx_of_another_host_asks_that_host_nothing",
+        "a_url_whose_decoded_host_cannot_be_parsed_is_refused_as_one_would_be",
+    ],
+)
+def test_the_wayback_cdx_is_asked_nothing_by_the_url_or_any_hop(leg, start, to, refused, asked):
+    """A loopback host is an address, so it could be the Wayback's: not even its robots.txt is
+    asked for. Within one host the robots.txt is read, so the hop would be the next request."""
+    cdx = leg.serve({"/list.txt": hop(CDX), CDX: page(b"com,example)/ 19990101000000\n")})
+    at = {"cdx": cdx.base, "landing": leg.serve({"/get": hop(f"{cdx.base}{WB}", 301)}).base}
+    code, receipt, err, _ = run(start.format(**at), *to)
+    assert code == fetch.CDX_REFUSED, receipt
+    assert "Wayback CDX API" in receipt["reason"]
+    assert (receipt["url"], receipt["bytes"]) == (refused.format(**at), 0), "names what it refused"
+    assert (f"to {receipt['url']}, reading its robots" in err) == (start != refused), "a hop"
+    assert cdx.asked == asked
+    assert list(leg.probe.iterdir()) == []
+    if "%5B" in start:  # a decoded host that cannot be parsed is refused, not guessed at
+        with pytest.raises(ValueError):
+            fetch.cdx_query(start)
+
+
+ADDRESSES = "127.0.0.1 2130706433 0x7f000001 0177.0.0.01 127.1 [::1] [::ffff:127.0.0.1]".split()
+ADDRESSES.append("\uff11\uff12\uff17.\uff10.\uff10.\uff11")  # full-width digits
+# Any spelling of the host and path.
+SPELLED = [
+    "https://web.archive.org/cdx/search/cdx?url=example.com&matchType=domain",
+    "http://WEB.archive.org.:80//cdx/search/cdx",
+    "https://wayback.archive.org/%63dx/search/cdx",
+    "https://web.archive.org/web/timemap/cdx?url=example.com",
+    "https://web.archive.org/__wb/sparkline?output=json&url=example.com&collection=web",
+    "https://web.archive.org/__WB/calendarcaptures/2?url=example.com&date=1999",
+    "https://archive.org/wayback/available?url=example.com&timestamp=19990101",
+    "http://www.archive.org/wayback/available?url=example.com",
+    "https://wayback.archive.org/wayback/available?url=example.com",
+    "http://127.0.0.1/cdx/search/cdx?url=example.com",
+    "http://[::1]:8080/__wb/sparkline?url=example.com",
+    "https://web.archive.org/web/../cdx/search/cdx?url=example.com",
+    "https://web.archive.org/x%3F/%2e%2e/cdx/search/cdx?url=example.com",
+    "https://web.archive.org/;/cdx/search/cdx?url=example.com",
+    "https://\uff57\uff45\uff42.archive.org/cdx/search/cdx?url=example.com",
+    "https://web%2Earchive.org/cdx/search/cdx?url=example.com",
+    "https://%77eb.archive.org/cdx/search/cdx?url=example.com",
+    "https://archive%2Eorg/wayback/available?url=example.com",
+    "https://web.archive.org%3A443/cdx/search/cdx?url=example.com",
+    "http://127%2E0%2E0%2E1/cdx/search/cdx?url=example.com",
+]
+# An address in any form could be the Wayback's, but its download is not a query.
+ADDRESSED = [
+    f"http://{host}{path}?url=example.com"
+    for host in ADDRESSES
+    for path in ("/cdx/search/cdx", "/web/timemap/json")
+]
+# A replay, a download, or another host.
+NOT_CDX = [
+    "https://archive.org/download/some-item/big.cdx.gz",
+    "https://archive.org/download/some-item/wayback/available.txt",
+    "https://archive%2Eorg/download/some-item/big.cdx.gz",
+    "https://archive.org/cdx/search/cdx",
+    "https://ia800100.us.archive.org/cdx/x.cdx.gz",
+    "https://web.archive.org/web/2001id_/http://example.com/cdx/list.txt",
+    "https://web.archive.org/web/19991128153001/http://example.com/",
+    "https://example.org/cdx/search/cdx",
+    "https://example.org/__wb/sparkline?url=example.com",
+    "http://127.0.0.1/small.cdx",
+]
+
+
+@pytest.mark.parametrize(
+    ("asks", "asks_not"),
+    [
+        (SPELLED, []),
+        (ADDRESSED, [f"http://{host}/download/x/x.cdx.gz" for host in ADDRESSES]),
+        ([], NOT_CDX),
+    ],
+    ids=[
+        "a_cdx_url_is_one_however_it_is_spelled",
+        "an_address_in_any_form_the_resolver_takes_could_be_the_wayback",
+        "a_replay_a_download_or_another_host_is_no_cdx_url",
+    ],
+)
+def test_cdx_query_reads_every_spelling(asks, asks_not):
+    """Every url that is misread is listed at once."""
+    assert [url for url in asks if not fetch.cdx_query(url)] == []
+    assert [url for url in asks_not if fetch.cdx_query(url)] == []
+
+
 def test_retry_after_is_honoured_in_seconds_and_as_a_date():
     assert fetch.retry_after_seconds({"Retry-After": "30"}) == 30.0
     header = {"retry-after": "Wed, 09 Sep 2026 12:00:30 GMT"}
@@ -429,6 +531,42 @@ def test_a_dropped_stream_resumes_and_hashes_the_whole_artifact(leg, drop, reset
     if not reset:
         assert server.ranges[-1] == f"bytes=600000-{len(PAYLOAD) - 1}"
     assert list(leg.probe.iterdir()) == [], "a streamed read writes no file"
+
+
+@pytest.mark.parametrize(
+    "pipe", [True, False], ids=["pipe", "a_fault_on_a_file_fetch_resumes_into_the_same_file"]
+)
+def test_a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it(leg, pipe):
+    """A server that never hangs up, so the one drop is the one `--fault-after-bytes` asked
+    for, and the Range continuation is not cut."""
+    server = leg.serve({"/read.cdx": dropping(PAYLOAD, len(PAYLOAD))}, robots=None)
+    to = ("--to", "-" if pipe else str(leg.probe / "read.cdx"), "--fault-after-bytes", "600000")
+    code, receipt, _, out = run(f"{server.base}/read.cdx", *to)
+    assert code == fetch.OK, receipt
+    got = out if pipe else (leg.probe / "read.cdx").read_bytes()
+    assert got == PAYLOAD, "every byte once, in order and into the same file"
+    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
+    assert (receipt["resumes"], receipt["fault_after_bytes"]) == (1, 600000)
+    assert server.ranges == [None, None, f"bytes=600000-{len(PAYLOAD) - 1}"], "robots, then two"
+
+
+@pytest.mark.parametrize(
+    ("fault", "why", "asked"),
+    [
+        (str(len(PAYLOAD)), "needs a declared length above", ["/robots.txt", "/read.cdx"]),
+        ("0", "must be at least 1", []),
+    ],
+    ids=[
+        "a_fault_at_or_past_the_declared_length_exits_two_and_writes_nothing",
+        "a_fault_under_one_byte_is_refused_before_any_request",
+    ],
+)
+def test_a_fault_it_cannot_resume_from_exits_two_and_writes_nothing(leg, fault, why, asked):
+    server = leg.serve({"/read.cdx": dropping(PAYLOAD, len(PAYLOAD))}, robots=None)
+    code, _, err, out = run(f"{server.base}/read.cdx", "--to", "-", "--fault-after-bytes", fault)
+    assert (code, out) == (fetch.USAGE, b""), err
+    assert why in err
+    assert (server.asked, server.ranges) == (asked, [None] * len(asked)), "no range was asked for"
 
 
 @pytest.mark.parametrize("pipe", [False, True], ids=["file", "pipe"])

@@ -16,7 +16,6 @@ sit at the root. Rules live in `CLAUDE.md`. *Generated* pages name the script th
 | [registers/approved-sources-list.md](registers/approved-sources-list.md) | One `Decision:` line per (source, evidence type); `ark ingest` enforces it | before an ingest, and when writing a `Decision:` line |
 | [registers/sources-closed.md](registers/sources-closed.md) | One row per source measured and closed, with the figure and the reason; `just find <term>` first | before proposing or briefing a lens |
 | [registers/queue.md](registers/queue.md) | What only the owner can settle, the send and a new evidence class, at its measured figure (*generated* by `scripts/round/lead_queue.py`) | when the owner has a moment to rule |
-| [registers/hypotheses.tsv](registers/hypotheses.tsv) | The hypothesis ledger (*generated*: appended by `scripts/harness/hypothesis_ledger.py`) | when opening or closing a hypothesis |
 | [registers/releases.md](registers/releases.md) | Every reviewer release: whether received, per-year line counts, sha256 (`just releases` fills it) | before deleting or trusting a release tree |
 | [registers/retention.md](registers/retention.md) | One row per local data entry with its class, digest and refetch route (*generated* by `scripts/round/verify_raw.py`); a path with no row is not deletable | before deleting anything under `data/`, `output/` or `feedback/` |
 | [registers/rounds.md](registers/rounds.md) | Sent against credited per round, and the ranking score (`just rounds` writes a row; *not shipped*) | when a round's score or credit is quoted |
@@ -25,7 +24,6 @@ sit at the root. Rules live in `CLAUDE.md`. *Generated* pages name the script th
 | [report.template.md](report.template.md) | The round report with its stubs | when a five-figure source banks |
 | [report.md](report.md) | The filled report (*generated* by `scripts/round/fill_report.py`) | to read what shipped |
 | [report.docx](report.docx) | The Word rendering of the report (*generated* by `scripts/round/build_report_docx.py`) | before sending |
-| [round/email-sections.md](round/email-sections.md) | The round email prose, one block per heading, read by `fill_report.py` (*not shipped*) | when drafting the round email |
 | [round/reproduction.txt](round/reproduction.txt) | The verification-run paragraph `fill_report.py` quotes into the report | when that paragraph is in question |
 | [round/delivery_readme.md](round/delivery_readme.md) | The README at the archive root | before packaging |
 | [round/experience-summary.md](round/experience-summary.md) | What worked, what did not, the limits (D2) | when writing up a round |

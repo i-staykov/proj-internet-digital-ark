@@ -6,9 +6,8 @@ theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
 a file on disk was never read, that a derived target list is older than the rows it
-should carry, that a hypothesis has been sitting half-priced for a day, and that the
-state document has gone stale. **That is this script**, and it is genuinely
-autonomous: every check has a right answer that needs no judgement.
+should carry, and that the state document has gone stale. **That is this script**, and
+it is genuinely autonomous: every check has a right answer that needs no judgement.
 
 **It rebuilds, and it does not restart anything.** Regenerating a stale derived list
 is deterministic, so the cycle owns it. Stopping and starting collectors is not: an
@@ -45,7 +44,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ark.approvals import load as load_approvals  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.yield_check import (  # noqa: E402
     Collector,
@@ -55,9 +53,7 @@ from ark.yield_check import (  # noqa: E402
 )
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
-LEDGER = ROOT / "docs/registers/hypotheses.tsv"
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
-UNFINISHED = ("screened", "fetching", "priced")
 JOURNAL_DIR = ROOT / "data/raw/cdx"
 RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
 
@@ -349,30 +345,6 @@ def check_leg_slots(fleet: Path = DEFAULT_FLEET) -> tuple[list[str], list[str]]:
     ], []
 
 
-def check_ledger() -> tuple[list[str], list[str]]:
-    findings, attention = [], []
-    if not LEDGER.exists():
-        return ["ledger: absent"], []
-    lines = LEDGER.read_text(encoding="utf-8").splitlines()
-    if len(lines) < 2:
-        return ["ledger: empty"], []
-    header = lines[0].split("\t")
-    rows = [dict(zip(header, ln.split("\t"), strict=False)) for ln in lines[1:] if ln.strip()]
-    stuck = [r for r in rows if r.get("status") in UNFINISHED]
-    findings.append(f"hypotheses: {len(rows)} total, {len(stuck)} unfinished")
-    if stuck:
-        # Reported as the agent's own work queue, NOT as attention: the agent tests and
-        # settles a hypothesis until it is a key decision the owner signs off, and
-        # raising each one at him buries the things that genuinely need him.
-        findings.append(
-            "the next work, yours to settle without asking: "
-            + ", ".join(
-                f"{r['id']} ({r.get('status')}) {r.get('title', '')[:40]}" for r in stuck[:6]
-            )
-        )
-    return findings, attention
-
-
 def check_approvals() -> tuple[list[str], list[str]]:
     """Source classes whose journals are collected and cannot be ingested yet.
 
@@ -383,41 +355,15 @@ def check_approvals() -> tuple[list[str], list[str]]:
     `needs-owner` issues.
     """
     findings, attention = [], []
-    waiting = pending_approvals(APPROVALS)
-    # Two populations with the same gate and different reporting. A priced request carries
-    # a seeded sample with live links and a measured counterfactual, so it is named in the
-    # attention list and can be decided in two minutes. A triage entry is a source found
-    # and not yet priced, and that queue grows without bound, so it is one count: naming
-    # each would push the attention list past a screen, and then it stops being read.
-    triage = [a for a in waiting if a.is_triage]
-    priced = [a for a in waiting if not a.is_triage]
-    if not waiting:
+    priced = pending_approvals(APPROVALS)
+    if not priced:
         findings.append("approvals: nothing pending")
-    # The triage section holds only open entries: `scripts/round/split_triage.py` files a
-    # decision taken there, moving master blocks to Decided and rejected ones to
-    # `sources-closed.md` behind a stub. The owner decides in place and the split runs
-    # after, so a decided block still sitting in triage means it has not run yet.
-    decided_in_triage = [
-        a for a in load_approvals(APPROVALS).values() if a.is_triage and a.decision != "pending"
-    ]
-    if decided_in_triage:
-        findings.append(
-            f"approvals: {len(decided_in_triage)} decided entr(ies) still in the triage section, "
-            f"run `uv run python scripts/round/split_triage.py`"
-        )
-    if priced:
+    else:
         findings.append(f"approvals: {len(priced)} priced class(es) awaiting classification")
         attention.append(
             "classify these source classes before their records can date a year; the "
             "journals are on disk and nothing is lost: "
             + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in priced)
-        )
-    if triage:
-        findings.append(f"approvals: {len(triage)} source(s) in the triage queue")
-        attention.append(
-            f"{len(triage)} newly found source(s) await your triage in {APPROVALS.name} "
-            f"under 'Found, awaiting triage': for each, candidate pool or fold in "
-            f"directly. Nothing is blocked on it, since none can date a year while pending"
         )
     return findings, attention
 
@@ -444,7 +390,6 @@ def cycle(number: int, with_network: bool, fleet: Path = DEFAULT_FLEET) -> list[
         ("yield", check_yield),
         ("residual", check_residual),
         ("derived", rebuild_derived),
-        ("ledger", check_ledger),
         ("slots", lambda: check_leg_slots(fleet)),
         ("approvals", check_approvals),
         ("state", check_state),

@@ -3,7 +3,6 @@
 A pair is net-new when it ships and his file for its year lacks the exact name; a domain is
 net-new when it has a net-new pair and his files hold it in no year. `held` diffs both by
 `comm`, as `ark export` does, so the net-new pairs are the lines of `output/netnew/<year>.txt`.
-Only our rows count: one of his rows in the store holds nothing and corroborates nothing.
 
 Corroboration is reported at two strengths. Cross-SOURCE counts distinct source rows and is
 the weaker figure, because several sources share one collector. Cross-PROVENANCE counts
@@ -22,7 +21,7 @@ from ark import db, held
 from ark.baseline import REVIEWER_BASELINE_EE
 from ark.delegation import shipping_filter
 from ark.english_share import english_weights
-from ark.evidence_types import HIS_TYPE, MASTER_TYPES
+from ark.evidence_types import MASTER_TYPES
 
 # The scoreboard counts what ships, not what the store holds: `ark export` drops `.arpa`
 # names and pairs dated before their TLD was delegated, 866 pairs (479.4256 EE) that no
@@ -41,7 +40,6 @@ _SHIPPED_CANDIDATE = shipping_filter("d.", with_year=False)
 # family costs a corroboration statistic and is the conservative trade. A source absent
 # from this map is treated as its own lineage, which is conservative for anything new.
 PROVENANCE_LINEAGE = {
-    "prior_task": "internet_archive",
     "early_web_cdx": "internet_archive",
     "arquivo_ia": "internet_archive",
     "ia_cdx": "internet_archive",
@@ -149,15 +147,13 @@ PROVENANCE_LINEAGE = {
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
 }
-# only existence-proving evidence of ours corroborates an assertion
-_MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES - {HIS_TYPE}))
+# only existence-proving evidence corroborates an assertion
+_MASTER_TYPE_LIST = ", ".join(f"'{name}'" for name in sorted(MASTER_TYPES))
 
 
 def collect_stats(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> dict:
     """The scoreboard, diffed against his release in `baseline` (his current one by default)."""
     his = held.load(baseline)
-    held.our_domain_year(conn)
-    held.our_domains(conn)
     held.claim_pairs(conn)
     Path(db.DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=db.DB_TEMP_DIR) as tmp:
@@ -175,7 +171,7 @@ def collect_stats(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None)
     )
     evidence_by_type = dict(
         conn.execute(
-            f"SELECT evidence_type, count(*) FROM evidence e WHERE {held.ours('e')} "
+            "SELECT evidence_type, count(*) FROM evidence "
             "GROUP BY evidence_type ORDER BY count(*) DESC, evidence_type"
         ).fetchall()
     )
@@ -183,8 +179,8 @@ def collect_stats(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None)
         **_equivalent_english(conn),
         "his_release": his.marker,
         "baseline_domains": his.counts["all"],
-        "total_domains": one(f"SELECT count(*) FROM domain d WHERE {held.we_know('d')}"),
-        "total_pairs": one("SELECT count(*) FROM our_domain_year"),
+        "total_domains": one("SELECT count(*) FROM domain"),
+        "total_pairs": one("SELECT count(*) FROM domain_year"),
         "candidate_pool": one("SELECT count(*) FROM unverified"),
         # net-new domain: a net-new pair on a name his files hold in no year
         "netnew_domains": one(
@@ -207,8 +203,8 @@ def _unverified(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> 
     held.dump(
         conn,
         f"""SELECT d.domain FROM domain d
-            WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
-              AND {held.we_know("d")} AND {_SHIPPED_CANDIDATE}
+            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+              AND {_SHIPPED_CANDIDATE}
             ORDER BY 1""",
         found,
     )
@@ -224,7 +220,7 @@ def _corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
         WITH pair_sources AS (
             SELECT e.domain, e.evidence_year, count(DISTINCT e.source_id) AS n_sources
             FROM evidence e
-            JOIN our_domain_year dy
+            JOIN domain_year dy
               ON dy.domain = e.domain AND dy.assigned_year = e.evidence_year
             WHERE e.evidence_type IN ({_MASTER_TYPE_LIST})
             GROUP BY e.domain, e.evidence_year
@@ -260,7 +256,7 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
             SELECT e.domain, e.evidence_year, count(DISTINCT {lineage}) AS n_lineages
             FROM evidence e
             JOIN source s ON s.source_id = e.source_id
-            JOIN our_domain_year dy
+            JOIN domain_year dy
               ON dy.domain = e.domain AND dy.assigned_year = e.evidence_year
             WHERE e.evidence_type IN ({_MASTER_TYPE_LIST})
             GROUP BY e.domain, e.evidence_year
@@ -276,7 +272,6 @@ def _independent_corroboration(conn: duckdb.DuckDBPyConnection) -> dict:
             f"""
             SELECT {lineage} AS lineage, count(*) FROM evidence e
             JOIN source s ON s.source_id = e.source_id
-            WHERE {held.ours("e")}
             GROUP BY 1 ORDER BY 2 DESC
             """
         ).fetchall()
@@ -308,7 +303,7 @@ def _equivalent_english(conn: duckdb.DuckDBPyConnection) -> dict:
     ).fetchall()
     assigned = conn.execute(
         f"""
-        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM our_domain_year dy
+        SELECT split_part(dy.domain, '.', -1) AS tld, count(*) FROM domain_year dy
         WHERE {_SHIPPED}
         GROUP BY 1
         """

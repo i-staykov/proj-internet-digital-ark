@@ -19,12 +19,17 @@ from pathlib import Path
 import duckdb
 
 sys.path.insert(0, "src")
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
 
 paths = [Path(p) for p in sys.argv[1:]]
 if not paths:
     sys.exit("usage: ukwa_geoindex_price.py <inwindow.tsv.gz> [...]")
+try:
+    his = held.load()
+except held.HeldError as error:
+    sys.exit(str(error))
 pairs = set()
 rows = bad = 0
 
@@ -63,40 +68,31 @@ for _ in range(60):
 else:
     sys.exit("could not open the store read-only")
 
-con.execute("create temp table probe(domain varchar, y integer)")
-con.executemany("insert into probe values (?, ?)", sorted(pairs))
+# dated already: a pair of ours, or the exact name in his file for that year
+known = held.known_years(con, {d for d, _ in pairs}, his)
+held_n = len(pairs & known)
 
-held = con.execute(
-    """
-    select count(*) from probe p
-    where exists (
-        select 1 from domain_year d
-        where d.domain = p.domain and d.assigned_year = p.y
-    )
-    """
-).fetchone()[0]
-new_domains = con.execute(
-    """
-    select count(distinct p.domain) from probe p
-    where not exists (select 1 from domain d where d.domain = p.domain)
-    """
-).fetchone()[0]
+con.execute("create temp table probe(domain varchar)")
+con.executemany("insert into probe values (?)", [(d,) for d in sorted({d for d, _ in pairs})])
+unseen = {
+    row[0]
+    for row in con.execute(
+        """
+        select p.domain from probe p
+        where not exists (select 1 from domain d where d.domain = p.domain)
+        """
+    ).fetchall()
+}
+# a name his files date is seen too: the store lists only the names we know
+new_domains = len(unseen - held.attested(con, unseen, his))
 
-netnew = len(pairs) - held
+netnew = len(pairs) - held_n
 share = 100 * netnew / max(len(pairs), 1)
-print(f"  already held:                           {held:,}")
+print(f"  already dated, ours or his that year:   {held_n:,}")
 print(f"  NET-NEW pairs:                          {netnew:,}  ({share:.1f}%)")
 print(f"  of which domains the store has never seen: {new_domains:,}")
 
-newpairs = con.execute(
-    """
-    select p.domain, p.y from probe p
-    where not exists (
-        select 1 from domain_year d
-        where d.domain = p.domain and d.assigned_year = p.y
-    )
-    """
-).fetchall()
+newpairs = sorted(pairs - known)
 ee = sum((weight_of(d) for d, _ in newpairs), Decimal(0))
 print(f"  NET-NEW equivalent-English:             {ee:,.1f}")
 if netnew:

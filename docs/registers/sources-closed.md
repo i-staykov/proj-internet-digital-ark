@@ -6,6 +6,7 @@ measurement replaces its row, and git holds every earlier one. Look one up with 
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| cdx_nonzero_status_rows / cdx_timestamp | 2026-09-01, fleet 20260901T1557Z | 33.35 EE | SUPERSEDED by `nypw_timemaps_nonok`, which banks the same non-200 rows over all 34 partitions: the 3xx rows are master, the 4xx and 5xx rows candidates | <https://archive.org/download/nypw_timemaps/1998/nypw_timemaps1998_deeplinks_part01o.tar.gz> |
 | webbase_crawl_lists / artifact_listing | 2026-09-23 | 0 EE | CLOSED at 0 EE in window: the crawled_hosts lists are named MMYY (crawled_hosts.0105 is January 2005, file date 09-Feb-2005); the 2006 listing holds 365 files, all dated 2003 to 2006, and the January 2001 crawl has no list | <https://web.archive.org/web/20060527013341id_/http://dbpubs.stanford.edu:8091/~testbed/doc2/WebBase/crawl_lists/> <https://web.archive.org/web/20060105044642id_/http://dbpubs.stanford.edu:8091/~testbed/doc2/WebBase/webbase-pages.html> dbpubs.stanford.edu |
 | ia_cdx | n/a | not priced | SUPERSEDED. per-year CDX verification (superseded) |  |
 | nypw-first-capture-index | n/a | not priced | REJECTED | <https://archive.org/details/nypw_urls_CDXfirstentry> |

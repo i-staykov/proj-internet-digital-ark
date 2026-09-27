@@ -18,6 +18,7 @@ from test_fleet_ledger import STAND_IN
 from ark import approvals
 from ark.db import init_db
 from ark.hostnames import ingest_hostname_journal
+from ark.price_snapshot import NO_SPLIT_CLASSES
 
 HARNESS = Path(__file__).resolve().parents[1] / "scripts/harness"
 FLEET = Path(os.environ.get("ARK_FLEET") or "~/Documents/GitHub/ark-fleet").expanduser()
@@ -208,6 +209,10 @@ def test_a_sidecar_the_fleet_would_reject_becomes_its_blocked_fallback(tmp_path,
     assert [(lead / "finding.json.rejected").is_file() for lead in (bad, good)] == [True, False]
 
 
+NO_SPLIT = "net-new, no split          : 2,345 pairs, 5,897.3 EE"
+KEPT = "  the split would have kept: 1,111 pairs, 1,111.1 EE  <- for the record"
+
+
 def test_only_a_confirmed_find_with_items_is_repriced_by_the_pricer_its_grain_names(
     tmp_path, monkeypatch, capsys
 ):
@@ -226,6 +231,10 @@ def test_only_a_confirmed_find_with_items_is_repriced_by_the_pricer_its_grain_na
     items = findings._ITEMS_EE.search("net-new AFTER the split    : 1,234 pairs, 4,786.2 EE")
     hosts = findings._HOST_EE.search("NET-NEW hostname years 9,001  12,345.6789 EE   (quote)")
     assert (items.group(2), hosts.group(2)) == ("4,786.2", "12,345.6789")
+    assert findings._ITEMS_EE.search(NO_SPLIT).groups() == ("2,345", "5,897.3")
+    # Neither the figure the split would not quote nor the one it would have kept is read.
+    before = "net-new BEFORE the split   : 9,999 pairs, 9,999.9 EE  <- DO NOT QUOTE"
+    assert [findings._ITEMS_EE.search(line) for line in (before, KEPT)] == [None, None]
     (tmp_path / "items").mkdir()
     (tmp_path / "items/b-lead.jsonl").write_text('{"item": "x", "year": 1998}\n', "utf-8")
     monkeypatch.setattr(findings, "REPO", tmp_path)  # no local.env naming a real box
@@ -235,6 +244,24 @@ def test_only_a_confirmed_find_with_items_is_repriced_by_the_pricer_its_grain_na
         got = findings.fetch_items(bare)
         assert said in capsys.readouterr().out, remote
         assert (got is not None and got.read_text().startswith('{"item"')) == (remote == "items")
+
+
+def test_the_no_split_line_is_the_one_price_items_prints():
+    printed = 'f"net-new, no split          : {len(netnew):,} pairs, {ee(netnew):,.1f} EE"'
+    assert printed in (HARNESS.parent / "pricing/price_items.py").read_text(encoding="utf-8")
+
+
+def test_a_no_split_lead_is_priced_on_its_whole_net_new_set(tmp_path, monkeypatch):
+    """With `--no-split`, the one pricer run is read from the no-split line."""
+    kind = {"grain": "registrable", "evidence_class": min(NO_SPLIT_CLASSES)}
+    lead, items = drop(tmp_path, "a-listing", lead=kind), tmp_path / "items.jsonl"
+    monkeypatch.setattr(findings, "fetch_items", lambda _lead: items)
+    ran = Mock(return_value=subprocess.CompletedProcess([], 0, f"{NO_SPLIT}\n{KEPT}\n", ""))
+    monkeypatch.setattr(findings.subprocess, "run", ran)
+    result = findings.price(lead, {"verdict": "FIND"})
+    pricer = ["uv", "run", "python", "scripts/pricing/price_items.py", "--items", str(items)]
+    assert [call.args[0] for call in ran.call_args_list] == [pricer + ["--no-split"]]
+    assert (result["status"], result["netnew"], result["ee"]) == ("priced", 2345, 5897.3)
 
 
 def remote_read(root: Path, complete=True, tamper=False, extra="", rename="") -> Path:

@@ -22,6 +22,7 @@ FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
 PLANTED_ADDRESS = "9.8.7" + ".6"
 PLANTED_TOKEN = "ghp_" + "0123456789abcdefghijklmnopqrstuvwxyz"
 PLANTED_DASHES = (chr(0x2013), chr(0x2014))
+PLANTED_DECISION = "C" + "-95"
 
 needs_git = pytest.mark.skipif(
     shutil.which("git") is None or not (ROOT / ".git").exists(),
@@ -68,17 +69,25 @@ def test_every_known_address_is_one_the_regex_would_catch() -> None:
         )
 
 
-def test_the_scan_catches_a_planted_address_token_and_dash(tmp_path: Path) -> None:
-    """A file carrying any of these shapes is reported, which is what the hook and CI rely on."""
+def test_the_scan_catches_each_planted_shape(tmp_path: Path) -> None:
+    """A file carrying any of these shapes is reported, which is what the hook and CI rely on.
+    A frozen submission keeps its decision numbers and nothing else."""
     planted = tmp_path / "leak.txt"
     text = "host " + PLANTED_ADDRESS + "\nexport GH_TOKEN=" + PLANTED_TOKEN + "\n"
     text += "".join(f"1996{dash}2001\n" for dash in PLANTED_DASHES)
+    text += f"see {PLANTED_DECISION}\n"
     planted.write_text(text, encoding="utf-8")
     found = scan([planted])
     rules = {f.rule for f in found}
     assert "address" in rules, "the planted address was not found"
     assert "github token" in rules, "the planted token was not found"
     assert sum(f.rule == "dash" for f in found) == len(PLANTED_DASHES), "a planted dash was missed"
+    assert "decision number" in rules, "the planted decision number was not found"
+
+    frozen = tmp_path / "submissions" / "phase-5" / "leak.txt"
+    frozen.parent.mkdir(parents=True)
+    frozen.write_text(text, encoding="utf-8")
+    assert {f.rule for f in scan([frozen])} == rules - {"decision number"}
 
 
 def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:

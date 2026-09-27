@@ -6,6 +6,7 @@ annual result ships unless every invariant below holds. Several encode a rule th
 report states, so a reader who doubts the rule can run the gate instead of taking it on trust.
 """
 
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +14,7 @@ from pathlib import Path
 import duckdb
 
 from ark import held
+from ark.bulk import names_another_host_sql
 from ark.evidence_types import CANDIDATE_ONLY_TYPES, WEB_METHODS, qualifies_sql
 from ark.hostnames import AUDITED_FAMILIES, FLEETREAD_SOURCE, WEB_FACING_HOST_SOURCES
 from ark.ingest import YEARS
@@ -57,9 +59,23 @@ _WEB_METHOD_LIST = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
 _NO_EXPORT = "no exported files in {}; run `ark export` first"
 _EMPTY = "the exported files this check reads are empty, so there is nothing to verify yet"
 
+# **The first evidence id this store issued itself**, the start `located_from` keeps: a rebuild
+# gives it the evidence sequence's start, one past every id the Parquet holds, and a fresh store
+# 1, so a row below it came from an older store and a row at or above it was written here. Not
+# `evidence_seq`'s own start, which DuckDB rewrites to its next id when the store closes.
+# `duckdb_sequences()` lists every attached database's, so only the current one's counts.
+LOCATION_FROM_ID = (
+    "(SELECT start_value FROM duckdb_sequences() "
+    "WHERE sequence_name = 'located_from' AND database_name = current_database())"
+)
+
 
 class _Skipped(Exception):
     """A check that had nothing to read; the text says why."""
+
+
+class _Failed(Exception):
+    """A check that could not run on this store; the text says why."""
 
 
 def _braced(sql: str) -> str:
@@ -305,14 +321,19 @@ CHECKS: list[tuple[str, str, Check]] = [
         "cannot sit in the candidate pool while already holding proof of a year. Evidence "
         "that names a SUBDOMAIN is exempt: it evidences that host, not the registrable "
         "beneath it, so it never dates the registrable",
+        # a row naming a host below its domain, `www.` included, dates that host and owes the
+        # domain no year, by the rule the writers apply; the rows with no pair are found first,
+        # so the host is read on those
         f"""
-        SELECT count(*) FROM evidence e
-        WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
-          AND e.evidence_value NOT LIKE 'cdx capture % %.' || e.domain
-          AND NOT EXISTS (
-            SELECT 1 FROM domain_year dy
-            WHERE dy.domain = e.domain AND dy.assigned_year = e.evidence_year
-          )
+        WITH unassigned AS MATERIALIZED (
+            SELECT e.* FROM evidence e
+            WHERE e.evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND NOT EXISTS (
+                SELECT 1 FROM domain_year dy
+                WHERE dy.domain = e.domain AND dy.assigned_year = e.evidence_year
+              )
+        )
+        SELECT count(*) FROM unassigned e WHERE NOT {names_another_host_sql("e")}
         """,
     ),
     (
@@ -332,6 +353,44 @@ CHECKS: list[tuple[str, str, Check]] = [
              + (SELECT count(*) FROM domain_year WHERE evidence_id IN (SELECT * FROM bad))
         """,
     ),
+    # `evidence` carries no key and no table a foreign key, so these four hold what the
+    # constraints held
+    (
+        "evidence_id_unique",
+        "no two evidence rows share an id, so an assignment points at exactly one row",
+        "SELECT count(*) - count(DISTINCT evidence_id) FROM evidence",
+    ),
+    (
+        "domain_wall_intact",
+        "every evidence row, assignment, hostname record and language verdict names a stored "
+        "domain",
+        """
+        SELECT (SELECT count(*) FROM evidence e ANTI JOIN domain d ON d.domain = e.domain)
+             + (SELECT count(*) FROM domain_year y ANTI JOIN domain d ON d.domain = y.domain)
+             + (SELECT count(*) FROM hostname_year h
+                ANTI JOIN domain d ON d.domain = h.parent_domain)
+             + (SELECT count(*) FROM domain_language l ANTI JOIN domain d ON d.domain = l.domain)
+        """,
+    ),
+    (
+        "source_wall_intact",
+        "every evidence row, and every domain's discovery, names a stored source",
+        """
+        SELECT (SELECT count(*) FROM evidence e ANTI JOIN source s ON s.source_id = e.source_id)
+             + (SELECT count(*) FROM domain d
+                ANTI JOIN source s ON s.source_id = d.discovered_source)
+        """,
+    ),
+    (
+        "new_rows_have_location",
+        "every evidence row this store wrote itself names the file it was read from and its "
+        "place in it; a row from before the store's first own id may name neither",
+        f"""
+        SELECT count(*) FROM evidence
+        WHERE evidence_id >= {LOCATION_FROM_ID}
+          AND (source_file IS NULL OR record_location IS NULL)
+        """,
+    ),
 ]
 
 
@@ -341,13 +400,14 @@ def _count(conn: duckdb.DuckDBPyConnection, sql: str, netnew_dir: Path, audit: P
             raise _Skipped(f"no status audit at {audit}; run scripts/round/status_audit.py")
         # replaced, not formatted: the SQL carries regex braces
         sql = sql.replace("{audit}", str(audit)).replace("{audited}", _AUDITED)
-    if "{netnew_dir}" in sql:
+    exported = "{netnew_dir}" in sql
+    if exported:
         sql = sql.format(netnew_dir=netnew_dir)
     try:
         return conn.execute(sql).fetchone()[0]
     except duckdb.IOException:
         raise _Skipped(_NO_EXPORT.format(netnew_dir)) from None
-    except (duckdb.BinderException, duckdb.InternalException) as exc:
+    except (duckdb.BinderException, duckdb.InternalException, duckdb.CatalogException) as exc:
         # Every matching file is empty, so `read_csv` infers no columns and the query
         # cannot bind. A real state, not a fault: a round that has added nothing exports
         # six empty annual files. Reported as skipped rather than passed, because a
@@ -356,7 +416,15 @@ def _count(conn: duckdb.DuckDBPyConnection, sql: str, netnew_dir: Path, audit: P
         # internal error is a fault and is re-raised.
         if isinstance(exc, duckdb.InternalException) and "at least one column" not in str(exc):
             raise
-        raise _Skipped(_EMPTY) from None
+        if exported and not isinstance(exc, duckdb.CatalogException):
+            raise _Skipped(_EMPTY) from None
+        # otherwise the store lacks a table or a column the check reads
+        column = re.search(r'column "([^"]+)" not found', str(exc))
+        table = re.search(r"Table with name (\w+) does not exist", str(exc))
+        what = (
+            f"column {column[1]}" if column else f"table {table[1]}" if table else str(exc)
+        ).splitlines()[0]
+        raise _Failed(f"the store lacks {what}: run `uv run ark init`") from None
 
 
 def collect_checks(
@@ -385,7 +453,7 @@ def collect_checks(
             result["ok"] = result["offending"] == 0
         except _Skipped as skip:
             result["skipped"] = str(skip)
-        except held.HeldError as error:
+        except (held.HeldError, _Failed) as error:
             result |= {"ok": False, "error": str(error)}
         results.append(result)
     return results

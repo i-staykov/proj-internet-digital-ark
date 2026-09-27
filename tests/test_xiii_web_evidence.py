@@ -60,11 +60,12 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
     its method, because a wildcard vhost answers 404 for any name pointed at it.
 
     Driven through DuckDB rather than asserted on the string: the whole rule lives in a
-    `regexp_extract` and a `LIKE`, and only the engine can say those are right.
+    `regexp_extract` and a `SIMILAR TO`, and only the engine can say those are right.
     """
     rows = [
         ("nypw_timemap_non_200", "nypw timemap capture status 301 19990412235959", True),
         ("nypw_timemap_non_200", "nypw timemap capture status 302 20010704120000", True),
+        ("nypw_timemap_non_200", "nypw timemap capture status 206 20010704120000", True),
         ("nypw_timemap_non_200", "nypw timemap capture status 404 20010704120000", False),
         ("nypw_timemap_non_200", "nypw timemap capture status 500 20010704120000", False),
         ("nypw_timemap", "nypw timemap capture 20010704120000", True),
@@ -90,9 +91,10 @@ def test_a_redirect_is_admitted_by_its_status_and_an_error_is_not() -> None:
 
 
 def test_the_reviewers_own_baseline_is_not_our_claim() -> None:
-    """`prior_task` is his merged corpus: his remediation, and never our net-new."""
+    """His release is his, never our net-new: the store holds no row of his, so neither his
+    source nor his type can date a year, and the schema refuses his type outright."""
     assert "prior_task" not in WEB_METHODS
-    assert "prior_reused" in MASTER_TYPES
+    assert "prior_reused" not in MASTER_TYPES
 
 
 def test_the_predicate_names_the_alias_it_was_given() -> None:

@@ -137,14 +137,15 @@ def test_ingest_writes_rows_for_both_editions_and_is_idempotent(tmp_path: Path) 
     init_db(conn)
     snapshot = write(tmp_path, SNAPSHOT, "ripe.db.gz")
     split = write(tmp_path, SPLIT, "ripe.db.domain.gz")
-    # An `nserver:` attribute observes a nameserver, not a site, so since 2026-09-02
-    # the lane writes evidence and the parent's year but no hostname record.
+    # An `nserver:` attribute observes a nameserver, not a site, so the lane writes
+    # evidence and no hostname record, and a host never dates its parent.
     assert ingest_ripe_nserver_hostnames(conn, snapshot)["hostname_year_candidates"] == 4
     assert ingest_ripe_nserver_hostnames(conn, split)["hostname_year_candidates"] == 3
     assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 0
     rows = conn.execute(
         """
-        SELECT e.domain, e.evidence_year, e.evidence_type, e.acquisition_method, e.evidence_url
+        SELECT e.domain, e.evidence_year, e.evidence_type, e.acquisition_method, e.evidence_url,
+               e.source_file
         FROM evidence e WHERE e.evidence_value LIKE '%ns.lucky.net%'
         """
     ).fetchall()
@@ -155,10 +156,17 @@ def test_ingest_writes_rows_for_both_editions_and_is_idempotent(tmp_path: Path) 
             "artifact_listing",
             "ripe_changed_nserver",
             "https://ftp.funet.fi/pub/netinfo/RIPE/dbase/split/ripe.db.domain.gz",
+            "ripe.db.domain.gz",
         )
     ]
-    # every parent earns its year from the same row, once per (parent, year)
-    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 7
+    # each row names the `nserver:` or `*ns:` line it was read from
+    for value, where in conn.execute(
+        "SELECT evidence_value, record_location FROM evidence"
+    ).fetchall():
+        number = int(where.removeprefix("line "))
+        text = SPLIT if value.startswith("ripe_changed:") else SNAPSHOT
+        assert value.rsplit(" ", 1)[1] in text.splitlines()[number - 1].lower(), value
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     assert ingest_ripe_nserver_hostnames(conn, snapshot)["skipped"] is True
     assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 7
     assert (

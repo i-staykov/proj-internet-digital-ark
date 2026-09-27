@@ -1,10 +1,11 @@
 """The capture-journal hostname lane, and what survives of the purpose rules.
 
 One still stands: a record needs an observation of the host serving web content, so the DNS
-lanes date the parent only. The other is gone: `www.<parent>` is its own record, admitted
-on his section XI and on a count of his own benchmark, where 1,221,065 names carry both forms
-in one year file. What replaced it is weaker and more useful: a `www.<parent>` record must
-point at evidence naming that exact host, so admitting the shape never became asserting it.
+lanes keep their evidence and write no record. The other is gone: `www.<parent>` is its own
+record, admitted on his section XI and on a count of his own benchmark, where 1,221,065 names
+carry both forms in one year file. What replaced it is weaker and more useful: a `www.<parent>`
+record must point at evidence naming that exact host, so admitting the shape never became
+asserting it. A capture of any host dates that host and never the registrable above it.
 """
 
 import gzip
@@ -62,8 +63,8 @@ def _parent_years_on_web_rows(conn: duckdb.DuckDBPyConnection) -> list[tuple[int
 
 
 def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_path) -> None:
-    """A 4xx or 5xx keeps its status in the evidence row, so it dates no master year and
-    no parent; a 2xx or 3xx of the same host-year is quoted instead, however much later."""
+    """A 4xx or 5xx keeps its status in the evidence row, so it dates no master year; a 2xx or
+    3xx of the same host-year is quoted instead, however much later."""
     conn = duckdb.connect(":memory:")
     init_db(conn)
     rows = [
@@ -87,9 +88,7 @@ def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_p
     }
     # the error rows stay in the store as candidates; only the 302 reaches a master file
     assert _shipped(conn) == [("shop.example.com", 1998)]
-    assert conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall() == [
-        ("example.com", 1998)
-    ]
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
 
 
@@ -115,7 +114,7 @@ def test_an_error_lane_dates_nothing_and_refuses_a_row_that_is_not_an_error(tmp_
 
 def test_a_later_2xx_or_3xx_takes_the_year_an_error_capture_held(tmp_path) -> None:
     """Journals are read one at a time, so the ok capture may arrive second. Either way round
-    the 302 is quoted, the host-year ships and the parent is dated."""
+    the 302 is quoted and the host-year ships; the parent is not dated by it."""
     error = (
         "early_web_nonok_status_t.jsonl.gz",
         [("http://shop.example.com/", "19990101000000", "404")],
@@ -130,9 +129,7 @@ def test_a_later_2xx_or_3xx_takes_the_year_an_error_capture_held(tmp_path) -> No
         for name, rows in order:
             ingest_hostname_journal(conn, write(tmp_path, rows, name))
         assert _shipped(conn) == [("shop.example.com", 1999)]
-        assert conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall() == [
-            ("example.com", 1999)
-        ]
+        assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
 
 
 def test_a_journal_that_must_carry_a_status_and_does_not_is_refused(tmp_path) -> None:
@@ -153,8 +150,8 @@ def test_a_journal_that_must_carry_a_status_and_does_not_is_refused(tmp_path) ->
 def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_path) -> None:
     """Neither form establishes the other. `www.<parent>` is its own record, and the same
     capture does not date the parent: "nor does the presence of www automatically establish
-    the bare hostname". So 1998 is still dated, by the bare capture and by `shop.example.com`,
-    and 1999 is not.
+    the bare hostname". Nor does `shop.example.com`, and the bare capture is the registrable
+    converter's row, so this lane dates no year of example.com.
     """
     conn = duckdb.connect(":memory:")
     init_db(conn)
@@ -167,8 +164,7 @@ def test_www_of_the_parent_is_a_record_but_no_longer_dates_the_registrable(tmp_p
         ("www.example.com", 1998),
         ("www.example.com", 1999),
     ]
-    # 1998 survives on its own evidence; 1999 rested only on www and is gone
-    assert sorted(conn.execute("SELECT assigned_year FROM domain_year").fetchall()) == [(1998,)]
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     results = {r["name"]: r for r in collect_checks(conn, Path("no-such-export"))}
     assert results["a_www_record_has_its_own_evidence"]["ok"]
     assert results["hostname_observed_serving_web"]["ok"]
@@ -181,6 +177,69 @@ def test_a_www_only_year_never_dates_the_parent_even_alone(tmp_path) -> None:
     ingest_hostname_journal(conn, write(tmp_path, [("http://www.example.com/", "19970601000000")]))
     assert conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0] == 1
     assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+
+
+def test_a_sub_host_capture_dates_no_registrable(tmp_path) -> None:
+    """`sub.example.com` answering 200 in 1999 is that host's year, never example.com's."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    ingest_hostname_journal(conn, write(tmp_path, [("http://sub.example.com/", "19990601000000")]))
+    assert _shipped(conn) == [("sub.example.com", 1999)]
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
+
+
+def test_re_reading_a_journal_or_another_source_repeating_it_adds_no_row(tmp_path) -> None:
+    """A class keeps one row per host and year, whichever file or source repeats it: a journal
+    read again past its ledger adds nothing, and so does Arquivo's capture of the same host-year,
+    which the sweep's row already proves."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    first = ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
+    conn.execute("DELETE FROM ingested_file")
+    again = ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
+    other = ingest_hostname_journal(conn, write(tmp_path, CAPTURES, "arquivo_ia_0000.jsonl.gz"))
+    assert [s["evidence_rows"] for s in (first, again, other)] == [3, 0, 0]
+    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 3
+
+
+def test_a_registrable_grain_capture_of_the_host_leaves_the_lane_its_own_row(tmp_path) -> None:
+    """Early Web banked at registrable grain keeps a bare stamp capturing www.example.com under
+    example.com. Only a lane's own row can carry the hostname record, so the lane still writes
+    one, and neither row dates example.com."""
+    from ark.bulk import ingest_files
+    from ark.sources import SOURCES
+
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    cdx = tmp_path / "early_web.cdx"
+    cdx.write_text("com,example,www)/ 19990601000000 http://www.example.com/ text/html 200 X 1\n")
+    banked = ingest_files(conn, SOURCES["early_web"], [cdx], report_dir=tmp_path)
+    journal = write(
+        tmp_path, [("http://www.example.com/", "19990601000000", "200")], "early_web_t.jsonl.gz"
+    )
+    stats = ingest_hostname_journal(conn, journal)
+    assert banked["evidence_rows"] == 1
+    assert (stats["evidence_rows"], stats["hostname_year_rows"]) == (1, 1)
+    assert _shipped(conn) == [("www.example.com", 1999)]
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))
+
+
+def test_every_row_names_its_journal_and_line(tmp_path) -> None:
+    """The line is the journal's own, counted before a re-read skips any, so it finds the
+    capture quoted in the file however the row was read."""
+    conn = duckdb.connect(":memory:")
+    init_db(conn)
+    ingest_hostname_journal(conn, write(tmp_path, CAPTURES))
+    rows = conn.execute(
+        "SELECT evidence_value, source_file, record_location FROM evidence ORDER BY 1"
+    ).fetchall()
+    assert rows == [
+        ("cdx capture 19980301000000 www.example.com", "sweep_test.jsonl.gz", "line 1"),
+        ("cdx capture 19980415120000 shop.example.com", "sweep_test.jsonl.gz", "line 2"),
+        ("cdx capture 19990101000000 www.example.com", "sweep_test.jsonl.gz", "line 4"),
+    ]
 
 
 def test_a_forced_dns_row_and_a_www_row_without_its_own_evidence_are_both_caught() -> None:
@@ -306,8 +365,9 @@ def _audit(tmp_path: Path, errors: list[tuple[str, ...]], repoint: list[tuple[st
 
 
 def _store_on_error_captures(tmp_path: Path) -> tuple[duckdb.DuckDBPyConnection, Path]:
-    """Three host-years banked before rows carried a status. The audit says a 1999 and a
-    2000 capture were errors; only the 1999 host-year has a 2xx elsewhere in the raw."""
+    """Three host-years banked before rows carried a status, with the parent years such a
+    capture dated then. The audit says a 1999 and a 2000 capture were errors; only the 1999
+    host-year has a 2xx elsewhere in the raw."""
     conn = duckdb.connect(":memory:")
     init_db(conn)
     rows = [
@@ -316,6 +376,10 @@ def _store_on_error_captures(tmp_path: Path) -> tuple[duckdb.DuckDBPyConnection,
         ("http://c.example.com/", "20010101000000", "200"),
     ]
     ingest_hostname_journal(conn, write(tmp_path, rows, "nypw_status_t.jsonl.gz"))
+    conn.execute(
+        "INSERT INTO domain_year (domain, assigned_year, evidence_id) "
+        "SELECT domain, evidence_year, evidence_id FROM evidence"
+    )
     audit = _audit(
         tmp_path,
         [
@@ -344,6 +408,11 @@ def test_a_record_on_an_error_capture_is_repointed_or_retracted(tmp_path) -> Non
     assert len(_shipped(conn)) == 3, "a dry run changes nothing"
 
     retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
+    target = conn.execute(
+        "SELECT source_file, record_location FROM evidence "
+        "WHERE evidence_value = 'cdx capture 19990601000000 a.example.com'"
+    ).fetchall()
+    assert target == [("status_repoint.tsv.gz", "hostname a.example.com year 1999")]
     values = dict(
         conn.execute(
             "SELECT hy.hostname, e.evidence_value FROM hostname_year hy "
@@ -374,7 +443,13 @@ def test_a_retracted_year_another_web_family_captured_comes_back(tmp_path) -> No
     assert stats["restored_by_another_web_family"] == 1
     assert stats["left_on_an_error_capture"] == 0
     assert ("b.example.com", 2000) in _shipped(conn)
-    assert (2000,) in _parent_years_on_web_rows(conn)
+    # a host's capture moves no parent year, so 2000 stays on its error row, a candidate
+    assert (2000,) not in _parent_years_on_web_rows(conn)
+    restored = conn.execute(
+        "SELECT source_file, record_location FROM evidence "
+        "WHERE evidence_value = 'cdx capture 20000301000000 b.example.com'"
+    ).fetchall()
+    assert restored == [("suffix_example_com_t.jsonl.gz", "line 1")]
     # read past the ledger for that key alone, and the ledger is left as it was
     names = [n for (n,) in conn.execute("SELECT file_name FROM ingested_file").fetchall()]
     assert names == ["nypw_status_t.jsonl.gz"]
@@ -389,8 +464,8 @@ def test_a_parent_year_never_moves_onto_a_candidate_only_row(tmp_path) -> None:
     source = conn.execute("SELECT source_id FROM source LIMIT 1").fetchone()[0]
     conn.execute(
         "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value, "
-        "acquisition_method) VALUES ('example.com', ?, 2000, 'link_target', "
-        "'host_link_graph:2000', 'ukwa_host_link_graph')",
+        "acquisition_method, source_file, record_location) VALUES ('example.com', ?, 2000, "
+        "'link_target', 'host_link_graph:2000', 'ukwa_host_link_graph', 'links.tsv', 'line 1')",
         [source],
     )
     retract_error_captures(conn, audit, write=True, netnew_dir=tmp_path, journals=())
@@ -544,7 +619,8 @@ def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypat
     ).fetchall()
     assert by == [("fleet_x_hostnames", "bulk_cdx_file")]
     years = conn.execute("SELECT domain, assigned_year FROM domain_year ORDER BY 1").fetchall()
-    assert years == [("example.com", 1999), ("example.org", 2000)], "the 404 dates nothing"
+    # the registrable half dates example.com; shop.example.org dates only itself
+    assert years == [("example.com", 1999)], "the 404 dates nothing"
     cited = conn.execute(
         "SELECT e.evidence_value FROM domain_year dy JOIN evidence e USING (evidence_id)"
         " WHERE dy.domain = 'example.com'"

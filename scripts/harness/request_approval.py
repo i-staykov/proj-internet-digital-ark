@@ -45,6 +45,7 @@ import duckdb  # noqa: E402
 
 from ark import held  # noqa: E402
 from ark.approvals import load  # noqa: E402
+from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
@@ -122,7 +123,7 @@ def nearest_closed(source_name: str) -> str:
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "screen_hypothesis", ROOT / "scripts" / "screen_hypothesis.py"
+        "screen_hypothesis", ROOT / "scripts" / "harness" / "screen_hypothesis.py"
     )
     screen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(screen)
@@ -138,11 +139,7 @@ def nearest_closed(source_name: str) -> str:
 
 
 def append(text: str, block: str) -> str:
-    """The page with the block last in `## Pending requests`, whose `None.` then goes.
-
-    Inside the section, not at the end of the file: after the last section the block would
-    land in `## Found, awaiting triage`, where `approvals.py` reads it as a triage line.
-    """
+    """The page with the block last in `## Pending requests`, whose `None.` then goes."""
     marker = "## Pending requests"
     if marker not in text:
         return text.rstrip("\n") + "\n\n" + marker + "\n\n" + block
@@ -209,7 +206,12 @@ def main() -> None:
         )
 
     records = records_of(args.journal, args.source)
-    pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
+    # a journal's `domain` is raw until the ingest canonicalizes it; held asks the result
+    pairs = {
+        (name, r["year"])
+        for r in records
+        if r.get("domain") and r.get("year") and (name := to_registrable(str(r["domain"])))
+    }
     weights = english_weights()
 
     try:

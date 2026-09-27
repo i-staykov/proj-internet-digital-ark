@@ -5,10 +5,10 @@ against. The NAME is: a person chose which record to paste and retyped or
 reflowed it, and a mangled hostname carrying a real creation date would put an
 invented domain into an annual file with a confident year attached.
 
-So the same rule the rest of the Usenet routes take. A domain another source
-already places in `domain_year` is real, and the pasted registry line settles
-its creation year as `whois_creation`. A name appearing only here goes to the
-candidate pool as `link_target` and dates nothing until it earns its own
+So the same rule the rest of the Usenet routes take. A domain we already date in
+some year, or that his files name exactly, is real, and the pasted registry line
+settles its creation year as `whois_creation`. A name appearing only here goes to
+the candidate pool as `link_target` and dates nothing until it earns its own
 evidence. Nothing is discarded.
 
 Rule 6 is why the gain is smaller than the row count: a creation date evidences
@@ -35,6 +35,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
@@ -59,7 +60,15 @@ def main() -> None:
     ap.add_argument("--write", action="store_true")
     ap.add_argument("--in-dir", type=Path, default=ROOT / "data/raw/usenet_whois")
     ap.add_argument("--out-prefix", default="usenet_whois")
+    ap.add_argument(
+        "--out", type=Path, default=None, help="where to write both journals; defaults to --in-dir"
+    )
     args = ap.parse_args()
+    out_dir = args.out or args.in_dir
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
 
     seen: dict[tuple[str, int], dict] = {}
     for path in sorted(args.in_dir.glob("usenet_whois_*.jsonl.gz")):
@@ -82,15 +91,11 @@ def main() -> None:
     if not seen:
         raise SystemExit(f"no journals in {args.in_dir}")
 
+    names = {domain for domain, _ in seen}
     conn = open_store()
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, names, his)
+        known = held.known_years(conn, names, his)
     finally:
         conn.close()
 
@@ -111,7 +116,7 @@ def main() -> None:
         }
         if domain in attested:
             dated.append(out)
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 fresh += 1
                 by_year[year] += 1
                 fresh_ee += weights.get(domain.rsplit(".", 1)[-1], Decimal(0))
@@ -119,6 +124,9 @@ def main() -> None:
             candidates.append(out)
 
     print(f"pasted whois creation dates, in-window (domain, year): {len(seen):,}")
+    print(
+        f"  {len(attested):,} of {len(names):,} names are dated by us or named exactly in his files"
+    )
     print(f"  corroborated -> whois_creation  : {len(dated):,}")
     print(f"    of those, not yet held        : {fresh:,}  worth {fresh_ee:,.1f} EE")
     print(f"    by year                       : {sorted(by_year.items())}")
@@ -127,8 +135,9 @@ def main() -> None:
         print("\ndry run; pass --write to create both journals")
         return
 
+    out_dir.mkdir(parents=True, exist_ok=True)
     for suffix, batch in (("dated", dated), ("candidates", candidates)):
-        path = args.in_dir / f"{args.out_prefix}_{suffix}.jsonl.gz"
+        path = out_dir / f"{args.out_prefix}_{suffix}.jsonl.gz"
         with journal_writer(path) as fh:
             for record in batch:
                 write_journal_line(fh, record)
