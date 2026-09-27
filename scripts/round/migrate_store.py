@@ -1569,6 +1569,8 @@ LANE_COLUMNS = (
 )
 ROLLED, SUPERSEDED = "his_rolled_up_hostname", "his_superseded_release"
 CANDIDATE_ONLY, UNEXPLAINED = "candidate_only_name", "unexplained"
+# a name the old test did not know that his files hold as an exact line: the new rule gains it
+HIS_EXACT = "his_exact_name"
 # membership of `_lane_names`, the names one call asked
 LEGACY = {
     "domain_year": (
@@ -2186,10 +2188,22 @@ def explain_lane(key, lane, root, base, records, his, marker, witness) -> tuple[
         tally["names"] += 1
         tally["records"] += count or 0
         tally["ee"] += weight_of(name) * (1 if count is None else count)
+    his_exact = held.names_in(gained, his.all) if gained else set()
+    gained_tally = {"names": 0, "records": 0, "ee": Decimal(0)}
     for name in sorted(gained):
-        rows.append(
-            lane_row(key, lane, name, records_of(name), labels[::-1], UNEXPLAINED, "after only")
-        )
+        exact = name in his_exact
+        reason, why = (HIS_EXACT, "his all.txt") if exact else (UNEXPLAINED, "after only")
+        rows.append(lane_row(key, lane, name, records_of(name), labels[::-1], reason, why))
+        if reason == HIS_EXACT:
+            count = records_of(name)
+            gained_tally["names"] += 1
+            gained_tally["records"] += count or 0
+            gained_tally["ee"] += weight_of(name) * (1 if count is None else count)
+    exact_pairs = {
+        (name, year)
+        for year in YEARS
+        for name in held.names_in({n for n, y in gained_pairs if y == year}, his.year(year))
+    }
     for name in sorted(moved.keys() - lost - gained):
         rows.append(
             lane_row(key, lane, name, records_of(name), ("", ""), UNEXPLAINED, "answer unchanged")
@@ -2200,13 +2214,15 @@ def explain_lane(key, lane, root, base, records, his, marker, witness) -> tuple[
         "lost": len(lost),
         "gained": len(gained),
         "lost_by_reason": {r: t | {"ee": _four(t["ee"])} for r, t in sorted(by_reason.items())},
+        "gained_by_reason": {HIS_EXACT: gained_tally | {"ee": _four(gained_tally["ee"])}},
         "pairs": {
             "lost": len(lost_pairs),
             "gained": len(gained_pairs),
             "lost_by_reason": pair_reasons,
+            "gained_his_exact": len(exact_pairs),
         },
         "unexplained": sum(r["reason"] == UNEXPLAINED for r in rows),
-        "pairs_unexplained": pair_reasons.get(UNEXPLAINED, 0) + len(gained_pairs),
+        "pairs_unexplained": pair_reasons.get(UNEXPLAINED, 0) + len(gained_pairs - exact_pairs),
         "warnings": {"lost_with_no_moved_item": len(silent), "sample": silent[:20]},
     }
     listed = root / SUPERSEDED_CSV

@@ -597,14 +597,13 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
 tar -czf "$ARCHIVE" -C output "$RELEASE"
-# His delivery limit is 5 GB, and the masters carry his six year files as released, so a
-# round can reach it. An archive he cannot take is not handed over.
-LIMIT_BYTES=5000000000
+# A mail transfer service refuses an archive over 5 GB, and the masters carry his six year
+# files as released, so a round can reach that. Such an archive goes as a Drive link.
+TRANSFER_BYTES=5000000000
 ARCHIVE_BYTES=$(wc -c < "$ARCHIVE" | tr -d ' ')
-if [ "$ARCHIVE_BYTES" -gt "$LIMIT_BYTES" ]; then
-    echo "refusing to package: $ARCHIVE_BYTES bytes, over his limit of $LIMIT_BYTES" >&2
-    rm -f "$ARCHIVE"
-    exit 1
+if [ "$ARCHIVE_BYTES" -gt "$TRANSFER_BYTES" ]; then
+    echo "WARNING: $ARCHIVE_BYTES bytes, over a transfer service's 5 GB: send it as a Drive link," >&2
+    echo "         with its size, sha256 and the link in the mail" >&2
 fi
 # The checksum file records the bare filename, not the build path: a reviewer
 # who downloads only the archive runs `shasum -c` beside it, and a stored path
