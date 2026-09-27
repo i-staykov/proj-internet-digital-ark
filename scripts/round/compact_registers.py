@@ -225,7 +225,10 @@ REWORD: tuple[tuple[str, str], ...] = (
         "argument the registrable lane is approved on",
     ),
     (r"if the ruling of [\d-]{10} is ever reversed", "if that ruling is reversed"),
-    (r"REJECTED [\d-]{10} by his DNS ruling of [\d-]{10}: ", "REJECTED: "),
+    (
+        r"REJECTED [\d-]{10} by his DNS ruling of [\d-]{10}: ",
+        "REJECTED, DNS is a candidate class: ",
+    ),
     (
         r"the DNS-survey observation Ding refused on [\d-]{10}",
         "a DNS-survey observation, not an annual record",
@@ -259,8 +262,8 @@ REWORD: tuple[tuple[str, str], ...] = (
     (
         r"All seven named ccTLDs were already answered in this file before the run:"
         r" [^.]* both banked",
-        "Each of the seven named ccTLDs (`uk`, `au`, `nz`, `sg`, `ca`, `ie`, `us`) has its own row,"
-        " `ie` and `us` both banked",
+        "Each of the seven named ccTLDs (`uk`, `au`, `nz`, `sg`, `ca`, `ie`, `us`) is answered on a"
+        " register row, `ie` and `us` both banked",
     ),
     (r"was already closed at line \d+ of this file \(", "is closed on its own rows ("),
     (r"the counter-directory row above\b", "the counter-directory row"),
@@ -281,8 +284,8 @@ REWORD: tuple[tuple[str, str], ...] = (
     ),
     (
         r"UNRETRIEVABLE\. Still unretrievable, and the [\d-]{10} row now has its mechanism:"
-        r" (`[^`]+`) no longer",
-        r"UNRETRIEVABLE: \1 does not",
+        r" (`[^`]+`) no longer resolves",
+        r"UNRETRIEVABLE: \1 does not resolve",
     ),
     (r"floor: superseded: ", "floor: "),
     (r" No longer a pending question\.", ""),
