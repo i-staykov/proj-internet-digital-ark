@@ -3,10 +3,8 @@
 #
 # `just cycle` is the thing that notices what a program cannot decide: an unbanked
 # journal, a stale derived list, a yield that has gone to zero.
-# Nothing here acts on what it finds, deliberately. This is a scheduled *reporter*,
-# not a watchdog: a loop that restarted collectors on its own would eventually
-# restart one with settings that had since been retuned, which is the failure the
-# supervisor/watchdog collapse this exists to prevent.
+# Nothing here acts on what it finds. This is a scheduled *reporter*, not a watchdog:
+# a loop that restarted collectors on its own would restart one with settings since retuned.
 #
 # It appends to `data/logs/scheduled_cycle.log` and keeps the last 2,000 lines, so
 # an agent returning after a day away reads one file to learn what happened while
