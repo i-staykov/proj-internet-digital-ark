@@ -1385,11 +1385,11 @@ intake *args:
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
-# Legacy mode reports only. --round previews scoped backup/release cleanup;
-# --round --write executes only when the retained copy is verified.
-# Never deletes submissions/ or output/.
+# The report reads the retention register and deletes nothing. --round and --disk list
+# what they would delete, each file with its proof, and --write deletes what is proven;
+# --disk never touches submissions/, a journal, a sidecar or a store backup.
 #
-# report retention or preview/execute verified round cleanup
+# report retention, or list and delete what somebody serves again
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 

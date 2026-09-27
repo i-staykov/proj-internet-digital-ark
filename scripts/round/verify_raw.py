@@ -40,7 +40,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RETENTION = "docs/registers/retention.md"
 CATALOG = "data/raw/usenet_catalog.json"
 SUMS, SHA1S, STAT = "SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat"
-MANIFESTS = frozenset({SUMS, SHA1S, STAT})
+# DELETED.tsv records what `prune.py --disk` gave back to archive.org: a sidecar, not data.
+MANIFESTS = frozenset({SUMS, SHA1S, STAT, "DELETED.tsv"})
 
 # Every child of a root is an entry; with a glob, only the matching children are (the
 # store backups, never the store itself), and they share the root's manifest.
@@ -60,33 +61,13 @@ IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
 
 # What the retention audit of 2026-09-02 left unpriced at hostname grain. It listed 26;
 # the E9.5 batch priced 24 of them on 2026-09-03 and they moved to `reference` (a measured
-# negative, verdict and figure in `sources.md`) or to `keep_until_decided` below. These two
+# negative, verdict and figure in `sources.md`) or were read and banked. These two
 # are left because their terms, not their value, are unsettled, and that is Ivo's word.
 # `None` is honest: nobody has found where the bytes came from.
 KEEP_UNTIL_PRICED: dict[str, str | None] = {
     "antispam_media": None,
     "internic_zones": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/",
 }
-
-# Priced, and the bytes are what the `ukwa_*` sources and the `usenet_body_url_hostnames`
-# journals were built from, so neither `prune` nor the off-site rule may treat them as spent.
-KEEP_UNTIL_DECIDED: dict[str, str] = {
-    "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
-    "usenet_bulk": "https://archive.org/details/usenet-alt",
-    "usenet_new": IA_USENET,
-}
-
-# The item journals a priced Usenet pool leaves behind: `{item, year, text}` shards, one per
-# extraction worker, a few tens of MB against tens of GB of archives. They are what the bank's
-# `usenet_body_url_hostnames` lane ingests, and the archives themselves are refetchable by
-# name from `data/raw/usenet_catalog.json`, so the zips go back and these stay.
-KEEP_UNTIL_DECIDED_ITEMS: dict[str, str] = dict.fromkeys(
-    (
-        f"usenet_{h}_items"
-        for h in ("aus", "biz", "can", "comp", "misc", "news", "rec", "sci", "soc", "talk", "uk")
-    ),
-    IA_USENET,
-)
 
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:
 # the offline rebuild breaks without them. `None` means docs/registers/sources.md has the URL
@@ -121,8 +102,14 @@ LIVE_INPUT: dict[str, str | None] = {
 
 # Our own collectors' journals, replayed by `just reproduce sources` or `journals`, or
 # a hostname-grain journal a later ingest reads.
+# Our own collectors' output, plus the item journals a Usenet pool leaves behind: the
+# `{item, year, text}` shards the bank ingests, while the pool's zips go back to archive.org.
 KEEP_JOURNAL = frozenset(
     {
+        f"usenet_{h}_items"
+        for h in ("aus", "biz", "can", "comp", "misc", "news", "rec", "sci", "soc", "talk", "uk")
+    }
+    | {
         "cdx",
         "cdx_suffix",
         "early_web_hostgrain",
@@ -151,6 +138,10 @@ REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
     "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
+    # read and banked; archive.org serves every zip again by name
+    "usenet_bulk": "https://archive.org/details/usenet-alt",
+    "usenet_new": IA_USENET,
+    "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "attrition": "https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/",
     "bl": UNKNOWN,
     "can_domain": "https://archive.org/download/usenet-can/can.domain.mbox.zip",
@@ -211,10 +202,6 @@ def classify(key: str) -> tuple[str, str] | None:
     if root == "data/raw":
         if name in KEEP_UNTIL_PRICED:
             return "keep_until_priced", KEEP_UNTIL_PRICED[name] or UNKNOWN
-        if name in KEEP_UNTIL_DECIDED:
-            return "keep_until_decided", KEEP_UNTIL_DECIDED[name]
-        if name in KEEP_UNTIL_DECIDED_ITEMS:
-            return "keep_until_decided", KEEP_UNTIL_DECIDED_ITEMS[name]
         if name in LIVE_INPUT:
             return "live_input", LIVE_INPUT[name] or UNKNOWN
         if name in KEEP_JOURNAL:
@@ -556,7 +543,6 @@ HEADER = "\n".join(
         "Classes: `live_input` is third-party bytes read by a `just reproduce` stage or by "
         "`just collect pandora-seed`; `keep_journal` is a journal of our own that a recipe "
         "replays; `keep_until_priced` waits for its pricing at hostname grain; "
-        "`keep_until_decided` is priced and waits for a human word, so it is not spent; "
         "`reference` is kept for the record; `regenerable` is rebuilt by a recipe.",
         "",
         "| entry | class | files | bytes | digest | refetch | record |",

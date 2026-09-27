@@ -254,17 +254,10 @@ def test_cli(tmp_path: Path, capsys) -> None:
     assert (tmp_path / "docs/registers/retention.md").is_file()
 
 
-def test_every_class_name_is_one_of_six() -> None:
+def test_every_class_name_is_one_of_five() -> None:
     keys = [
         f"data/raw/{n}"
-        for t in (
-            vr.KEEP_UNTIL_PRICED,
-            vr.KEEP_UNTIL_DECIDED,
-            vr.KEEP_UNTIL_DECIDED_ITEMS,
-            vr.LIVE_INPUT,
-            vr.REFERENCE,
-            vr.REGENERABLE,
-        )
+        for t in (vr.KEEP_UNTIL_PRICED, vr.LIVE_INPUT, vr.REFERENCE, vr.REGENERABLE)
         for n in t
     ]
     keys += [f"data/raw/{n}" for n in vr.KEEP_JOURNAL]
@@ -274,20 +267,15 @@ def test_every_class_name_is_one_of_six() -> None:
         "live_input",
         "keep_journal",
         "keep_until_priced",
-        "keep_until_decided",
         "reference",
         "regenerable",
     }
     # the E9.5 batch priced 24 of the audit's 26; these two wait on terms, not on value
     assert set(vr.KEEP_UNTIL_PRICED) == {"antispam_media", "internic_zones"}
-    # priced and not spent: the bytes a yes would be ingested from
-    assert set(vr.KEEP_UNTIL_DECIDED) == {"ukwa", "usenet_bulk", "usenet_new"}
-    # a priced pool keeps its item journals and gives the archives back
-    # every hierarchy read whole overnight on 2026-09-04 keeps its item journals
-    assert len(vr.KEEP_UNTIL_DECIDED_ITEMS) == 11
-    assert all(
-        k.startswith("usenet_") and k.endswith("_items") for k in vr.KEEP_UNTIL_DECIDED_ITEMS
-    )
-    assert not set(vr.KEEP_UNTIL_DECIDED) & set(vr.REFERENCE)
+    # read and banked: archive.org serves the zips again, and the item journals stay ours
+    for name in ("ukwa", "usenet_bulk", "usenet_new"):
+        assert vr.classify(f"data/raw/{name}")[0] == "reference"
+    items = [k for k in vr.KEEP_JOURNAL if k.startswith("usenet_") and k.endswith("_items")]
+    assert len(items) == 11
     assert vr.classify("data/raw/never_heard_of") is None
     assert vr.classify("data/ark.duckdb") is None

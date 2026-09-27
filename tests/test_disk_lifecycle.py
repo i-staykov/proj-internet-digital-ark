@@ -235,3 +235,220 @@ def test_every_direct_ingest_and_export_has_an_independent_guard():
         if line.strip().startswith(("uv run ark ingest", "uv run ark export")):
             assert "bank_hygiene.py space" in lines[index - 1], line
             assert "|| true" not in lines[index - 1], line
+
+
+# --- --disk ----------------------------------------------------------------------------
+
+OLD_STAGE = "DomainDataCollectionTask_202601010000_IvayloStaykov"
+NEW_STAGE = "DomainDataCollectionTask_202601020000_IvayloStaykov"
+
+
+def sums(folder, files, kind="SHA256SUMS"):
+    """The sidecars verify_raw writes: digests and the (size, mtime_ns) each was taken at."""
+    hash_of = hashlib.sha1 if kind == "SHA1SUMS" else hashlib.sha256
+    digests = {rel: hash_of(Path(folder, rel).read_bytes()).hexdigest() for rel in files}
+    file(folder, kind, "".join(f"{d}  ./{r}\n" for r, d in digests.items()).encode())
+    stats = [(r, Path(folder, r).stat()) for r in files]
+    lines = "".join(f"{st.st_size} {st.st_mtime_ns} ./{r}\n" for r, st in stats)
+    file(folder, "SHA256SUMS.stat", lines.encode())
+    return digests
+
+
+def disk_repo(root):
+    """One of everything --disk selects, keeps or holds."""
+    current = "feedback/Current_Release/merged261231"
+    file(
+        root,
+        "data/baseline.json",
+        json.dumps({"current": {"directory": current}, "rounds": []}).encode(),
+    )
+    file(root, f"{current}/1996.txt", b"current.example\n")
+    file(root, "feedback/Current_Release.zip", b"current zip")
+    old = root / "feedback/Old_Release/merged260101"
+    file(root, f"{old.relative_to(root)}/1996.txt", b"old.example\n")
+    with zipfile.ZipFile(root / "feedback/Old_Release.zip", "w") as zf:
+        zf.write(old / "1996.txt", "merged260101/1996.txt")
+    file(root, "data/archive/merged250101.tar.zst", b"repacked release")
+    host = root / "data/raw/host_cdx"
+    file(host, "ia600702.hostcdx.gz", b"the node cdx")
+    file(host, "bank.log", b"a log with no copy anywhere")
+    file(host, "items/hostcdx_ia600702_001_items.jsonl.gz", b"journal")
+    sums(host, ["ia600702.hostcdx.gz", "bank.log", "items/hostcdx_ia600702_001_items.jsonl.gz"])
+    bulk = root / "data/raw/usenet_bulk"
+    file(bulk, "alt.test.mbox.zip", b"a usenet zip")
+    sha1 = sums(bulk, ["alt.test.mbox.zip"], "SHA1SUMS")["alt.test.mbox.zip"]
+    catalog = {"alt": [{"name": "alt.test.mbox.zip", "sha1": sha1, "size": "12"}]}
+    file(root, "data/raw/usenet_catalog.json", json.dumps(catalog).encode())
+    hdr2 = root / "data/raw/usenet_hdr2"
+    file(hdr2, "demon/demon.test.mbox.zip", b"uncatalogued")
+    file(hdr2, "aus_items/shard_000.jsonl.gz", b"journal")
+    sums(hdr2, ["demon/demon.test.mbox.zip", "aus_items/shard_000.jsonl.gz"])
+    file(root, f"output/{OLD_STAGE}/report.md", b"superseded build")
+    file(root, f"output/{OLD_STAGE}/journals/one.jsonl.gz", b"journal")
+    file(root, f"output/{OLD_STAGE}/SHA256SUMS", b"sums")
+    file(root, f"output/{NEW_STAGE}/report.md", b"the round as sent")
+    tarball = file(root, f"submissions/phase-9/{NEW_STAGE}.tar.gz.sha256", b"")
+    tarball.write_text(f"{'b' * 64}  {NEW_STAGE}.tar.gz\n")
+    for rel in ("personal-context.md", "handoff.md", "mail/verdict.txt", "notes.md", "v3/big.bin"):
+        file(root, f"private/{rel}", b"private")
+    for name in ("ark.duckdb.pre-stage-a.bak", "ark.duckdb.pre-166.bak"):
+        file(root, f"data/{name}", b"store backup")
+    return {"old": old, "host": host, "bulk": bulk, "hdr2": hdr2}
+
+
+def archive_org(monkeypatch, files):
+    """archive.org's metadata as a dict of (item, name) -> file record."""
+
+    def ia_file(item, name, cache):
+        return files.get((item, name))
+
+    monkeypatch.setattr(prune, "ia_file", ia_file)
+
+
+def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeypatch):
+    disk_repo(tmp_path)
+    offsite = prune.sibling("offsite")
+    monkeypatch.setattr(offsite, "rclone", lambda *a, **k: pytest.fail("the dry run went to Drive"))
+    monkeypatch.setattr(prune, "ia_file", lambda *a: pytest.fail("the dry run went to archive.org"))
+    before = sorted(p for p in tmp_path.rglob("*") if p.is_file())
+    code, lines = prune.disk_cleanup(tmp_path)
+    text = "\n".join(lines)
+    assert code == 1  # the store backups are always held
+    for label in ("releases:", "spent raw:", "output stages:", "store backups:"):
+        assert label in text
+    assert "would remove: data/raw/host_cdx/ia600702.hostcdx.gz" in text
+    assert "https://archive.org/download/host_cdx_ia600702/ia600702.hostcdx.gz" in text
+    assert "https://archive.org/download/usenet-alt/alt.test.mbox.zip" in text
+    assert "kept 1 archives of data/raw/usenet_hdr2" in text
+    assert "HELD feedback/Old_Release.zip: no Drive receipt" in text
+    assert "Current_Release" not in text and "jsonl.gz" not in text and NEW_STAGE not in text
+    assert "\nprivate:" not in text  # the private group only with --private
+    assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
+
+
+def test_disk_write_deletes_only_what_is_proven(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    receipted = [
+        parts["old"] / "1996.txt",
+        tmp_path / "feedback/Old_Release.zip",
+        tmp_path / "data/archive/merged250101.tar.zst",
+    ]
+    objects, _ = proofs(tmp_path, receipted, monkeypatch)
+    objects[f"gdrive:ark-offsite/submissions/phase-9/{NEW_STAGE}.tar.gz"] = {
+        "Hashes": {"sha256": "b" * 64}
+    }
+    bulk_sha1 = hashlib.sha1(b"a usenet zip").hexdigest()
+    archive_org(
+        monkeypatch,
+        {
+            ("host_cdx_ia600702", "ia600702.hostcdx.gz"): {"size": "12"},
+            ("usenet-alt", "alt.test.mbox.zip"): {"size": "12", "sha1": bulk_sha1},
+        },
+    )
+    code, lines = prune.disk_cleanup(tmp_path, write=True)
+    gone = [
+        *receipted,
+        parts["host"] / "ia600702.hostcdx.gz",
+        parts["bulk"] / "alt.test.mbox.zip",
+        tmp_path / f"output/{OLD_STAGE}/report.md",
+    ]
+    assert not any(p.exists() for p in gone), lines
+    stays = [
+        tmp_path / "feedback/Current_Release.zip",
+        parts["host"] / "bank.log",
+        parts["host"] / "items/hostcdx_ia600702_001_items.jsonl.gz",
+        parts["hdr2"] / "demon/demon.test.mbox.zip",
+        parts["hdr2"] / "aus_items/shard_000.jsonl.gz",
+        tmp_path / f"output/{OLD_STAGE}/journals/one.jsonl.gz",
+        tmp_path / f"output/{OLD_STAGE}/SHA256SUMS",
+        tmp_path / f"output/{NEW_STAGE}/report.md",
+        tmp_path / "data/ark.duckdb.pre-stage-a.bak",
+        tmp_path / "data/ark.duckdb.pre-166.bak",
+        tmp_path / "private/notes.md",
+    ]
+    assert all(p.exists() for p in stays), [p for p in stays if not p.exists()]
+    deleted = (parts["host"] / "DELETED.tsv").read_text().splitlines()
+    rel, size, digest, url = deleted[1].split("\t")
+    assert (rel, size) == ("ia600702.hostcdx.gz", "12")
+    assert digest == "sha256:" + hashlib.sha256(b"the node cdx").hexdigest()
+    assert url == "https://archive.org/download/host_cdx_ia600702/ia600702.hostcdx.gz"
+    assert "sha1:" in (parts["bulk"] / "DELETED.tsv").read_text()
+    assert code == 1  # the backups stay held
+
+
+def test_a_spent_file_stays_when_archive_org_does_not_match_it(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)
+    archive_org(
+        monkeypatch,
+        {
+            ("host_cdx_ia600702", "ia600702.hostcdx.gz"): {"size": "999"},
+            ("usenet-alt", "alt.test.mbox.zip"): {"size": "12", "sha1": "0" * 40},
+        },
+    )
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    text = "\n".join(lines)
+    assert (parts["host"] / "ia600702.hostcdx.gz").exists()
+    assert (parts["bulk"] / "alt.test.mbox.zip").exists()
+    assert "archive.org holds 999 B" in text and "archive.org's sha1 differs" in text
+    assert not (parts["host"] / "DELETED.tsv").exists()
+
+
+def test_a_spent_file_changed_since_its_digest_is_held(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    (parts["host"] / "ia600702.hostcdx.gz").write_bytes(b"rewritten after hashing")
+    _, lines = prune.disk_cleanup(tmp_path)
+    assert "changed since its digest was recorded" in "\n".join(lines)
+
+
+def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):
+    disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)  # Drive holds no tarball
+    archive_org(monkeypatch, {})
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (tmp_path / f"output/{OLD_STAGE}/report.md").exists()
+    assert f"HELD output/{OLD_STAGE}/report.md: Drive" in "\n".join(lines)
+
+
+def test_private_keeps_what_code_reads_and_goes_only_with_the_flag(tmp_path, monkeypatch):
+    disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)
+    archive_org(monkeypatch, {})
+    prune.disk_cleanup(tmp_path, write=True)
+    assert (tmp_path / "private/notes.md").exists()
+    prune.disk_cleanup(tmp_path, write=True, private=True)
+    for kept in ("personal-context.md", "handoff.md", "mail/verdict.txt"):
+        assert (tmp_path / "private" / kept).exists()
+    assert not (tmp_path / "private/notes.md").exists()
+    assert not (tmp_path / "private/v3/big.bin").exists()
+    with pytest.raises(SystemExit):
+        prune.main(["--private", "--root", str(tmp_path)])
+
+
+def test_the_never_list(tmp_path):
+    disk_repo(tmp_path)
+    for rel in (
+        "submissions/phase-9/x.tar.gz",
+        "data/raw/usenet_hdr2/aus_items/shard_000.jsonl.gz",
+        "data/raw/host_cdx/items/hostcdx_ia600702_001_items.jsonl.gz",
+        "data/raw/host_cdx/SHA256SUMS",
+        "data/raw/host_cdx/DELETED.tsv",
+        "data/raw/cdx/collector.txt",  # keep_journal
+        "data/raw/afnic/zone.txt",  # live_input
+        "data/raw/antispam_media/x.bin",  # keep_until_priced
+    ):
+        assert prune.never(tmp_path, tmp_path / rel), rel
+    assert prune.never(tmp_path, tmp_path / "data/raw/host_cdx/ia600702.hostcdx.gz") == ""
+
+
+def test_store_backups_are_listed_and_never_deleted(tmp_path, monkeypatch):
+    disk_repo(tmp_path)
+    proofs(tmp_path, [tmp_path / "data/ark.duckdb.pre-166.bak"], monkeypatch)
+    archive_org(monkeypatch, {})
+    code, lines = prune.disk_cleanup(tmp_path, write=True)
+    text = "\n".join(lines)
+    assert (tmp_path / "data/ark.duckdb.pre-stage-a.bak").exists()
+    assert (tmp_path / "data/ark.duckdb.pre-166.bak").exists()  # even with a receipt
+    assert "pre-stage-a.bak: held until #181's rebuild restores the rows only it holds" in text
+    assert "pre-166.bak: a store backup is deleted by the agents that own the store" in text
+    assert code == 1
