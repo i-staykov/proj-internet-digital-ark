@@ -194,6 +194,26 @@ def test_the_sync_the_bank_and_the_install_obey_the_hold(box):
     assert box.launchd_calls()[before:] == []
 
 
+def test_a_dry_run_hand_run_passes_the_hold_and_lifts_nothing(box):
+    """`ARK_HOLD_BYPASS=dry-run` lets one hand run of the sync or the bank past the hold and
+    says so; any other value is held, and the hold file, the jobs and the flags stay as they are.
+    """
+    box.hold("on")
+    names = box.hold_names()
+    before = len(box.launchd_calls())
+    box.env["ARK_HOLD_BYPASS"] = "dry-run"
+    for recipe in ("sync", "bank"):
+        out = box.just(recipe).stdout.splitlines()
+        assert out[:2] == ["hold bypassed: dry-run", "reached the lock"], recipe
+    box.env["ARK_HOLD_BYPASS"] = "yes"
+    for recipe in ("sync", "bank"):
+        done = box.just(recipe)
+        assert (done.returncode, done.stdout.strip()) == (0, "held"), recipe
+    assert box.hold_names() == names
+    assert box.launchd_calls()[before:] == []
+    assert (box.state / "pause").exists() and (box.state / "pause-platform").exists()
+
+
 def test_bare_off_enables_before_bootstrap_and_removes_everything(box):
     box.hold("on")
     before = len(box.launchd_calls())
