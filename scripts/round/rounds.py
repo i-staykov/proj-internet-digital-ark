@@ -58,12 +58,10 @@ LETTERS = re.compile(r"[^a-z]")
 # as inline code, and anchoring on the bare end of line read every scored mail since
 # round 8 as quoting nothing at all.
 QUOTED_SCORE = re.compile(r"=\s*(\d+(?:\.\d+)?)\s*`*\s*$")
-# His own divisor, out of `S = 10 x (3.682488 / 39) = 0.944228`. It is READ rather than
-# derived because it stopped agreeing with ours at round 8: he divided by 33 where the
-# elapsed days from the benchmark he named were under one, and by 39 at round 9 where
-# they were 1.93. Both land on an origin of 2026-08-02, so his clock is a fixed origin
-# and ours is the gap since the release. Which is right is Ivo's open decision; until it
-# is settled the page records HIS divisor, because that is what the score was paid on.
+# His own divisor, out of `S = 10 x (3.682488 / 39) = 0.944228`. t counts whole days from
+# the task assignment, 2 August 2026, so his divisor is the t a round is paid on and the
+# page records it as `t_i`; `S_i computed` stays on the benchmark clock, which his round 6
+# and 7 scores fit.
 QUOTED_DIVISOR = re.compile(r"10\s*[x\u00d7*]\s*\(\s*[\d.,]+\s*[/\u00f7]\s*(\d+)\s*\)")
 
 TWO_PLACES = Decimal("0.01")

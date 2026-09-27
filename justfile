@@ -165,7 +165,11 @@ cycle *args:
 sync fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
     # One lock, whoever started this: it lives here, where the work is, rather than around
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
@@ -321,7 +325,11 @@ sync fleet="~/Documents/GitHub/ark-fleet":
 bank *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then echo held; exit 0; fi
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
     # ARK_LOCK_HELD names the pid that holds the lock and is trusted only while the lock
     # agrees, so a value some later shell inherits takes the lock like anyone else.
     if [ -n "${ARK_LOCK_HELD:-}" ] \
@@ -1483,8 +1491,8 @@ ship stage="all" *args:
         echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
         uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
+        if ! git diff --quiet -- docs/report.md docs/report.docx; then
+            git add docs/report.md docs/report.docx
             git commit -q -m "Regenerate the round report and its .docx before packaging"
             echo "== committed the regenerated report artifacts =="
         fi
