@@ -177,7 +177,7 @@ def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> P
     return the file of those his candidate files hold, or None when the survey gave none.
 
     Exact names only: a held parent or a different `www.` form does not exclude a hostname.
-    Needs `our_domain_year`. No annual table is modified.
+    No annual table is modified.
     """
     conn.execute(
         f"""
@@ -204,7 +204,7 @@ def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> P
         DELETE FROM isc_export
         WHERE hostname NOT IN (SELECT name FROM isc_kept)
            OR hostname IN (SELECT hostname FROM hostname_year)
-           OR hostname IN (SELECT domain FROM our_domain_year)
+           OR hostname IN (SELECT domain FROM domain_year)
     """)
     conn.execute("DROP TABLE isc_kept")
     return taken
@@ -228,7 +228,6 @@ def netnew_shipped_pairs(conn: duckdb.DuckDBPyConnection, baseline: Path | None 
     filter the guard did not, a current export read as stale for ever.
     """
     his = held.load(baseline)
-    held.our_domain_year(conn)
     held.claim_pairs(conn)
     with tempfile.TemporaryDirectory(prefix="ark-shipped-") as tmp:
         return sum(held.netnew(conn, his, Path(tmp)).values())
@@ -244,7 +243,7 @@ def _write_attested(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path,
         dated = work / f"our_{year}.txt"
         held.dump(
             conn,
-            f"SELECT domain FROM our_domain_year WHERE assigned_year = {year} ORDER BY 1",
+            f"SELECT domain FROM domain_year WHERE assigned_year = {year} ORDER BY 1",
             dated,
         )
         parts[year] = work / f"attested_{year}.txt"
@@ -301,13 +300,13 @@ def _write_manifests(conn: duckdb.DuckDBPyConnection, netnew_dir: Path) -> None:
 
 def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> list[Path]:
     """Build `candidate_pool(name, unit)` and return the files of names his candidate files
-    took out of its two store arms. Needs `claim_pair`, `our_domains` and `isc_export`."""
+    took out of its two store arms. Needs `claim_pair` and `isc_export`."""
     arms = {
         # a registrable we found with no year of ours that ships as a web capture of it
         "registrable": f"""
             SELECT d.domain FROM domain d
             WHERE d.domain NOT IN (SELECT domain FROM claim_pair)
-              AND {held.we_know("d")} AND {_shipping_filter("d.", with_year=False)}
+              AND {_shipping_filter("d.", with_year=False)}
             ORDER BY 1
         """,
         # **A hostname whose every year fails XIII is a candidate too.** XIII names the
@@ -464,9 +463,7 @@ def export_all(
     stats: dict[str, int] = {}
     with _phase("held"):
         his = held.load(baseline)
-        held.our_domain_year(conn)
         held.claim_pairs(conn)
-        held.our_domains(conn)
     netnew_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=netnew_dir.parent, prefix=".export-") as tmp:
         work = Path(tmp)
@@ -514,15 +511,14 @@ def export_all(
 
         # `candidates.txt` ships beside the claim, so it holds none of his names either: it was a
         # store-only list, and 341,674 of its 375,476 names were in his `candidate_pool.txt`.
-        # A name only his release filed is his, not ours to offer back.
         with _phase("candidate_unverified"):
             unverified = work / "unverified.txt"
             held.dump(
                 conn,
                 f"""
                 SELECT d.domain FROM domain d
-                WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
-                  AND {held.we_know("d")} AND {_shipping_filter("d.", with_year=False)}
+                WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+                  AND {_shipping_filter("d.", with_year=False)}
                 ORDER BY 1
                 """,
                 unverified,

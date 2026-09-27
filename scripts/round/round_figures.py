@@ -118,12 +118,11 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
     Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=DB_TEMP_DIR) as tmp:
         work = Path(tmp)
-        held.our_domain_year(conn)
         held.claim_pairs(conn)
         held.netnew(conn, his, work)
         since = f"""
             FROM netnew_pair np
-            JOIN our_domain_year y ON y.domain = np.domain AND y.assigned_year = np.year
+            JOIN domain_year y ON y.domain = np.domain AND y.assigned_year = np.year
             JOIN evidence e ON e.evidence_id = np.evidence_id
             JOIN source s ON s.source_id = e.source_id
             WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}'
@@ -143,7 +142,7 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
             SELECT DISTINCT e.domain FROM evidence e
             JOIN source s ON s.source_id = e.source_id
             WHERE s.name = 'usenet_mention' AND e.ingested_at >= TIMESTAMPTZ '{SINCE}'
-              AND NOT EXISTS (SELECT 1 FROM our_domain_year y WHERE y.domain = e.domain)
+              AND NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = e.domain)
             ORDER BY 1
             """,
             usenet,

@@ -12,18 +12,20 @@ The evidence wall is the registrable unit's, unchanged:
   quoted in the evidence row;
 - only a capture the exact host answered 2xx or 3xx dates a master year. A 4xx or 5xx keeps
   its status in the evidence row and reaches the candidate track only;
-- every `hostname_year` row foreign-keys one `evidence` row;
+- every `hostname_year` row cites one `evidence` row;
 - the hostname must reduce to its parent registrable through the same `to_registrable`
   funnel, and a hostname that IS its own registrable is refused here, because that record
   belongs to `domain_year`;
 - **the observation must show the host IN USE**, a capture of a URL on it or a URL listing
   naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
-  answered, not a site, so those lanes date the parent registrable and write no hostname
-  year. Server-written headers are admitted by name: a dated message's `Received: ... by`
-  clause and its news-server twin. Spec XIII narrows what such a record may ENTER an annual
-  file with: only exact-host year-specific web evidence, the rest being candidates;
-- **`www.<parent>` is its own record** and neither form establishes the
-  other, so a `www.` capture dates that host and NOT the bare parent.
+  answered, not a site, so those lanes keep their evidence and write no hostname year.
+  Server-written headers are admitted by name: a dated message's `Received: ... by` clause
+  and its news-server twin. Spec XIII narrows what such a record may ENTER an annual file
+  with: only exact-host year-specific web evidence, the rest being candidates;
+- **a host dates itself, never its registrable**: `www.<parent>` and every other host below
+  a registrable is its own record, so no lane here writes `domain_year`;
+- a class keeps one row per (host, year), whichever source repeats it, and each row names its
+  file and line. A file's rows, hostname years and ledger row commit together.
 
 The registrable half of the same journal is `cdx_suffix_convert.py`'s job: captures whose host
 IS the registrable, collapsed into per-domain year sets for the `cdx_snapshot` ingest.
@@ -36,15 +38,17 @@ import hashlib
 import json
 import re
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 from loguru import logger
 
 from ark import held
-from ark.bulk import SourceSpec
+from ark.bulk import SourceSpec, held_rows_sql
 from ark.canonical import to_registrable
 from ark.db import ensure_source
 from ark.evidence_types import ERROR_STATUS, WEB_METHODS
@@ -217,8 +221,8 @@ def status_required(path: Path) -> bool:
 
 
 # The lanes whose observation shows the host IN USE in the year. Only these write
-# hostname_year; a lane missing here still runs and still dates the parent registrable
-# from the same row, so nothing is lost if the reviewer later rules DNS listings count.
+# hostname_year; a lane missing here still runs and keeps its evidence rows, so nothing is
+# lost if the reviewer later rules DNS listings count.
 # Every member but the header lanes is a web-serving observation. The name is kept because
 # `ark check`, two round scripts and a test read it.
 WEB_FACING_HOST_SOURCES = frozenset(
@@ -300,6 +304,100 @@ def host_of(url: str) -> str | None:
     return host
 
 
+@contextmanager
+def _one_transaction(conn: duckdb.DuckDBPyConnection) -> Iterator[None]:
+    """One file's writes commit together or not at all, so a crash never leaves evidence rows
+    whose hostname years were never written: the next read would skip them as held."""
+    conn.execute("BEGIN TRANSACTION")
+    try:
+        yield
+    except BaseException:
+        conn.execute("ROLLBACK")
+        raise
+    conn.execute("COMMIT")
+
+
+# the host a held row names, its value's last token
+_NAMED_LAST = "lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))"
+
+
+def _insert_host_rows(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    params: dict[str, object],
+    url_sql: str = "$url",
+    ships: str = "false",
+) -> pa.Table:
+    """One evidence row per (hostname, year) of `table` that its class holds no row naming that
+    host in that year, from any source; the rows inserted come back. A row passing XIII
+    (`ships`) still joins a held one that fails it, so a 2xx or 3xx takes a year an error
+    capture held; nothing joins one that passes.
+
+    A held row names its host last, as every lane's and the retraction's rows do. A
+    registrable-grain row about the same host (a bare stamp whose URL names it) holds no key
+    here, because only a lane's own row can carry the hostname record.
+
+    `table` has hostname, parent, year, value and location, the value ending in the hostname.
+    `params` names the source, the class (`type`), the method, the file, and what `url_sql` and
+    `ships` read.
+    """
+    return conn.execute(
+        f"""
+        INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value,
+                              evidence_url, acquisition_method, source_file, record_location)
+        WITH {held_rows_sql(table, domain="parent", subject=_NAMED_LAST)}
+        SELECT t.parent, $source_id, t.year, $type, t.value, {url_sql}, $method, $file,
+               t.location
+        FROM {table} t
+        WHERE NOT EXISTS (
+            SELECT 1 FROM held h
+            WHERE h.domain = t.parent AND h.evidence_year = t.year AND h.subject = t.hostname
+              AND (h.ships OR NOT ({ships})))
+        RETURNING evidence_id, domain AS parent, evidence_year AS year,
+                  lower(regexp_extract(evidence_value, '([^ ]+)$', 1)) AS hostname,
+                  evidence_value
+        """,
+        params,
+    ).to_arrow_table()
+
+
+def _date_hosts(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> int:
+    """The hostname years the inserted rows date; one already held keeps its row."""
+    conn.register("fresh_hosts", fresh)
+    try:
+        return conn.execute(
+            "INSERT OR IGNORE INTO hostname_year "
+            "(hostname, parent_domain, assigned_year, evidence_id) "
+            "SELECT hostname, parent, year, evidence_id FROM fresh_hosts"
+        ).fetchone()[0]
+    finally:
+        conn.unregister("fresh_hosts")
+
+
+def _stage_hosts(
+    conn: duckdb.DuckDBPyConnection, table: str, rows: list[tuple], source_id: int
+) -> None:
+    """One file's rows into the temp table `table` as one relation, since a file runs to
+    millions: (hostname, parent, year, value, location), and url when a row carries its own.
+    Each parent is filed as a domain."""
+    names = ("hostname", "parent", "year", "value", "location", "url")[: len(rows[0])]
+    columns = {name: [row[i] for row in rows] for i, name in enumerate(names)}
+    columns["year"] = pa.array(columns["year"], type=pa.int32())
+    conn.register(f"{table}_rows", pa.table(columns))
+    try:
+        conn.execute(f"CREATE OR REPLACE TEMP TABLE {table} AS SELECT * FROM {table}_rows")
+    finally:
+        conn.unregister(f"{table}_rows")
+    conn.execute(
+        rf"""
+        INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
+        SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
+        FROM {table}
+        """,
+        [source_id],
+    )
+
+
 def ingest_hostname_journal(
     conn: duckdb.DuckDBPyConnection,
     path: Path,
@@ -317,7 +415,8 @@ def ingest_hostname_journal(
         logger.warning(f"{exc}; journal refused")
         return stats
     if only is not None:
-        stats = _ingest_rows(conn, path, source_name, method, stats, only)
+        with _one_transaction(conn):
+            stats = _ingest_rows(conn, path, source_name, method, stats, only)
         logger.info(str(stats))
         return stats
     # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
@@ -346,19 +445,20 @@ def ingest_hostname_journal(
         # rows to the log every run, and it says nothing a reader wants.
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
-    stats = _ingest_rows(conn, path, source_name, method, stats, None)
-    if stats.get("refused"):
-        return stats
-    # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
-    # row to the new digest rather than adding one. `record_rows` accumulates, because the
-    # journal really did yield rows on both passes and the total is what the ledger is for.
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?) "
-        "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
-        "record_rows = ingested_file.record_rows + excluded.record_rows",
-        [source_name, path.name, digest, stats["hostname_year_rows"]],
-    )
+    with _one_transaction(conn):
+        stats = _ingest_rows(conn, path, source_name, method, stats, None)
+        if stats.get("refused"):
+            return stats
+        # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
+        # row to the new digest rather than adding one. `record_rows` accumulates, because the
+        # journal really did yield rows on both passes and the total is what the ledger is for.
+        conn.execute(
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
+            "record_rows = ingested_file.record_rows + excluded.record_rows",
+            [source_name, path.name, digest, stats["hostname_year_rows"]],
+        )
     logger.info(str(stats))
     return stats
 
@@ -384,13 +484,14 @@ def _ingest_rows(
     only_hosts = {h for h, _ in only} if only is not None else None
 
     counts: Counter[str] = Counter()
-    # the capture quoted per (host, year): any 2xx or 3xx before any error, then the earliest
-    seen: dict[tuple[str, int], tuple[bool, str, str | None]] = {}
+    # the capture quoted per (host, year): any 2xx or 3xx before any error, then the earliest,
+    # with the journal line it sits on
+    seen: dict[tuple[str, int], tuple[bool, str, str | None, int]] = {}
     strict, errors_only, refused = status_required(path), error_lane(path), False
     opener = gzip.open if path.suffix == ".gz" else open
     try:
         with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
+            for lineno, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
                     continue
@@ -435,7 +536,7 @@ def _ingest_rows(
                 if only is not None and key not in only:
                     continue
                 if key not in seen or (error, ts) < seen[key][:2]:
-                    seen[key] = (error, ts, status if error else None)
+                    seen[key] = (error, ts, status if error else None, lineno)
     except (EOFError, OSError):
         # a journal cut mid-write; what was read is real, the tail returns next sweep
         counts["truncated_tail"] += 1
@@ -465,8 +566,9 @@ def _ingest_rows(
             ts,
             status,
             f"cdx capture {ts} status {status} {host}" if error else f"cdx capture {ts} {host}",
+            f"line {lineno}",
         )
-        for (host, year), (error, ts, status) in sorted(seen.items())
+        for (host, year), (error, ts, status, lineno) in sorted(seen.items())
         if host in parents
     ]
     stats.update(counts)
@@ -475,11 +577,11 @@ def _ingest_rows(
     if rows:
         source_id = ensure_source(conn, source_name, "timestamped")
         conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS hostage "
-            "(hostname TEXT, parent TEXT, year INTEGER, ts TEXT, status TEXT, value TEXT)"
+            "CREATE TEMP TABLE IF NOT EXISTS hostage (hostname TEXT, parent TEXT, "
+            "year INTEGER, ts TEXT, status TEXT, value TEXT, location TEXT)"
         )
         conn.execute("DELETE FROM hostage")
-        conn.executemany("INSERT INTO hostage VALUES (?, ?, ?, ?, ?, ?)", rows)
+        conn.executemany("INSERT INTO hostage VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
         conn.execute(
             r"""
             INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
@@ -488,105 +590,51 @@ def _ingest_rows(
             """,
             [source_id],
         )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT h.parent, ?, h.year, 'cdx_timestamp', h.value,
-                   'https://web.archive.org/web/' || h.ts || '/http://' || h.hostname || '/',
-                   ?
-            FROM hostage h
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = h.hostname AND hy.assigned_year = h.year
-            LEFT JOIN evidence held ON held.evidence_id = hy.evidence_id
-            WHERE hy.hostname IS NULL
-               OR (h.status IS NULL AND regexp_matches(held.evidence_value, ?)
-                   AND NOT EXISTS (SELECT 1 FROM evidence x WHERE x.domain = h.parent
-                                   AND x.evidence_year = h.year AND x.evidence_value = h.value))
-            """,
-            [source_id, method, ERROR_STATUS],
+        fresh = _insert_host_rows(
+            conn,
+            "hostage",
+            {
+                "source_id": source_id,
+                "type": "cdx_timestamp",
+                "method": method,
+                "file": path.name,
+                "web": method in WEB_METHODS,
+            },
+            url_sql="'https://web.archive.org/web/' || t.ts || '/http://' || t.hostname || '/'",
+            ships="$web AND t.status IS NULL",
         )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT h.hostname, h.parent, h.year, e.evidence_id
-            FROM hostage h
-            JOIN evidence e
-              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
-            """,
-        )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # A 2xx or 3xx takes a host-year that an earlier journal gave to an error capture.
-        conn.execute(
-            """
-            CREATE OR REPLACE TEMP TABLE repoint AS
-            SELECT hy.hostname, hy.assigned_year, min(e.evidence_id) AS evidence_id
-            FROM hostage h
-            JOIN hostname_year hy ON hy.hostname = h.hostname AND hy.assigned_year = h.year
-            JOIN evidence held ON held.evidence_id = hy.evidence_id
-            JOIN evidence e
-              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
-            WHERE h.status IS NULL AND regexp_matches(held.evidence_value, ?)
-            GROUP BY hy.hostname, hy.assigned_year
-            """,
-            [ERROR_STATUS],
-        )
-        conn.execute(
-            """
-            UPDATE hostname_year SET evidence_id = r.evidence_id FROM repoint r
-            WHERE hostname_year.hostname = r.hostname
-              AND hostname_year.assigned_year = r.assigned_year
-            """
-        )
-        stats["repointed"] = conn.execute("SELECT count(*) FROM repoint").fetchone()[0]
-        # and the parent-year an error capture held, from any subdomain but `www.`
-        conn.execute(
-            """
-            CREATE OR REPLACE TEMP TABLE parent_repoint AS
-            SELECT dy.domain, dy.assigned_year, min(e.evidence_id) AS evidence_id
-            FROM hostage h
-            JOIN domain_year dy ON dy.domain = h.parent AND dy.assigned_year = h.year
-            JOIN evidence held ON held.evidence_id = dy.evidence_id
-            JOIN evidence e
-              ON e.domain = h.parent AND e.evidence_year = h.year AND e.evidence_value = h.value
-            WHERE h.status IS NULL AND h.hostname <> 'www.' || h.parent
-              AND regexp_matches(held.evidence_value, ?)
-            GROUP BY dy.domain, dy.assigned_year
-            """,
-            [ERROR_STATUS],
-        )
-        conn.execute(
-            """
-            UPDATE domain_year SET evidence_id = r.evidence_id FROM parent_repoint r
-            WHERE domain_year.domain = r.domain AND domain_year.assigned_year = r.assigned_year
-            """
-        )
-        # A capture under the domain evidences the parent registrable in that year too, in
-        # the same cdx_timestamp class: one row per (parent, year).
-        #
-        # **Except `www.` in front of the parent** (his words): "the existence of
-        # the bare parent does not automatically establish the www hostname, nor does the
-        # presence of www automatically establish the bare hostname". Letting it through
-        # ships one observation as two records, in `additions/` and in `hostnames/`. Any
-        # OTHER subdomain still dates the parent, so the exclusion names that one shape. An
-        # error capture dates no parent: it would hold the key against a later 2xx or 3xx.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN hostage h ON e.domain = h.parent AND e.evidence_year = h.year
-             AND e.evidence_value = h.value
-            WHERE h.hostname <> 'www.' || h.parent AND h.status IS NULL
-            GROUP BY e.domain, e.evidence_year
-            """,
-        )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
+        stats["evidence_rows"] = fresh.num_rows
+        stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+        # A 2xx or 3xx takes a host-year that an earlier journal gave to an error capture. The
+        # rows those host-years cite are read first, so the status test never scans evidence.
+        conn.register("fresh_hosts", fresh)
+        try:
+            stats["repointed"] = conn.execute(
+                """
+                UPDATE hostname_year SET evidence_id = r.evidence_id
+                FROM (
+                    WITH taken AS MATERIALIZED (
+                        SELECT hy.hostname, hy.assigned_year, hy.evidence_id AS held_id,
+                               f.evidence_id
+                        FROM hostname_year hy
+                        JOIN fresh_hosts f
+                          ON f.hostname = hy.hostname AND f.year = hy.assigned_year
+                        WHERE NOT regexp_matches(f.evidence_value, $error)
+                    ), cited AS MATERIALIZED (
+                        SELECT evidence_id, evidence_value FROM evidence
+                        WHERE evidence_id IN (SELECT held_id FROM taken)
+                    )
+                    SELECT t.hostname, t.assigned_year, t.evidence_id
+                    FROM taken t JOIN cited c ON c.evidence_id = t.held_id
+                    WHERE regexp_matches(c.evidence_value, $error)
+                ) r
+                WHERE hostname_year.hostname = r.hostname
+                  AND hostname_year.assigned_year = r.assigned_year
+                """,
+                {"error": ERROR_STATUS},
+            ).fetchone()[0]
+        finally:
+            conn.unregister("fresh_hosts")
         conn.execute("DELETE FROM hostage")
     else:
         stats["hostname_year_rows"] = 0
@@ -640,8 +688,11 @@ ZONE_CAPTURE_URLS = {
 }
 
 
-def zone_ns_targets(path: Path, counts: Counter[str]) -> dict[str, str]:
-    """hostname -> parent registrable for every NS target in one zone file.
+def zone_ns_targets(
+    path: Path, counts: Counter[str], lines: dict[str, int] | None = None
+) -> dict[str, str]:
+    """hostname -> parent registrable for every NS target in one zone file, and into `lines`,
+    when given, the line that first names each.
 
     Indexed by the `NS` type token rather than by column, because a continuation line
     carries no owner and its first token is the TTL. Targets that are themselves
@@ -651,7 +702,7 @@ def zone_ns_targets(path: Path, counts: Counter[str]) -> dict[str, str]:
 
     parents: dict[str, str] = {}
     with _open_text(path) as fh:
-        for line in fh:
+        for number, line in enumerate(fh, 1):
             tokens = line.split()
             idx = next((i for i in range(1, min(5, len(tokens))) if tokens[i] == "NS"), None)
             if idx is None or idx + 1 >= len(tokens):
@@ -670,6 +721,8 @@ def zone_ns_targets(path: Path, counts: Counter[str]) -> dict[str, str]:
                 counts["registrable_row"] += 1
             else:
                 parents[host] = reg
+                if lines is not None:
+                    lines[host] = number
     return parents
 
 
@@ -704,81 +757,40 @@ def ingest_zone_hostnames(
     zone = apex.lower() or "root"
     serial = _serial_of(path)
     counts: Counter[str] = Counter()
-    parents = zone_ns_targets(path, counts)
-    rows = [(host, parents[host], year) for host in sorted(parents)]
+    lines: dict[str, int] = {}
+    parents = zone_ns_targets(path, counts, lines)
+    prefix = f"internic {zone} zone serial {serial} NS "
+    rows = [
+        (host, parents[host], year, prefix + host, f"line {lines[host]}")
+        for host in sorted(parents)
+    ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
-    if rows:
-        source_id = ensure_source(conn, source_name, "timestamped")
-        prefix = f"internic {zone} zone serial {serial} NS "
-        conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS zonehost (hostname TEXT, parent TEXT, year INTEGER)"
-        )
-        conn.execute("DELETE FROM zonehost")
-        conn.executemany("INSERT INTO zonehost VALUES (?, ?, ?)", rows)
-        conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM zonehost
-            """,
-            [source_id],
-        )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT z.parent, ?, z.year, 'artifact_listing', ? || z.hostname, ?, ?
-            FROM zonehost z
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = z.hostname AND hy.assigned_year = z.year
-            WHERE hy.hostname IS NULL
-            """,
-            [source_id, prefix, ZONE_CAPTURE_URLS.get(path.name), ZONE_METHOD],
-        )
-        if writes_hostname_years(source_name):
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO hostname_year
-                    (hostname, parent_domain, assigned_year, evidence_id)
-                SELECT z.hostname, z.parent, z.year, e.evidence_id
-                FROM zonehost z
-                JOIN evidence e
-                  ON e.domain = z.parent AND e.evidence_year = z.year
-                 AND e.evidence_value = ? || z.hostname
-                """,
-                [prefix],
+    stats["hostname_year_rows"] = 0
+    with _one_transaction(conn):
+        if rows:
+            source_id = ensure_source(conn, source_name, "timestamped")
+            _stage_hosts(conn, "zonehost", rows, source_id)
+            fresh = _insert_host_rows(
+                conn,
+                "zonehost",
+                {
+                    "source_id": source_id,
+                    "type": "artifact_listing",
+                    "method": ZONE_METHOD,
+                    "file": path.name,
+                    "url": ZONE_CAPTURE_URLS.get(path.name),
+                },
             )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # The registry serving `ns1.foo.com` for a delegation is also its statement
-        # that foo.com existed that day, the same class at registrable grain, so the
-        # parent earns its year from the same row (the check `nothing_earned_is_left_
-        # unassigned` requires it). Almost all are already held; the rest are the 63
-        # pairs a registrable-grain measurement found and closed on yield.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+            stats["evidence_rows"] = fresh.num_rows
+            if writes_hostname_years(source_name):
+                stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.execute("DELETE FROM zonehost")
         conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN zonehost z ON e.domain = z.parent AND e.evidence_year = z.year
-             AND e.evidence_value = ? || z.hostname
-            GROUP BY e.domain, e.evidence_year
-            """,
-            [prefix],
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?)",
+            [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
         )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
-        conn.execute("DELETE FROM zonehost")
-    else:
-        stats["hostname_year_rows"] = 0
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
-    )
     logger.info(str(stats))
     return stats
 
@@ -807,15 +819,18 @@ _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 _SKIPPED_CATEGORY = "mail"
 
 
-def _list_hosts(text: str, is_diff: bool, counts: Counter[str]) -> dict[str, str]:
-    """hostname -> parent registrable for the hosts one blocklist file names.
+def _list_hosts(
+    text: str, is_diff: bool, counts: Counter[str], lines: dict[str, int] | None = None
+) -> dict[str, str]:
+    """hostname -> parent registrable for the hosts one blocklist file names, and into `lines`,
+    when given, the line that first names each.
 
     The same reading `parse_squidguard_blacklist` applies at registrable grain: `#`
     comments skipped, a diff's `+` lines kept and its `-` removals dropped, a URL's path
     stripped. IP addresses and bare registrables are counted and not kept.
     """
     parents: dict[str, str] = {}
-    for line in text.splitlines():
+    for number, line in enumerate(text.splitlines(), 1):
         entry = line.strip()
         if not entry or entry.startswith("#"):
             continue
@@ -840,11 +855,17 @@ def _list_hosts(text: str, is_diff: bool, counts: Counter[str]) -> dict[str, str
             counts["registrable_row"] += 1
         else:
             parents[host] = reg
+            if lines is not None:
+                lines[host] = number
     return parents
 
 
-def _squidguard_members(path: Path, counts: Counter[str]) -> list[tuple[str, int, dict[str, str]]]:
-    """[(evidence prefix, year, hosts)] for one flattened squidGuard list file."""
+# (evidence prefix, year, hostname -> parent, hostname -> where in the file)
+_ListMember = tuple[str, int, dict[str, str], dict[str, str]]
+
+
+def _squidguard_members(path: Path, counts: Counter[str]) -> list[_ListMember]:
+    """[(evidence prefix, year, hosts, locations)] for one flattened squidGuard list file."""
     from ark.sources import _SG_FILE, _SG_STAMP
 
     match = _SG_FILE.match(path.name)
@@ -868,15 +889,19 @@ def _squidguard_members(path: Path, counts: Counter[str]) -> list[tuple[str, int
     if year not in YEARS:
         counts["out_of_window_edition"] += 1
         return []
-    return [(f"squidguard:{category}/{kind}@{stamp}", year, _list_hosts(text, is_diff, counts))]
+    lines: dict[str, int] = {}
+    hosts = _list_hosts(text, is_diff, counts, lines)
+    where = {host: f"line {n}" for host, n in lines.items()}
+    return [(f"squidguard:{category}/{kind}@{stamp}", year, hosts, where)]
 
 
-def _chastity_members(path: Path, counts: Counter[str]) -> list[tuple[str, int, dict[str, str]]]:
-    """[(evidence prefix, year, hosts)] per list member of the chastity orig tarball."""
+def _chastity_members(path: Path, counts: Counter[str]) -> list[_ListMember]:
+    """[(evidence prefix, year, hosts, locations)] per list member of the chastity orig
+    tarball; a location names the member and its line."""
     import tarfile
     from datetime import UTC, datetime
 
-    out: list[tuple[str, int, dict[str, str]]] = []
+    out: list[_ListMember] = []
     with tarfile.open(path, "r:gz") as tar:
         for member in tar:
             match = _CHASTITY_MEMBER.match(member.name)
@@ -896,7 +921,10 @@ def _chastity_members(path: Path, counts: Counter[str]) -> list[tuple[str, int, 
             text = fh.read().decode("utf-8", errors="replace")
             is_diff = match.group(3) is not None
             prefix = f"chastity-list:{stamped:%Y%m%d} {category}/{kind}"
-            out.append((prefix, stamped.year, _list_hosts(text, is_diff, counts)))
+            lines: dict[str, int] = {}
+            hosts = _list_hosts(text, is_diff, counts, lines)
+            where = {host: f"{member.name}:line {n}" for host, n in lines.items()}
+            out.append((prefix, stamped.year, hosts, where))
     return out
 
 
@@ -946,86 +974,44 @@ def ingest_blocklist_hostnames(
         return stats
     approvals.check(source_name, etype)
 
-    rows: list[tuple[str, str, int, str]] = []
+    rows: list[tuple[str, str, int, str, str]] = []
     seen: set[tuple[str, int]] = set()
-    for prefix, year, parents in members:
+    for prefix, year, parents, where in members:
         for host, parent in sorted(parents.items()):
             if (host, year) not in seen:
                 seen.add((host, year))
-                rows.append((host, parent, year, f"{prefix} host {host}"))
+                rows.append((host, parent, year, f"{prefix} host {host}", where[host]))
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
     stats["hostname_year_rows"] = 0
-    if rows:
-        source_id = ensure_source(conn, source_name, "timestamped")
-        if split:
-            # parked rows are counted, not parents, and never reach listhost
-            dated = held.attested(conn, {parent for _, parent, _, _ in rows})
-            stats["split_parked"] = sum(1 for row in rows if row[1] not in dated)
-            rows = [row for row in rows if row[1] in dated]
-        conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS listhost "
-            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
-        )
-        conn.execute("DELETE FROM listhost")
+    if rows and split:
+        # parked rows are counted, not parents, and never reach listhost
+        dated = held.attested(conn, {parent for _, parent, _, _, _ in rows})
+        stats["split_parked"] = sum(1 for row in rows if row[1] not in dated)
+        rows = [row for row in rows if row[1] in dated]
+    with _one_transaction(conn):
         if rows:
-            conn.executemany("INSERT INTO listhost VALUES (?, ?, ?, ?)", rows)
+            source_id = ensure_source(conn, source_name, "timestamped")
+            _stage_hosts(conn, "listhost", rows, source_id)
+            fresh = _insert_host_rows(
+                conn,
+                "listhost",
+                {
+                    "source_id": source_id,
+                    "type": etype,
+                    "method": method,
+                    "file": path.name,
+                    "url": url,
+                },
+            )
+            stats["evidence_rows"] = fresh.num_rows
+            stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.execute("DELETE FROM listhost")
         conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM listhost
-            """,
-            [source_id],
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?)",
+            [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
         )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT l.parent, ?, l.year, ?, l.value, ?, ?
-            FROM listhost l
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = l.hostname AND hy.assigned_year = l.year
-            WHERE hy.hostname IS NULL
-            """,
-            [source_id, etype, url, method],
-        )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT l.hostname, l.parent, l.year, e.evidence_id
-            FROM listhost l
-            JOIN evidence e
-              ON e.domain = l.parent AND e.evidence_year = l.year
-             AND e.evidence_value = l.value
-            """,
-        )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # The list naming `x.foo.com` as live is the same claim about foo.com in that
-        # year, so the parent earns its year from the same row, as the check
-        # `nothing_earned_is_left_unassigned` requires. Nearly all are already held.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN listhost l ON e.domain = l.parent AND e.evidence_year = l.year
-             AND e.evidence_value = l.value
-            GROUP BY e.domain, e.evidence_year
-            """,
-        )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
-        conn.execute("DELETE FROM listhost")
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [source_name, path.name, _sha256(path), stats["hostname_year_rows"]],
-    )
     logger.info(str(stats))
     return stats
 
@@ -1065,8 +1051,11 @@ def _ns_host(token: str, counts: Counter[str]) -> tuple[str, str] | None:
     return host, reg
 
 
-def ripe_snapshot_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str]]:
-    """[(hostname, parent, 1999, value)] for every `*ns:` value in the 1999 snapshot.
+def ripe_snapshot_nservers(
+    path: Path, counts: Counter[str], lines: dict[tuple[str, int], int] | None = None
+) -> list[tuple[str, str, int, str]]:
+    """[(hostname, parent, 1999, value)] for every `*ns:` value in the 1999 snapshot, and into
+    `lines`, when given, the line that first names each (hostname, year).
 
     The year is the file's own generation stamp on line 2, read the way the banked
     parser reads it and refused if absent or out of window. Reverse-zone objects are
@@ -1076,7 +1065,7 @@ def ripe_snapshot_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, 
 
     year: int | None = None
     stamp_text = ""
-    hosts: dict[str, tuple[str, str]] = {}
+    hosts: dict[str, tuple[str, str, int]] = {}
     with _open_text(path) as fh:
         for number, line in enumerate(fh, 1):
             if year is None:
@@ -1099,15 +1088,21 @@ def ripe_snapshot_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, 
             for token in line[4:].split():
                 found = _ns_host(token, counts)
                 if found is not None and found[0] not in hosts:
-                    hosts[found[0]] = (found[1], f"ripe_dbase:19{stamp_text} ns {found[0]}")
+                    value = f"ripe_dbase:19{stamp_text} ns {found[0]}"
+                    hosts[found[0]] = (found[1], value, number)
     if year is None:
         counts["no_header_stamp"] += 1
         return []
-    return [(host, parent, year, value) for host, (parent, value) in sorted(hosts.items())]
+    if lines is not None:
+        lines.update({(host, year): number for host, (_, _, number) in hosts.items()})
+    return [(host, parent, year, value) for host, (parent, value, _) in sorted(hosts.items())]
 
 
-def ripe_changed_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, str, int, str]]:
-    """[(hostname, parent, year, value)] for the `nserver:` set of each `domain:` object.
+def ripe_changed_nservers(
+    path: Path, counts: Counter[str], lines: dict[tuple[str, int], int] | None = None
+) -> list[tuple[str, str, int, str]]:
+    """[(hostname, parent, year, value)] for the `nserver:` set of each `domain:` object, and
+    into `lines`, when given, the `nserver:` line of each (hostname, year) kept.
 
     An object whose LATEST `changed:` line falls in year Y is the registry stating that
     its nserver set stood as written in Y, and rule 6 keeps the record to that year. An
@@ -1116,7 +1111,7 @@ def ripe_changed_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, s
     from ark.sources import _RIPE_CHANGED_LONG, _open_text
 
     out: dict[tuple[str, int], tuple[str, str]] = {}
-    nservers: list[str] = []
+    nservers: list[tuple[str, int]] = []
     latest: str | None = None
     in_object = False
 
@@ -1128,13 +1123,15 @@ def ripe_changed_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, s
             counts["object_out_of_window"] += 1
             return
         counts["objects_in_window"] += 1
-        for token in nservers:
+        for token, number in nservers:
             found = _ns_host(token, counts)
             if found is not None and (found[0], year) not in out:
                 out[(found[0], year)] = (found[1], f"ripe_changed:{latest} nserver {found[0]}")
+                if lines is not None:
+                    lines[(found[0], year)] = number
 
     with _open_text(path) as fh:
-        for line in fh:
+        for number, line in enumerate(fh, 1):
             if line.startswith("domain:"):
                 flush()
                 in_object, nservers, latest = True, [], None
@@ -1145,7 +1142,7 @@ def ripe_changed_nservers(path: Path, counts: Counter[str]) -> list[tuple[str, s
                 counts["ns_lines"] += 1
                 tokens = line[8:].split()
                 if tokens:
-                    nservers.append(tokens[0])
+                    nservers.append((tokens[0], number))
             else:
                 found = _RIPE_CHANGED_LONG.match(line.rstrip("\n"))
                 if found is not None and (latest is None or found.group(1) > latest):
@@ -1174,78 +1171,39 @@ def ingest_ripe_nserver_hostnames(
         return stats
     approvals.check(RIPE_NS_SOURCE, "artifact_listing")
     counts: Counter[str] = Counter()
+    lines: dict[tuple[str, int], int] = {}
     if path.name == "ripe.db.gz":
-        method, rows = RIPE_NS_SNAPSHOT_METHOD, ripe_snapshot_nservers(path, counts)
+        method, found = RIPE_NS_SNAPSHOT_METHOD, ripe_snapshot_nservers(path, counts, lines)
     else:
-        method, rows = RIPE_NS_CHANGED_METHOD, ripe_changed_nservers(path, counts)
+        method, found = RIPE_NS_CHANGED_METHOD, ripe_changed_nservers(path, counts, lines)
+    rows = [(h, p, y, v, f"line {lines[(h, y)]}") for h, p, y, v in found]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
     stats["hostname_year_rows"] = 0
-    if rows:
-        source_id = ensure_source(conn, RIPE_NS_SOURCE, "timestamped")
-        conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS ripehost "
-            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
-        )
-        conn.execute("DELETE FROM ripehost")
-        conn.executemany("INSERT INTO ripehost VALUES (?, ?, ?, ?)", rows)
-        conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM ripehost
-            """,
-            [source_id],
-        )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT r.parent, ?, r.year, 'artifact_listing', r.value, ?, ?
-            FROM ripehost r
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = r.hostname AND hy.assigned_year = r.year
-            WHERE hy.hostname IS NULL
-            """,
-            [source_id, RIPE_NS_URLS[path.name], method],
-        )
-        if writes_hostname_years(RIPE_NS_SOURCE):
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO hostname_year
-                    (hostname, parent_domain, assigned_year, evidence_id)
-                SELECT r.hostname, r.parent, r.year, e.evidence_id
-                FROM ripehost r
-                JOIN evidence e
-                  ON e.domain = r.parent AND e.evidence_year = r.year
-                 AND e.evidence_value = r.value
-                """,
+    with _one_transaction(conn):
+        if rows:
+            source_id = ensure_source(conn, RIPE_NS_SOURCE, "timestamped")
+            _stage_hosts(conn, "ripehost", rows, source_id)
+            fresh = _insert_host_rows(
+                conn,
+                "ripehost",
+                {
+                    "source_id": source_id,
+                    "type": "artifact_listing",
+                    "method": method,
+                    "file": path.name,
+                    "url": RIPE_NS_URLS[path.name],
+                },
             )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # The registry naming `ns.foo.net` as serving a delegation that day is the same
-        # statement about foo.net, so the parent earns its year from the same row, as
-        # the check `nothing_earned_is_left_unassigned` requires. 98% are already held.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+            stats["evidence_rows"] = fresh.num_rows
+            if writes_hostname_years(RIPE_NS_SOURCE):
+                stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.execute("DELETE FROM ripehost")
         conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN ripehost r ON e.domain = r.parent AND e.evidence_year = r.year
-             AND e.evidence_value = r.value
-            GROUP BY e.domain, e.evidence_year
-            """,
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?)",
+            [RIPE_NS_SOURCE, path.name, _sha256(path), stats["hostname_year_rows"]],
         )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
-        conn.execute("DELETE FROM ripehost")
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [RIPE_NS_SOURCE, path.name, _sha256(path), stats["hostname_year_rows"]],
-    )
     logger.info(str(stats))
     return stats
 
@@ -1263,8 +1221,11 @@ ISC_METHOD = "isc_survey_host_list"
 _ISC_HOST_FILE = re.compile(r"^wb_nw_(9\d{3})_([a-z0-9-]+)\.gz$")
 
 
-def isc_survey_hosts(path: Path, counts: Counter[str]) -> dict[str, str]:
-    """hostname -> parent registrable for every host one survey file lists.
+def isc_survey_hosts(
+    path: Path, counts: Counter[str], lines: dict[str, int] | None = None
+) -> dict[str, str]:
+    """hostname -> parent registrable for every host one survey file lists, and into `lines`,
+    when given, the line that first names each.
 
     The last whitespace token is the host, as `parse_isc_survey` reads it. Underscore
     NT names and other non-RFC-1123 shapes are refused, exactly as the journal ingest
@@ -1274,7 +1235,7 @@ def isc_survey_hosts(path: Path, counts: Counter[str]) -> dict[str, str]:
 
     parents: dict[str, str] = {}
     with _open_text(path) as fh:
-        for line in fh:
+        for number, line in enumerate(fh, 1):
             tokens = line.split()
             if not tokens:
                 continue
@@ -1293,6 +1254,8 @@ def isc_survey_hosts(path: Path, counts: Counter[str]) -> dict[str, str]:
                 counts["registrable_row"] += 1
             else:
                 parents[host] = reg
+                if lines is not None:
+                    lines[host] = number
     return parents
 
 
@@ -1329,98 +1292,42 @@ def ingest_isc_hostnames(
     # `scripts/sources/directories/fetch_nw_host_files.py` records how they were taken.
     artifact_url = f"http://nw.com/zone/{code}.hosts/{tld}.gz"
     counts: Counter[str] = Counter()
-    parents = isc_survey_hosts(path, counts)
+    lines: dict[str, int] = {}
+    parents = isc_survey_hosts(path, counts, lines)
     prefix = f"isc survey {survey} host "
-    rows = [(host, parents[host], year, prefix + host) for host in sorted(parents)]
+    rows = [
+        (host, parents[host], year, prefix + host, f"line {lines[host]}")
+        for host in sorted(parents)
+    ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
-    if rows:
-        source_id = ensure_source(conn, ISC_SOURCE_NAME, "timestamped")
-        conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS ischost "
-            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT)"
-        )
-        conn.execute("DELETE FROM ischost")
-        # A survey file runs to 1.3 million hosts, so the rows go in as one relation
-        # rather than one prepared statement each.
-        conn.register("ischost_rows", _as_arrow(rows))
-        conn.execute("INSERT INTO ischost SELECT * FROM ischost_rows")
-        conn.unregister("ischost_rows")
-        conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM ischost
-            """,
-            [source_id],
-        )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT i.parent, ?, i.year, 'artifact_listing', i.value, ?, ?
-            FROM ischost i
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = i.hostname AND hy.assigned_year = i.year
-            WHERE hy.hostname IS NULL
-            """,
-            [source_id, artifact_url, ISC_METHOD],
-        )
-        if writes_hostname_years(ISC_SOURCE_NAME):
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO hostname_year
-                    (hostname, parent_domain, assigned_year, evidence_id)
-                SELECT i.hostname, i.parent, i.year, e.evidence_id
-                FROM ischost i
-                JOIN evidence e
-                  ON e.domain = i.parent AND e.evidence_year = i.year
-                 AND e.evidence_value = i.value
-                """,
+    stats["hostname_year_rows"] = 0
+    with _one_transaction(conn):
+        if rows:
+            source_id = ensure_source(conn, ISC_SOURCE_NAME, "timestamped")
+            _stage_hosts(conn, "ischost", rows, source_id)
+            fresh = _insert_host_rows(
+                conn,
+                "ischost",
+                {
+                    "source_id": source_id,
+                    "type": "artifact_listing",
+                    "method": ISC_METHOD,
+                    "file": path.name,
+                    "url": artifact_url,
+                },
             )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # The survey answering for `pc50.foo.co.uk` that month is the same observation
-        # of foo.co.uk, so the parent earns its year from the same row, as the check
-        # `nothing_earned_is_left_unassigned` requires. Every parent is already held
-        # at registrable grain by construction: `isc_survey` read these same lines.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
+            stats["evidence_rows"] = fresh.num_rows
+            if writes_hostname_years(ISC_SOURCE_NAME):
+                stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.execute("DELETE FROM ischost")
         conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN ischost i ON e.domain = i.parent AND e.evidence_year = i.year
-             AND e.evidence_value = i.value
-            GROUP BY e.domain, e.evidence_year
-            """,
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?)",
+            [ISC_SOURCE_NAME, path.name, _sha256(path), stats["hostname_year_rows"]],
         )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
-        conn.execute("DELETE FROM ischost")
-    else:
-        stats["hostname_year_rows"] = 0
-    conn.execute(
-        "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-        "VALUES (?, ?, ?, ?)",
-        [ISC_SOURCE_NAME, path.name, _sha256(path), stats["hostname_year_rows"]],
-    )
     logger.info(str(stats))
     return stats
-
-
-def _as_arrow(rows: list[tuple[str, str, int, str]]):  # noqa: ANN202 - pyarrow.Table
-    import pyarrow as pa
-
-    return pa.table(
-        {
-            "hostname": [r[0] for r in rows],
-            "parent": [r[1] for r in rows],
-            "year": pa.array([r[2] for r in rows], type=pa.int32()),
-            "value": [r[3] for r in rows],
-        }
-    )
 
 
 # A host somebody typed as an explicit `http://`, `https://` or `ftp://` URL in the BODY of a
@@ -1573,18 +1480,22 @@ USENET_HEADER_FAMILY = ItemFamily(
 
 
 def usenet_item_rows(
-    path: Path, counts: Counter[str], family: ItemFamily = USENET_FAMILY
+    path: Path,
+    counts: Counter[str],
+    family: ItemFamily = USENET_FAMILY,
+    lines: dict[tuple[str, int], int] | None = None,
 ) -> list[tuple[str, str, int, str, str]]:
-    """(hostname, parent, year, evidence value, archive URL) for one `{item, year, text}` shard.
+    """(hostname, parent, year, evidence value, archive URL) for one `{item, year, text}` shard,
+    and into `lines`, when given, the shard line each row's item sits on.
 
     One row per (host, year), keeping the lowest-sorting item that names it, so re-reading
-    the same shard produces the same evidence and the join below cannot fan out.
+    the same shard produces the same evidence.
     """
-    seen: dict[tuple[str, int], str] = {}
+    seen: dict[tuple[str, int], tuple[str, int]] = {}
     opener = gzip.open if path.suffix == ".gz" else open
     try:
         with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
-            for line in fh:
+            for number, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
                     continue
@@ -1608,8 +1519,8 @@ def usenet_item_rows(
                         counts["rejected_host"] += 1
                         continue
                     key = (host, year)
-                    if key not in seen or item < seen[key]:
-                        seen[key] = item
+                    if key not in seen or item < seen[key][0]:
+                        seen[key] = (item, number)
     except (EOFError, OSError):
         # a shard cut mid-write; what was read is real and the tail returns next sweep
         counts["truncated_tail"] += 1
@@ -1625,9 +1536,11 @@ def usenet_item_rows(
             parents[host] = reg
 
     rows: list[tuple[str, str, int, str, str]] = []
-    for (host, year), item in sorted(seen.items()):
+    for (host, year), (item, number) in sorted(seen.items()):
         if host not in parents:
             continue
+        if lines is not None:
+            lines[(host, year)] = number
         rows.append(
             (
                 host,
@@ -1642,20 +1555,6 @@ def usenet_item_rows(
             )
         )
     return rows
-
-
-def _as_arrow_usenet(rows: list[tuple[str, str, int, str, str]]):  # noqa: ANN202 - pyarrow.Table
-    import pyarrow as pa
-
-    return pa.table(
-        {
-            "hostname": [r[0] for r in rows],
-            "parent": [r[1] for r in rows],
-            "year": pa.array([r[2] for r in rows], type=pa.int32()),
-            "value": [r[3] for r in rows],
-            "url": [r[4] for r in rows],
-        }
-    )
 
 
 def ingest_usenet_item_journal(
@@ -1674,8 +1573,7 @@ def ingest_usenet_item_journal(
     # **The key is the name AND the digest, because one lane's shard GROWS.** Most pools
     # write a shard once, but the IETF collector appends every month of a list to that
     # list's one shard, so a name key would mark it done at its first length and skip every
-    # later month silently. Re-reading a grown shard costs one pass and its existing rows
-    # land on `INSERT OR IGNORE`.
+    # later month silently. Re-reading a grown shard costs one pass and adds no row it holds.
     previous = conn.execute(
         "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
         [family.source, file_key],
@@ -1687,83 +1585,41 @@ def ingest_usenet_item_journal(
     approvals.check(family.source, "link_source")
 
     counts: Counter[str] = Counter()
-    rows = usenet_item_rows(path, counts, family)
+    lines: dict[tuple[str, int], int] = {}
+    rows = [
+        (h, p, y, v, f"line {lines[(h, y)]}", u)
+        for h, p, y, v, u in usenet_item_rows(path, counts, family, lines)
+    ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
-    if rows:
-        source_id = ensure_source(conn, family.source, "timestamped")
+    stats["hostname_year_rows"] = 0
+    with _one_transaction(conn):
+        if rows:
+            source_id = ensure_source(conn, family.source, "timestamped")
+            _stage_hosts(conn, "usenethost", rows, source_id)
+            fresh = _insert_host_rows(
+                conn,
+                "usenethost",
+                {
+                    "source_id": source_id,
+                    "type": "link_source",
+                    "method": family.method,
+                    "file": file_key,
+                },
+                url_sql="t.url",
+            )
+            stats["evidence_rows"] = fresh.num_rows
+            stats["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.execute("DELETE FROM usenethost")
+        # One row per file, carrying what it has contributed across every reading of it,
+        # because `ingested_file` is keyed on (source_name, file_name) and a grown shard has
+        # to replace its own row rather than collide with it.
+        banked = (previous[1] if previous else 0) + int(stats["hostname_year_rows"])
         conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS usenethost "
-            "(hostname TEXT, parent TEXT, year INTEGER, value TEXT, url TEXT)"
+            "INSERT OR REPLACE INTO ingested_file "
+            "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
+            [family.source, file_key, digest, banked],
         )
-        conn.execute("DELETE FROM usenethost")
-        # A shard runs to millions of item lines, so the rows go in as one relation
-        conn.register("usenethost_rows", _as_arrow_usenet(rows))
-        conn.execute("INSERT INTO usenethost SELECT * FROM usenethost_rows")
-        conn.unregister("usenethost_rows")
-        conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM usenethost
-            """,
-            [source_id],
-        )
-        before = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
-            SELECT u.parent, ?, u.year, 'link_source', u.value, u.url, ?
-            FROM usenethost u
-            LEFT JOIN hostname_year hy
-              ON hy.hostname = u.hostname AND hy.assigned_year = u.year
-            WHERE hy.hostname IS NULL
-            """,
-            [source_id, family.method],
-        )
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO hostname_year
-                (hostname, parent_domain, assigned_year, evidence_id)
-            SELECT u.hostname, u.parent, u.year, e.evidence_id
-            FROM usenethost u
-            JOIN evidence e
-              ON e.domain = u.parent AND e.evidence_year = u.year
-             AND e.evidence_value = u.value
-            """,
-        )
-        after = conn.execute("SELECT count(*) FROM hostname_year").fetchone()[0]
-        stats["hostname_year_rows"] = after - before
-        # The post that names `pages.foo.com` names foo.com in the same breath, so the
-        # parent earns its year from the same observation, as
-        # `nothing_earned_is_left_unassigned` requires of every master-eligible row.
-        dy_before = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-            SELECT e.domain, e.evidence_year, min(e.evidence_id)
-            FROM evidence e
-            JOIN usenethost u ON e.domain = u.parent AND e.evidence_year = u.year
-             AND e.evidence_value = u.value
-            GROUP BY e.domain, e.evidence_year
-            """,
-        )
-        dy_after = conn.execute("SELECT count(*) FROM domain_year").fetchone()[0]
-        stats["parent_year_rows"] = dy_after - dy_before
-        conn.execute("DELETE FROM usenethost")
-    else:
-        stats["hostname_year_rows"] = 0
-
-    # One row per file, carrying what it has contributed across every reading of it, because
-    # `ingested_file` is keyed on (source_name, file_name) and a grown shard has to replace
-    # its own row rather than collide with it.
-    banked = (previous[1] if previous else 0) + int(stats["hostname_year_rows"])
-    conn.execute(
-        "INSERT OR REPLACE INTO ingested_file "
-        "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
-        [family.source, file_key, digest, banked],
-    )
     logger.info(str(stats))
     return stats
 
@@ -1940,14 +1796,17 @@ def retract_error_captures(
     for source, _, _ in AUDITED_FAMILIES.values():
         ensure_source(conn, source, "timestamped")
     conn.execute("BEGIN")
-    # the repoint target, one new row per host-year unless a row that is no error holds it
-    conn.execute("""
+    # the repoint target, one new row per host-year unless a row that is no error holds it,
+    # read from the repoint file's row for that host-year
+    conn.execute(
+        """
         INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                              evidence_value, evidence_url, acquisition_method)
+                              evidence_value, evidence_url, acquisition_method,
+                              source_file, record_location)
         SELECT DISTINCT h.parent, s.source_id, h.year, 'cdx_timestamp',
                'cdx capture ' || t.ok_ts || ' ' || h.hostname,
                'https://web.archive.org/web/' || t.ok_ts || '/http://' || h.hostname || '/',
-               t.ok_method
+               t.ok_method, ?, 'hostname ' || h.hostname || ' year ' || h.year
         FROM hit h
         JOIN hit_target t ON t.evidence_id = h.evidence_id
         JOIN source s ON s.name = t.ok_source
@@ -1956,7 +1815,9 @@ def retract_error_captures(
             WHERE x.domain = h.parent AND x.evidence_year = h.year
               AND x.evidence_value = 'cdx capture ' || t.ok_ts || ' ' || h.hostname
               AND x.evidence_id NOT IN (SELECT evidence_id FROM hit))
-    """)
+        """,
+        [audit.with_name("status_repoint.tsv.gz").name],
+    )
     conn.execute("""
         CREATE OR REPLACE TEMP TABLE new_row AS
         SELECT h.evidence_id AS old_id, min(e.evidence_id) AS new_id

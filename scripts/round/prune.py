@@ -74,9 +74,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 RETENTION = REPO / "docs/registers/retention.md"
 
-# Classes whose bytes can come back. The other three are held whatever else holds:
-# `live_input` is read by `just reproduce sources`, `keep_journal` is ours alone, `reference`
-# is kept for the record.
+# Classes whose bytes can come back. The others are held whatever else holds:
+# `live_input` is read by `just reproduce sources`, `keep_journal` and `keep_authority` are
+# ours alone, `reference` is kept for the record.
 RECLAIMABLE = ("regenerable", "keep_until_priced")
 
 # `refetch` values naming nobody who could serve the bytes again.

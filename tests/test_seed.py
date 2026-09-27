@@ -7,7 +7,6 @@ from his_release import HIS_YEARS, stage, text
 
 from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_TYPE
 from ark.seed import seed_from_file
 from ark.work_queue import connect_queue, counts
 
@@ -21,7 +20,7 @@ def _stores() -> tuple[duckdb.DuckDBPyConnection, object]:
 def test_seed_funnel(tmp_path: Path, his_files: Path) -> None:
     conn, queue_conn = _stores()
     # on file but with no confirmed year: this is a candidate, not settled work
-    sid = ensure_source(conn, "prior_task", "timestamped")
+    sid = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "known.com", sid)
 
     fixture = tmp_path / "seeds.txt"
@@ -67,20 +66,17 @@ def test_seed_skips_only_domains_with_a_confirmed_year(tmp_path: Path, his_files
     assert stats["enqueued"] == 1
 
 
-def test_a_name_his_row_rolled_up_is_still_a_candidate(tmp_path: Path, his_files: Path) -> None:
-    """His row dates rolled.com because his 1999 file holds www.rolled.com. The exact name is
-    not his, and no year of ours dates it, so it is queued."""
+def test_his_www_form_confirms_no_bare_name(tmp_path: Path, his_files: Path) -> None:
+    """His 1999 file holds www.rolled.com. The exact name rolled.com is not his, and no year of
+    ours dates it, so it is queued."""
     conn, queue_conn = _stores()
-    prior = ensure_source(conn, "prior_task", "timestamped")
-    add_candidate(conn, "rolled.com", prior)
-    assign_year(conn, record_evidence(conn, "rolled.com", prior, 1999, HIS_TYPE, "1999.txt"))
 
     fixture = tmp_path / "seeds.txt"
     fixture.write_text("rolled.com\n", encoding="utf-8")
     stats = seed_from_file(conn, queue_conn, fixture)
 
     assert stats["already_confirmed_baseline"] == 0
-    assert stats["already_candidate"] == 1
+    assert stats["new_candidates"] == 1
     assert stats["enqueued"] == 1
 
 

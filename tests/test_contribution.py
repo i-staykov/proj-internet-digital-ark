@@ -51,13 +51,11 @@ def _web(conn, domain: str, source: int, year: int, kind: str = "cdx_timestamp")
 
 def test_a_gap_filling_source_shows_new_pairs_but_no_new_domains(tmp_path) -> None:
     conn = _store()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "ia_cdx_bulk", "timestamped")
     # his file already holds this domain, for 1997 only
     baseline = _release(tmp_path, {"1997.txt": text(["already-his.com", "known.com"])})
-    add_candidate(conn, "known.com", prior)
-    assign_year(conn, record_evidence(conn, "known.com", prior, 1997, "prior_reused", "1997.txt"))
-    # the archive then evidences 1999, which is a new PAIR on a known DOMAIN
+    add_candidate(conn, "known.com", cdx)
+    # the archive evidences 1999, which is a new PAIR on a known DOMAIN
     assign_year(conn, _web(conn, "known.com", cdx, 1999))
 
     reports = _write(conn, tmp_path, baseline)
@@ -67,9 +65,6 @@ def test_a_gap_filling_source_shows_new_pairs_but_no_new_domains(tmp_path) -> No
     # contribution of every gap-filling source
     assert by_source["ia_cdx_bulk"]["netnew_pairs"] == "1"
     assert by_source["ia_cdx_bulk"]["netnew_domains"] == "0"
-    # his rows are not ours to report
-    assert by_source["prior_task"]["evidence_rows"] == "0"
-    assert by_source["prior_task"]["pairs_backed"] == "0"
     conn.close()
 
 
@@ -87,12 +82,10 @@ def test_a_brand_new_domain_counts_in_both_columns(tmp_path) -> None:
 
 def test_netnew_pairs_reconciles_with_the_scoreboard(tmp_path) -> None:
     conn = _store()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     isc = ensure_source(conn, "isc_survey", "timestamped")
     cdx = ensure_source(conn, "ia_cdx_bulk", "timestamped")
     baseline = _release(tmp_path, {"1997.txt": text(["already-his.com", "known.com"])})
-    add_candidate(conn, "known.com", prior)
-    assign_year(conn, record_evidence(conn, "known.com", prior, 1997, "prior_reused", "1997.txt"))
+    add_candidate(conn, "known.com", cdx)
     assign_year(conn, _web(conn, "known.com", cdx, 1999))
     add_candidate(conn, "fresh.org", isc)
     assign_year(conn, _web(conn, "fresh.org", isc, 1996, "artifact_listing"))
@@ -125,11 +118,8 @@ def test_year_growth_uses_the_supplied_merge_stats_shape(tmp_path) -> None:
     """Each year from line counts: his year file, then our registrable and hostname files,
     which packaging merges into `masters/<year>.txt`."""
     conn = _store()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     isc = ensure_source(conn, "isc_survey", "timestamped")
     baseline = _release(tmp_path, {"1997.txt": text(["already-his.com", "base.com"])})
-    add_candidate(conn, "base.com", prior)
-    assign_year(conn, record_evidence(conn, "base.com", prior, 1997, "prior_reused", "1997.txt"))
     cdx = ensure_source(conn, "ia_cdx_hostnames", "timestamped")
     add_candidate(conn, "added.com", cdx)
     assign_year(conn, _web(conn, "added.com", cdx, 1997))

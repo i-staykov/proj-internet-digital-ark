@@ -6,7 +6,6 @@ from his_release import HIS_YEARS, WEB_METHOD, capture, stage, text
 
 from ark import db, held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_TYPE
 from ark.stats import collect_stats, format_stats
 
 # the names his files hold beyond the staged release's own
@@ -48,32 +47,26 @@ def _assign(
     )
 
 
-def _his_row(conn, domain: str, source: int, year: int) -> None:
-    """One of his rows in the store, assigned, as the store holds them until they leave."""
-    assign_year(conn, record_evidence(conn, domain, source, year, HIS_TYPE, f"{year}.txt"))
-
-
 def _populated_db() -> duckdb.DuckDBPyConnection:
     conn = _fresh_db()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     art = ensure_source(conn, "isc_survey", "timestamped")
     link = ensure_source(conn, "ukwa_link", "candidate_only")
 
     # a pair his 1997 file holds, cross-confirmed by two sources of ours (and a same-source
-    # duplicate row that must NOT inflate the distinct-source count); his row is no source
-    add_candidate(conn, "base.com", prior)
-    _his_row(conn, "base.com", prior, 1997)
-    record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970101000000")
+    # duplicate row that must NOT inflate the distinct-source count)
+    add_candidate(conn, "base.com", cdx)
+    assign_year(
+        conn, record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970101000000")
+    )
     record_evidence(conn, "base.com", cdx, 1997, "cdx_timestamp", "19970202000000")
     record_evidence(conn, "base.com", art, 1997, "artifact_listing", "isc-1997")
     # net-new pair, plus a candidate-only link_target row that must NOT corroborate
     add_candidate(conn, "new.com", cdx)
     _assign(conn, "new.com", cdx, 1998, "cdx_timestamp")
     record_evidence(conn, "new.com", link, 1998, "link_target", "graph-row")
-    # a year his files hold, and a net-new year on the same domain
-    add_candidate(conn, "mixed.com", prior)
-    _his_row(conn, "mixed.com", prior, 1996)
+    # a net-new year on a domain his 1996 file holds
+    add_candidate(conn, "mixed.com", cdx)
     _assign(conn, "mixed.com", cdx, 1999, "cdx_timestamp")
     # net-new pair cross-confirmed by two master sources
     add_candidate(conn, "corr.com", cdx)
@@ -92,7 +85,6 @@ def test_collect_stats_counts() -> None:
     # the distinct names in his six files, his hostnames among them
     assert stats["baseline_domains"] == 7
     assert stats["total_domains"] == 5
-    # mixed.com/1996 rests on his row alone, so it is not a pair of ours
     assert stats["total_pairs"] == 4
     assert stats["candidate_pool"] == 1
 
@@ -132,7 +124,6 @@ def test_a_discovered_domain_with_two_years_is_one_discovery() -> None:
 
 def test_corroboration_counts_distinct_master_sources() -> None:
     stats = collect_stats(_populated_db())
-    # his two rows are not ours
     assert stats["evidence_rows"] == 8
     assert list(stats["evidence_rows_by_type"].items()) == [
         ("cdx_timestamp", 5),
@@ -176,10 +167,8 @@ def test_same_source_rows_count_once() -> None:
 
 def test_netnew_pair_survives_another_year_his_files_hold() -> None:
     conn = _fresh_db()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
-    add_candidate(conn, "foo.com", prior)
-    _his_row(conn, "foo.com", prior, 1996)
+    add_candidate(conn, "foo.com", cdx)
     _assign(conn, "foo.com", cdx, 1998, "cdx_timestamp")
 
     stats = collect_stats(conn)
@@ -325,31 +314,17 @@ def test_the_scoreboard_counts_only_what_the_export_would_ship() -> None:
     assert stats["netnew_domains"] == 1
 
 
-def test_his_files_decide_what_he_holds_and_his_rows_hold_nothing() -> None:
-    """Held is the exact name in his files. His rows in the store, a roll-up among them,
-    neither hold a pair nor count as ours."""
+def test_his_files_decide_what_he_holds() -> None:
+    """Held is the exact name in his files: his `www.rolled.com` holds no `rolled.com`."""
     conn = _fresh_db()
-    prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
-    # his 1999 file holds www.rolled.com; his row rolled it up to rolled.com
-    add_candidate(conn, "rolled.com", prior)
-    _his_row(conn, "rolled.com", prior, 1999)
-    record_evidence(
-        conn,
-        "rolled.com",
-        cdx,
-        1999,
-        "cdx_timestamp",
-        capture("rolled.com", 1999),
-        acquisition_method=WEB,
-    )
-    # his 1997 file holds base.com, and no row of his says so; 1998 is a year we fill
+    # his 1999 file holds www.rolled.com
+    add_candidate(conn, "rolled.com", cdx)
+    _assign(conn, "rolled.com", cdx, 1999, "cdx_timestamp")
+    # his 1997 file holds base.com; 1998 is a year we fill
     add_candidate(conn, "base.com", cdx)
     _assign(conn, "base.com", cdx, 1997, "cdx_timestamp")
     _assign(conn, "base.com", cdx, 1998, "cdx_timestamp")
-    # a name only his rows date is his, not ours
-    add_candidate(conn, "his-only.com", prior)
-    _his_row(conn, "his-only.com", prior, 1998)
 
     stats = collect_stats(conn)
     assert stats["netnew_pairs_by_year"] == {1998: 1, 1999: 1}
@@ -364,20 +339,20 @@ def test_his_files_decide_what_he_holds_and_his_rows_hold_nothing() -> None:
 
 def test_a_capture_of_another_host_dates_nothing() -> None:
     """A shipped pair needs a capture of exactly its domain: `www.` is another name, which his
-    files are diffed by. A pair citing such a row moves to an exact row of ours if it has one."""
+    files are diffed by, and a capture of it beside an exact one adds nothing."""
     conn = _fresh_db()
     cdx = ensure_source(conn, "wayback_cdx", "timestamped")
     add_candidate(conn, "alias.com", cdx)
     _assign(conn, "alias.com", cdx, 1998, "cdx_timestamp", capture("www.alias.com", 1998))
     add_candidate(conn, "exact.com", cdx)
-    _assign(conn, "exact.com", cdx, 1998, "cdx_timestamp", capture("www.exact.com", 1998))
+    _assign(conn, "exact.com", cdx, 1998, "cdx_timestamp")
     record_evidence(
         conn,
         "exact.com",
         cdx,
         1998,
         "cdx_timestamp",
-        capture("exact.com", 1998),
+        capture("www.exact.com", 1998),
         acquisition_method=WEB,
     )
 

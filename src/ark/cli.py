@@ -1038,9 +1038,11 @@ def rebuild(
 ) -> None:
     """Rebuild the result from a provenance export, with no source data.
 
-    Loads the exported evidence graph into the store and re-runs the exporter, which
-    regenerates the annual files, the candidate lists and the manifests. Needs the held
-    sets `ark intake` writes, checked before anything is dropped. Run `ark check` afterwards.
+    Loads the exported evidence graph into the store, with the schema's keys and defaults and
+    each sequence past the export's ids so the store takes new ingests, and re-runs the
+    exporter, which regenerates the annual files, the candidate lists and the manifests. Needs
+    the held sets `ark intake` writes, checked before anything is dropped. Run `ark check`
+    afterwards.
 
     DROPS the store's tables before recreating them from Parquet, so it refuses when the
     store holds ingested files the export does not: during collection anything banked

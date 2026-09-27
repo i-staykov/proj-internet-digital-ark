@@ -1,4 +1,4 @@
-"""The pricers ask `held` what is already dated or known, and never read his store rows.
+"""The pricers ask `held` what is already dated or known.
 
 One store and his staged release serve all three: a pair is held when it is ours or its
 exact name is in his file for that year, and a name is known when we found it or any file
@@ -14,13 +14,12 @@ import pytest
 from his_release import WEB_METHOD, capture
 
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 
 _SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 # In 1998: ours.com is ours and already-his.com is his; fresh.com is ours in another year;
-# seeded.com is a candidate of ours with no row; his release filed his-filed.com and
-# rolled.com, and no file of his holds either, though his row still dates rolled.com;
+# seeded.com is a candidate of ours with no row; no file of his holds his-filed.com or
+# rolled.com, and the store keeps neither, as it keeps no name only his release filed;
 # ourss.com and already-hiss.com are one edit from a known name
 NAMES = (
     "ours.com already-his.com fresh.com seeded.com his-filed.com held-candidate.com "
@@ -43,18 +42,13 @@ def store(tmp_path: Path, his_files: Path, monkeypatch) -> Path:
     conn = connect(path)
     init_db(conn)
     ours = ensure_source(conn, "ia_cdx", "timestamped")
-    his = ensure_source(conn, HIS_SOURCE, "timestamped")
     for name in ("ours.com", "fresh.com", "seeded.com"):
         add_candidate(conn, name, ours)
-    for name in ("his-filed.com", "rolled.com"):
-        add_candidate(conn, name, his)
     for name, year in (("ours.com", 1998), ("fresh.com", 2000)):
         row = record_evidence(
             conn, name, ours, year, "cdx_timestamp", capture(name, year), None, WEB_METHOD
         )
         assign_year(conn, row)
-    row = record_evidence(conn, "rolled.com", his, 1998, HIS_TYPE, "1998.txt", None, HIS_SOURCE)
-    assign_year(conn, row)
     conn.close()
     return path
 

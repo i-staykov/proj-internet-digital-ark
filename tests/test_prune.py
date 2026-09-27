@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 _SPEC = importlib.util.spec_from_file_location("prune", REPO / "scripts/round/prune.py")
 prune = importlib.util.module_from_spec(_SPEC)
@@ -115,3 +117,29 @@ def test_the_text_report_deletes_nothing_and_says_so(tmp_path: Path, capsys) -> 
     assert "Nothing was deleted" in text
     assert "data/raw/noroute" in text and "no refetch route" in text
     assert {p: p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()} == before
+
+
+def test_disk_holds_both_migration_backups(tmp_path: Path, monkeypatch, capsys) -> None:
+    """The swap keeps the old store as pre-stage-b.bak beside pre-stage-a.bak; with no Drive
+    receipt for either, the dry run prints HELD for both and asks nobody anything."""
+    data = tmp_path / "data"
+    data.mkdir()
+    current = {"directory": "feedback/current"}
+    (data / "baseline.json").write_text(json.dumps({"current": current, "rounds": []}))
+    for name in ("pre-stage-a", "pre-stage-b"):
+        (data / f"ark.duckdb.{name}.bak").write_bytes(b"store backup")
+    offsite = prune.sibling("offsite")
+    monkeypatch.setattr(offsite, "rclone", lambda *a, **k: pytest.fail("the dry run went to Drive"))
+    monkeypatch.setattr(prune, "ia_file", lambda *a: pytest.fail("the dry run went to archive.org"))
+    assert prune.main(["--disk", "--root", str(tmp_path)]) == 1
+    held = [line for line in capsys.readouterr().out.splitlines() if "HELD" in line]
+    assert held == [
+        "  HELD data/ark.duckdb.pre-stage-a.bak: "
+        "held until #181's rebuild restores the rows only it holds",
+        "  HELD data/ark.duckdb.pre-stage-b.bak: "
+        "a store backup is deleted by the agents that own the store",
+    ]
+    assert sorted(p.name for p in data.glob("*.bak")) == [
+        "ark.duckdb.pre-stage-a.bak",
+        "ark.duckdb.pre-stage-b.bak",
+    ]
