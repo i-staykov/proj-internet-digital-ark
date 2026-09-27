@@ -21,22 +21,20 @@ just check       # lint, format, tests, then the store invariants
 ```
 
 A delivery archive verifies itself without this repository: `bash verify.sh` inside a fresh
-extraction. The other two reproduction tiers, and what each command should print, are in the
-runbook.
+extraction. All three reproduction tiers are in
+[docs/round/delivery_readme.md](docs/round/delivery_readme.md), the archive's own README.
 
 ## Collect unattended
 
-The CDX collectors are the laptop's standing lane, held by launchd under `caffeinate -s`:
+Validation runs as three walker lanes, one per archive client; the runbook's Validation paragraph
+has the command. The CDX parent sweep, `com.ark.collectors`, stays held.
 
 ```bash
-just collectors status   # running or paused, the current parent, the last journal, the hit rate
-just collectors pause    # before travel or a shutdown: the sweeps stop after the page in flight
-just collectors resume   # after it: every parent continues from its own state file
-just hold                # every launchd job, both pause flags here and on the VPS, the workflows
+just hold status   # HELD or NOT HELD, one line per job, pause flag and fleet workflow
+just hold          # every launchd job, both pause flags here and on the VPS, the workflows
 ```
 
-The pause is a flag file rather than a signal, so it survives sleep and a reboot, and `resume`
-clears it. The hold survives a reboot too: only `just hold off` lifts it, and `resume` refuses.
+The hold survives a reboot: only `just hold off [name]` lifts it.
 
 ## Take in what the fleet found
 
@@ -75,5 +73,5 @@ and `scripts/round/header_promotion.py` re-derives the header collection's promo
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | every standing rule, stated once |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
-| [docs/ops/runbook.md](docs/ops/runbook.md) | every command, what it prints, and how the machines are arranged |
+| [docs/ops/runbook.md](docs/ops/runbook.md) | the loop's commands and procedures, in the order a session runs them |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |
