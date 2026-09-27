@@ -18,11 +18,12 @@ Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 
 - Several agents share the main checkout, which stays on `live`: edit on a branch in a git
   worktree, and never switch branches in a shared tree.
+- The agent shell is zsh: an unquoted `$VAR` never splits; spell a list out, or use `${=VAR}`.
 - The tick and the bank commit `docs/registers/` on whatever branch is out and push `live`. Their
   preflight refuses `main`, a diverged clone, a modified tracked file other than `sources.md`,
   `sources-closed.md` and `queue.md`, and an untracked file under `docs/registers/`: leave no edit
-  there at :05. A refused tick banks nothing that hour; once the tree is clean, run `just sync`,
-  after `git pull --rebase origin live` if it refused a diverged clone.
+  there at :05. A refused tick banks nothing that hour: clean the tree (`git pull --rebase origin
+  live` for a diverged clone), then run `just sync`.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
   store: in the worktree, `git update-index --skip-worktree data/baseline.json`, remove its own
@@ -51,8 +52,10 @@ A bare `uv run ark ingest` or `export` skips the space check, so run
 recycled, compare the ledger's sha256 with the bytes on disk before ingesting or deleting anything.
 
 **The gate** (`CLAUDE.md`, the hook gate): its store half is the block above. Once `bash
-scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half through the
-hook `just hooks` installs; a second pytest, `ark check` or commit beside it refuses a green one.
+scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half, the whole
+suite with its output discarded, through the hook `just hooks` installs. A pytest, `ark check` or
+commit beside it makes the hook refuse a green commit, and inside `just ship all` that aborts the
+chain: commit alone, and rerun `uv run pytest -q -x` alone before believing a refusal.
 
 ## The loop
 
@@ -62,15 +65,14 @@ hook `just hooks` installs; a second pytest, `ark check` or commit beside it ref
 | validate | three `cdx_platform_walk.py` lanes | each platform walked to the end of the CDX index into `data/raw/cdx_suffix/` |
 | tick | launchd `com.ark.sync`, hourly at :05 | `just sync` |
 | bank | the tick, or by hand | `just bank` |
-| ship | the owner | "Ship" below |
 
-**Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop and one on
-the VPS from its clone with `--max-local 1`, whose journals the tick pulls:
-`python3 scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoch>`. No
-job restarts a lane: start each detached, again after a reboot or its deadline. It idles while
-`pause-platform` exists in `${ARK_STATE_DIR:-~/ark/state}` (`just hold off pause-platform`) and
-refuses to start at its `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`,
-Channel). `com.ark.collectors`, the parent sweep, stays held (`docs/lore/laws.md`, Do not rebuild).
+**Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop and one on the
+VPS from its clone with `--max-local 1`, whose journals the tick pulls: `python3
+scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts
+a lane: start each detached, again after a reboot or its deadline. It idles while the
+`pause-platform` flag is up (`just hold off pause-platform`) and refuses to start at its
+`--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
+`com.ark.collectors`, the parent sweep, stays held (`docs/lore/laws.md`, Do not rebuild).
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished
@@ -93,13 +95,12 @@ citing "CLAUDE.md, Autonomy", or parks the lead naming the clause; the line stan
 issue and one PR per park at or above its `--floor`; its merge (`CLAUDE.md`, Git) approves it.
 
 **The hold.** `just hold` disables every `com.ark.*` job, writes `pause` and `pause-platform` here
-and on the VPS, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`.
-`just hold status` shows each name, `just hold off <name>` lifts one. It survives a reboot, the
-tick and the bank exit `held` while it lists `com.ark.sync`, and `just schedule install` refuses.
-A dry run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run.
-Run `just bank --force` by hand right after `just hold off com.ark.sync`: with no
-`data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass takes
-about an hour.
+and on the VPS, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
+status` shows each name and `just hold off <name>` lifts one. It survives a reboot; while it lists
+`com.ark.sync` the tick and the bank exit `held` and `just schedule install` refuses. A dry run's
+hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run. Right after
+`just hold off com.ark.sync`, run `just bank --force` by hand: with no `data/logs/bank_stamp.json`
+the first tick fires every reason, and the converter's first pass takes about an hour.
 
 ## Commands
 
@@ -119,13 +120,13 @@ about an hour.
 ## Figures
 
 `docs/ROUND.md` field 4 is the headline: the equivalent-English of the registrables and hostnames
-that ship net-new against his files. Field 5 is its percent of his total, the gate's figure.
-`just price --items <f.jsonl>` prices on the store after the corroboration split, at registrable
-grain; `just price-hosts <dir>` at hostname grain through the ingest's own funnel. The fleet's
-figure, `uv run ark price-snapshot --snapshot output/fleet_snapshot --items <f.jsonl>`
-(`--track candidate` for the other), reads no store, so it runs while the lock is held; the bank
-re-prices a FIND on the store. `LC_ALL=C comm -23` of a sorted corpus against
-`data/held/<marker>/all.txt` diffs against his names with no database.
+that ship net-new against his files. Field 5 is its percent of his total, the gate's figure. `just
+price --items <f.jsonl>` prices on the store after the corroboration split, at registrable grain;
+`just price-hosts <dir>` at hostname grain through the ingest's own funnel. The fleet's figure, `uv
+run ark price-snapshot --snapshot output/fleet_snapshot --items <f.jsonl>` (`--track candidate` for
+the other), reads no store, so it runs while the lock is held; the bank re-prices a FIND on the
+store. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
+names with no database, where `grep -Fxf` over his year files pins the CPU.
 
 Draft findings into `docs/report.template.md` as they land; `scripts/round/fill_report.py` turns
 it into `docs/report.md`.
@@ -154,12 +155,11 @@ Nothing of his enters the store. In the sync-lock script, this replaces the inge
 just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, then `ark intake`
 just reproduce deliver     # export, stats, check, in that order
 uv run python scripts/round/round_figures.py --verify
-uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>
+uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
 ```
 
 `ark intake` checks each of his files once, writes `data/held/<marker>/` (`all.txt`,
 `candidates.txt`, `held.json`) and drops the previous release's; while those are missing or stale,
-every export, check, stats, seed and pricer refuses. The last line is for a task package only. On
-`just intake`, `--mail <file> --round <n> --received '<stamp>'` also writes his verdict's row in
-`docs/registers/rounds.md`. Commit `data/baseline.json`, `releases.md` and `rounds.md` before :05,
-or the next tick refuses the tree.
+every export, check, stats, seed and pricer refuses. On `just intake`, `--mail <file> --round <n>
+--received '<stamp>'` also writes his verdict's row in `docs/registers/rounds.md`. Commit
+`data/baseline.json`, `releases.md` and `rounds.md` before :05, or the next tick refuses the tree.
