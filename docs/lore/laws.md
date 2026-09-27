@@ -7,9 +7,8 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 
 - XIII passes 9.3% of round 10's net-new registrables (32,228 of 346,389, 30,343 by CDX) and 75.2% of hostnames (2,674,952 of 3,554,784, 2,509,555 by sweep); `src/ark/evidence_types.py` `WEB_METHODS`.
 - A Wayback capture of a zone file dates the delegation, not a site: 255,211 of round 10's registrable failures are DK Hostmaster's; `tests/test_xiii_web_evidence.py`.
-- Only `MASTER_TYPES` (six types) may back a year, and `link_target` never does (`src/ark/evidence_types.py`).
-- The claim takes only `WEB_METHODS`, an allowlist where an unknown method fails closed into candidates (`src/ark/evidence_types.py`).
-- A capture whose evidence reads status 4xx or 5xx stays a candidate whatever its method; `nypw_timemap_non_200` is the one method admitted by status, its 3xx rows only, since a wildcard vhost answers 404 for any name (`REDIRECT_METHOD`, `ERROR_STATUS`).
+- Only `MASTER_TYPES` (five types) may back a year, `link_target` never, and the claim takes only `WEB_METHODS`, an allowlist where an unknown method fails closed into candidates (`src/ark/evidence_types.py`).
+- A capture whose evidence reads status 4xx or 5xx stays a candidate whatever its method; `nypw_timemap_non_200` is the one method admitted by status, its 2xx and 3xx rows only, since a wildcard vhost answers 404 for any name (`REDIRECT_METHOD`, `ERROR_STATUS`).
 - Of 1,800 ISC hostname-years he audited, 48 (2.67%) had an exact-host CDX record anywhere in 1996 to 2013, against 22.1% for one Apache list-month's `by` hosts and 84.2% for his own `www.` names; `just find isc_survey_hostnames`.
 - By that 2.67%, at most about 483,000 of our 18,087,127 ISC hosts could ever carry web evidence, and promotion still needs the target year; `just find isc_survey_hostnames`.
 - ISC hosts ship in `<year>-ISC.txt` and `candidate_additions.txt` (`src/ark/export.py` `export_isc_provenance`).
@@ -196,7 +195,6 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 ## Store
 
 - DuckDB admits one process per file: a read-only handle blocks the writer, and the lock error names the holder's PID and suggests read-only mode, the wrong fix (`scripts/harness/sync_lock.sh`).
-- `prior_task` is a source, `prior_reused` the evidence type: `'prior_task'` as a filter matches nothing and counts all 43.7M baseline rows as ours (`src/ark/evidence_types.py` `HIS_TYPE`, `HIS_SOURCE`).
 - A lane counts once the bank reads it, converters too: 67 RDAP journals (~12,000 EE) and 5,793 CDX year-records sat unread (`just bank` step c, `bank_trigger.py` `FOLD`).
 - `just residual` (`scripts/harness/audit_residual.py`) finds unread journals only for families with an ingest glob; a new lane has none and stays invisible to it.
 - An ingest that opens no file prints zeros, `files_seen` 0, and exits 0: a gz-only glob missed every IETF `.jsonl` shard (`src/ark/hostnames.py` `ingest_usenet_item_dir`).

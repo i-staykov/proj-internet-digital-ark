@@ -130,11 +130,10 @@ def parse_nypw_timemap(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 def parse_nypw_timemap_nonok(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window capture whose stored status is NOT 200.
 
-    The lane `_parse_nypw` throws away. A 302, 404 or 500 row says a server accepted the
-    connection and answered at the stamped instant, which needs the name delegated
-    exactly as a 200 does: the status describes the resource, not the registration, so
-    this is the same evidence class on the same bytes. A separate spec rather than a
-    relaxation of the parser above, so the 200 lane stays the control group.
+    The lane `_parse_nypw` throws away. Each row keeps its status in `evidence_value`, so
+    the XIII screen admits a 2xx or 3xx capture and keeps a 404 or 500 a candidate
+    (`REDIRECT_METHOD`). A separate spec rather than a relaxation of the parser above,
+    so the 200 lane stays the control group.
     """
     with _open_text(path) as fh:
         for line in fh:
