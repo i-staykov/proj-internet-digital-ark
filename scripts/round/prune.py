@@ -313,8 +313,6 @@ BACKUP_HOLDS = {
 IA = "https://archive.org"
 # The reviewer's own words, kept wherever they sit, even inside a superseded release tree.
 DOCUMENTS = {".md", ".docx", ".doc", ".pdf", ".rtf", ".odt"}
-# Files another issue still reads, each with the reason, held until that issue says so.
-HOLDS = Path(__file__).with_name("disk_holds.tsv")
 USER_AGENT = "ark-prune/1.0 (checks archive.org metadata before a delete)"
 
 
@@ -569,23 +567,6 @@ def backups_listed(root: Path) -> list[Candidate]:
     return out
 
 
-def holds() -> dict[str, str]:
-    """Repository-relative path -> why it is held, from disk_holds.tsv. A path ending in `/`
-    holds everything under it; a line with no reason still holds its path."""
-    out = {}
-    for line in HOLDS.read_text().splitlines() if HOLDS.is_file() else []:
-        if line.strip() and not line.startswith("#"):
-            rel, _, why = line.partition("\t")
-            out[rel.strip()] = why.strip() or "held by disk_holds.tsv"
-    return out
-
-
-def held_by(rel: str, held: dict[str, str]) -> str:
-    return held.get(rel) or next(
-        (why for key, why in held.items() if key.endswith("/") and rel.startswith(key)), ""
-    )
-
-
 def ia_file(item: str, name: str, cache: dict) -> dict | None:
     """archive.org's metadata for one file of one item, or None when it has no such file."""
     if item not in cache:
@@ -769,7 +750,6 @@ def disk_cleanup(
     offsite = sibling("offsite")
     receipt = offsite.read_receipt(root)
     spent, notes = spent_selected(root)
-    held_here = holds()
     groups = [
         ("releases", releases_selected(root, receipt)),
         ("spent raw", spent),
@@ -792,8 +772,7 @@ def disk_cleanup(
         lines.append(f"\n{label}: {len(cands)} files, {size:,} B ({human(size)})")
         for cand in cands:
             rel = cand.path.relative_to(root)
-            held = cand.held or held_by(rel.as_posix(), held_here)
-            held = held or (stage_held if label == "output stages" else "")
+            held = cand.held or (stage_held if label == "output stages" else "")
             held = held or next(
                 (why for tree, why in crc_held.items() if tree in cand.path.parents), ""
             )

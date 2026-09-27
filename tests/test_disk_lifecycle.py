@@ -528,28 +528,6 @@ def test_the_never_list(tmp_path):
     assert prune.never(tmp_path, tmp_path / "data/raw/host_cdx/ia600702.hostcdx.gz") == ""
 
 
-def test_a_file_another_issue_reads_is_held(tmp_path, monkeypatch):
-    shipped = prune.holds()  # the real file: rtfm and the 46 zips #180's lanes read
-    assert prune.held_by("data/raw/rtfm/any/file.txt", shipped).startswith("#180 lane input")
-    assert sum(k.startswith("data/raw/usenet_bulk/") for k in shipped) == 46
-    for line in prune.HOLDS.read_text().splitlines()[1:]:
-        path, reason = line.split("\t")
-        assert path.startswith("data/raw/") and reason.startswith("#180"), line
-    parts = disk_repo(tmp_path)
-    holds = file(tmp_path, "holds.tsv", b"# path\treason\n")
-    holds.write_text(
-        "data/raw/usenet_bulk/alt.test.mbox.zip\t#180 lane input\ndata/raw/host_cdx/\t#180 too\n"
-    )
-    monkeypatch.setattr(prune, "HOLDS", holds)
-    proofs(tmp_path, [], monkeypatch)
-    sha1 = hashlib.sha1(b"a usenet zip").hexdigest()
-    archive_org(monkeypatch, {("usenet-alt", "alt.test.mbox.zip"): {"size": "12", "sha1": sha1}})
-    _, lines = prune.disk_cleanup(tmp_path, write=True)
-    assert (parts["bulk"] / "alt.test.mbox.zip").exists()
-    assert (parts["host"] / "ia600702.hostcdx.gz").exists()
-    assert "  HELD data/raw/usenet_bulk/alt.test.mbox.zip: #180 lane input" in lines
-
-
 @pytest.mark.parametrize("spelling", ["link", "absolute link", "case", "marker", "no marker"])
 def test_the_current_release_is_never_selected(tmp_path, spelling):
     disk_repo(tmp_path)
