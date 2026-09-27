@@ -74,6 +74,10 @@ handback-sources-B.md
 # address and the open-decision list. Regenerable, so there is nothing to track.
 docs/ROUND.md
 
+# Written beside the report by `build_report_docx.py --keep-markdown`: the prose that goes
+# into the .docx. Regenerable, and addressed to the reviewer, so it is never tracked.
+docs/report-sendable.md
+
 # Task packages from the reviewer: a baseline copy plus his docs, ~1.4 GB each.
 # His docs are the part worth tracking and they are transcribed into docs/brief/ding/,
 # which is not ignored. A `git add -A` once swept one of these copies into history

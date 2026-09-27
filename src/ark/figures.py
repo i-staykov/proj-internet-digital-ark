@@ -1,16 +1,10 @@
-"""The ranking score, `S_i = k * p_i / t_i`, under both of his definitions of `t_i`.
+"""The ranking score, `S_i = k * p_i / t_i`, with `t_i` in whole calendar days.
 
-Two rules are in force and their answers differ by 3.6x, so both totals are reported
-until he says whether the revision re-scores the rounds he has already awarded; the
-question is open on `docs/registers/questions.md`.
-
-BENCHMARK rule (his 0820 update, the one his awarded figures reproduce from): elapsed
-time from the benchmark release the round is measured against to receipt, his clock,
-rounded UP to whole days. ASSIGNMENT rule (his 0903 update, verbatim):
-`t_i = max(1, receipt_date_i - task_assignment_date_member)` in whole calendar days,
-an origin that never resets on a new benchmark or a later submission.
-
-Pure arithmetic over timestamp strings. The rounds live in `ark.baseline`.
+`t_i` counts whole calendar days from the task assignment, `TASK_ASSIGNED_DATE`, never below
+one, and never resets (`t_days_assignment`): his round 8 and 9 divisors, 33 and 39, put the
+assignment there. `t_days` is the benchmark clock, release to receipt rounded up, which his
+round 6 and 7 scores fit; `rounds.py` fills `S_i computed` with it. Stamps are in his clock,
+US Pacific. Pure arithmetic over timestamp strings; the rounds live in `ark.baseline`.
 """
 
 from collections.abc import Iterable
@@ -33,7 +27,7 @@ SCORE_RULE_SINCE = "2026-08-20 03:37"
 PLACES = Decimal("0.000001")
 
 # The origin of the assignment rule, read out of his own arithmetic, not our receipts:
-# he scored round 8 as 10 x (18.769714 / 33) on a 2026-09-04 receipt, so the divisor 33
+# he scored round 8 as 10 x (18.769714 / 33), so the divisor 33
 # puts the origin here. One day of error moves every S_i.
 TASK_ASSIGNED_DATE = "2026-08-02"
 
