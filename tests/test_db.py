@@ -65,10 +65,127 @@ def test_add_candidate_rejects_garbage() -> None:
     assert conn.execute("SELECT count(*) FROM domain").fetchone()[0] == 0
 
 
-def test_record_evidence_requires_registered_domain() -> None:
+def test_evidence_has_no_key_no_table_a_foreign_key_and_the_rest_keep_theirs() -> None:
+    """`evidence` carries no index for DuckDB to hold while it writes, and no table a foreign
+    key; `ark check` asserts those walls instead. The keys `INSERT OR IGNORE` relies on stay,
+    and the type CHECK refuses his `prior_reused`."""
     conn, sid = _db_with_source()
-    with pytest.raises(duckdb.Error):
-        record_evidence(conn, "never-added.com", sid, 1997, "cdx_timestamp", "19970412093015")
+    constraints = conn.execute(
+        "SELECT table_name, constraint_type FROM duckdb_constraints() "
+        "WHERE constraint_type IN ('PRIMARY KEY', 'UNIQUE', 'FOREIGN KEY')"
+    ).fetchall()
+    assert not [c for c in constraints if c[1] == "FOREIGN KEY"]
+    keyed = {table for table, kind in constraints if kind == "PRIMARY KEY"}
+    assert keyed == {
+        "source",
+        "domain",
+        "domain_year",
+        "hostname_year",
+        "ingested_file",
+        "domain_language",
+    }
+    assert not [c for c in constraints if c[0] == "evidence"]
+    # no key, so two rows may share an id; `evidence_id_unique` is what refuses it
+    for _ in range(2):
+        conn.execute(
+            "INSERT INTO evidence (evidence_id, domain, source_id, evidence_year, "
+            "evidence_type, evidence_value) VALUES (7, 'nowhere.com', 99, 1998, "
+            "'cdx_timestamp', '19980101000000')"
+        )
+    assert conn.execute("SELECT count(*) FROM evidence WHERE evidence_id = 7").fetchone() == (2,)
+    with pytest.raises(duckdb.ConstraintException):
+        record_evidence(conn, "example.com", sid, 1998, "prior_reused", "1998.txt")
+
+
+def test_record_evidence_names_the_file_and_the_place_in_it() -> None:
+    conn, sid = _db_with_source()
+    domain = add_candidate(conn, "example.com", sid)
+    eid = record_evidence(
+        conn,
+        domain,
+        sid,
+        1998,
+        "cdx_timestamp",
+        "cdx capture 19980101000000 example.com",
+        source_file="cdx-1998.txt.gz",
+        record_location="record 12",
+    )
+    row = conn.execute(
+        "SELECT source_file, record_location FROM evidence WHERE evidence_id = ?", [eid]
+    ).fetchone()
+    assert row == ("cdx-1998.txt.gz", "record 12")
+    # keyword-only, so no existing positional call can land a value in them
+    with pytest.raises(TypeError):
+        record_evidence(conn, domain, sid, 1998, "cdx_timestamp", "v", None, None, None, "f.gz")
+    unnamed = record_evidence(conn, domain, sid, 1999, "cdx_timestamp", "19990101000000")
+    assert conn.execute(
+        "SELECT source_file, record_location FROM evidence WHERE evidence_id = ?", [unnamed]
+    ).fetchone() == (None, None)
+
+
+def test_an_older_store_gains_both_columns_and_keeps_its_rows() -> None:
+    """A store made before the columns, keys and foreign keys included: `init_db` adds both
+    columns last, empty on the rows it holds, and the store takes a row naming its file."""
+    conn = connect(":memory:")
+    conn.execute(
+        "CREATE TABLE source (source_id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, "
+        "kind TEXT NOT NULL, notes TEXT)"
+    )
+    conn.execute(
+        "CREATE TABLE domain (domain TEXT PRIMARY KEY, tld TEXT, discovered_source INTEGER "
+        "NOT NULL REFERENCES source(source_id), discovered_round INTEGER NOT NULL DEFAULT 0, "
+        "first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+    )
+    conn.execute("CREATE SEQUENCE evidence_seq START 1")
+    conn.execute(
+        "CREATE TABLE evidence (evidence_id BIGINT PRIMARY KEY DEFAULT nextval('evidence_seq'), "
+        "domain TEXT NOT NULL REFERENCES domain(domain), source_id INTEGER NOT NULL "
+        "REFERENCES source(source_id), evidence_year INTEGER NOT NULL, evidence_type TEXT NOT "
+        "NULL, evidence_value TEXT NOT NULL, evidence_url TEXT, acquisition_method TEXT, "
+        "captured_at TIMESTAMPTZ, ingested_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+    )
+    conn.execute(
+        "CREATE TABLE domain_year (domain TEXT NOT NULL REFERENCES domain(domain), "
+        "assigned_year INTEGER NOT NULL, evidence_id BIGINT NOT NULL REFERENCES "
+        "evidence(evidence_id), verified_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
+        "PRIMARY KEY (domain, assigned_year))"
+    )
+    conn.execute("INSERT INTO source VALUES (1, 'wayback_cdx', 'timestamped', NULL)")
+    conn.execute("INSERT INTO domain (domain, tld, discovered_source) VALUES ('old.com', 'com', 1)")
+    conn.execute(
+        "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value) "
+        "VALUES ('old.com', 1, 1997, 'cdx_timestamp', '19970101000000')"
+    )
+    conn.execute(
+        "INSERT INTO domain_year (domain, assigned_year, evidence_id) VALUES ('old.com', 1997, 1)"
+    )
+
+    init_db(conn)
+    columns = [
+        c
+        for (c,) in conn.execute(
+            "SELECT column_name FROM duckdb_columns() WHERE table_name = 'evidence' "
+            "ORDER BY column_index"
+        ).fetchall()
+    ]
+    assert columns[-2:] == ["source_file", "record_location"]
+    assert conn.execute(
+        "SELECT domain, evidence_value, source_file, record_location FROM evidence"
+    ).fetchall() == [("old.com", "19970101000000", None, None)]
+    eid = record_evidence(
+        conn,
+        "old.com",
+        1,
+        1998,
+        "cdx_timestamp",
+        "19980101000000",
+        source_file="cdx-1998.txt.gz",
+        record_location="record 3",
+    )
+    assert eid == 2
+    assert conn.execute(
+        "SELECT source_file, record_location FROM evidence WHERE evidence_id = 2"
+    ).fetchone() == ("cdx-1998.txt.gz", "record 3")
 
 
 def test_assign_year_derives_from_evidence() -> None:

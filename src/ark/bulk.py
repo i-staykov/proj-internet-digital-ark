@@ -7,6 +7,9 @@ and a per-file ledger that makes re-runs no-ops.
 
 Crash rules: each file commits alone, its ledger row is part of that commit, and its audit
 rows reach the CSV only after the commit. A failing file is logged and skipped.
+
+A class keeps one row per subject and year, the subject being the host a row names or else
+its domain, whichever source repeats it; every row names the file it came from and where.
 """
 
 import csv
@@ -28,7 +31,13 @@ from ark import approvals, held
 from ark.audit import FIELDS, change_reason
 from ark.canonical import reject_reason, to_registrable
 from ark.db import ensure_source
-from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES, qualifies_sql
+from ark.evidence_types import (
+    ALL_TYPES,
+    CANDIDATE_ONLY_TYPES,
+    exact_host_expr,
+    qualifies_sql,
+    web_evidence_sql,
+)
 from ark.ingest import YEARS
 from ark.metrics import record_metrics
 from ark.seed import CDX_TASK
@@ -46,18 +55,22 @@ _STAGE_SCHEMA = pa.schema(
         ("year", pa.int32()),
         ("evidence_value", pa.string()),
         ("evidence_url", pa.string()),
+        ("record_location", pa.string()),
     ]
 )
+_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 
 @dataclass(frozen=True)
 class BulkRecord:
-    """One evidence-bearing observation parsed out of a source file."""
+    """One evidence-bearing observation parsed out of a source file. `location` is where in
+    the file it sits; the loader writes `record <n>`, the parser's nth record, when it is None."""
 
     raw: str
     year: int
     evidence_value: str
     evidence_url: str | None = None
+    location: str | None = None
 
 
 # a parser reads one file, updates its stats counter, and yields records
@@ -83,6 +96,52 @@ class SourceSpec:
         return self.evidence_type in CANDIDATE_ONLY_TYPES
 
 
+def named_host_sql(alias: str) -> str:
+    """The host a row names, or NULL: its capture's exact host, else a last token that is a
+    host under its domain, the way each hostname lane ends its value (`... NS ns1.foo.com`)."""
+    last = f"lower(regexp_extract({alias}.evidence_value, '([^ ]+)$', 1))"
+    return (
+        f"coalesce({exact_host_expr(alias)}, CASE WHEN regexp_matches({last}, '^[a-z0-9.-]+$') "
+        f"AND ends_with({last}, '.' || {alias}.domain) THEN {last} END)"
+    )
+
+
+def subject_sql(alias: str) -> str:
+    """What a row is about, the key its class keeps one row per: the host it names, else its
+    domain."""
+    return f"coalesce({named_host_sql(alias)}, {alias}.domain)"
+
+
+def names_another_host_sql(alias: str) -> str:
+    """A row that names a host other than its domain, `www.` included: it dates that host, never
+    the registrable, so it writes no `domain_year`."""
+    return f"coalesce({named_host_sql(alias)} <> {alias}.domain, false)"
+
+
+def qualifies_own_sql(alias: str) -> str:
+    """The XIII screen on a row's own subject: a web method's capture of the exact host."""
+    return f"coalesce(({web_evidence_sql(alias)}) AND {exact_host_expr(alias)} IS NOT NULL, false)"
+
+
+def held_rows_sql(
+    keys: str, domain: str = "domain", year: str = "year", subject: str | None = None
+) -> str:
+    """`held(domain, evidence_year, subject, ships)`, the rows of one class at the (domain, year)
+    pairs of `keys`, for a writer's one-row-per-subject test; `$type` names the class and
+    `subject`, over `e`, what a row is about (`subject_sql` when None).
+
+    Materialized, so the subject is computed only on the rows those pairs match and never on
+    every row of `evidence`.
+    """
+    return f"""held AS MATERIALIZED (
+        SELECT e.domain, e.evidence_year, {subject or subject_sql("e")} AS subject,
+               {qualifies_own_sql("e")} AS ships
+        FROM evidence e
+        WHERE e.evidence_type = $type AND EXISTS (
+            SELECT 1 FROM {keys} k WHERE k.{domain} = e.domain AND k.{year} = e.evidence_year)
+    )"""
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as fh:
@@ -94,7 +153,8 @@ def _sha256(path: Path) -> str:
 def _flush_stage(conn: duckdb.DuckDBPyConnection, columns: dict[str, list]) -> None:
     conn.register("bulk_chunk", pa.table(columns, schema=_STAGE_SCHEMA))
     conn.execute(
-        "INSERT INTO bulk_stage SELECT domain, year, evidence_value, evidence_url FROM bulk_chunk"
+        "INSERT INTO bulk_stage "
+        "SELECT domain, year, evidence_value, evidence_url, record_location FROM bulk_chunk"
     )
     conn.unregister("bulk_chunk")
     for values in columns.values():
@@ -116,7 +176,8 @@ def _stage_records(
     marker = path.name
     sample_counts: Counter = Counter()
     columns: dict[str, list] = {name: [] for name in _STAGE_SCHEMA.names}
-    for record in tqdm(spec.parse(path, stats), desc=marker, unit=" records", leave=False):
+    records = tqdm(spec.parse(path, stats), desc=marker, unit=" records", leave=False)
+    for number, record in enumerate(records, 1):
         stats["records"] += 1
         # the schema would reject these anyway; count instead of aborting the run
         if record.year not in YEARS:
@@ -139,6 +200,7 @@ def _stage_records(
         columns["year"].append(record.year)
         columns["evidence_value"].append(record.evidence_value)
         columns["evidence_url"].append(record.evidence_url)
+        columns["record_location"].append(record.location or f"record {number}")
         if len(columns["domain"]) >= CHUNK_SIZE:
             _flush_stage(conn, columns)
     if columns["domain"]:
@@ -148,8 +210,8 @@ def _stage_records(
 def _enqueue_unverified(
     conn: duckdb.DuckDBPyConnection, queue_conn: sqlite3.Connection, source_id: int
 ) -> int:
-    """Queue this source's domains that no year dates: no pair of ours, and no line of his
-    files naming the exact domain in any year. These are the names `held.attested` leaves.
+    """Queue this source's domains that no year dates: no `domain_year` pair, and no line of
+    his files naming the exact domain in any year. These are the names `held.attested` leaves.
 
     Reads the durable evidence rows, not the staging table, so a crashed or
     skipped run can always be repaired by running the ingest again. The names stay in the
@@ -164,21 +226,77 @@ def _enqueue_unverified(
         if not conn.execute("SELECT count(*) FROM _source_names").fetchone()[0]:
             return 0
         his = held.load()
-        held.our_domain_year(conn, "_source_names", "_source_ours")
         with tempfile.TemporaryDirectory() as tmp:
             undated, queued = Path(tmp) / "undated.txt", Path(tmp) / "queued.txt"
             held.dump(
                 conn,
                 "SELECT name FROM _source_names "
-                "WHERE name NOT IN (SELECT domain FROM _source_ours) ORDER BY 1",
+                "WHERE name NOT IN (SELECT domain FROM domain_year) ORDER BY 1",
                 undated,
             )
             held.minus(undated, his.all, queued)
             with queued.open(encoding="utf-8") as fh:
                 return enqueue(queue_conn, CDX_TASK, (line.rstrip("\n") for line in fh))
     finally:
-        conn.execute("DROP TABLE IF EXISTS _source_ours")
         conn.execute("DROP TABLE IF EXISTS _source_names")
+
+
+def _date_pairs(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> tuple[int, int]:
+    """Date each pair a fresh row names the registrable of, and move a pair whose row fails the
+    claim's test onto the lowest row that passes: the pair cites its best row, so a reader
+    takes `domain_year` as it is. Returns (pairs added, pairs moved)."""
+    if not fresh.num_rows:
+        return 0, 0
+    conn.register("fresh_rows", fresh)
+    try:
+        return _date_fresh_rows(conn)
+    finally:
+        conn.unregister("fresh_rows")
+
+
+def _date_fresh_rows(conn: duckdb.DuckDBPyConnection) -> tuple[int, int]:
+    added = conn.execute(
+        f"""
+        INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
+        SELECT domain, evidence_year, min(evidence_id) FROM fresh_rows r
+        WHERE NOT {names_another_host_sql("r")}
+        GROUP BY domain, evidence_year
+        """
+    ).fetchone()[0]
+    passing = f"SELECT count(*) FROM fresh_rows r WHERE {qualifies_sql('r', 'r.domain')}"
+    if not conn.execute(passing).fetchone()[0]:
+        return added, 0
+    # the rows at the pairs a fresh row passes for are read first, so the test runs on those
+    # and never on every row of `evidence`
+    moved = conn.execute(
+        f"""
+        UPDATE domain_year SET evidence_id = best.evidence_id
+        FROM (
+            WITH pairs AS MATERIALIZED (
+                SELECT DISTINCT r.domain, r.evidence_year FROM fresh_rows r
+                WHERE {qualifies_sql("r", "r.domain")}
+            ), at_pairs AS MATERIALIZED (
+                SELECT w.evidence_id, w.domain, w.evidence_year, w.evidence_type,
+                       w.evidence_value, w.evidence_url, w.acquisition_method
+                FROM evidence w
+                WHERE EXISTS (
+                    SELECT 1 FROM pairs p
+                    WHERE p.domain = w.domain AND p.evidence_year = w.evidence_year)
+            )
+            SELECT dy.domain, dy.assigned_year, min(w.evidence_id) AS evidence_id
+            FROM domain_year dy
+            JOIN at_pairs w ON w.domain = dy.domain AND w.evidence_year = dy.assigned_year
+            WHERE w.evidence_type NOT IN ({_CANDIDATE_LIST})
+              AND {qualifies_sql("w", "w.domain")}
+              AND NOT EXISTS (
+                SELECT 1 FROM at_pairs c
+                WHERE c.evidence_id = dy.evidence_id AND {qualifies_sql("c", "dy.domain")})
+            GROUP BY dy.domain, dy.assigned_year
+        ) best
+        WHERE domain_year.domain = best.domain AND domain_year.assigned_year = best.assigned_year
+        """
+    ).fetchone()[0]
+    return added, moved
 
 
 def ingest_file(
@@ -213,7 +331,8 @@ def ingest_file(
     audit_rows: list[list] = []
     conn.execute(
         "CREATE TEMP TABLE IF NOT EXISTS bulk_stage "
-        "(domain TEXT, year INTEGER, evidence_value TEXT, evidence_url TEXT)"
+        "(domain TEXT, year INTEGER, evidence_value TEXT, evidence_url TEXT, "
+        "record_location TEXT)"
     )
     conn.execute("DELETE FROM bulk_stage")
     _stage_records(conn, spec, path, audit_rows, stats)
@@ -228,54 +347,54 @@ def ingest_file(
             """,
             [source_id, discovered_round],
         )
-        # one evidence row per (domain, year) per source from this file: a row that ships
-        # (a capture of exactly that domain) first, then the lowest value; the struct keeps
-        # value and url from the same staged row. A pair this source already evidenced is
-        # skipped, unless none of its rows ships and the new one does: an exact capture
-        # joins a host-less one, and domain_year keeps its citation either way
-        last_evidence_id = conn.execute(
-            "SELECT coalesce(max(evidence_id), 0) FROM evidence"
-        ).fetchone()[0]
-        stats["evidence_rows"] = conn.execute(
+        # one evidence row per (domain, year) from this file: a row that ships (a capture of
+        # exactly that domain) first, then the lowest value; the struct keeps value, url and
+        # location from the same staged row. A row of this class with the same subject and
+        # year skips it, whichever source wrote it, unless the held row fails XIII and the
+        # new one passes: an exact capture joins a host-less one
+        fresh = conn.execute(
             f"""
             INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,
-                                  evidence_value, evidence_url, acquisition_method)
+                                  evidence_value, evidence_url, acquisition_method,
+                                  source_file, record_location)
             WITH staged AS (
-                SELECT b.domain, b.year, b.evidence_value, b.evidence_url,
+                SELECT b.domain, b.year, b.evidence_value, b.evidence_url, b.record_location,
                        {qualifies_sql("b", "b.domain")} AS ships
                 FROM (SELECT *, $method::TEXT AS acquisition_method FROM bulk_stage) b
             ), picked AS (
                 SELECT domain, year,
-                       arg_min({{'v': evidence_value, 'u': evidence_url, 'ships': ships}},
-                               (NOT ships, evidence_value)) AS r
+                       arg_min({{'v': evidence_value, 'u': evidence_url, 'l': record_location,
+                                 'ships': ships}}, (NOT ships, evidence_value)) AS r
                 FROM staged
                 GROUP BY domain, year
-            )
-            SELECT p.domain, $source_id, p.year, $type, p.r['v'], p.r['u'], $method
-            FROM picked p
+            ), fresh AS (
+                SELECT domain, year, r['v'] AS evidence_value, r['u'] AS evidence_url,
+                       r['l'] AS record_location, $method::TEXT AS acquisition_method
+                FROM picked
+            ), {held_rows_sql("picked")}
+            SELECT f.domain, $source_id, f.year, $type, f.evidence_value, f.evidence_url,
+                   $method, $file, f.record_location
+            FROM fresh f
             WHERE NOT EXISTS (
-                SELECT 1 FROM evidence e
-                WHERE e.domain = p.domain AND e.evidence_year = p.year
-                  AND e.source_id = $source_id
-                  AND (NOT p.r['ships'] OR {qualifies_sql("e", "e.domain")})
+                SELECT 1 FROM held h
+                WHERE h.domain = f.domain AND h.evidence_year = f.year
+                  AND h.subject = {subject_sql("f")}
+                  AND (h.ships OR NOT {qualifies_own_sql("f")})
             )
+            RETURNING evidence_id, domain, evidence_year, evidence_value, evidence_url,
+                      acquisition_method
             """,
             {
                 "source_id": source_id,
                 "type": spec.evidence_type,
                 "method": spec.acquisition_method,
+                "file": marker,
             },
-        ).fetchone()[0]
+        ).to_arrow_table()
+        stats["evidence_rows"] = fresh.num_rows
         # candidate-only evidence is provenance; it must never assign a year
         if not spec.is_candidate_only:
-            stats["year_rows"] = conn.execute(
-                """
-                INSERT OR IGNORE INTO domain_year (domain, assigned_year, evidence_id)
-                SELECT domain, evidence_year, evidence_id
-                FROM evidence WHERE source_id = ? AND evidence_id > ?
-                """,
-                [source_id, last_evidence_id],
-            ).fetchone()[0]
+            stats["year_rows"], stats["repointed"] = _date_pairs(conn, fresh)
         stats["unique_domains"] = conn.execute(
             "SELECT count(DISTINCT domain) FROM bulk_stage"
         ).fetchone()[0]

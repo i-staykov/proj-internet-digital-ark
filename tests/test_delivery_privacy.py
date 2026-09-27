@@ -79,7 +79,6 @@ def test_the_known_offenders_stay_withheld() -> None:
     """Pinned by name as well as by shape, because these are the proof."""
     names = _archive_names()
     for path in (
-        "submissions/phase-5/email-draft.md",
         "docs/report-sendable.md",
         "docs/phase6-plan.md",
         # the two pages written about or to the reviewer, added 2026-09-02

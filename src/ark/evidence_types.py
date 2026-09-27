@@ -6,14 +6,9 @@ CHECK constraint is generated from these sets, so code and schema cannot
 drift apart.
 """
 
-# His rows in the store: their evidence type and their source.
-HIS_TYPE = "prior_reused"
-HIS_SOURCE = "prior_task"
-
 # master-eligible: a row of this type may create a domain_year assignment
 MASTER_TYPES = frozenset(
     {
-        HIS_TYPE,
         "cdx_timestamp",
         "artifact_listing",
         "link_source",
@@ -35,9 +30,6 @@ ALL_TYPES = MASTER_TYPES | CANDIDATE_ONLY_TYPES
 # The list is an ALLOWLIST and unknown methods fail closed, into candidates. A method
 # missing here costs a claim we can add back; a method wrongly here is a claim he
 # refuses, and refusals are what the screen exists to prevent.
-#
-# Not applied to `prior_task`: that is his own merged baseline, its remediation is his
-# under XIII's legacy section, and it is never part of our net-new claim anyway.
 WEB_METHODS = frozenset(
     {
         # IA CDX, the reference standard: an exact-host capture with its stamp

@@ -41,7 +41,7 @@ from ark.baseline import (  # noqa: E402
     awarded_score_of,
 )
 from ark.english_share import english_weights  # noqa: E402
-from ark.evidence_types import HIS_TYPE, MASTER_TYPES  # noqa: E402
+from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
 from ark.figures import (  # noqa: E402
@@ -593,7 +593,7 @@ def substitutions(f: dict) -> dict[str, str]:
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
         **grouped_ee(f, hosts),
-        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES - {HIS_TYPE})),
+        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES)),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),

@@ -13,7 +13,6 @@ from his_release import HIS_YEARS, text
 
 from ark import held
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 
 _SPEC = importlib.util.spec_from_file_location(
     "price_hostnames",
@@ -54,7 +53,8 @@ def test_funnel_matches_the_ingest(tmp_path: Path, his_files: Path) -> None:
             ("http://old.held.com/", "19990101000000"),  # already in the store
             ("http://www.held.com/", "19990101000000"),  # the parent's own site
             ("http://held.com/", "19990101000000"),  # a registrable row, not a hostname
-            ("http://a.fresh.org/", "20010101000000"),  # parent not held, parent pair net-new
+            ("http://a.fresh.org/", "20010101000000"),  # parent not held
+            ("http://fresh.org/", "20010601000000"),  # a registrable row, its pair net-new
             ("http://x.example.com/", "19950101000000"),  # out of window
             ("http://bad_host.example.com/", "19990101000000"),  # underscore, refused
         ],
@@ -62,14 +62,14 @@ def test_funnel_matches_the_ingest(tmp_path: Path, his_files: Path) -> None:
     seen, counts = ph.read_rows([journal], items=False, head=None)
     rows, pairs = ph.funnel(seen, counts)
     assert counts["out_of_window"] == 1 and counts["no_host"] == 1
-    assert counts["registrable_row"] == 1 and counts["www_of_parent"] == 1
+    assert counts["registrable_row"] == 2 and counts["www_of_parent"] == 1
     assert rows == [
         ("a.fresh.org", "fresh.org", 2001),
         ("new.held.com", "held.com", 1999),
         ("old.held.com", "held.com", 1999),
     ]
-    # the registrable half the same rows assert, including the two that write no
-    # hostname record: `held.com` itself and `www.held.com`, which date the parent
+    # the registrable half: only a row naming the registrable itself dates it, so
+    # `www.held.com` and `a.fresh.org` date no registrable
     assert pairs == [("fresh.org", 2001), ("held.com", 1999)]
 
     # his 2001 file already lists it
@@ -86,21 +86,20 @@ def test_funnel_matches_the_ingest(tmp_path: Path, his_files: Path) -> None:
     assert priced["parent_pairs_netnew"] == 1
 
 
-def test_held_is_our_pair_or_his_exact_name_and_never_his_row(
-    tmp_path: Path, his_files: Path
-) -> None:
-    """His 1999 file lists `www.rolled.com` and his store row dates `rolled.com`: the pair
-    is still net-new. A name his file holds in any year makes its parent held."""
+def test_held_is_our_pair_or_his_exact_name(tmp_path: Path, his_files: Path) -> None:
+    """His 1999 file lists `www.rolled.com`, which holds neither `rolled.com` nor its hosts:
+    both are net-new. A name his file holds in any year makes its parent held."""
     conn = _store()
-    his = ensure_source(conn, HIS_SOURCE, "timestamped")
-    add_candidate(conn, "rolled.com", his)
-    assign_year(conn, record_evidence(conn, "rolled.com", his, 1999, HIS_TYPE, "1999.txt"))
     journal = _journal(
         tmp_path / "z.jsonl.gz",
         [
             ("http://sub.rolled.com/", "19990101000000"),
             ("http://www.deep.his-host.net/", "20010101000000"),  # his file holds the bare name
             ("http://new.already-his.com/", "19990101000000"),
+            ("http://rolled.com/", "19990101000000"),  # net-new: his `www.` is another name
+            ("http://his-host.net/", "20010101000000"),  # net-new: his line is `deep.`
+            ("http://already-his.com/", "19990101000000"),  # his file holds it
+            ("http://held.com/", "19990101000000"),  # our pair
         ],
     )
     seen, counts = ph.read_rows([journal], items=False, head=None)
@@ -114,6 +113,7 @@ def test_held_is_our_pair_or_his_exact_name_and_never_his_row(
     assert priced["www_of_held_name"] == 1
     # already-his.com is his in every year; rolled.com and his-host.net are held by no one
     assert priced["parent_held_share"] == 1 / 3
+    assert priced["registrable_candidates"] == 4
     assert priced["parent_pairs_netnew"] == 2
 
 

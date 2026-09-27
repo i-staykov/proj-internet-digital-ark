@@ -26,6 +26,7 @@ Rebuild the domains that existed in 1996 to 2001 for Prof. Ding, scored on **equ
 - **Worktrees.** Several agents share both clones: branch and edit only in your own `git worktree`, and never switch a shared checkout's branch or leave edits in it.
 - The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
 - **Files.** A rule lives only here, a measured fact only in `docs/lore/laws.md`. His files stay append-only. Generated files are never hand-edited, the brief in `docs/brief/ding/` and every page `docs/index.md` marks generated among them, and frozen `submissions/` are never edited.
+- The provenance Parquet is the evidence authority; DuckDB is an index rebuilt from it.
 - **Hunting.** A bulk dated HOSTNAME corpus that meets the XIII standard comes first. One lens per leg, never the same twice running, even when the last one paid; two empty hunts change the method, not the effort.
 - **No em or en dashes.**
 

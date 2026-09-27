@@ -42,14 +42,14 @@ def journal(tmp_path: Path, items: list[tuple], name: str = "shard_000.jsonl.gz"
     return path
 
 
-def family(fam, noun, dup, reg, other, urls, id):
+def family(fam, source, noun, dup, reg, other, urls, id):
     """A lane's items: `dup` names one host twice in a year (the lower item is quoted), `reg` a host
     beside its registrable, `other` another lane's pointer, and the first item again in 2004."""
     (a, b, year, host), (item, ryear, rhost, registrable) = dup, reg
     items = [(a, year, host), (b, year, host), (item, ryear, f"{rhost} {registrable}")]
     items += [(other, 1999, "other.example.org"), (a, 2004, "later.example.org")]
     kept = {host: (year, urls[0]), rhost: (ryear, urls[1])}
-    return pytest.param(fam, items, f"{noun} {year} {a} {host}", kept, id=id)
+    return pytest.param(fam, source, items, f"{noun} {year} {a} {host}", kept, id=id)
 
 
 AP, MBOX = "httpd.apache.org/dev__1999-01", "https://lists.apache.org/api/mbox.lua?list="
@@ -58,18 +58,19 @@ SIEVE, DEMON = "ietf-mail-archive/sieve/1997-03.mail", "demon.ip.support.pc.mbox
 IA = "https://archive.org/download/"
 # fmt: off
 FAMILIES = [
-    family(hn.APACHE_FAMILY, "list header", (f"{AP}#1", f"{AP}#9", 1999, "taz.hyperreal.org"),
+    family(hn.APACHE_FAMILY, "apache_list_header_hostnames", "list header",
+           (f"{AP}#1", f"{AP}#9", 1999, "taz.hyperreal.org"),
            ("tomcat.apache.org/users__2001-06#3", 2001, "mail.ibm.com", "ibm.com"),
            "gnome/gtk-list__1999-May.txt#367",
            [f"{MBOX}dev&domain=httpd.apache.org&d=1999-01",
             f"{MBOX}users&domain=tomcat.apache.org&d=2001-06"], "apache_header"),
     # the pointer keeps the month file's own name, `1996-10` early and `1997-03.mail` later:
     # a guessed suffix is a 404 for half the corpus
-    family(hn.IETF_FAMILY, "list header",
+    family(hn.IETF_FAMILY, "ietf_list_header_hostnames", "list header",
            (f"www.ietf.org/{IE}#1", f"www.ietf.org/{IE}#7", 1996, "cnri.reston.va.us"),
            (f"www.ietf.org/{SIEVE}#3", 1997, "mail.example.org", "example.org"), f"{AP}#1",
            [f"{FTP}{IE}", f"{FTP}{SIEVE}"], "ietf_header"),
-    family(hn.USENET_HEADER_FAMILY, "usenet header",
+    family(hn.USENET_HEADER_FAMILY, "usenet_header_fqdn_hostnames", "usenet header",
            (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
            ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
            [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], "usenet_header"),
@@ -77,8 +78,10 @@ FAMILIES = [
 # fmt: on
 
 
-@pytest.mark.parametrize("fam,items,quoted,kept", FAMILIES)
-def test_funnel_one_row_per_host_and_year_quoting_the_lowest(tmp_path, fam, items, quoted, kept):
+@pytest.mark.parametrize("fam,source,items,quoted,kept", FAMILIES)
+def test_funnel_one_row_per_host_and_year_quoting_the_lowest(
+    tmp_path, fam, source, items, quoted, kept
+):
     counts: Counter = Counter()
     rows = hn.usenet_item_rows(journal(tmp_path, items), counts, family=fam)
     assert [(r[0], r[2]) for r in rows] == sorted((h, y) for h, (y, _) in kept.items())
@@ -87,14 +90,14 @@ def test_funnel_one_row_per_host_and_year_quoting_the_lowest(tmp_path, fam, item
     assert (counts["bad_item"], counts["out_of_window"], counts["registrable_row"]) == (1, 1, 1)
 
 
-@pytest.mark.parametrize("fam,items,quoted,kept", FAMILIES)
-def test_funnel_ingest_lands_under_its_own_source_once(tmp_path, fam, items, quoted, kept):
+@pytest.mark.parametrize("fam,source,items,quoted,kept", FAMILIES)
+def test_funnel_ingest_lands_under_its_own_source_once(tmp_path, fam, source, items, quoted, kept):
     conn = duckdb.connect(":memory:")
     init_db(conn)
     path = journal(tmp_path, items)
     assert hn.ingest_usenet_item_journal(conn, path, family=fam)["hostname_year_rows"] == len(kept)
     sources = conn.execute("SELECT DISTINCT s.name FROM evidence e JOIN source s USING (source_id)")
-    assert sources.fetchall() == [(fam.source,)]
+    assert sources.fetchall() == [(source,)]
     assert hn.ingest_usenet_item_journal(conn, path, family=fam)["skipped"] is True
     conn.close()
 
@@ -147,7 +150,10 @@ FIELD = {
         ("Received: (qmail 21311 invoked by uid 6000); 1 Jan 1999 19:30:10", []),
         ("Received: from en by slarti with UUCP; 01 Jan 1999 19:30:26 -0000", []),
         (FOLDED, ["taz.hyperreal.org"]),
-        ("Received: by en1.engelschall.com (Sendmail 8.9.1)", ["en1.engelschall.com"]),
+        (
+            "Received: by en1.engelschall.com (Sendmail 8.9.1) for x@apache.org",
+            ["en1.engelschall.com"],
+        ),
         # the sender chose the HELO name, so the `from` clause is forgeable and never read
         (FROM, ["mx.serv.net"]),
         ("Received: by 192.0.2.19 with SMTP", []),
@@ -262,17 +268,17 @@ def test_wall_apache_header_a_message_its_own_date_denies_is_dropped(tmp_path) -
     path = tmp_path / "httpd.apache.org" / "dev__1999-01.mbox.gz"
     path.parent.mkdir()
     path.write_bytes(gzip.compress(("\n".join(mbox) + "\n").encode()))
-    out: list[str] = []
-    stats: Counter = Counter()
-    script(APACHE).one_file(path, type("Sink", (), {"write": lambda _, s: out.append(s)})(), stats)
+    # through the real worker, so a stats key it never seeds loses the row here too
+    stats = script(APACHE).worker((0, [path], tmp_path))
     assert (stats["messages"], stats["in_window"], stats["year_disagrees"]) == (2, 1, 1)
-    assert [json.loads(s) for s in out] == [{"item": f"{AP}#1", "year": 1999, "text": TAZ}]
+    rows = [json.loads(s) for s in gzip.open(tmp_path / "shard_000.jsonl.gz", "rt")]
+    assert rows == [{"item": f"{AP}#1", "year": 1999, "text": TAZ}]
 
 
 def test_funnel_ietf_header_a_growing_plain_shard_is_read_again(tmp_path) -> None:
     """The walker once globbed `*.jsonl.gz` alone and saw none of this lane's `.jsonl` shards,
     and a done-key on the file NAME froze a shard the collector keeps appending to."""
-    items = FAMILIES[1].values[1]
+    items = FAMILIES[1].values[2]
     shard = journal(tmp_path, items[:1], "snmpv2.jsonl")
     conn = duckdb.connect(":memory:")
     init_db(conn)
@@ -294,7 +300,8 @@ def test_collectors_ask_only_for_window_months_at_their_measured_pace() -> None:
     # the Apache API accepts a range and IGNORES it, so a month is the only form it may send
     assert (a.MONTHS[0], a.MONTHS[-1], len(a.MONTHS)) == ("1996-01", "2001-12", 72)
     assert all(c.MONTH_FILE.match(m) for m in ("1996-03", "1999-05.mail", "2001-12.mail"))
-    assert not any(c.MONTH_FILE.match(m) for m in ("1995-12", "2002-01.mail", "1999-13", "x.html"))
+    outside = ("1995-12", "2002-01.mail", "2017-06.mail", "1999-13")
+    assert not any(c.MONTH_FILE.match(m) for m in outside)
     # robots.txt asks 5 s of Apache; six parallel IETF listings drew a 429 inside a minute
     assert a.CRAWL_DELAY >= 5.0 and c.CRAWL_DELAY >= 0.75
     assert c.USER_AGENT.startswith("ark-research/")

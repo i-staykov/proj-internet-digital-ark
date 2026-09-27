@@ -13,8 +13,8 @@ its earliest 2xx or 3xx stamp under `stamps`, so the ingested row names that cap
 host (`cdx capture <ts> x.com`) and passes the exact-host test a shipped record needs.
 
 **Only new or grown journals are read**, per the state file beside the output. gzip cannot
-resume, so a grown journal is read whole again; the ingest dedups per (domain, year,
-source), so its repeated rows add nothing. A run that finds nothing writes nothing.
+resume, so a grown journal is read whole again; the ingest keeps one row per (domain, year,
+class), so its repeated rows add nothing. A run that finds nothing writes nothing.
 
 A journal still being written has no gzip end-of-stream marker, so a truncated tail is
 normal and everything before it is valid. A corrupt one is named on every run and read

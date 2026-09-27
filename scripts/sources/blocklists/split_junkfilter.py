@@ -9,7 +9,7 @@ has no independent evidence it ever resolved and goes to the candidate pool to e
 **The predicate, and there are two candidates in this repo so this one is stated explicitly.**
 Presence in the `domain` table counts names that are themselves only candidates. That is too
 weak for a blocklist. Used here: **a domain is corroborated when `held.attested` finds it
-dated**, by a year of ours in `our_domain_year` or by a line of his files that is exactly the
+dated**, by a year of ours in `domain_year` or by a line of his files that is exactly the
 name, so his `www.x.com` does not corroborate `x.com`. That is what the corroboration split
 in `docs/lore/laws.md` means by "once another source dates that domain".
 

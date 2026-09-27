@@ -57,11 +57,9 @@ def figures(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> di
         raise SystemExit(f"{CANDIDATES_PATH} is missing: run ark export")
     Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=DB_TEMP_DIR) as tmp:
-        held.our_domain_year(conn)
         held.claim_pairs(conn)
         held.netnew(conn, his, Path(tmp))
         held.held_any(conn, his, Path(tmp))
-    held.our_domains(conn)
 
     out["netnew_by_year"] = {
         int(y): int(n)
@@ -165,18 +163,14 @@ def figures(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> di
     out["syntax_anomalous"] = 0
 
     # The pool the export shipped, which holds no name of his; the store's undated
-    # domains would count his whole release.
+    # domains still count names his files hold.
     out["candidate_pool"] = held.lines(CANDIDATES_PATH)
 
-    # Ours only: his rows and the names only his release filed are his, not the store's work.
+    # The store holds only our rows and the names we know, so each table counts whole.
     out["store"] = {
-        "pairs_total": conn.execute("SELECT count(*) FROM our_domain_year").fetchone()[0],
-        "domains_total": conn.execute(
-            f"SELECT count(*) FROM domain d WHERE {held.we_know('d')}"
-        ).fetchone()[0],
-        "evidence_rows": conn.execute(
-            f"SELECT count(*) FROM evidence e WHERE {held.ours('e')}"
-        ).fetchone()[0],
+        "pairs_total": conn.execute("SELECT count(*) FROM domain_year").fetchone()[0],
+        "domains_total": conn.execute("SELECT count(*) FROM domain").fetchone()[0],
+        "evidence_rows": conn.execute("SELECT count(*) FROM evidence").fetchone()[0],
         "ingested_files": conn.execute("SELECT count(*) FROM ingested_file").fetchone()[0],
     }
     return out

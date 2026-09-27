@@ -58,6 +58,8 @@ OWN = "own_journal"
 UNKNOWN = "unknown"
 NONE = "none"
 IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
+# The evidence authority: `ark rebuild` makes the store from it, so it goes off-site each round.
+PROVENANCE = "output/provenance"
 
 # What the retention audit of 2026-09-02 left unpriced at hostname grain. It listed 26;
 # the E9.5 batch priced 24 of them on 2026-09-03 and they moved to `reference` (a measured
@@ -213,6 +215,8 @@ def classify(key: str) -> tuple[str, str] | None:
         if name in REGENERABLE:
             return "regenerable", REGENERABLE[name]
         return None
+    if key == PROVENANCE:
+        return "keep_authority", OWN
     if root == "output":
         return "regenerable", "just ship, or ark export"
     if root == "feedback":
@@ -538,13 +542,14 @@ HEADER = "\n".join(
         "`SHA256SUMS` lines, followed by its `SHA1SUMS` lines where IA's own sha1 from "
         "`data/raw/usenet_catalog.json` stands in for a rehash of a Usenet zip; the manifests "
         "sit untracked beside the data, or at the root a frozen entry shares, and `record` "
-        "names them. `refetch` is a URL, `own_journal` for what our own collectors wrote, the "
-        "recipe that rebuilds the entry, `reviewer_release` for what arrived by mail, `none` "
-        "for what we sent and nobody sends back, or `unknown`.",
+        "names them. `refetch` is a URL, `own_journal` for what our own collectors or export "
+        "wrote, the recipe that rebuilds the entry, `reviewer_release` for what arrived by mail, "
+        "`none` for what we sent and nobody sends back, or `unknown`.",
         "",
         "Classes: `live_input` is third-party bytes read by a `just reproduce` stage or by "
         "`just collect pandora-seed`; `keep_journal` is a journal of our own that a recipe "
-        "replays; `keep_until_priced` waits for its pricing at hostname grain; "
+        "replays; `keep_authority` is the provenance Parquet the store is rebuilt from; "
+        "`keep_until_priced` waits for its pricing at hostname grain; "
         "`reference` is kept for the record; `regenerable` is rebuilt by a recipe.",
         "",
         "| entry | class | files | bytes | digest | refetch | record |",

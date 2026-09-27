@@ -1,4 +1,4 @@
-"""Bulk loader: evidence routing per type, idempotency, audit rows, migration."""
+"""Bulk loader: evidence routing per type, one row per subject, year and class, audit rows."""
 
 import csv
 import gzip
@@ -13,8 +13,9 @@ from his_release import HIS_YEARS, stage, text
 
 from ark import held
 from ark.bulk import BulkRecord, SourceSpec, ingest_files
-from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_SOURCE, HIS_TYPE, qualifies_sql
+from ark.checks import collect_checks
+from ark.db import connect, init_db
+from ark.evidence_types import qualifies_sql
 from ark.sources import SOURCES, parse_early_web_cdx
 from ark.work_queue import connect_queue
 
@@ -113,15 +114,11 @@ def test_candidate_only_never_assigns_years(tmp_path: Path, his_files: Path) -> 
 
 def test_the_unassigned_queue_skips_a_name_his_files_hold(tmp_path: Path, his_files: Path) -> None:
     """His 1996 file holds once-his.org, mentioned here in 1999: any year of his settles it.
-    His www.rolled.com settles no rolled.com, nor does the pair his row gives it, and a pair of
-    ours settles ours.org."""
+    His www.rolled.com settles no rolled.com, and a pair of ours settles ours.org."""
     stage(his_files.parent, {"1996.txt": text(sorted(HIS_YEARS[1996] + ["once-his.org"]))})
     held.prepare(his_files)
     conn = _fresh_db()
     queue_conn = connect_queue(":memory:")
-    prior = ensure_source(conn, HIS_SOURCE, "timestamped")
-    add_candidate(conn, "rolled.com", prior)
-    assign_year(conn, record_evidence(conn, "rolled.com", prior, 1999, HIS_TYPE, "1999.txt"))
     ingest_files(
         conn,
         _spec([BulkRecord(raw="ours.org", year=1998, evidence_value="listing-1998")]),
@@ -251,12 +248,95 @@ def test_same_source_pair_not_duplicated_across_files(tmp_path: Path) -> None:
     assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 1
 
 
+def test_re_ingesting_a_file_or_a_second_source_repeating_a_pair_adds_no_row(
+    tmp_path: Path,
+) -> None:
+    """The ledger skips a file it knows by name; the store's own key catches the rest: the same
+    bytes under another name, and another source repeating a name, year and class. Another class
+    is another row."""
+    conn = _fresh_db()
+    first = tmp_path / "first.txt"
+    first.write_text("example.com\nother.org\n", encoding="utf-8")
+    copy = tmp_path / "copy.txt"
+    copy.write_text(first.read_text(encoding="utf-8"), encoding="utf-8")
+    assert ingest_files(conn, _line_spec(), [first], report_dir=tmp_path)["evidence_rows"] == 2
+
+    again = ingest_files(conn, _line_spec(), [copy], report_dir=tmp_path)
+    second = SourceSpec(
+        key="second",
+        source_name="second_source",
+        evidence_type="artifact_listing",
+        acquisition_method="test",
+        parse=_line_parse,
+    )
+    repeated = ingest_files(conn, second, [first], report_dir=tmp_path)
+    other_class = SourceSpec(
+        key="dated",
+        source_name="dated_source",
+        evidence_type="dated_directory",
+        acquisition_method="test",
+        parse=_line_parse,
+    )
+    another = ingest_files(conn, other_class, [first], report_dir=tmp_path)
+
+    assert [run["evidence_rows"] for run in (again, repeated, another)] == [0, 0, 2]
+    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 4
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 2
+
+
+def test_every_row_names_its_file_and_record(tmp_path: Path) -> None:
+    """`record <n>` counts every record the parser yielded, dropped ones included, so the
+    number finds the record in the file; a parser that knows its line says so instead."""
+    conn = _fresh_db()
+    records = [
+        BulkRecord(raw="early.com", year=1995, evidence_value="a"),
+        BulkRecord(raw="example.com", year=1997, evidence_value="b"),
+        BulkRecord(raw="other.org", year=1998, evidence_value="c", location="line 40"),
+    ]
+
+    ingest_files(conn, _spec(records), [_touch(tmp_path)], report_dir=tmp_path)
+
+    rows = conn.execute(
+        "SELECT domain, source_file, record_location FROM evidence ORDER BY domain"
+    ).fetchall()
+    assert rows == [("example.com", "toy.txt", "record 2"), ("other.org", "toy.txt", "line 40")]
+
+
+def test_a_capture_of_a_host_below_the_domain_dates_no_domain(tmp_path: Path) -> None:
+    """The row is kept, about `sub.example.com`, and no year of example.com rests on it: a year
+    of the registrable comes only from a row that names it."""
+    conn = _fresh_db()
+    stamp = "19990101000000"
+    records = [
+        BulkRecord(
+            raw="sub.example.com",
+            year=1999,
+            evidence_value=stamp,
+            evidence_url=f"https://web.archive.org/web/{stamp}/http://sub.example.com/",
+        )
+    ]
+
+    summary = ingest_files(
+        conn,
+        _spec(records, "cdx_timestamp", "bulk_cdx_file"),
+        [_touch(tmp_path)],
+        report_dir=tmp_path,
+    )
+
+    assert (summary["evidence_rows"], summary["year_rows"]) == (1, 0)
+    assert conn.execute("SELECT domain FROM evidence").fetchall() == [("example.com",)]
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
+    # and the gate agrees the row owes example.com no year
+    results = {r["name"]: r for r in collect_checks(conn, tmp_path / "netnew")}
+    assert results["nothing_earned_is_left_unassigned"]["ok"]
+
+
 def test_an_exact_capture_joins_a_host_less_row_and_nothing_joins_an_exact_one(
     tmp_path: Path,
 ) -> None:
     """`cdx capture <year>` names no host and ships nothing, so a later journal's stamp for
-    the same pair is admitted beside it; `domain_year` keeps its citation. A capture of
-    another host adds nothing, and once an exact row is held no second one joins."""
+    the same pair is admitted beside it, and the pair moves onto it. A capture of another host
+    adds nothing, and once an exact row is held no second one joins."""
     conn = _fresh_db()
     journals = [
         [
@@ -287,7 +367,7 @@ def test_an_exact_capture_joins_a_host_less_row_and_nothing_joins_an_exact_one(
 
     summary = ingest_files(conn, SOURCES["cdx_snapshot"], paths, report_dir=tmp_path)
 
-    assert summary["evidence_rows"] == 3
+    assert (summary["evidence_rows"], summary["repointed"]) == (3, 1)
     rows = conn.execute(
         f"""
         SELECT e.domain, e.evidence_value, {qualifies_sql("e", "e.domain")},
@@ -297,8 +377,8 @@ def test_an_exact_capture_joins_a_host_less_row_and_nothing_joins_an_exact_one(
         """
     ).fetchall()
     assert rows == [
-        ("x.com", "cdx capture 2001", False, True),
-        ("x.com", "cdx capture 20010301000000 x.com", True, False),
+        ("x.com", "cdx capture 2001", False, False),
+        ("x.com", "cdx capture 20010301000000 x.com", True, True),
         ("y.com", "cdx capture 2001", False, True),
     ]
 
