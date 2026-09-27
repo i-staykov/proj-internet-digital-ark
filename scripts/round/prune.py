@@ -716,7 +716,8 @@ def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
             for archive in zips[marker]:
                 try:
                     counts, problems = releases.verify_tree(tree, archive, marker)
-                except (OSError, zipfile.BadZipFile, zlib.error, RuntimeError) as exc:
+                except (OSError, ValueError, zipfile.BadZipFile, zlib.error, RuntimeError) as exc:
+                    # An unsafe or duplicate member holds this tree, not the whole run.
                     counts, problems = {"members": 0}, [str(exc)]
                 if counts["members"] and not problems:
                     break

@@ -285,6 +285,7 @@ def disk_repo(root):
             zf.write(old / name, f"merged260101/{name}")
     file(root, "data/archive/merged250101.tar.zst", b"repacked release")
     file(root, "data/archive/merged270101.tar.zst", b"a newer release, repacked")
+    file(root, "feedback/partial.zip", b"a download cut short")
     with zipfile.ZipFile(root / "feedback/Both.zip", "w") as zf:  # an old and the current
         zf.write(old / "1996.txt", "merged260101/1996.txt")
         zf.write(root / current / "1996.txt", "merged261231/1996.txt")
@@ -359,7 +360,9 @@ def test_disk_dry_run_lists_every_selector_and_touches_nothing(tmp_path, monkeyp
     assert "Current_Release" not in text and "jsonl.gz" not in text and NEW_STAGE not in text
     assert "Newer_Release" not in text and "merged270101" not in text and "Both.zip" not in text
     assert "his words" not in text and "feedback-phase-9" not in text and "README.md" not in text
-    assert str(tmp_path) not in text + "".join(capsys.readouterr())  # it goes on a public issue
+    out, err = capsys.readouterr()
+    assert "skip feedback/partial.zip: not a zip" in err
+    assert str(tmp_path) not in text + out + err  # the list goes on a public issue
     assert "\nprivate:" not in text  # the private group only with --private
     assert sorted(p for p in tmp_path.rglob("*") if p.is_file()) == before
 
@@ -529,15 +532,18 @@ def test_a_file_another_issue_reads_is_held(tmp_path, monkeypatch):
     assert "  HELD data/raw/usenet_bulk/alt.test.mbox.zip: #180 lane input" in lines
 
 
-@pytest.mark.parametrize("spelling", ["case", "absolute", "marker", "no marker"])
+@pytest.mark.parametrize("spelling", ["link", "absolute link", "case", "marker", "no marker"])
 def test_the_current_release_is_never_selected(tmp_path, spelling):
     disk_repo(tmp_path)
     current = "feedback/Current_Release/merged261231"
-    # A later marker leaves only the path to keep the current tree; a marker alone keeps it
-    # and the newer release wherever baseline.json points.
+    (tmp_path / "feedback/current_link").symlink_to("Current_Release/merged261231")
+    # The links name no marker, and the marker is later than the tree but earlier than the
+    # newer release, so only the resolved path keeps the current tree; "case" and "marker"
+    # keep it by name.
     named, marker = {
+        "link": ("feedback/current_link", "merged261231-2"),
+        "absolute link": (str(tmp_path / "feedback/current_link"), "merged261231-2"),
         "case": (current.upper(), "merged271231"),
-        "absolute": (str(tmp_path / current), "merged271231"),
         "marker": ("feedback/moved/merged261231", "merged261231"),
         "no marker": ("feedback/Current_Release", "unreadable"),  # neither name is a marker
     }[spelling]
@@ -550,7 +556,7 @@ def test_the_current_release_is_never_selected(tmp_path, spelling):
     if spelling == "no marker":  # nothing can be called superseded, so everything is held
         assert all("no release marker" in c.held for c in cands)
         return
-    assert not any("Current_Release" in str(p) for p in paths)
+    assert not any("Current_Release/" in str(p) for p in paths)
     assert not any("Newer_Release" in str(p) for p in paths)
 
 
@@ -640,6 +646,23 @@ def test_a_release_tree_that_fails_its_crc_check_is_held(tmp_path, monkeypatch):
     _, lines = prune.disk_cleanup(tmp_path, write=True)
     assert (parts["old"] / "1996.txt").exists()  # the zip goes behind its own receipt
     assert "HELD feedback/Old_Release/merged260101/1996.txt: CRC check" in "\n".join(lines)
+
+
+def test_a_zip_with_a_duplicate_member_holds_its_tree(tmp_path, monkeypatch):
+    parts = disk_repo(tmp_path)
+    with (
+        pytest.warns(UserWarning),
+        zipfile.ZipFile(tmp_path / "feedback/Old_Release.zip", "w") as zf,
+    ):
+        for _ in range(2):
+            zf.write(parts["old"] / "1996.txt", "merged260101/1996.txt")
+    proofs(tmp_path, [parts["old"] / "1996.txt"], monkeypatch)
+    archive_org(monkeypatch, {})
+    _, lines = prune.disk_cleanup(tmp_path, write=True)
+    assert (parts["old"] / "1996.txt").exists()
+    text = "\n".join(lines)
+    assert "HELD feedback/Old_Release/merged260101/1996.txt: CRC check" in text
+    assert "unsafe or duplicate zip member" in text
 
 
 def test_round_cleanup_keeps_a_held_backup(tmp_path, monkeypatch):
