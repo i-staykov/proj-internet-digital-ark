@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import os
 import re
 import subprocess
 import sys
@@ -206,6 +207,109 @@ REWORD: tuple[tuple[str, str], ...] = (
     ),
     (r"\s*\(his reply, verbatim, in [^)]*\)", ""),
     (r"nothing under `data/raw` or `[^`]+` holds the bytes", "we hold no copy of the bytes"),
+    # A ruling as the fact it makes true, with no date.
+    (
+        r"\bclass decided master for (these exact bytes|zone bytes) on [\d-]{10}",
+        r"class that is master for \1",
+    ),
+    (r", decided master for these exact bytes on [\d-]{10}", ", master for these exact bytes"),
+    (
+        r"the hostname unit did not exist until (?:the reviewer accepted it on )?[\d-]{10}",
+        "the hostname unit is an annual unit of its own",
+    ),
+    (r"at the grain Ding accepted on [\d-]{10}\.", "at hostname grain."),
+    (r"(`usenet_body_url_hostnames`) since [\d-]{10} ", r"\1 "),
+    (r"this very corpus has been master since phase 4", "this very corpus is master"),
+    (
+        r"argument approved for the registrable lane on [\d-]{10}",
+        "argument the registrable lane is approved on",
+    ),
+    (r"if the ruling of [\d-]{10} is ever reversed", "if that ruling is reversed"),
+    (r"REJECTED [\d-]{10} by his DNS ruling of [\d-]{10}: ", "REJECTED: "),
+    (
+        r"the DNS-survey observation Ding refused on [\d-]{10}",
+        "a DNS-survey observation, not an annual record",
+    ),
+    (r"\bSUPERSEDED \([\d-]{10}\)", "SUPERSEDED"),
+    (r"(?:Superseded|Narrowed) [\d-]{10}: this", "This"),
+    (
+        r"1995 only, corrected [\d-]{10}: a 1999-01-07 edition also survives"
+        r" \((`[^`]+`), above\), and it",
+        r"1995 and one of 1999-01-07 (\1), which",
+    ),
+    # A row states its own facts, never a line number or another row's history.
+    (r" \(register lines? \d+(?: and \d+)?\)", ""),
+    (r"\(register lines? \d+(?: and \d+)?[,:] ", "("),
+    (r"\(register line \d+ read it as", "(read as"),
+    (
+        r"Register line \d+ closed the same file at (99\.7 EE) on the registrable grain",
+        r"Its registrable grain closed at \1",
+    ),
+    (r"\bregister line \d+ records the refusal", "the register records the refusal"),
+    (r"\bthe L\d+ closure\b", "the registrable closure"),
+    (
+        r"the already-banked L\d+ sweep\. Corrects one closure: is",
+        "the banked sweep. One closed source is",
+    ),
+    (
+        r"Already closed once in docs/registers/sources\.md line \d+ on a false premise"
+        r" \([^)]*\); the",
+        "The",
+    ),
+    (
+        r"All seven named ccTLDs were already answered in this file before the run:"
+        r" [^.]* both banked",
+        "Each of the seven named ccTLDs (`uk`, `au`, `nz`, `sg`, `ca`, `ie`, `us`) has its own row,"
+        " `ie` and `us` both banked",
+    ),
+    (r"was already closed at line \d+ of this file \(", "is closed on its own rows ("),
+    (r"the counter-directory row above\b", "the counter-directory row"),
+    (r" See the re-price row at the top of this table", ""),
+    (r"See the Bomis row at the top of this table\.", "See the Bomis rings row."),
+    (
+        r"is now `Disallow: /`, a new closure superseding the standing note at line \d+;",
+        "is `Disallow: /`;",
+    ),
+    (
+        r", and the one sub-claim the earlier closure left standing is now dead in principle\."
+        r" The family was already closed at the byte on [\d-]{10} \(",
+        ". The family is closed at the byte (",
+    ),
+    (
+        r"The untested sub-claim was that (\"[^\"]*\")\.",
+        r"Its one open sub-claim, that \1, is dead in principle.",
+    ),
+    (
+        r"UNRETRIEVABLE\. Still unretrievable, and the [\d-]{10} row now has its mechanism:"
+        r" (`[^`]+`) no longer",
+        r"UNRETRIEVABLE: \1 does not",
+    ),
+    (r"floor: superseded: ", "floor: "),
+    (r" No longer a pending question\.", ""),
+    (
+        r"floor: superseded by the measurement: the same deposit closed [\d-]{10} as",
+        "floor: the same deposit is closed as",
+    ),
+    (
+        r" \*\*This supersedes both [^*]*\*\*: each was correct for [^.]*\.",
+        "",
+    ),
+    (
+        r"This row supersedes the INCOMPLETE entry [^;]*; the pricing has now run\."
+        r" Dating is unchanged and",
+        "Dating is",
+    ),
+    (r" Not previously in `docs/registers/sources\.md` under [^.]*, so genuinely new\.", ""),
+    (
+        r"\*\*the `potential` line is therefore corrected downwards from 24,000 by"
+        r" measurement\.\*\* Three bands are now realised,",
+        "**the measured bands set the `potential` line:**",
+    ),
+    (r", priced by `just added`\.", "."),
+    (
+        r"<http://co\.za/cgi-bin/\{warn\.sh,todel\.sh\}>",
+        "<http://co.za/cgi-bin/warn.sh> <http://co.za/cgi-bin/todel.sh>",
+    ),
 )
 DECISION_NUMBER = re.compile(r"\b(?:C-\d{1,3}|ADR-\d+)\b")
 
@@ -429,7 +533,8 @@ def hosts(text: str) -> set[str]:
 @functools.cache
 def tracked_names() -> frozenset[str]:
     """The file names this repository tracks, which read like hosts in prose."""
-    found = subprocess.run(["git", "ls-files"], cwd=REPO, capture_output=True, text=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    found = subprocess.run(["git", "ls-files"], cwd=REPO, env=env, capture_output=True, text=True)
     return frozenset(Path(p).name.lower() for p in found.stdout.splitlines())
 
 
@@ -778,14 +883,15 @@ def closed_reason(text: str, word: str) -> str:
 def link_cell(old: str, source: str, row: list[str]) -> str:
     """What the link cell held, then every URL the source named, then its hosts the row lacks.
 
-    Tokens that are not hosts (`not_a_host`) are left out.
+    Tokens that are not hosts (`not_a_host`) are left out, and a URL a rule rewrites is read
+    rewritten, so its old form never comes back.
     """
     have = "" if old.strip().lower() in ("", "n/a", "-", "none") else old.strip()
     tokens = [t for t in have.split() if not not_a_host(t)]
     if len(tokens) < len(have.split()):
         have = old = " ".join(tokens)
     held = set(urls(have))
-    fresh = [f"<{u}>" for u in urls(source) if u not in held and not not_a_host(u)]
+    fresh = [f"<{u}>" for u in urls(reword(source)) if u not in held and not not_a_host(u)]
     if all(re.fullmatch(r"<?https?://\S+", t) or _BARE.fullmatch(t.lower()) for t in tokens):
         linked = [t for t in tokens if "://" in t] + fresh
         named = [t for t in tokens if "://" not in t]
