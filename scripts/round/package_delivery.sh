@@ -597,6 +597,15 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
 tar -czf "$ARCHIVE" -C output "$RELEASE"
+# His delivery limit is 5 GB, and the masters carry his six year files as released, so a
+# round can reach it. An archive he cannot take is not handed over.
+LIMIT_BYTES=5000000000
+ARCHIVE_BYTES=$(wc -c < "$ARCHIVE" | tr -d ' ')
+if [ "$ARCHIVE_BYTES" -gt "$LIMIT_BYTES" ]; then
+    echo "refusing to package: $ARCHIVE_BYTES bytes, over his limit of $LIMIT_BYTES" >&2
+    rm -f "$ARCHIVE"
+    exit 1
+fi
 # The checksum file records the bare filename, not the build path: a reviewer
 # who downloads only the archive runs `shasum -c` beside it, and a stored path
 # of `submissions/...` makes that fail before they have checked anything.
