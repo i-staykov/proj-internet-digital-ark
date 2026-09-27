@@ -1,6 +1,8 @@
 """Held by him is the exact name in his files: `prepare` reads every line of his release once and
-never writes it, and `minus` and `intersect` are set arithmetic that refuses unsorted input."""
+never writes it, and `minus` and `intersect` are set arithmetic that refuses unsorted input. The
+audit rows every line of his the canonicalizer corrected or dropped."""
 
+import csv
 import os
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from his_release import (
 from typer.testing import CliRunner
 
 from ark import held
+from ark.audit import write_audit
 from ark.cli import app
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.ingest import YEARS
@@ -210,6 +213,25 @@ def test_ark_intake_writes_the_held_sets(tmp_path: Path, monkeypatch) -> None:
     assert read(held.load(folder).all) == sorted(all_names())
 
 
+def test_the_audit_rows_each_line_of_his_corrected_or_dropped(tmp_path: Path) -> None:
+    for year in YEARS:
+        extra = "www.corrected.com\n$garbage$\n" if year == 1996 else ""
+        (tmp_path / f"{year}.txt").write_text(f"clean.com\n{extra}", encoding="utf-8")
+    stats = write_audit(tmp_path, tmp_path / "audit.csv")
+    assert stats == {"lines": 8, "unchanged": 6, "corrected": 1, "dropped": 1}
+    corrected, dropped = csv.DictReader((tmp_path / "audit.csv").open(encoding="utf-8"))
+    assert corrected == {
+        "original": "www.corrected.com",
+        "normalized": "corrected.com",
+        "reason": "www prefix removed",
+        "result": "valid",
+        "source_file": "1996.txt",
+        "year": "1996",
+    }
+    assert dropped["original"] == "$garbage$" and dropped["normalized"] == ""
+    assert dropped["result"] == "dropped" and dropped["reason"]
+
+
 # Asked of `attested`, `known_years` and `known_names`: ours.com is ours in 1998; his 1997 file
 # holds his.com, which the store lacks; his 1999 file holds www.rolled.com, which is not
 # rolled.com; both.com is ours in 1998 and in his 1997 file; www-only.com has only a capture of
@@ -308,7 +330,6 @@ def test_held_names_refuse_raw_text(name: str, his_files: Path) -> None:
 def test_attested_fails_closed_without_his_files() -> None:
     conn = connect(":memory:")
     init_db(conn)
-    with pytest.raises(held.HeldError, match="run uv run ark intake"):
-        held.attested(conn, ["a.com"])
-    with pytest.raises(held.HeldError, match="run uv run ark intake"):
-        held.known_years(conn, ["a.com"])
+    for ask in (held.attested, held.known_years):
+        with pytest.raises(held.HeldError, match="run uv run ark intake"):
+            ask(conn, ["a.com"])
