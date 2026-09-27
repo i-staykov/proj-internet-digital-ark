@@ -760,7 +760,3 @@ Decision: candidate-only
 ## Pending requests
 
 None.
-
-## Found, awaiting triage
-
-A find lands here as a `### key / etype` block carrying a `- potential:` line and a pending decision; `just triage-rank` sorts them. `scripts/round/split_triage.py` drains it: decided blocks to Decided above, rejected ones to `sources-closed.md` behind a stub, open hypotheses to a backlog page, and only when triage leaves one.

@@ -136,7 +136,7 @@ residual *args:
     uv run python scripts/harness/audit_residual.py {{args}}
 
 # One pass of the harness: collector yield, unbanked journals, derived lists the store has
-# outgrown, the hypothesis ledger, pending approvals, docs/ROUND.md. It ends with the items
+# outgrown, pending approvals, docs/ROUND.md. It ends with the items
 # no program can decide, which is the part worth reading. `--until EPOCH --every SECS`
 # loops; `--no-network` skips the re-probe, the only step that leaves the machine.
 #
@@ -608,34 +608,7 @@ bank *args:
 find *args:
     uv run python scripts/round/find.py {{args}}
 
-# The PreCompact hook writes private/handoff.md by itself. This is the same
-# note by hand, from a transcript path, for a session being closed on purpose.
-#
-# write private/handoff.md from a transcript path
-handoff transcript:
-    printf '{"transcript_path": "%s", "trigger": "manual"}' '{{transcript}}' \
-        | uv run python scripts/agents/handoff.py
-
-# What filled the agent's context: the ten largest tool results, result bytes by tool,
-# assistant text bytes and how often the session compacted. Newest transcript by default;
-# give a path, or --all for every session. A diagnostic, never a gate.
-#
-# measure what fills an agent's context from the newest transcript
-context-report *args:
-    uv run python scripts/agents/context_report.py {{args}}
-
 # --- proposing and pricing a source -------------------------------------------
-
-# The harness's working memory across sessions: a register row records a measured source,
-# not a hypothesis in flight, so the registers cannot answer what an unattended run asks on
-# every wake, which is what it proposed and never finished pricing. `add` screens first and
-# refuses a hypothesis with no dating claim; `close` prints the register row to paste. A
-# multi-word --verdict or --cost goes to scripts/harness/hypothesis_ledger.py directly, since
-# `just` splits arguments.
-#
-# the hypothesis ledger: proposed, priced, adopted or killed
-hypo *args:
-    uv run python scripts/harness/hypothesis_ledger.py {{args}}
 
 # Does the proposal collide with a family already closed with a measurement, and what dates
 # ONE of its items. Both register pages are parsed at run time rather than copied, so it
@@ -680,14 +653,6 @@ price-hosts *args:
 # ask a human to classify a source class before its records can date a year
 approve *args:
     uv run python scripts/harness/request_approval.py {{args}}
-
-# The most promising source is signed off first, so a program keeps the triage queue in
-# score order. The judgement is the `- potential:` line each entry declares; this only
-# applies it. An entry with no score is a hard error.
-#
-# sort the triage queue by declared potential, highest first
-triage-rank *args:
-    uv run python scripts/harness/rank_triage.py {{args}}
 
 # Re-ask every source closed because something could not be REACHED, as opposed to closed
 # because a measurement killed it. It extracts the failed hosts from the verdict prose and
