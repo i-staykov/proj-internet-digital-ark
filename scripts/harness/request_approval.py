@@ -45,6 +45,7 @@ import duckdb  # noqa: E402
 
 from ark import held  # noqa: E402
 from ark.approvals import load  # noqa: E402
+from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
@@ -209,7 +210,12 @@ def main() -> None:
         )
 
     records = records_of(args.journal, args.source)
-    pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
+    # a journal's `domain` is raw until the ingest canonicalizes it; held asks the result
+    pairs = {
+        (name, r["year"])
+        for r in records
+        if r.get("domain") and r.get("year") and (name := to_registrable(str(r["domain"])))
+    }
     weights = english_weights()
 
     try:

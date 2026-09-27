@@ -1,9 +1,10 @@
 """Normalise the four capture-dated ccTLD register listings, and split only the curated ones.
 
 **The split is decided per artifact, not per source, because these four are two different
-things.** CLAUDE.md's rule is that anything a HUMAN TYPED needs another source to date the
-domain first. A registry printing its own register is not that: the registry is the body that
-grants the name, so its listing is the authoritative record that the name exists. That is why
+things.** A name a HUMAN TYPED counts once another source dates the domain (the
+corroboration split in `docs/lore/laws.md`). A registry printing its own register is not that:
+the registry is the body that grants the name, so its listing is the authoritative record that
+the name exists. That is why
 `cctld_register_listing_inbody` (TWNIC, IDNIC, RESTENA) is ingested with no split step at all.
 A third party's hand-kept directory of other people's domains is the opposite, and takes the
 split like any other curated list.

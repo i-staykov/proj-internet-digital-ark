@@ -553,6 +553,18 @@ def _asked(conn: duckdb.DuckDBPyConnection, names: list[str]) -> None:
         conn.unregister("_asked_names")
 
 
+def _as_asked(names: Iterable[str]) -> list[str]:
+    """The names, refused unless each is already a line of the form his files are read in:
+    `comm` matches bytes, so `Foo.com`, ` foo.com` or a name holding a line break would match
+    nothing of his and read as dated by no one."""
+    names = list(names)
+    for name in names:
+        bad = not isinstance(name, str) or not name or name != name.strip().lower()
+        if bad or any(c in name for c in "\n\r\t"):
+            raise ValueError(f"not a lowercase name: {name!r}")
+    return names
+
+
 def _our_pairs(conn: duckdb.DuckDBPyConnection, names: list[str]) -> set[tuple[str, int]]:
     """The pairs of `our_domain_year` among `names`, built for those names alone."""
     _asked(conn, names)
@@ -571,7 +583,7 @@ def attested(
 ) -> set[str]:
     """The names dated in some year: by a pair of ours, or as an exact line of his `all.txt`,
     which is his six year files merged. An empty ask admits nothing and reads nothing."""
-    names = list(names)
+    names = _as_asked(names)
     if not names:
         return set()
     his = his or load()
@@ -583,7 +595,7 @@ def known_years(
 ) -> set[tuple[str, int]]:
     """The (name, year) pairs dated already: by a pair of ours, or as an exact line of his
     file for that year. An empty ask admits nothing and reads nothing."""
-    names = list(names)
+    names = _as_asked(names)
     if not names:
         return set()
     his = his or load()

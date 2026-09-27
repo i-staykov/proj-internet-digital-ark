@@ -343,6 +343,15 @@ def test_an_empty_ask_admits_nothing_and_needs_no_release() -> None:
     assert held.known_years(conn, iter(())) == set()
 
 
+@pytest.mark.parametrize("name", ["Foo.com", " foo.com", "foo.com\n", "a\nb.com", "a\tb.com", ""])
+def test_held_names_refuse_raw_text(name: str, his_files: Path) -> None:
+    conn = connect(":memory:")
+    init_db(conn)
+    for ask in (held.attested, held.known_years):
+        with pytest.raises(ValueError, match="not a lowercase name"):
+            ask(conn, ["ok.com", name])
+
+
 def test_attested_fails_closed_without_his_files() -> None:
     conn = connect(":memory:")
     init_db(conn)
