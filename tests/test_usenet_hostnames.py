@@ -78,7 +78,7 @@ def test_the_funnel_keeps_sub_registrable_hosts_and_quotes_the_lowest_item(tmp_p
     assert counts["rejected_host"] == 1
 
 
-def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
+def test_ingest_writes_hostname_rows_and_no_parent_year_and_is_idempotent(tmp_path) -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
     path = write(tmp_path, ITEMS)
@@ -93,18 +93,19 @@ def test_ingest_writes_the_parent_year_too_and_is_idempotent(tmp_path) -> None:
         ("support.microsoft.com",),
         ("www.demon.co.uk",),
     ]
-    # A post naming `pages.demon.co.uk` names demon.co.uk in the same breath, and
-    # `nothing_earned_is_left_unassigned` requires the parent's year to exist for every
-    # master-eligible evidence row.
-    parents = conn.execute(
-        "SELECT DISTINCT domain, assigned_year FROM domain_year ORDER BY domain"
-    ).fetchall()
-    assert parents == [("demon.co.uk", 1997), ("microsoft.com", 1999)]
+    # a post naming `pages.demon.co.uk` dates that host, never demon.co.uk
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     rows = conn.execute(
-        "SELECT evidence_type, evidence_value FROM evidence WHERE domain = 'microsoft.com'"
+        "SELECT evidence_type, evidence_value, source_file, record_location FROM evidence "
+        "WHERE domain = 'microsoft.com'"
     ).fetchall()
     assert rows == [
-        ("link_source", "usenet post 1999 microsoft.public.mbox.zip#7 support.microsoft.com")
+        (
+            "link_source",
+            "usenet post 1999 microsoft.public.mbox.zip#7 support.microsoft.com",
+            "usenet_uk_items/shard_000.jsonl.gz",
+            "line 6",
+        )
     ]
 
     # The pool is part of the idempotence key, because every pool names its first shard

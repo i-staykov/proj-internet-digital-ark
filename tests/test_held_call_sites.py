@@ -1,6 +1,6 @@
-"""Whether a name is dated is held's question. A module that reads `domain` or `domain_year`
-imports `ark.held`, and no lane asks those tables itself, so no lane's answer rests on a row of
-his in the store.
+"""Whether a name is dated is held's question: a pair of ours, or an exact line of his files. A
+module that reads `domain` or `domain_year` imports `ark.held`, and no lane asks those tables
+itself, so no lane's answer misses a name only his files date.
 
 The scan reads the source and never imports it: some scripts open the store or parse `sys.argv`
 at import.
@@ -21,7 +21,7 @@ from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, 
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# `old.domain_year` too, and never `domain_language`, `our_domain_year` or a `domain(` call
+# `old.domain_year` too, and never `domain_language`, `new_domain_year` or a `domain(` call
 _TABLE = r"(?:\w+\.)?domain(?:_year)?(?![\w.(])"
 # rule A: any read of the two tables
 READS = re.compile(rf"(?<!delete )\b(?:from|join)\s+{_TABLE}", re.I)
@@ -53,6 +53,10 @@ ALLOWED = {
     "src/ark/db.py": (
         "add_candidates registers a name the store lacks and asks nothing about who dates it; "
         "it cannot import held, which imports ark.db"
+    ),
+    "src/ark/provenance.py": (
+        "writes and loads the store's tables whole; `domain` ships the names we know, and "
+        "nothing it reads asks who dates a name"
     ),
     "src/ark/provenance_trace.py": (
         "ships alone as trace.py beside the Parquet, importing only the standard library"
@@ -87,12 +91,12 @@ LANES = [
     "scripts/sources/usenet/split_uucp_maps.py",
 ]
 
-# Statements in a lane that match rule B and decide nothing about dated or candidate, keyed by
-# a substring only that statement holds
+# Statements in a lane that match rule B and leave no name only his files date, keyed by a
+# substring only that statement holds
 LANE_STATEMENTS_EXEMPT = {
-    ("src/ark/hostnames.py", "CREATE OR REPLACE TEMP TABLE parent_repoint"): (
-        "re-points the cited row of a pair a capture already dates; "
-        "it asks nothing about who dates the name"
+    ("src/ark/bulk.py", "FROM _source_names WHERE name NOT IN (SELECT domain FROM domain_year)"): (
+        "the half of `held.attested` the store answers, kept in the store for a source of "
+        "millions of names; `held.minus` takes his files off it next"
     ),
 }
 
@@ -197,7 +201,7 @@ NEITHER_SHAPES = [
     "SELECT domain, evidence_year, evidence_id FROM evidence",
     "DELETE FROM domain_year WHERE evidence_id IN (SELECT evidence_id FROM gone)",
     "SELECT domain, language FROM domain_language",
-    "SELECT DISTINCT domain FROM our_domain_year ORDER BY 1",
+    "SELECT DISTINCT domain FROM new_domain_year ORDER BY 1",
     "ia_domain_year_census",
     "INSERT OR IGNORE INTO domain (domain, tld) SELECT DISTINCT parent, tld FROM listhost",
 ]
@@ -225,14 +229,14 @@ def test_a_count_is_a_read_but_not_a_membership_test() -> None:
     assert READS.search(text) and not MEMBERSHIP.search(text)
 
 
-def test_the_parent_repoint_shape_is_membership_and_exempt_by_name() -> None:
+def test_the_undated_names_shape_is_membership_and_exempt_by_name() -> None:
     text = (
-        "CREATE OR REPLACE TEMP TABLE parent_repoint AS SELECT dy.domain FROM hostage h "
-        "JOIN domain_year dy ON dy.domain = h.parent AND dy.assigned_year = h.year"
+        "SELECT name FROM _source_names WHERE name NOT IN (SELECT domain FROM domain_year) "
+        "ORDER BY 1"
     )
     assert MEMBERSHIP.search(text)
-    assert _exempt("src/ark/hostnames.py", text)
-    assert not _exempt("src/ark/bulk.py", text)
+    assert _exempt("src/ark/bulk.py", text)
+    assert not _exempt("src/ark/hostnames.py", text)
 
 
 def test_the_scan_reads_code_strings_and_skips_docstrings() -> None:
@@ -258,7 +262,7 @@ def test_the_scan_reads_code_strings_and_skips_docstrings() -> None:
         ("import ark.held", True),
         ("import ark.held as h", True),
         ("from ark import db, held", True),
-        ("from ark.held import OUR_DOMAIN_YEAR_SQL", True),
+        ("from ark.held import attested", True),
         ("def f():\n    from ark import held\n    return held", True),
         ("import ark", False),
         ("from ark import db", False),

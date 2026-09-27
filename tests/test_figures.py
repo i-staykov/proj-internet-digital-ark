@@ -19,7 +19,6 @@ from his_release import WEB_METHOD, capture, text
 from ark import held
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS, awarded_score_of
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.evidence_types import HIS_SOURCE, HIS_TYPE
 from ark.figures import (
     TASK_ASSIGNED_DATE,
     cumulative,
@@ -276,20 +275,18 @@ def _script(name: str, rel: str):
 
 def _store_beside_his_release(folder: Path):
     """Our pairs beside his files: new.com and old.com are net-new, already-his.com is his that
-    year, rested.com his in 1997 only, nocapture.com has no capture, and one pair of each of
-    rested.com and his-only.com rests on his row. Three usenet names wait to be dated."""
+    year, rested.com his in 1997 only, and nocapture.com has no capture. Three usenet names
+    wait to be dated."""
     (folder / "1997.txt").write_bytes(text(["already-his.com", "gone.com", "rested.com"]))
     held.prepare(folder)
     conn = connect(":memory:")
     init_db(conn)
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
     usenet = ensure_source(conn, "usenet_mention", "timestamped")
-    his = ensure_source(conn, HIS_SOURCE, "timestamped")
     for name in ("new.com", "old.com", "already-his.com", "rested.com", "nocapture.com"):
         add_candidate(conn, name, cdx)
     for name in ("u.com", "gone.com"):
         add_candidate(conn, name, usenet)
-    add_candidate(conn, "his-only.com", his)
 
     def dated(name: str, source: int, year: int, kind: str, value: str, method=None) -> None:
         assign_year(conn, record_evidence(conn, name, source, year, kind, value, None, method))
@@ -298,8 +295,6 @@ def _store_beside_his_release(folder: Path):
         dated(name, cdx, year, "cdx_timestamp", capture(name, year), WEB_METHOD)
     dated("rested.com", cdx, 1999, "cdx_timestamp", capture("rested.com", 1999), WEB_METHOD)
     dated("nocapture.com", cdx, 1999, "whois_creation", "1999-03-01")
-    for name, year in (("rested.com", 1997), ("his-only.com", 1998)):
-        dated(name, his, year, HIS_TYPE, f"{year}.txt", HIS_SOURCE)
     for name in ("u.com", "gone.com", "new.com"):
         record_evidence(conn, name, usenet, 1998, "artifact_listing", f"news {name}")
     conn.execute(
@@ -331,7 +326,7 @@ def test_the_report_figures_are_the_shipped_net_new_and_our_own_store(
     his_files, tmp_path, monkeypatch
 ) -> None:
     """Every net-new figure reads the pairs the year files hold, the completeness table divides
-    by his own line counts, and the store counts only what is ours."""
+    by his own line counts, and the store counts its own tables, which hold only ours."""
     rf = _script("report_figures_for_test", "scripts/round/report_figures.py")
     candidates = tmp_path / "candidate_unverified.txt"
     candidates.write_text("a.edu\nb.com\nc.org\n")
@@ -360,7 +355,6 @@ def test_the_report_figures_are_the_shipped_net_new_and_our_own_store(
     # the completeness table sets both of our units against his lines
     assert set(f["hostname_lines_by_year"]) == set(f["baseline_by_year"])
     assert f["candidate_pool"] == 3
-    # less his two pairs, his-only.com and his two rows
     assert f["store"] == {
         "pairs_total": 5,
         "domains_total": 7,

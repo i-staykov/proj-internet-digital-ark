@@ -14,8 +14,9 @@ the 14-digit stamp dates the row, `host_of` accepts RFC 1123 hosts only, the hos
 reduce to a parent registrable and not be it, and `www.<parent>` is the parent's own
 site. A hostname year is net-new when the store's `hostname_year` lacks it AND his
 file for that year lacks the exact name, which is exactly the export's rule.
-The parent (registrable, year) pairs the same rows would assign are priced beside,
-because the ingest writes both and a corpus can pay in either.
+The (registrable, year) pairs of the rows that name a registrable itself are priced
+beside, because a corpus can pay in either unit; a capture of a host beneath a
+registrable dates no registrable.
 
 Two input shapes, the same ones the rest of the project already emits:
 
@@ -138,10 +139,10 @@ def funnel(
 ) -> tuple[list[tuple[str, str, int]], list[tuple[str, int]]]:
     """The hostname rows, and the (registrable, year) pairs the SAME rows assert.
 
-    Both halves are returned because both are real value and only one of them used to be
-    counted. A host that IS its registrable, and `www.<registrable>`, write no hostname
-    record: the ingest dates the parent from that capture instead. Priced at hostname grain
-    alone they read as drops, which understated two Usenet pools by about 26,000 EE.
+    Both halves are returned because both are real value. A host that IS its registrable
+    writes no hostname record and dates its registrable year instead, so priced at hostname
+    grain alone it reads as a drop. `www.<registrable>` and every other host beneath it date
+    no registrable, in the ingest as in the claim.
     """
     parents: dict[str, str] = {}
     registrable_of: dict[str, str] = {}
@@ -159,7 +160,7 @@ def funnel(
             parents[host] = reg
     counts["distinct_host_years"] = len(seen)
     rows = [(h, parents[h], y) for (h, y) in sorted(seen) if h in parents]
-    pairs = sorted({(registrable_of[h], y) for (h, y) in seen if h in registrable_of})
+    pairs = sorted({(h, y) for (h, y) in seen if registrable_of.get(h) == h})
     return rows, pairs
 
 
@@ -183,7 +184,7 @@ def price(  # noqa: ANN001
     # any more than a hostname is.
     conn.execute("CREATE OR REPLACE TEMP TABLE reg_cand (domain TEXT, year INTEGER)")
     conn.executemany("INSERT INTO reg_cand VALUES (?, ?)", pairs)
-    # His hold is the exact name in his file for that year, and his store rows are not read.
+    # His hold is the exact name in his file for that year.
     # Asked of each year's file: the hostnames, bare names and registrables of that year,
     # and every parent, which is held when he holds it in any year.
     parents = {parent for _, parent, _ in rows}
@@ -213,7 +214,11 @@ def price(  # noqa: ANN001
         CREATE OR REPLACE TEMP TABLE priced_names AS
         SELECT domain AS name FROM reg_cand UNION SELECT bare FROM cand WHERE bare IS NOT NULL
     """)
-    held.our_domain_year(conn, "priced_names", "our_pairs")
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE our_pairs AS
+        SELECT domain, assigned_year FROM domain_year
+        WHERE domain IN (SELECT name FROM priced_names)
+    """)
     # Price what could ship: a hostname under `.arpa` or under a TLD that did not exist in
     # its year never reaches a file, so counting it inflates the price of a corpus. The
     # hostname export applied neither rule until 2026-09-03.

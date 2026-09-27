@@ -1,9 +1,11 @@
-"""DuckDB schema, connection, and the only write path into the provenance store.
+"""DuckDB schema, connection, and write helpers for the store.
 
-The schema enforces what it can (an assignment cannot exist without evidence).
-The helpers enforce the cross-row rules: every domain passes through
-to_registrable(), and a year assignment is derived from its evidence row,
-so a mismatched assignment cannot be expressed.
+The store is an index rebuilt from the provenance Parquet. A table keeps a primary key only
+where `INSERT OR IGNORE` or `ON CONFLICT` needs one: `evidence` has none and no table has a
+foreign key, since each is an index DuckDB holds in memory while it writes, several GB for
+`evidence` alone, and `ark check` asserts the walls they held. The helpers enforce the
+cross-row rules: every domain passes through to_registrable(), and a year assignment is
+derived from its evidence row, so a mismatched assignment cannot be expressed.
 """
 
 import os
@@ -82,44 +84,49 @@ CREATE TABLE IF NOT EXISTS source (
 CREATE TABLE IF NOT EXISTS domain (
     domain            TEXT PRIMARY KEY,
     tld               TEXT,
-    discovered_source INTEGER NOT NULL REFERENCES source(source_id),
+    discovered_source INTEGER NOT NULL,
     discovered_round  INTEGER NOT NULL DEFAULT 0,
     first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE SEQUENCE IF NOT EXISTS evidence_seq START 1;
 
+-- `source_file` is the file a row was read from and `record_location` its place in it
+-- (`record 12`, `line 40`, a capture URL). Last, where MIGRATIONS puts them on an older store,
+-- so a fresh and a migrated store export the same columns; rows older than them may lack both.
 CREATE TABLE IF NOT EXISTS evidence (
-    evidence_id        BIGINT PRIMARY KEY DEFAULT nextval('evidence_seq'),
-    domain             TEXT NOT NULL REFERENCES domain(domain),
-    source_id          INTEGER NOT NULL REFERENCES source(source_id),
+    evidence_id        BIGINT NOT NULL DEFAULT nextval('evidence_seq'),
+    domain             TEXT NOT NULL,
+    source_id          INTEGER NOT NULL,
     evidence_year      INTEGER NOT NULL CHECK (evidence_year BETWEEN 1996 AND 2001),
     evidence_type      TEXT NOT NULL CHECK (evidence_type IN ({_EVIDENCE_TYPE_LIST})),
     evidence_value     TEXT NOT NULL,
     evidence_url       TEXT,
     acquisition_method TEXT,
     captured_at        TIMESTAMPTZ,
-    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source_file        TEXT,
+    record_location    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS domain_year (
-    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    domain        TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
-    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    evidence_id   BIGINT  NOT NULL,
     verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (domain, assigned_year)
 );
 
 -- Hostname records: the reviewer accepts "both registrable domains and valid hostnames
--- as annual database records" (his words, in private/personal-context.md). Same evidence
--- wall as domain_year, and the checks enforce that the hostname reduces to parent_domain
--- and is not itself a bare registrable (those stay in domain_year). Registrables remain
--- the prioritized unit; hostnames ship as separate per-year files.
+-- as annual database records", in his words. Same evidence wall as domain_year, and the
+-- checks enforce that the hostname reduces to parent_domain and is not itself a bare
+-- registrable (those stay in domain_year). Registrables remain the prioritized unit;
+-- hostnames ship as separate per-year files.
 CREATE TABLE IF NOT EXISTS hostname_year (
     hostname      TEXT    NOT NULL,
-    parent_domain TEXT    NOT NULL REFERENCES domain(domain),
+    parent_domain TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
-    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    evidence_id   BIGINT  NOT NULL,
     verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (hostname, assigned_year)
 );
@@ -139,7 +146,7 @@ CREATE TABLE IF NOT EXISTS ingested_file (
 -- CHECK and four integrity checks depend on. `evidence_urls` names the exact snapshots
 -- read, so a reviewer can refetch them and recompute the verdict.
 CREATE TABLE IF NOT EXISTS domain_language (
-    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    domain        TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
     verdict       TEXT    NOT NULL CHECK (verdict IN ('english', 'other', 'undetermined')),
     english_share DOUBLE,
@@ -158,6 +165,8 @@ CREATE TABLE IF NOT EXISTS domain_language (
 MIGRATIONS = (
     ("domain_language", "reason", "TEXT"),
     ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
+    ("evidence", "source_file", "TEXT"),
+    ("evidence", "record_location", "TEXT"),
 )
 
 
@@ -223,6 +232,16 @@ def init_db(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute(statement)
     for table, column, column_type in MIGRATIONS:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {column_type}")
+    # `located_from` is the first evidence id this store wrote itself, for `ark check`. Nothing
+    # draws from it, so it keeps its start, where DuckDB writes `evidence_seq` back with its next
+    # id as its start. `load_provenance` sets it; a store without it starts past its own rows.
+    located = conn.execute(
+        "SELECT count(*) FROM duckdb_sequences() "
+        "WHERE sequence_name = 'located_from' AND database_name = current_database()"
+    ).fetchone()[0]
+    if not located:
+        start = conn.execute("SELECT coalesce(max(evidence_id), 0) + 1 FROM evidence").fetchone()[0]
+        conn.execute(f"CREATE SEQUENCE located_from START WITH {int(start)}")
 
 
 def ensure_source(conn: duckdb.DuckDBPyConnection, name: str, kind: str) -> int:
@@ -315,13 +334,28 @@ def record_evidence(
     url: str | None = None,
     acquisition_method: str | None = None,
     captured_at: datetime | None = None,
+    *,
+    source_file: str | None = None,
+    record_location: str | None = None,
 ) -> int:
-    """Store one per-year proof for a registered domain and return its id."""
+    """Store one per-year proof for a registered domain and return its id. `source_file` and
+    `record_location` name the file the row was read from and its place in it."""
     return conn.execute(
         "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, "
-        "evidence_value, evidence_url, acquisition_method, captured_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING evidence_id",
-        [domain, source_id, year, evidence_type, value, url, acquisition_method, captured_at],
+        "evidence_value, evidence_url, acquisition_method, captured_at, source_file, "
+        "record_location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING evidence_id",
+        [
+            domain,
+            source_id,
+            year,
+            evidence_type,
+            value,
+            url,
+            acquisition_method,
+            captured_at,
+            source_file,
+            record_location,
+        ],
     ).fetchone()[0]
 
 

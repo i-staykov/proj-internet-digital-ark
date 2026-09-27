@@ -73,8 +73,8 @@ def test_ingest_lands_under_its_own_source_and_is_idempotent(tmp_path) -> None:
         "SELECT DISTINCT s.name FROM evidence e JOIN source s USING (source_id)"
     ).fetchall()
     assert sources == [("maillist_body_url_hostnames",)]
-    parents = conn.execute("SELECT domain, assigned_year FROM domain_year ORDER BY 1").fetchall()
-    assert parents == [("sf.net", 2001), ("stevens-tech.edu", 1999)]
+    # a host named in a message dates that host, never its parent
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     again = ingest_usenet_item_journal(conn, path, family=MAILLIST_FAMILY)
     assert again["skipped"] is True
     key = conn.execute(

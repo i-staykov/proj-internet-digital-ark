@@ -254,18 +254,19 @@ def test_cli(tmp_path: Path, capsys) -> None:
     assert (tmp_path / "docs/registers/retention.md").is_file()
 
 
-def test_every_class_name_is_one_of_five() -> None:
+def test_every_class_name_is_one_of_six() -> None:
     keys = [
         f"data/raw/{n}"
         for t in (vr.KEEP_UNTIL_PRICED, vr.LIVE_INPUT, vr.REFERENCE, vr.REGENERABLE)
         for n in t
     ]
     keys += [f"data/raw/{n}" for n in vr.KEEP_JOURNAL]
-    keys += ["output/x", "feedback/x", "data/ark.duckdb.x.bak"]
+    keys += ["output/x", "output/provenance", "feedback/x", "data/ark.duckdb.x.bak"]
     classes = {vr.classify(k)[0] for k in keys}
     assert classes == {
         "live_input",
         "keep_journal",
+        "keep_authority",
         "keep_until_priced",
         "reference",
         "regenerable",
@@ -279,3 +280,22 @@ def test_every_class_name_is_one_of_five() -> None:
     assert len(items) == 11
     assert vr.classify("data/raw/never_heard_of") is None
     assert vr.classify("data/ark.duckdb") is None
+
+
+def test_the_provenance_export_is_ours_alone_and_the_rest_of_output_regenerable(
+    tmp_path: Path,
+) -> None:
+    """The store is rebuilt from the Parquet, so no recipe brings the Parquet back."""
+    (tmp_path / "output/provenance").mkdir(parents=True)
+    (tmp_path / "output/provenance/evidence.parquet").write_bytes(b"rows")
+    (tmp_path / "output/netnew").mkdir()
+    (tmp_path / "output/netnew/1999.txt").write_bytes(b"example.com\n")
+    vr.run(tmp_path)
+    rows = rows_by_key(tmp_path)
+    assert rows["output/provenance"][1:4] == ["keep_authority", "1", "4"]
+    assert rows["output/provenance"][5:] == ["own_journal", "SHA256SUMS"]
+    assert rows["output/netnew"][1] == "regenerable"
+    sums = (tmp_path / "output/provenance/SHA256SUMS").read_text()
+    assert sums == f"{sha256(b'rows')}  ./evidence.parquet\n"
+    assert vr.classify("output/provenance") == ("keep_authority", vr.OWN)
+    assert "`keep_authority` is the provenance Parquet" in vr.HEADER

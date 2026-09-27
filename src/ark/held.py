@@ -22,13 +22,7 @@ from loguru import logger
 from ark import baseline as _baseline
 from ark.db import DB_MEMORY_LIMIT, DB_TEMP_DIR, DB_THREADS
 from ark.delegation import shipping_filter
-from ark.evidence_types import (
-    CANDIDATE_ONLY_TYPES,
-    HIS_SOURCE,
-    HIS_TYPE,
-    qualifies_sql,
-    web_evidence_exists,
-)
+from ark.evidence_types import web_evidence_exists
 from ark.ingest import YEARS
 
 # cwd-relative, like `data/ark.duckdb`: a delivery writes it beside its own store
@@ -41,7 +35,6 @@ _C = {**os.environ, "LC_ALL": "C"}
 # ours are registrables and hostnames, which `registered_domain_format` and
 # `hostname_is_below_its_parent` hold to these bytes
 _NOT_OUR_NAME = "[^a-z0-9.-]"
-_CANDIDATE_LIST = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
 
 class HeldError(RuntimeError):
@@ -370,80 +363,6 @@ def dump(conn: duckdb.DuckDBPyConnection, query: str, path: Path) -> int:
     return lines(path)
 
 
-# **Our assignments: none rests on one of his rows, and each cites its best row.** A pair his
-# release was loaded against keeps a row of ours when we hold one the assigner would accept
-# (no candidate-only type, no `www.`-only capture), and is dropped otherwise: we cannot prove
-# it, and he can. A pair citing a row that is not a capture of exactly its domain moves to the
-# lowest row of ours that is, when there is one. So a shipped pair cites its own row when that
-# row qualifies, else the lowest one that does, and `domain_year` rebuilt from this table
-# gives back this table.
-def _our_domain_year_sql(names: str | None = None) -> str:
-    only = f"AND domain IN (SELECT name FROM {names})" if names else ""
-    keep = f"AND dy.domain IN (SELECT name FROM {names})" if names else ""
-    return f"""
-        WITH q AS (
-            SELECT domain, evidence_year, min(evidence_id) AS evidence_id
-            FROM evidence w
-            WHERE evidence_type <> '{HIS_TYPE}' AND evidence_type NOT IN ({_CANDIDATE_LIST})
-              AND {qualifies_sql("w", "w.domain")} {only}
-            GROUP BY 1, 2
-        ), ours AS (
-            SELECT domain, evidence_year, min(evidence_id) AS evidence_id
-            FROM evidence
-            WHERE evidence_type <> '{HIS_TYPE}' AND evidence_type NOT IN ({_CANDIDATE_LIST})
-              AND evidence_value NOT LIKE 'cdx capture % www.' || domain {only}
-            GROUP BY 1, 2
-        )
-        SELECT dy.* REPLACE (CASE
-            WHEN e.evidence_type <> '{HIS_TYPE}'
-                 AND (q.evidence_id IS NULL OR {qualifies_sql("e", "dy.domain")})
-              THEN dy.evidence_id
-            WHEN q.evidence_id IS NOT NULL THEN q.evidence_id
-            ELSE o.evidence_id END AS evidence_id)
-        FROM domain_year dy
-        JOIN evidence e ON e.evidence_id = dy.evidence_id
-        LEFT JOIN q ON q.domain = dy.domain AND q.evidence_year = dy.assigned_year
-        LEFT JOIN ours o ON o.domain = dy.domain AND o.evidence_year = dy.assigned_year
-        WHERE (e.evidence_type <> '{HIS_TYPE}' OR o.evidence_id IS NOT NULL) {keep}
-    """
-
-
-OUR_DOMAIN_YEAR_SQL = _our_domain_year_sql()
-
-
-def our_domain_year(
-    conn: duckdb.DuckDBPyConnection, names: str | None = None, table: str = "our_domain_year"
-) -> None:
-    """`table`, a temp table of our assignments, rebuilt on each call so it never outlives a
-    write; `provenance` ships the same rows as `domain_year`. `names`, a table with a `name`
-    column, keeps only those domains, for a reader that asks about a few."""
-    conn.execute(f"CREATE OR REPLACE TEMP TABLE {table} AS {_our_domain_year_sql(names)}")
-
-
-def our_domains(conn: duckdb.DuckDBPyConnection) -> None:
-    """`our_domains`, every domain one of our rows names, for `we_know`."""
-    conn.execute(
-        "CREATE OR REPLACE TEMP TABLE our_domains AS "
-        f"SELECT DISTINCT domain FROM evidence WHERE evidence_type <> '{HIS_TYPE}'"
-    )
-
-
-def we_know(alias: str = "d") -> str:
-    """A `domain` row we found ourselves: a source of ours filed it, or a row of ours names it.
-    Needs `our_domains`. His release filed every name it holds, and those we never saw are his,
-    not ours to offer back."""
-    return (
-        f"({alias}.discovered_source IS DISTINCT FROM "
-        f"(SELECT source_id FROM source WHERE name = '{HIS_SOURCE}') "
-        f"OR {alias}.domain IN (SELECT domain FROM our_domains))"
-    )
-
-
-def ours(alias: str = "e") -> str:
-    """An evidence row of ours, not one of his."""
-    return f"{alias}.evidence_type <> '{HIS_TYPE}'"
-
-
 def read_names(
     conn: duckdb.DuckDBPyConnection, table: str, path: Path, year: int | None = None
 ) -> int:
@@ -457,11 +376,11 @@ def read_names(
 
 
 def claim_pairs(conn: duckdb.DuckDBPyConnection) -> None:
-    """`claim_pair(domain, assigned_year, evidence_id)`: our assignments whose row is a web
-    capture of exactly that domain. Needs `our_domain_year`."""
+    """`claim_pair(domain, assigned_year, evidence_id)`: the assignments whose row is a web
+    capture of exactly that domain. The store holds only our rows, so every one is ours."""
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE claim_pair AS
-        SELECT dy.domain, dy.assigned_year, dy.evidence_id FROM our_domain_year dy
+        SELECT dy.domain, dy.assigned_year, dy.evidence_id FROM domain_year dy
         WHERE {web_evidence_exists("dy.evidence_id", "dy.domain")}
     """)
 
@@ -498,20 +417,20 @@ def netnew(
 
 
 def held_any(conn: duckdb.DuckDBPyConnection, his: Held, work: Path) -> int:
-    """`held_any(name)`: the domains of `our_domain_year` his files hold in any year."""
-    dump(conn, "SELECT DISTINCT domain FROM our_domain_year ORDER BY 1", work / "dated.txt")
+    """`held_any(name)`: the domains of `domain_year` his files hold in any year."""
+    dump(conn, "SELECT DISTINCT domain FROM domain_year ORDER BY 1", work / "dated.txt")
     intersect(work / "dated.txt", his.all, work / "held_any.txt")
     return read_names(conn, "held_any", work / "held_any.txt")
 
 
 def held_pairs(conn: duckdb.DuckDBPyConnection, his: Held, work: Path) -> int:
-    """`held_pair(domain, year)`: the pairs of `our_domain_year` his file for that year holds."""
+    """`held_pair(domain, year)`: the pairs of `domain_year` his file for that year holds."""
     conn.execute("CREATE OR REPLACE TEMP TABLE held_pair (domain VARCHAR, year INTEGER)")
     for year in YEARS:
         dated = work / f"dated_{year}.txt"
         dump(
             conn,
-            f"SELECT DISTINCT domain FROM our_domain_year WHERE assigned_year = {year} ORDER BY 1",
+            f"SELECT DISTINCT domain FROM domain_year WHERE assigned_year = {year} ORDER BY 1",
             dated,
         )
         intersect(dated, his.year(year), work / f"held_{year}.txt")
@@ -566,13 +485,16 @@ def _as_asked(names: Iterable[str]) -> list[str]:
 
 
 def _our_pairs(conn: duckdb.DuckDBPyConnection, names: list[str]) -> set[tuple[str, int]]:
-    """The pairs of `our_domain_year` among `names`, built for those names alone."""
+    """The pairs of `domain_year` among `names`."""
     _asked(conn, names)
     try:
-        our_domain_year(conn, "_asked", "_our_asked")
-        return set(conn.execute("SELECT domain, assigned_year FROM _our_asked").fetchall())
+        return set(
+            conn.execute(
+                "SELECT dy.domain, dy.assigned_year FROM domain_year dy "
+                "JOIN _asked a ON a.name = dy.domain"
+            ).fetchall()
+        )
     finally:
-        conn.execute("DROP TABLE IF EXISTS _our_asked")
         conn.execute("DROP TABLE IF EXISTS _asked")
 
 
@@ -608,12 +530,15 @@ def known_years(
 def known_names(
     conn: duckdb.DuckDBPyConnection, names: Iterable[str], his: Held | None = None
 ) -> set[str]:
-    """The names already known: found by us, or in any file of his, dated or candidate."""
+    """The names already known: a `domain` row, which is a name we found, or a line of any
+    file of his, dated or candidate."""
     names = list(names)
     his = his or load()
     _asked(conn, names)
-    our_domains(conn)
-    found = conn.execute(
-        f"SELECT d.domain FROM domain d JOIN _asked a ON a.name = d.domain WHERE {we_know('d')}"
-    ).fetchall()
+    try:
+        found = conn.execute(
+            "SELECT d.domain FROM domain d JOIN _asked a ON a.name = d.domain"
+        ).fetchall()
+    finally:
+        conn.execute("DROP TABLE IF EXISTS _asked")
     return {d for (d,) in found} | names_in(names, his.all) | names_in(names, his.candidates)

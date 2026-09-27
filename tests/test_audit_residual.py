@@ -139,8 +139,8 @@ def test_a_non_lock_error_is_not_swallowed(tmp_path: Path, monkeypatch) -> None:
 def test_stale_derived_judges_every_list_in_a_store_with_no_rows_of_his(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
-    """His rows leave the store, and no derived list is judged against them: a candidate
-    newer than the pool queue still makes it stale."""
+    """The store holds no row of his, so every derived list is judged on our rows alone: a
+    candidate newer than the pool queue still makes it stale."""
     conn: duckdb.DuckDBPyConnection = connect(":memory:")
     init_db(conn)
     add_candidate(conn, "fresh.com", ensure_source(conn, "demo", "candidate_only"))

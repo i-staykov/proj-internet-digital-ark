@@ -15,7 +15,7 @@ import duckdb
 import his_release
 
 from ark import held
-from ark.db import init_db
+from ark.db import add_candidate, assign_year, ensure_source, init_db, record_evidence
 from ark.hostnames import (
     CHASTITY_HOST_SOURCE,
     SQUIDGUARD_HOST_SOURCE,
@@ -70,10 +70,12 @@ def test_squidguard_rows_are_dated_by_the_compile_stamp_and_idempotent(tmp_path)
     path.write_text(SQUIDGUARD)
     stats = ingest_blocklist_hostnames(conn, path)
     assert stats["hostname_year_rows"] == 2
-    assert stats["parent_year_rows"] == 2
+    # a listed host dates itself, never tripod.com
+    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
     row = conn.execute(
         """
-        SELECT hy.parent_domain, hy.assigned_year, e.evidence_type, e.evidence_value
+        SELECT hy.parent_domain, hy.assigned_year, e.evidence_type, e.evidence_value,
+               e.source_file, e.record_location
         FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
         WHERE hy.hostname = 'members.tripod.com'
         """
@@ -83,6 +85,8 @@ def test_squidguard_rows_are_dated_by_the_compile_stamp_and_idempotent(tmp_path)
         2001,
         "artifact_listing",
         "squidguard:adult/domains@20011218 host members.tripod.com",
+        "squidguard-adult-domains",
+        "line 3",
     )
     assert ingest_blocklist_hostnames(conn, path)["skipped"] is True
     assert conn.execute(
@@ -93,19 +97,36 @@ def test_squidguard_rows_are_dated_by_the_compile_stamp_and_idempotent(tmp_path)
 def test_chastity_reads_the_tar_member_header_and_takes_the_split(tmp_path, his_files) -> None:
     conn = duckdb.connect(":memory:")
     init_db(conn)
-    squid = tmp_path / "squidguard-adult-domains"
-    squid.write_text(SQUIDGUARD)
-    ingest_blocklist_hostnames(conn, squid)  # tripod.com now carries 2001, a pair of ours
+    # tripod.com carries 2001, a pair of ours from a row naming it
+    source = ensure_source(conn, "squidguard_2001", "timestamped")
+    add_candidate(conn, "tripod.com", source)
+    listed = record_evidence(
+        conn,
+        "tripod.com",
+        source,
+        2001,
+        "artifact_listing",
+        "squidguard:adult/domains@20011218",
+        source_file="squidguard-adult-domains",
+        record_location="record 2",
+    )
+    assign_year(conn, listed)
     stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path))
     # a, c and d under the dated tripod.com; b.novel.com parked; mail skipped
     assert stats["hostname_year_rows"] == 3
     assert stats["split_parked"] == 1
     assert stats["mail_list_skipped"] == 1
     value = conn.execute(
-        "SELECT e.evidence_type, e.evidence_value FROM hostname_year hy "
-        "JOIN evidence e ON e.evidence_id = hy.evidence_id WHERE hy.hostname = 'd.tripod.com'"
+        "SELECT e.evidence_type, e.evidence_value, e.source_file, e.record_location "
+        "FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id "
+        "WHERE hy.hostname = 'd.tripod.com'"
     ).fetchone()
-    assert value == ("dated_directory", "chastity-list:20011214 adult/domains host d.tripod.com")
+    assert value == (
+        "dated_directory",
+        "chastity-list:20011214 adult/domains host d.tripod.com",
+        "chastity-list_0.5.orig.tar.gz",
+        "chastity-list-0.5/db/adult/domains.20011124.diff:line 1",
+    )
     assert conn.execute("SELECT count(*) FROM domain WHERE domain = 'novel.com'").fetchone() == (0,)
     assert conn.execute(
         "SELECT count(*) FROM ingested_file WHERE source_name = ?", [CHASTITY_HOST_SOURCE]

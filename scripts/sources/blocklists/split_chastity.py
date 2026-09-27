@@ -14,7 +14,7 @@ this parser needs no date arithmetic: every row is 2001.
 
 **The predicate is the same one used for junkfilter**, stated explicitly because this repo
 holds two candidates: a domain is corroborated when `held.attested` finds it dated, by a year
-of ours in `our_domain_year` or by a line of his files that is exactly the name. His
+of ours in `domain_year` or by a line of his files that is exactly the name. His
 `www.x.com` does not corroborate `x.com`. The weaker test, presence in `domain`, would admit
 names that are themselves only candidates, which is not what the corroboration split in
 `docs/lore/laws.md` means by "once another source dates that domain".

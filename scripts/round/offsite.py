@@ -4,6 +4,7 @@ The payload is not everything on disk. It is the entries of `docs/registers/rete
 are neither regenerable by a recipe nor refetchable from somebody else:
 
   * `keep_journal`, our own collectors' output, which nobody else holds;
+  * `keep_authority`, the provenance Parquet the store is rebuilt from;
   * `reference` that arrived by mail as a reviewer release, the archived releases
     of `data/archive/` among them, or whose refetch cell names nobody, which is
     every frozen `submissions/phase-*`;
@@ -90,6 +91,8 @@ def reason(entry) -> str | None:
     """Why this entry must go off-site, or None when something else can bring it back."""
     if Path(entry.key).name == ".DS_Store":
         return None
+    if entry.cls == "keep_authority":
+        return "the evidence authority, the store rebuilds from it"
     if entry.cls == "keep_journal":
         return "our own collector wrote it, nobody else holds it"
     if entry.cls == "reference":

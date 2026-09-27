@@ -338,6 +338,36 @@ def test_a_store_backup_never_enters_the_payload() -> None:
     assert offsite.payload([backup]) == ([], [], [])
 
 
+def test_the_provenance_export_goes_off_site_each_round(tmp_path: Path, capsys) -> None:
+    """verify_raw's row for the Parquet the store rebuilds from puts it in the manifest, the
+    upload and the receipt; the rest of `output/` stays local."""
+    provenance = tmp_path / "output/provenance"
+    provenance.mkdir(parents=True)
+    (provenance / "evidence.parquet").write_bytes(b"rows")
+    (provenance / "LOAD.sql").write_text("-- load\n")
+    (tmp_path / "output/netnew").mkdir()
+    (tmp_path / "output/netnew/1999.txt").write_text("example.com\n")
+    offsite.verify_raw.run(tmp_path)
+    assert run(tmp_path, "--manifest") == 0
+    assert [(r.entry, r.cls, r.files, r.why) for r in manifest_rows(tmp_path)] == [
+        (
+            "output/provenance",
+            "keep_authority",
+            2,
+            "the evidence authority, the store rebuilds from it",
+        )
+    ]
+    assert run(tmp_path, "--upload", "--yes") == 0
+    remote = tmp_path / "remote/output/provenance"
+    assert (remote / "evidence.parquet").read_bytes() == b"rows"
+    assert not (remote / "SHA256SUMS").exists() and not (tmp_path / "remote/output/netnew").exists()
+    assert run(tmp_path, "--verify") == 0
+    assert sorted(offsite.read_receipt(tmp_path)) == [
+        "output/provenance/LOAD.sql",
+        "output/provenance/evidence.parquet",
+    ]
+
+
 def test_the_table_keeps_regenerable_and_refetchable_bytes_local(tmp_path) -> None:
     table = build(tmp_path, [r for r in ROWS if r[0] != "data/raw/nosum"])
     entries = offsite.prune.read_table(table)

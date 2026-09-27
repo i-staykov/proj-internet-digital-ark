@@ -83,7 +83,7 @@ unseen = {
         """
     ).fetchall()
 }
-# a name his files date is seen, whether or not the store still lists it
+# a name his files date is seen too: the store lists only the names we know
 new_domains = len(unseen - held.attested(con, unseen, his))
 
 netnew = len(pairs) - held_n

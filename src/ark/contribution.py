@@ -4,7 +4,7 @@ audit directory that ships in the delivery archive.
 `source_contribution.csv` answers "what did each source actually buy?", which decides
 whether a source is worth expanding. Evidence rows are reported separately from assigned
 pairs because the gap is the point: millions of rows and almost no new pairs makes a
-corroboration source rather than a growth source, which is a finding. Only our rows count.
+corroboration source rather than a growth source, which is a finding.
 
 `year_growth.csv` answers "how much did each annual file grow?", in the column shape of the
 supplied `merge_stats` file. `candidate_unique_not_merged` is deliberately not reproduced:
@@ -24,8 +24,7 @@ from ark.stats import _lineage_case_sql
 
 DEFAULT_REPORT_DIR = Path("data/reports")
 
-# Reads what `export_all` builds first: `our_domain_year`, `netnew_pair`, `held_any` and
-# `our_domains`.
+# Reads what `export_all` builds first: `netnew_pair` and `held_any`.
 _SOURCE_SQL = f"""
 WITH per_source AS (
     SELECT s.name AS source,
@@ -37,12 +36,12 @@ WITH per_source AS (
     -- candidate pool has no evidence rows at all, and an inner join silently drops
     -- it, so the candidate column could not be reconciled with the reported pool.
     FROM source s
-    LEFT JOIN evidence e ON e.source_id = s.source_id AND {held.ours("e")}
+    LEFT JOIN evidence e ON e.source_id = s.source_id
     GROUP BY s.name
 ),
 backed AS (
     SELECT s.name AS source, count(*) AS pairs_backed
-    FROM our_domain_year dy
+    FROM domain_year dy
     JOIN evidence e ON e.evidence_id = dy.evidence_id
     JOIN source s ON s.source_id = e.source_id
     GROUP BY s.name
@@ -69,8 +68,7 @@ candidates AS (
     SELECT s.name AS source, count(*) AS candidate_domains
     FROM domain d
     JOIN source s ON s.source_id = d.discovered_source
-    WHERE NOT EXISTS (SELECT 1 FROM our_domain_year dy WHERE dy.domain = d.domain)
-      AND {held.we_know("d")}
+    WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
     GROUP BY s.name
 ),
 files AS (

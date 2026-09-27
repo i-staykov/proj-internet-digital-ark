@@ -28,10 +28,7 @@ from ark.ingest import YEARS
 def _populated_db() -> duckdb.DuckDBPyConnection:
     conn = connect(":memory:")
     init_db(conn)
-    prior = ensure_source(conn, "prior_task", "timestamped")
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    add_candidate(conn, "base.com", prior)
-    assign_year(conn, record_evidence(conn, "base.com", prior, 1997, "prior_reused", "1997.txt"))
     add_candidate(conn, "new.com", cdx)
     assign_year(
         conn,
@@ -85,9 +82,9 @@ def test_export_all(tmp_path: Path) -> None:
     assert "master_1997" not in stats
     # unverified candidates are exported separately
     assert (tmp_path / "candidates.txt").read_text() == "cand.org\n"
-    # the manifest carries provenance for net-new pairs only
+    # the manifest carries the provenance of each net-new pair
     manifest = (tmp_path / "netnew" / "evidence_manifest.csv").read_text()
-    assert "new.com" in manifest and "base.com" not in manifest
+    assert "new.com" in manifest
     assert "ia_cdx" in manifest and capture("new.com", 1997) in manifest
 
 
@@ -424,8 +421,6 @@ def test_a_name_whose_every_year_fails_xiii_is_a_candidate(tmp_path: Path) -> No
     assert "zone-only.dk" not in (tmp_path / "netnew" / "2001.txt").read_text().split()
     # a name that earned a WEB year is still an annual record and never a candidate
     assert "new.com" not in additions
-    # and a name only his release filed never enters the pool by the back door
-    assert "base.com" not in additions
 
 
 def test_a_record_ships_only_on_a_capture_of_exactly_its_name(tmp_path: Path) -> None:
@@ -436,19 +431,20 @@ def test_a_record_ships_only_on_a_capture_of_exactly_its_name(tmp_path: Path) ->
     conn = _populated_db()
     baseline = _fake_baseline(tmp_path, {"1999.txt": "already-his.com\nwww.rolled.com\n"})
     cdx = ensure_source(conn, "ia_cdx", "timestamped")
-    # `both.com` is dated first by its `www.` capture, then captured itself
-    for domain, host in (
-        ("rolled.com", "rolled.com"),
-        ("sub.com", "a.sub.com"),
-        ("both.com", "www.both.com"),
-        ("both.com", "both.com"),
+    # `both.com` is dated by a capture of itself, with a capture of `www.both.com` beside it
+    for domain, host, dates in (
+        ("rolled.com", "rolled.com", True),
+        ("sub.com", "a.sub.com", True),
+        ("both.com", "www.both.com", False),
+        ("both.com", "both.com", True),
     ):
         add_candidate(conn, domain, cdx)
         value = capture(host, 1999)
         eid = record_evidence(
             conn, domain, cdx, 1999, "cdx_timestamp", value, acquisition_method=WEB_METHOD
         )
-        assign_year(conn, eid)
+        if dates:
+            assign_year(conn, eid)
     export_all(
         conn,
         netnew_dir=tmp_path / "netnew",
@@ -459,7 +455,7 @@ def test_a_record_ships_only_on_a_capture_of_exactly_its_name(tmp_path: Path) ->
     )
     netnew = tmp_path / "netnew"
     assert (netnew / "1999.txt").read_text().split() == ["both.com", "rolled.com"]
-    # the pair that first cited the `www.` capture now cites the capture of the name itself
+    # each shipped pair cites the capture of the name itself
     with (netnew / "evidence_manifest.csv").open(encoding="utf-8") as fh:
         cited = {r["domain"]: r["evidence_value"] for r in csv.DictReader(fh)}
     assert cited["both.com"] == capture("both.com", 1999)
@@ -624,16 +620,15 @@ def test_the_provenance_graph_is_off_unless_asked_for() -> None:
 
 
 def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
-    """The same rows in either insertion order, as a store rewrite lays them down again: his
-    pair, ours, a pair cited first by a capture of a host beneath it, a web hostname,
-    header-only hosts, a candidate and two ISC survey editions."""
+    """The same rows in either insertion order, as a store rewrite lays them down again: a pair,
+    a pair with a capture of a host beneath it, a web hostname, header-only hosts, a candidate
+    and two ISC survey editions."""
     news = "https://archive.org/download/usenet-alt/alt.test.mbox.zip"
     zone = "http://nw.com/zone/WWW/9901/isc.hosts/net.gz"
     listing = "artifact_listing"
     headers = (("news.example.org", 2000), ("news.example.org", 2001), ("mail.example.org", 1998))
     surveys = (("1999-01", "Mail.isc.net"), ("1999-07", "mail.isc.net"))
     rows = [
-        ("prior_task", "base.com", 1997, "prior_reused", "1997.txt", None, None),
         ("ia_cdx", "new.com", 1997, "cdx_timestamp", capture("new.com", 1997), None, None),
         ("ia_cdx", "web.com", 1999, "cdx_timestamp", capture("web.com", 1999), None, None),
         (
@@ -666,7 +661,10 @@ def _one_logical_store(reverse: bool) -> duckdb.DuckDBPyConnection:
         eid = record_evidence(conn, domain, sid, year, kind, value, url, acquisition_method=method)
         if source == ISC_SOURCE:
             continue
-        assign_year(conn, eid)
+        # a capture of www2.web.com dates that host alone, so both orders give one
+        # `domain_year`; example.org keeps the years its header rows date
+        if not (host and source == "ia_cdx"):
+            assign_year(conn, eid)
         if host:
             conn.execute(
                 "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
@@ -747,8 +745,7 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(
 
     netnew = tmp_path / "claim" / "netnew"
     attested = (netnew / ATTESTED_NAME).read_text()
-    # example.org is dated only by headers, which the annual files refuse and this does not;
-    # base.com is dated only by his row, so it is his pair and not ours to attest
+    # example.org is dated only by headers, which the annual files refuse and this does not
     assert attested == (
         "1997\tnew.com\n1998\tdir.com\n1998\texample.org\n"
         "1999\tweb.com\n2000\texample.org\n2001\texample.org\n"
