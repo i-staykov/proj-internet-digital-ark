@@ -2,18 +2,13 @@
 # `git archive` builds the shipped source snapshot, so anything tracked ends up
 # in front of the reader unless it is marked here.
 .gitattributes export-ignore
-# Every round's plan, by pattern rather than one line per round. `phase6-plan.md`
-# shipped on 2026-08-18 while the identical phase-5 file was withheld, because the rule
-# lived as one filename instead of as a shape.
+# Every round's plan, by pattern, so a new round needs no line.
 docs/phase*-plan.md export-ignore
 # **Anything addressed to a person.** `submissions/phase-5/email-draft.md` is a letter to
-# the reviewer and travelled to him inside every archive; `docs/report-sendable.md` is the same document's prose and additionally
-# carried superseded round-5 figures beside a round-6 report. The house rule is that
-# nothing addressed to a person is tracked at all, and `private/` is where drafts belong;
-# these two are already in history, so this is the containment. `tests/test_delivery_privacy.py`
-# fails if the shape reappears.
+# the reviewer. Nothing addressed to a person is tracked, and `private/` is where drafts
+# belong; this one is already in history, so this is the containment.
+# `tests/test_delivery_privacy.py` fails if the shape reappears.
 submissions/*/email-draft.md export-ignore
-docs/report-sendable.md export-ignore
 # The handoff documents, by pattern rather than one line each. Same class as the plans:
 # working documents about how to approach the round, and corrections owed. Neither is a
 # deliverable and neither is his business.

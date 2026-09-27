@@ -172,7 +172,7 @@ and what needs judgement, and pretending otherwise is how autonomy becomes theat
 | merge | `uv run python scripts/round/merge_against_baseline.py` | **D3**: unions this round's additions into the current baseline, deduplicated on the lowercased line as he does it, and reports per-year overlap, accepted increment and equivalent-English growth in **his own column names** so his audit and ours can be diffed. Ends with the reconciliation checks and exits non-zero if one fails, which includes two that compare a freshly measured baseline against `src/ark/baseline.py` and so catch a round measured against a superseded release |
 | brief | `uv run python scripts/round/extract_ding_docs.py --package <document-directory> --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>` | refreshes the canonical brief and its companion documents under [docs/brief/ding/](../brief/ding/) from his originals. All provenance arguments are required; the header carries each source file's sha256. Run after each task-package arrival; baseline intake does not do it. See [the transcription instructions](../brief/ding/README.md) |
 | sync | `just sync` | the hourly tick, which opens no store: drains the fleet's findings, validates each sidecar against the fleet's schema, books a drain with no confirmed FIND, brings the suffix sweep's journals home, and calls `just bank` when `bank_trigger.py check` names something that arrived |
-| bank | `just bank [--force]` | the laptop's only store writer, run on what arrived: folds new journals, prices every confirmed FIND again on the live store, books both figures, writes the `Decision:` line the standing rule authorises or raises the approval, ingests, gates, pushes `live`, refreshes the VPS pricing snapshot and writes each lead's fate back into the fleet's queue. Journals alone wait until the last bank is `ARK_BANK_JOURNAL_HOURS` (3) old. A red writes `data/logs/bank_red.json` and nothing banks until `bank_trigger.py clear`; `--force` banks with no reason |
+| bank | `just bank [--force]` | the laptop's only store writer, run on what arrived: folds new journals, prices every confirmed FIND again on the live store, books both figures, writes the `Decision:` line the standing rule authorises or raises the approval, ingests, gates, pushes `live`, refreshes the VPS pricing snapshot and writes each lead's fate back into the fleet's queue. Journals alone wait until the last bank is `ARK_BANK_JOURNAL_HOURS` (3) old. A red writes `data/logs/bank_red.json` and nothing banks until `bank_trigger.py clear`; `--force` banks with no reason. **Run `just bank --force` by hand right after `just hold off com.ark.sync`**: with no `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass takes about an hour |
 | loop | `just cycle` | one pass of every mechanical check, rebuilding what it can, **ending by naming what needs judgement**. Add `--until <epoch> --every <secs>` to loop instead of running once |
 | schedule | `just schedule install` / `just schedule status` / `just schedule remove` | enables and bootstraps the launchd jobs, and refuses while `just hold` holds the laptop. A second argument names one job, because they are switched on at different times: `com.ark.collectors` holds the CDX collector lane (its own section, under Collecting more evidence), `com.ark.sync` runs `scripts/harness/scheduled_sync.sh` at :05 every hour (`just sync`, then the `ship-now` label, see the section below), `com.ark.cycle` runs `scripts/harness/scheduled_cycle.sh` at 01:00, 07:00, 13:00 and 19:00 local, appending `just cycle` and the engine status to `data/logs/scheduled_cycle.log`. **The checkout lives under `~/GitHub` so that none of this needs Full Disk Access**: under `~/Documents`, which macOS TCC protects, a launchd agent inherits nothing from the terminal that installed it and exits 126 while `launchctl list` looks normal. A 126 means a plist rendered from an old path or a checkout under a protected directory; launchd's bare PATH exits 127 the same silent way, which is why the templates set one. The recipe therefore runs one job as the probe and reports what it did rather than trusting the load. **The cycle job reports and never acts**: a job that restarted a collector on its own would eventually restart it with settings that had since been retuned, which is why `extend_engines.sh` performs one handover and exits rather than looping |
 | hold | `just hold` / `just hold status` / `just hold off [name]` | writes `~/ark/state/hold`, one name per line, then `pause` and `pause-platform` with `human` on line 1 here and on the VPS, disables and boots out every `com.ark.*` job, letting a running sync finish first, and disables the fleet's Leg, Read and Improver workflows. `launchctl disable` persists, so a reboot and a login load nothing. `just sync`, `just bank` and the collector supervisor exit `held` while the file lists their job, `collectors resume` refuses while it lists `pause`, and `schedule install` refuses while it exists. `off <name>` lifts one name; bare `off` lifts all of them, including a `human` pause that predates the hold, and deletes the file. An unreachable VPS or `gh` prints unconfirmed, never fatal |
@@ -283,22 +283,18 @@ a figure has reached the register without being checked.
    **A priced FIND goes to `sources.md`** with the fleet's figure and the store's beside it and
    the verify status in the verdict cell. **Every measured negative goes to `sources-closed.md`**,
    the five-column row filled from `lead.json` and the prose: the lens, the figure the scout states
-   for its own source and never a bound, the artifact URL. A scout lead that closed under the floor
-   used to reach `sources.md` as eleven `n/a` cells, which is a row saying a source was evaluated
-   and recording nothing about it. A scout lead the fleet closed at filing is booked closed from
-   its lead's status, never its prose, and a closed row already naming its artifact URL keeps it
-   from a second row. A whole read's FIND row names its standing clauses and journal sha256. A FIND
-   replaces its own unsettled FIND row when the figure or verify status moved; any other slug
-   either register already carries is skipped and said so. Where two rows of one source meet,
-   `scripts/round/compact_registers.py` keeps the newest.
+   for its own source and never a bound, the artifact URL. A scout lead the fleet closed at filing
+   is booked closed from its lead's status, never its prose, and a closed row already naming its
+   artifact URL keeps it from a second row. A whole read's FIND row names its standing clauses and
+   journal sha256. A FIND replaces its own unsettled FIND row when the figure or verify status
+   moved; any other slug either register already carries is skipped and said so. Where two rows of
+   one source meet, `scripts/round/compact_registers.py` keeps the newest.
 
 A drain leaves `incoming/` only once its rows are committed; its outcome lines, if they did not
-land, land on a later bank. Two runs were archived under `banked/` by a sync that failed after the
-drain, so nothing they carried was booked and nothing said so; the FIND inside them was found by
-hand a day later. On any earlier failure the drain stays where it is and the next tick takes it
-again, which is safe because every step is keyed on the slug or on a journal's sha256. A drain that
-books nothing new is finished rather than failed and is archived without a commit, because an empty
-commit reads as a drain that was banked.
+land, land on a later bank. On any earlier failure the drain stays where it is and the next tick
+takes it again, which is safe because every step is keyed on the slug or on a journal's sha256. A
+drain that books nothing new is finished rather than failed and is archived without a commit,
+because an empty commit reads as a drain that was banked.
 
 Then `fleet_request.py` writes the pending block, because nothing else does: the standing rule
 and the approval filer both iterate blocks that already exist. It picks the finds the standing
@@ -317,7 +313,8 @@ program figure breaks the streak. The citation is a `- standing rule:` fact abov
 the compactor keeps. `ark check` after the ingest gates it:
 **a red takes the rows back out with `unbank_source.py` and resets the registers to HEAD**, then
 writes `data/logs/bank_red.json`, and every tick prints `BANK RED` until `bank_trigger.py clear`.
-A red after the journals unbanks nothing. `unbank_source.py` alone deletes evidence.
+A source that held rows before the bank is never unbanked: its rows stay and the red says so. A
+red after the journals unbanks nothing. `unbank_source.py` alone deletes evidence.
 
 `sync_approvals.py` raises what is left as a pull request and an issue. After the commit, every
 bank books an outcome line for each confirmed FIND in its drain and every drain under `banked/`,

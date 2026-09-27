@@ -20,7 +20,9 @@ evidence row and that row is going. The next ingest of the other source re-deriv
 is a real if small loss, and it is the price of not leaving a red store behind.
 
 It is not a general undo: it refuses unless `--write` is given, it names every count before
-and after, and `just bank` calls it only on the red-gate path.
+and after, and `just bank` calls it only on the red-gate path, with `--run-start`. A source
+that held any row before that instant is refused whole and the exit is 1: its earlier history
+is not this bank's to take, and a pruned journal would not bring it back.
 
     uv run python scripts/harness/unbank_source.py isc_survey --write
 """
@@ -66,6 +68,17 @@ def counts(conn, name: str) -> dict[str, int]:
     return out
 
 
+def held_before(conn, name: str, instant: str) -> bool:
+    """Whether the source held an evidence row or a file receipt ingested before `instant`."""
+    return conn.execute(
+        "SELECT EXISTS (SELECT 1 FROM evidence JOIN source USING (source_id)"
+        " WHERE name = ? AND ingested_at < ?::TIMESTAMPTZ)"
+        " OR EXISTS (SELECT 1 FROM ingested_file"
+        " WHERE source_name = ? AND ingested_at < ?::TIMESTAMPTZ)",
+        [name, instant, name, instant],
+    ).fetchone()[0]
+
+
 def unbank(conn, name: str) -> dict[str, int]:
     """Delete this source's rows, children first.
 
@@ -96,14 +109,26 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("sources", nargs="+", help="spec keys or source names")
     ap.add_argument("--write", action="store_true", help="without it, only the counts")
     ap.add_argument("--db", type=Path, default=None)
+    ap.add_argument(
+        "--run-start", default="", help="refuse a source holding any row ingested before this"
+    )
     args = ap.parse_args(argv)
 
     conn = connect_patiently(args.db) if args.db else connect_patiently()
+    refused = []
     try:
-        for name in source_names(args.sources):
+        for name in dict.fromkeys(source_names(args.sources)):
             if not args.write:
                 held = counts(conn, name)
                 print(f"unbank: {name} holds {held or 'nothing: no such source in the store'}")
+                continue
+            if args.run_start and held_before(conn, name, args.run_start):
+                refused.append(name)
+                print(
+                    f"unbank: REFUSED {name}: it held rows before {args.run_start}, "
+                    "so none of its rows are removed",
+                    file=sys.stderr,
+                )
                 continue
             gone = unbank(conn, name)
             if not gone:
@@ -120,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
     finally:
         conn.close()
-    return 0
+    return 1 if refused else 0
 
 
 if __name__ == "__main__":

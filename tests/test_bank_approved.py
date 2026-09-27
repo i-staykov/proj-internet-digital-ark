@@ -22,6 +22,11 @@ bank = importlib.util.module_from_spec(_SPEC)
 # through `sys.modules`, and without this the import raises.
 sys.modules["bank_approved"] = bank
 _SPEC.loader.exec_module(bank)
+_UNBANK = importlib.util.spec_from_file_location(
+    "unbank_source", Path(__file__).resolve().parent.parent / "scripts/harness/unbank_source.py"
+)
+unbank = importlib.util.module_from_spec(_UNBANK)
+_UNBANK.loader.exec_module(unbank)
 
 BLOCK = """### foo_source / cdx_timestamp
 
@@ -472,11 +477,6 @@ def test_a_red_gate_after_a_read_bank_takes_back_only_the_reads_own_source(
 
     from ark.db import SCHEMA_SQL
 
-    unbank_spec = importlib.util.spec_from_file_location(
-        "unbank_source", Path(__file__).resolve().parent.parent / "scripts/harness/unbank_source.py"
-    )
-    unbank = importlib.util.module_from_spec(unbank_spec)
-    unbank_spec.loader.exec_module(unbank)
     db = tmp_path / "ark.duckdb"
     conn = duckdb.connect(str(db))
     conn.execute(SCHEMA_SQL)
@@ -505,3 +505,69 @@ def test_a_red_gate_after_a_read_bank_takes_back_only_the_reads_own_source(
     ).fetchall()
     conn.close()
     assert left == [("ia_cdx_bulk", 1)]
+
+
+def test_a_red_gate_never_takes_rows_a_source_held_before_the_bank(tmp_path: Path, capsys) -> None:
+    """A `cdx_snapshot` bank adds to `ia_cdx_bulk`, which already holds history. On red the
+    recipe hands `unbank_source.py` the instant the bank started, and a source holding a row
+    from before it is refused whole: its earlier rows and this bank's stay, and the exit is red.
+    A source new in this bank still goes."""
+    import re
+    import subprocess
+
+    import duckdb
+
+    from ark.db import SCHEMA_SQL
+
+    recipe = (Path(__file__).resolve().parent.parent / "justfile").read_text(encoding="utf-8")
+    found = re.search(r"B_START=\$\(date -u \+(\S+)\)", recipe)
+    assert found and found.start() < recipe.index("bank_approved.py --write")
+    assert re.search(r'unbank_source\.py \$INGESTED --write \\\s+--run-start "\$B_START"', recipe)
+
+    db = tmp_path / "ark.duckdb"
+    conn = duckdb.connect(str(db))
+    conn.execute(SCHEMA_SQL)
+    for source_id, name in ((1, "ia_cdx_bulk"), (2, "fleet_x_hostnames")):
+        conn.execute("INSERT INTO source VALUES (?, ?, 'timestamped', NULL)", [source_id, name])
+
+    def banked(source_id: int, name: str, domain: str, at: str | None) -> None:
+        """One domain dated at both grains, with its receipt; `at` None is this bank's clock."""
+        conn.execute(
+            "INSERT INTO domain (domain, tld, discovered_source) VALUES (?, 'com', ?)",
+            [domain, source_id],
+        )
+        evidence_id = conn.execute(
+            "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,"
+            " evidence_value, ingested_at) VALUES (?, ?, 1998, 'cdx_timestamp', 'x',"
+            " coalesce(?::TIMESTAMPTZ, now())) RETURNING evidence_id",
+            [domain, source_id, at],
+        ).fetchone()[0]
+        conn.execute("INSERT INTO domain_year VALUES (?, 1998, ?, now())", [domain, evidence_id])
+        conn.execute(
+            "INSERT INTO hostname_year VALUES (?, ?, 1998, ?, now())",
+            [f"www.{domain}", domain, evidence_id],
+        )
+        conn.execute(
+            "INSERT INTO ingested_file VALUES (?, ?, 'abc', 1, coalesce(?::TIMESTAMPTZ, now()))",
+            [name, f"{domain}.jsonl.gz", at],
+        )
+
+    banked(1, "ia_cdx_bulk", "old.com", "2026-01-01T00:00:00Z")
+    start = subprocess.run(
+        ["date", "-u", f"+{found.group(1)}"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    banked(1, "ia_cdx_bulk", "new.com", None)
+    banked(2, "fleet_x_hostnames", "read.com", None)
+    conn.close()
+    log = (
+        "== uv run ark ingest cdx_snapshot data/raw/cdx/cdx_a.jsonl.gz\n"
+        "== uv run ark ingest fleet_x_hostnames data/raw/fleet_read/x/p.jsonl.gz\n"
+    )
+    args = [*_rollback_names(log), "--db", str(db), "--write", "--run-start", start]
+    assert unbank.main(args) == 1
+    assert "REFUSED ia_cdx_bulk" in capsys.readouterr().err
+    conn = duckdb.connect(str(db), read_only=True)
+    held = {name: unbank.counts(conn, name) for name in ("ia_cdx_bulk", "fleet_x_hostnames")}
+    conn.close()
+    assert held["ia_cdx_bulk"] == dict.fromkeys(held["ia_cdx_bulk"], 2)
+    assert not any(held["fleet_x_hostnames"].values())
