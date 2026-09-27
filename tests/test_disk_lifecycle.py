@@ -493,6 +493,24 @@ def test_private_keeps_what_code_reads_and_goes_only_with_the_flag(tmp_path, mon
             prune.main([*argv, "--root", str(tmp_path)])
 
 
+def test_a_write_removes_the_folders_it_empties_and_no_other(tmp_path, monkeypatch):
+    disk_repo(tmp_path)
+    proofs(tmp_path, [], monkeypatch)
+    archive_org(monkeypatch, {})
+    for rel in ("notes/deep/a.md", "notes/.DS_Store", "mixed/go.md", "mixed/keep.jsonl.gz"):
+        file(tmp_path, f"private/{rel}")
+    (tmp_path / "private/empty").mkdir()  # empty before the run, so not this run's to remove
+    _, lines = prune.disk_cleanup(tmp_path, write=True, private=True, owner_go=True)
+    for gone in ("notes/deep", "notes", "v3"):
+        assert (
+            not (tmp_path / "private" / gone).exists()
+            and f"  removed folder: private/{gone}" in lines
+        )
+    for kept in ("empty", "mixed/keep.jsonl.gz", "work/x.jsonl.gz", "mail/verdict.txt"):
+        assert (tmp_path / "private" / kept).exists(), kept
+    assert not (tmp_path / "private/mixed/go.md").exists()
+
+
 def test_the_never_list(tmp_path):
     disk_repo(tmp_path)
     for rel in (
