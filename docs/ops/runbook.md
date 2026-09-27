@@ -26,8 +26,9 @@ Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
   origin live` for a diverged clone), then `just sync`.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
-  store: in the worktree, `git update-index --skip-worktree data/baseline.json`, remove its own
-  `data/`, then link `data`, `output`, `feedback` and `local.env` to the checkout's.
+  store: in the worktree, `git update-index --skip-worktree data/baseline.json`, then
+  `[ -L data ] || rm -r data` (never `rm -rf data/`, which follows a link into the checkout's
+  store), then link `data`, `output`, `feedback` and `local.env` to the checkout's.
 - Read the registers through `just find <term>` (`--detail`: one approved entry) or the
   `register-reader` agent; `.claude/settings.json` denies reading `sources*.md`: append by heredoc.
 
@@ -133,7 +134,7 @@ labelled `needs-owner`, opens.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks, exports in full, runs `ark check`, commits the
    regenerated report and `.docx`, packages (`masters/` is his year file and ours by `LC_ALL=C sort
-   -m -u`; a claim file left stale refuses it, named), verifies as a reviewer would, prunes verified
+   -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would, prunes verified
    round copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent
    and closes the gate issue. It refuses while `just hold status` lists `com.ark.sync`. `just ship
    --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
@@ -147,7 +148,7 @@ Nothing of his enters the store. In the sync-lock script, this replaces the inge
 
 ```bash
 just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, then `ark intake`
-just reproduce deliver     # export, stats, check, in that order
+just reproduce deliver     # export, stats, check, then prune.py --round --write
 uv run python scripts/round/round_figures.py --verify
 uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
 ```
