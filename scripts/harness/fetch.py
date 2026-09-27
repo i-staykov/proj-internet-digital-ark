@@ -34,10 +34,17 @@ path it answers on and however its host or path is spelled, exits 8 before anyth
 asked of any host, its robots.txt included. `cdx_query` is the rule, and ark-fleet's
 `read.py` keeps a copy of it, so a read refuses such a url before it starts.
 
+**`--fault-after-bytes N` drops the first response once, to prove the resume on a real
+artifact.** The first 200's body ends after N bytes as a server that hangs up ends it, and
+the Range continuation below takes the rest, so `resumes` counts the drop. It never cuts a
+range request, and it needs a declared length above N, or the run exits 2: without one the
+rest has no known end.
+
 Exit codes, because the caller is a workflow and a workflow reads numbers:
 
     0  fetched, receipt on stdout
-    2  usage, or a destination outside the allowed roots
+    2  usage, a destination outside the allowed roots, or a `--fault-after-bytes` the
+       declared length cannot honour
     3  robots refuses this path, by name or by `*`; the artifact was never asked for
     4  robots could not be read, so nothing may be assumed; the artifact was never asked
     5  over the cap, by `Content-Length` or by the stream
@@ -46,8 +53,9 @@ Exit codes, because the caller is a workflow and a workflow reads numbers:
     8  the url or a redirect hop asks the Wayback CDX API; nothing was asked of it
 
 The receipt is one JSON line: `url, bytes, sha256, content_type, robots`, plus the path it
-landed on, whether the cap stopped it, and `resumes`, the range requests that continued a
-transfer that ended early, a streamed one included. With `--to -` the payload owns stdout and the
+landed on, whether the cap stopped it, `resumes`, the range requests that continued a
+transfer that ended early, a streamed one included, and `fault_after_bytes` when one was
+asked for. With `--to -` the payload owns stdout and the
 receipt goes to stderr; every other invocation prints the receipt on stdout, success or
 failure, so a workflow always has something to record.
 """
@@ -473,6 +481,23 @@ class TransferBroke(http.client.HTTPException):
         self.got = got
 
 
+class DropAfter:
+    """The first response's body, ended after `limit` bytes as a server that hangs up ends
+    it: `--fault-after-bytes`. `stream` reads the early EOF as a short body and the Range
+    continuation takes the rest, so `resumes` counts the drop."""
+
+    def __init__(self, body, limit: int):
+        self.body, self.left = body, limit
+
+    def read(self, amt: int = -1) -> bytes:
+        if self.left <= 0:
+            self.body.close()
+            return b""
+        chunk = self.body.read(self.left if amt is None or amt < 0 else min(amt, self.left))
+        self.left -= len(chunk)
+        return chunk
+
+
 def stream(body, out, cap: int, digest=None, seen: int = 0) -> tuple[int, str, bool]:
     """Copy up to `cap` bytes, hashing as it goes. Returns (bytes, sha256, over the cap).
 
@@ -639,7 +664,14 @@ def _open_no_symlink(path: str):
     return os.fdopen(os.open(path, flags, 0o600), "wb")
 
 
-def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) -> tuple[int, dict]:
+def fetch(
+    url: str,
+    cap: int,
+    to: str | None,
+    timeout: float,
+    sleep=time.sleep,
+    fault_after: int | None = None,
+) -> tuple[int, dict]:
     receipt = {
         "url": url,
         "bytes": 0,
@@ -796,12 +828,30 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                         return HTTP_FAILED, receipt
                     receipt["reason"] = f"fetched {total} bytes, continuing an earlier run"
                     return OK, receipt
+                source = body
+                if fault_after is not None:
+                    # Only a declared length says where the rest starts; without one the
+                    # drop would bank a truncated artifact as whole.
+                    if declared is None or declared <= fault_after:
+                        receipt["reason"] = (
+                            f"--fault-after-bytes {fault_after} needs a declared length above "
+                            f"it to resume against, and the server declared {declared}"
+                        )
+                        return USAGE, receipt
+                    receipt["fault_after_bytes"] = fault_after
+                    print(
+                        f"fetch: dropping the connection after {fault_after} bytes, as "
+                        "--fault-after-bytes asks",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    source = DropAfter(body, fault_after)
                 try:
                     if to_pipe:
                         # A dropped connection is continued below when the length is
                         # known: the bytes already on the pipe are what the hasher holds.
                         try:
-                            total, digest, over = stream(body, sys.stdout.buffer, cap, hasher)
+                            total, digest, over = stream(source, sys.stdout.buffer, cap, hasher)
                         except TransferBroke as broke:
                             if declared is None:
                                 raise
@@ -810,7 +860,7 @@ def fetch(url: str, cap: int, to: str | None, timeout: float, sleep=time.sleep) 
                     else:
                         os.makedirs(os.path.dirname(receipt["path"]), exist_ok=True)
                         with _open_no_symlink(receipt["path"]) as out:
-                            total, digest, over = stream(body, out, cap, hasher)
+                            total, digest, over = stream(source, out, cap, hasher)
                 except (OSError, http.client.HTTPException) as exc:
                     if not to_pipe:
                         _discard(receipt)
@@ -882,6 +932,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-bytes", default="1G", help="the cap, binary units (default 1G)")
     ap.add_argument("--to", default=None, help="a file, a directory, or - for stdout")
     ap.add_argument("--timeout", type=float, default=60.0, help="per-request seconds")
+    ap.add_argument(
+        "--fault-after-bytes",
+        type=int,
+        default=None,
+        metavar="N",
+        help="end the first response after N bytes, once, so the Range resume runs on a real "
+        "artifact (the dry run's D1)",
+    )
     args = ap.parse_args(argv)
 
     scheme = urllib.parse.urlsplit(args.url).scheme
@@ -893,8 +951,11 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"fetch: {exc}", file=sys.stderr)
         return USAGE
+    if args.fault_after_bytes is not None and args.fault_after_bytes < 1:
+        print("fetch: --fault-after-bytes must be at least 1", file=sys.stderr)
+        return USAGE
 
-    code, receipt = fetch(args.url, cap, args.to, args.timeout)
+    code, receipt = fetch(args.url, cap, args.to, args.timeout, fault_after=args.fault_after_bytes)
     line = json.dumps(receipt)
     print(line, file=sys.stderr if args.to == "-" else sys.stdout, flush=True)
     return code
