@@ -1,573 +1,204 @@
-"""Banking a newly approved class must refuse anything a human has not answered.
+"""Only a `master` class banks, the unbankable are loud, and a red gate unbanks only this bank."""
 
-The property is **"it refuses"**: a class still `pending` is reported and skipped, so the
-recipe can be rehearsed. And an approval that banks nothing must say so loudly, because the
-bytes a source was priced from live wherever it was priced.
-"""
-
-import email.message
-import hashlib
 import importlib.util
+import io
 import json
+import re
+import subprocess
 import sys
 import urllib.error
+from functools import partial
 from pathlib import Path
-from types import SimpleNamespace
+from unittest.mock import ANY, Mock
 
-_SPEC = importlib.util.spec_from_file_location(
-    "bank_approved", Path(__file__).resolve().parent.parent / "scripts/harness/bank_approved.py"
-)
-bank = importlib.util.module_from_spec(_SPEC)
-# Registered before exec: the module's dataclasses resolve their own annotations
-# through `sys.modules`, and without this the import raises.
-sys.modules["bank_approved"] = bank
-_SPEC.loader.exec_module(bank)
-_UNBANK = importlib.util.spec_from_file_location(
-    "unbank_source", Path(__file__).resolve().parent.parent / "scripts/harness/unbank_source.py"
-)
-unbank = importlib.util.module_from_spec(_UNBANK)
-_UNBANK.loader.exec_module(unbank)
+import duckdb
+import pytest
 
-BLOCK = """### foo_source / cdx_timestamp
+from ark.approvals import load
+from ark.db import SCHEMA_SQL
 
-- ingest spec: `foo_spec`
-- source: https://example.org/foo
-- journal: `data/raw/foo/foo.txt`
-
-Decision: pending
-
-### bar_source / artifact_listing
-
-- ingest spec: `bar_spec`
-- journal: `data/raw/bar/bar.jsonl.gz`
-
-Decision: master
-"""
-
-SPECS = {
-    "foo_spec": SimpleNamespace(source_name="foo_source"),
-    "bar_spec": SimpleNamespace(source_name="bar_source"),
-}
+ROOT = Path(__file__).resolve().parents[1]
+RECIPE = (ROOT / "justfile").read_text(encoding="utf-8")
 
 
-def _approved(tmp_path: Path, body: str) -> tuple[str, dict]:
-    """One approved block, read back through the real approvals parser."""
-    text = f"# approvals\n\n## Priced\n\n{body}"
-    path = tmp_path / "approved-sources-list.md"
-    path.write_text(text, encoding="utf-8")
-    from ark.approvals import load
-
-    return text, load(path)
+def _module(name: str):
+    spec = importlib.util.spec_from_file_location(name, ROOT / f"scripts/harness/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # its dataclasses resolve their annotations through sys.modules
+    spec.loader.exec_module(module)
+    return module
 
 
-def _snapshot(root: Path) -> dict[str, str]:
-    """Every path under `root` with a digest, so "changed nothing" is checkable."""
-    out = {}
-    for path in sorted(root.rglob("*")):
-        key = str(path.relative_to(root))
-        out[key] = "dir" if path.is_dir() else hashlib.sha256(path.read_bytes()).hexdigest()
-    return out
+bank, unbank = _module("bank_approved"), _module("unbank_source")
+SPECS = {f"{n}_spec": Mock(source_name=f"{n}_source") for n in ("foo", "bar")}
+JOURNAL, URL = "data/raw/foo/foo.jsonl.gz", "https://example.org/foo.jsonl.gz"
+SPEC, JLINE, REFETCH = "ingest spec: `foo_spec`", f"journal: `{JOURNAL}`", f"refetch: {URL}"
+FOO, BAR, READ = (f"{s} / cdx_timestamp" for s in ("foo_source", "bar_source", "fleet_x_hostnames"))
+PARTS = [f"fleetread_bulk_cdx_file__x_000{n}.jsonl.gz" for n in (1, 2)]
+TAG, READ_DIR = "fleetread_bulk_cdx_file__x_abababababab", "data/raw/fleet_read/x"
+REGISTRABLES = f"data/raw/cdx/cdx_suffix_{TAG}.jsonl.gz"
+READ_BLOCK = f"### {READ}\n\n- ingest: ark ingest-hostnames {READ_DIR}/\n\nDecision: master\n"
+WHOIS = "fleetread_whois_dump__x_0002.jsonl.gz"
 
 
-def test_the_block_for_a_class_stops_at_the_next_heading() -> None:
-    """Otherwise one request's journal path is read out of the next request's block."""
-    block = bank.block_for(BLOCK, "foo_source", "cdx_timestamp")
-    assert "foo.txt" in block
-    assert "bar.jsonl.gz" not in block
+def _block(*lines: str, heading: str = FOO, decision: str = "master") -> str:
+    return f"### {heading}\n\n" + "".join(f"- {s}\n" for s in lines) + f"\nDecision: {decision}\n\n"
 
 
-def test_a_class_with_no_request_block_returns_empty() -> None:
-    """Classes approved before this mechanism existed carry no journal to bank."""
-    assert bank.block_for(BLOCK, "nothing_like_this", "cdx_timestamp") == ""
+def _approved(root: Path, *blocks: str, journal: bool = False) -> tuple[str, dict]:
+    """The blocks read back through the real approvals parser, the journal on disk if asked."""
+    text = "# approvals\n\n## Priced\n\n" + "".join(blocks)
+    (root / "approved-sources-list.md").write_text(text, encoding="utf-8")
+    if journal:
+        (root / JOURNAL).parent.mkdir(parents=True)
+        (root / JOURNAL).write_bytes(b"rows")
+    return text, load(root / "approved-sources-list.md")
 
 
-def test_the_journal_line_is_read_out_of_the_block() -> None:
-    """The path comes from the request, not the command line: the block records the file the
-    measured figures were computed from, so a reviewer who approved those figures approved
-    that file, and a path argument would let the two drift apart silently.
-    """
-    request = bank.request_in(BLOCK, "bar_source", "artifact_listing")
-    assert request.journal == "data/raw/bar/bar.jsonl.gz"
-    assert request.specs == ("bar_spec",)
+def _plan(root: Path, text: str, approvals: dict, banked=()):
+    return bank.plan_bank(text, approvals, root=root, read=lambda _: set(banked), specs=SPECS)
 
 
-def test_only_the_backticked_tokens_of_a_spec_line_are_spec_keys() -> None:
-    """The live blocks write prose on the spec line, and a comma split reads it as keys."""
-    assert bank.spec_keys("`ripe_dbase_1999`, reading `*dn:` and nothing else") == (
-        "ripe_dbase_1999",
-        "*dn:",
-    )
+def _outcomes(plan, root: Path) -> dict[str, list[tuple]]:
+    """Every non-empty list of the plan, its paths relative to the root."""
+    rel = lambda v: str(v.relative_to(root)) if isinstance(v, Path) else v  # noqa: E731
+    out = {"blocked": plan.blocked, "waiting": [(r.label,) for r in plan.waiting]}
+    for name in ("ready", "done", "refetch", "reads"):
+        out[name] = [tuple(map(rel, row)) for row in getattr(plan, name)]
+    return {name: rows for name, rows in out.items() if rows}
 
 
-def test_a_block_with_the_three_lines_banks(tmp_path: Path) -> None:
-    """The whole point of the machine-readable lines: a merge, then an ingest."""
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `data/raw/foo/foo.jsonl.gz`\n"
-        "- refetch: https://example.org/foo.jsonl.gz then "
-        "`uv run ark ingest foo_spec data/raw/foo/foo.jsonl.gz`\n\n"
-        "Decision: master\n",
-    )
-    journal = tmp_path / "data/raw/foo/foo.jsonl.gz"
-    journal.parent.mkdir(parents=True)
-    journal.write_bytes(b"rows")
-
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.ready == [("foo_spec", journal)]
-    assert plan.blocked == []
-    assert plan.refetch == []
+def _read_dir(root: Path, parts=PARTS, extra=(), complete=True) -> None:
+    """A pulled read: `parts` named by its receipt, `extra` on disk beside them."""
+    (root / READ_DIR).mkdir(parents=True)
+    for name in [*parts, *extra]:
+        (root / READ_DIR / name).write_bytes(b"rows")
+    named = [{"name": name, "sha256": "cd" * 32} for name in parts]
+    receipt = {"complete": complete, "journal_sha256": "ab" * 32, "parts": named}
+    (root / READ_DIR / "receipt.json").write_text(json.dumps(receipt))
 
 
-def test_a_missing_journal_with_a_refetch_line_is_reported_and_refetched(
-    tmp_path: Path, capsys
-) -> None:
-    """The fleet prices elsewhere, so the bytes come back from the URL. Reported as well as
-    fetched: a bank that silently downloads 70 MB is as hard to reason about as one that
-    silently skips.
-    """
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `data/raw/foo/foo.jsonl.gz`\n"
-        "- refetch: https://example.org/foo.jsonl.gz\n\n"
-        "Decision: master\n",
-    )
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.refetch == [
-        ("foo_spec", "https://example.org/foo.jsonl.gz", tmp_path / "data/raw/foo/foo.jsonl.gz")
-    ]
-    assert plan.ready == []
+@pytest.mark.parametrize(
+    "block,disk,banked,expected",
+    [
+        (_block(SPEC, JLINE), "journal", (), {"ready": [("foo_spec", JOURNAL)]}),
+        (_block(SPEC, JLINE, decision="pending"), "journal", (), {"waiting": [(FOO,)]}),
+        (_block(SPEC, JLINE, decision="rejected"), "journal", (), {}),
+        (_block(SPEC, JLINE, REFETCH), None, (), {"refetch": [("foo_spec", URL, JOURNAL)]}),
+        (_block(SPEC, JLINE, REFETCH), None, ["foo.jsonl.gz"],
+         {"done": [("foo_spec", "foo.jsonl.gz")]}),
+        (_block(SPEC, JLINE), None, (), (FOO, f"journal {JOURNAL} is not on this machine and the"
+         " block carries no `- refetch:` line")),
+        (_block(SPEC, "journal: `../../etc/passwd`", REFETCH), None, (),
+         (FOO, "journal path escapes the repository: ../../etc/passwd")),
+        (READ_BLOCK, {}, (), {"reads": [(READ, READ_DIR)]}),
+        (READ_BLOCK, {}, PARTS, {"done": [(READ, "2 part(s) of x")]}),
+        (READ_BLOCK, {}, (Path(REGISTRABLES).name, PARTS[0]), {"reads": [(READ, READ_DIR)]}),
+        (READ_BLOCK, {"complete": False}, (), "no complete read"),
+        (READ_BLOCK, None, (), "no complete read"),
+        (READ_BLOCK, {"extra": ["fleetread_bulk_cdx_file__x_0003.jsonl.gz"]}, (),
+         "a part on disk is not the receipt's, or a named part is not a part"),
+        (READ_BLOCK, {"parts": [PARTS[0], "fleetread_bulk_cdx_file__y_0001.jsonl.gz"]}, (),
+         "its parts are not all fleet_x_hostnames's"),
+        (READ_BLOCK, {"parts": [PARTS[0], WHOIS]}, (),
+         f"{WHOIS}: whois_dump is not a web method, so it dates no host"),
+    ],
+    ids=["master-banks", "pending-never-banks", "rejected-never-banks", "absent-is-refetched",
+         "ingested-is-not-refetched", "no-bytes-no-refetch-is-blocked", "path-escapes-repo",
+         "read-banks", "read-every-part-banked-is-done", "read-stopped-part-way-runs-again",
+         "read-incomplete-receipt", "read-never-arrived", "read-stray-part",
+         "read-another-leads-part", "read-not-a-web-method"],
+)  # fmt: skip
+def test_each_approved_class_plans_to_one_outcome(tmp_path, block, disk, banked, expected):
+    text, approvals = _approved(tmp_path, block, journal=disk == "journal")
+    if isinstance(disk, dict):
+        _read_dir(tmp_path, **disk)
+    if isinstance(expected, str):
+        expected = (READ, f"{expected} in {READ_DIR} on this machine")
+    expected = {"blocked": [expected]} if isinstance(expected, tuple) else expected
+    assert _outcomes(_plan(tmp_path, text, approvals, banked), tmp_path) == expected
 
-    bank.report(plan)
-    assert "refetching from https://example.org/foo.jsonl.gz" in capsys.readouterr().out
 
-    asked = []
-
-    def fetch(url: str, dest: Path) -> int:
-        asked.append(url)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(b"rows")
-        return 4
-
-    lines = bank.run_refetches(plan.refetch, fetch=fetch)
-    assert asked == ["https://example.org/foo.jsonl.gz"]
-    assert "refetched foo.jsonl.gz for foo_spec" in lines[0]
-
-    # And the bytes now on disk are what makes the second pass bank them.
-    again = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert again.ready == [("foo_spec", tmp_path / "data/raw/foo/foo.jsonl.gz")]
-
-
-def test_a_block_with_neither_the_bytes_nor_a_refetch_line_is_refused_loudly(
-    tmp_path: Path, capsys
-) -> None:
-    """Naming what it lacked is the message: an approval that banks nothing reads as done."""
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `data/raw/foo/foo.jsonl.gz`\n\n"
-        "Decision: master\n",
-    )
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.ready == []
-    assert plan.refetch == []
-    label, lacked = plan.blocked[0]
-    assert label == "foo_source / cdx_timestamp"
-    assert "data/raw/foo/foo.jsonl.gz" in lacked
-    assert "`- refetch:`" in lacked
-
+def test_an_absent_journal_is_reported_refetched_and_then_banked(tmp_path, capsys) -> None:
+    """A block ends at a heading, keys are backticked, planning writes nothing, unbanked is loud."""
+    bar = _block("ingest spec: `bar_spec`", "journal: `data/raw/bar/bar.gz`", heading=BAR)
+    foo = _block("ingest spec: `foo_spec`, reading `*dn:` and nothing else", JLINE, REFETCH)
+    text, approvals = _approved(tmp_path, bar, foo)
+    tree = lambda: {p: p.is_file() and p.read_bytes() for p in tmp_path.rglob("*")}  # noqa: E731
+    before, plan = tree(), _plan(tmp_path, text, approvals)
+    assert _plan(tmp_path, text, approvals) == plan and tree() == before
     bank.report(plan)
     printed = capsys.readouterr().out
-    assert "APPROVED AND NOT BANKED: 1" in printed
-    assert "foo_source / cdx_timestamp" in printed
+    assert f"refetching from {URL}" in printed and f"NOT BANKED: 1\n!!   {BAR}: journal" in printed
+    fetch = partial(bank.download, opener=lambda *a, **k: io.BytesIO(b"rows"))
+    assert "refetched foo.jsonl.gz for foo_spec" in bank.run_refetches(plan.refetch, fetch)[0]
+    assert _plan(tmp_path, text, approvals).ready == [("foo_spec", tmp_path / JOURNAL)]
 
 
-def test_a_journal_already_ingested_is_not_refetched(tmp_path: Path) -> None:
-    """A priced journal can be deleted once its rows are in the store, per retention. Read the
-    ledger before the filesystem, or the bank downloads it all again every hour and every
-    one of those blocks reads as blocked.
-    """
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `data/raw/foo/foo.jsonl.gz`\n"
-        "- refetch: https://example.org/foo.jsonl.gz\n\n"
-        "Decision: master\n",
-    )
-    plan = bank.plan_bank(
-        text, approvals, root=tmp_path, read=lambda _: {"foo.jsonl.gz"}, specs=SPECS
-    )
-    assert plan.refetch == []
-    assert plan.blocked == []
-    assert plan.done == [("foo_spec", "foo.jsonl.gz")]
+@pytest.mark.parametrize(
+    "opener,said",
+    [
+        (lambda *a, **k: io.BytesIO(b"<!DOCTYPE html><title>Sign in</title>" + b"x" * 4000),
+         "the response is a page, not the artifact"),
+        (Mock(side_effect=urllib.error.HTTPError(URL, 503, "busy", {"Retry-After": "600"}, None)),
+         "HTTP 503, Retry-After 600"),
+    ],
+    ids=["html-page", "throttled-503"],
+)  # fmt: skip
+def test_a_refetch_that_is_not_the_artifact_fails_and_leaves_nothing(tmp_path, opener, said):
+    with pytest.raises(bank.RefetchFailed, match=re.escape(said)):
+        bank.download(URL, tmp_path / "foo.jsonl.gz", opener=opener)
+    assert {p.name for p in tmp_path.iterdir()} <= {"approvals.md"}  # the conftest register
 
 
-def test_a_journal_path_outside_the_repository_is_refused(tmp_path: Path) -> None:
-    """The path arrives by pull request now, so it is text somebody else wrote."""
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `../../etc/passwd`\n"
-        "- refetch: https://example.org/foo\n\n"
-        "Decision: master\n",
-    )
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.refetch == []
-    assert "escapes the repository" in plan.blocked[0][1]
-
-
-def test_two_consecutive_runs_with_no_new_data_plan_the_same_and_write_nothing(
-    tmp_path: Path,
-) -> None:
-    """A repeated bank is a no-op. Asserted two ways, because a plan can be stable while the
-    tree is not: the plans compare equal, and a digest of every path under the root is
-    unchanged.
-    """
-    text, approvals = _approved(
-        tmp_path,
-        "### foo_source / cdx_timestamp\n\n"
-        "- ingest spec: `foo_spec`\n"
-        "- journal: `data/raw/foo/foo.jsonl.gz`\n\n"
-        "Decision: master\n\n"
-        "### bar_source / artifact_listing\n\n"
-        "- ingest spec: `bar_spec`\n"
-        "- journal: `data/raw/bar/bar.jsonl.gz`\n\n"
-        "Decision: pending\n",
-    )
-    journal = tmp_path / "data/raw/foo/foo.jsonl.gz"
-    journal.parent.mkdir(parents=True)
-    journal.write_bytes(b"rows")
-
-    before = _snapshot(tmp_path)
-    first = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    second = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert first == second
-    assert _snapshot(tmp_path) == before
-
-
-def test_a_refetch_that_returns_a_page_is_not_an_artifact(tmp_path: Path) -> None:
-    """A wall answers with a plausible byte count, so the check is on content: seven different
-    replay URLs once answered with the same 154,263-byte interstitial, all of which passed
-    a size floor.
-    """
-
-    class Response:
-        def __init__(self) -> None:
-            self.chunks = [b"<!DOCTYPE html><title>Sign in</title>" + b"x" * 4000, b""]
-
-        def read(self, _size: int) -> bytes:
-            return self.chunks.pop(0)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_exc) -> bool:
-            return False
-
-    dest = tmp_path / "foo.jsonl.gz"
-    try:
-        bank.download("https://example.org/foo.jsonl.gz", dest, opener=lambda *a, **k: Response())
-    except bank.RefetchFailed as exc:
-        assert "not the artifact" in str(exc)
-    else:
-        raise AssertionError("an HTML body was accepted as a journal")
-    assert not dest.exists()
-    assert not (tmp_path / "foo.jsonl.gz.part").exists()
-
-
-def test_a_throttled_refetch_reports_its_retry_after(tmp_path: Path) -> None:
-    """Honouring a throttle means reading it, and the next hourly bank asks again."""
-    headers = email.message.Message()
-    headers["Retry-After"] = "600"
-
-    def opener(*_args, **_kwargs):
-        raise urllib.error.HTTPError("https://example.org/foo", 503, "busy", headers, None)
-
-    try:
-        bank.download("https://example.org/foo", tmp_path / "foo.gz", opener=opener)
-    except bank.RefetchFailed as exc:
-        assert "503" in str(exc)
-        assert "600" in str(exc)
-    else:
-        raise AssertionError("a 503 was read as a successful fetch")
-
-
-def test_it_never_offers_to_bank_a_class_a_human_has_not_approved() -> None:
-    """The invariant, against the live documents: only `master` is bankable. Checked by reading
-    the real approvals file rather than by running the ingest, so it holds whatever state
-    the file is in today. A `pending`, `rejected` or `candidate-only` class is untouchable
-    until a human moves the line to `master`.
-    """
-    from ark.approvals import load
-    from ark.evidence_types import MASTER_TYPES
-
-    text = bank.APPROVALS.read_text(encoding="utf-8")
-    offered = []
-    for (source_name, evidence_type), approval in load(bank.APPROVALS).items():
-        if evidence_type not in MASTER_TYPES:
-            continue
-        if not bank.block_for(text, source_name, evidence_type):
-            continue
-        if approval.decision != "master":
-            offered.append((source_name, evidence_type, approval.decision))
-
-    # Every non-master class with a request block must be one this refuses. The
-    # assertion is the shape of the data, not the count: a request block plus a
-    # non-master decision is exactly the case the module reports and skips.
-    assert all(d != "master" for _, _, d in offered)
-
-
-READ_BLOCK = (
-    "### fleet_x_hostnames / cdx_timestamp\n\n"
-    "- ingest: ark ingest-hostnames data/raw/fleet_read/x/\n"
-    "- journal sha256: " + "ab" * 32 + ", 2 part(s), 10 rows read whole from the artifact\n\n"
-    "Decision: master\n"
-)
-PARTS = [f"fleetread_bulk_cdx_file__x_000{n}.jsonl.gz" for n in (1, 2)]
-REGISTRABLES = "data/raw/cdx/cdx_suffix_fleetread_bulk_cdx_file__x_abababababab.jsonl.gz"
-
-
-def _read_dir(root: Path, complete: bool = True) -> Path:
-    directory = root / "data/raw/fleet_read/x"
-    directory.mkdir(parents=True)
-    for name in PARTS:
-        (directory / name).write_bytes(b"rows")
-    receipt = {"complete": complete, "journal_sha256": "ab" * 32, "parts": []}
-    receipt["parts"] = [{"name": name, "sha256": "cd" * 32} for name in PARTS]
-    (directory / "receipt.json").write_text(json.dumps(receipt))
-    return directory
-
-
-def test_a_fleet_read_block_plans_as_ready_and_banks_under_its_own_source(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Registrables first, hostname records last, and every ingest under the read's source."""
-    text, approvals = _approved(tmp_path, READ_BLOCK)
-    request = bank.request_in(text, "fleet_x_hostnames", "cdx_timestamp")
-    assert request.hostnames_dir == "data/raw/fleet_read/x"
-    directory = _read_dir(tmp_path)
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)]
-    assert plan.blocked == [] and plan.ready == []
-    monkeypatch.setattr(bank, "ROOT", tmp_path)
-    steps = bank.read_commands(directory, "fleet_x_hostnames", tmp_path / "state.tsv")
-    assert steps[0][3] == bank.CONVERTER
-    assert steps[0][-6:] == [
-        "--glob",
-        f"data/raw/fleet_read/x/{bank.READ_PARTS}",
-        "--tag",
-        "fleetread_bulk_cdx_file__x_abababababab",
-        "--state",
-        str(tmp_path / "state.tsv"),
-    ]
-    assert steps[1] == ["uv", "run", "ark", "ingest", "fleet_x_hostnames", REGISTRABLES]
-    assert steps[2][:5] == ["uv", "run", "ark", "ingest", "fleet_x_hostnames"]
-    assert steps[2][5:] == [f"data/raw/fleet_read/x/{name}" for name in PARTS]
-
-
-def test_a_fleet_read_already_banked_is_done_and_an_incomplete_one_is_refused(
-    tmp_path: Path,
-) -> None:
-    text, approvals = _approved(tmp_path, READ_BLOCK)
-    directory = _read_dir(tmp_path)
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(PARTS), specs=SPECS)
-    assert plan.reads == [] and plan.done == [
-        ("fleet_x_hostnames / cdx_timestamp", "2 part(s) of x")
-    ]
-    (directory / "receipt.json").write_text('{"complete": false}')
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.reads == []
-    assert "no complete read" in plan.blocked[0][1]
-
-
-def test_a_bank_that_stopped_before_the_hostname_records_runs_again(tmp_path: Path) -> None:
-    """The registrables banked but a part did not: the read is not done, so the next bank
-    reuses the converted file and banks the rest."""
-    text, approvals = _approved(tmp_path, READ_BLOCK)
-    directory = _read_dir(tmp_path)
-    banked = {Path(REGISTRABLES).name, PARTS[0]}
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: banked, specs=SPECS)
-    assert plan.reads == [("fleet_x_hostnames / cdx_timestamp", directory)] and plan.done == []
-
-
-def test_a_part_the_receipt_does_not_name_or_another_leads_part_refuses_the_read(
-    tmp_path: Path,
-) -> None:
-    text, approvals = _approved(tmp_path, READ_BLOCK)
-    directory = _read_dir(tmp_path)
-    stray = directory / "fleetread_bulk_cdx_file__x_0003.jsonl.gz"
-    stray.write_bytes(b"rows")
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.reads == [] and "not the receipt's" in plan.blocked[0][1]
-    stray.unlink()
-    other = "fleetread_bulk_cdx_file__y_0001.jsonl.gz"
-    (directory / PARTS[1]).rename(directory / other)
-    receipt = json.loads((directory / "receipt.json").read_text())
-    receipt["parts"][1]["name"] = other
-    (directory / "receipt.json").write_text(json.dumps(receipt))
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.reads == [] and "not all fleet_x_hostnames's" in plan.blocked[0][1]
-
-
-def test_a_fleet_read_directory_that_never_arrived_is_refused_loudly(tmp_path: Path) -> None:
-    text, approvals = _approved(tmp_path, READ_BLOCK)
-    plan = bank.plan_bank(text, approvals, root=tmp_path, read=lambda _: set(), specs=SPECS)
-    assert plan.reads == []
-    assert plan.blocked == [
-        (
-            "fleet_x_hostnames / cdx_timestamp",
-            "no complete read in data/raw/fleet_read/x on this machine",
-        )
-    ]
-
-
-def _rollback_names(log: str) -> list[str]:
-    """What the bank recipe hands `unbank_source.py` on a red gate, by the recipe's own awk."""
-    import re
-    import subprocess
-
-    recipe = (Path(__file__).resolve().parent.parent / "justfile").read_text(encoding="utf-8")
-    found = re.search(r"INGESTED=\$\(awk '([^']+)' \"\$BANK_LOG\"\)", recipe)
-    assert found, "the bank recipe no longer collects its ingests with awk"
-    out = subprocess.run(["awk", found.group(1)], input=log, capture_output=True, text=True)
-    return out.stdout.split()
-
-
-def test_a_red_gate_after_a_read_bank_takes_back_only_the_reads_own_source(
-    tmp_path: Path, monkeypatch, capsys
-) -> None:
-    """On red, the recipe unbanks field 6 of every `== uv run ark ingest` line. A read's lines
-    must all name `fleet_x_hostnames` there: `cdx_snapshot` would unbank the whole IA bulk
-    source, and leave the read in."""
-    text, _ = _approved(tmp_path, READ_BLOCK)
-    register = tmp_path / "approved-sources-list.md"
+def test_a_red_gate_unbanks_only_the_reads_source(tmp_path, monkeypatch, capsys) -> None:
+    """Every ingest of a read names its own source; a source older than the bank is refused."""
+    found = re.search(r"INGESTED=\$\(awk '([^']+)' \"\$BANK_LOG\"\)", RECIPE)
+    begun = re.search(r"B_START=\$\(date -u \+(\S+)\)", RECIPE)
+    assert found and begun and begun.start() < RECIPE.index("bank_approved.py --write")
+    assert re.search(r'unbank_source\.py \$INGESTED --write \\\s+--run-start "\$B_START"', RECIPE)
+    start = subprocess.run(["date", "-u", f"+{begun.group(1)}"], capture_output=True, text=True)
+    _approved(tmp_path, READ_BLOCK)
     _read_dir(tmp_path)
-    monkeypatch.setattr(bank, "ROOT", tmp_path)
-    monkeypatch.setattr(bank, "APPROVALS", register)
-    monkeypatch.setattr(bank, "files_read", lambda _: set())
+    (tmp_path / REGISTRABLES).parent.mkdir(parents=True)
     ran = []
 
-    def run(command, cwd=None, check=False):
-        ran.append(command)
+    def run(command, **_):
         if bank.CONVERTER in command:  # the converter found one exact-host registrable
-            out = tmp_path / REGISTRABLES
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(b"{}")
-        return SimpleNamespace(returncode=0)
+            (tmp_path / REGISTRABLES).write_bytes(b"{}")
+        return ran.append(command) or Mock(returncode=0)
 
+    monkeypatch.setattr(bank, "ROOT", tmp_path)
+    monkeypatch.setattr(bank, "APPROVALS", tmp_path / "approved-sources-list.md")
+    monkeypatch.setattr(bank, "files_read", lambda _: set())
     monkeypatch.setattr(bank.subprocess, "run", run)
     monkeypatch.setattr(sys, "argv", ["bank_approved.py", "--write"])
     bank.main()
     monkeypatch.undo()
-    log = capsys.readouterr().out
-    assert len(ran) == 3 and ran[-1][5:] == [f"data/raw/fleet_read/x/{name}" for name in PARTS]
-    assert _rollback_names(log) == ["fleet_x_hostnames", "fleet_x_hostnames"]
-    # and with no exact-host registrable at all, the hostname line still names the source
-    assert _rollback_names(
-        "\n".join(line for line in log.splitlines() if "cdx_suffix" not in line)
-    ) == ["fleet_x_hostnames"]
-
-    import duckdb
-
-    from ark.db import SCHEMA_SQL
-
-    db = tmp_path / "ark.duckdb"
-    conn = duckdb.connect(str(db))
-    conn.execute(SCHEMA_SQL)
-    for source_id, name in ((1, "ia_cdx_bulk"), (2, "fleet_x_hostnames")):
-        conn.execute("INSERT INTO source VALUES (?, ?, 'timestamped', NULL)", [source_id, name])
-        domain = f"d{source_id}.com"
+    log = capsys.readouterr().out + "== uv run ark ingest cdx_snapshot data/raw/cdx/a.jsonl.gz\n"
+    glob, ingest = f"{READ_DIR}/{bank.READ_PARTS}", "uv run ark ingest fleet_x_hostnames".split()
+    assert ran[0][3:] == [bank.CONVERTER, "--glob", glob, "--tag", TAG, "--state", ANY]
+    assert ran[1:] == [[*ingest, REGISTRABLES], [*ingest, *(f"{READ_DIR}/{p}" for p in PARTS)]]
+    awk = subprocess.run(["awk", found.group(1)], input=log, capture_output=True, text=True)
+    assert awk.stdout.split() == ["fleet_x_hostnames", "fleet_x_hostnames", "cdx_snapshot"]
+    db = str(tmp_path / "ark.duckdb")
+    with duckdb.connect(db) as conn:
         conn.execute(
-            "INSERT INTO domain (domain, tld, discovered_source) VALUES (?, 'com', ?)",
-            [domain, source_id],
+            SCHEMA_SQL + ";INSERT INTO source VALUES (1, 'ia_cdx_bulk', 'timestamped', NULL),"
+            " (2, 'fleet_x_hostnames', 'timestamped', NULL); INSERT INTO domain"
+            " (domain, discovered_source) VALUES ('o.com', 1), ('n.com', 1), ('r.com', 2);"
+            "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value,"
+            " ingested_at) SELECT domain, discovered_source, 1998, 'cdx_timestamp', 'x',"
+            " if(domain = 'o.com', '2026-01-01'::TIMESTAMPTZ, now()) FROM domain;"
+            "INSERT INTO domain_year SELECT domain, 1998, evidence_id, now() FROM evidence;"
+            "INSERT INTO hostname_year SELECT 'www.' || domain, domain, 1998, evidence_id, now()"
+            " FROM evidence; INSERT INTO ingested_file SELECT s.name, domain, 'abc', 1,"
+            " ingested_at FROM evidence JOIN source s USING (source_id)"
         )
-        conn.execute(
-            "INSERT INTO evidence (evidence_id, domain, source_id, evidence_year, evidence_type,"
-            " evidence_value) VALUES (?, ?, ?, 1998, 'cdx_timestamp', 'x')",
-            [source_id, domain, source_id],
-        )
-        conn.execute(
-            "INSERT INTO domain_year (domain, assigned_year, evidence_id) VALUES (?, 1998, ?)",
-            [domain, source_id],
-        )
-    conn.close()
-    assert unbank.main([*_rollback_names(log), "--db", str(db), "--write"]) == 0
-    conn = duckdb.connect(str(db), read_only=True)
-    left = conn.execute(
-        "SELECT s.name, count(*) FROM domain_year JOIN evidence USING (evidence_id)"
-        " JOIN source s USING (source_id) GROUP BY 1"
-    ).fetchall()
-    conn.close()
-    assert left == [("ia_cdx_bulk", 1)]
-
-
-def test_a_red_gate_never_takes_rows_a_source_held_before_the_bank(tmp_path: Path, capsys) -> None:
-    """A `cdx_snapshot` bank adds to `ia_cdx_bulk`, which already holds history. On red the
-    recipe hands `unbank_source.py` the instant the bank started, and a source holding a row
-    from before it is refused whole: its earlier rows and this bank's stay, and the exit is red.
-    A source new in this bank still goes."""
-    import re
-    import subprocess
-
-    import duckdb
-
-    from ark.db import SCHEMA_SQL
-
-    recipe = (Path(__file__).resolve().parent.parent / "justfile").read_text(encoding="utf-8")
-    found = re.search(r"B_START=\$\(date -u \+(\S+)\)", recipe)
-    assert found and found.start() < recipe.index("bank_approved.py --write")
-    assert re.search(r'unbank_source\.py \$INGESTED --write \\\s+--run-start "\$B_START"', recipe)
-
-    db = tmp_path / "ark.duckdb"
-    conn = duckdb.connect(str(db))
-    conn.execute(SCHEMA_SQL)
-    for source_id, name in ((1, "ia_cdx_bulk"), (2, "fleet_x_hostnames")):
-        conn.execute("INSERT INTO source VALUES (?, ?, 'timestamped', NULL)", [source_id, name])
-
-    def banked(source_id: int, name: str, domain: str, at: str | None) -> None:
-        """One domain dated at both grains, with its receipt; `at` None is this bank's clock."""
-        conn.execute(
-            "INSERT INTO domain (domain, tld, discovered_source) VALUES (?, 'com', ?)",
-            [domain, source_id],
-        )
-        evidence_id = conn.execute(
-            "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type,"
-            " evidence_value, ingested_at) VALUES (?, ?, 1998, 'cdx_timestamp', 'x',"
-            " coalesce(?::TIMESTAMPTZ, now())) RETURNING evidence_id",
-            [domain, source_id, at],
-        ).fetchone()[0]
-        conn.execute("INSERT INTO domain_year VALUES (?, 1998, ?, now())", [domain, evidence_id])
-        conn.execute(
-            "INSERT INTO hostname_year VALUES (?, ?, 1998, ?, now())",
-            [f"www.{domain}", domain, evidence_id],
-        )
-        conn.execute(
-            "INSERT INTO ingested_file VALUES (?, ?, 'abc', 1, coalesce(?::TIMESTAMPTZ, now()))",
-            [name, f"{domain}.jsonl.gz", at],
-        )
-
-    banked(1, "ia_cdx_bulk", "old.com", "2026-01-01T00:00:00Z")
-    start = subprocess.run(
-        ["date", "-u", f"+{found.group(1)}"], capture_output=True, text=True, check=True
-    ).stdout.strip()
-    banked(1, "ia_cdx_bulk", "new.com", None)
-    banked(2, "fleet_x_hostnames", "read.com", None)
-    conn.close()
-    log = (
-        "== uv run ark ingest cdx_snapshot data/raw/cdx/cdx_a.jsonl.gz\n"
-        "== uv run ark ingest fleet_x_hostnames data/raw/fleet_read/x/p.jsonl.gz\n"
-    )
-    args = [*_rollback_names(log), "--db", str(db), "--write", "--run-start", start]
+        held = unbank.counts(conn, "ia_cdx_bulk")
+    args = [*awk.stdout.split(), "--db", db, "--write", "--run-start", start.stdout.strip()]
     assert unbank.main(args) == 1
     assert "REFUSED ia_cdx_bulk" in capsys.readouterr().err
-    conn = duckdb.connect(str(db), read_only=True)
-    held = {name: unbank.counts(conn, name) for name in ("ia_cdx_bulk", "fleet_x_hostnames")}
-    conn.close()
-    assert held["ia_cdx_bulk"] == dict.fromkeys(held["ia_cdx_bulk"], 2)
-    assert not any(held["fleet_x_hostnames"].values())
+    with duckdb.connect(db, read_only=True) as conn:
+        assert unbank.counts(conn, "ia_cdx_bulk") == held == dict.fromkeys(held, 2), "every grain"
+        assert not any(unbank.counts(conn, "fleet_x_hostnames").values())

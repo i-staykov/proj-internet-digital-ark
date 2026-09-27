@@ -14,8 +14,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-from test_fleet_findings import confirmed, store
-from test_fleet_leads import LEAD, with_contract
+from test_fleet import LEAD, confirmed, store, with_contract
 from test_fleet_ledger import STAND_IN, fleet_ledger
 
 ROOT = Path(__file__).resolve().parents[1]
