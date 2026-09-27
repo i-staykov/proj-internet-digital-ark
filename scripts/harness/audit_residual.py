@@ -73,10 +73,9 @@ DERIVED = (
     # The list the RDAP sweep actually reads: watching any other file is the same defect
     # as watching the wrong journal prefix, the alarm stays quiet about the list in use.
     # Restricted to TLDs with a measured in-window rate, because the builder falls back to
-    # the pool-wide rate where
-    # it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com` for a measured
-    # 1 in-window date in 97 queries. The set grows with the sample, which is why it lives
-    # in one place rather than in a comment.
+    # the pool-wide rate where it has no sample and that floated `.vi`, `.bm` and `.pn`
+    # above `.com` for a measured 1 in-window date in 97 queries. The set grows with the
+    # sample, which is why it lives in one place rather than in a comment.
     (
         "data/raw/rdap/pool_targets_measured.txt",
         "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
