@@ -569,7 +569,10 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7), keep: int =
 
 
 def is_brief_audit(f: dict) -> bool:
-    return f["slug"].startswith("brief-audit-") or f["fields"].get("lens", "") == "brief-audit"
+    """A slug `compact_registers.py` drops as an audit, the fleet's `# brief-audit: <claim>`
+    heading among them: a row booked for one is deleted and booked again every tick."""
+    slug = re.sub(r"[^a-z0-9]+", "-", f["slug"].lower()).strip("-")
+    return slug.startswith("brief-audit") or f["fields"].get("lens", "") == "brief-audit"
 
 
 def closed_row(f: dict, run_label: str) -> str:
