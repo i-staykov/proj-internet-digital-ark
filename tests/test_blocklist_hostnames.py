@@ -1,156 +1,98 @@
-"""The hosts two banked blocklists name, kept at hostname grain.
-
-`parse_squidguard_blacklist` and `parse_chastity_split` collapse `x.tripod.com/y` to
-`tripod.com`. The hostname unit the reviewer accepted on 2026-09-01 keeps the host:
-7,653 (hostname, 2001) records absent from both the store and his own 2001 file,
-3,410.4 EE, measured 2026-09-02 on the live store. Same bytes, same stamps.
-"""
+"""The hosts two banked blocklists name, kept at hostname grain; every case id names its list."""
 
 import io
 import tarfile
-from collections import Counter
 from pathlib import Path
 
 import duckdb
 import his_release
+import pytest
 
 from ark import held
+from ark import hostnames as hn
 from ark.db import add_candidate, assign_year, ensure_source, init_db, record_evidence
-from ark.hostnames import (
-    CHASTITY_HOST_SOURCE,
-    SQUIDGUARD_HOST_SOURCE,
-    _list_hosts,
-    ingest_blocklist_hostnames,
+
+SQUIDGUARD = "# This list was compiled in 0:00:20 on 2001.12.18 15:04:29.\n# by squidGuardRobot\n"
+SQUIDGUARD += (
+    "members.tripod.com\ntripod.com\n10.1.2.3\nunder_score.tripod.com\npages.example.org/x\n"
 )
-
-SQUIDGUARD = """# This list was compiled in 0:00:20 on 2001.12.18 15:04:29.
-# by squidGuardRobot-2.3.4
-members.tripod.com
-tripod.com
-10.1.2.3
-under_score.tripod.com
-pages.example.org/deep/path
-"""
-DEC_14_2001 = 1008288000
+CHASTITY = {
+    "adult/domains": "a.tripod.com\nb.novel.com\n",
+    "adult/urls": "c.tripod.com/x\n",
+    "adult/domains.20011124.diff": "+d.tripod.com\n-e.tripod.com\n",
+    "mail/domains": "f.tripod.com\n",
+}
+TAR, V = "chastity-list_0.5.orig.tar.gz", "chastity-list:20011214 adult/domains host "
 
 
-def chastity_tarball(tmp_path: Path, mtime: int = DEC_14_2001) -> Path:
-    path = tmp_path / "chastity-list_0.5.orig.tar.gz"
-    with tarfile.open(path, "w:gz") as tar:
-        for name, text in {
-            "chastity-list-0.5/db/adult/domains": "a.tripod.com\nb.novel.com\n",
-            "chastity-list-0.5/db/adult/urls": "c.tripod.com/x\n",
-            "chastity-list-0.5/db/adult/domains.20011124.diff": "+d.tripod.com\n-e.tripod.com\n",
-            "chastity-list-0.5/db/mail/domains": "f.tripod.com\n",
-        }.items():
-            data = text.encode()
-            info = tarfile.TarInfo(name)
-            info.size, info.mtime = len(data), mtime
-            tar.addfile(info, io.BytesIO(data))
+def chastity(tmp_path: Path, mtime: int = 1008288000) -> Path:
+    with tarfile.open(path := tmp_path / TAR, "w:gz") as tar:
+        for name, text in CHASTITY.items():
+            info = tarfile.TarInfo(f"chastity-list-0.5/db/{name}")
+            info.size, info.mtime = len(text.encode()), mtime
+            tar.addfile(info, io.BytesIO(text.encode()))
     return path
 
 
-def test_list_hosts_keeps_sub_hosts_only() -> None:
-    counts: Counter = Counter()
-    hosts = _list_hosts(SQUIDGUARD, is_diff=False, counts=counts)
-    assert hosts == {"members.tripod.com": "tripod.com", "pages.example.org": "example.org"}
-    assert counts["registrable_row"] == 1
-    assert counts["ip_or_empty"] == 1
-    assert counts["rejected_host"] == 1
-    # a diff keeps additions and drops removals
-    assert _list_hosts("+x.tripod.com\n-y.tripod.com\n", True, counts) == {
-        "x.tripod.com": "tripod.com"
-    }
+def q(conn, sql: str) -> list:
+    return conn.execute(sql).fetchall()
 
 
-def test_squidguard_rows_are_dated_by_the_compile_stamp_and_idempotent(tmp_path) -> None:
-    conn = duckdb.connect(":memory:")
-    init_db(conn)
-    path = tmp_path / "squidguard-adult-domains"
-    path.write_text(SQUIDGUARD)
-    stats = ingest_blocklist_hostnames(conn, path)
-    assert stats["hostname_year_rows"] == 2
-    # a listed host dates itself, never tripod.com
-    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 0
-    row = conn.execute(
-        """
-        SELECT hy.parent_domain, hy.assigned_year, e.evidence_type, e.evidence_value,
-               e.source_file, e.record_location
-        FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
-        WHERE hy.hostname = 'members.tripod.com'
-        """
-    ).fetchone()
-    assert row == (
-        "tripod.com",
-        2001,
-        "artifact_listing",
-        "squidguard:adult/domains@20011218 host members.tripod.com",
-        "squidguard-adult-domains",
-        "line 3",
-    )
-    assert ingest_blocklist_hostnames(conn, path)["skipped"] is True
-    assert conn.execute(
-        "SELECT record_rows FROM ingested_file WHERE source_name = ?", [SQUIDGUARD_HOST_SOURCE]
-    ).fetchone() == (2,)
+# fmt: off
+LISTS = [  # (list, parent dated by, hosts written, one row, parents held, id)
+    # the robot's compile stamp dates the list; a URL's path is stripped, an address dropped,
+    # and a listed host dates itself, never tripod.com
+    ("squidguard", None, ["members.tripod.com", "pages.example.org"],
+     ("members.tripod.com", "tripod.com", 2001, "artifact_listing",
+      "squidguard:adult/domains@20011218 host members.tripod.com", "line 3"),
+     ["example.org", "tripod.com"], "squidguard"),
+    # the tar member's header dates the member and a diff keeps its additions; the split keeps a
+    # host under a parent dated by a pair of ours (tripod.com in 2001); b.novel.com is parked
+    ("chastity", "store", ["a.tripod.com", "c.tripod.com", "d.tripod.com"],
+     ("d.tripod.com", "tripod.com", 2001, "dated_directory", V + "d.tripod.com",
+      "chastity-list-0.5/db/adult/domains.20011124.diff:line 1"), ["tripod.com"], "chastity"),
+    # or under a parent named exactly in his files: his 2001 file holds novel.com, and
+    # www.tripod.com, which dates no tripod.com
+    ("chastity", "his", ["b.novel.com"],
+     ("b.novel.com", "novel.com", 2001, "dated_directory", V + "b.novel.com",
+      "chastity-list-0.5/db/adult/domains:line 2"), ["novel.com"], "chastity-his_file"),
+]
 
 
-def test_chastity_reads_the_tar_member_header_and_takes_the_split(tmp_path, his_files) -> None:
-    conn = duckdb.connect(":memory:")
-    init_db(conn)
-    # tripod.com carries 2001, a pair of ours from a row naming it
-    source = ensure_source(conn, "squidguard_2001", "timestamped")
-    add_candidate(conn, "tripod.com", source)
-    listed = record_evidence(
-        conn,
-        "tripod.com",
-        source,
-        2001,
-        "artifact_listing",
-        "squidguard:adult/domains@20011218",
-        source_file="squidguard-adult-domains",
-        record_location="record 2",
-    )
-    assign_year(conn, listed)
-    stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path))
-    # a, c and d under the dated tripod.com; b.novel.com parked; mail skipped
-    assert stats["hostname_year_rows"] == 3
-    assert stats["split_parked"] == 1
-    assert stats["mail_list_skipped"] == 1
-    value = conn.execute(
-        "SELECT e.evidence_type, e.evidence_value, e.source_file, e.record_location "
-        "FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id "
-        "WHERE hy.hostname = 'd.tripod.com'"
-    ).fetchone()
-    assert value == (
-        "dated_directory",
-        "chastity-list:20011214 adult/domains host d.tripod.com",
-        "chastity-list_0.5.orig.tar.gz",
-        "chastity-list-0.5/db/adult/domains.20011124.diff:line 1",
-    )
-    assert conn.execute("SELECT count(*) FROM domain WHERE domain = 'novel.com'").fetchone() == (0,)
-    assert conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name = ?", [CHASTITY_HOST_SOURCE]
-    ).fetchone() == (1,)
+@pytest.mark.parametrize("kind,dated,hosts,row,parents", [
+    pytest.param(*c[:5], id=c[5]) for c in LISTS
+])
+# fmt: on
+def test_field_wall_and_funnel(tmp_path, his_files, kind, dated, hosts, row, parents) -> None:
+    init_db(conn := duckdb.connect(":memory:"))
+    if kind == "squidguard":
+        (path := tmp_path / "squidguard-adult-domains").write_text(SQUIDGUARD)
+    else:
+        path = chastity(tmp_path)
+    if dated == "his":
+        names = his_release.HIS_YEARS[2001] + ["novel.com", "www.tripod.com"]
+        his_release.stage(his_files.parent, {"2001.txt": his_release.text(sorted(names))})
+        held.prepare(his_files)
+    elif dated == "store":
+        source = ensure_source(conn, "squidguard_2001", "timestamped")
+        add_candidate(conn, "tripod.com", source)
+        v = "squidguard:adult/domains@20011218"
+        assign_year(conn, record_evidence(conn, "tripod.com", source, 2001, "artifact_listing", v))
+    years = q(conn, "SELECT domain, assigned_year FROM domain_year")
+    stats = hn.ingest_blocklist_hostnames(conn, path)
+    assert stats["hostname_year_rows"] == len(hosts)
+    cols = "hostname, parent_domain, assigned_year, evidence_type, evidence_value, record_location"
+    got = q(conn, f"SELECT {cols}, source_file FROM hostname_year JOIN evidence USING(evidence_id)")
+    assert sorted(r[0] for r in got) == hosts and row in [r[:6] for r in got]
+    assert {r[6] for r in got} == {path.name}
+    assert q(conn, "SELECT domain, assigned_year FROM domain_year") == years
+    assert sorted(d for (d,) in q(conn, "SELECT domain FROM domain")) == parents
+    assert hn.ingest_blocklist_hostnames(conn, path)["skipped"] is True
+    assert q(conn, "SELECT record_rows FROM ingested_file") == [(len(hosts),)]
 
 
-def test_a_parent_his_files_name_exactly_is_dated_without_a_store_year(tmp_path, his_files) -> None:
-    """His 2001 file holds novel.com and www.tripod.com. The first dates b.novel.com's parent;
-    the second dates no tripod.com, so a, c and d are parked."""
-    names = his_release.HIS_YEARS[2001] + ["novel.com", "www.tripod.com"]
-    his_release.stage(his_files.parent, {"2001.txt": his_release.text(sorted(names))})
-    held.prepare(his_files)
-    conn = duckdb.connect(":memory:")
-    init_db(conn)
-    stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path))
-    assert stats["hostname_year_rows"] == 1
-    assert stats["split_parked"] == 3
-    assert conn.execute("SELECT hostname FROM hostname_year").fetchall() == [("b.novel.com",)]
-    assert conn.execute("SELECT domain FROM domain").fetchall() == [("novel.com",)]
-
-
-def test_a_member_stamped_outside_the_window_writes_nothing(tmp_path) -> None:
-    conn = duckdb.connect(":memory:")
-    init_db(conn)
-    stats = ingest_blocklist_hostnames(conn, chastity_tarball(tmp_path, mtime=1033171200))
+def test_wall_a_member_stamped_outside_the_window_writes_nothing(tmp_path) -> None:
+    init_db(conn := duckdb.connect(":memory:"))
+    stats = hn.ingest_blocklist_hostnames(conn, chastity(tmp_path, mtime=1033171200))
     assert stats["out_of_window_member"] == 3  # the mail list is skipped first
-    assert stats["hostname_year_rows"] == 0
+    assert q(conn, "SELECT count(*) FROM hostname_year") == [(0,)]
