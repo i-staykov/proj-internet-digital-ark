@@ -6,6 +6,7 @@ import re
 import sys
 from decimal import Decimal as D
 from pathlib import Path
+from unittest.mock import Mock
 
 import duckdb
 import pytest
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROWS = {r[0]: r for r in SUBMITTED_ROUNDS}
 YEARS = range(1996, 2002)
 POOL = "candidate_unverified.txt"
+REFUSE = Mock(side_effect=AssertionError("a default figure opened the store"))
 
 
 def _script(name: str, monkeypatch, **attrs):
@@ -38,19 +40,12 @@ def _write(root: Path, files: dict[str, str]) -> None:
         (root / rel).write_text(body)
 
 
-def _refuse(*_args, **_kwargs):
-    raise AssertionError("a default figure opened the store")
-
-
-@pytest.mark.parametrize(("label", "t", "s"), [("6", 6, "6.884530"), ("7", 12, "6.302372")])
-def test_the_benchmark_rule_reproduces_his_score(label, t, s) -> None:
-    """t is whole days, rounded up, from the benchmark release to receipt, in his clock."""
-    assert fig.t_days(ROWS[label][6], ROWS[label][7]) == t
-    assert fig.score(ROWS[label][5], t) == D(s)
-
-
-def test_t_is_at_least_one_and_the_assignment_rule_counts_calendar_days() -> None:
-    """t_i = max(1, receipt date - 2026-08-02), the origin his round 8 divisor implies."""
+def test_his_scores_reproduce_under_the_benchmark_rule_and_the_assignment_rule() -> None:
+    """Benchmark: whole days rounded up from the release, in his clock. Assignment: t_i =
+    max(1, receipt date - 2026-08-02), the origin his round 8 divisor implies."""
+    for label, t, s in (("6", 6, "6.884530"), ("7", 12, "6.302372")):
+        assert fig.t_days(ROWS[label][6], ROWS[label][7]) == t
+        assert fig.score(ROWS[label][5], t) == D(s)
     assert round(fig.elapsed_days("2026-08-21 11:19", "2026-08-26 15:51"), 4) == D("5.1889")
     assert fig.t_days("2026-09-02 10:31", "2026-09-02 10:31") == 1
     assert fig.t_days_assignment(fig.TASK_ASSIGNED_DATE + " 23:00") == 1
@@ -95,9 +90,9 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     _write(netnew, {f"{y}{s}.txt": "" for y in YEARS for s in ("", "_hostnames")})
     hosts = {"2001_hostnames.txt": "www.a.com\nwww.b.com\nwww.c.net\n", "2001.txt": "d.com\n"}
     _write(netnew, hosts | {"attested_registrables.txt": "2000\tb.com\n2001\tc.net\n"})
-    monkeypatch.setattr(duckdb, "connect", _refuse)
+    monkeypatch.setattr(duckdb, "connect", REFUSE)
     monkeypatch.setattr(sys, "argv", ["round_figures.py"])
-    rf = _script("round_figures", monkeypatch, open_store=_refuse, REPO=tmp_path)
+    rf = _script("round_figures", monkeypatch, open_store=REFUSE, REPO=tmp_path)
     monkeypatch.setattr(rf, "english_weights", lambda: {"com": D("0.5"), "net": D("0.25")})
     monkeypatch.setattr(rf, "his_year", lambda year: his / f"{year}.txt")
     monkeypatch.setattr(rf, "NETNEW", netnew)
@@ -180,8 +175,8 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     run = lambda cmd, timeout: calls.append(cmd) or figures  # noqa: E731
     brs = _script("build_round_state", monkeypatch, run=run, **paths)
     monkeypatch.setattr(brs, "pending_approvals", lambda: [])
-    monkeypatch.setattr("ark.db.connect_read_only_patiently", _refuse)
-    monkeypatch.setattr(duckdb, "connect", _refuse)
+    monkeypatch.setattr("ark.db.connect_read_only_patiently", REFUSE)
+    monkeypatch.setattr(duckdb, "connect", REFUSE)
     stamp = json.dumps({"baseline": brs.CURRENT_BASELINE_MARKER})
     _write(tmp_path / "output/netnew", {"2001.txt": "d.com\n", "export_stamp.json": stamp})
     monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
