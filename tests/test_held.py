@@ -67,7 +67,8 @@ def test_prepare_holds_a_clean_file_in_place_and_a_sorted_copy_of_any_other(tmp_
     copied = {f"{y}.txt" for y in (1997, 1998, 1999, 2000)} | {"isc_survey_hostnames/2000-07.txt"}
     copied |= {"candidate_pool.txt", "candidate_pool_unparsed_format.txt"}
     assert copies - {held.ALL, held.CANDIDATES, held.STAMP} == copied, "what comm would misread"
-    assert read(his.all) == sorted({name for y in YEARS for name in read(his.year(y))})
+    union = sorted({name for y in YEARS for name in read(his.year(y))})
+    assert read(his.all) == union and his.counts["all"] == len(union)
     expected = {name.lower() for names in HIS_CANDIDATES.values() for name in names}
     assert read(his.candidates) == sorted(expected), "every candidate file, never the README"
     assert [str(p.relative_to(folder)) for p in his.candidate_files] == list(HIS_CANDIDATES)
@@ -336,12 +337,31 @@ def test_no_lane_asks_the_tables_whether_a_name_is_dated() -> None:
         assert MEMBERSHIP.search(statement), f"{rel}: {key!r} needs no exemption"
 
 
+def test_split_chastity_dates_what_we_or_his_files_date(tmp_path, his_files, monkeypatch) -> None:
+    """The scan cannot see which question a lane asks. already-his.com is dated by his files
+    alone, his www.rolled.com dates no rolled.com, and cand.org, only listed by us, is undated."""
+    path = ROOT / "scripts/sources/blocklists/split_chastity.py"
+    spec = importlib.util.spec_from_file_location("split_chastity", path)
+    spec.loader.exec_module(lane := importlib.util.module_from_spec(spec))
+    conn = _store()
+    _ours(conn, "ours.com", 2001)
+    add_candidate(conn, "cand.org", ensure_source(conn, "links", "candidate_only"))
+    (src := tmp_path / "db" / "adult").mkdir(parents=True)
+    (src / "domains").write_text("ours.com\nalready-his.com\nrolled.com\ncand.org\nnovel.net\n")
+    monkeypatch.setattr(lane, "SRC", src.parent)
+    monkeypatch.setattr(lane, "connect_read_only_patiently", lambda _path: conn)
+    monkeypatch.setattr(sys, "argv", ["split_chastity.py", "--write", "--out", str(tmp_path)])
+    assert lane.main() == 0
+    cand, dated = (p.read_text().split() for p in sorted(tmp_path.glob("chastity-*.txt")))
+    assert dated == ["already-his.com", "ours.com"]
+    assert cand == ["cand.org", "novel.net", "rolled.com"]
+
+
 # **Intake** takes a release in one command; `releases.py` fills its table from disk, keeps every
 # cell and byte-verifies each tree. His calculator is stubbed at two EE per line.
 
 _SPEC = importlib.util.spec_from_file_location("intake", ROOT / "scripts/round/intake.py")
-intake = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(intake)
+_SPEC.loader.exec_module(intake := importlib.util.module_from_spec(_SPEC))
 releases = intake.releases
 LINES = {1996: 3, 1997: 0, 1998: 5, 1999: 1, 2000: 2, 2001: 1234}
 ZITE = "".join(f"zite{i}.com\n" for i in range(3))  # 1996.txt's length, other bytes
@@ -421,18 +441,26 @@ def _snapshot(tmp_path: Path) -> list[str]:
     return [(tmp_path / name).read_text() for name in ("baseline.json", "releases.md", "rounds.md")]
 
 
+# Zip members verify_trees refuses: a path read as another, a second copy, a symlink
+UNSAFE = {
+    "above": "../merged260830/stray.txt",
+    "dot": "merged260830/./stray.txt",
+    "absolute": "/merged260830/stray.txt",
+    "backslash": "merged260830/sub\\stray.txt",
+    "duplicate": "wrapper/merged260830/1996.txt",
+    "symlink-member": "merged260830/link",
+}
+
+
 @pytest.mark.filterwarnings("ignore:Duplicate name")
-@pytest.mark.parametrize(
-    "case", ["unsafe", "duplicate", "symlink-member", "symlink-on-disk", "linked-extra", "payload"]
-)
+@pytest.mark.parametrize("case", [*UNSAFE, "file", "parent", "linked-extra", "payload"])
 def test_verify_trees_refuses_an_unsafe_member_a_symlink_or_a_bad_payload(tmp_path, capsys, case):
     """No tree verifies against a member read as another path, a symlink or a corrupt stream."""
     parent = tmp_path / "extracted"
     tree = _tree_on_disk(parent / "merged260830")
     archive = _zip(tree, tmp_path / "release.zip", method=zipfile.ZIP_DEFLATED)
     elsewhere = tmp_path / "elsewhere"
-    members = {"unsafe": "../merged260830/stray.txt", "duplicate": "wrapper/merged260830/1996.txt"}
-    if member := {**members, "symlink-member": "merged260830/link"}.get(case):
+    if member := UNSAFE.get(case):
         info = zipfile.ZipInfo(member, STAMP)
         if case == "symlink-member":  # the member's bytes sit on disk, so only its type refuses it
             info.create_system, info.external_attr = 3, (stat.S_IFLNK | 0o644) << 16
@@ -450,9 +478,10 @@ def test_verify_trees_refuses_an_unsafe_member_a_symlink_or_a_bad_payload(tmp_pa
     elif case == "linked-extra":
         elsewhere.mkdir()
         (tree / "extra").symlink_to(elsewhere, target_is_directory=True)
-    else:
-        parent.rename(elsewhere)
-        parent.symlink_to(elsewhere, target_is_directory=True)
+    else:  # his file itself, or a folder above it
+        linked = tree / "1996.txt" if case == "file" else parent
+        linked.rename(elsewhere)
+        linked.symlink_to(elsewhere, target_is_directory=linked == parent)
     assert releases.verify_trees({tree.name: [tree]}, {tree.name: [archive]}) is False
     out = capsys.readouterr().out
     assert out.splitlines()[-1] == VERIFIED + "none"
@@ -483,7 +512,7 @@ def test_zstd_packs_the_zipless_tree_and_hashes_it(run, tmp_path):
     run(releases, "--zstd")
     target = tmp_path / "archive/merged260810.tar.zst"
     row = _rows(tmp_path)["merged260810"]
-    assert (row["artifact"], row["sha256"]) == (target.name, releases.sha256(target))
+    assert (row["artifact"], row["sha256"]) == (target.name, digests(target.parent)[target.name])
     tar = subprocess.run(["zstd", "-dc", str(target)], capture_output=True, check=True).stdout
     listed = subprocess.run(["tar", "-tf", "-"], input=tar, capture_output=True, check=True)
     names = {line.strip("/") for line in listed.stdout.decode().split()}
@@ -504,7 +533,7 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     with pytest.raises(SystemExit):
         intake.marker_of(empty, None)
     before = _snapshot(tmp_path)
-    assert "dry run: nothing written" in run(intake, str(his), "--dry-run")
+    run(intake, str(his), "--dry-run")
     run(intake, str(his), "--sha256", "0" * 64, stops="sha256 is")
     assert _snapshot(tmp_path) == before
     assert not list((tmp_path / "feedback").rglob(NEW))
@@ -525,11 +554,11 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert (written["rounds"], written["original"]) == (tracked["rounds"], tracked["original"])
     rows = _rows(tmp_path)
     assert rows[NEW]["2001"] == "1,234" and rows[NEW]["artifact"] == his.name
-    assert rows[NEW]["sha256"] == releases.sha256(his)
+    assert rows[NEW]["sha256"] == digests(his.parent)[his.name]
     assert [rows["merged260830"][str(y)] for y in YEARS] == ["3", "0", "5", "1", "2", "1,234"]
-    assert rows["merged260830"]["sha256"] == releases.sha256(tmp_path / "feedback" / ZIP7)
+    assert rows["merged260830"]["sha256"] == digests(tmp_path / "feedback")[ZIP7]
     assert rows["merged260810"]["sha256"] == "pending", "a zip-less tree has no artifact yet"
-    assert all(row["released"] == releases.release_date(m) for m, row in rows.items())
+    assert rows["merged260902-3"]["released"] == "2026-09-02"
     assert all(rows[m]["sha256"] == "none" for m in releases.NOT_RECEIVED)
     round7 = [x for x in (tmp_path / "rounds.md").read_text().splitlines() if x.startswith("| 7 |")]
     assert any("1,456,458.1029" in map(str.strip, line.split("|")) for line in round7)

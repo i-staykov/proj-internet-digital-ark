@@ -160,6 +160,7 @@ def test_the_hostname_funnel_is_the_ingests_and_holds_by_exact_name(tmp_path, hi
         ("www.deep.his-host.net", 2001, True),
     ]
     assert priced["www_of_held_name"] == 1 and priced["netnew_ee"] > 0
+    assert priced["netnew_by_year"] == {1999: 4, 2001: 2} and priced["netnew_hostname_years"] == 6
     # held.com is ours and already-his.com his; fresh.org, rolled.com and his-host.net no one's
     assert priced["parent_held_share"] == 3 / 8 and priced["parent_pairs_netnew"] == 3
 
