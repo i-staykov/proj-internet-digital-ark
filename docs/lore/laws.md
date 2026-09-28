@@ -50,6 +50,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - A candidate is a name with no web-evidence year; malformed but recoverable strings go to normalization review (`scripts/round/unparsed_pool.py`).
 - The candidate claim is our pool minus his `candidate_pool.txt` and annual files: 2,279,755 registrables left 29,327, 78x fewer (`src/ark/export.py`).
 - Export diffs every shipped list against his six annual files as released, since an ingested copy lags: 303 held names in one 2001 file (`src/ark/held.py`).
+- Rolling his hostnames up to registrables dates 19,477,252 (domain, year) pairs his files do not list by exact name (`src/ark/held.py`).
 - His releases purge: merged260922 dropped 22,666,119 names from `candidate_pool.txt`, so a pure diff re-offered 12,870,758 he had just removed (98.2%) and our claim jumped from 261,977 to 13,104,122 (`src/ark/export.py`).
 - A screen left off one query ships what it refuses: 251,178 rows in `masters/2001.txt` (`src/ark/evidence_types.py`).
 - Export, stats and contribution share one web-evidence screen, `web_evidence_sql` (`src/ark/evidence_types.py`).
@@ -93,6 +94,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - A 0.58% sample of a self-repeating corpus projected 1.9M EE against a true 62,821: a sample proves the shape, never the total (`scripts/pricing/price_items.py`).
 - A held-set export goes stale at the next ingest: a header projection of 10,889 EE delivered 1,038.4 after another ingest wrote 102,577 overlapping pairs (`scripts/pricing/price_items.py`).
 - Every six- and seven-figure EE in the registers is a whole-corpus read; per-shape medians run 2.1 to 590.3 EE with 43x to 800,396x spreads, so shape sets no floor (`docs/registers/sources.md`).
+- Guessed potential does not rank: of 50 hypotheses scored 0 to 100 by judgment, 3 measured at or above 5,000 EE, all answered elsewhere; `docs/registers/queue.md` ranks by measured EE.
 - `probes/udrp_selftest.toml` reproduces the 186-line UDRP collector's 8,923 records exactly, so a probe's yield holds before any collector exists (`scripts/pricing/probe_source.py`).
 - Dated prose yields about 0.042 net-new post-split pairs per item (RFC 0.0416, 140 over 3,367; D-Lib 0.0420, 16 over 381): about 238,000 items per 10,000 pairs; `just find D-Lib`.
 - Density follows subject: grant records held 456,700 dated in-window items (NIH, NSF, CORDIS), 1.9x the 238,000 items the ceiling needs, and still died; `just find CORDIS`.
@@ -147,6 +149,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - Breadth pays and depth does not: 13 Usenet hierarchies read once union to 127,616 of 158,841 EE, while more `alt.*` was 90.5% held at 40 EE per GB; `just find usenet_alt`.
 - 42.1% of `alt.*` messages fall in 1996 to 2001, and the share ignores size: 0.0% to 85.2% at 70 to 155 MB; `just find usenet_alt`.
 - Ordering a Usenet fetch by in-window share about doubles EE per GB; `scripts/sources/usenet/fetch_usenet_hierarchies.sh` orders largest first within a hierarchy instead.
+- The first 200 KB does not date an mbox archive, which runs in donation batches: first `Date:` 2013 at 0% in window, 2008 at 85% (`scripts/sources/usenet/fetch_usenet_hierarchies.sh`).
 - Mail-archive cost is `crawl-delay`, not bandwidth: `mail.gnome.org` read 1,415 files in 562 s, `mail.python.org` at `crawl-delay: 2` 1,207 in 2,400 s; `just find crawl-delay`.
 - Dartmouth ARCS per-item CDX, 25 in-window items: 20.6 EE per MB gzip, 1,363 to 29,078 EE an item, 60% to 98% `www.` of a held parent; `just find dartmouth_arcs_cdx_hostnames`.
 - The one public node CDX, `host_cdx_ia600702` (57.6 GB gzip), read whole: 931,864 host-years, 88% held, 104,347 records, 50,722 EE, 0.9 EE per MB; `just find host_cdx_ia600702`.
@@ -177,6 +180,10 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - One `matchType=domain` answer names thousands of hosts: 14,256,371 capture rows in 75 minutes gave 774,767 net-new records, 482,567.9442 EE; `just find ia_cdx_hostnames`.
 - Distinct hosts per capture row, not TLD weight, set a sweep page's worth: `co.uk`, first at weight 0.9813, paid 16.0 EE per 1,000 rows at 61.5 rows a host against 657.2 at 1.5 (42x); one index page measures it, and above about 20 most requests re-read named hosts; `just find ia_cdx_hostnames`.
 - The domain-wide sweep's rate decays: 193,000 EE per client-hour on its dense head, 210 an hour for two clients once walked; `just find ia_cdx_hostnames`.
+- Enumerating subdomains of parents he holds pays 96 EE per client-hour, an expansion the brief calls duplicative (`docs/brief/ding/project-brief.md`, CDX paragraph).
+- Per-parent `matchType=domain` over the 10,029,609 registrables with no hostname pays about 0.55 EE a parent, 642 EE per client-hour (563 when held 5 or 6 years); 74 thin parents gave 0.21 each, 61 an hour.
+- A per-domain gap query pays 255 EE per client-hour: 400 pairs an hour at 0.638 EE over 16.9 hours, one pair per answer.
+- One CDX question per domain paid 1.249 EE a query on bracketed gaps, 0.2645 on edge years and about 0.18 on the candidate pool; the 2.4M undated pool paid 125 EE per client-hour.
 - The CDX API takes the regex filter `statuscode:[23][0-9][0-9]`; a multi-clause negated filter returns HTTP 400 (`scripts/engines/cdx_suffix_sweep.py`).
 - `archive.org/wayback/available` can answer 429, `x-rl: 0`, no `Retry-After`, with none of our clients running while CDX answers normally; the block is per service and per IP (8 of 8 answered from the VPS while the laptop sat at 429); `just find availability`.
 - A throttle recorded as "no capture" spends a queue entry and learns nothing: the availability queue build recorded 429s that way; `just find availability`.
@@ -185,6 +192,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - A rate limit can be a quota: Verisign RDAP served 64,568 queries at 65 q/s for 17 minutes, then about 1 q/s through three restarts, and three queue orderings compared inside that clamp all read catastrophic; only rest clears it; `just find RDAP`.
 - A 403 wall can be a throttle: .info RDAP 403'd from record 199 on above ~3 q/s (awselb/2.0, 118 bytes, no Retry-After) and answered after ~12 idle minutes; `just find RDAP`.
 - A park file nothing re-reads is a queue leak: `cdx_platform_walk.py` parks a platform as too heavy after `MAX_FAILED_RUNS` (3) runs of 5xx, in the same `.refused` file as a 403, and its `todo` never asks a `.refused` seed again.
+- A walk that exits clean before its first page leaves no state file, `.done` or park entry: 96 parents sat unasked that way, yahoo.com and aol.com among them, so `cdx_platform_walk.py` takes its `todo` from the seed file less `.done` and `.refused`.
 - Robots is read on the host in the download URL: www.fac.gov permits all while its data files sit on app.fac.gov, Disallow: / (`scripts/harness/fetch.py`).
 - A by-name robots group can sit anywhere in the file: tomocha.net names ClaudeBot at line 51 of 61 under a permissive *, and a ten-line read cost 1,623 EE (`scripts/harness/fetch.py`; `just find tomocha.net`).
 - `ftp.acc.umu.se` names Claude-User, Claude-Code, Claude-SearchBot, Claude-Web and ClaudeBot at lines 115 to 119 of a 6,238 B robots.txt whose first group is a permissive `User-agent: *` (`scripts/harness/fetch.py` `OUR_ROBOT_NAMES`).
@@ -195,6 +203,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 ## Store
 
 - DuckDB admits one process per file: a read-only handle blocks the writer, and the lock error names the holder's PID and suggests read-only mode, the wrong fix (`scripts/harness/sync_lock.sh`).
+- DuckDB plans a correlated `EXISTS` as a hash semi-join: 0.33 s per 3,000 names, against 1.30 s for a hand-written semi-join.
 - A lane counts once the bank reads it, converters too: 67 RDAP journals (~12,000 EE) and 5,793 CDX year-records sat unread (`just bank` step c, `bank_trigger.py` `FOLD`).
 - `just residual` (`scripts/harness/audit_residual.py`) finds unread journals only for families with an ingest glob; a new lane has none and stays invisible to it.
 - An ingest that opens no file prints zeros, `files_seen` 0, and exits 0: a gz-only glob missed every IETF `.jsonl` shard (`src/ark/hostnames.py` `ingest_usenet_item_dir`).
@@ -218,35 +227,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - The store re-price decides a FIND until the fleet program's figure has agreed with it within 1% on the last ten booked finds; then the program's figure decides (`scripts/harness/standing_rule.py`).
 - ark-fleet CI refuses a workflow that does not default to `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY` (ark-fleet `.github/workflows/ci.yaml`).
 - Fable costs about 22x sonnet against the five-hour window: 18.7 points per million tokens against 0.85; ark-fleet `scripts/fixtures/telemetry-20260908.jsonl`.
+- A local `claude -p` bills the laptop's own Claude login at API rates, while `scripts/harness/standing_rule.py` makes the admit decision with no tokens.
 - VPS corpus bytes go only to `$ARK_PROBE_DIR`, a RAM tmpfs private to one run, since `/tmp` sits on the root disk agentless scanning images (ark-fleet `.github/workflows/leg.yaml`).
 - A sweep of the guessed globs `/tmp/ark_probe*` and `/tmp/ark_run_*` missed `/tmp/arkrun` (ark-fleet `.github/workflows/leg.yaml`).
 - Killed legs left 2.4 GiB of a 3.9 GiB tmpfs (ark-fleet `vps/cleanup.sh`).
-
-## Do not rebuild
-
-- Baseline store loader (`ark ingest-legacy`, `ingest_year_file`): it rolled his hostnames up to registrables, which dated 19,477,252 (domain, year) pairs his files do not list by exact name; `src/ark/held.py` compares his files as released.
-- RDAP client (`src/ark/rdap.py`, `ark rdap`): the terms in every RDAP response forbid bulk querying at all four registries.
-- `parse_rdap_snapshot`, `attested_years` and `RDAP_REDIRECTOR` stay in `src/ark/sources.py`: they replay the RDAP journals already on disk.
-- Sibling RDAP queue ranker (`rank_sibling_queue.py`): no RDAP queue is left, and the candidate-pool headroom it fed measured 0.107 points, not 1.47.
-- Page-level English verification engine: EE is the TLD-weighted share in `docs/brief/ding/project-brief.md` section III, not a per-site verdict.
-- Local admitter (`scripts/harness/admit_prompt.txt`, the `claude -p` leg of `just bank`): a local `claude -p` bills the laptop's own Claude login at API rates, and `standing_rule.py` makes the admit decision with no tokens.
-- Laptop agent fan-out and overnight hunt (`agent_fanout.sh`, `agent_watchdog.sh`, `just hunt-overnight`, `just agent-loop`, `.claude/workflows/hunt-*.js`): the fleet runs sessions on a schedule with per-run telemetry.
-- Decision sheet (`scripts/harness/decision_sheet.py`, `decisions-open.md`): a third copy of the pending queue, beside the `Decision: pending` blocks and the `needs-owner` issues.
-- VPS sweep scripts (restart_sweeps, make_vps_bundle, vps_bootstrap, pull_vps_journals, vps_start_edge, cdx_suffix_run, pull_suffix_loop): the one VPS client runs `cdx_platform_walk.py`.
-- Output-unit pack (`scripts/output_unit_pack/`): it copied `canonical.py`, the public suffix list and the English-share table, and copies drift.
-- One-shot migrations (admit_www_of_parent, apply_hostname_purpose_rule, assign_unassigned_evidence, convert_register): ingest and `ark check` enforce their rules.
-- One-shot collectors (`collect_yahoo_directory.py`, `collect_dartmouth_bfs_seed.py`, `collect_namewinner_2001.py`): the Yahoo tree closed at 7.73 EE, and the other two ran once, their bytes in `data/raw/` with refetch URLs in the register; `just find Yahoo`.
-- Pending-hypotheses backlog: of 50 entries ranked by subjective 0 to 100 potential, 3 measured at or above 5,000 EE, all answered elsewhere; `docs/registers/queue.md` ranks by measured EE.
-- `maintain.sh` fold loop: `just bank` step c folds journals when `bank_trigger.py check` sees the `FOLD` globs move, a move alone waiting until the last bank is `ARK_BANK_JOURNAL_HOURS` (3) old.
-- `added_since.py`: its queries never applied the spec XIII screen, so readers quote `docs/ROUND.md` field 5.
-- Fleet leg CDX seat (`scripts/harness/cdx_slot.sh`): no fleet leg queries CDX, and a seat for one reopens the channel the three collectors meter.
-- Availability endpoint (`wayback_availability.py`, `availability_home.sh`, `availability_vps_loop.sh`): it names no exact host (`{}` for yahoo.com from both IPs) and closed at 11.0976 EE; re-aimed at `ark cdx`, its queue paid 125 EE/hour; `just find availability`.
-- CDX year fill (`cdx_yearfill.py`), one 2001 question per name held at 2000: he held 74 of the 118 hosts with a 2001 capture and the rest paid at most 7.08 EE per client-hour, as his release is archive-derived; `just find cdx_yearfill`.
-- Parent shards: enumerating subdomains of parents he holds earns 96 EE per client-hour, and the brief calls that expansion duplicative (`project-brief.md`, CDX paragraph).
-- Platform-parent sweep (`rank_platform_parents.py`, `build_rows_per_host.py`, `platform_sweep_loop.sh`, `platform_sweep.sh`): a clean exit before the first page left no state file, no `.done` and no park entry, so 96 parents sat unasked, yahoo.com and aol.com among them; `cdx_platform_walk.py` walks platforms now.
-- Per-parent `matchType=domain` (`cdx_thin_sweep.py`): 10,029,609 zero-hostname registrables at about 0.55 EE a parent, 642 EE per client-hour (563 when held 5 or 6 years); 74 thin parents gave 0.21 each, 61 an hour.
-- Per-domain gap query (`src/ark/gaps.py`): 255 EE/hour, 400 pairs an hour at 0.638 EE over 16.9 hours, one pair per answer.
-- Per-domain query queues (`build_query_queue.py`, `build_pool_candidates.py`, `supervise_cdx_pool.sh`): one question per domain paid 1.249 EE per query on bracketed gaps, 0.2645 on edge years and about 0.18 on the candidate pool.
-- Dead-host file finder (`recover_dead_hosts.py`): it asked `web.archive.org/cdx` from outside the three metered collectors.
-- An mbox-head era pre-filter, never built: the first 200 KB does not date an archive, which runs in donation batches (first `Date:` 2013 at 0% in window, 2008 at 85%) (`scripts/sources/usenet/fetch_usenet_hierarchies.sh`).
-- `_CLASSIFY_SQL` in `src/ark/seed.py`: correlated EXISTS runs 0.33 s per 3,000 names, a hand-written semi-join 1.30 s; DuckDB already plans a hash semi-join.

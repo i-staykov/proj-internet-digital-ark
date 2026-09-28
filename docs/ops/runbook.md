@@ -16,8 +16,7 @@ Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 
 ## Working in the checkout
 
-- Several agents share the main checkout, which stays on `live`: edit on a branch in a git
-  worktree, and never switch branches in a shared tree.
+- The main checkout stays on `live` (`CLAUDE.md`, Git).
 - The agent shell is zsh: an unquoted `$VAR` never splits; spell a list out, or use `${=VAR}`.
 - The tick and the bank commit `docs/registers/` on the branch that is out and push `live`; their
   preflight refuses `main`, a diverged clone, any modified tracked file but `sources.md`,
@@ -56,17 +55,18 @@ recycled, compare the ledger's sha256 with the bytes on disk before ingesting or
 scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half, the whole
 suite with its output discarded, through the hook `just hooks` installs. A pytest, `ark check` or
 commit beside it makes the hook refuse a green commit, and inside `just ship all` that aborts the
-chain: commit alone, and rerun `uv run pytest -q -x` alone before believing a refusal.
+chain: commit alone, and rerun `uv run pytest -q -x > "$TMPDIR/pt.log" 2>&1; echo "exit=$?"`
+alone, never through a pipe, before believing a refusal.
 
 ## The loop
 
 **Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop and one on the
 VPS from its clone with `--max-local 1`, whose journals the tick pulls: `python3
 scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts
-a lane: start each detached, again after a reboot or its deadline. It idles while the
-`pause-platform` flag is up (`just hold off pause-platform`) and refuses to start at its
-`--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
-`com.ark.collectors`, the parent sweep, stays held (`docs/lore/laws.md`, Do not rebuild).
+a lane: start each detached, again after a reboot, its deadline or an edit to what it imports.
+It idles while the `pause-platform` flag is up (`just hold off pause-platform`) and refuses to
+start at its `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
+`com.ark.collectors`, the parent sweep, stays held (`docs/lore/laws.md`, Channel).
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished

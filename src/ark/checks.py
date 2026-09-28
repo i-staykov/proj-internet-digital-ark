@@ -4,6 +4,7 @@ Each check counts offending rows, by a SQL query or a function, and passes at ze
 check` runs them all and exits non-zero if any fails, so it doubles as a release gate: no
 annual result ships unless every invariant below holds. Several encode a rule the delivery
 report states, so a reader who doubts the rule can run the gate instead of taking it on trust.
+An invariant is added only for a failure it would catch or a property costly to find broken.
 """
 
 import re
