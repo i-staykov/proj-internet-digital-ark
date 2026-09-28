@@ -92,8 +92,7 @@ CREATE TABLE IF NOT EXISTS domain (
 CREATE SEQUENCE IF NOT EXISTS evidence_seq START 1;
 
 -- `source_file` is the file a row was read from and `record_location` its place in it
--- (`record 12`, `line 40`, a capture URL). Last, where MIGRATIONS puts them on an older store,
--- so a fresh and a migrated store export the same columns; rows older than them may lack both.
+-- (`record 12`, `line 40`, a capture URL), where known.
 CREATE TABLE IF NOT EXISTS evidence (
     evidence_id        BIGINT NOT NULL DEFAULT nextval('evidence_seq'),
     domain             TEXT NOT NULL,
@@ -160,15 +159,6 @@ CREATE TABLE IF NOT EXISTS domain_language (
 );
 """
 
-# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does nothing
-# to a table already there, so a new column in SCHEMA_SQL reaches fresh stores only.
-MIGRATIONS = (
-    ("domain_language", "reason", "TEXT"),
-    ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
-    ("evidence", "source_file", "TEXT"),
-    ("evidence", "record_location", "TEXT"),
-)
-
 
 def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection, creating the parent folder for file paths."""
@@ -227,11 +217,9 @@ def _statements(schema: str) -> list[str]:
 
 
 def init_db(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create the tables and constraints, then migrate. Safe to run repeatedly."""
+    """Create the tables and constraints. Safe to run repeatedly."""
     for statement in _statements(SCHEMA_SQL):
         conn.execute(statement)
-    for table, column, column_type in MIGRATIONS:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {column_type}")
     # `located_from` is the first evidence id this store wrote itself, for `ark check`. Nothing
     # draws from it, so it keeps its start, where DuckDB writes `evidence_seq` back with its next
     # id as its start. `load_provenance` sets it; a store without it starts past its own rows.

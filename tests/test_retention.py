@@ -54,7 +54,7 @@ OTHER = ("rclone-error", "interrupt-after-one", "no-manifest", "bad-manifest")
 RECEIPT_FAULTS = ("stale", "future", "wrong-root", "wrong-remote", "no-receipt")
 OBJECT_FAULTS = {"missing": None, "hashless": {"Hashes": {}}, "size": {"Size": 1}}
 OBJECT_FAULTS |= {"changed": {"Hashes": {"sha256": "0" * 64}}, "dir": {"IsDir": True}, "failed": {}}
-BACKUP = ("released", "dry-run", "same-day", "uncredited", "named-hold", "check", "wal")
+BACKUP = ("released", "dry-run", "same-day", "uncredited", "check", "wal")
 BACKUP += ("missing-store", "store-replaced", "backup-changed")
 ZIP_FAULTS = {
     "no-receipt": lambda tree, archive: (tree.parents[2] / offsite.RECEIPT).unlink(),
@@ -261,8 +261,7 @@ def proofs(root: Path, paths: list[Path]) -> None:
 
 @pytest.mark.parametrize("case", BACKUP)
 def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, monkeypatch, case):
-    name = "pre-stage-a" if case == "named-hold" else "pre-test"  # BACKUP_HOLDS keeps it by name
-    backup = file(tmp_path, f"data/ark.duckdb.{name}.bak", b"previous")
+    backup = file(tmp_path, "data/ark.duckdb.pre-test.bak", b"previous")
     os.utime(backup, ns=(1_000_000, 1_000_000))
     store = file(tmp_path, "data/ark.duckdb", b"current")
     day = "1970-01-01" if case == "same-day" else "2026-09-05"
@@ -288,7 +287,7 @@ def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, 
     assert code == int(not released) and backup.exists() is (case != "released")
     checked = case in ("released", "check", "store-replaced", "backup-changed")
     assert calls == [(["uv", "run", "ark", "check"], {"cwd": tmp_path, "check": False})] * checked
-    assert released or f"HELD data/ark.duckdb.{name}.bak" in "\n".join(lines)
+    assert released or "HELD data/ark.duckdb.pre-test.bak" in "\n".join(lines)
     kept = b"new local-only backup" if case == "backup-changed" else b"previous"
     assert case == "released" or backup.read_bytes() == kept
 
@@ -345,7 +344,7 @@ def disk_repo(root: Path) -> dict[str, Path]:
     kept += [f"private/{r}" for r in ("notes.md", "v3/big.bin", *KEPT_PRIVATE)]
     kept += [f"data/archive/merged{m}.tar.zst" for m in (250101, 270101)]
     kept += ["feedback/partial.zip", f"output/{NEW_STAGE}/report.md", "data/raw/host_cdx/bank.log"]
-    for rel in kept + [f"data/ark.duckdb.{n}.bak" for n in ("pre-stage-a", "pre-166")]:
+    for rel in [*kept, "data/ark.duckdb.pre-166.bak"]:
         file(root, rel)
     sidecar = f"{sha(TARBALL)}  {NEW_STAGE}.tar.gz\n".encode()
     file(root, f"submissions/phase-9/{NEW_STAGE}.tar.gz.sha256", sidecar)
@@ -412,8 +411,7 @@ def test_disk_takes_exactly_what_is_proven(tmp_path, monkeypatch, capsys, fake_r
     assert digest == f"sha1:{sha(CDX, 'sha1')} sha256:{sha(CDX)}"
     assert f"sha1:{sha(ZIP, 'sha1')}\t" in (parts["bulk"] / "DELETED.tsv").read_text()
     text = "\n".join(lines)
-    assert code == 1 and "pre-stage-a.bak: held until #181's rebuild" in text  # even receipted
-    assert "pre-166.bak: a store backup is deleted by the agents that own the store" in text
+    assert code == 1 and "pre-166.bak: a store backup is deleted by the agents" in text  # receipted
     before = files_under(tmp_path)
     code, lines = prune.disk_cleanup(tmp_path, write=True, private=True)
     assert code == 1 and "without --owner-go: nothing was deleted" in lines[0]
