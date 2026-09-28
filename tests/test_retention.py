@@ -5,7 +5,6 @@ Temporary trees only: Drive is the folder tmp_path/remote, archive.org a dict.
 
 import hashlib
 import http.client
-import importlib.util
 import json
 import os
 import shutil
@@ -19,13 +18,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
-if "prune" not in sys.modules:  # registered first: the dataclasses read their module back
-    _SPEC = importlib.util.spec_from_file_location("prune", ROOT / "scripts/round/prune.py")
-    sys.modules["prune"] = importlib.util.module_from_spec(_SPEC)
-    _SPEC.loader.exec_module(sys.modules["prune"])
-prune = sys.modules["prune"]
+prune = sys.modules.get("prune") or script("round/prune.py", "prune")
 offsite, vr = prune.sibling("offsite"), prune.sibling("verify_raw")
 RETENTION, JOURNAL = "docs/registers/retention.md", "data/raw/journal/a"
 HASHES = ("sha256", "sha1")

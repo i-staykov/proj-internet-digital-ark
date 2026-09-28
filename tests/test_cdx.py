@@ -3,7 +3,6 @@ injected, so nothing here asks the archive anything."""
 
 import email.utils
 import gzip
-import importlib.util
 import json
 import time
 import urllib.error
@@ -12,15 +11,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from conftest import script
 
 from ark import cdx, expand
 from ark.cdx import REFUSED, TIMED_OUT, RateGovernor, answered, lookup_years
 
-ROOT = Path(__file__).resolve().parents[1]
-WALK = ROOT / "scripts" / "engines" / "cdx_platform_walk.py"
-_SPEC = importlib.util.spec_from_file_location("walk", WALK)
-walk = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(walk)
+walk = script("engines/cdx_platform_walk.py")
 
 ONLY_2XX_3XX = "filter=statuscode%3A%5B23%5D%5B0-9%5D%5B0-9%5D"
 

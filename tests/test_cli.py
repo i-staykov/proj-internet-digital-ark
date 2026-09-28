@@ -2,7 +2,6 @@
 seed takes its file, rebuild refuses a store ahead of its export, a fleet read banks as itself."""
 
 import gzip
-import importlib.util
 import json
 from functools import partial
 from importlib.metadata import entry_points
@@ -11,6 +10,7 @@ from pathlib import Path
 import duckdb
 import pytest
 import typer
+from conftest import script
 from typer.testing import CliRunner
 
 from ark import cli
@@ -66,9 +66,7 @@ def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypat
     part = read / "fleetread_bulk_cdx_file__x_0001.jsonl.gz"
     lines = (json.dumps(dict(zip(("url", "timestamp", "status"), r, strict=True))) for r in rows)
     part.write_bytes(gzip.compress("\n".join(lines).encode() + b"\n"))
-    engine = Path(__file__).resolve().parents[1] / "scripts/engines/cdx_suffix_convert.py"
-    spec = importlib.util.spec_from_file_location("cdx_suffix_convert", engine)
-    spec.loader.exec_module(convert := importlib.util.module_from_spec(spec))
+    engine = Path((convert := script("engines/cdx_suffix_convert.py")).__file__)
     tag = fleet_read_registrables_tag("bulk_cdx_file", "x", "ab" * 32)
     out, state = str(tmp_path / "cdx"), str(tmp_path / "state.tsv")
     convert.main(["--glob", f"{read}/fleetread_*", "--tag", tag, "--out", out, "--state", state])

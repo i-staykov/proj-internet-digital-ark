@@ -2,7 +2,6 @@
 refuses and says why, and the promotion that re-files a mention without altering it."""
 
 import gzip
-import importlib.util
 import json
 import re
 from collections import Counter
@@ -10,6 +9,7 @@ from email.header import Header
 from pathlib import Path
 
 import pytest
+from conftest import script
 from his_release import WEB_METHOD, capture
 
 from ark import held
@@ -20,22 +20,13 @@ from ark.sources import SOURCES
 from ark.stats import PROVENANCE_LINEAGE
 from ark.usenet import bare_domains_in_body, body_of, domains_in_message, message_year, parse_usenet
 
-
-def _script(rel: str):
-    path = Path(__file__).resolve().parent.parent / "scripts" / rel
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-whois = _script("sources/usenet/collect_usenet_whois.py")
-texts = _script("pricing/probe_texts_corpus.py")
-attrition = _script("sources/directories/collect_attrition.py")
-maillists = _script("sources/mail_corpora/collect_mailing_lists.py")
-udrp = _script("sources/directories/collect_udrp_proceedings.py")
-pandora = _script("sources/directories/seed_pandora_titles.py")
-promo = _script("engines/build_promotion_journals.py")
+whois = script("sources/usenet/collect_usenet_whois.py")
+texts = script("pricing/probe_texts_corpus.py")
+attrition = script("sources/directories/collect_attrition.py")
+maillists = script("sources/mail_corpora/collect_mailing_lists.py")
+udrp = script("sources/directories/collect_udrp_proceedings.py")
+pandora = script("sources/directories/seed_pandora_titles.py")
+promo = script("engines/build_promotion_journals.py")
 _zone = SOURCES["internic_zone"].parse
 
 

@@ -3,7 +3,6 @@ of his files by exact name; corroboration counts distinct master sources of dist
 his quoted scores reproduce to the digit. One store is scored and exported once per module."""
 
 import csv
-import importlib.util
 import json
 import re
 import sys
@@ -14,6 +13,7 @@ from unittest.mock import Mock
 
 import duckdb
 import pytest
+from conftest import script
 from his_release import HIS_YEARS, MARKER, WEB_METHOD, capture, stage, text
 
 from ark import db, held
@@ -165,9 +165,7 @@ def test_the_contribution_tables_reconcile_with_the_scoreboard(scored) -> None:
 
 
 def _script(name: str, monkeypatch, **attrs):
-    path = ROOT / f"scripts/round/{name}.py"
-    spec = importlib.util.spec_from_file_location(f"{name}_under_test", path)
-    spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+    module = script(f"round/{name}.py")
     for attr, value in attrs.items():
         monkeypatch.setattr(module, attr, value)
     return module

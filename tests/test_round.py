@@ -1,7 +1,6 @@
 """The round's own pages: the verdict mail parsed into one row of `rounds.md`, the mail draft
 a rehearsal never writes, and the shipped saturation ledger, byte for byte the register."""
 
-import importlib.util
 import re
 import sys
 from datetime import date
@@ -9,21 +8,15 @@ from decimal import Decimal as D
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests/fixtures"
 
 
-def _load(name: str, rel: str):
-    spec = importlib.util.spec_from_file_location(name, ROOT / rel)
-    module = sys.modules[name] = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-rounds = _load("rounds_page", "scripts/round/rounds.py")
-ship_mail = _load("ship_mail", "scripts/round/ship_mail.py")
-ledger = _load("saturation_ledger", "scripts/round/saturation_ledger.py")
+rounds = script("round/rounds.py", "rounds_page")
+ship_mail = script("round/ship_mail.py", "ship_mail")
+ledger = script("round/saturation_ledger.py", "saturation_ledger")
 
 
 COLUMNS = (

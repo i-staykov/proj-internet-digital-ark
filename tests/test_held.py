@@ -5,7 +5,6 @@ asking whether a name is dated asks `held`, and a seed queues only what nothing 
 import ast
 import contextlib
 import csv
-import importlib.util
 import json
 import os
 import re
@@ -20,6 +19,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
+from conftest import script
 from his_release import HIS_CANDIDATES, HIS_YEARS, MARKER, WEB_METHOD, capture, digests, stage, text
 from typer.testing import CliRunner
 
@@ -347,9 +347,7 @@ def test_no_lane_asks_the_tables_whether_a_name_is_dated() -> None:
 def test_split_chastity_dates_what_we_or_his_files_date(tmp_path, his_files, monkeypatch) -> None:
     """The scan cannot see which question a lane asks. already-his.com is dated by his files
     alone, his www.rolled.com dates no rolled.com, and cand.org, only listed by us, is undated."""
-    path = ROOT / "scripts/sources/blocklists/split_chastity.py"
-    spec = importlib.util.spec_from_file_location("split_chastity", path)
-    spec.loader.exec_module(lane := importlib.util.module_from_spec(spec))
+    lane = script("sources/blocklists/split_chastity.py")
     conn = _store()
     _ours(conn, "ours.com", 2001)
     add_candidate(conn, "cand.org", ensure_source(conn, "links", "candidate_only"))
@@ -367,8 +365,7 @@ def test_split_chastity_dates_what_we_or_his_files_date(tmp_path, his_files, mon
 # **Intake** takes a release in one command; `releases.py` fills its table from disk, keeps every
 # cell and byte-verifies each tree. His calculator is stubbed at two EE per line.
 
-_SPEC = importlib.util.spec_from_file_location("intake", ROOT / "scripts/round/intake.py")
-_SPEC.loader.exec_module(intake := importlib.util.module_from_spec(_SPEC))
+intake = script("round/intake.py")
 releases = intake.releases
 LINES = {1996: 3, 1997: 0, 1998: 5, 1999: 1, 2000: 2, 2001: 1234}
 ZITE = "".join(f"zite{i}.com\n" for i in range(3))  # 1996.txt's length, other bytes

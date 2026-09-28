@@ -2,23 +2,16 @@
 however many copies of it a drain, or a retried drain, holds, and a closed row is keyed on the
 artifact it names."""
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
-_SPEC = importlib.util.spec_from_file_location(
-    "bank_findings", ROOT / "scripts/harness/bank_findings.py"
-)
-scribe = importlib.util.module_from_spec(_SPEC)
-sys.modules["bank_findings"] = scribe
-_SPEC.loader.exec_module(scribe)
-_FF = importlib.util.spec_from_file_location("ff", ROOT / "scripts/harness/fleet_findings.py")
-drainer = importlib.util.module_from_spec(_FF)
-_FF.loader.exec_module(drainer)
+scribe = script("harness/bank_findings.py", "bank_findings")
+drainer = script("harness/fleet_findings.py")
 
 PROSE = "# a-lead\nverdict: FIND\nee: 9,999\nartifact: https://example.invalid/list\n"
 SIDECAR = {

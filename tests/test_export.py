@@ -4,7 +4,6 @@ again with its rows laid down in reverse; each test reads those files."""
 
 import csv
 import hashlib
-import importlib.util
 import json
 import re
 import shutil
@@ -18,6 +17,7 @@ from types import SimpleNamespace
 
 import duckdb
 import pytest
+from conftest import script
 from his_release import WEB_METHOD, capture
 
 from ark import db, export, held
@@ -320,8 +320,7 @@ def test_an_export_without_his_held_sets_writes_nothing(tmp_path: Path) -> None:
 
 # The ISC survey collection, written once over its own release and store
 AUDIT = ROOT / "scripts/round/verify_isc_candidates.py"
-SPEC = importlib.util.spec_from_file_location("verify_isc_candidates", AUDIT)
-SPEC.loader.exec_module(audit := importlib.util.module_from_spec(SPEC))
+audit = script("round/verify_isc_candidates.py")
 PROV, SUMMARY = "isc_survey_provenance.csv", "isc_candidates_summary.json"
 SHARE, WEIGHTS = ROOT / "src/ark/english_share.py", ROOT / "src/ark/data/tld_english_share.json"
 NAMES = ["alias.example.com", "keep.example.com", "keep.example.uk", "www.example.com"]
@@ -455,7 +454,7 @@ def test_independent_file_audit_reproduces_the_candidate_score(delivery, monkeyp
         monkeypatch.syspath_prepend(str(delivery[0].parent))
         for name in ("ark", "ark.english_share"):
             monkeypatch.setitem(sys.modules, name, None)
-        SPEC.loader.exec_module(module := importlib.util.module_from_spec(SPEC))
+        module = script("round/verify_isc_candidates.py")
     got = module.verify(*delivery)
     assert [got[k] for k in ("candidates", "hostname_years", "provenance_rows")] == [4, 5, 6]
     assert Decimal(got["equivalent_english"]) == sum(weight_of(h) for h in NAMES)

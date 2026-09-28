@@ -2,26 +2,18 @@
 cites is the one that decided, and `approvals.check`, which conftest stubs everywhere else,
 refuses a master class nobody decided master."""
 
-import importlib.util
 import json
-import sys
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 from ark.approvals import NotApproved, check, load, pending
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _load(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = sys.modules[name] = importlib.util.module_from_spec(spec)  # a dataclass looks here
-    spec.loader.exec_module(module)
-    return module
-
-
-rule = _load("standing_rule", ROOT / "scripts/harness/standing_rule.py")
+rule = script("harness/standing_rule.py", "standing_rule")
 
 
 def _entry(source: str, kind: str, decision: str) -> str:
@@ -269,16 +261,16 @@ def test_ten_agreeing_finds_hand_the_decision_to_the_program_figure(
 def test_a_request_and_its_decision_leave_the_pages_the_compactors_fixed_point(tmp_path, capsys):
     """A citation the compactor would rewrite or drop is lost on its next run, and with it the
     record of what decided."""
-    request = _load("fleet_request_on_the_pages", ROOT / "scripts/harness/fleet_request.py")
-    compactor = _load("compact_registers", ROOT / "scripts/round/compact_registers.py")
+    request = script("harness/fleet_request.py", "fleet_request_on_the_pages")
+    compactor = script("round/compact_registers.py", "compact_registers")
     approved = "## Approved\n\n### old_source / cdx_timestamp\n- ingest specs: `old_spec`\n"
     approved += "Decision: master\n\n## Pending requests\n\nNone.\n"
     pages = compactor.compact(
         dict.fromkeys(compactor.PAGES, "") | {compactor.APPROVED_PAGE: approved}
     )
     incoming, register = setup(tmp_path, lead=LEAD, register=pages[compactor.APPROVED_PAGE])
-    for script in (request, rule):
-        script.main([str(incoming), "--register", str(register), "--write"])
+    for writer in (request, rule):
+        writer.main([str(incoming), "--register", str(register), "--write"])
     assert "decided: new_source / cdx_timestamp is master" in capsys.readouterr().out
     now = pages | {compactor.APPROVED_PAGE: register.read_text(encoding="utf-8")}
     assert "- standing rule: the loop wrote" in now[compactor.APPROVED_PAGE]
