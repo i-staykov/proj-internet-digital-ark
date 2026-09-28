@@ -2,6 +2,7 @@
 
 import duckdb
 import pytest
+from conftest import ROOT, script
 
 from ark.db import (
     add_candidate,
@@ -258,11 +259,9 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     so every opener goes through `ark.db` for the cap. `ark check` is a reader: it moves
     neither the store file nor its metrics rows.
     """
-    import importlib.util
     import os
     import subprocess
     import sys
-    from pathlib import Path
 
     from typer.testing import CliRunner
 
@@ -300,19 +299,11 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     record_metrics(conn, "seed", "fixture", {})
     conn.close()
 
+    audit_residual = script("harness/audit_residual.py")
+    price_items = script("pricing/price_items.py")
+    ack_journals = script("harness/ack_journals.py")
+    fleet_findings = script("harness/fleet_findings.py")
     # Each script gets the tmp store: its own STORE sits under the live data/.
-    scripts = Path(__file__).resolve().parents[1] / "scripts"
-
-    def load(rel: str):
-        spec = importlib.util.spec_from_file_location(Path(rel).stem, scripts / rel)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-
-    audit_residual = load("harness/audit_residual.py")
-    price_items = load("pricing/price_items.py")
-    ack_journals = load("harness/ack_journals.py")
-    fleet_findings = load("harness/fleet_findings.py")
     monkeypatch.setattr(price_items, "STORE", store)
 
     # one at a time: a read-write open fails while a read-only one lives in this process
@@ -342,4 +333,4 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
         "harness/fleet_findings.py",
         "round/package_delivery.sh",
     ):
-        assert "duckdb.connect(" not in (scripts / rel).read_text(encoding="utf-8"), rel
+        assert "duckdb.connect(" not in (ROOT / "scripts" / rel).read_text(encoding="utf-8"), rel

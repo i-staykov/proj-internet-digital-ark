@@ -2,7 +2,6 @@
 blocks every reason until cleared, and the preflight refuses a clone it must not write in."""
 
 import hashlib
-import importlib.util
 import io
 import json
 import os
@@ -20,6 +19,7 @@ from unittest.mock import ANY, Mock
 
 import duckdb
 import pytest
+from conftest import script
 
 from ark.approvals import load
 from ark.baseline import CURRENT_BASELINE_MARKER
@@ -29,16 +29,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RECIPE = (ROOT / "justfile").read_text(encoding="utf-8")
 
 
-def _module(name: str):
-    spec = importlib.util.spec_from_file_location(name, ROOT / f"scripts/harness/{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module  # its dataclasses resolve their annotations through sys.modules
-    spec.loader.exec_module(module)
-    return module
-
-
 NAMES = ("bank_approved", "unbank_source", "bank_hygiene", "bank_trigger")
-bank, unbank, hyg, bt = map(_module, NAMES)
+bank, unbank, hyg, bt = (script(f"harness/{name}.py", name) for name in NAMES)
 
 # --- bank_approved: what an approval banks ----------------------------------------------
 

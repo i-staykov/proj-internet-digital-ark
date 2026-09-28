@@ -4,7 +4,6 @@ funnel from an archived item to one `(host, year)` row. Every case id names its 
 import functools
 import gzip
 import hashlib
-import importlib.util
 import io
 import json
 import tarfile
@@ -13,12 +12,12 @@ from pathlib import Path
 
 import duckdb
 import pytest
+from conftest import script
 
 from ark import hostnames as hn
 from ark.checks import CHECKS
 from ark.db import add_candidate, assign_year, ensure_source, init_db, record_evidence
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 M = "sources/mail_corpora/"
 APACHE, LISTS = f"{M}build_apache_header_pool.py", f"{M}collect_apache_lists.py"
 IETF, MAILLISTS = f"{M}collect_ietf_mail_archive.py", f"{M}collect_mailing_lists.py"
@@ -27,13 +26,7 @@ POLAND, CONVERT = "sources/poland/poland_pl_hostgrain.py", "engines/cdx_suffix_c
 USENET_HEADER = "sources/usenet/build_usenet_header_pool.py"
 
 
-@functools.cache
-def script(rel: str):
-    spec = importlib.util.spec_from_file_location(Path(rel).stem, SCRIPTS / rel)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
+script = functools.cache(script)
 
 # `ark check` fails on a host record from a lane whose observation shows no host in use
 SERVED = next(sql for name, _, sql in CHECKS if name == "hostname_observed_serving_web")

@@ -2,7 +2,6 @@
 approvals it files and the queue page it writes. A staleness parse error crashes the cycle, two
 rebuilds of one path truncate a list, and an ask filed twice or not at all is a decision lost."""
 
-import importlib.util
 import json
 import os
 import sys
@@ -11,6 +10,7 @@ from unittest.mock import MagicMock
 
 import duckdb
 import pytest
+from conftest import script
 
 from ark.db import add_candidate, connect, ensure_source, init_db
 
@@ -18,17 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/round"))
 import lead_queue  # noqa: E402
 
-
-def _load(name: str, rel: str):
-    spec = importlib.util.spec_from_file_location(name, ROOT / rel)
-    module = sys.modules[name] = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-cycle = _load("discover_cycle", "scripts/harness/discover_cycle.py")
-audit = _load("audit_residual", "scripts/harness/audit_residual.py")
-sa = _load("sync_approvals", "scripts/harness/sync_approvals.py")
+NAMES = ("discover_cycle", "audit_residual", "sync_approvals")
+cycle, audit, sa = (script(f"harness/{name}.py", name) for name in NAMES)
 
 
 def test_a_rebuild_reads_hours_and_only_a_live_holder_blocks_it(tmp_path, monkeypatch):

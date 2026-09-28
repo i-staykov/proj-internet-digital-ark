@@ -4,7 +4,6 @@ justfile runs them."""
 
 import gzip
 import hashlib
-import importlib.util
 import json
 import os
 import shutil
@@ -16,6 +15,7 @@ from unittest.mock import Mock
 
 import duckdb
 import pytest
+from conftest import script
 
 from ark import approvals
 from ark.db import init_db
@@ -36,16 +36,8 @@ BANK = BANK[: BANK.index("\n\n")]
 ENV = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
 
 
-def _load(name: str):
-    spec = importlib.util.spec_from_file_location(name, HARNESS / f"{name}.py")
-    module = sys.modules[name] = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-fleet_ledger, findings, request, ack = map(
-    _load, ("fleet_ledger", "fleet_findings", "fleet_request", "ack_journals")
-)
+NAMES = ("fleet_ledger", "fleet_findings", "fleet_request", "ack_journals")
+fleet_ledger, findings, request, ack = (script(f"harness/{name}.py", name) for name in NAMES)
 import sync_approvals  # noqa: E402  fleet_request put scripts/harness on the path
 
 # A stand-in for the fleet's `scripts/ledger.py append`: it keys a line on the fields the real

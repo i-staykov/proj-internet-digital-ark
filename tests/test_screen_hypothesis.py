@@ -2,18 +2,14 @@
 page, so a parser that silently stopped matching would report no collision, which reads as
 permission; `closed-screen.md` is a closed page in the register's own shape."""
 
-import importlib.util
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
 CLOSED = ROOT / "tests/fixtures/register/closed-screen.md"
-_SPEC = importlib.util.spec_from_file_location(
-    "screen", ROOT / "scripts/harness/screen_hypothesis.py"
-)
-screen = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(screen)
+screen = script("harness/screen_hypothesis.py")
 
 
 def test_the_register_parses_to_one_lead_per_row_and_one_entry_per_lead(tmp_path) -> None:

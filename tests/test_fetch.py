@@ -3,7 +3,6 @@ requests, the cap holds when `Content-Length` lies, and no Wayback CDX url is ev
 The subprocess runs are the exit-code guards; the rest call `fetch.fetch` in process."""
 
 import hashlib
-import importlib.util
 import io
 import json
 import os
@@ -18,12 +17,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
 FETCH = ROOT / "scripts" / "harness" / "fetch.py"
-_SPEC = importlib.util.spec_from_file_location("ark_fetch", FETCH)
-fetch = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(fetch)
+fetch = script("harness/fetch.py")
 
 PERMISSIVE = "User-agent: *\nDisallow:\n"
 # A permissive group first and the refusal by name far below it.

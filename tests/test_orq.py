@@ -3,7 +3,6 @@ reads neither the store nor private/, and the stage's checks in verify.sh and pa
 
 import csv
 import gzip
-import importlib.util
 import json
 import os
 import re
@@ -16,13 +15,12 @@ from pathlib import Path
 
 import duckdb
 import pytest
+from conftest import script
 
 from ark.english_share import weight_of
 
 REPO = Path(__file__).resolve().parents[1]
-_SPEC = importlib.util.spec_from_file_location("orq", REPO / "scripts/round/orq.py")
-orq = sys.modules["orq"] = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(orq)
+orq = script("round/orq.py", "orq")
 
 SHA = "a" * 64
 NO_GIT_ENV = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}

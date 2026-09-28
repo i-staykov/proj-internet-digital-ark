@@ -2,7 +2,6 @@
 error capture, refuse a snapshot off its manifest, and quote his calculator's EE."""
 
 import gzip
-import importlib.util
 import json
 import shutil
 import subprocess
@@ -13,6 +12,7 @@ from functools import partial
 from pathlib import Path
 
 import pytest
+from conftest import script
 from his_release import WEB_METHOD, capture
 
 from ark import english_share, held
@@ -24,16 +24,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts/harness"))
 import snapshot_manifest as sm  # noqa: E402
 
-
-def _load(rel: str):
-    spec = importlib.util.spec_from_file_location(Path(rel).stem, ROOT / "scripts" / rel)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-ph, probe = _load("pricing/price_hostnames.py"), _load("pricing/probe_source.py")
-texts, price_items = _load("pricing/probe_texts_corpus.py"), _load("pricing/price_items.py")
+ph, probe = script("pricing/price_hostnames.py"), script("pricing/probe_source.py")
+texts, price_items = script("pricing/probe_texts_corpus.py"), script("pricing/price_items.py")
 
 # In 1998: ours.com is ours and already-his.com is his; fresh.com is ours in another year;
 # seeded.com is a candidate of ours with no row; no file of his holds his-filed.com or rolled.com;
@@ -82,7 +74,7 @@ def test_the_pricers_hold_by_exact_name(tmp_path: Path, his_files: Path, monkeyp
     assert "corroborated (domain already in an annual file): 1\n" in out
     assert "never seen at all (not even a candidate): 5\n" in out
 
-    approval = _load("harness/request_approval.py")
+    approval = script("harness/request_approval.py")
     register = tmp_path / "approvals.md"
     register.write_text("## Pending requests\n\nNone.\n", encoding="utf-8")
     monkeypatch.setattr(approval, "ROOT", tmp_path)

@@ -1,14 +1,29 @@
-"""Shared fixtures.
+"""Shared fixtures, and `script`, which loads a script under `scripts/` as a module.
 
 The approvals gate is relaxed here because unit tests build specs with invented source
 names. `tests/test_standing_rule.py` is where the gate itself is exercised.
 """
 
+import importlib.util
 import shutil
+import sys
+from pathlib import Path
 
 import pytest
 
 from ark import approvals, db, held
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def script(rel: str, name: str = ""):
+    """`scripts/<rel>` loaded afresh, in `sys.modules` as `name` if given: a dataclass reads it."""
+    spec = importlib.util.spec_from_file_location(name or Path(rel).stem, ROOT / "scripts" / rel)
+    module = importlib.util.module_from_spec(spec)
+    if name:
+        sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 @pytest.fixture(autouse=True)
