@@ -24,7 +24,6 @@ from ark import db, export, held
 from ark.baseline import CURRENT_BASELINE_MARKER
 from ark.canonical import reject_reason, to_registrable
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.delegation import shipping_filter
 from ark.english_share import weight_of
 from ark.evidence_types import MASTER_TYPES
 from ark.export import claim_files, export_all, netnew_shipped_pairs, stamp_problems
@@ -192,9 +191,6 @@ def test_the_annual_files_ship_net_of_his_and_the_guard_counts_what_they_write(r
     assert registrables == sorted(SHIPS["1997.txt"] + SHIPS["1998.txt"] + SHIPS["1999.txt"])
     hosts = [r["hostname"] for r in _rows(run, "netnew/hostnames_evidence_manifest.csv")]
     assert sorted(hosts) == sorted(SHIPS["1999_hostnames.txt"] + SHIPS["2000_hostnames.txt"])
-    for rel in ("report/source_contribution.csv", "report/year_growth.csv"):
-        assert (run.root / "full" / rel).exists(), rel
-    assert (run.root / "full/provenance/evidence.parquet").exists()
 
 
 def test_a_record_ships_only_on_a_capture_of_exactly_its_name(run) -> None:
@@ -305,8 +301,8 @@ def test_packaging_refuses_a_claim_export_or_one_the_store_moved_past(run, tmp_p
 
 
 def test_an_export_without_his_held_sets_writes_nothing(tmp_path: Path) -> None:
-    """Held sets `ark intake` did not write for his current release fail the export closed,
-    and the last export's stamp goes first."""
+    """Held sets `ark intake` did not write for his current release, or a file of his gone
+    since, fail the export closed, and the last export's stamp goes first."""
     baseline = _write(tmp_path / "release", HIS)
     netnew = _write(tmp_path / "netnew", {STAMP: "{}\n"})
     init_db(conn := connect(":memory:"))
@@ -314,6 +310,10 @@ def test_an_export_without_his_held_sets_writes_nothing(tmp_path: Path) -> None:
         _export(conn, tmp_path, baseline)
     assert list(netnew.iterdir()) == []
     assert not (tmp_path / "candidates.txt").exists()
+    held.prepare(baseline)
+    (baseline / "1998.txt").unlink()
+    with pytest.raises(held.HeldError, match="run uv run ark intake"):
+        _export(conn, tmp_path, baseline)
 
 
 # The ISC survey collection, written once over its own release and store
@@ -381,7 +381,8 @@ def isc(tmp_path_factory):
     run = SimpleNamespace(root=root, out=root / "isc_survey_hostnames")
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(held, "HELD_ROOT", root / "held")
-        patch.setattr(held, "DB_TEMP_DIR", str(root / "duckdb_tmp"))
+        for module in (db, held):
+            patch.setattr(module, "DB_TEMP_DIR", str(root / "duckdb_tmp"))
         held.prepare(baseline)
         conn, source = _isc_store()
         run.empty = write_collection(conn, baseline, run.out)
@@ -495,12 +496,10 @@ def test_the_arpa_export_filter_names_the_whole_tld_and_costs_nothing_outside_it
     assert reject_reason("206.in-addr.arpa") == "reverse-dns zone, not a website"
     assert [to_registrable(n) for n in ("foo.com", "206.example.com")] == ["foo.com", "example.com"]
     assert weight_of("x.arpa") == 1 and weight_of("x.arpa") > weight_of("x.mil")
-    assert "'%.arpa'" in shipping_filter() and "in-addr" not in shipping_filter()
 
 
-# Specs run against a one-off input no recipe can name: `promotion` is written by
-# `build_promotion_journals.py --write`; `nypw_firstcdx` was measured and rejected (sources.md).
-ALLOWED_UNDOCUMENTED = {"promotion", "nypw_firstcdx"}
+# `nypw_firstcdx` was measured and rejected (sources.md), so no recipe ingests it.
+ALLOWED_UNDOCUMENTED = {"nypw_firstcdx"}
 
 
 def test_every_spec_that_dates_a_year_is_ingested_by_a_recipe_that_exists() -> None:

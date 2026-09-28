@@ -23,7 +23,7 @@ from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, 
 from ark.english_share import weight_of
 from ark.export import export_all
 from ark.sources import SOURCES
-from ark.stats import PROVENANCE_LINEAGE, collect_stats
+from ark.stats import PROVENANCE_LINEAGE, collect_stats, format_stats
 
 ROOT = Path(__file__).resolve().parents[1]
 ROWS = {r[0]: r for r in SUBMITTED_ROUNDS}
@@ -123,6 +123,9 @@ def test_the_scoreboard_counts_only_what_the_export_ships(scored) -> None:
     # none of his and no name whose TLD never existed in the window
     assert (s["total_domains"], s["total_pairs"], s["evidence_rows"]) == (22, 18, 29)
     assert (s["baseline_domains"], s["candidate_pool"]) == (7, 3)
+    # every pair the TLD filter ships, his or ours: early.info and x.arpa weigh nothing
+    assert s["ee_assigned"] == 15 * weight_of("x.com") + weight_of("x.fr")
+    assert format_stats(s)  # `ark stats` renders every key it prints
 
 
 def test_corroboration_counts_distinct_master_sources_of_distinct_lineages(scored) -> None:

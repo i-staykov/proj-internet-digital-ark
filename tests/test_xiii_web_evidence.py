@@ -98,7 +98,7 @@ def _failing(conn: duckdb.DuckDBPyConnection, **kw) -> list[str]:
     return [r["name"] for r in collect_checks(conn, Path("no-such-export"), **kw) if not r["ok"]]
 
 
-def test_only_a_bare_link_target_dates_its_name_and_the_rest_are_candidates(tmp_path) -> None:
+def test_only_a_bare_link_target_ships_and_the_rest_are_candidates(tmp_path) -> None:
     """A dated link-graph record dates its target; a `www.` or deeper target dates that host."""
     targets = "1999 bare-ark-test.com,1999 www.www-ark-test.com,2000 deep.sub-ark-test.org"
     targets += ",1997 www.il"
@@ -107,8 +107,7 @@ def test_only_a_bare_link_target_dates_its_name_and_the_rest_are_candidates(tmp_
     init_db(conn := duckdb.connect())
     for key in ("ukwa_link_target", "ukwa_link_target_bare"):
         ingest_files(conn, SOURCES[key], [graph], report_dir=tmp_path / "reports")
-    dated = _q(conn, "SELECT domain, assigned_year FROM domain_year")
-    assert dated == [("bare-ark-test.com", 1999)]
+    assert _shipped(conn, "domain") == [("bare-ark-test.com", 1999)]
     undated = "SELECT domain FROM domain WHERE domain NOT IN (SELECT domain FROM domain_year)"
     assert sorted(_q(conn, undated)) == [("sub-ark-test.org",), ("www-ark-test.com",), ("www.il",)]
 
@@ -138,10 +137,10 @@ def _values(conn: duckdb.DuckDBPyConnection) -> dict[str, str]:
     return dict(_q(conn, f"SELECT hostname, evidence_value FROM {join}"))
 
 
-def _shipped(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
-    join = "hostname_year hy JOIN evidence e USING (evidence_id)"
-    screen = qualifies_sql("e", "hy.hostname")
-    return _q(conn, f"SELECT hostname, assigned_year FROM {join} WHERE {screen} ORDER BY ALL")
+def _shipped(conn: duckdb.DuckDBPyConnection, unit: str = "hostname") -> list[tuple[str, int]]:
+    join = f"{unit}_year y JOIN evidence e USING (evidence_id)"
+    screen = qualifies_sql("e", f"y.{unit}")
+    return _q(conn, f"SELECT y.{unit}, assigned_year FROM {join} WHERE {screen} ORDER BY ALL")
 
 
 @pytest.mark.parametrize("backwards", [False, True], ids=["error-read-first", "ok-read-first"])
@@ -262,8 +261,7 @@ def test_a_record_on_an_error_capture_is_repointed_or_retracted_and_a_rerun_rest
     }
     assert _shipped(conn) == [("a.example.com", 1999), ("c.example.com", 2001)]
     assert _parent_years(conn) == [(1999,), (2001,)]
-    exact = qualifies_sql("e", "dy.domain")
-    assert not _q(conn, f"FROM domain_year dy JOIN evidence e USING (evidence_id) WHERE {exact}")
+    assert not _shipped(conn, "domain")
     assert not _failing(conn, audit=audit)
     (other := tmp_path / "other").mkdir()
     _journal(other, [("http://b.example.com/x", "20000301000000")], "suffix_example_com_t.jsonl.gz")

@@ -1,10 +1,11 @@
-"""CLI wiring: export, stats and rebuild refuse without his held sets, rebuild refuses a store
-ahead of its export, and a fleet read banks as itself."""
+"""CLI wiring: the console script loads, export, stats and rebuild refuse without his held sets,
+seed takes its file, rebuild refuses a store ahead of its export, a fleet read banks as itself."""
 
 import gzip
 import importlib.util
 import json
 from functools import partial
+from importlib.metadata import entry_points
 from pathlib import Path
 
 import duckdb
@@ -35,10 +36,15 @@ def test_without_held_sets_export_and_rebuild_say_to_run_intake(tmp_path, monkey
 def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeypatch, his_files):
     """`ark rebuild` DROPS the store's tables before recreating them from Parquet, so an ingest
     since the last export would be discarded silently; with none since, it rebuilds."""
+    (script,) = entry_points(group="console_scripts", name="ark")  # every `uv run ark` loads it
+    assert callable(script.load())
     monkeypatch.chdir(tmp_path)
     cdx = tmp_path / "sample.cdx"
     cdx.write_text("com,example)/ 19970601120000 http://example.com:80/ text/html 200 B - - 9 f\n")
+    (seeds := tmp_path / "seeds.txt").write_text("example.com\n")
     assert runner.invoke(app, ["init"]).exit_code == 0
+    assert runner.invoke(app, ["seed", str(seeds), "--limit", "1"]).exit_code == 0
+    assert runner.invoke(app, ["seed", "no-such-file.txt"]).exit_code == 2  # a usage error
     assert runner.invoke(app, ["ingest", "no_such_source", str(cdx)]).exit_code != 0
     assert runner.invoke(app, ["export", "--provenance"]).exit_code == 0
     result = runner.invoke(app, ["rebuild", "output/provenance"])
