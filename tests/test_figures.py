@@ -70,6 +70,7 @@ def test_fill_report_quotes_his_sum_and_holds_no_day_arithmetic(his_files, tmp_p
     sentence = report.cumulative_sentence({}, D("1.5"))
     assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392" in sentence
     assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
+    assert "Candidate-Pool Score: S = 10 x (" in sentence and "?" not in sentence, sentence
     assert report.pool_restricted() == "3"
     conn = connect(tmp_path / "store.duckdb")
     init_db(conn)
@@ -183,9 +184,11 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     brs.main()
     page, brief = brs.OUT.read_text(), json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
-    assert brief["field5_percent"] == "0.252350"
+    assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", {"approvals": 0})
     assert re.search(r"^5\. .*: (.+)$", page, re.M).group(1) == "0.252350%"
     monkeypatch.setattr(sys, "argv", ["build_round_state.py", "--check"])
+    brs.main()
+    assert "is current" in capsys.readouterr().out
     _write(tmp_path / "output/netnew", {"2001.txt": "e.com\n"})
     with pytest.raises(SystemExit, match="is stale"):
         brs.main()

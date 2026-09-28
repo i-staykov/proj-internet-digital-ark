@@ -408,9 +408,10 @@ def test_each_confirmed_repriced_find_gets_one_pending_block_of_facts_atop_the_q
     new = ["program_only", "fleet_f_read_hostnames", "fleet_e_read_hostnames", "a_lead"]
     assert heads == [f"### {key} / cdx_timestamp" for key in [*new, "old_source"]]
     assert text.endswith("### old_source / cdx_timestamp\nDecision: pending\n")
-    facts = ["- ingest spec: none in this repository", "the lead records no terms page"]
+    facts = ["- ingest spec: none in this repository", "- journal: `", "- potential: 7000"]
+    facts += ["the lead records no terms page", "- what dates one item: 1999-05-04T11:02:13Z"]
     facts += ["7,000.0 EE net-new on the live store", "The fleet said 900,000.0 EE"]
-    assert all(fact in block_of(text) for fact in [*facts, "- potential: 7000"]), text
+    assert all(fact in block_of(text) for fact in facts), text
     program = block_of(text, "program_only")
     assert "potential: 7020" in program and "the program's figure is the one to read" in program
     e_read, f_read = (block_of(text, f"fleet_{s}_read_hostnames") for s in "ef")
