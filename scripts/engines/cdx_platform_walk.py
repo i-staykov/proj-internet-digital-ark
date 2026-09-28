@@ -1,10 +1,9 @@
 """Walk multi-tenant platforms to the end of the CDX index with resumeKey, one lane of N.
 
 A free host (`alice.cjb.net`) or dynamic-DNS name is a distinct site, which spec IV.8 counts
-host by host. A walk by page number skipped a page that failed and still ended in `.done`, so
-five of 31 platforms stopped short (freeservers.com at c, netfirms.com at d, dyndns.org in the
-digits, 50megs.com in www, cjb.net near the end). This asks `matchType=domain` with
-`showResumeKey` until the index says twice that there is no more, and writes `.done` only then.
+host by host. A page-number walk ends `.done` past a failed page (`docs/lore/laws.md`,
+Channel), so this asks `matchType=domain` with `showResumeKey` until the index says twice that
+there is no more, and writes `.done` only then.
 
 **No `collapse`.** The server collapses adjacent index lines, and a domain walk is sorted by
 SURT across every host, so `collapse=timestamp:4` folds a host into its neighbour whenever

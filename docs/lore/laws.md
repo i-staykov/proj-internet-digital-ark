@@ -170,7 +170,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - More CDX workers never raised throughput: 4 lost the archive, a bigger server was no faster, 3 ran slower than 2 (`src/ark/cdx.py`).
 - CDX seconds per query (1,179 journals): by_host 2.78 to 4.93, scan 3.65 to 7.58, by_root 11.84 to 46.00, 32.9% of seconds for 15.3% of years (`src/ark/cdx.py`).
 - A CDX page costs about the same at any size (200 blocks 11 to 42 s, 10,000 blocks 110 s); `just find ia_cdx_hostnames`.
-- `matchType=domain` on a public suffix returns its names in disjoint pages (`co.uk` is 3,387,186 blocks, 339 requests); a bare TLD answers 403, so `.com` cannot be walked; `just find ia_cdx_hostnames`.
+- `matchType=domain` on a public suffix returns its names in disjoint pages (`co.uk` is 3,387,186 blocks, 339 requests); a bare TLD answers 403, so `.com` cannot be walked; `just find "public-suffix sweep"`.
 - Page 0 of a CDX namespace is about twice as dense as the whole, so a page 0 projection is an upper bound; `just find ia_cdx_hostnames`.
 - A page-number walk that skips a failed page still ends `.done`: five of 31 platform walks stopped short, so the walker asks `showResumeKey` until the index twice says no more (`scripts/engines/cdx_platform_walk.py`).
 - `collapse=timestamp:4` on a domain walk folds a host into its SURT neighbour in the same year, at least 56.7% of `cjb.net` host-years, so the walker keeps one row per (host, year) itself (`cdx_platform_walk.py`).

@@ -169,6 +169,13 @@ def test_off_one_job_lifts_only_that_job(box):
     ]
     assert box.hold_names() == [n for n in NAMES if n != "com.ark.sync"]
     assert box.hold("holds", "com.ark.sync").returncode == 1
+    # With no plist, as after `just schedule remove`, the lift only enables it.
+    box.hold("on")
+    (box.agents / "com.ark.sync.plist").unlink()
+    before = len(box.launchd_calls())
+    out = box.hold("off", "com.ark.sync")
+    assert out.returncode == 0 and "com.ark.sync: enabled, no plist to load" in out.stdout
+    assert box.launchd_calls()[before:] == [f"launchctl enable gui/{UID}/com.ark.sync"]
 
 
 @pytest.mark.skipif(JUST is None, reason="just not on PATH")
@@ -241,21 +248,25 @@ def test_an_unreachable_vps_and_gh_leave_the_local_hold_whole(box):
 
 
 def test_a_name_the_hold_does_not_know_is_not_held_and_off_only_drops_its_line(box):
-    box.state.mkdir()
+    box.hold("on")
+    with (box.state / "hold").open("a") as hold:
+        hold.write("com.ark.cycle\npause\n")
     (box.state / "pause").write_text("human\n")
-    (box.state / "hold").write_text("human\n2026-01-01T00:00:00Z\ncom.ark.cycle\npause\n")
     status = box.hold("status")
     assert status.returncode == 1
-    assert "NOT HELD  com.ark.cycle: not a hold name; 'just hold off com.ark.cycle' drops it" in (
-        status.stdout.splitlines()
-    )
-    assert box.hold("off", "com.ark.other").returncode == 2
+    assert status.stdout.splitlines() == [f"HELD      {n}" for n in NAMES] + [
+        f"NOT HELD  {n}: not a hold name; 'just hold off {n}' drops it"
+        for n in ("com.ark.cycle", "pause")
+    ]
+    log = box.log.read_text()
+    # The header's `human` is not a name.
+    for name in ("com.ark.other", "human"):
+        assert box.hold("off", name).returncode == 2, name
     assert box.hold("off", "com.ark.cycle").returncode == 0
-    assert box.hold_names() == ["pause"]
+    assert box.hold_names() == [*NAMES, "pause"]
+    assert box.log.read_text() == log
     out = box.hold("off")
     assert out.returncode == 0, out.stdout + out.stderr
-    assert "pause: not a hold name, dropped" in out.stdout
+    assert "pause: not a hold name, dropped" in out.stdout.splitlines()
     assert not (box.state / "hold").exists()
-    assert (box.state / "pause").exists()
-    log = box.log.read_text()
-    assert box.launchd_calls() == [] and "gh workflow" not in log and "rm -f" not in log
+    assert (box.state / "pause").exists() and '/pause"' not in box.log.read_text()

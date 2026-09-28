@@ -38,9 +38,9 @@ REMOTE_DIR='d="${ARK_STATE_DIR:-$HOME/ark/state}"; mkdir -p "$d"'
 
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
-listed() { [ -f "$HOLD" ] && grep -qx -- "$1" "$HOLD"; }
-
 names() { sed -n '3,$p' "$HOLD" 2>/dev/null; }
+
+listed() { names | grep -x -- "$1" > /dev/null; }
 
 drop() { grep -vx -- "$1" "$HOLD" > "$HOLD.tmp"; mv "$HOLD.tmp" "$HOLD"; }
 

@@ -1,8 +1,8 @@
-"""Convert suffix-sweep journals into the `cdx_snapshot` journal format, incrementally.
+"""Convert the `data/raw/cdx_suffix` journals into the `cdx_snapshot` format, incrementally.
 
 **Why convert rather than add a source.** `cdx_snapshot / cdx_timestamp` is
 already approved master and its parser, invariants and provenance lineage are
-tested. The suffix sweep produces the same *evidence*, an Internet Archive capture
+tested. Those journals carry the same *evidence*, an Internet Archive capture
 timestamp for a domain, in a different *shape*: one row per capture rather than
 one row per domain with a year list. So the right move is a converter, not a new
 `SourceSpec`, which would duplicate a reviewed decision for no gain.

@@ -60,10 +60,11 @@ chain: commit alone, and rerun `uv run pytest -q -x` alone before believing a re
 
 ## The loop
 
-**Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop and one on the
-VPS from its clone with `--max-local 1`, whose journals the tick pulls: `python3
-scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts
-a lane: start each detached, again after a reboot or its deadline. It idles while the
+**Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop under
+`caffeinate -s`, since idle sleep stops a lane with no error, and one on the VPS from its clone
+with `--max-local 1`, whose journals the tick pulls: `python3 scripts/engines/cdx_platform_walk.py
+<seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts a lane: start each detached,
+again after a reboot or its deadline. It idles while the
 `pause-platform` flag is up (`just hold off pause-platform`) and refuses to start at its
 `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
 
