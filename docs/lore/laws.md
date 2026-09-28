@@ -93,6 +93,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - A head-of-corpus projection is a lower bound: mailing lists closed at 186 EE on 7.63% of files, then paid 589.0482 EE read whole; `just find maillist_body_url_hostnames`.
 - A 0.58% sample of a self-repeating corpus projected 1.9M EE against a true 62,821: a sample proves the shape, never the total (`scripts/pricing/price_items.py`).
 - A held-set export goes stale at the next ingest: a header projection of 10,889 EE delivered 1,038.4 after another ingest wrote 102,577 overlapping pairs (`scripts/pricing/price_items.py`).
+- RDAP's candidate-pool headroom measured 0.107 percentage points (6,655 EE over 149,816 names in askable TLDs with a sampled rate), not the 1.47 a pool-wide rate projects over 1.54M names; `just find RDAP`.
 - Every six- and seven-figure EE in the registers is a whole-corpus read; per-shape medians run 2.1 to 590.3 EE with 43x to 800,396x spreads, so shape sets no floor (`docs/registers/sources.md`).
 - Guessed potential does not rank: of 50 hypotheses scored 0 to 100 by judgment, 3 measured at or above 5,000 EE, all answered elsewhere; `docs/registers/queue.md` ranks by measured EE.
 - `probes/udrp_selftest.toml` reproduces the 186-line UDRP collector's 8,923 records exactly, so a probe's yield holds before any collector exists (`scripts/pricing/probe_source.py`).
@@ -181,9 +182,9 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - Distinct hosts per capture row, not TLD weight, set a sweep page's worth: `co.uk`, first at weight 0.9813, paid 16.0 EE per 1,000 rows at 61.5 rows a host against 657.2 at 1.5 (42x); one index page measures it, and above about 20 most requests re-read named hosts; `just find ia_cdx_hostnames`.
 - The domain-wide sweep's rate decays: 193,000 EE per client-hour on its dense head, 210 an hour for two clients once walked; `just find ia_cdx_hostnames`.
 - Enumerating subdomains of parents he holds pays 96 EE per client-hour, an expansion the brief calls duplicative (`docs/brief/ding/project-brief.md`, CDX paragraph).
-- Per-parent `matchType=domain` over the 10,029,609 registrables with no hostname pays about 0.55 EE a parent, 642 EE per client-hour (563 when held 5 or 6 years); 74 thin parents gave 0.21 each, 61 an hour.
-- A per-domain gap query pays 255 EE per client-hour: 400 pairs an hour at 0.638 EE over 16.9 hours, one pair per answer.
-- One CDX question per domain paid 1.249 EE a query on bracketed gaps, 0.2645 on edge years and about 0.18 on the candidate pool; the 2.4M undated pool paid 125 EE per client-hour.
+- Per-parent `matchType=domain` over the 10,029,609 registrables with no hostname pays about 0.55 EE a parent, 642 EE per client-hour (563 when held 5 or 6 years); 74 thin parents gave 0.21 each, 61 an hour (`git log --grep=thin-parent`).
+- A per-domain gap query pays 255 EE per client-hour: 400 pairs an hour at 0.638 EE over 16.9 hours, one pair per answer; `just find bracketed`.
+- One CDX question per domain paid 1.249 EE a query on bracketed gaps, 0.2645 on edge years and about 0.18 on the candidate pool; the 2.4M undated pool paid 125 EE per client-hour; `just find bracketed`, `just find 2.4M`.
 - The CDX API takes the regex filter `statuscode:[23][0-9][0-9]`; a multi-clause negated filter returns HTTP 400 (`scripts/engines/cdx_suffix_sweep.py`).
 - `archive.org/wayback/available` can answer 429, `x-rl: 0`, no `Retry-After`, with none of our clients running while CDX answers normally; the block is per service and per IP (8 of 8 answered from the VPS while the laptop sat at 429); `just find availability`.
 - A throttle recorded as "no capture" spends a queue entry and learns nothing: the availability queue build recorded 429s that way; `just find availability`.
@@ -203,7 +204,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 ## Store
 
 - DuckDB admits one process per file: a read-only handle blocks the writer, and the lock error names the holder's PID and suggests read-only mode, the wrong fix (`scripts/harness/sync_lock.sh`).
-- DuckDB plans a correlated `EXISTS` as a hash semi-join: 0.33 s per 3,000 names, against 1.30 s for a hand-written semi-join.
+- DuckDB plans a correlated `EXISTS` as a hash semi-join: 0.33 s per 3,000 names, against 1.30 s for a hand-written semi-join (`src/ark/seed.py` `_ON_FILE_SQL`).
 - A lane counts once the bank reads it, converters too: 67 RDAP journals (~12,000 EE) and 5,793 CDX year-records sat unread (`just bank` step c, `bank_trigger.py` `FOLD`).
 - `just residual` (`scripts/harness/audit_residual.py`) finds unread journals only for families with an ingest glob; a new lane has none and stays invisible to it.
 - An ingest that opens no file prints zeros, `files_seen` 0, and exits 0: a gz-only glob missed every IETF `.jsonl` shard (`src/ark/hostnames.py` `ingest_usenet_item_dir`).
