@@ -151,6 +151,7 @@ def test_the_hostname_funnel_is_the_ingests_and_holds_by_exact_name(tmp_path, hi
     conn.execute(f"{insert} VALUES ('old.held.com', 'held.com', 1999, ?)", [eid])
     priced = ph.price(conn, rows, pairs, held.load())
     assert (priced["candidates"], priced["in_store"], priced["in_baseline_only"]) == (8, 1, 1)
+    assert priced["registrable_candidates"] == 5, "the pairs the same rows assert"
     assert sorted(priced["netnew_rows"]) == [
         ("a.fresh.org", 2001, False),
         ("early.his.org", 1999, False),

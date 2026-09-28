@@ -74,9 +74,16 @@ def test_prepare_holds_a_clean_file_in_place_and_a_sorted_copy_of_any_other(tmp_
     assert [str(p.relative_to(folder)) for p in his.candidate_files] == list(HIS_CANDIDATES)
 
 
-def test_minus_and_intersect_are_set_arithmetic(tmp_path: Path, his_files: Path) -> None:
-    """By exact name: his www.rolled.com does not hold rolled.com."""
-    his = held.load(his_files)
+def test_minus_and_intersect_are_set_arithmetic(tmp_path, his_files, monkeypatch) -> None:
+    """By exact name: his www.rolled.com does not hold rolled.com. `sort` and `comm` run under
+    LC_ALL=C whatever the caller's locale, so they compare bytes."""
+    his, real = held.load(his_files), subprocess.run
+
+    def run(cmd, env, **kw):
+        assert env["LC_ALL"] == "C", cmd
+        return real(cmd, env=env, **kw)
+
+    monkeypatch.setattr(subprocess, "run", run)
     ours = tmp_path / "ours.txt"
     ours.write_bytes(text(["already-his.com", "early.his.org", "new.com", "rolled.com", "zz.net"]))
     assert held.minus(ours, his.year(1996), tmp_path / "net.txt") == 3
@@ -498,7 +505,9 @@ def test_verify_trees_claims_each_copy_that_matches_its_zip_and_writes_nothing(r
     assert releases.find_trees(feedback, {})[shallow.name] == [shallow, deep]
     last = run(releases, "--verify-trees").splitlines()[-1]
     assert all(str(tree) in last for tree in (future, shallow, deep))
-    (deep / "1996.txt").write_text(ZITE)
+    (deep / "1996.txt").write_text(ZITE)  # one failing copy leaves the others claimed
+    last = run(releases, "--verify-trees", stops="^1$").splitlines()[-1]
+    assert last == VERIFIED + f"{shallow}, {future}"
     (future / "1998.txt").unlink()
     (shallow / "stray.txt").write_text("extra\n")
     assert run(releases, "--verify-trees", stops="^1$").splitlines()[-1] == VERIFIED + "none"
@@ -559,7 +568,9 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert rows["merged260830"]["sha256"] == digests(tmp_path / "feedback")[ZIP7]
     assert rows["merged260810"]["sha256"] == "pending", "a zip-less tree has no artifact yet"
     assert rows["merged260902-3"]["released"] == "2026-09-02"
-    assert all(rows[m]["sha256"] == "none" for m in releases.NOT_RECEIVED)
+    for m, (_, successor) in releases.NOT_RECEIVED.items():
+        assert rows[m]["sha256"] == "none" and rows[m]["received"].startswith("not received")
+        assert f"`{successor}`" in rows[m]["received"] and successor in rows
     round7 = [x for x in (tmp_path / "rounds.md").read_text().splitlines() if x.startswith("| 7 |")]
     assert any("1,456,458.1029" in map(str.strip, line.split("|")) for line in round7)
 
@@ -567,6 +578,7 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     run(intake, str(his))
     run(intake, str(_his_zip(tmp_path, "Task_0903_v2.zip", "repacked\n")), stops="already recorded")
     (tmp_path / "feedback" / ZIP7).unlink()
+    _tree_on_disk(tmp_path / "feedback/feedback-phase-9/merged270101")  # not in RELEASES: no row
     run(releases)
     assert _snapshot(tmp_path) == before
 
