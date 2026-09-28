@@ -240,7 +240,7 @@ def test_a_build_refuses_what_would_ship_unchecked(refused):
     """build() runs both on every build; the shipped template passes, and a value is never
     read as a token."""
     orq.check_template(TEMPLATE, BRIEF)
-    assert orq.fill("[FIRST]", {"FIRST": "a [SECOND]"}) == "a [SECOND]"
+    assert orq.fill("[FIRST]", {"FIRST": "a [SECOND]", "SECOND": "b"}) == "a [SECOND]"
     with pytest.raises(orq.Refusal):
         refused()
 
@@ -480,7 +480,8 @@ def test_a_stale_or_dirty_fleet_is_refused(tmp_path):
     shutil.rmtree(repo / "data")  # no banked drain at all: nothing to be older than
     assert bash(guard, repo, ARK_FLEET=str(fleet)).returncode == 0
     # orq builds from the commit, so changes under what it reads are refused too.
-    assert re.fullmatch(r"[0-9a-f]{40}", orq.fleet_head(fleet)) and not orq.fleet_head(plain)
+    assert re.fullmatch(r"[0-9a-f]{40}", orq.fleet_head(fleet))
+    assert orq.fleet_head(plain) == orq.fleet_head(fleet / "leads") == "", "not a checkout's top"
     (fleet / "leads/a.json").write_text("[]")
     with pytest.raises(orq.Refusal, match="uncommitted"):
         orq.fleet_head(fleet)

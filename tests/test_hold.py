@@ -259,6 +259,8 @@ def test_a_live_lock_names_its_holder_and_a_dead_runs_lock_is_taken_over(box):
     assert "Nothing was changed" in second.stdout
     assert lock("drop").returncode == 0 and not box.lock.exists()
     assert lock("holder").returncode == 1
+    # drop runs in EXIT traps under `set -e`, where a failing drop fails the recipe.
+    assert (lock("drop").returncode, lock("unlock").returncode) == (0, 2), "free drop, bad word"
     # A killed sync leaves the directory behind; holding the lane shut is worse.
     box.take("999999")
     taken = lock("take", ME)

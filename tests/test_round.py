@@ -172,7 +172,7 @@ def test_a_rehearsal_writes_nothing_and_write_saves_one_draft(tmp_path, capsys) 
     assert ship_mail.main(["--write", *argv]) == 0
     [draft] = drafts.glob("*.md")
     text = draft.read_text()
-    assert "The figures." in text and "abc123" in text, "the checksum belongs in the mail"
+    assert all(s in text for s in ("The figures.", "Do both hold?", "abc123")), "body, due, sha"
 
 
 REGISTER = FIXTURES / "register"

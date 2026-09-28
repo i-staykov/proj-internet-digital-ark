@@ -208,7 +208,7 @@ def test_an_ask_is_one_needs_owner_issue_and_a_one_line_pr(monkeypatch, tmp_path
         TITLE,
     )
     body = filed[filed.index("--body") + 1]
-    assert "Blocked on: " in body and "Merge 11" in body
+    assert f"Blocked on: {request.failed}\n" in body and "Merge 11" in body
     # Re-priced since its issue was filed, the ask is found by its source and not filed again.
     calls = fake_gh(monkeypatch, issues=[{"number": 5, "title": "Approve hostlist? 38,500 EE"}])
     assert sa.main([]) == 0 and "open already: Approve hostlist? 38,500" in capsys.readouterr().out
@@ -333,4 +333,6 @@ def test_the_page_asks_a_measured_class_and_the_send_never_the_store(tmp_path, m
     outlet, _, foot = page.partition("### Give the XIII-excluded")[2].partition("estimate alone")
     assert "**445 EE**" in outlet and "| 445.1 | [`stranded`](https://e.org/stranded)" in outlet
     assert "guessed" not in outlet and "`guessed`" in foot, "an estimate is not a row"
+    assert lead_queue.main(["--fleet", str(tmp_path / "absent")]) == 0
+    assert "queue is not there" in capsys.readouterr().out, "a missing fleet is no empty queue"
     assert store.mock_calls == [], "the queue opened the store"

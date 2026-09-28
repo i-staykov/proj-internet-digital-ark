@@ -45,17 +45,28 @@ def test_the_baseline_and_the_calculator_are_found_from_an_unpacked_delivery(tmp
     assert baseline.baseline_dir() == baseline.CURRENT_BASELINE_DIR
 
 
-def test_his_figures_load_with_their_digits() -> None:
-    """Every gate percentage divides by these, and a float on the way changes his digits."""
+def test_every_constant_loads_its_own_key_with_his_digits() -> None:
+    """Every gate percentage divides by his EE, and a float on the way changes his digits; the
+    label names the round and its phase directory, and round_since opens the round's window."""
     data = json.loads((ROOT / "data/baseline.json").read_text(encoding="utf-8"))
-    by_year = data["current"]["reviewer_ee_by_year"]
-    assert str(baseline.REVIEWER_BASELINE_EE) == data["current"]["reviewer_ee"]
-    assert {y: str(v) for y, v in baseline.REVIEWER_BASELINE_EE_BY_YEAR.items()} == {
-        int(y): v for y, v in by_year.items()
+    by_year = baseline.REVIEWER_BASELINE_EE_BY_YEAR
+    loaded = {
+        "marker": baseline.CURRENT_BASELINE_MARKER,
+        "directory": baseline.CURRENT_BASELINE_DIR,
+        "released_at": baseline.CURRENT_BASELINE_RELEASED,
+        "round_since": baseline.CURRENT_ROUND_SINCE,
+        "round_label": baseline.CURRENT_ROUND_LABEL,
+        "reviewer_pairs": baseline.REVIEWER_BASELINE_PAIRS,
+        "reviewer_ee": baseline.REVIEWER_BASELINE_EE,
+        "reviewer_ee_by_year": {str(year): ee for year, ee in by_year.items()},
     }
+    # As text, so a Decimal shows the digits he reads and a float shows its own.
+    assert json.loads(json.dumps(loaded, default=str)) == data["current"]
+    keys = ("label", "date", "records", "equivalent_english", "baseline", "awarded_percent")
+    keys += ("benchmark_released", "submission_received")
+    rounds = json.loads(json.dumps(baseline.SUBMITTED_ROUNDS, default=str))
+    assert rounds == [[row[key] for key in keys] for row in data["rounds"]]
     assert str(baseline.ORIGINAL_BASELINE_EE) == data["original"]["ee"]
-    rounds = [(r["equivalent_english"], r["awarded_percent"]) for r in data["rounds"]]
-    assert [(str(r[3]), str(r[5])) for r in baseline.SUBMITTED_ROUNDS] == rounds
 
 
 def test_the_vendored_table_is_pinned_by_content() -> None:
