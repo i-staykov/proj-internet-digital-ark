@@ -182,7 +182,8 @@ def test_an_older_export_rebuilds_an_older_store_in_place(tmp_path) -> None:
     store = connect(":memory:")
     store.execute("CREATE TABLE source (id INT PRIMARY KEY)")
     store.execute("CREATE TABLE domain (domain TEXT PRIMARY KEY, s INT REFERENCES source(id))")
-    store.execute("CREATE TABLE evidence (evidence_id BIGINT, d TEXT REFERENCES domain(domain))")
+    store.execute("CREATE TABLE evidence (id BIGINT PRIMARY KEY, d TEXT REFERENCES domain(domain))")
+    store.execute("CREATE TABLE hostname_year (h TEXT, e BIGINT REFERENCES evidence(id))")
     load_provenance(store, tmp_path)
     fks = "SELECT count(*) FROM duckdb_constraints() WHERE constraint_type = 'FOREIGN KEY'"
     assert store.execute(fks).fetchone() == (0,)
