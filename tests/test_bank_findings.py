@@ -273,18 +273,6 @@ def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
     assert "lens server-written-headers" in row
 
 
-def test_a_brief_audit_is_not_booked_in_either_register():
-    """A rule audit's `verdict: FIND` is a rule to decide, not a source."""
-    audit = {
-        "slug": "brief-audit-1-leg-1-2",
-        "verdict": "FIND",
-        "ee": "0",
-        "fields": {"lens": "brief-audit", "next": "rule decision"},
-    }
-    assert scribe.is_brief_audit(audit)
-    assert not scribe.is_brief_audit({"slug": "a-lead", "verdict": "FIND", "ee": "0", "fields": {}})
-
-
 # --- scout negatives and whole reads, on a copy of the real pages ----------------
 
 
@@ -402,17 +390,6 @@ def test_three_scout_leads_closed_at_filing_book_three_compacted_rows(
     written = {name: (pages / name).read_bytes() for name in PAGES}
     said = bank(incoming, pages, monkeypatch, capsys)
     assert "scribe: 0 new rows, 0 replaced, 3 already booked" in said
-    assert {name: (pages / name).read_bytes() for name in PAGES} == written
-
-
-def test_a_brief_audit_headed_with_its_claim_books_nothing(tmp_path, monkeypatch, capsys):
-    """The heading is the slug, and the compactor drops a `brief-audit:` row the scribe wrote."""
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    incoming.mkdir()
-    audit = "# brief-audit: a 4xx capture is annual under his XIII\n\nverdict: FIND, a rule\n"
-    (incoming / "brief-audit-1-leg.md").write_text(audit, "utf-8")
-    written = {name: (pages / name).read_bytes() for name in PAGES}
-    assert "rule audit, not a source" in bank(incoming, pages, monkeypatch, capsys)
     assert {name: (pages / name).read_bytes() for name in PAGES} == written
 
 

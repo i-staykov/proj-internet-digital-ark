@@ -12,7 +12,6 @@ help:
     echo "Dispatching recipes:"
     echo "  just check <what>       all code data lint fmt test scan"
     echo "  just collect <source>   no source lists them"
-    echo "  just collectors <what>  pause resume status"
     echo "  just expand <what>      round loop"
     echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
@@ -152,7 +151,7 @@ cycle *args:
     uv run python scripts/harness/query_health.py --write --tail 3 || true
 
 # The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
-# suffix sweep's finished journals home, and call `just bank` only when `bank_trigger.py`
+# VPS walker's finished journals home, and call `just bank` only when `bank_trigger.py`
 # names something that arrived. It opens no store itself, so a quiet hour holds no writer.
 # launchd runs it hourly while the laptop is awake, and it is safe to run by hand.
 #
@@ -222,7 +221,7 @@ sync fleet="~/Documents/GitHub/ark-fleet":
     uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
     # 2b. Report each Leg slot policy.json allows that no run holds. `leg.yaml`'s schedule is
     #     the watchdog that starts it, so this dispatches nothing. `discover_cycle.py` holds
-    #     the check and its own caller is six-hourly. Never fatal.
+    #     the check. Never fatal.
     uv run python scripts/harness/discover_cycle.py --slots-only --fleet "$FLEET" || true
     # 3 to 7 need findings. A confirmed FIND needs the live store for its second price, so its
     # whole drain goes to the bank; any other drain is booked here. Each shape, a closed scout
@@ -274,15 +273,10 @@ sync fleet="~/Documents/GitHub/ark-fleet":
             fi
         fi
     fi
-    # 8. The suffix sweep's finished journals, home from the VPS. Skip the journals a sweep
-    #    still holds open: a half-copied one ledgers at a fraction of its rows. Every remote
-    #    call is bounded, so an unreachable VPS costs seconds rather than the hour.
+    # 8. The VPS walker's finished journals, home. One still open is a `.part`, which the glob
+    #    skips. The call is bounded, so an unreachable VPS costs seconds rather than the hour.
     : "${ARK_VPS:?set ARK_VPS}"
-    BUSY=$(ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" \
-        'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' \
-        </dev/null 2>/dev/null | sort -u) || true
     rsync -a --ignore-existing --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
-        $(for b in $BUSY; do echo "--exclude=$b"; done) \
         "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
     # 9. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
     #    runs under this lock; a red bank exits 1 and so does this tick.
@@ -400,7 +394,7 @@ bank *args:
                 if [ -z "$(find "$part" -mmin +90 2>/dev/null)" ]; then continue; fi
                 cp "$part" "$final" && echo "promoted abandoned partial $(basename "$final")"
             done
-            # The suffix sweep's exact-host registrables, as cdx_snapshot journals under
+            # The `cdx_suffix` exact-host registrables, as cdx_snapshot journals under
             # data/raw/cdx, so the one glob below folds both. It reads new or grown journals only.
             uv run python scripts/engines/cdx_suffix_convert.py || C_FAIL="$C_FAIL cdx_suffix_convert"
             if compgen -G "data/raw/cdx/cdx_*.jsonl.gz" >/dev/null; then
@@ -1061,23 +1055,6 @@ rebuild dir="output/provenance":
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
 # never hold the store's write lock and can run concurrently with each other.
 
-# The laptop's launchd-supervised parent sweep, a closed lane: `run` starts nothing. No start
-# or stop, because launchd owns the process, and the pause flag is the only thing these three
-# words touch.
-#
-#   pause    writes the flag a sweep checks between pages. Survives sleep and reboot.
-#   resume   the flag is removed.
-#   status   paused or not, clients on the channel, the last journal and its hit rate.
-#
-# the laptop CDX collectors: pause resume status
-collectors what="status":
-    #!/usr/bin/env bash
-    set -uo pipefail
-    case "{{what}}" in
-    pause|resume|status) bash scripts/harness/collectors.sh {{what}} ;;
-    *) echo "collectors: pause resume status" >&2; exit 2 ;;
-    esac
-
 # Page expansion, the outbound-link route (brief section VII).
 #
 #   round SEEDS N  one round over a seed list, e.g.
@@ -1593,42 +1570,32 @@ ship stage="all" *args:
 
 # Long form: the header of scripts/harness/hold.sh.
 #
-# stop every laptop job, flag and fleet workflow until lifted by hand: on off status
+# stop the hourly job, pause-platform and the fleet workflows until lifted: on off status
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
-# The launchd jobs. com.ark.sync runs `just sync` at five past every hour, which banks what
+# The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
 # arrived without a session open, and reads the `ship-now` label (the header of
-# scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times a day and
-# reports rather than acts; scheduled_cycle.sh says why a restarting watchdog is the wrong
-# shape here. com.ark.collectors is the closed CDX parent sweep lane: it runs once at load
-# and exits.
+# scripts/harness/scheduled_sync.sh).
 #
 # **The checkout lives under ~/GitHub so that none of this needs Full Disk Access.** Under
 # ~/Documents, which macOS TCC protects, a launchd agent inherits no grant from the terminal
-# that installed it and exits 126 with `launchctl list` looking normal, so `install` runs a job
-# once as the probe and reports what it did. launchd also starts with a bare PATH, which is why
-# the templates carry one that finds just, uv, gh and claude; 127 is that failure.
+# that installed it and exits 126 with `launchctl list` looking normal, so `install` runs the
+# job once as the probe and reports what it did. launchd also starts with a bare PATH, which is
+# why the template carries one that finds just, uv, gh and claude; 127 is that failure.
 #
-# A second argument names ONE job, because the three are switched on at different times and
-# loading all three to get one would start banking unattended a round early.
-#
-# the launchd jobs that collect, bank and health-check unattended: install remove status
-schedule what="install" job="":
+# the hourly launchd job that syncs and banks unattended: install remove status
+schedule what="install" job="com.ark.sync":
     #!/usr/bin/env bash
     set -uo pipefail
-    JOBS="com.ark.sync com.ark.cycle com.ark.collectors com.ark.digest"
-    if [ -n "{{job}}" ]; then
-        case " $JOBS " in
-        *" {{job}} "*) JOBS="{{job}}" ;;
-        *) echo "schedule: no such job {{job}}, one of: $JOBS" >&2; exit 2 ;;
-        esac
-    fi
+    JOB=com.ark.sync
+    [ "{{job}}" = "$JOB" ] || { echo "schedule: no such job {{job}}, the one job is $JOB" >&2; exit 2; }
+    PLIST="$HOME/Library/LaunchAgents/$JOB.plist"
     DOMAIN="gui/$(id -u)"
     case "{{what}}" in
     install)
         set -euo pipefail
-        # A hold is lifted only by hand, and an install would lift it one job at a time.
+        # A hold is lifted only by hand, and an install would lift it.
         if bash scripts/harness/hold.sh holds; then
             echo "schedule: the laptop is held; lift it with 'just hold off' first" >&2
             exit 1
@@ -1643,43 +1610,29 @@ schedule what="install" job="":
             rm -f "$stale"
             echo "removed the superseded com.ark.bank job"
         fi
-        for job in $JOBS; do
-            plist="$HOME/Library/LaunchAgents/$job.plist"
-            sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
-                "scripts/harness/$job.plist.template" > "$plist"
-            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
-            launchctl enable "$DOMAIN/$job"
-            # A job still stopping from the bootout refuses the bootstrap once.
-            launchctl bootstrap "$DOMAIN" "$plist" || { sleep 2; launchctl bootstrap "$DOMAIN" "$plist"; }
-            echo "loaded $job"
-        done
-        # The probe is the cycle job when it was loaded, because it exits rather than
-        # running for hours; otherwise the job just loaded answers for itself.
-        probe=com.ark.cycle
-        case " $JOBS " in *" com.ark.cycle "*) ;; *) probe="${JOBS%% *}" ;; esac
-        echo "running $probe once to find out whether launchd can reach this directory"
-        launchctl kickstart -k "$DOMAIN/$probe" 2>/dev/null || true
+        sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
+            "scripts/harness/$JOB.plist.template" > "$PLIST"
+        launchctl bootout "$DOMAIN/$JOB" 2>/dev/null || true
+        launchctl enable "$DOMAIN/$JOB"
+        # A job still stopping from the bootout refuses the bootstrap once.
+        launchctl bootstrap "$DOMAIN" "$PLIST" || { sleep 2; launchctl bootstrap "$DOMAIN" "$PLIST"; }
+        echo "loaded $JOB"
+        echo "running $JOB once to find out whether launchd can reach this directory"
+        launchctl kickstart -k "$DOMAIN/$JOB" 2>/dev/null || true
         sleep 20
-        # A job that RUNS for hours has no exit status yet, so a pid is its pass and an exit
-        # of 0 is the pass for one that finishes. Reading only the status calls a healthy
-        # collector lane a failure.
-        line=$(launchctl list | awk -v p="$probe" '$3 == p { print $1, $2 }')
+        # A sync still running has no exit status yet, so a pid passes, as an exit of 0 does.
+        line=$(launchctl list | awk -v p="$JOB" '$3 == p { print $1, $2 }')
         pid=${line%% *}
         status=${line##* }
         if [ -n "$line" ] && { [ "$pid" != "-" ] || [ "$status" = "0" ]; }; then
             if [ "$pid" != "-" ]; then
-                echo "OK: $probe is running as pid $pid"
+                echo "OK: $JOB is running as pid $pid"
             else
-                echo "OK: $probe exited 0"
+                echo "OK: $JOB exited 0"
             fi
-            case " $JOBS " in
-            *" com.ark.sync "*) echo "com.ark.sync runs at :05 every hour and appends to data/logs/scheduled_sync.log" ;;
-            esac
-            case " $JOBS " in
-            *" com.ark.collectors "*) echo "com.ark.collectors is the closed CDX lane: it runs once and exits" ;;
-            esac
+            echo "$JOB runs at :05 every hour and appends to data/logs/scheduled_sync.log"
         else
-            echo "FAILED: ${line:-$probe is not loaded}"
+            echo "FAILED: ${line:-$JOB is not loaded}"
             echo
             echo "  126 or 1 here means launchd cannot read this checkout. It lives"
             echo "  under ~/GitHub, which macOS does not protect, so the usual cause is"
@@ -1690,24 +1643,21 @@ schedule what="install" job="":
             echo
             echo "  Until then a terminal that runs 'just sync' hourly covers the same"
             echo "  ground, because it inherits the grant of the terminal that started it."
-            tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
+            tail -3 data/logs/scheduled_sync.err 2>/dev/null || true
         fi
         ;;
     status)
-        for job in $JOBS; do
-            line=$(launchctl list | awk -v j="$job" '$3 == j { print "pid " $1 ", last exit " $2 }')
-            echo "$job: ${line:-not loaded}"
-        done
-        for log in scheduled_sync scheduled_cycle; do
-            [ -f "data/logs/$log.log" ] && { echo "--- data/logs/$log.log"; grep '^===== scheduled' "data/logs/$log.log" | tail -2; }
-        done
+        line=$(launchctl list | awk -v j="$JOB" '$3 == j { print "pid " $1 ", last exit " $2 }')
+        echo "$JOB: ${line:-not loaded}"
+        if [ -f data/logs/scheduled_sync.log ]; then
+            echo "--- data/logs/scheduled_sync.log"
+            grep '^===== scheduled' data/logs/scheduled_sync.log | tail -2
+        fi
         ;;
     remove)
-        for job in $JOBS; do
-            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
-            rm -f "$HOME/Library/LaunchAgents/$job.plist"
-            echo "removed $job"
-        done
+        launchctl bootout "$DOMAIN/$JOB" 2>/dev/null || true
+        rm -f "$PLIST"
+        echo "removed $JOB"
         ;;
     *) echo "schedule: install remove status" >&2; exit 2 ;;
     esac

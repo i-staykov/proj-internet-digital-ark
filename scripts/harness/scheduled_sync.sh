@@ -17,7 +17,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-# **Machine-local config, the same file `collectors.sh` and the recipes read.** Without
+# **Machine-local config, the same file the recipes read.** Without
 # it this wrapper runs on the packaged defaults, and `build_round_state.py` dies at the
 # 40% cap with a DuckDB `Out of Memory Error` inside `stats.py::_corroboration`. The
 # laptop sets ARK_DB_MEMORY_LIMIT here rather than raising a default the 7 GB VPS also

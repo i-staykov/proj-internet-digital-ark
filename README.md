@@ -29,11 +29,11 @@ held sets every export refuses and `ark check` fails.
 ## Collect unattended
 
 Validation runs as three walker lanes, one per archive client; the runbook's Validation paragraph
-has the command. The CDX parent sweep, `com.ark.collectors`, stays held.
+has the command.
 
 ```bash
-just hold status   # HELD or NOT HELD, one line per job, pause flag and fleet workflow
-just hold          # every launchd job, both pause flags here and on the VPS, the workflows
+just hold status   # HELD or NOT HELD, one line per name: the job, the flag, each workflow
+just hold          # com.ark.sync, pause-platform here and on the VPS, the fleet workflows
 ```
 
 The hold survives a reboot: only `just hold off [name]` lifts it.
