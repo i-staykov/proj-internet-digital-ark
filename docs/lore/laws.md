@@ -207,7 +207,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - 7,578,321 domain-years rest on CDX evidence with a timestamp and no host, so no host can be named; every CDX query asks `fl=timestamp,original` (`src/ark/cdx.py`).
 - A cleanup downstream of the writer does not hold: bare years inferred from `www.` captures, cleaned to zero, came back as 22,920 from the fold overnight (`src/ark/hostnames.py`).
 - XIII filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).
-- `domain_language` and its migration stay in `src/ark/db.py`: shipped provenance exports hold its rows and `ark rebuild` loads them (`src/ark/provenance.py` `OPTIONAL_TABLES`).
+- `domain_language` stays in `src/ark/db.py`: shipped provenance exports hold its rows and `ark rebuild` loads them (`src/ark/provenance.py` `OPTIONAL_TABLES`).
 - `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it (`scripts/round/offsite.py`, `docs/registers/retention.md`).
 
 ## Harness

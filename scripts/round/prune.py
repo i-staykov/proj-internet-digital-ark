@@ -22,11 +22,11 @@ before it can be copied and verified.
     uv run python scripts/round/prune.py --disk [--private [--owner-go]] [--write]
 
 The retention report grants no deletion permission. Round cleanup is limited to
-superseded store backups and CRC-matched reviewer zips. A backup BACKUP_HOLDS names stays;
-any other is held until `data/baseline.json` lists a credited round dated after it,
-because that round's Parquet and our journals rebuild the store, and it then needs a newer
-quiescent store and a fresh `ark check`. A zip needs an unchanged local verification
-receipt and a current matching remote hash.
+superseded store backups and CRC-matched reviewer zips. A backup is held until
+`data/baseline.json` lists a credited round dated after it, because that round's Parquet
+and our journals rebuild the store, and it then needs a newer quiescent store and a fresh
+`ark check`. A zip needs an unchanged local verification receipt and a current matching
+remote hash.
 
 **`--disk` deletes only what somebody serves again, each file behind its own proof.** It
 lists, and with `--write` deletes:
@@ -49,9 +49,8 @@ lists, and with `--write` deletes:
 It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
 sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
 `keep_until_*`. A write removes each folder it empties, and no other. Store backups are
-listed and never deleted here: their delete is for the agents that own the store, and
-`ark.duckdb.pre-stage-a.bak` is held until #181's rebuild restores the rows only it holds.
-The dry run makes no network call.
+listed and never deleted here: their delete is for the agents that own the store. The dry
+run makes no network call.
 """
 
 from __future__ import annotations
@@ -225,10 +224,6 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
     lines, held = [], False
     store = root / "data/ark.duckdb"
     for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak")):
-        if backup.name in BACKUP_HOLDS:
-            held = True
-            lines.append(f"HELD {backup.relative_to(root)}: {BACKUP_HOLDS[backup.name]}")
-            continue
         try:
             backup_stamp = offsite.signature(root, backup)
             if not credited_after(root, backup_stamp[3]):
@@ -307,9 +302,6 @@ PRIVATE_KEEP = frozenset(
     {"personal-context.md", "mail", "emails", "email-draft.md", "email.template.md", "handoff.md"}
 )
 STAGES = "DomainDataCollectionTask_*_IvayloStaykov"
-BACKUP_HOLDS = {
-    "ark.duckdb.pre-stage-a.bak": "held until #181's rebuild restores the rows only it holds",
-}
 IA = "https://archive.org"
 # The reviewer's own words, kept wherever they sit, even inside a superseded release tree.
 DOCUMENTS = {".md", ".docx", ".doc", ".pdf", ".rtf", ".odt"}
@@ -558,13 +550,11 @@ def private_selected(root: Path) -> list[Candidate]:
 
 
 def backups_listed(root: Path) -> list[Candidate]:
-    out = []
-    for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak")):
-        why = BACKUP_HOLDS.get(
-            backup.name, "a store backup is deleted by the agents that own the store"
-        )
-        out.append(Candidate("store backups", backup, backup.stat().st_size, why))
-    return out
+    why = "a store backup is deleted by the agents that own the store"
+    return [
+        Candidate("store backups", backup, backup.stat().st_size, why)
+        for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak"))
+    ]
 
 
 def ia_file(item: str, name: str, cache: dict) -> dict | None:

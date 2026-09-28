@@ -155,14 +155,13 @@ def test_the_load_keeps_every_key_and_value_and_the_store_takes_new_rows(tmp_pat
         record_evidence(rebuilt, "example.com", cdx, 2005, "cdx_timestamp", "20050101000000")
 
 
-@pytest.mark.parametrize(("asked", "expected"), [(1000, 1000), (1, 2)], ids=["later", "earlier"])
-def test_a_sequence_start_never_reissues_an_id(tmp_path, asked: int, expected: int) -> None:
+def test_a_sequence_start_never_reissues_an_id(tmp_path) -> None:
     write_provenance(_store(), tmp_path)
     rebuilt = connect(":memory:")
-    load_provenance(rebuilt, tmp_path, starts={"evidence_seq": asked})
-    assert rebuilt.execute("SELECT nextval('evidence_seq')").fetchone() == (expected,)
+    load_provenance(rebuilt, tmp_path)
+    assert rebuilt.execute("SELECT nextval('evidence_seq')").fetchone() == (2,)
     start = "SELECT start_value FROM duckdb_sequences() WHERE sequence_name = 'evidence_seq'"
-    assert rebuilt.execute(start).fetchone() == (expected,)
+    assert rebuilt.execute(start).fetchone() == (2,)
 
 
 def test_an_older_export_rebuilds_an_older_store_in_place(tmp_path) -> None:
