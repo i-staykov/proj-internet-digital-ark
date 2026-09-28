@@ -449,6 +449,51 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
     assert (spent.parent / "DELETED.tsv").exists() is wrote
 
 
+def test_usenet_new_goes_where_its_saved_ia_metadata_routes_it(tmp_path, monkeypatch):
+    """A zip goes at its route once our bytes hash to IA's sha1: each item asked once, through
+    fetch.py, and nothing asked after a failed ask."""
+    new = tmp_path / "data/raw/usenet_new"
+    theirs = {"bit": {"bit.c.mbox.zip": b"same", "free.c.mbox.zip": b"off its route"}}
+    theirs["free"] = {"free.a.mbox.zip": b"same", "free.b.mbox.zip": b"IA's", "free.d.txt": b"x"}
+    theirs["free"]["free.e.mbox.zip"] = b"md5!"
+    ours = theirs["bit"] | theirs["free"] | {"free.b.mbox.zip": b"ours"}
+    meta = {}
+    for h, got in theirs.items():
+        files = [{"name": n, "size": str(len(b)), "sha1": sha(b, "sha1")} for n, b in got.items()]
+        meta[f"usenet-{h}"] = {"metadata": {"identifier": f"usenet-{h}"}, "files": files}
+    meta["usenet-free"]["files"][-1] |= {"sha1": "", "md5": sha(b"md5!", "md5")}  # no sha1
+    others = ["usenet_dated_new1.jsonl.gz", ".banked/free.a.mbox.zip.ok"]
+    for name, data in (ours | dict.fromkeys(others, b"x")).items():
+        file(new, name, data)
+    sums(new, [*ours, *others])
+    for item, answer in meta.items():
+        file(new, f".meta-{item[7:]}.json", json.dumps(answer).encode())
+    file(new, ".meta-gov.json", b"<html>500</html>")  # an error page saved as the metadata
+    stale = f"free.a.mbox.zip\t4\tsha1:{'0' * 40}\tx"  # a copy deleted before, other bytes
+    file(new, "DELETED.tsv", f"# rel\tbytes\tdigest\turl\n{stale}\n".encode())
+    file(tmp_path, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
+    asked, exit_code = [], [7]
+
+    def fetch(command, **kwargs):
+        assert command[1] == str(ROOT / "scripts/harness/fetch.py")
+        assert command[3:5] == ["--to", "-"]
+        asked.append(command[2].rsplit("/", 1)[1])
+        answer = json.dumps(meta[asked[-1]]).encode()
+        return subprocess.CompletedProcess(command, exit_code[0], answer)
+
+    monkeypatch.setattr(prune.subprocess, "run", fetch)
+    before, text = files_under(new), cleanup(tmp_path)
+    assert f"free.b.mbox.zip: {prune.IA}/metadata/usenet-bit: fetch.py exit 7" in text
+    assert asked == ["usenet-bit"] and files_under(new) == before
+    asked[:], exit_code[0] = [], 0
+    text = cleanup(tmp_path)
+    assert asked == ["usenet-bit", "usenet-free"]
+    assert "HELD data/raw/usenet_new/free.b.mbox.zip: the sha1 of our bytes differs" in text
+    assert "kept 2 archives of data/raw/usenet_new, 17 B: no catalog lists them" in text
+    assert before - files_under(new) == {new / "bit.c.mbox.zip", new / "free.a.mbox.zip"}
+    assert f"free.a.mbox.zip\t4\tsha1:{sha(b'same', 'sha1')} " in (new / "DELETED.tsv").read_text()
+
+
 def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):
     disk_repo(tmp_path)
     monkeypatch.setattr(prune, "ia_file", lambda *a: None)
