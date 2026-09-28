@@ -9,7 +9,7 @@ everything under its heading.
 
 ## The send
 
-Not known here: `data/brief.json` is missing or carries no field 5 figure.
+Nothing to send: Round 10 stands at 0.2527% against `merged260922`, under the 5% gate, 3,092,702 EE short.
 
 ## New evidence classes, biggest first
 
