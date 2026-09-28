@@ -1,119 +1,64 @@
-"""Nothing addressed to a person, and no unwritten section, may reach the delivery archive.
+"""Nothing private, addressed to a person or unwritten reaches the delivery: it ships the code
+as `git archive`, so every tracked file not marked `export-ignore` goes in front of the
+reviewer. The shape is tested, not filenames: a rule written as a filename leaked three times."""
 
-`package_delivery.sh` ships the code as `git archive HEAD`, so **every tracked file goes in
-front of the reviewer** unless `.gitattributes` marks it `export-ignore`. This tests the
-SHAPE rather than the filenames, because a rule written as a filename has leaked three times,
-and it reads the real archive manifest, which `.gitattributes` cannot be eyeballed for.
-"""
-
+import io
 import shutil
 import subprocess
 import tarfile
+from functools import cache
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-
-# Phrases that mean a document is a letter or a working note to a named person. Content
-# rather than path, because the path is what everyone gets wrong.
-ADDRESSED = (
-    "dear professor",
-    "send to:",
-    "notes for ivo",
-)
-
-
-def _archive_names() -> set[str]:
-    """What the next `git archive HEAD` would contain, honouring export-ignore, with two
-    deliberate departures. `--worktree-attributes` reads the export-ignore rules from the
-    worktree, so a newly written rule does not look broken until it is committed. **And the
-    tree archived is the INDEX, not HEAD**, because otherwise removing a file that ships
-    fails this test in the very commit that removes it; `package_delivery.sh` refuses to
-    build against a modified tracked tree, so at packaging time the two are identical.
-    """
-    tree = subprocess.run(
-        ["git", "write-tree"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.strip()
-    out = subprocess.run(
-        ["git", "archive", "--worktree-attributes", "--format=tar", tree],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    )
-    import io
-
-    with tarfile.open(fileobj=io.BytesIO(out.stdout)) as tf:
-        return {n.lstrip("./") for n in tf.getnames()}
-
-
+# Phrases that mean a document is a letter or a working note to a named person.
+ADDRESSED = ("dear professor", "send to:", "notes for ivo")
 needs_git = pytest.mark.skipif(
     shutil.which("git") is None or not (ROOT / ".git").exists(),
     reason="not a git checkout, which is the normal case inside an unpacked delivery",
 )
 
 
-@needs_git
-def test_no_shipped_file_is_addressed_to_a_person() -> None:
-    """The check that would have caught all three incidents."""
-    offenders = []
-    for name in sorted(_archive_names()):
-        path = ROOT / name
-        if not path.is_file() or path.suffix.lower() not in {".md", ".txt"}:
-            continue
-        try:
-            head = path.read_text(encoding="utf-8", errors="replace")[:4000].lower()
-        except OSError:
-            continue
-        hit = next((p for p in ADDRESSED if p in head), None)
-        if hit:
-            offenders.append(f"{name} (contains {hit!r})")
-    assert not offenders, (
-        "these ship inside source/source.tar.gz and read as addressed to a person; "
-        "mark them export-ignore in .gitattributes: " + "; ".join(offenders)
-    )
+@cache
+def shipped() -> frozenset[str]:
+    """What the next `git archive` would hold. The INDEX is archived, not HEAD, so a commit
+    that removes a shipped file passes; packaging refuses a modified tracked tree, so there
+    the two are the same. `--worktree-attributes` reads a rule not yet committed."""
+    run = {"cwd": ROOT, "check": True, "capture_output": True}
+    tree = subprocess.run(["git", "write-tree"], text=True, **run).stdout.strip()
+    tar = subprocess.run(["git", "archive", "--worktree-attributes", "--format=tar", tree], **run)
+    with tarfile.open(fileobj=io.BytesIO(tar.stdout)) as tf:
+        return frozenset(n.lstrip("./") for n in tf.getnames())
 
 
 @needs_git
-def test_the_known_offenders_stay_withheld() -> None:
-    """Pinned by name as well as by shape, because these are the proof."""
-    names = _archive_names()
+def test_nothing_private_or_addressed_to_a_person_ships() -> None:
+    names = shipped()
+    assert not [n for n in names if n.startswith("private/")]
+    # The known offenders, pinned by name as well as by shape, because they are the proof.
     for path in (
         "docs/report-sendable.md",
-        "docs/phase6-plan.md",
-        # the two pages written about or to the reviewer, added 2026-09-02
         "docs/registers/questions.md",
         "docs/registers/rounds.md",
     ):
         assert path not in names, f"{path} is shipping again"
+    offenders = []
+    for name in sorted(n for n in names if Path(n).suffix.lower() in {".md", ".txt"}):
+        path = ROOT / name
+        head = path.read_text(errors="replace")[:4000].lower() if path.is_file() else ""
+        offenders += [f"{name} ({p!r})" for p in ADDRESSED if p in head]
+    assert not offenders, "mark them export-ignore in .gitattributes: " + "; ".join(offenders)
 
 
 @needs_git
-def test_every_round_plan_is_withheld_by_pattern_not_by_filename() -> None:
+def test_every_round_plan_is_withheld_by_pattern() -> None:
     """A new round must not have to remember to add a line."""
-    shipped = {n for n in _archive_names() if "-plan.md" in n and n.startswith("docs/")}
-    assert not shipped, f"round plans are shipping: {sorted(shipped)}"
-
-
-@needs_git
-def test_the_private_directory_never_ships() -> None:
-    """`private/` is git-ignored, so nothing in it is tracked. Asserted, not assumed:
-    the email template and its filled draft live there precisely because of this."""
-    assert not [n for n in _archive_names() if n.startswith("private/")]
+    assert not sorted(n for n in shipped() if n.startswith("docs/") and "-plan.md" in n)
 
 
 def test_the_shipped_report_carries_no_unwritten_section() -> None:
-    """A section still marked `<!-- ROUND` for a human to write must never reach the reviewer.
-
-    `docs/report.md` is what ships, so it is read rather than the template, which carries
-    the markers between rounds by design.
-    """
-    report = ROOT / "docs" / "report.md"
-    if not report.is_file():
-        return  # nothing generated yet in this checkout
-    stubs = [
-        line.strip()
-        for line in report.read_text(encoding="utf-8").splitlines()
-        if line.lstrip().lower().startswith("<!-- round")
-    ]
-    assert not stubs, f"docs/report.md has {len(stubs)} unwritten section(s): {stubs[:2]}"
+    """A `<!-- ROUND` marker is for a human to write; the template carries them by design."""
+    report = ROOT / "docs/report.md"
+    lines = report.read_text().splitlines() if report.is_file() else []
+    assert not [ln for ln in lines if ln.lstrip().lower().startswith("<!-- round")]

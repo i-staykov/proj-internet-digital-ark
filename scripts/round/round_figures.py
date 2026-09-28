@@ -60,7 +60,7 @@ ATTESTED = NETNEW / "attested_registrables.txt"
 
 
 # From `ark.baseline`, which owns the fact of which release is current and therefore owns
-# finding it; `tests/test_baseline_paths.py` pins it.
+# finding it; `tests/test_baseline.py` pins it.
 CALCULATOR = calculator_path()
 
 # The round window opens where the last shipped release closes, so it comes from
