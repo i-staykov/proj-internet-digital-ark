@@ -14,11 +14,6 @@ frozen `submissions/phase-N` gets a row without a file written inside it. The
 manifests stay untracked: 89k lines that move with every collector run do not belong
 in a public repo.
 
-`--catalog` asks `archive.org/metadata` once per `usenet-<hierarchy>` item that the zips of
-`usenet_new` name, never once per file, and writes `data/raw/usenet_new/CATALOG.tsv` beside
-them: item, name, bytes and IA's sha1 (md5 where it gives none) for every zip there, which is
-how `prune.py --disk` knows what archive.org serves again. Their sha256 manifest stays.
-
 `docs/registers/retention.md` is tracked, one row per entry: the children of `data/raw/`,
 `output/` and `feedback/`, every `data/*.bak`, the archived releases under
 `data/archive/` and the frozen `submissions/phase-*`. The class comes from the tables
@@ -28,7 +23,6 @@ no row is not deletable, and `just prune` reads this table before touching anyth
     uv run python scripts/round/verify_raw.py             # everything
     uv run python scripts/round/verify_raw.py --dry-run   # what a run would hash and write
     uv run python scripts/round/verify_raw.py --entry wwwvl
-    uv run python scripts/round/verify_raw.py --catalog [OUT]  # usenet_new's CATALOG.tsv
 
 Reads the data and writes only the manifests and the table, so it is safe to run
 beside a working collector.
@@ -38,21 +32,16 @@ import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 RETENTION = "docs/registers/retention.md"
 CATALOG = "data/raw/usenet_catalog.json"
-IA_CATALOG = "data/raw/usenet_new/CATALOG.tsv"
 SUMS, SHA1S, STAT = "SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat"
-# DELETED.tsv records what `prune.py --disk` gave back to archive.org, CATALOG.tsv what it
-# could: sidecars, not data.
-MANIFESTS = frozenset({SUMS, SHA1S, STAT, "DELETED.tsv", Path(IA_CATALOG).name})
-FETCH = Path(__file__).resolve().parents[1] / "harness/fetch.py"
+# DELETED.tsv records what `prune.py --disk` gave back to archive.org: a sidecar, not data.
+MANIFESTS = frozenset({SUMS, SHA1S, STAT, "DELETED.tsv"})
 
 # Every child of a root is an entry; with a glob, only the matching children are (the
 # store backups, never the store itself), and they share the root's manifest.
@@ -151,8 +140,8 @@ REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
     "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
-    # read and banked; archive.org serves every zip again by name, catalogued in
-    # usenet_catalog.json or, for usenet_new, its CATALOG.tsv
+    # read and banked; archive.org serves every zip again by name, its sha1 listed in
+    # usenet_catalog.json or, for usenet_new, the `.meta-<hierarchy>.json` saved beside them
     "usenet_bulk": "https://archive.org/details/usenet-alt",
     "usenet_new": IA_USENET,
     # read and banked; the UK Web Archive serves its open-data geoindex again
@@ -335,37 +324,6 @@ def load_catalog(root: Path) -> dict[str, tuple[str, int]]:
         for it in items:
             out[it["name"]] = (it["sha1"], int(it["size"]))
     return out
-
-
-def ia_metadata(item: str) -> dict:
-    """archive.org's metadata for one item, asked through the polite client, which reads
-    robots.txt first and waits out a 429, 503 or 504."""
-    url = f"https://archive.org/metadata/{item}"
-    command = [sys.executable, str(FETCH), url, "--to", "-", "--max-bytes", "64M"]
-    done = subprocess.run(command, stdout=subprocess.PIPE, check=False)
-    if done.returncode:
-        raise SystemExit(f"{url}: fetch.py exit {done.returncode}, nothing written")
-    return json.loads(done.stdout)
-
-
-def catalog(root: Path, out: Path) -> str:
-    """Write `out`: every `.mbox.zip` of the items usenet_new's zips name, with IA's bytes
-    and digest, one metadata request per item."""
-    zips = (root / IA_CATALOG).parent.glob("*.mbox.zip")
-    items = sorted({f"usenet-{p.name.split('.', 1)[0]}" for p in zips})
-    if not items:
-        raise SystemExit(f"no zips beside {IA_CATALOG}: nothing asked, nothing written")
-    started, lines = time.monotonic(), []
-    for item in items:
-        for f in ia_metadata(item).get("files") or []:
-            sha1, md5 = f.get("sha1"), f.get("md5")
-            if f.get("name", "").endswith(".mbox.zip") and (sha1 or md5):
-                digest = f"sha1:{sha1}" if sha1 else f"md5:{md5}"
-                lines.append(f"{item}\t{f['name']}\t{f['size']}\t{digest}\n")
-    write_if_changed(out, "# item\tname\tbytes\tdigest\n" + "".join(sorted(lines)), False, Report())
-    took = time.monotonic() - started
-    where = out.relative_to(root) if out.is_relative_to(root) else out
-    return f"asked {len(items)} items once each in {took:.1f} s; {len(lines)} zips in {where}"
 
 
 def list_files(entry: Path, where: Path) -> list[tuple[str, os.stat_result]]:
@@ -627,19 +585,7 @@ def main(argv: list[str] | None = None) -> int:
         "--dry-run", action="store_true", help="hash and write nothing, say what would be"
     )
     ap.add_argument("--entry", help="one entry only: `wwwvl`, `data/raw/wwwvl`, `output/<dir>`")
-    ap.add_argument(
-        "--catalog",
-        nargs="?",
-        const=IA_CATALOG,
-        metavar="OUT",
-        help=f"only ask archive.org for usenet_new's catalog, into OUT (default {IA_CATALOG})",
-    )
     args = ap.parse_args(argv)
-    if args.catalog is not None:
-        if args.dry_run or args.entry:
-            ap.error("--catalog takes neither --dry-run nor --entry")
-        print(catalog(args.root.resolve(), args.root.resolve() / args.catalog))
-        return 0
     report = run(args.root.resolve(), dry_run=args.dry_run, only=args.entry)
     for row in report.rows:
         if row.files is not None:
