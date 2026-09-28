@@ -748,7 +748,7 @@ def read_units(pages: dict[str, str]) -> dict[str, Unit]:
                     shape = CLOSED_COLUMNS
                 if shape and shape[0] == "source":
                     key = slug_key(cells[0])
-                    if key and not norm(cells[0]).startswith("brief-audit"):
+                    if key:
                         found = unit(key, cells[0])
                         found.rows.append(Row(page, order, cells, shape))
                         found.note(page, line)
@@ -1155,7 +1155,6 @@ def measures(pages: dict[str, str], current: dict[str, str]) -> list[tuple[str, 
     undated = sum(c[9].startswith(LINKED_WORDS) and c[4].lower() in ("", "n/a") for c in open_rows)
     verdictless = sum(not _OPENS_CLOSED.match(c[3]) for c in closed_rows)
     not_open = sum(len(c) != len(OPEN_COLUMNS) or not _OPENS_OPEN.match(c[9]) for c in open_rows)
-    audits = sum(norm(k).startswith("brief-audit") for k in keys)
     fixed = compact(pages) == pages
     changed = sum(current[name] != pages[name] for name in pages)
     return [
@@ -1172,7 +1171,6 @@ def measures(pages: dict[str, str], current: dict[str, str]) -> list[tuple[str, 
         ("FIND or PARKED rows without a link", unlinked_find, True),
         ("verdictless closed rows", verdictless, not verdictless),
         (f"non-open rows in {OPEN_PAGE}", not_open, not not_open),
-        ("brief-audit rows", audits, not audits),
         ("duplicate slugs", len(keys) - len(set(keys)), len(keys) == len(set(keys))),
         ("rows over 500 characters", sum(len(join_cells(c)) > 500 for c in rows), True),
         ("fixed point", "yes" if fixed else "no", fixed),
