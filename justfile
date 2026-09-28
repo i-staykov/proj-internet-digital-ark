@@ -1,4 +1,4 @@
-# ark: the command set. `just` alone lists it.
+# ark: the command set. `just` alone lists it, so an existing tool is found before one is written.
 #
 # Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong; the raw
 # commands stay the reproducibility contract. docs/ops/runbook.md has the procedures.

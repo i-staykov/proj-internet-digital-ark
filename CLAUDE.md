@@ -9,30 +9,25 @@ edit that adds a rule deletes the rule it replaces. No restating, no preamble, n
 
 **No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
----
-Rebuild the domains that existed in 1996 to 2001 for Prof. Ding, scored on **equivalent-English (EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable is demonstrated research capability**, and the harness is that research: a measured negative with a reason is a result, and the METHOD outranks the source.
+Rebuild 1996 to 2001's domains for Prof. Ding, scored in **equivalent-English (EE)**. **EE and speed are the PROXY; the deliverable is demonstrated research capability**: the harness is that research, a measured negative with a reason is a result, the METHOD outranks the source.
 
-- **Only 1996 to 2001.** Nothing dated outside it is banked or shipped, not even as a candidate; it may be studied. No `www` or bare variant is generated.
-- **The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate. A candidate needs no approval. Every annual `(name, year)` points at the evidence row that dates it, and nothing is interpolated.
-- **Held by him** is the exact name in his files, tested by LC_ALL=C comm. Both tracks ship net-new against them; overlap corroborates a reading, never justifies one. A name of his short of XIII stays his, not ours to clean: we add valid names, and a flood of those or a large drop in his release is a question for him, not a find.
-- **Nothing ships under the 5% gate.** We may ASK Ding to accept less when the research side carries it; he decides. Where the round stands is in `docs/ROUND.md`.
-- **Autonomy.** A lead inside the standing size, terms, robots and class bounds gets its `Decision:` line from the loop and proceeds without approval; its register row and ledger line document it for review with the submission. Outside any bound it parks `pending`. The owner approves a new evidence class, and packages and sends every round; no agent does either. Its size and terms bounds live once in ark-fleet `policy.json` `standing`; robots and class are fixed clauses. A material change to a class's extraction re-opens its `Decision:` line.
-- **Asks.** An open ask is an issue labelled `needs-owner`.
+- **Nothing dated outside 1996 to 2001** is banked or shipped, only studied; no `www` or bare variant is generated.
+- **The annual masters** (spec XIII), `1996.txt`-`2001.txt`, take only exact-host WEBSITE captures answering 2xx or 3xx (IA CDX, dated snapshots or web link-graph records, custodians' per-host/year web-capture extracts), each `(name, year)` pointing at its dating evidence row, none interpolated. Error captures (4xx, 5xx) and other in-window evidence are CANDIDATES, scored alike, needing no approval.
+- **Held by him** is the exact name in his files (LC_ALL=C comm); both tracks ship net-new against it, overlap corroborating a reading, never justifying one. His names short of XIII are his, not ours to clean: we add valid names; a flood of them or a large drop in his release is his question, not a find.
+- **Nothing ships under the 5% gate** (`docs/ROUND.md`). We may ASK Ding to accept less when the research carries it; he decides.
+- **Autonomy.** A lead inside the standing bounds (size and terms: ark-fleet `policy.json` `standing`; robots and class fixed) gets its `Decision:` line from the loop and proceeds unapproved, reviewed with the submission; otherwise it parks `pending`. A material extraction change re-opens the line. Only the owner approves a new evidence class, packages and sends a round; asks are `needs-owner` issues.
 - **Price** net-new post-split EE, never gross. A lever under 300 EE per client-hour closes.
-- **Registers.** Every source gets one row with a LINK in `docs/registers/sources.md` before ingest, beside the sentence saying what dates one item; a closed row moves to `docs/registers/sources-closed.md`. Every result, hit or miss, replaces its row, so nobody re-tests it.
-- **Channel.** Three archive clients at most, all on `web.archive.org/cdx`, two on the laptop and one on the VPS, and no agent queries it. The rest of archive.org is open to a research lane, and no lane pauses a collector. Before the first request to a host, read its terms and whole robots.txt; send an honest User-Agent, honour `Retry-After` and back off on 429, 503 and 504; on throttling, retire a client, never add one.
-- **Accounts.** Model work runs only in the harness. Legs run on the primary token; only a PR the owner merges flips ark-fleet `policy.json` `token`.
-- **Git.** Any branch but `main` may be pushed; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface; every other PR is merged by the owner or a session the owner names, after review. Treat both repos as PUBLIC: no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, and big data never reaches git.
-- **Worktrees.** Several agents share both clones: branch and edit only in your own `git worktree`, and never switch a shared checkout's branch or leave edits in it.
-- The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
-- **Files.** A rule lives only here, a measured fact only in `docs/lore/laws.md`. His files stay append-only. Generated files are never hand-edited, the brief in `docs/brief/ding/` and every page `docs/index.md` marks generated among them, and frozen `submissions/` are never edited.
-- The provenance Parquet is the evidence authority; DuckDB is an index rebuilt from it.
-- **Hunting.** A bulk dated HOSTNAME corpus that meets the XIII standard comes first. One lens per leg, never the same twice running, even when the last one paid; two empty hunts change the method, not the effort.
+- **Registers.** Before ingest a source gets one `docs/registers/sources.md` row with its LINK and what dates one item, moved to `docs/registers/sources-closed.md` when closed. Each result, hit or miss, replaces its row.
+- **Channel.** At most three archive clients (two laptop, one VPS) query `web.archive.org/cdx`; no agent does. Research lanes may use the rest of archive.org, pausing no collector. Before a host's first request, read its terms and whole robots.txt; send an honest User-Agent, honour `Retry-After`, back off on 429, 503 and 504; on throttling retire a client, never add one. Collectors run detached to an absolute deadline.
+- **Accounts.** Model work runs only in the harness, legs on the primary token; only an owner-merged PR flips ark-fleet `policy.json` `token`.
+- **Git.** Push any branch; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface, the owner or an owner-named session any other, after review. Both repos are PUBLIC: no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, big data never reaches git. Work only in your own worktree, never switching or editing a shared clone.
+- **Files.** A rule lives only here, landing with its code; a measured fact only in `docs/lore/laws.md`; code's rationale in its docstring or comment. His files are append-only, frozen `submissions/` never edited, generated files (`docs/index.md` marks the pages) never hand-edited. The provenance Parquet is the evidence authority, DuckDB its rebuildable index. Every commit passes the hook gate (ruff, format, scan, pytest); ark check follows each ingest, precedes each ship. Only a zero exit marks work done.
+- **Hunting.** A bulk dated HOSTNAME corpus meeting XIII comes first. One lens per leg, never the same twice running; two empty hunts change the method, not the effort.
 - **No em or en dashes.**
 
 | before | read |
 |---|---|
-| pricing, hunting or quoting a figure | [docs/lore/laws.md](docs/lore/laws.md) |
+| pricing, hunting, quoting a figure | [docs/lore/laws.md](docs/lore/laws.md) |
 | running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
-| proposing a source or briefing an agent | `just find <term>` over the registers |
+| proposing a source, briefing an agent | `just find <term>` |
 | arguing what Ding accepts | [the brief](docs/brief/ding/project-brief.md), then `private/personal-context.md` |
