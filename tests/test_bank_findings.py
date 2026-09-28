@@ -16,6 +16,9 @@ _SPEC = importlib.util.spec_from_file_location(
 scribe = importlib.util.module_from_spec(_SPEC)
 sys.modules["bank_findings"] = scribe
 _SPEC.loader.exec_module(scribe)
+_FF = importlib.util.spec_from_file_location("ff", ROOT / "scripts/harness/fleet_findings.py")
+drainer = importlib.util.module_from_spec(_FF)
+_FF.loader.exec_module(drainer)
 
 PROSE = "# a-lead\nverdict: FIND\nee: 9,999\nartifact: https://example.invalid/list\n"
 SIDECAR = {
@@ -40,12 +43,13 @@ def lead(incoming: Path, name="a-lead", store=None, prose=True, **over) -> Path:
     return path
 
 
-def scout(incoming: Path, name: str, prose: str, status: str = "closed") -> None:
-    """A lead the fleet filed with a scout's prose and no finding."""
+def scout(incoming: Path, name: str, prose: str, status="closed", filed=False, **doc) -> None:
+    """A lead the fleet filed with a scout's prose and no finding, drained, or `filed` as a run
+    artifact carries it: `leads/<slug>/scout.md` beside `leads/<slug>.json`."""
     (path := incoming / name).mkdir(parents=True)
     (path / "scout.md").write_text(prose, encoding="utf-8")
-    doc = {"status": status, "artifact": {"url": f"https://{name}.invalid/a"}}
-    (path / "lead.json").write_text(json.dumps(doc), encoding="utf-8")
+    doc = {"status": status, "artifact": {"url": f"https://{name}.invalid/a"}} | doc
+    (incoming / f"{name}.json" if filed else path / "lead.json").write_text(json.dumps(doc))
 
 
 @pytest.mark.parametrize(
@@ -69,10 +73,12 @@ def test_a_fleet_figure_never_reaches_the_register_alone(tmp_path, store, cell):
 def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     tmp_path, monkeypatch, capsys
 ):
-    """A FIND re-measuring its own FIND row replaces it at the top, naming its read; a settled
-    row and a closed slug stay. A leg artifact's `findings` copy of a lead, a negative copy of a
-    FIND and a loose `<slug> / <class>` file are that slug; a negative naming an artifact a
-    closed row names is that row's. A scout is booked closed whatever it says, once closed."""
+    """A FIND re-measuring its own FIND row replaces it at the top, naming its read, its method
+    and never its verdict trimmed to the row limit; a read whose read.json is not here names
+    none. A settled row and a closed slug stay. A leg artifact's `findings` copy of a lead, a
+    negative copy of a FIND and a loose `<slug> / <class>` file are that slug; a negative naming
+    an artifact a closed row names, a pipe in its URL too, is that row's. A scout is booked
+    closed whatever it says, once closed."""
     pages = tmp_path / "registers"
     pages.mkdir()
     old = [
@@ -82,14 +88,16 @@ def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     (pages / "sources.md").write_text(f"{scribe.REGISTER_HEADER}\n|---|\n" + "\n".join(old))
     shut = "| shut / x | d | 0 EE | CLOSED. |  |\n"
     (pages / "sources-closed.md").write_text(f"# Closed\n\n{scribe.CLOSED_HEADING}\n|---|\n{shut}")
-    incoming, named = tmp_path / "incoming", {"artifact": {"url": "https://neg.invalid/x"}}
+    incoming, named = tmp_path / "incoming", {"artifact": {"url": "https://neg.invalid/x?f=a|b"}}
     read = lead(incoming, store=PRICED)
+    (read / "finding.md").write_text(PROSE + "method: " + "a long sentence " * 60)
     clauses = {"size": {"ok": True}, "robots": {"ok": False}}
     standing = {"admitted": False, "policy_version": 3, "clauses": clauses}
-    (read / "lead.json").write_text(json.dumps({"status": "read", "standing": standing}))
+    for path in (read, lead(incoming, "new", prose=False, slug="new")):
+        (path / "lead.json").write_text(json.dumps({"status": "read", "standing": standing}))
     (read / "read.json").write_text(json.dumps({"receipt": {"journal_sha256": JOURNAL}}))
     lead(incoming, "findings", store=PRICED)
-    for slug, verdict in (("kept", "FIND"), ("shut", "FIND"), ("new", "FIND")):
+    for slug, verdict in (("kept", "FIND"), ("shut", "FIND")):
         lead(incoming, slug, prose=False, slug=slug, verdict=verdict)
     lead(incoming, "copy", prose=False, slug="new", verdict="CLOSED")
     for slug in ("neg", "neg-twin"):
@@ -104,15 +112,41 @@ def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     for said in ("3 new rows, 1 replaced, 4 already booked", "0 new rows, 0 replaced, 8 already"):
         assert scribe.main() == 0
         assert f"scribe: {said}" in capsys.readouterr().out
-    table = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1]
-    assert [scribe.first_cell(r) for r in table.splitlines()] == ["a-lead", "new", "kept"]
-    assert table.endswith(old[1]) and scribe._cells(table.splitlines()[0])[9] == (
+    rows = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1].splitlines()
+    assert [scribe.first_cell(r) for r in rows] == ["a-lead", "new", "kept"] and rows[2] == old[1]
+    assert [scribe._cells(r)[9] for r in rows[:2]] == [
         "FIND (confirmed); whole read not admitted under standing policy 3: size held; "
-        f"robots not held; journal sha256 {JOURNAL}"
-    )
+        f"robots not held; journal sha256 {JOURNAL}",
+        "FIND (confirmed)",
+    ]
+    assert len(rows[0]) <= scribe.ROW_LIMIT
     closed = (pages / "sources-closed.md").read_text("utf-8").split("|---|\n")[1].splitlines()
     assert [scribe.closed_key(r) for r in closed] == ["neg", "says-find", "shut"]
     assert not hypotheses.exists(), "the hypothesis ledger is gone, and nothing recreates it"
+
+
+def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reason(tmp_path):
+    """The tick's drain turns `leads/<slug>/scout.md` and `leads/<slug>.json` into `<slug>/`
+    holding both. The row gives the fleet's `closed_reason` over the scout's prose, the lead's
+    URL before the prose's, the host when there is no URL, and the class held to a clause."""
+    leads, incoming = tmp_path / "incoming/run_1/leads", tmp_path / "incoming"
+    why = "XIII: hostname-grain class custodian is not a web method"
+    host = {"artifact": {"host": "ftp.one.invalid"}, "closed_reason": why}
+    scout(leads, "scout-a", "verdict: FIND, 12,000 EE projected\n", filed=True, **host)
+    prose = "verdict: CLOSED\nartifact: <http://mirror.invalid/copy.gz>, the mirror's copy\n"
+    scout(leads, "scout-b", prose, filed=True, evidence_class="link_source (Received: " * 40)
+    assert drainer.drain(incoming) == 0
+    for slug in ("scout-a", "scout-b"):
+        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
+    rows = [scribe.closed_row(f, "r1") for f in scribe.findings_in(incoming)]
+    assert [scribe._cells(r)[3:] for r in rows] == [
+        [f"CLOSED. lens no lens recorded. {why}", "ftp.one.invalid"],
+        [
+            "CLOSED. lens no lens recorded.",
+            "<https://scout-b.invalid/a> <http://mirror.invalid/copy.gz>",
+        ],
+    ]
+    assert max(map(len, rows)) <= scribe.ROW_LIMIT
 
 
 NAMED = scribe.artifacts({
