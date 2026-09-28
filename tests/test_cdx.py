@@ -338,15 +338,15 @@ def test_read_seeds_parses_the_directory_assertion() -> None:
     assert expand.read_seeds(lines) == want + [("http://n.example/", False)]
 
 
-LINK = '<a href="http://found.com/">x</a>'
-EXPANDS = {  # what the CDX and the snapshot answer, and the (status, year, domains) recorded
+LINK, S97, S99 = '<a href="http://found.com/">x</a>', "19970101000000", "19990101000000"
+EXPANDS = {  # the CDX and snapshot answers, and each (status, timestamp, year, domains) recorded
     "one-record-per-capture-year": (
-        (200, "19970101000000\n19990101000000\n"),
+        (200, f"{S97}\n{S99}\n"),
         (200, LINK),
-        [(200, 1997, ["found.com"]), (200, 1999, ["found.com"])],
+        [(200, S97, 1997, ["found.com"]), (200, S99, 1999, ["found.com"])],
     ),
-    "a-failed-page-fetch-is-asked-again": ((200, "19970101000000\n"), (503, ""), [(503, 1997, [])]),
-    "no-in-window-capture-is-settled": ((200, "20080101000000\n"), (200, LINK), [(200, None, [])]),
+    "a-failed-page-fetch-is-asked-again": ((200, S97), (503, ""), [(503, S97, 1997, [])]),
+    "none-in-window-is-settled": ((200, "20080101000000"), (200, LINK), [(200, None, None, [])]),
 }
 
 
@@ -354,7 +354,7 @@ EXPANDS = {  # what the CDX and the snapshot answer, and the (status, year, doma
 def test_expand_page_records_each_capture_year_and_settles_only_a_reply(captures, snapshot, want):
     fetch = lambda url: captures if "cdx/search" in url else snapshot  # noqa: E731
     records = expand.expand_page("http://seed.org/", 1996, 2001, fetch, gov(), curated=True)
-    assert [(r["status"], r["year"], r["domains"]) for r in records] == want
+    assert [(r["status"], r["timestamp"], r["year"], r["domains"]) for r in records] == want
     assert all(r["curated"] for r in records)
 
 

@@ -235,7 +235,7 @@ def test_the_content_type_decides_where_the_bytes_may_go(leg, tmp_path, monkeypa
     # In-stream a risky type may be read, and an executable never.
     code, _, err, out = run(f"{url}/IA.cdxj", "--to", "-")
     assert (code, out, list(leg.probe.iterdir())) == (fetch.OK, b"a line\n", []), err
-    assert "allowlist" in fetch.content_type_verdict("application/x-exe", True, True)
+    assert run(f"{url}/setup.exe", "--to", "-")[::3] == (fetch.BAD_TYPE, b"")
 
 
 def test_every_hop_is_checked_again_and_a_refusing_host_is_never_fetched(leg):
