@@ -1,7 +1,7 @@
 """Shared fixtures.
 
 The approvals gate is relaxed here because unit tests build specs with invented source
-names. `tests/test_approvals.py` is where the gate itself is exercised.
+names. `tests/test_standing_rule.py` is where the gate itself is exercised.
 """
 
 import pytest
