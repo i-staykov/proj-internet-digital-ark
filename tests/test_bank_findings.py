@@ -138,6 +138,7 @@ def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reas
     assert drainer.drain(incoming) == 0
     for slug in ("scout-a", "scout-b"):
         assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
+    assert not (incoming / "_unread").exists(), "the lead file moved, no copy left unread"
     rows = [scribe.closed_row(f, "r1") for f in scribe.findings_in(incoming)]
     assert [scribe._cells(r)[3:] for r in rows] == [
         [f"CLOSED. lens no lens recorded. {why}", "ftp.one.invalid"],

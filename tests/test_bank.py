@@ -213,6 +213,7 @@ def test_a_red_gate_unbanks_only_this_banks_source(tmp_path, monkeypatch, capsys
     assert unbank.main(args) == 1
     said = capsys.readouterr()
     assert "REFUSED ia_cdx_bulk" in said.err and "never_ingested is not in the store" in said.out
+    assert unbank.main(["never_ingested", "--write", "--db", db]) == 0, "never held is no error"
     with duckdb.connect(db, read_only=True) as conn:
         assert (
             unbank.counts(conn, "ia_cdx_bulk")
