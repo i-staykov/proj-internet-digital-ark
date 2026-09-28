@@ -295,7 +295,7 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
 # --- --disk -----------------------------------------------------------------------------
 
 DELETED = "DELETED.tsv"
-SIDECARS = frozenset({"SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", DELETED})
+SIDECARS = frozenset({"SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", DELETED, "CATALOG.tsv"})
 HELD_CLASSES = ("live_input", "keep_journal", "keep_until_priced", "keep_until_decided")
 # Read by code: the brief, the mail and the round's own drafts.
 PRIVATE_KEEP = frozenset(
@@ -318,10 +318,12 @@ def _minus(suffix: str):
 
 
 def _catalogued(rel: str, name: str, catalog: dict) -> tuple[str, str] | None:
-    """A Usenet zip the IA catalog lists, in `usenet-<hierarchy>`; a subdirectory, as in
-    usenet_hdr2, must be that hierarchy."""
+    """A Usenet zip the IA catalog lists at its route, `usenet-<hierarchy>` for the hierarchy
+    its name starts with; a subdirectory, as in usenet_hdr2, must be that hierarchy."""
     hit = catalog.get(name)
-    if hit is None or (rel.count("/") == 1 and rel.split("/")[0] != hit[0]) or rel.count("/") > 1:
+    if hit is None or hit[0] != name.split(".", 1)[0] or rel.count("/") > 1:
+        return None
+    if rel.count("/") == 1 and rel.split("/")[0] != hit[0]:
         return None
     return f"usenet-{hit[0]}", name
 
@@ -353,11 +355,11 @@ SPENT = {
     "usenet_uk": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_probe5": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_hdr2": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
+    "usenet_new": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
 }
-# Listed so the list says why they stay: no per-file copy, or none catalogued yet.
+# Listed so the list says why they stay: no per-file copy.
 UNPROVABLE = {
     "rtfm": "its files are members of one archive.org tar, which has no per-file copy",
-    "usenet_new": "its zips are in no archive.org catalog yet",
 }
 
 
@@ -373,14 +375,16 @@ class Candidate:
 
 
 def _catalog(root: Path) -> dict[str, tuple[str, str, int]]:
-    """IA zip name -> (hierarchy, sha1, size), from the catalog verify_raw reads."""
-    path = root / "data/raw/usenet_catalog.json"
-    if not path.is_file():
-        return {}
+    """IA zip name -> (hierarchy, digest, size), from the catalog verify_raw reads and the
+    CATALOG.tsv its `--catalog` writes."""
+    path, tsv = root / "data/raw/usenet_catalog.json", root / sibling("verify_raw").IA_CATALOG
     out = {}
-    for key, items in json.loads(path.read_text()).items():
+    for key, items in json.loads(path.read_text()).items() if path.is_file() else ():
         for it in items:
             out[it["name"]] = (key, it["sha1"], int(it["size"]))
+    for line in tsv.read_text().splitlines()[1:] if tsv.is_file() else ():
+        item, name, size, digest = line.split("\t")
+        out[name] = (item.removeprefix("usenet-"), digest, int(size))
     return out
 
 
@@ -522,7 +526,10 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
                 held = f"{st.st_size:,} B here, {listed[2]:,} B in the catalog: a partial download"
             out.append(Candidate("spent raw", path, st.st_size, held, hit[0], hit[1], digest))
     for entry, (count, size) in unnamed.items():
-        notes.append(f"kept {count} archives of data/raw/{entry}, {human(size)}: in no catalog")
+        notes.append(
+            f"kept {count} archives of data/raw/{entry}, {human(size)}: no catalog lists them "
+            "at their route"
+        )
     return out, notes
 
 

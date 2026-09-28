@@ -6,6 +6,7 @@ Temporary trees only: Drive is the folder tmp_path/remote, archive.org a dict.
 import hashlib
 import http.client
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -90,7 +91,7 @@ SPENT_CASES = {
 }
 NEVER = ("submissions/phase-9/x.tar.gz", "data/raw/usenet_hdr2/aus_items/s.jsonl.gz")
 NEVER += ("data/raw/host_cdx/items/x.jsonl.gz", "data/raw/ietf_header_items/x.jsonl")
-NEVER += ("data/raw/host_cdx/SHA256SUMS", "data/raw/host_cdx/DELETED.tsv")
+NEVER += ("data/raw/host_cdx/SHA256SUMS", "data/raw/host_cdx/DELETED.tsv", vr.IA_CATALOG)
 NEVER += ("data/raw/cdx/c", "data/raw/afnic/z", "data/raw/antispam_media/x")  # held classes
 
 
@@ -447,6 +448,36 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
     assert spent.exists() is (case != "restricted-served")
     wrote = case in ("restricted-served", "changed-at-delete")
     assert (spent.parent / "DELETED.tsv").exists() is wrote
+
+
+def test_usenet_new_goes_where_its_catalog_routes_it_and_our_bytes_match(tmp_path, monkeypatch):
+    """One metadata request per item; a zip goes once our bytes hash to IA's sha1 at its route."""
+    new = tmp_path / "data/raw/usenet_new"
+    ours = {"free.a.mbox.zip": b"same", "free.b.mbox.zip": b"ours"}
+    ours["bit.c.mbox.zip"] = b"lost"  # archive.org lists it, but in usenet-free, off its route
+    theirs = ours | {"free.b.mbox.zip": b"IA's", "free.d.txt": b"x"}  # the same non-zip
+    others = ["free.d.txt", "usenet_dated_new1.jsonl.gz", ".banked/free.a.mbox.zip.ok"]
+    for name, data in (ours | dict.fromkeys(others, b"x")).items():
+        file(new, name, data)
+    sums(new, [*ours, *others])
+    listed = [{"name": n, "size": str(len(b)), "sha1": sha(b, "sha1")} for n, b in theirs.items()]
+    meta, asked = {"usenet-free": {"files": listed}}, []
+    monkeypatch.setattr(vr, "ia_metadata", lambda item: asked.append(item) or meta.get(item, {}))
+    assert vr.main(["--root", str(tmp_path), "--catalog"]) == 0
+    assert asked == ["usenet-bit", "usenet-free"]
+    rows = [r.split("\t")[1] for r in (tmp_path / vr.IA_CATALOG).read_text().splitlines()[1:]]
+    assert rows == sorted(ours) and "./CATALOG.tsv" not in dict(vr.list_files(new, new))
+
+    def reply(request, timeout):  # the same metadata, read again at the unlink
+        return io.BytesIO(json.dumps(meta[request.full_url.rsplit("/", 1)[1]]).encode())
+
+    monkeypatch.setattr(prune.urllib.request, "urlopen", reply)
+    file(tmp_path, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
+    left = files_under(new) - {new / "free.a.mbox.zip"}
+    text = cleanup(tmp_path)
+    assert "HELD data/raw/usenet_new/free.b.mbox.zip: the sha1 of our bytes differs" in text
+    assert "kept 1 archives of data/raw/usenet_new, 4 B: no catalog lists them" in text
+    assert files_under(new) == left | {new / "DELETED.tsv"}
 
 
 def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):
