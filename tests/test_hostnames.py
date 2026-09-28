@@ -484,16 +484,17 @@ def test_blocklists_date_each_listed_host_and_split_the_hand_kept_one(tmp_path, 
     stats = [hn.ingest_blocklist_hostnames(conn, path) for path in (squid, tar_path)]
     assert [s["hostname_year_rows"] for s in stats] == [2, 4]
     assert (stats[1]["split_parked"], stats[1]["out_of_window_member"]) == (1, 1)
-    cols = "hostname, parent_domain, assigned_year, evidence_type, evidence_value, record_location"
+    cols = "hostname, parent_domain, assigned_year, evidence_type, evidence_value, source_file, "
+    cols += "record_location"
     got = q(conn, f"SELECT {cols} FROM hostname_year JOIN evidence USING (evidence_id) ORDER BY 1")
     assert [r[0] for r in got] == [
         "a.tripod.com", "b.already-his.com", "c.tripod.com", "d.tripod.com", "members.tripod.com",
         "pages.example.org",
     ]  # fmt: skip
     assert ("members.tripod.com", "tripod.com", 2001, "artifact_listing",
-            f"{v} host members.tripod.com", "line 3") in got  # fmt: skip
+            f"{v} host members.tripod.com", squid.name, "line 3") in got  # fmt: skip
     assert ("d.tripod.com", "tripod.com", 2001, "dated_directory",
-            "chastity-list:20011214 adult/domains host d.tripod.com",
+            "chastity-list:20011214 adult/domains host d.tripod.com", tar_path.name,
             "chastity-list-0.5/db/adult/domains.20011124.diff:line 1") in got  # fmt: skip
     assert q(conn, "SELECT domain, assigned_year FROM domain_year") == years
     parents = sorted(d for (d,) in q(conn, "SELECT domain FROM domain"))

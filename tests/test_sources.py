@@ -63,8 +63,10 @@ CANDIDATE_KEY = re.compile(r"_(candidates|mentions|links|link_target)$")
 
 
 def test_a_spec_is_candidate_only_as_its_key_says_and_files_under_a_source_of_its_own() -> None:
-    """A split's halves and one parser's two archives never share a source, the geoindex's
-    captures read as web evidence, and the lanes of one archive or spool never corroborate."""
+    """A split's halves and one parser's two archives share a parser, never a source; the geoindex
+    reads as web evidence, and the lanes of one archive or spool never corroborate."""
+    assert SOURCES["arquivo_roteiro"].parse is SOURCES["arquivo_ia"].parse
+    assert SOURCES["usenet_whois_candidates"].parse is SOURCES["usenet_whois_dated"].parse
     assert all(s.is_candidate_only == bool(CANDIDATE_KEY.search(k)) for k, s in SOURCES.items())
     assert len({spec.source_name for spec in SOURCES.values()}) == len(SOURCES)
     assert SOURCES["ukwa_geoindex"].acquisition_method in WEB_METHODS
@@ -436,7 +438,7 @@ PARSED = {  # (parser, file, text, rows yielded, the first row's URL, stats)
                   {"lines": 7, "header_lines": 1, "non_200": 1, "out_of_window": 1,
                    "malformed": 2}),
     # the parser does not canonicalize, so the bare-IP capture is yielded for the loader to drop
-    "arquivo": (src.parse_arquivo_cdxj, "Roteiro.cdxj", _lines(CDXJ_LINES),
+    "arquivo": (SOURCES["arquivo_ia"].parse, "Roteiro.cdxj", _lines(CDXJ_LINES),
                 [("http://www.example.com:80/", 1996, "19961013223438"),
                  ("http://204.96.208.1:80/", 1996, "19961013223438")],
                 "https://arquivo.pt/wayback/19961013223438/http://www.example.com:80/",
@@ -492,12 +494,13 @@ PARSED = {  # (parser, file, text, rows yielded, the first row's URL, stats)
                         "https://lookup.icann.org/en/lookup?q=stdominic.net",
                         {"out_of_window": 2, "no_creation_date": 2, "malformed": 1}),
     # a registry item is filed at the year its stamp names, or not at all
-    "registry_items": (src.parse_registry_items, "i.jsonl", _jsonl(REGISTRY) + "\n",
+    "registry_items": (SOURCES["dk_hostmaster_dk_zonen_domains_txt_wayback_2001"].parse,
+                       "i.jsonl", _jsonl(REGISTRY) + "\n",
                        [("example.dk", 2001, "20010413: DK Zonen header 20010413"),
                         ("other.dk", 2000, "20001231: DK Zonen header 20001231")], None,
                        {"journal_lines": 6, "stamp_does_not_name_the_year": 2, "malformed": 2}),
     # `ark check` reads the first four-digit run, so a year in the group name must not lead
-    "usenet_whois": (src._parse_usenet_whois_journal, "uw.jsonl.gz", _jsonl(WHOIS_ROWS),
+    "usenet_whois": (SOURCES["usenet_whois_dated"].parse, "uw.jsonl.gz", _jsonl(WHOIS_ROWS),
                      [("example.com", 1998,
                        "record created 1998-12-19 pasted in microsoft.public.win2000.dns <abc@x>")],
                      None, {"created_year_mismatch": 1, "malformed": 1}),
@@ -685,7 +688,7 @@ def test_mailing_list_messages_split_alike_plain_or_gzipped_and_an_address_names
 UDRP = [  # (commenced, decided, proceeding, names)
     ("2000-12-20", "2001-03-04", "WIPO D2000-0001", "musicweb.com"),
     ("2001-05-15", "-", "WIPO D2000-1762", "late.com"),
-    ("2000-01-11", "-", "NAF FA0092016", "one.com, www.two.co.uk and one.com again"),
+    ("1999-12-23", "-", "NAF FA0092016", "one.com, www.two.co.uk and one.com again"),
     ("2004-05-06", "2004-07-01", "WIPO D2004-0001", "later.com"),
     ("2000-06-01", "-", "", "orphan.com"),
 ]
@@ -706,8 +709,8 @@ def test_udrp_records_carry_an_auditable_case_and_the_commencement_year() -> Non
     assert got == [dict(zip(keys, row, strict=True)) for row in [
         ("late.com", 2001, "WIPO D2000-1762", "2001-05-15", f"{wipo}1762.html"),
         ("musicweb.com", 2000, "WIPO D2000-0001", "2000-12-20", f"{wipo}0001.html"),
-        ("one.com", 2000, "NAF FA0092016", "2000-01-11", udrp.LIST_URL),
-        ("two.co.uk", 2000, "NAF FA0092016", "2000-01-11", udrp.LIST_URL),
+        ("one.com", 1999, "NAF FA0092016", "1999-12-23", udrp.LIST_URL),
+        ("two.co.uk", 1999, "NAF FA0092016", "1999-12-23", udrp.LIST_URL),
     ]]  # fmt: skip
     assert (stats["out_of_window"], stats["no_proceeding_number"]) == (1, 1)
 
