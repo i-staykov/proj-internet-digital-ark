@@ -165,13 +165,15 @@ def _shipped(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
 @pytest.mark.parametrize("backwards", [False, True], ids=["error-read-first", "ok-read-first"])
 def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_path, backwards):
     """A 4xx or 5xx keeps its status in the row, a candidate; a 2xx or 3xx of the host-year is
-    quoted instead, from any journal; an error lane refuses a 200."""
+    quoted instead, from any journal; an error lane refuses a 200, and a fleet-read journal not
+    named as a part never banks as the sweep."""
     shop, www, d, g, c = (f"http://{h}.example.com/" for h in ("shop", "www", "d", "g", "c"))
     journals = [
         ("nypw_status_t", [(shop, ERR, "404"), (shop, OK, "302"), (d, ERR, "500")]),
         ("early_web_nonok_status_t", [(www, ERR, "404")]),
         ("early_web_3xx_status_t", [(www, OK, "302")]),
         ("hostcdx_t_4xx", [(g, ERR, "403"), (c, ERR, "200")]),
+        ("fleetread_bulk_cdx_file_x", [(c, OK, "200")]),
     ]
     init_db(conn := duckdb.connect())
     order = journals[::-1] if backwards else journals
