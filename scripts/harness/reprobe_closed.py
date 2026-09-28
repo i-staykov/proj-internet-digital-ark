@@ -116,12 +116,11 @@ SKIP_HOSTS = {
 # SKIP_HOSTS, different provenance, kept apart so the reason survives: probing these
 # says nothing because they were never the thing that was tried.
 #
-# `bbc.co.uk` entered the rotation on 2026-08-18, out of the JANET refutation written the
-# day before. That verdict quotes three typos of it, each carrying exactly two Squid
-# error pages, as the proof that a byte-volume filter over a monthly SUM is defeated by
-# any host requested twice. A live national broadcaster answering 200 is not news about
-# a closed proxy-log family, and it would have been reported as an unexpected revival on
-# every wake from here on.
+# `bbc.co.uk` is here because the JANET refutation quotes three typos of it, each
+# carrying exactly two Squid error pages, as the proof that a byte-volume filter over a
+# monthly SUM is defeated by any host requested twice. A live national broadcaster
+# answering 200 is not news about a closed proxy-log family, and probed it reports an
+# unexpected revival on every wake.
 NAMED_AS_DATA = {
     "bbc.co.uk",
     "bbbc.co.uk",
@@ -131,10 +130,9 @@ NAMED_AS_DATA = {
 
 
 # **A host that answers is not a source that exists**, and the commonest way a dead
-# lead comes back to life is that somebody parked the domain. On 2026-08-15
-# `web-caching.com`, the IRCache proxy-trace host, went from TIMEOUT to a 27,223-byte
-# HTTP 200 and was reported as a resurrected source; the body is a consent-manager
-# parking page. A checker that reads status and not content cries wolf every wake,
+# lead comes back to life is that somebody parked the domain: `web-caching.com`, the
+# IRCache proxy-trace host, was measured answering a 27,223-byte HTTP 200 that is a
+# consent-manager parking page. A checker that reads status and not content cries wolf every wake,
 # which is how a reader is trained to skip it. These strings are matched against the
 # 2 KB the probe already reads, so the detection is free.
 PARKED_MARKERS = (
@@ -150,11 +148,9 @@ PARKED_MARKERS = (
     "domain is for sale",
     "buy this domain",
     "this domain is parked",
-    # a bot wall, which answers 200 and is equally not a source. Added 2026-08-15 after
-    # the New Zealand National Library entered the rotation and immediately reported
-    # "NOW ANSWERS, UNEXPECTED" on two hosts: both serve a 952-byte Incapsula block page
-    # under HTTP 200. The register had recorded exactly that and the checker could not
-    # see it, because the first version of this list only knew about parking.
+    # a bot wall, which answers 200 and is equally not a source: two New Zealand National
+    # Library hosts were measured serving a 952-byte Incapsula block page under HTTP 200,
+    # exactly what the register records for them.
     "incapsula incident",
     "_incapsula_resource",
     "request unsuccessful",
@@ -187,10 +183,9 @@ DATA_SUFFIXES = (".gz", ".zip", ".7z", ".bz2", ".xz", ".tar", ".tsv", ".csv", ".
 def looks_like_a_stub(url: str, content_type: str, size: int) -> bool:
     """Whether a binary URL answered with a small HTML page instead of the file.
 
-    Added 2026-08-16, after `bl.iro.bl.uk` reported NOW ANSWERS on its homepage while
-    the data tree was unchanged. `webarchive.org.uk` serves a **159-byte HTML "400
-    Redirect" body under HTTP 200** for every path under `/datasets/`, including
-    `host-linkage.tsv.gz`, a file we demonstrably hold. That positive control is what
+    `webarchive.org.uk` serves a **159-byte HTML "400 Redirect" body under HTTP 200**
+    for every path under `/datasets/`, including `host-linkage.tsv.gz`, a file we
+    demonstrably hold. That positive control is what
     makes this safe to assert: the stub is the tree, not the file, so a 200 there proves
     nothing and must not read as a revival.
 
@@ -215,7 +210,7 @@ class Probe:
     predicted: str = ""
     parked: bool = False
     # Which register page `line` is in: the register is two pages since E4.2.
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:
@@ -244,11 +239,11 @@ EXPECTED_ALIVE = (
     "still answers",
     "answers today",
     # **A claim about what a host does NOT CONTAIN is not a claim that it is down.**
-    # Added 2026-08-18. The zone-file and Archie verdicts both name `wuarchive.wustl.edu`,
-    # `ftp.uu.net`, `ftp.cdrom.com` and `ftp.funet.fi` as mirrors that "return **zero**
-    # Wayback captures matching `zone`". Every one of those hosts has always answered, and
-    # funet reported as an unexpected revival because the sentence naming it carries no
-    # phrase saying so. An HTTP 200 cannot touch a content claim, so it is foretold here.
+    # The zone-file and Archie verdicts both name `wuarchive.wustl.edu`, `ftp.uu.net`,
+    # `ftp.cdrom.com` and `ftp.funet.fi` as mirrors that "return **zero** Wayback captures
+    # matching `zone`". Every one of those hosts was measured answering, and without these
+    # phrases each reads as an unexpected revival. An HTTP 200 cannot touch a content
+    # claim, so it is foretold here.
     "return **zero**",
     "returns **zero**",
     "return zero",
@@ -299,7 +294,7 @@ class Lead:
     line: int
     verdict: str
     urls: list[str] = field(default_factory=list)
-    page: str = "docs/sources.md"
+    page: str = "docs/registers/sources.md"
 
     @property
     def where(self) -> str:
@@ -333,13 +328,11 @@ def targets_in(entry) -> list[str]:
         if url not in out:
             out.append(url)
     # **When a verdict names a PATH, the path is what was tried, so the host root is not
-    # the test.** Added 2026-08-18 after four rows written that morning each reported an
-    # unexpected revival on a host that had never been down: `lists.debian.org` (whose
-    # 1999 monthly mbox 404s), `seclists.org` (which serves MHonArc HTML with the headers
-    # stripped) and `marc.info` (whose mbox export is 410 Gone) all answer 200 at the root
-    # and always did. Probing the root asks a question the verdict never asked, and the
-    # answer reads as news. Dropping it also frees a slot in the five-target budget for a
-    # URL that can actually change.
+    # the test.** `lists.debian.org` (whose 1999 monthly mbox 404s), `seclists.org` (which
+    # serves MHonArc HTML with the headers stripped) and `marc.info` (whose mbox export is
+    # 410 Gone) were all measured answering 200 at the root. Probing the root asks a
+    # question the verdict never asked, and the answer reads as news. Dropping it also
+    # frees a slot in the five-target budget for a URL that can actually change.
     out = [
         url
         for url in out
@@ -386,12 +379,10 @@ def control_note(results: list[Probe]) -> list[str]:
 
     A run where nothing answers looks identical to a run where every host is dead, and the
     error text does not separate them: macOS reports a refused route as "[Errno 50] Network
-    is down", which reads as OUR network failing rather than the host's. On 2026-08-18 four
-    hosts returned exactly that while `ftp.funet.fi` answered 200 and `vefsafn.is` 302 in
-    the same minute, so those negatives were real. Had none answered, identical output would
-    have been a clean bill of health over a population never reached, which is the shape this
-    project has been fooled by before. So the run states whether it held a control rather
-    than leaving the reader to infer it.
+    is down", which reads as OUR network failing rather than the host's. A control answering
+    in the same minute is what makes such a negative real; with none answering, identical
+    output is a clean bill of health over a population never reached. So the run states
+    whether it held a control rather than leaving the reader to infer it.
     """
     if not results:
         return []
@@ -423,9 +414,9 @@ def main() -> None:
         if e.closed_on == "availability"
     ]
     # **Named before filtering, because the ones with no URL are the finding.** This tool
-    # exists to re-ask availability closures automatically, and on 2026-08-15 it covered
-    # 8 of 20 while `just cycle` reported "0 answering unexpectedly", which reads as all
-    # 20 checked. A check that is silent about its own coverage is the same defect as an
+    # exists to re-ask availability closures automatically, and a closure with no URL is
+    # never asked while `just cycle` reports "0 answering unexpectedly", which reads as all
+    # checked. A check that is silent about its own coverage is the same defect as an
     # alarm that cries wolf, inverted: it reports clean over a population it never saw.
     uncovered = [lead for lead in leads if not lead.urls]
     leads = [lead for lead in leads if lead.urls]

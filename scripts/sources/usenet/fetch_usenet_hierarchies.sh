@@ -2,12 +2,12 @@
 # Download and bank the unheld English-facing Usenet hierarchies.
 #
 # **Why this can run without asking anyone.** `usenet_announce / dated_directory`
-# and its siblings are already `master` in `docs/approved-sources-list.md`, decided
-# by Ivo in phase 4, and the corroboration split is applied by `split_usenet.py`
+# and its siblings are already `master` in `docs/registers/approved-sources-list.md`,
+# and the corroboration split is applied by `split_usenet.py`
 # rather than by anything here. So this is collection under an existing decision,
 # not a new source class.
 #
-# **What it is worth, measured rather than assumed.** C-29 sampled two hierarchies
+# **What it is worth, measured rather than assumed.** A sample of two hierarchies
 # through `measure_usenet_yield.py`: `bit.listserv` gave 1.13 net-new post-split
 # pairs per MB and 0.68 EE/MB, `microsoft.public` gave 5.66 and 3.25. The register's
 # older figure of 15.5 pairs/MB is 3x to 14x optimistic and should not be used. On
@@ -39,7 +39,10 @@ if [ ${#HIERARCHIES[@]} -eq 0 ]; then
     HIERARCHIES=(microsoft linux bit free us mailing fa lucky borland macromedia ott gov)
 fi
 
-DEST="data/raw/usenet_new"
+# Overridable so a new pool can be measured on its own rather than mixed into the one
+# already priced: `ARK_USENET_DEST=data/raw/usenet_uk ... uk` keeps the uk hierarchy
+# separate, which is what makes a whole-pool figure quotable without a projection.
+DEST="${ARK_USENET_DEST:-data/raw/usenet_new}"
 LOG="data/logs/usenet_fetch.log"
 UA="InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 mkdir -p "$DEST" data/logs
@@ -51,11 +54,10 @@ if ! mkdir "$LOCK" 2>/dev/null; then
     exit 1
 fi
 echo "$$" > "$LOCK/pid"
-# **The handler must exit, and the first version did not.** A bare `trap 'rm -rf
-# "$LOCK"'` on TERM runs the handler and then carries on with the loop, so a TERM
-# released the lock while leaving the process downloading. A second copy could then
-# start, and did: two fetchers ran against archive.org for two minutes, duplicating
-# every request. INT and TERM therefore clean up and leave.
+# **The handler must exit.** A bare `trap 'rm -rf "$LOCK"'` on TERM runs the handler
+# and then carries on with the loop, so a TERM releases the lock while leaving the
+# process downloading, and a second copy can start and duplicate every request against
+# archive.org. INT and TERM therefore clean up and leave.
 cleanup() { rm -rf "$LOCK"; }
 trap 'cleanup' EXIT
 trap 'cleanup; exit 143' TERM
@@ -101,6 +103,12 @@ for f in fs:
 ")
 
     for name in $files; do
+        # An optional exclude, because a hierarchy is not homogeneous: alt's unread
+        # remainder is 168.2 GB of which 22.0 GB is alt.sex.*, a stratum an earlier
+        # measurement already set aside, and largest-first would fetch it first.
+        if [ -n "${ARK_USENET_EXCLUDE:-}" ] && printf '%s' "$name" | grep -qE "$ARK_USENET_EXCLUDE"; then
+            continue
+        fi
         [ "$(date +%s)" -ge "$DEADLINE" ] && { note "deadline reached"; break 2; }
         out="$DEST/$name"
         [ -s "$out" ] && continue

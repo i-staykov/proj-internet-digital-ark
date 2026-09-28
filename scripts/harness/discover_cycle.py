@@ -5,11 +5,9 @@ project splits cleanly in two, and pretending otherwise is how autonomy turns in
 theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
-a collector has died, that a journal is sitting on a remote disk unbanked, that a
-file on disk was never read, that a derived target list is older than the rows it
-should carry, that a hypothesis has been sitting half-priced for a day, and that the
-state document has gone stale. **That is this script**, and it is genuinely
-autonomous: every check has a right answer that needs no judgement.
+a file on disk was never read, that a derived target list is older than the rows it
+should carry, and that the state document has gone stale. **That is this script**, and
+it is genuinely autonomous: every check has a right answer that needs no judgement.
 
 **It rebuilds, and it does not restart anything.** Regenerating a stale derived list
 is deterministic, so the cycle owns it. Stopping and starting collectors is not: an
@@ -26,14 +24,15 @@ So a cycle does all of the first and **ends by naming exactly what of the second
 waiting**. That list is the handover, and it is written where a human will see it
 rather than buried in a log.
 
-**Nothing here writes to the store.** The ingest loop (`scripts/harness/maintain.sh`) owns
-the write lock, and a second writer would simply block it. This reports.
+**Nothing here writes to the store.** `just bank` owns the write lock, and a second writer
+would simply block it. This reports.
 
     uv run python scripts/harness/discover_cycle.py
     uv run python scripts/harness/discover_cycle.py --until 1786536000 --every 1800
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -45,8 +44,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ark import key_decisions  # noqa: E402
-from ark.approvals import load as load_approvals  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.yield_check import (  # noqa: E402
     Collector,
@@ -56,19 +53,14 @@ from ark.yield_check import (  # noqa: E402
 )
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
-LEDGER = ROOT / "docs/hypotheses.tsv"
-APPROVALS = ROOT / "docs/approved-sources-list.md"
-DECISIONS_DOC = ROOT / "docs/key-decisions.md"
-UNFINISHED = ("screened", "fetching", "priced")
+APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 JOURNAL_DIR = ROOT / "data/raw/cdx"
 RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
 
 
-# **The CDX prefixes are discovered, not listed.** They used to be listed, as `cdx_pool`
-# and `cdx_gap`, on the authority of the supervisor's own header. The header states
-# intent and the directory holds the facts: on 2026-08-12 it held six prefixes, and the
-# VPS had spent 31 hours writing `cdx_q1` against an exhausted shard for zero captures
-# while every yield line here read clean, because none of them was looking for it.
+# **The CDX prefixes are discovered, not listed.** A supervisor's header states intent
+# and the directory holds the facts: a prefix no list names can spend 31 hours on an
+# exhausted shard for zero captures while every yield line here reads clean.
 #
 # RDAP stays named because it is a different journal format needing its own verdict: a
 # 404 is a real answer and a 429 is not, and a creation year outside 1996-2001 is an
@@ -83,11 +75,6 @@ def collectors() -> tuple[Collector, ...]:
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
 # `ark seed` is a 33-minute outage for every reader, so a 20-minute ceiling made
 # the residual check time out and vanish from the report.
-# How old the VPS gap list may get before a refresh is worth a VPN window. Gap targets
-# change slowly by design, so this is days rather than hours; the real staleness signal
-# is the yield check, not the clock.
-GAP_LIST_REFRESH_HOURS = 7 * 24
-
 STEP_TIMEOUT = 3600
 
 
@@ -95,9 +82,9 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
     """(output, ran). `ran` is False when the step could not complete.
 
     Returned rather than swallowed, because a step that did not run must not read
-    like a step that found nothing. The first version of this script omitted the
-    residual section entirely when it timed out behind a writer, which is the exact
-    failure `ark check` already guards against by reporting SKIP rather than PASS.
+    like a step that found nothing: a residual section omitted when it times out
+    behind a writer is the exact failure `ark check` guards against by reporting SKIP
+    rather than PASS.
     """
     try:
         done = subprocess.run(
@@ -109,44 +96,11 @@ def run(cmd: list[str], timeout: int = STEP_TIMEOUT) -> tuple[str, bool]:
     return out, bool(out)
 
 
-def check_collectors() -> tuple[list[str], list[str]]:
-    """Alive, and is anything they produced still not banked?"""
-    findings, attention = [], []
-    out, ran = run(["bash", "scripts/engines/engine_status.sh"], timeout=180)
-    if not ran:
-        return ["collectors: COULD NOT CHECK"], [
-            "the collector check did not complete, so their state is UNKNOWN rather than fine"
-        ]
-    local_running = "NOT RUNNING" not in out.split("== VPS")[0]
-    findings.append(f"local collector: {'running' if local_running else 'NOT RUNNING'}")
-    if not local_running:
-        attention.append("the local collector is not running; decide whether that is intended")
-    if "UNKNOWN: could not reach" in out:
-        findings.append("VPS: UNREACHABLE, so its journals are unbanked and uncounted")
-        attention.append(
-            "VPS unreachable: bring the VPN up and rsync its journals. This is not "
-            "'nothing to fetch', and the project once left 5,793 records stranded for "
-            "a day and a half by reading it that way"
-        )
-    elif "everything is home" in out:
-        findings.append("VPS: reachable, every journal is home")
-    else:
-        missing = [ln.strip() for ln in out.splitlines() if ln.strip().startswith("cdx_")]
-        if missing:
-            findings.append(f"VPS: {len(missing)} journals not copied here yet")
-            attention.append(f"rsync {len(missing)} VPS journals home, then ingest them")
-    return findings, attention
-
-
 def check_yield() -> tuple[list[str], list[str]]:
     """Are the collectors finding anything, not just running and writing?
 
-    The gap none of the other checks covered. `check_collectors` asks whether a
-    process is alive, the supervisor itself watches journal growth, and **a journal
-    full of misses grows exactly as fast as a journal full of hits.** On 11 August a
-    rebuilt queue sent the local engine 1,200 queries for zero captures while every
-    check here reported clean; the truth was in a `no_capture: 600` counter nothing
-    read. Reasoning and thresholds in `ark.yield_check`.
+    **A journal full of misses grows exactly as fast as one full of hits**, so growth says
+    nothing about yield. Reasoning and thresholds in `ark.yield_check`.
     """
     findings, attention = [], []
     for reading in measure_collectors(collectors()):
@@ -188,8 +142,8 @@ def check_residual() -> tuple[list[str], list[str]]:
                     # stale almost always, and an alarm on that condition fires every
                     # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
                     # the threshold and asks for a human only when it cannot act, which
-                    # is the VPS list or a failed rebuild. An alarm nobody can clear is
-                    # the same defect as the 982 MB the unreferenced check used to report.
+                    # is a failed rebuild. An alarm nobody can clear is
+                    # noise that teaches the reader to skip the alarms.
     return findings, attention
 
 
@@ -205,6 +159,12 @@ REBUILD_AFTER_HOURS = 1.5
 # holder must not block rebuilds forever.
 REBUILD_LOCK = ROOT / "data/logs/derived_rebuild.lock"
 REBUILD_LOCK_STALE_S = 3600
+
+FLEET_REPO = "i-staykov/ark-fleet"
+# The fleet clone the justfile names, for its `policy.json`.
+DEFAULT_FLEET = Path.home() / "Documents/GitHub/ark-fleet"
+# The title `leg.yaml` gives a dispatched run; the watchdog's runs are `Leg watchdog`.
+LEG_TITLE = re.compile(r"Leg slot (0|[1-9][0-9]*)")
 
 
 def rebuild_lock_holder() -> str | None:
@@ -226,7 +186,7 @@ def rebuild_lock_holder() -> str | None:
 
 
 def rebuild_derived() -> tuple[list[str], list[str]]:
-    """Rebuild stale derived target lists, and re-point the local engine at them.
+    """Rebuild stale derived target lists.
 
     **This is the cycle's one action rather than a report**, and the distinction is
     deliberate. Writing evidence is a judgement and belongs to a human; regenerating a
@@ -239,9 +199,6 @@ def rebuild_derived() -> tuple[list[str], list[str]]:
     dispatch, so rewriting the file is enough, and the restart used `pkill -f` with a
     pattern that matches the shell running it. On 11 August that took down a healthy
     collector mid-batch. **An unattended loop does not get to kill collectors.**
-
-    The VPS is deliberately untouched too. Its list has to be shipped over a VPN
-    window, so it is reported and left.
     """
     findings, attention = [], []
     out, ran = run(
@@ -291,77 +248,16 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
         if hours < REBUILD_AFTER_HOURS:
             findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
             continue
-        if "queue_gap_vps" in path:
-            # **Age alone is the wrong alarm for this list, and raising it hourly trained a
-            # reader to skip the whole judgement section.** `CLAUDE.md` is explicit that gap
-            # targets change slowly and the VPS wants a rare refresh rather than a periodic
-            # one, so "26.9h behind" is the list working as designed. The signal that a gap
-            # queue has actually gone stale is that the engine stops finding anything, which
-            # `check_yield` already measures per collector against its own history: on
-            # 2026-08-12 the VPS sat at 0.0% for 31 hours and after the refresh it measures
-            # 92.7%. So this reports the age and defers the alarm to yield.
-            findings.append(
-                f"derived: {Path(path).name} {hours:.1f}h behind, which is expected: gap "
-                f"targets change slowly and the yield check is what would call it stale"
-            )
-            if hours > GAP_LIST_REFRESH_HOURS:
-                attention.append(
-                    f"the VPS gap list is {hours / 24:.1f} days old, past the "
-                    f"{GAP_LIST_REFRESH_HOURS / 24:.0f}-day mark where a rebuild is worth a VPN "
-                    f"window: rebuild it, scp it over the file the supervisor already reads, and "
-                    f"do NOT restart anything, since it re-reads its target list at every batch"
-                )
-            continue
-        if "queue_pool_local" in path or "queue_edge_local" in path:
-            population = "edge" if "queue_edge_local" in path else "pool"
-            _o, ok = run(
-                [
-                    "uv",
-                    "run",
-                    "python",
-                    "scripts/engines/build_query_queue.py",
-                    "--population",
-                    population,
-                    "--out",
-                    path,
-                ]
-            )
-            findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
-            if ok:
-                reader = collector_reading(path)
-                if reader:
-                    findings.append(
-                        "derived: the running collector reads this exact file, so it picks the "
-                        "rebuild up at its next dispatch and nothing is restarted"
-                    )
-                else:
-                    attention.append(
-                        f"the {population} queue was rebuilt and NO RUNNING COLLECTOR READS "
-                        f"{path}. "
-                        f"A supervisor fixes ARK_TARGETS at startup, so a rebuild reaches it "
-                        f"only if it was started on this path. Copy the rebuilt list over the "
-                        f"file the running collector was given, or restart it on this one; "
-                        f"until then the re-rank is inert and the engine keeps working a stale "
-                        f"head. Measured cost of exactly this on 2026-08-18: two hours of .ca "
-                        f"at 9.5% while a re-ranked queue sat unread"
-                    )
-            else:
-                attention.append(
-                    "the pool queue rebuild FAILED, so the local collector is working a "
-                    "list that cannot see the newest candidates"
-                )
-        elif "pool_targets_measured" in path:
+        if "pool_targets_measured" in path:
             # The TLD set is not a preference. Restricted to those with a real measured
             # in-window rate, because the builder falls back to the pool-wide rate where
             # it has no sample, and a high English share then floats namespaces nobody
             # registered in to the head of the queue.
             #
-            # **Widened on 2026-08-15 as the sweep neared exhaustion.** The first five were
-            # the only TLDs with a sample when this was written; 122,458 queries later,
-            # seven more have one. `.sg` is the pick of them at 28.6% in-window on weight
-            # 0.9476. The others are small, and the reason to add them is not their yield
-            # but that `rdap_pool_sweep.sh` STOPS when its list runs out, which would have
-            # ended RDAP's contribution entirely with 20 hours still to run.
+            # **Twelve TLDs have a sample.** `.sg` is the pick at 28.6% in-window on weight
+            # 0.9476. The small ones are here not for their yield but because
+            # `rdap_pool_sweep.sh` STOPS when its list runs out, which ends RDAP's
+            # contribution while the sweep still has hours to run.
             # `.uk` stays out: Nominet, not arithmetic.
             _o, ok = run(
                 [
@@ -383,206 +279,92 @@ def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
     return findings, attention
 
 
-def check_ledger() -> tuple[list[str], list[str]]:
-    findings, attention = [], []
-    if not LEDGER.exists():
-        return ["ledger: absent"], []
-    lines = LEDGER.read_text(encoding="utf-8").splitlines()
-    if len(lines) < 2:
-        return ["ledger: empty"], []
-    header = lines[0].split("\t")
-    rows = [dict(zip(header, ln.split("\t"), strict=False)) for ln in lines[1:] if ln.strip()]
-    stuck = [r for r in rows if r.get("status") in UNFINISHED]
-    findings.append(f"hypotheses: {len(rows)} total, {len(stuck)} unfinished")
-    if stuck:
-        # Reported as the agent's own work queue, NOT as attention. Ivo's instruction,
-        # 2026-08-11: "Hypothesis should be tested and confirmed by yourself until a
-        # relevant key decision that I would have to sign off can be formulated.
-        # Otherwise, you make your own judgment on them and continue." He had not
-        # known these existed, which is the point: raising them at him buried the
-        # things that genuinely need him.
-        findings.append(
-            "the next work, yours to settle without asking: "
-            + ", ".join(
-                f"{r['id']} ({r.get('status')}) {r.get('title', '')[:40]}" for r in stuck[:6]
-            )
-        )
-    return findings, attention
+def leg_slot_bound(fleet: Path) -> int:
+    """`wave.max_parallel` in the fleet clone's `policy.json`: the slots Leg may hold."""
+    policy = json.loads((fleet / "policy.json").read_text(encoding="utf-8"))
+    wave = policy.get("wave") if isinstance(policy, dict) else None
+    value = wave.get("max_parallel") if isinstance(wave, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"wave.max_parallel is {json.dumps(value)}, not a whole number")
+    return value
 
 
-TRIAGE_HEADING = "Triage the newly found sources"
+def check_leg_slots(fleet: Path = DEFAULT_FLEET) -> tuple[list[str], list[str]]:
+    """Report each Leg slot the fleet's policy allows that no run holds. It dispatches nothing.
 
-
-def collector_reading(path: str) -> str | None:
-    """The command line of a running collector that reads this exact target list, if any.
-
-    **A rebuilt queue that nothing reads is not a rebuild.** `supervise_cdx_pool.sh` resolves
-    `ARK_TARGETS` once, at startup, and passes that fixed path to every `ark cdx` batch. So the
-    cycle's old claim that "the running collector picks it up at its next dispatch" held only
-    when the collector happened to have been started on the file the cycle rebuilds. On
-    2026-08-18 it had not been: the engine ran `queue_pool_20260818c.txt` for two hours at 9.5%
-    on a `.ca` head while `queue_pool_local.txt` sat correctly re-ranked and unread, and every
-    health check read clean because presence, progress and yield were all fine in their own
-    terms. Only the queue identity was wrong.
-
-    Matched on the basename, because the supervisor may have been given a relative path and the
-    worker an absolute one.
+    A slot is a chain of `leg.yaml` runs titled `Leg slot N`, each dispatching its successor
+    last, and a slot at or above `policy.json` `wave.max_parallel` ends its chain. A slot is
+    idle while no run titled for it is queued, waiting or running, the definition the fleet's
+    own `slots.py idle` uses. **`leg.yaml`'s schedule is the watchdog** and starts every idle
+    slot, so this laptop only says what it saw: a slot idle tick after tick is a watchdog that
+    is not firing, or a held `leg.yaml`.
     """
-    name = Path(path).name
+    # **A short timeout, because this runs inside the hourly sync.** `STEP_TIMEOUT` is an
+    # hour, which is right for a cycle step and wrong here: a slow GitHub would hold the bank
+    # for the whole window and the next sync would land on top of it.
+    ask = 60
     try:
-        out = subprocess.run(
-            ["ps", "-eo", "command"], capture_output=True, text=True, check=False
-        ).stdout
-    except OSError:
-        return None
-    for line in out.splitlines():
-        if "ark cdx" in line and name in line:
-            return line.strip()
-    return None
-
-
-def _mirror_triage_count(count: int, findings: list[str]) -> None:
-    """One entry naming the count, refreshed in place as the queue grows.
-
-    Deliberately not one entry per source. The queue is append-only work in progress and
-    is meant to grow indefinitely, so the only sustainable mirror is a single line that
-    says how many are waiting and where they are.
-
-    **Refreshed, which this said it did and did not.** The first version returned early
-    when the entry already existed, so the count froze at whatever it was when the entry
-    was first written: it read 11 for a day while 44 sources waited. A number on Ivo's
-    review surface that stops moving is worse than no number, because nothing about it
-    looks stale.
-    """
-    # **Deliberately two lines, and the number goes on the end of the heading.** Ivo's
-    # instruction of 2026-08-20 is that OPEN is a numbered list of one-liners, and this
-    # entry is rewritten on every cycle, so a long body here is not a one-off choice but
-    # a standing tax on the one surface he reads. The first version of this restructure
-    # was silently reverted within the hour, because the writer below still emitted the
-    # old five-line body and dropped the `(O6)` marker with it: an automated writer that
-    # disagrees with the file's format wins every time, and quietly.
-    body = (
-        f"**{count} source(s) found and not yet priced**, in `{APPROVALS.name}` under "
-        f"`## Found, awaiting triage`. One word each, *candidate pool* or *fold in "
-        f"directly*.\n\n"
-        f"A counter rather than a request, by your instruction of 2026-08-15. Nothing is "
-        f"blocked: a pending class cannot date a year, so `ark ingest` refuses it and "
-        f"collection continues."
+        bound = leg_slot_bound(fleet)
+    except (OSError, ValueError) as exc:
+        return [f"leg slots: COULD NOT CHECK, policy.json: {str(exc)[:80]}"], []
+    if bound == 0:
+        return ["leg slots: policy.json wave.max_parallel is 0, so no slot runs"], []
+    said, ran = run(
+        [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            FLEET_REPO,
+            "--workflow",
+            "leg.yaml",
+            "--limit",
+            "50",
+            "--json",
+            "displayTitle,status",
+        ],
+        timeout=ask,
     )
-    # The heading carries the count too, so it has to be rewritten with the body. It was
-    # not, and read "49 found" over a body saying 55 until 2026-08-18. The `(On)` marker
-    # is preserved from whatever the file currently uses, so renumbering by hand sticks.
-    marker = ""
-    for title in key_decisions.open_titles(DECISIONS_DOC):
-        if TRIAGE_HEADING in title:
-            found = re.search(r"\((O\d+)\)\s*$", title)
-            if found:
-                marker = f"  ({found.group(1)})"
-            break
-    titled = f"{TRIAGE_HEADING}: {count} found{marker}"
-    if key_decisions.refresh_open(TRIAGE_HEADING, body, DECISIONS_DOC, heading=titled):
-        findings.append(f"approvals: triage count refreshed in key-decisions ({count})")
-        return
-    key_decisions.raise_open(titled, body, DECISIONS_DOC)
-    findings.append(f"approvals: triage queue mirrored into key-decisions ({count})")
+    try:
+        runs = json.loads(said) if ran else None
+    except ValueError:
+        runs = None
+    if not isinstance(runs, list):
+        return [f"leg slots: COULD NOT CHECK, gh said: {said[:80]}"], []
+    held = set()
+    for leg in (leg for leg in runs if isinstance(leg, dict)):
+        title = LEG_TITLE.fullmatch(str(leg.get("displayTitle", "")))
+        if title and leg.get("status") != "completed":
+            held.add(int(title.group(1)))
+    idle = [slot for slot in range(bound) if slot not in held]
+    if not idle:
+        return [f"leg slots: all {bound} held by a run"], []
+    named = ", ".join(str(slot) for slot in idle)
+    return [
+        f"leg slots: {len(idle)} of {bound} idle (slot {named}), for leg.yaml's watchdog to start"
+    ], []
 
 
 def check_approvals() -> tuple[list[str], list[str]]:
     """Source classes whose journals are collected and cannot be ingested yet.
 
-    This is the harness's handover point by design: collection never waits on a human,
-    and promotion to the annual files always does. A pending class is not a fault, it
-    is the queue working.
-
-    **And it is mirrored into `key-decisions.md`, which is the only surface Ivo reads.**
-    A `pending` line sitting in the approvals file is invisible to him, so the check
-    repairs that itself rather than reporting it: the mirror entry is deterministic, and
-    the alternative is a question that believes it has been asked.
+    This is the harness's handover point: collection never waits on a human, and a
+    `pending` class waits on one before its records can date a year. A pending class is
+    not a fault, it is the queue working. The check writes nothing: the register's pending
+    block is the ask, and `sync_approvals.py` files the ones worth a decision as
+    `needs-owner` issues.
     """
     findings, attention = [], []
-    waiting = pending_approvals(APPROVALS)
-    # Two populations with the same gate and different reporting. A priced request carries
-    # a seeded sample with live links and a measured counterfactual, so it earns its own
-    # line on the review surface and can be decided in two minutes. A triage entry is a
-    # source found and not yet priced, and by design that queue grows without bound, so
-    # forty of them collapse to one count. Reporting them individually would push the one
-    # surface Ivo reads past a screen, and a surface past a screen stops being read.
-    triage = [a for a in waiting if a.is_triage]
-    priced = [a for a in waiting if not a.is_triage]
-    if not waiting:
+    priced = pending_approvals(APPROVALS)
+    if not priced:
         findings.append("approvals: nothing pending")
-    # Since 2026-09-03 the triage section holds only open entries: a decision taken there
-    # is filed by `scripts/round/split_triage.py`, which moves master blocks to Decided and
-    # rejected ones to `sources-closed.md` behind a stub. Ivo decides in place, so the split
-    # runs after him; a decided block still sitting in triage means it has not run yet.
-    decided_in_triage = [
-        a for a in load_approvals(APPROVALS).values() if a.is_triage and a.decision != "pending"
-    ]
-    if decided_in_triage:
-        findings.append(
-            f"approvals: {len(decided_in_triage)} decided entr(ies) still in the triage section, "
-            f"run `uv run python scripts/round/split_triage.py`"
-        )
-    if priced:
+    else:
         findings.append(f"approvals: {len(priced)} priced class(es) awaiting classification")
         attention.append(
             "classify these source classes before their records can date a year; the "
             "journals are on disk and nothing is lost: "
             + ", ".join(f"{a.source_name}/{a.evidence_type}" for a in priced)
         )
-    if triage:
-        findings.append(f"approvals: {len(triage)} source(s) in the triage queue")
-        attention.append(
-            f"{len(triage)} newly found source(s) await your triage in {APPROVALS.name} under "
-            f"'Found, awaiting triage': for each, candidate pool or fold in directly. Nothing is "
-            f"blocked on it, since none can date a year while pending"
-        )
-        _mirror_triage_count(len(triage), findings)
-    for approval in priced:
-        needle = f"{approval.source_name} / {approval.evidence_type}"
-        if key_decisions.is_open(needle, DECISIONS_DOC):
-            findings.append(f"approvals: {needle} already open in key-decisions")
-            continue
-        key_decisions.raise_open(
-            f"Approve, refuse or downgrade {needle}",
-            f"`{APPROVALS.name}` has this class as `pending`, so `ark ingest` refuses it and its "
-            f"journal is sitting on disk. The request block in that file carries the seeded-random "
-            f"sample with live links, the measured figures and the counterfactual; decide from "
-            f"those rather than from anything the agent argues. Set its `Decision:` line to "
-            f"`master`, `candidate-only` or `rejected`.\n\n"
-            f"Raised automatically, because a `pending` line in a file you do not open is not a "
-            f"question anyone asked.",
-            DECISIONS_DOC,
-        )
-        findings.append(f"approvals: {needle} mirrored into key-decisions OPEN")
-
-    # The other direction: a decision was taken and its OPEN entry was left behind.
-    #
-    # **Both matches below are substring rather than equality, and that is the fix for a
-    # false alarm rather than a loosening.** Ivo's rewrite of 2026-08-20 numbers the OPEN
-    # entries and, because this code and a test both match on a heading's opening words,
-    # the number has to sit at the END: `... internic_zone / artifact_listing  (O1)`.
-    # Equality then failed against the still-pending set and the cycle told him to close
-    # an entry that was still genuinely waiting on him. **A false "you can close this" on
-    # the one surface he reads is worse than no check**, because acting on it would have
-    # stranded the journal it protects. The identifying phrase is the source and evidence
-    # type; anything a human wraps around it is decoration.
-    still_pending = {f"{a.source_name} / {a.evidence_type}" for a in priced}
-    for title in key_decisions.open_titles(DECISIONS_DOC):
-        if TRIAGE_HEADING in title:
-            if not triage:
-                attention.append(
-                    f"key-decisions still has '{TRIAGE_HEADING}' under OPEN, but the triage queue "
-                    f"is empty. Move it to CLOSED"
-                )
-            continue
-        if "Approve, refuse or downgrade " not in title:
-            continue
-        if not any(needle in title for needle in still_pending):
-            attention.append(
-                f"key-decisions still has '{title}' under OPEN, but that class is no longer "
-                f"pending. Move it to CLOSED with what was decided and why"
-            )
     return findings, attention
 
 
@@ -594,21 +376,21 @@ def check_state() -> tuple[list[str], list[str]]:
         ]
     if "is current" in out:
         return ["ROUND.md: current"], []
-    _, wrote = run(["uv", "run", "python", "scripts/round/build_round_state.py"])
-    return [f"ROUND.md: was stale, {'regenerated' if wrote else 'REGENERATION FAILED'}"], []
+    return ["ROUND.md: stale"], [
+        "ROUND.md is stale: the next bank rewrites it, or run `just state`"
+    ]
 
 
-def cycle(number: int, with_network: bool) -> list[str]:
+def cycle(number: int, with_network: bool, fleet: Path = DEFAULT_FLEET) -> list[str]:
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"\n{'=' * 78}\ncycle {number} at {stamp}\n{'=' * 78}")
     findings: list[str] = []
     attention: list[str] = []
     for name, fn in (
-        ("collectors", check_collectors),
         ("yield", check_yield),
         ("residual", check_residual),
         ("derived", rebuild_derived),
-        ("ledger", check_ledger),
+        ("slots", lambda: check_leg_slots(fleet)),
         ("approvals", check_approvals),
         ("state", check_state),
     ):
@@ -652,14 +434,35 @@ def main() -> None:
         action="store_true",
         help="skip the re-probe, which is the only step that leaves the machine",
     )
+    # **The slot check wants an hourly caller and this script has a six-hourly one.**
+    # `com.ark.cycle` fires at 01, 07, 13 and 19, so the hourly sync calls this flag, and the
+    # check itself is not duplicated anywhere.
+    ap.add_argument(
+        "--slots-only",
+        action="store_true",
+        help="run only the Leg slot check and exit, for an hourly caller",
+    )
+    ap.add_argument(
+        "--fleet",
+        type=Path,
+        default=DEFAULT_FLEET,
+        help="the fleet clone, for policy.json wave.max_parallel",
+    )
     args = ap.parse_args()
+    fleet = args.fleet.expanduser()
+
+    if args.slots_only:
+        notes, fixes = check_leg_slots(fleet)
+        for line in notes + fixes:
+            print(line)
+        return
 
     number = 1
     while True:
         # the re-probe asks external hosts, so it runs on the first cycle and then
         # every fourth: a host that came back does not come back twice an hour
         with_network = not args.no_network and (number == 1 or number % 4 == 0)
-        cycle(number, with_network)
+        cycle(number, with_network, fleet)
         if args.until is None:
             return
         remaining = args.until - time.time()

@@ -22,9 +22,10 @@ or a `www.` label, and this reads its journal.
 
 **The split applies, and on this corpus it is not a formality.** A person typed most of
 these addresses: the typo upper bound over 1,500 sampled net-new names is 56.1%, and
-`%20fh@fredomhouse.org` is a real scoring row. So a name another source already dates
-carries the message's `Sent:` year as `dated_directory`; a name appearing only here parks in
-the candidate pool as `link_target` and earns no year.
+`%20fh@fredomhouse.org` is a real scoring row. So a name already dated, by a year of ours or
+by a line of his files that is exactly the name, carries the message's `Sent:` year as
+`dated_directory`; a name appearing only here parks in the candidate pool as `link_target`
+and earns no year.
 
 **Rule 6: a message evidences the year it was sent and no other.** Each row carries its own
 message's year, so a domain seen in 1999 and in 2001 gets both and a domain seen once gets
@@ -53,6 +54,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -103,6 +105,9 @@ def read_journal(path: Path, stats: Counter) -> dict[tuple[str, int], str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true", help="write the two lanes")
+    parser.add_argument(
+        "--out", type=Path, default=OUT, help="journal directory (default %(default)s)"
+    )
     args = parser.parse_args()
 
     if not IN.exists():
@@ -121,13 +126,8 @@ def main() -> int:
 
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        attested = {
-            row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (row[0], row[1])
-            for row in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, domains)
+        known = held.known_years(conn, domains)
     finally:
         conn.close()
 
@@ -145,7 +145,7 @@ def main() -> int:
         }
         if domain in attested:
             dated.append(row)
-            if (domain, year) not in held:
+            if (domain, year) not in known:
                 netnew_pairs += 1
                 netnew_ee += weight_of(domain)
                 by_year[year] += 1
@@ -165,16 +165,18 @@ def main() -> int:
         print("\nreport only. Pass --write to emit the two lanes.")
         return 0
 
-    OUT.mkdir(parents=True, exist_ok=True)
+    args.out.mkdir(parents=True, exist_ok=True)
+    written = []
     for name, batch in (("jeb_mail_dated", dated), ("jeb_mail_candidates", candidates)):
-        path = OUT / f"{name}.jsonl.gz"
+        path = args.out / f"{name}.jsonl.gz"
         with journal_writer(path) as handle:
             for row in batch:
                 write_journal_line(handle, row)
         print(f"wrote {path} ({len(batch):,} rows)")
+        written.append((name, path))
     print("\nnext:")
-    for key in ("jeb_mail_dated", "jeb_mail_candidates"):
-        print(f"  uv run ark ingest {key} data/raw/jeb_bush/{key}.jsonl.gz")
+    for key, path in written:
+        print(f"  uv run ark ingest {key} {path}")
     return 0
 
 

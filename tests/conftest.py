@@ -1,17 +1,12 @@
 """Shared fixtures.
 
-**Why the approvals gate is relaxed here, and how it stays tested.** `ingest_files`
-refuses any master-eligible source whose class a human has not classified in
-`docs/approved-sources-list.md`. Unit tests build specs with invented source names, so
-without this they would all be refused, and the honest options are to relax the gate
-for unit tests or to bypass it in production code. Relaxing it here is the safer of
-the two, and the gate itself is covered directly in `tests/test_approvals.py`,
-including that it refuses an unapproved ingest.
+The approvals gate is relaxed here because unit tests build specs with invented source
+names. `tests/test_approvals.py` is where the gate itself is exercised.
 """
 
 import pytest
 
-from ark import approvals
+from ark import approvals, db, held
 
 
 @pytest.fixture(autouse=True)
@@ -24,3 +19,40 @@ def _permissive_approvals(tmp_path, monkeypatch):
     # check is stubbed rather than fed a file listing every invented test name.
     monkeypatch.setattr(approvals, "check", lambda *a, **k: None)
     return path
+
+
+@pytest.fixture(autouse=True)
+def _scratch_fleet_ledger(tmp_path, monkeypatch):
+    """A drain converts the old TSV ledger, then deletes it, so a test drain sees a scratch one."""
+    monkeypatch.setenv("ARK_FLEET_LEDGER", str(tmp_path / "fleet_ledger.tsv"))
+
+
+@pytest.fixture(autouse=True)
+def _held_stays_in_tmp(tmp_path, monkeypatch):
+    """No test writes the live `data/held/`, and `held` never finds his real release: a test
+    that wants his files stages them and passes the folder."""
+    monkeypatch.setattr(held, "HELD_ROOT", tmp_path / "held")
+    monkeypatch.setattr(held, "his_dir", lambda: tmp_path / "no-release-here")
+    # a store's spill and the readers' scratch, which would otherwise land in the live data/
+    monkeypatch.setattr(db, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+    monkeypatch.setattr(held, "DB_TEMP_DIR", str(tmp_path / "duckdb_tmp"))
+
+
+@pytest.fixture
+def his_files(tmp_path, monkeypatch):
+    """His release, staged from `tests/his_release.py` and prepared, where `held` looks for it.
+    A test that rewrites a file of his calls `held.prepare(his_files)` again before reading."""
+    from his_release import stage
+
+    folder = stage(tmp_path / "release")
+    monkeypatch.setattr(held, "his_dir", lambda: folder)
+    held.prepare(folder)
+    return folder
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _db_threads_for_tiny_stores():
+    """Tests build tiny in-memory stores; the store's two-thread cap would only slow them."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(db, "DB_THREADS", "8")
+        yield

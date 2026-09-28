@@ -1,16 +1,7 @@
 # ark: the command set. `just` alone lists it.
 #
-# Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong.
-# The raw commands stay the reproducibility contract, because they need nothing but
-# uv installed; these recipes exist so nobody has to remember the sequence, not to
-# hide what runs. docs/runbook.md is the long form: every command, and the output it
-# should give.
-#
-# Quiet by default, so a session reading this output sees results and not shell.
-#
-# Eight recipes dispatch on their first argument rather than taking a name of their
-# own: check, collect, engines, expand, reproduce, schedule, ship, verify. Each one
-# prints its own choices when handed a word it does not know.
+# Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong; the raw
+# commands stay the reproducibility contract. docs/ops/runbook.md has the procedures.
 
 set quiet := true
 
@@ -21,11 +12,12 @@ help:
     echo "Dispatching recipes:"
     echo "  just check <what>       all code data lint fmt test scan"
     echo "  just collect <source>   no source lists them"
-    echo "  just engines <what>     status start stop"
+    echo "  just collectors <what>  pause resume status"
     echo "  just expand <what>      round loop"
+    echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
     echo "  just schedule <what>    install remove"
-    echo "  just ship <stage>       all prep build package verify calculator docx draft"
+    echo "  just ship <stage>       all prep build package verify calculator docx orq draft"
     echo "  just verify <what>      raw trees delivery offsite"
 
 # --- the environment ----------------------------------------------------------
@@ -34,11 +26,7 @@ help:
 setup:
     uv sync
 
-# Install the git hooks. The pre-commit hook runs the CODE gate and refuses a red
-# commit, because the rule "never commit through a red gate" was written in
-# CLAUDE.md and broken twice in one round: once by a pipe hiding pytest's exit
-# status, once by a visible failure nobody acted on. Hooks live in hooks/ so they
-# are versioned; .git/hooks is not.
+# Hooks live in hooks/ because .git/hooks is not versioned.
 #
 # install the git hooks into .git/hooks
 hooks:
@@ -53,17 +41,25 @@ hooks:
 
 # run any CLI command directly, e.g. `just run stats` or `just run cdx --help`
 run *args:
-    uv run ark {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -- {{args}}
+    for arg in "$@"; do
+        case "$arg" in
+        ingest*|export)
+            uv run python scripts/harness/bank_hygiene.py space
+            break
+            ;;
+        *) ;;
+        esac
+    done
+    uv run ark "$@"
 
 # --- validating ---------------------------------------------------------------
 
-# On naming: `ark check` validates the DATA (the integrity invariants over the
-# store) while the test suite validates the CODE. Naming either one plain "check"
-# invites running one and believing the other passed, so each keeps its own word
-# and the bare `just check` runs BOTH.
-#
-# `scan` is the last gate before tracked bytes are world-readable: secrets,
-# routable addresses, local paths. The pre-commit hook and CI run that same command.
+# `ark check` validates the DATA, the test suite the CODE, and each keeps its own word;
+# bare `just check` runs both. `scan` is the last gate before tracked bytes are
+# world-readable, and is the command the pre-commit hook and CI run.
 #
 # validate: all (default) code data lint fmt test scan
 check what="all":
@@ -91,26 +87,13 @@ check what="all":
 
 # Prove what is on DISK, as opposed to the code or the store.
 #
-#   raw       checksum every local data entry and regenerate docs/retention.md. Writes
-#             data/raw/<entry>/SHA256SUMS (untracked) plus a .stat sidecar, so a second
-#             run hashes only files whose size or mtime moved; Usenet zips named in
-#             usenet_catalog.json take IA's sha1 into SHA1SUMS instead of a rehash. A
-#             path with no row in the table is not deletable. `--dry-run` says what a
-#             run would hash and write, `--entry wwwvl` does one entry.
-#   trees     prove an extracted release tree is recoverable from the artifact beside
-#             it: every zip member compared to the file on disk by size and CRC-32,
-#             without extracting anything. A tree it names byte-verified may be
-#             deleted once the off-site copy exists.
-#   delivery  check a built delivery the way a reviewer would: checksums, pair counts,
-#             and that every shipped pair traces to an observation. Takes the
-#             directory; `just ship` passes the newest stage rather than this default.
-#   offsite   the off-site copy of what nothing else could bring back: our own
-#             journals, the reviewer releases, the live inputs with no refetch route
-#             and every unpriced corpus except the two Usenet ones archive.org serves
-#             again. `--manifest` prices it and writes data/offsite-manifest.tsv,
-#             `--upload` prints the rclone commands and `--upload --yes` runs them,
-#             `--verify` compares the remote by hash without downloading and names
-#             the entries safe to delete. Never deletes anything, either side.
+#   raw       checksum every data entry and regenerate docs/registers/retention.md. A
+#             path with no row in that table is not deletable.
+#   trees     every zip member of a release against the file on disk, by size and CRC-32
+#   delivery  a built delivery as the reviewer reads it: checksums, pair counts, and that
+#             every shipped pair traces to an observation. Takes the directory.
+#   offsite   the off-site copy of what nothing else could bring back. Never deletes
+#             anything, either side.
 #
 # prove what is on disk: raw trees delivery offsite
 verify what="" *args:
@@ -119,7 +102,7 @@ verify what="" *args:
     set -- {{args}}
     case "{{what}}" in
     raw) uv run python scripts/round/verify_raw.py "$@" ;;
-    trees) uv run python scripts/round/releases.py --verify-trees ;;
+    trees) uv run python scripts/round/releases.py --verify-trees "$@" ;;
     delivery) bash scripts/round/verify_delivery.sh "${1:-output/internet-digital-ark-1996-2001}" ;;
     offsite) uv run python scripts/round/offsite.py "$@" ;;
     *) echo "verify: raw trees delivery offsite" >&2; exit 2 ;;
@@ -127,271 +110,553 @@ verify what="" *args:
 
 # --- where the round stands ---------------------------------------------------
 
-# Assembled from the programs that own each figure rather than restating any of
-# them: ark stats, round_figures.py, engine_status.sh, audit_residual.py and the
-# open decisions. Nothing here is a second copy of a number, so it cannot drift.
-# Pass --check to find out whether the file has gone stale: it compares the counts
-# in its own footer against the store and exits 1 if the store has moved. The
-# hand-written predecessor it replaces was accurate for exactly one day.
+# Assembled from the claim files and the programs that own each figure, so no number in it
+# is a second copy. No store unless `--full`; `--check` exits 1 when a claim file has changed
+# since the file's footer.
 #
 # regenerate docs/ROUND.md, the generated statement of where the round stands
 state *args:
+    uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/round/build_round_state.py {{args}}
 
-# Where the round stands in thirty lines, read from the snapshot that `just state`
-# (so also `just cycle` and `just bank`) leaves in data/brief.json, plus
-# private/handoff.md when the last session wrote one. Never opens the store or
-# runs ssh, so a session-start hook can call it inside its timeout.
+# Reads the data/brief.json snapshot the bank and `just state` leave, plus private/handoff.md.
+# Never opens the store or runs ssh, so a session-start hook can call it inside its timeout.
 #
 # where the round stands, read from the last snapshot rather than the store
 brief:
     uv run python scripts/agents/brief.py
 
-# The reviewer's first priority in one command: unprocessed files, globs that
-# match too little, downloaded bytes with no parser, and derived lists a newer
-# baseline has invalidated. Read-only, no network, and NOT a gate: it reports and
-# exits 0, because unread material is a fact about the round rather than a broken
-# invariant. Run it before deciding what to collect. It exists because the same
-# diff, run by hand on 2026-08-10, found 496 ISC survey shards worth 14,956
-# equivalent-English that had been on disk for five days.
+# The reviewer's first priority in one command: unprocessed files, globs that match too
+# little, downloaded bytes with no parser, derived lists a newer baseline has invalidated.
+# Read-only and NOT a gate; run by hand it once found 496 unread ISC survey shards worth
+# 14,956 equivalent-English.
 #
 # what is on disk that nothing has read, and what the documented path would miss
 residual *args:
     uv run python scripts/harness/audit_residual.py {{args}}
 
-# One pass of the harness: both collectors, unbanked journals, derived lists the
-# store has outgrown, the hypothesis ledger, pending approvals, docs/ROUND.md. It
-# rebuilds what it can and ends with the items no program can decide, which is the
-# only part worth reading closely. Add --until EPOCH --every SECS to loop instead
-# of running once, and --no-network to skip the re-probe, the only step that leaves
-# the machine.
+# One pass of the harness: collector yield, unbanked journals, derived lists the store has
+# outgrown, pending approvals, docs/ROUND.md. It ends with the items
+# no program can decide, which is the part worth reading. `--until EPOCH --every SECS`
+# loops; `--no-network` skips the re-probe, the only step that leaves the machine.
 #
 # check the round once and report what needs judgement
 cycle *args:
-    uv run python scripts/harness/discover_cycle.py {{args}}
-
-# Drain the fleet's findings, admit any FIND, book everything, gate, push `live`, and
-# refresh the VPS pricing snapshot. The one deliberate human-adjacent step of the loop
-# (fleet plan, D3): run it whenever the laptop is open.
-#
-# drain the fleet's findings, admit, ingest, gate, push `live`
-bank fleet="~/Documents/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
+    uv run python scripts/harness/bank_hygiene.py space
+    uv run python scripts/harness/discover_cycle.py {{args}}
+    # The failure-state ledger his XI asks for, printed rather than logged: a lane that has
+    # started failing looks exactly like a lane with nothing left to find. Never fatal.
+    echo ""
+    uv run python scripts/harness/query_health.py --write --tail 3 || true
+
+# The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
+# suffix sweep's finished journals home, and call `just bank` only when `bank_trigger.py`
+# names something that arrived. It opens no store itself, so a quiet hour holds no writer.
+# launchd runs it hourly while the laptop is awake, and it is safe to run by hand.
+#
+# Idempotent by construction: an unfinished run is re-downloaded and a drained slug is dropped
+# rather than re-booked. `data/logs/.sync.lock` is taken first and handed to the bank, so a
+# hand run and the hourly job cannot meet in the store, and the one that arrives second says
+# who has it and stops.
+#
+# drain and book the fleet's findings, then bank only what arrived
+sync fleet="~/Documents/GitHub/ark-fleet":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
+    # One lock, whoever started this: it lives here, where the work is, rather than around
+    # one of the two ways of starting it.
+    if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
+    trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    # ARK_VPS for the journals below, and the store's memory limit, which local.env assigns
+    # without `export` and the bank's children need.
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
     FLEET=$(eval echo {{fleet}})
     IN=data/fleet_findings/incoming
     mkdir -p "$IN" data/fleet_findings/banked data/logs
     PROCESSED=data/fleet_findings/processed_runs.txt; touch "$PROCESSED"
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
-    # 0. Refuse a dirty or diverged clone before anything is fetched, then take the
-    #    approvals merged from a phone as a fast-forward and bank what they approved.
-    #    An ingest changes the store and no tracked file, so it is exported here and
-    #    needs no commit.
+    # 0. Refuse a dirty or diverged clone, then fast-forward the approvals merged from a
+    #    phone. A changed approvals page is one of the things that calls the bank.
     uv run python scripts/harness/bank_hygiene.py preflight
-    BANKED=$(uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr | grep -c '^== uv run ark ingest' || true)
-    if [ "$BANKED" -gt 0 ]; then uv run ark export >/dev/null && uv run ark check | tail -1; fi
-    # Anything still waiting on Ivo, first, so a bank never buries a decision.
-    gh issue list --repo i-staykov/ark-fleet --state open --search "Approval needed" \
-        --json title --jq '.[] | "AWAITING IVO: " + .title' 2>/dev/null || true
-    # 1. Pull every unprocessed run's artifacts (findings + telemetry) from ark-fleet.
-    gh run list --repo i-staykov/ark-fleet --limit 50 --status completed \
-        --json databaseId --jq '.[].databaseId' | while read -r RID; do
-        grep -qx "$RID" "$PROCESSED" && continue
-        gh run download "$RID" --repo i-staykov/ark-fleet \
-            --dir "$IN/run_$RID" >/dev/null 2>&1 || true
-        echo "$RID" >> "$PROCESSED"
+    uv run python scripts/harness/bank_hygiene.py space
+    # The approvals still waiting on the owner, first, so a sync never buries a decision: the
+    # issues `sync_approvals.py` files, picked by title from the asks that share their label.
+    gh issue list --repo i-staykov/ark-fleet --state open --label needs-owner --limit 1000 \
+        --json title \
+        --jq '.[] | select(.title | test("^Approve .+\\? [0-9,]+ EE$")) | "AWAITING IVO: " + .title' \
+        2>/dev/null || true
+    # 1. Pull every unprocessed Leg and Read run's `findings-*` artifact from ark-fleet. **A
+    #    run uploads it before it ends**, so in-progress runs are taken too and a run is marked
+    #    PROCESSED only once it has completed. Name each workflow: `gh run list` with none lists
+    #    CI too. A workflow not on the fleet's main answers 404, which skips it, not the tick.
+    #    Only dispatched runs carry findings; the watchdog's are scheduled. An idle slot starts
+    #    about five runs an hour, so 300 outlasts a night asleep at up to four slots.
+    for WF in leg.yaml read.yaml; do
+        RUNS=$(gh run list --repo i-staykov/ark-fleet --workflow "$WF" \
+            --event workflow_dispatch --limit 300 \
+            --json databaseId,status --jq '.[] | [.databaseId, .status] | @tsv' 2>/dev/null) \
+            || { echo "drain: gh could not list $WF; its runs wait for the next tick"; continue; }
+        while IFS=$'\t' read -r RID STATUS; do
+            [ -n "$RID" ] || continue
+            grep -qx "$RID" "$PROCESSED" && continue
+            gh run download "$RID" --repo i-staykov/ark-fleet --pattern 'findings-*' \
+                --dir "$IN/run_$RID" >/dev/null 2>&1 || true
+            if [ "$STATUS" = "completed" ]; then echo "$RID" >> "$PROCESSED"; fi
+        done <<< "$RUNS"
     done
-    # Flatten: findings artifacts hold findings/*.md plus telemetry.json.
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    find "$IN" -mindepth 2 -name '*.md' -exec mv -n {} "$IN/" \;
-    # 2. The ledger row per telemetry file, then tidy.
-    find "$IN" -mindepth 2 -name 'telemetry.json' | while read -r T; do
-        python3 -c "import json,sys;d=json.load(open('$T'));print('$LABEL', d.get('tokens_in_plus_out',0), d.get('seven_day_pct','?'), sep='\t')" \
-            >> data/logs/fleet_ledger.tsv || true
-        rm -f "$T"
-    done
+    # One directory per lead at the top of the drain; the laptop's old ledger TSV goes, once,
+    # into the fleet's ledger as legacy lines.
+    uv run python scripts/harness/fleet_findings.py drain "$IN" --fleet "$FLEET"
     uv run python scripts/harness/bank_hygiene.py prune --write
-    # Steps 3 and 4 need findings; 5 to 8 run on every bank, because the collectors
-    # fill journals and the round can cross the gate with no fleet finding at all.
-    if ! ls "$IN"/*.md >/dev/null 2>&1; then echo "nothing new to bank"; else
-        # 3. Result lines first and pushed at once: a wave that picks while the admitter
-        #    is still running (fifteen minutes on 2026-09-01) relaunched six settled slugs.
+    # 2. The fleet's schema: a sidecar nobody validated is prose with braces. The second
+    #    price, on the live store, is the bank's.
+    uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
+    # 2b. Report each Leg slot policy.json allows that no run holds. `leg.yaml`'s schedule is
+    #     the watchdog that starts it, so this dispatches nothing. `discover_cycle.py` holds
+    #     the check and its own caller is six-hourly. Never fatal.
+    uv run python scripts/harness/discover_cycle.py --slots-only --fleet "$FLEET" || true
+    # 3 to 7 need findings. A confirmed FIND needs the live store for its second price, so its
+    # whole drain goes to the bank; any other drain is booked here. Each shape, a closed scout
+    # lead's `scout.md` among them, is tested alone: `ls` over all fails when ANY is unmatched.
+    if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null \
+        && ! compgen -G "$IN/*/scout.md" >/dev/null; then
+        echo "nothing new to book"
+    else
+        # 3. Result lines first and pushed at once: a leg that picks while the rest of this
+        #    recipe is still running relaunches settled slugs.
         uv run python scripts/harness/bank_findings.py "$IN" \
             --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
-        #    A FIND wakes the admitter (a model, locally, where the store is).
-        if grep -lE '^\s*verdict:\s*FIND' "$IN"/*.md >/dev/null 2>&1; then
-            echo "FIND present: waking the admitter (fable 5.1/medium)"
-            claude -p "$(cat scripts/harness/admit_prompt.txt)" --permission-mode auto \
-                --model claude-fable-5-1 --effort medium --output-format text \
-                > "data/logs/admit_$LABEL.log" 2>&1 < /dev/null || true
-            tail -3 "data/logs/admit_$LABEL.log"
+        bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+        if uv run python scripts/harness/bank_trigger.py check --find; then
+            echo "a confirmed FIND: the bank books this whole drain"
+        else
+            # 4. The deterministic scribe: one row per slug, a FIND into sources.md with both
+            #    figures and every measured negative into sources-closed.md. A FIND re-measuring
+            #    its own FIND row replaces it; a re-drained run writes nothing.
+            SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
+                --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+            NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
+            # 5. The lead queue, rebuilt from the fleet's outcome lines and lead statuses.
+            uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
+            # 6. One commit and one push, **only when the registers moved**: an empty commit
+            #    says a drain was booked when none was.
+            git add docs/registers/
+            COMMITTED=no
+            if git diff --cached --quiet; then
+                echo "the registers are unchanged, so nothing is committed"
+            else
+                git commit -q -m "Sync fleet findings $LABEL"
+                git push -q origin live
+                COMMITTED=yes
+            fi
+            #    Then pending approvals as one issue and one mergeable pull request each, after
+            #    the push, so a block this run wrote is on live and its pull request flips one line.
+            uv run python scripts/harness/sync_approvals.py || true
+            # 7. What became of each lead, back into the fleet's queue, with the result lines.
+            #    **A run leaves `incoming/` only once its rows are committed**; anything else
+            #    keeps it here for the next tick, which is safe because every step is keyed on
+            #    the slug.
+            uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
+            bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+            if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
+                mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+            else
+                echo "nothing was committed, so the drain stays in $IN for the next tick"
+            fi
         fi
-        # 4. The deterministic scribe, then the gate, then one push.
-        uv run python scripts/harness/bank_findings.py "$IN" \
-            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL"
-        uv run ruff check . && uv run ruff format --check . && uv run pytest -q
-        uv run ark export && uv run ark check
-        git add docs/ src/ justfile 2>/dev/null || true
-        git commit -q -m "Bank fleet findings $LABEL" || echo "register unchanged"
-        git push -q origin live
-        (cd "$FLEET" && git add hypotheses.md && git commit -q -m "Result lines $LABEL" && git push -q) || true
-        mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
     fi
-    # 5. Bring the VPS collectors' journals home and bank them: this replaced the
-    # continuous pull loop when the laptop's role became episodic (fleet plan, D3).
-    ROOT_FOR_ENV="$(pwd)"; [ -f "$ROOT_FOR_ENV/local.env" ] && . "$ROOT_FOR_ENV/local.env"
+    # 8. The suffix sweep's finished journals, home from the VPS. Skip the journals a sweep
+    #    still holds open: a half-copied one ledgers at a fraction of its rows. Every remote
+    #    call is bounded, so an unreachable VPS costs seconds rather than the hour.
     : "${ARK_VPS:?set ARK_VPS}"
-    rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
-    uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 || true
-    # the platform sweep's raw capture journals become hostname records (the second
-    # unit, accepted 2026-09-01); idempotent per file. The registrable half goes
-    # through cdx_suffix_convert.py by hand when a sweep completes, not per bank,
-    # because the converter re-emits everything under a fresh tag on every run.
-    # skip the journals a sweep still holds open: a half-copied one was once
-    # ledgered at a third of its rows and had to be re-ingested by hand
-    BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
-    rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
-    uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || true
-    # 6. Refresh the VPS pricing snapshot so the next wave prices against today.
-    uv run ark export >/dev/null && uv run ark check | tail -1
-    rsync -a output/netnew/ "$ARK_VPS":/projects/ark-data/netnew/ && echo "ark-data refreshed"
-    uv run python scripts/round/round_figures.py | sed -n '5,7p'
-    # 7. Refresh the brief snapshot; a failed refresh must not fail the bank.
-    uv run python scripts/round/build_round_state.py | tail -1 || true
-    # 8. The gate issue, once per crossing, read off the brief just written.
+    BUSY=$(ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" \
+        'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' \
+        </dev/null 2>/dev/null | sort -u) || true
+    rsync -a --ignore-existing --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
+        $(for b in $BUSY; do echo "--exclude=$b"; done) \
+        "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    # 9. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
+    #    runs under this lock; a red bank exits 1 and so does this tick.
+    BANK_RC=0
+    if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
+        ARK_FLEET="$FLEET" ARK_LOCK_HELD=$$ just bank || BANK_RC=$?
+    else
+        echo "$WHY"
+    fi
+    # 10. The gate issue, once per crossing, read off the brief the last bank wrote; then a
+    #     snapshot push the last bank could not make, without the ack, its one store read.
+    #     Never while a red stands: output/ then holds the export that failed its check.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
+    if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
+        echo "push: held while BANK RED stands"
+    elif [ -f data/logs/.push_pending ]; then
+        if bash scripts/harness/sync_fleet.sh --no-ack \
+            && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+                --publish-expected "$FLEET" \
+            && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+            && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+                | cmp -s - "$FLEET/snapshot.json"; then
+            rm -f data/logs/.push_pending
+            echo "push: the pending snapshot reached the VPS, and fleet main expects its claim"
+        else
+            echo "push: still pending, the next tick retries"
+        fi
+    fi
+    exit "$BANK_RC"
 
-# The only route into the four register pages, and the cheap one: the deny in
-# `.claude/settings.json` covers a `grep` or a `sed` on `docs/sources*.md`, and the two
-# pages are 347 KB and 546 KB, so reading one spends the session's context on prose it
-# never asked for. Every page is streamed a line at a time and one truncated line is
-# printed per hit: page and line, source key, verdict, net-new EE, which shape the term
-# sat in (row, detail, head, header, prose), and the matching text. A row is a projection
-# of its entry, so a `detail` hit says the row does not carry what you asked about, and
-# `--detail` is the only way to get that entry whole. Nothing prints over 40 lines
-# without `--all`, and the suppressed count is stated. Exit 1 is "not in the register",
-# exit 2 is "the search did not run", which are different answers.
+# The store's only writer. It runs what arrived: new journals and a new baseline (c), a
+# confirmed FIND (a), a changed approvals page or a standing-rule decision (b); then the round
+# state, the stamp, one commit and the fleet's queue (d), and the snapshot push (e). Journals
+# go first, so a FIND is priced on a store that holds them and a red there leaves no
+# `Decision:` line behind. A red writes data/logs/bank_red.json, and nothing banks until
+# `uv run python scripts/harness/bank_trigger.py clear`. The tick hands it the lock through
+# ARK_LOCK_HELD; by hand it takes the lock and runs the preflight itself.
 #
-# `just` splits recipe arguments, so a multi-word term goes to the script directly:
-#     uv run python scripts/round/find.py "ftp listing"
+# bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
+bank *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if bash scripts/harness/hold.sh holds com.ark.sync; then
+        # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
+        if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
+        echo "hold bypassed: dry-run"
+    fi
+    # ARK_LOCK_HELD names the pid that holds the lock and is trusted only while the lock
+    # agrees, so a value some later shell inherits takes the lock like anyone else.
+    if [ -n "${ARK_LOCK_HELD:-}" ] \
+        && [ "$(bash scripts/harness/sync_lock.sh holder 2>/dev/null || true)" = "$ARK_LOCK_HELD" ]; then
+        CALLED=yes
+    else
+        CALLED=no
+        if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    fi
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+    FORCE=no
+    for a in {{args}}; do
+        case "$a" in
+            --force) FORCE=yes ;;
+            *) echo "bank: unknown argument $a"; exit 2 ;;
+        esac
+    done
+    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    IN=data/fleet_findings/incoming
+    mkdir -p "$IN" data/fleet_findings/banked data/logs
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    # By hand, the clone gets the check the tick gave it: a red resets the registers to HEAD,
+    # which loses nothing only when this bank's writes are the only uncommitted ones.
+    [ "$CALLED" = yes ] || uv run python scripts/harness/bank_hygiene.py preflight
+    # A red holds even under --force: someone reads it and clears it first.
+    if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
+        :
+    elif printf '%s\n' "$WHY" | grep -q 'BANK RED'; then
+        echo "$WHY"; exit 1
+    elif [ "$FORCE" = yes ]; then
+        WHY="bank: forced"
+    else
+        echo "$WHY"; exit 0
+    fi
+    echo "$WHY"
+    has() { printf '%s\n' "$WHY" | grep -q "^bank: $1"; }
+    want() { [ "$FORCE" = yes ] || has "$1"; }
+    RAN_A=no; RAN_B=no; EXPORTED=no; DECIDED=0; NEW_ROWS=""
+    CHECK_LOG=$(mktemp)
+    # c. Journals, then the export a new baseline needs too. Every ingest is keyed on its
+    #    journal's sha256, so a folded journal costs a hash. A failed ingest is red like a
+    #    failed gate, and nothing is taken back: a journal carries no `Decision:` line.
+    if want journals || want baseline; then
+        C_RAN=""; C_FAIL=""
+        if want journals; then
+            uv run python scripts/harness/bank_hygiene.py space
+            bash scripts/sources/usenet/ingest_new_usenet.sh auto || C_FAIL="$C_FAIL usenet_auto"
+            if compgen -G "data/raw/usenet/usenet_dated_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN usenet_dated"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest usenet_dated data/raw/usenet/usenet_dated_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_dated"
+            fi
+            if compgen -G "data/raw/usenet/usenet_candidates_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN usenet_candidates"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest usenet_candidates data/raw/usenet/usenet_candidates_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_candidates"
+            fi
+            # A partial nothing has written to for 90 minutes is a dead run's work, not a live
+            # run's file, so it takes its final name before the ingest looks.
+            for part in data/raw/cdx/*.jsonl.gz.part data/raw/rdap/*.jsonl.gz.part; do
+                [ -e "$part" ] || continue
+                final="${part%.part}"
+                [ -e "$final" ] && continue
+                if [ -z "$(find "$part" -mmin +90 2>/dev/null)" ]; then continue; fi
+                cp "$part" "$final" && echo "promoted abandoned partial $(basename "$final")"
+            done
+            # The suffix sweep's exact-host registrables, as cdx_snapshot journals under
+            # data/raw/cdx, so the one glob below folds both. It reads new or grown journals only.
+            uv run python scripts/engines/cdx_suffix_convert.py || C_FAIL="$C_FAIL cdx_suffix_convert"
+            if compgen -G "data/raw/cdx/cdx_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_snapshot"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest cdx_snapshot data/raw/cdx/cdx_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL cdx_snapshot"
+            fi
+            # The hosts beneath a domain a gap query already asked about, at no extra request.
+            uv run python scripts/engines/cdx_gap_hostgrain.py || C_FAIL="$C_FAIL cdx_gap_hostgrain"
+            if compgen -G "data/raw/cdx_gap_hostgrain/*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_gap_hostgrain"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-hostnames data/raw/cdx_gap_hostgrain | tail -1 \
+                    || C_FAIL="$C_FAIL cdx_gap_hostgrain"
+            fi
+            if compgen -G "data/raw/cdx_suffix/*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN cdx_suffix"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1 || C_FAIL="$C_FAIL cdx_suffix"
+            fi
+            # The body-URL lanes, each with its own approved ingest, each shard skipped on content.
+            for pool in data/raw/usenet_*_items; do
+                [ -d "$pool" ] || continue
+                C_RAN="$C_RAN $pool"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-usenet-hostnames "$pool" | tail -1 || C_FAIL="$C_FAIL $pool"
+            done
+            if [ -d data/raw/maillists_items ]; then
+                C_RAN="$C_RAN maillists_items"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-maillist-hostnames data/raw/maillists_items | tail -1 \
+                    || C_FAIL="$C_FAIL maillists_items"
+            fi
+            if [ -d data/raw/enron_items ]; then
+                C_RAN="$C_RAN enron_items"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest-enron-hostnames data/raw/enron_items | tail -1 \
+                    || C_FAIL="$C_FAIL enron_items"
+            fi
+            if compgen -G "data/raw/rdap/rdap_*.jsonl.gz" >/dev/null; then
+                C_RAN="$C_RAN rdap_snapshot"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz | tail -1 \
+                    || C_FAIL="$C_FAIL rdap_snapshot"
+            fi
+        fi
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
+        EXPORTED=yes
+        touch data/logs/.push_pending
+        CHECK_RC=0
+        uv run ark check 2>&1 | tee "$CHECK_LOG" || CHECK_RC=$?
+        if [ -n "$C_FAIL" ] || [ "$CHECK_RC" -ne 0 ]; then
+            uv run python scripts/harness/bank_trigger.py red --step c \
+                --ingested "$C_RAN" --failed "$C_FAIL" --check "$CHECK_LOG"
+            echo "BANK RED at the journals, failed:${C_FAIL:- ark check}. Nothing banks until it is cleared."
+            exit 1
+        fi
+    fi
+    # a. A confirmed FIND, priced a second time on the live store, booked with both figures,
+    #    decided where the standing rule covers it and asked for where the rule parks it. A
+    #    FIND is always a reason, so --force adds nothing here.
+    if has find; then
+        RAN_A=yes
+        uv run python scripts/harness/fleet_findings.py reprice "$IN"
+        SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
+            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+        NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
+        uv run python scripts/harness/fleet_request.py "$IN" --fleet "$FLEET" --write
+        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \
+            | tee /dev/stderr | grep -c '^decided:' || true)
+    fi
+    # b. Approvals merged, or the standing rule just decided: ingest, export, gate. The rule's
+    #    fourth condition is `ark check` after the ingest, and a failed ingest takes the same
+    #    road as a red gate: a `Decision:` line over an ingest that did not happen reads
+    #    exactly like one that did.
+    if want approvals || [ "$DECIDED" -gt 0 ]; then
+        RAN_B=yes
+        uv run python scripts/harness/bank_hygiene.py space
+        BANK_LOG=$(mktemp)
+        # A row ingested before this instant is not this bank's, so a red never takes it.
+        B_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        set +e
+        uv run python scripts/harness/bank_approved.py --write | tee /dev/stderr > "$BANK_LOG"
+        RC=${PIPESTATUS[0]}
+        set -e
+        INGESTED=$(awk '/^== uv run ark ingest/ {print $6}' "$BANK_LOG")
+        # An approval whose journal is absent or whose refetch was refused stays a reason for the
+        # trigger until a bank ingests it. One that lacks a line in its block waits for the edit,
+        # which the trigger sees as a changed approvals page.
+        if ! grep -E 'refetch FAILED|is not on this machine' "$BANK_LOG" > data/logs/bank_approvals_retry; then
+            rm -f data/logs/bank_approvals_retry
+        fi
+        if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ] && [ "$DECIDED" -eq 0 ]; then
+            echo "bank: nothing newly approved to ingest"
+        else
+            if [ "$RC" -eq 0 ]; then
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark export --claim >/dev/null || RC=$?
+                EXPORTED=yes
+                touch data/logs/.push_pending
+            fi
+            if [ "$RC" -eq 0 ]; then uv run ark check 2>&1 | tee "$CHECK_LOG" || RC=$?; fi
+            if [ "$RC" -eq 0 ] && [ -f data/logs/bank_approvals_retry ]; then
+                echo "bank: green; an approved journal is still absent, so the next bank retries it"
+            elif [ "$RC" -eq 0 ]; then
+                echo "bank: green after the ingest, so $DECIDED standing-rule decision(s) stand"
+            else
+                # The rows come out, and the registers go back to HEAD rather than the index:
+                # the scribe's rows are this bank's too, and a dirty register refuses every
+                # later tick at the preflight.
+                echo "GATE RED after an approved ingest: taking the rows and the lines back"
+                KEPT=""
+                if [ -n "$INGESTED" ]; then
+                    uv run python scripts/harness/unbank_source.py $INGESTED --write \
+                        --run-start "$B_START" || KEPT=unbank
+                fi
+                git checkout HEAD -- docs/registers/
+                uv run python scripts/harness/bank_trigger.py red --step b \
+                    --ingested "$INGESTED" --failed "$KEPT" --check "$CHECK_LOG"
+                uv run python scripts/harness/bank_hygiene.py space
+                uv run ark export --claim >/dev/null || true
+                if [ -n "$KEPT" ]; then
+                    echo "STILL RED: the unbank left rows in the store, as a source that held rows"
+                    echo "  before this bank is never taken back. Read 'uv run ark check' first."
+                elif uv run ark check; then
+                    echo "the store is green again; the sources are pending and nothing was banked"
+                else
+                    echo "STILL RED after the rollback, so the red was not this ingest's:"
+                    echo "  read 'uv run ark check' before clearing the red."
+                fi
+                exit 1
+            fi
+        fi
+    fi
+    # d. The pages the store feeds, the stamp, one commit, the fleet's queue. The round state
+    #    rewrites docs/ROUND.md, which git ignores because it names the collecting machine.
+    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
+        uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
+    fi
+    uv run python scripts/harness/bank_hygiene.py space
+    uv run python scripts/round/build_round_state.py | tail -1 || true
+    uv run python scripts/harness/bank_trigger.py stamp
+    git add docs/registers/
+    COMMITTED=no
+    if git diff --cached --quiet; then
+        echo "the registers are unchanged, so nothing is committed"
+    else
+        git commit -q -m "Sync fleet findings $LABEL"
+        COMMITTED=yes
+    fi
+    # A commit an earlier bank could not push goes with this one.
+    if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
+    # Pending approvals as one issue and one mergeable pull request each, after the push, so a
+    # block this bank wrote is on live and its pull request flips one line.
+    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
+        uv run python scripts/harness/sync_approvals.py || true
+    fi
+    # Every confirmed FIND's outcome into the fleet's ledger, this drain's and every drain
+    # banked before it: a find the owner approved since, or the store ingested since, gains its
+    # banked line here, and a line the ledger holds adds nothing. `banked` is the store's
+    # ingested files. Then each lead's fate into the fleet's queue, pushed together.
+    # Every bank books the outcome of every drain, banked ones included, so lines that did not
+    # land this time land on a later bank and never hold a drain in `incoming/`.
+    uv run python scripts/harness/fleet_findings.py outcome "$IN" data/fleet_findings/banked/*/ \
+        --fleet "$FLEET" || echo "the outcome lines did not land; the next bank books them"
+    uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
+    bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
+    # A drain leaves `incoming/` only once its rows are committed.
+    if [ "$RAN_A" = yes ]; then
+        if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
+            mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
+        else
+            echo "nothing was committed, so the drain stays in $IN"
+        fi
+    fi
+    # e. The snapshot the fleet prices against, when this bank exported one, then its claim in
+    #    the fleet's snapshot.json. data/logs/.push_pending goes once fleet main holds that.
+    if [ "$EXPORTED" = no ]; then
+        echo "push: nothing was exported, so the fleet's snapshot stands"
+    elif bash scripts/harness/sync_fleet.sh \
+        && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+            --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json"; then
+        rm -f data/logs/.push_pending
+    else
+        echo "push pending: the VPS or fleet main did not take the snapshot, the next tick retries"
+    fi
+
+# The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
+# `sed` of sources*.md. One truncated line per hit: page and line, source key, verdict, net-new EE,
+# the shape the term sat in, and the text; `--detail` prints one approved-page entry whole.
+# Nothing prints over 40 lines without `--all`. Exit 1 is "not in the register", exit 2 is
+# "the search did not run": different answers.
 #
-#   just find iedr                            every hit, over all four pages
-#   just find iedr_register --detail          that entry whole, capped at 40 lines
+#   just find iedr                            every hit, over all three pages
+#   just find iedr_register --detail          that approved-page entry, whole
 #   just find blocklist squidguard            hits under one source key
-#   just find sources#ukwa_geoindex --detail  when one key names two entries
+#   uv run python scripts/round/find.py "ftp listing"   multi-word: `just` splits arguments
 #
-# search the four register pages, one truncated line per hit
+# search the three register pages, one truncated line per hit
 find *args:
     uv run python scripts/round/find.py {{args}}
 
-# The PreCompact hook writes private/handoff.md by itself. This is the same
-# note by hand, from a transcript path, for a session being closed on purpose.
-#
-# write private/handoff.md from a transcript path
-handoff transcript:
-    printf '{"transcript_path": "%s", "trigger": "manual"}' '{{transcript}}' \
-        | uv run python scripts/agents/handoff.py
-
-# What filled the agent's context, read from the session transcript rather than a
-# new log: the ten largest tool results with their tool, result bytes by tool,
-# assistant text bytes and walls of text, and how often the session compacted.
-# Records are deduplicated by uuid because resumed sessions copy earlier records
-# into the new file. Newest transcript by default; give a path, or --all for one
-# summary over every session. A diagnostic that may break on a harness upgrade,
-# never a gate.
-#
-# measure what fills an agent's context from the newest transcript
-context-report *args:
-    uv run python scripts/agents/context_report.py {{args}}
-
 # --- proposing and pricing a source -------------------------------------------
 
-# The harness's working memory across sessions. `docs/sources.md` is the
-# authoritative narrative and holds the ~60 verdicts the screener parses, but prose
-# cannot carry STATUS, so it cannot answer what an unattended run asks every time it
-# wakes up: what did I propose that I never finished pricing? `add` screens first and
-# refuses a hypothesis with no dating claim; `close` prints the sources.md row to
-# paste, so the two records cannot drift.
-#
-# NOTE: `just` splits recipe arguments, so a multi-word --verdict or --cost must go
-# to the script directly: uv run python scripts/harness/hypothesis_ledger.py update ...
-#
-# the hypothesis ledger: proposed, priced, adopted or killed
-hypo *args:
-    uv run python scripts/harness/hypothesis_ledger.py {{args}}
-
-# Does the proposal collide with one of the ~50 families already closed with a
-# measurement, and what dates ONE of its items. The register is parsed out of
-# docs/sources.md at run time rather than copied, so it cannot drift from the
-# verdicts. Exits 2 if no dating claim is made, because a source whose items carry
-# no date is seed-only and that decides what it can ever be. Example:
-#   just screen --dating typed "1997 conference proceedings with affiliations"
+# Does the proposal collide with a family already closed with a measurement, and what dates
+# ONE of its items. Both register pages are parsed at run time rather than copied, so it
+# cannot drift. Exits 2 if no dating claim is made: a source whose
+# items carry no date is seed-only, and that decides what it can ever be.
 #
 # screen a source proposal against the closed register before it costs a request
 screen *args:
     uv run python scripts/harness/screen_hypothesis.py {{args}}
 
-# Turn a URL into a priceable journal from a TOML description, so a source can be
-# measured before anyone decides whether it is worth a hand-written collector. Two
-# of the last four sources considered were rejected on the number and never needed
-# a parser at all, which is what this exists for. It refuses to guess a column, it
-# reports what it threw away by reason, and its output has no ingest spec, so there
-# is no path by which a probe can date a year (ADR-004). Then:
-#   just price --items data/raw/probes/<name>.jsonl --label <name>
+# Turn a URL into a priceable journal from a TOML description, so a source can be measured
+# before anyone decides whether it is worth a hand-written collector. It refuses to guess a
+# column, reports what it threw away by reason, and its output has no ingest spec, so no
+# probe can date a year. Then `just price --items data/raw/probes/<name>.jsonl`.
 #
 # price a source from a TOML description, writing no Python
 probe spec *args:
     uv run python scripts/pricing/probe_source.py {{spec}} {{args}}
 
-# Price a normalised {item, year, text} JSONL against the live store: net-new pairs
-# and domains after the corroboration split, mean weight, a typo bound, and both a
-# linear and a saturating projection with instructions to quote the lowest. Writes
-# nothing. Only turning a source into dated items is source-specific; everything
-# after that is this.
+# Price a normalised {item, year, text} JSONL against the live store: net-new pairs and
+# domains after the corroboration split, mean weight, a typo bound, and both a linear and a
+# saturating projection, quoting the lowest. Writes nothing.
 #
 # price any dated corpus against the live store, writing nothing
 price *args:
     uv run python scripts/pricing/price_items.py {{args}}
 
 # The same question at the second accepted unit. `price` collapses every name to its
-# registrable, which priced 180 suffix journals at 0 that were worth 301,650 EE in
-# hostnames. This runs the ingest's own funnel over {url, timestamp} journals or
-# --items JSONL and differences against hostname_year AND his baseline files, on a
-# read-only connection, so a keep-until-priced corpus gets its number without the
-# write lock.
+# registrable, which once priced 180 suffix journals at 0 that were worth 301,650 EE in
+# hostnames. This runs the ingest's own funnel and differences against hostname_year AND his
+# baseline files, read-only, so a corpus gets its number without the write lock.
 #
 # price a corpus at hostname grain against the live store, writing nothing
 price-hosts *args:
     uv run python scripts/pricing/price_hostnames.py {{args}}
 
-# A source class may not date a year until a human classifies it, and `ark ingest`
-# enforces that rather than trusting anyone to remember. This writes the request:
-# a seeded-random sample of real records with live links, the measured figures, and
-# what the source is worth under each possible decision. The reviewer checks the
-# links; the agent's argument is there to be checked, not believed. Candidate-only
-# evidence needs no approval, since it can never date a year.
+# A source class may not date a year until a human classifies it, and `ark ingest` enforces
+# that rather than trusting anyone to remember. This writes the request: a seeded-random
+# sample of real records with live links, the measured figures, and what the source is worth
+# under each possible decision. Candidate-only evidence needs no approval.
 #
 # ask a human to classify a source class before its records can date a year
 approve *args:
     uv run python scripts/harness/request_approval.py {{args}}
 
-# Ivo signs off the most promising source first, so the triage queue is kept in
-# score order by a program rather than by anyone remembering. The judgement is in
-# the `- potential:` line each entry declares; this only applies it. An entry with
-# no score is a hard error, since a source that sorts to the bottom for want of a
-# number is the one nobody ever looks at.
-#
-# sort the triage queue by declared potential, highest first
-triage-rank *args:
-    uv run python scripts/harness/rank_triage.py {{args}}
-
-# Re-ask every source closed because something could not be REACHED, as opposed to
-# closed because a measurement killed it. The register already names the hosts that
-# failed, so this needs no new knowledge and no judgement: it extracts them from the
-# verdict prose and asks again. A 200 is only reported as news when the verdict did
-# not already predict one, because `ircache.net` answers today and the register says
-# it "now serves a squatted blog".
+# Re-ask every source closed because something could not be REACHED, as opposed to closed
+# because a measurement killed it. It extracts the failed hosts from the verdict prose and
+# asks again. A 200 is news only when the verdict did not already predict one.
 #
 # re-probe every availability-closed lead, and report only what changed
 reprobe *args:
@@ -399,14 +664,10 @@ reprobe *args:
 
 # --- reproducing the result ---------------------------------------------------
 
-# The whole result from an empty store, offline, in six stages. Needs the bulk
-# sources in data/raw/ AND the supplied baseline in legacy-data/, since the annual
-# masters are baseline plus additions and net-new is defined against it. Stages 1
-# to 3 read the bulk files in data/raw/, stage 4 replays the journals the collectors
-# already wrote, stage 5 rebuilds the hostname/URL seed pool, stage 6 writes and
-# proves the deliverable. To collect NEW evidence, see the network recipes below.
-#
-# `just reproduce` runs all six in order; a stage name runs one.
+# The whole result from an empty store, offline, in six stages. Needs the bulk sources in
+# data/raw/, the supplied baseline in legacy-data/ that the audit measures, AND his current
+# release, since net-new is defined against his files. To collect NEW evidence, see the network
+# recipes below. `just reproduce` runs all six in order; a stage name runs one.
 #
 # rebuild offline: all (default) baseline sources candidates journals seeds deliver
 reproduce stage="all":
@@ -418,150 +679,203 @@ reproduce stage="all":
             just reproduce "$s"
         done
         ;;
-    # stage 1: create the stores, load the supplied baseline read-only (~2 min)
+    # stage 1: create the stores, check his release and write the held sets
     baseline)
         uv run ark init
-        uv run ark ingest-legacy
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark intake
         uv run ark legacy-review
         uv run ark audit
         ;;
     # stage 2: ingest every bulk source already downloaded into data/raw/
     #
-    # `arquivo_ia` is deliberately absent. `data/raw/arquivo/IA.cdxj` is 47 GB and was
-    # deleted to reclaim disk once its 28,247 evidence rows were in the store, so its
-    # evidence is present and its input file is not. Leaving the line in aborted this
-    # whole stage on a missing file, which broke the reviewer-facing reproduction path.
-    # To re-derive it rather than trust the store, download it first (the command is in
-    # docs/sources.md) and run the commented line by hand. Same reason
-    # `data/raw/checksums.sha256` verifies 234 files rather than 235.
+    # `arquivo_ia` is deliberately absent: `data/raw/arquivo/IA.cdxj` is 47 GB and was deleted
+    # once its 28,247 evidence rows were in the store, so a live line would abort this whole
+    # stage on a missing file. Download it first from its link in docs/registers/sources.md
+    # and run the commented line by hand. Same reason checksums.sha256 verifies 234, not 235.
     sources)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest isc_survey        data/raw/isc_survey/*.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internic_zone     data/raw/internic_zones/*.zone.*.gz
-        # The nameserver TARGETS of the 1997 zones at hostname grain, admitted 2026-09-02
-        # under the standing rule (11,860.7 EE). The 1999 tomocha files are deliberately
-        # not listed: their terms are parked, see docs/approved-sources-list.md.
+        # The nameserver TARGETS of the 1997 zones, at hostname grain. The 1999 tomocha
+        # files are not listed: their terms are parked (approved-sources-list.md).
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz data/raw/internic_zones/edu.zone.gz data/raw/internic_zones/gov.zone.gz data/raw/internic_zones/mil.zone.gz data/raw/internic_zones/root.zone.gz data/raw/internic_zones/arpa.zone.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest dartmouth_bfs_seed data/raw/dartmouth_bfs/*.cdx.gz
-        # Admitted by the loop on 2026-09-01 under the standing rule: NYPW TimeMaps at
-        # 4,146.8 EE post-split, 6,423 of its 6,424 pairs at 2001. The collector fetches
-        # the three priced parts and flattens each tarball into one file:
+        # NYPW TimeMaps, post-split. The collector fetches the three priced parts and
+        # flattens each tarball into one file:
         #   uv run python scripts/sources/nypw/collect_nypw_timemaps.py
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest nypw_timemaps      data/raw/nypw_timemaps/*.cdx.gz
-        # The non-200 lane of the same 34 files, admitted by the loop on 2026-09-01
-        # under the standing rule. Ingest it AFTER the 200 lane above: that ordering
-        # is what makes the store the control group for the relaxation.
+        # The non-200 lane of the same 34 files. Ingest it AFTER the 200 lane above: that
+        # ordering is what makes the store the control group for the relaxation.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest nypw_timemaps_nonok data/raw/nypw_timemaps/*.cdx.gz
         # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
-        # the whole recipe with it. Left here, commented, because the artifact is on disk
-        # and the next reader should see why it is not ingested rather than wonder.
+        # the whole recipe with it. Left commented because the artifact is on disk.
         # uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest us_domain_delegated data/raw/us_domain/*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest squidguard_2001_blacklist data/raw/squidguard/*
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_1999   data/raw/ripe_funet/ripe.db.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_changed data/raw/ripe_funet/ripe.db.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ripe_dbase_split_2004 data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest namewinner_expiring data/raw/namewinner/*.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest can_domain_registry_notices data/raw/can_domain/*.zip
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_register_listing_inbody data/raw/cctld/*.html
-        # Approved by Ivo on 2026-08-27: junkfilter at 2,189.4 EE and the Edelman whois
-        # transcriptions at 2,968.5. The split step runs first because the ingest reads
-        # its output, not the raw editions.
+        # The split step runs first because the ingest reads its output, not the raw editions.
         uv run python scripts/sources/blocklists/split_junkfilter.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest junkfilter_dated      data/raw/junkfilter/dated/*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest junkfilter_candidates data/raw/junkfilter/cand/*.txt
-        # Approved by Ivo on 2026-08-31: chastity-list at 14,229.0 EE, the largest single
-        # source in the triage queue. Same shape as junkfilter, so the split runs first.
+        # Same shape as junkfilter, so the split runs first.
         uv run python scripts/sources/blocklists/split_chastity.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest chastity_dated      data/raw/chastity/chastity-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest chastity_candidates data/raw/chastity/chastity-cand.*.txt
-        # Admitted by the loop on 2026-09-02 under the standing rule: the same two blocklists
-        # read one level down, at hostname grain, 3,410.4 EE net-new. chastity's stamp is the
-        # tar member header, so that lane reads the orig tarball rather than the unpacked tree.
+        # The same two blocklists one level down, at hostname grain. chastity's stamp is the
+        # tar member header, so that lane reads the orig tarball, not the unpacked tree.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-blocklist-hostnames data/raw/squidguard/*
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-blocklist-hostnames data/raw/chastity/chastity-list_0.5.orig.tar.gz
-        # Three more hostname-grain lanes admitted 2026-09-02 under the standing rule: the
-        # nameservers RIPE domain objects point at (both FUNET editions), IA's Early Web index
-        # re-emitted as capture journals, and the USFEDGOV-EXTRACT-2001 merged index reduced
-        # to one capture per host (`scripts/sources/early_web/early_web_hostgrain.py`,
-        # `scripts/sources/usfedgov/usfedgov_hostgrain.py`).
+        # Three more hostname-grain lanes: the nameservers RIPE domain objects point at (both
+        # FUNET editions), IA's Early Web index re-emitted as capture journals, and the
+        # USFEDGOV-EXTRACT-2001 merged index reduced to one capture per host
+        # (`early_web_hostgrain.py`, `usfedgov_hostgrain.py`).
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-ripe-nserver-hostnames data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz
+        uv run python scripts/sources/early_web/early_web_hostgrain.py | tail -1
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/early_web_hostgrain/ | tail -1 || true
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-hostnames data/raw/usfedgov_hostgrain/ | tail -1 || true
-        # Two more admitted 2026-09-02: the USFEDGOV-EXTRACT 1996-2000 sibling indexes go
-        # through the same hostgrain script into the same journal directory, and the ISC
-        # survey per-TLD host files are read one level below the registrable `isc_survey` took.
+        # The USFEDGOV-EXTRACT 1996-2000 sibling indexes go through the same hostgrain script
+        # into the same journal directory, and the ISC survey per-TLD host files are read one
+        # level below the registrable `isc_survey` took.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*_*.gz | tail -1 || true
-        # Approved by Ivo on 2026-08-31 alongside chastity: Granite Canyon at 1,732.9 EE.
+        # The pipermail month files already on disk for `maillist_dated`, read at hostname
+        # grain from their body URLs.
+        uv run python scripts/sources/mail_corpora/build_maillist_pool.py data/raw/maillists data/raw/maillists_items 8
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest-maillist-hostnames data/raw/maillists_items/ | tail -1 || true
+        # The CMU Enron release at hostname grain from its body URLs, the third member of the
+        # body-URL family. One 443 MB request.
+        test -f data/raw/enron/enron_mail_20150507.tar.gz || curl -sS -L -A "internet-digital-ark research collector" -o data/raw/enron/enron_mail_20150507.tar.gz https://www.cs.cmu.edu/~enron/enron_mail_20150507.tar.gz
+        uv run python scripts/sources/mail_corpora/build_enron_pool.py data/raw/enron/enron_mail_20150507.tar.gz data/raw/enron_items
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest-enron-hostnames data/raw/enron_items/ | tail -1 || true
         # The collector runs first because the bytes are not kept in git.
         uv run python scripts/sources/registries/collect_granitecanyon.py
         uv run python scripts/sources/registries/split_granitecanyon.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest granitecanyon_dated      data/raw/granitecanyon/granitecanyon-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest granitecanyon_candidates data/raw/granitecanyon/granitecanyon-cand.*.txt
-        # Approved by Ivo on 2026-08-31: the capture-dated ccTLD listings at 2,450.2 EE,
-        # repriced from the bytes against a source register that claimed 3,496.0.
+        # The capture-dated ccTLD listings: collect, split, then ingest both halves.
         uv run python scripts/sources/registries/collect_cctld_capture.py
         uv run python scripts/sources/registries/split_cctld_capture.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
-        # Approved by Ivo on 2026-08-31: MYNIC at 6,883.1 EE and CO.ZA at 3,704.3. Neither
-        # takes the split, since both are a registry reading out its own register.
+        # Neither takes the split: both are a registry reading out its own register.
         uv run python scripts/sources/registries/collect_mynic_coza.py
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest mynic_change_report data/raw/mynic/*.htm
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest coza_deletion_queue data/raw/coza/*.html
-        # Approved by Ivo on 2026-08-31 at 1,403.2 EE post-split. NOT reproducible by a
-        # collector: app.fac.gov is `User-agent: * / Disallow: /`, so the four census-<year>.zip
+        # NOT reproducible by a collector: app.fac.gov is `User-agent: * / Disallow: /`,
+        # so the four census-<year>.zip
         # files must be downloaded BY HAND from https://www.fac.gov/data/download/historic/
         # and ELECAUDITHEADER.csv unpacked to data/raw/fac/header-<year>.csv.
         uv run python scripts/sources/mail_corpora/split_fac.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest fac_dated      data/raw/fac/fac-dated.*.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest fac_candidates data/raw/fac/fac-cand.*.tsv
-        # Admitted by the loop on 2026-08-31 under the standing rule: the released Jeb Bush
-        # gubernatorial mailbox at 3,546.1 EE (4,505 of its 5,692 pairs land at 2001) and a
-        # domain broker inventory at 1,591.9 EE, all of it at 2001.
+        # The Jeb Bush mailbox and the URLMerchant inventory, both almost entirely at 2001.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_dated       data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_candidates  data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b*.jsonl.gz
-        # Admitted under the standing rule of 2026-08-29: URLMerchant's for-sale inventory
-        # at 1,591.9 EE post-split over 244 listing pages. The page collector outlives a
-        # session, so a later batch takes its own `--tag` and its own pair of ingest lines.
+        # URLMerchant's for-sale inventory, post-split. The page collector outlives a session,
+        # so a later batch takes its own `--tag` and its own pair of ingest lines.
         uv run python scripts/sources/directories/split_urlmerchant.py --tag b1 --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_dated      data/raw/urlmerchant/urlmerchant_dated_b1.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest urlmerchant_candidates data/raw/urlmerchant/urlmerchant_candidates_b1.jsonl.gz
-        # Admitted under the standing rule of 2026-08-29: Jeb Bush's gubernatorial mailbox
-        # at 3,546.1 EE post-split. The extractor runs over the files unpacked from
-        # JebBushEmails-Text.7z, which is 412 MB and not kept in git:
+        # The extractor runs over the files unpacked from JebBushEmails-Text.7z, which is
+        # 412 MB and not kept in git:
         #   curl -O https://archive.org/download/JebBushEmails/JebBushEmails-Text.7z
         #   7z x JebBushEmails-Text.7z -o<dir> 'Redacted/*'
         #   uv run python scripts/sources/mail_corpora/parse_jeb_mail.py --out-prefix data/raw/jeb_bush/jeb_bush \
         #       <dir>/Redacted/*.txt
         uv run python scripts/sources/mail_corpora/split_jeb_mail.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_dated      data/raw/jeb_bush/jeb_mail_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest jeb_mail_candidates data/raw/jeb_bush/jeb_mail_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
         # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest internet_scout    data/raw/scout/scout_oai.xml
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest odp               data/raw/odp/*.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/host-linkage.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_source  data/raw/ukwa/*-linkage.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_link_target  data/raw/ukwa/host-linkage.tsv.gz
-        # The BL geoindex extract. `ark ingest` refuses this until its `Decision:` line
-        # is set in docs/approved-sources-list.md, so this line is a no-op until then and
-        # is here so the documented reproduction is complete rather than nearly complete.
-        # Build the input first with `bash scripts/sources/ukwa/ukwa_geoindex_pull.sh`.
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest ukwa_link_target_bare data/raw/ukwa/host-linkage.tsv.gz
+        # The BL geoindex extract. `ark ingest` refuses it until its `Decision:` line is set,
+        # so the line is a no-op until then and keeps the documented reproduction complete.
+        # Build the input with `bash scripts/sources/ukwa/ukwa_geoindex_pull.sh`.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
-        # These three were ingested by hand and reached 11.5% of all assignments while this
-        # recipe, which README.md calls "the authoritative list of what gets ingested", did
-        # not name them. Found on 2026-08-18 by auditing the delivery against D1.
+        # These three once reached 11.5% of all assignments while this recipe, which README.md
+        # calls "the authoritative list of what gets ingested", did not name them (D1).
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest dk_hostmaster_dk_zonen_domains_txt_wayback_2001 data/raw/registry_lists/dk_hostmaster_domains_txt_2001.jsonl
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest dartmouth_nber_captures data/raw/dartmouth_nber/domain-year-captures.txt
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest domain_creation_bulk   data/raw/domain_creation/domains.csv
         ;;
     # stage 3: grow the candidate pool from the year-unlabelled host lists
@@ -570,96 +884,144 @@ reproduce stage="all":
         uv run ark seed legacy-data/deduplicated_urls_2001-2002.txt
         uv run ark seed seeds/100hot_hosts.txt
         ;;
-    # stage 4: replay the network journals already collected in data/raw/. This is
-    # the reproduction path for the two network stages: it re-derives evidence from
-    # the stored responses, so it needs no network and gives the same result every
-    # time. To collect MORE, see the network recipes below.
+    # stage 4: replay the network journals already collected in data/raw/. It re-derives
+    # evidence from the stored responses, so it needs no network and gives the same result
+    # every time. To collect MORE, see the network recipes below.
     journals)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest cdx_snapshot  data/raw/cdx/cdx_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rdap_snapshot data/raw/rdap_gen/rdap_gen_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/expand_*.jsonl.gz --round 1
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/round2/expand_round2.jsonl.gz --round 2
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/wwwvl/expand_wwwvl_corroborated.jsonl.gz --round 3
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/wwwvl/expand_wwwvl_unverified.jsonl.gz --round 3
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/expand/round4/expand_round4_corroborated.jsonl.gz --round 4
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links     data/raw/expand/round4/expand_round4_unverified.jsonl.gz --round 4
-        # Three directories, not one. The pools were added later and each wrote its
-        # journals beside its own archives, so `data/raw/usenet/` alone reached 186 of
-        # 1,064 ledgered files and the replay silently rebuilt a store without the rest.
-        # The audit called all 1,798 of these "unreachable" and a hand reading of that
-        # called them deleted; 1,759 of them were simply in a sibling directory.
-        # One line per directory, because the residual audit reads the FIRST glob on an
-        # `ark ingest` line and a backslash continuation is invisible to it. A glob it
-        # cannot see is a glob nobody checks.
+        # Three directories, not one: each pool wrote its journals beside its own archives,
+        # and `data/raw/usenet/` alone reaches 186 of 1,064 ledgered files. One line per
+        # directory, because the residual audit reads the FIRST glob on an `ark ingest` line
+        # and a backslash continuation is invisible to it.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet_new/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/raw/usenet_de/usenet_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated        data/staging/usenet_resplit/filtered/usenet_dated_resplit*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet_new/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/raw/usenet_de/usenet_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_candidates   data/staging/usenet_resplit/filtered/usenet_candidates_resplit*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated        data/raw/tucows/tucows_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_candidates   data/raw/tucows/tucows_candidates.jsonl.gz
-        # `_r2` is the second split of the recovered-address journals, run after the
-        # extractor was widened. The first split is in the ledger but no longer on
-        # disk; the second is a superset, so replaying it alone reconstructs the same
-        # evidence. Regenerate with `just collect usenet-addresses`, which writes the
-        # untagged names, then rename.
-        # A glob rather than the one `_r2` file, because every later re-split writes its own
-        # tagged pair and the split is now run on a loop. Named `_r*`, `_addr*` and `_cmp*`.
+        # The recovered-address journals. The first split is in the ledger but no longer on
+        # disk and the second is a superset, so replaying the glob reconstructs the same
+        # evidence; every later re-split writes its own tagged pair (`_r*`, `_addr*`, `_cmp*`).
+        # Regenerate with `just collect usenet-addresses`, which writes the untagged names.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      data/raw/usenet_addr/usenet_addr_dated_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates data/raw/usenet_addr/usenet_addr_candidates_*.jsonl.gz
-        # The machine-written header seam. Same two source keys, because the headers
-        # carry the same kind of claim as a typed address and no `usenet_hdr` spec
-        # exists. Without these two lines a rebuild is 19,224 evidence rows short.
+        # The machine-written header seam, under the same two source keys because no
+        # `usenet_hdr` spec exists. Without these two lines a rebuild is 19,224 rows short.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      data/raw/usenet_hdr/usenet_hdr_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates data/raw/usenet_hdr/usenet_hdr_candidates*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_listing        data/raw/uucp/uucp_listing.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_creation       data/raw/uucp/uucp_creation.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_mentions       data/raw/uucp/uucp_mentions.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated          data/raw/rtfm/rtfm_dated_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates     data/raw/rtfm/rtfm_candidates_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates*.jsonl.gz
-        # Registry whois records pasted into the bodies. The registry's own creation
-        # line dates the row, not the post, so this is `whois_creation` and rule 6
-        # gives that year alone. Regenerate with `just collect usenet-whois`.
+        # Registry whois records pasted into the bodies. The registry's own creation line
+        # dates the row, not the post, so this is `whois_creation` and rule 6 gives that year
+        # alone. Regenerate with `just collect usenet-whois`.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates*.jsonl.gz
         # The promotion tranches, which live under `data/staging/` rather than `data/raw/`.
-        # They were ingested and then unreachable from any documented glob, so a replay
-        # rebuilt a store without them. They are regenerable by re-running
-        # `build_promotion_journals.py`, but a reproduction path should not depend on that.
+        # Regenerable by re-running `build_promotion_journals.py`, but a reproduction path
+        # should not depend on that.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated       data/staging/promotion/enron_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated    data/staging/promotion/maillist_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated        data/staging/promotion/rtfm_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated  data/staging/promotion/tradepress_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated      data/staging/promotion/tucows_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_dated      data/staging/promotion/usenet_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated data/staging/promotion/usenet_addr_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated data/staging/promotion/usenet_bare_dated_promoted_*.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest attrition_dated     data/raw/attrition/attrition_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated         data/raw/enron/enron_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_candidates    data/raw/enron/enron_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_reextract.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american_bare.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american_bare.jsonl.gz
-        # The archived 1996-1997 Yahoo directory walk. Measured and rejected as a
-        # route (55 requests bought 11 pairs), but its three journals were ingested,
-        # so a rebuild without them is 670 records short of the store.
+        # The archived 1996-1997 Yahoo directory walk, measured and rejected as a route (55
+        # requests bought 11 pairs). Its three journals were ingested, so a rebuild without
+        # them is 670 records short.
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_pilot1996_corroborated.jsonl.gz --round 5
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_fatpages1996_corroborated.jsonl.gz --round 5
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory data/raw/yahoo96/yahoo96_expand_corroborated.jsonl.gz --round 5
         ;;
     # stage 5: rebuild the auxiliary seed pool, the hostnames and URLs that the
@@ -671,23 +1033,26 @@ reproduce stage="all":
         uv run ark seed-pool ukwa_link_source data/raw/ukwa/host-linkage.tsv.gz
         uv run ark seed-pool early_web        data/raw/early_web/*.cdx.gz
         ;;
-    # stage 6: write the deliverable, then prove it. The order is not cosmetic:
-    # `check`'s `additions_not_double_counted` invariant reads the exported annual
-    # files, so running it before `export` compares this round's files against last
-    # round's store and reports every already-credited pair as a violation. Export
-    # first, always.
+    # stage 6: write the deliverable, then prove it. Export FIRST, always: `check`'s
+    # `additions_not_double_counted` invariant looks up each exported name in his year file, so
+    # running it first compares last round's files against his new release and reports every
+    # already-credited name as a violation.
     deliver)
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark export
         uv run ark stats
         uv run ark check
+        uv run python scripts/round/prune.py --round --write || echo "cleanup held unverified copies" >&2
         ;;
     *) echo "reproduce: all baseline sources candidates journals seeds deliver" >&2; exit 2 ;;
     esac
 
-# tier 2: regenerate every result file from a provenance export instead, which
-# needs no source data at all. About a minute, and byte-identical.
+# Needs no source data at all, only the held sets `ark intake` writes. About eight minutes, plus
+# about three for `ark intake`, and byte-identical.
 #
-# tier 2: regenerate every result file from a provenance export
+# tier 2: regenerate every result file from a provenance export. `ark export` does not
+# write that export unless asked, so refresh it with `ark export --provenance` first or
+# this rebuilds whatever was last shipped.
 rebuild dir="output/provenance":
     uv run ark rebuild {{dir}}
     uv run ark check
@@ -696,101 +1061,32 @@ rebuild dir="output/provenance":
 # Each of these appends a journal to data/raw/ and writes no evidence, so they
 # never hold the store's write lock and can run concurrently with each other.
 
-# one archive-verification batch: which in-window years hold a capture
-cdx-batch n="1200" workers="8":
-    uv run ark gaps
-    uv run ark cdx data/raw/cdx/gap_candidates.txt -n {{n}} --workers {{workers}} --timeout 70
-
-# split the gap list across machines: disjoint by content hash, so no domain is
-# ever queried twice and each slice keeps its share of the high-value head.
+# The laptop's launchd-supervised parent sweep, a closed lane: `run` starts nothing. No start
+# or stop, because launchd owns the process, and the pause flag is the only thing these three
+# words touch.
 #
-# split the gap list N ways for N machines (superseded by query-queue)
-gap-shards n="2":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for i in $(seq 0 $(({{n}} - 1))); do
-        uv run ark gaps --shards {{n}} --shard "$i" --out "data/raw/cdx/gap_shard${i}.txt"
-    done
-
-# Supersedes running `gap-shards` and `build_pool_candidates.py` as two separate
-# lists: the allocation between them was the expensive decision and it was being
-# made by hand. Rebuild after a large ingest, since new evidence creates gaps as
-# well as filling them, and a stale queue cannot reach what it does not list.
-# With no argument it passes the measured weights and rates; `--dry-run` reports
-# what the queue would return and writes nothing.
+#   pause    writes the flag a sweep checks between pages. Survives sleep and reboot.
+#   resume   the flag is removed.
+#   status   paused or not, clients on the channel, the last journal and its hit rate.
 #
-# one queue from both populations, best expected equivalent-English first
-query-queue *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if [ -z "{{args}}" ]; then
-        uv run python scripts/engines/build_query_queue.py --weights 78,22 --rates 916,262
-    else
-        uv run python scripts/engines/build_query_queue.py {{args}}
-    fi
-
-# the candidate pool instead of the gap pool: domains held with no year at all,
-# so a capture adds a name rather than a year. Best English yield first, and the
-# supervisor runs batches until the deadline epoch you give it.
-#
-# sweep the candidate pool at the archive, unattended until a deadline epoch
-cdx-pool until batch="1200" workers="8":
-    uv run python scripts/engines/build_pool_candidates.py
-    bash scripts/engines/supervise_cdx_pool.sh {{until}} {{batch}} {{workers}} 900
-
-# The CDX collectors on this machine.
-#
-#   status         what both engines are doing right now, and whether the VPS
-#                  journals are home
-#   start UNTIL    this machine's collector and the ingest loop, both detached, up
-#                  to a deadline epoch: `just engines start $(date -u -v+12d +%s)`
-#   stop           TERM to the supervisor runs its trap, which asks the batch to stop
-#                  and lets it publish what it has: a stopped batch still writes its
-#                  journal, so the only thing lost is the queries it had not made
-#                  yet. Never `kill -9` here, that strands the `.part` and the work
-#                  in it is unreachable.
-#
-# the CDX collectors: status start stop
-engines what="status" *args:
+# the laptop CDX collectors: pause resume status
+collectors what="status":
     #!/usr/bin/env bash
     set -uo pipefail
-    set -- {{args}}
     case "{{what}}" in
-    status) bash scripts/engines/engine_status.sh ;;
-    start)
-        if [ $# -lt 1 ]; then echo "engines start UNTIL [batch] [workers]" >&2; exit 2; fi
-        ARK_TARGETS=data/raw/cdx/queue_shard0.txt ARK_PREFIX=cdx_q0 \
-            nohup caffeinate -i bash scripts/engines/supervise_cdx_pool.sh \
-            "$1" "${2:-600}" "${3:-8}" 900 > /dev/null 2>&1 < /dev/null &
-        nohup bash scripts/harness/maintain.sh 900 150 > /dev/null 2>&1 < /dev/null &
-        sleep 5
-        ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]" || true
-        ;;
-    stop)
-        pkill -TERM -f "supervise_cdx_pool[.]sh" 2>/dev/null || true
-        pkill -TERM -f "maintain[.]sh" 2>/dev/null || true
-        echo "waiting for the batch in flight to publish its journal"
-        until ! pgrep -f "[a]rk cdx " >/dev/null && ! pgrep -f "[a]rk ingest" >/dev/null; do
-            sleep 5
-        done
-        pkill -f "caffeinate -i bash scripts/supervise" 2>/dev/null || true
-        echo "stopped; nothing left running:"
-        ps -eo pid,args | grep -E "supervise_cdx_poo[l]|maintain_phase[3]|ar[k] cdx" || echo "  confirmed idle"
-        ls data/raw/cdx/*.part 2>/dev/null && echo "WARNING: a .part was stranded" || echo "  no stranded .part files"
-        ;;
-    *) echo "engines: status start stop" >&2; exit 2 ;;
+    pause|resume|status) bash scripts/harness/collectors.sh {{what}} ;;
+    *) echo "collectors: pause resume status" >&2; exit 2 ;;
     esac
 
 # Page expansion, the outbound-link route (brief section VII).
 #
 #   round SEEDS N  one round over a seed list, e.g.
-#                  `just expand round seeds/expansion/seeds_round4.txt 5`. The split
-#                  step is not optional: it keeps a curated page's transcription typos
-#                  out of master evidence by demoting names no other source attests.
-#   loop [D] [P]   one turn of the closed discovery loop: the engine's own hits become
-#                  the next seed pages, their outbound domains become candidates, and
-#                  the engine queries those in its turn. Unlike `round` no human picks
-#                  the seeds, which is what stops this being a source that can run out.
+#   round SEEDS N  one round over a seed list, e.g.
+#                  `just expand round seeds/expansion/seeds_round4.txt 5`. The split step
+#                  keeps a curated page's transcription typos out of master evidence.
+#   loop [D] [P]   one turn of the closed discovery loop: the engine's own hits become the
+#                  next seed pages and their outbound domains become candidates. No human
+#                  picks the seeds, which is what stops this being a source that runs out.
 #
 # page expansion: round loop
 expand what="" *args:
@@ -805,8 +1101,10 @@ expand what="" *args:
             --out "data/raw/expand/round${round}/expand_round${round}.jsonl.gz"
         uv run python scripts/engines/split_expansion_journal.py \
             "data/raw/expand/round${round}/expand_round${round}.jsonl.gz" --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_directory \
             "data/raw/expand/round${round}/expand_round${round}_corroborated.jsonl.gz" --round "$round"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links \
             "data/raw/expand/round${round}/expand_round${round}_unverified.jsonl.gz" --round "$round"
         ;;
@@ -815,24 +1113,19 @@ expand what="" *args:
         stamp=$(date -u +%Y%m%dT%H%M%SZ)
         uv run ark download data/raw/expand/loop/seeds.txt -n "${2:-400}" --workers 2 \
             --delay 0.6 --captures 1 --out "data/raw/expand/loop/expand_${stamp}.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest expansion_links data/raw/expand/loop/expand_*.jsonl.gz --round 6
         ;;
     *) echo "expand: round loop" >&2; exit 2 ;;
     esac
 
-# One loop rather than several, because DuckDB takes a single writer.
-# fold everything the collectors have finished into the store, on a loop
-maintain iterations="26" pause="900":
-    bash scripts/harness/maintain.sh {{iterations}} {{pause}}
-
 # --- the per-source collectors ------------------------------------------------
 
-# One recipe, one source per invocation, dispatching to the same scripts each had
-# its own recipe for. Each source is collect-then-split: the collector writes a
-# journal and touches no database, the split sorts the journal into a dated half and
-# a candidate half, and only then does anything reach the store. The split is the
-# evidence wall for every free-text source, so it is not optional.
+# One source per invocation. Each is collect-then-split: the collector writes a journal and
+# touches no database, the split sorts it into a dated half and a candidate half. The split
+# is the evidence wall for every free-text source, so it is not optional.
 #
+#   apache-headers               Apache list relay hosts, dated per message
 #   attrition                    the defacement mirror index, no request sent
 #   enron                        the FERC corpus, dated per message
 #   maillists                    public pipermail archives, dated per message
@@ -855,32 +1148,46 @@ collect source="" *args:
     set -euo pipefail
     set -- {{args}}
     case "{{source}}" in
-    # Reads 33 index pages already on disk and sends no request. `artifact_listing`
-    # and no corroboration split: the mirror saved a copy of the page at that host on
-    # that date, so a name that did not resolve could not be in the index.
+    # The relay-host rule admits the `Received: ... by <host>` clause alone. Discovery is 72
+    # requests and resumable per month; the harvest honours `Crawl-delay: 5` and skips what
+    # is on disk. A list-month limit as the first argument takes a measured slice.
+    apache-headers)
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --discover
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --expand
+        uv run python scripts/sources/mail_corpora/collect_apache_lists.py --harvest ${1:+--limit "$1"}
+        uv run python scripts/sources/mail_corpora/build_apache_header_pool.py \
+            data/raw/apache_lists data/raw/apache_header_items 8
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest-apache-header-hostnames data/raw/apache_header_items/
+        ;;
     attrition)
         uv run python scripts/sources/directories/collect_attrition.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest attrition_dated data/raw/attrition/attrition_dated.jsonl.gz
         uv run ark seed data/raw/attrition/attrition_out_of_window_hosts.txt
         ;;
-    # Pause `maintain` first: the extraction runs for minutes before it writes, and
-    # it has no store-lock retry, so a maintain pass landing mid-run loses the work.
+    # Take the sync lock first: the extraction runs for minutes before it writes, and
+    # it has no store-lock retry, so a bank landing mid-run loses the work.
     enron)
         uv run python scripts/sources/mail_corpora/collect_enron.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_dated      data/raw/enron/enron_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest enron_candidates data/raw/enron/enron_candidates.jsonl.gz
         ;;
     # Harvest first, then parse: `--harvest` fetches about 2,600 month files from
     # two pipermail hosts, which takes six minutes and no archive.org budget.
     maillists)
         uv run python scripts/sources/mail_corpora/collect_mailing_lists.py --harvest --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_dated      data/raw/maillists/maillist_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest maillist_candidates data/raw/maillists/maillist_candidates.jsonl.gz
         ;;
-    # Seed-only and permanently so: the index carries no date column, so nothing in it
-    # can evidence a year. 35,391 registrable domains, 29,432 of them unknown to the
-    # store when measured on 2026-08-10. Expect pool growth and no annual-file growth:
-    # a 60-domain sample on the AWA endpoint returned zero in-window captures.
+    # Seed-only and permanently so: the index carries no date column, so nothing in it can
+    # evidence a year. 35,391 registrable domains, 29,432 unknown to the store when
+    # measured. Expect pool growth and no annual-file growth: a 60-domain sample on the AWA
+    # endpoint returned zero in-window captures.
     pandora-seed)
         uv run python scripts/sources/directories/seed_pandora_titles.py
         uv run ark seed data/raw/pandora-titles/pandora_hosts.txt
@@ -891,7 +1198,9 @@ collect source="" *args:
         tag="${1:-}"
         suffix=""; [ -n "$tag" ] && suffix="_$tag"
         uv run python scripts/sources/usenet/split_rtfm_faqs.py --write --tag "$tag"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_dated      "data/raw/rtfm/rtfm_dated${suffix}.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest rtfm_candidates "data/raw/rtfm/rtfm_candidates${suffix}.jsonl.gz"
         ;;
     # Run --discover first: several plausible collection names do not exist and
@@ -900,7 +1209,9 @@ collect source="" *args:
         uv run python scripts/sources/trade_press/collect_trade_press.py --discover
         uv run python scripts/sources/trade_press/collect_trade_press.py --limit "${1:-5000}"
         uv run python scripts/sources/trade_press/split_trade_press.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates.jsonl.gz
         ;;
     # Both corpora are already worked and ingested; this is here to reproduce, not to
@@ -910,7 +1221,9 @@ collect source="" *args:
         journal="${1:-data/raw/tradepress/tradepress_20260808T172417Z.jsonl.gz}"
         uv run python scripts/sources/trade_press/collect_trade_press.py --limit 1400 --delay 0.6
         uv run python scripts/sources/trade_press/split_trade_press.py --journal "$journal" --tag american --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_dated      data/raw/tradepress/tradepress_dated_american.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tradepress_candidates data/raw/tradepress/tradepress_candidates_american.jsonl.gz
         ;;
     # Sends no request: it re-reads the OCR under data/raw/texts/cache. Worth running
@@ -922,15 +1235,15 @@ collect source="" *args:
         ;;
     tucows)
         uv run python scripts/sources/directories/split_tucows.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_dated data/raw/tucows/tucows_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest tucows_candidates data/raw/tucows/tucows_candidates.jsonl.gz
         ;;
-    # mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host.
-    # The mode has to be threaded all the way through, because it changes the output
-    # DIRECTORY as well as the extractor: `addresses` writes data/raw/usenet_addr and
-    # `headers` writes data/raw/usenet_hdr. Passing it only to the collector, as this
-    # once did, collected into one directory and then split and ingested the other, so
-    # `mode=headers` silently re-ingested the address journals.
+    # mode=headers instead reads Message-ID, Reply-To, Sender and NNTP-Posting-Host. The
+    # mode changes the output DIRECTORY as well as the extractor, `addresses` writing
+    # data/raw/usenet_addr and `headers` data/raw/usenet_hdr, so it must be threaded all the
+    # way through: given only to the collector it silently re-ingests the address journals.
     usenet-addresses)
         mode="${1:-addresses}"; workers="${2:-10}"
         case "$mode" in
@@ -940,7 +1253,9 @@ collect source="" *args:
         esac
         uv run python scripts/sources/usenet/collect_usenet_addresses.py --mode "$mode" --workers "$workers"
         uv run python scripts/sources/usenet/split_usenet_addresses.py --in-dir "$dir" --out-prefix "$prefix" --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_dated      "$dir/${prefix}_dated.jsonl.gz"
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_addr_candidates "$dir/${prefix}_candidates.jsonl.gz"
         ;;
     # Sends no request and takes about three hours of CPU at 8 workers. Run
@@ -948,10 +1263,13 @@ collect source="" *args:
     usenet-bare)
         uv run python scripts/sources/usenet/collect_usenet_bare.py --workers "${1:-8}"
         uv run python scripts/sources/usenet/split_usenet_addresses.py --in-dir data/raw/usenet_bare --out-prefix usenet_bare --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_dated      data/raw/usenet_bare/usenet_bare_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_bare_candidates data/raw/usenet_bare/usenet_bare_candidates.jsonl.gz
         ;;
     usenet-ingest)
+        uv run python scripts/harness/bank_hygiene.py space
         bash scripts/sources/usenet/ingest_new_usenet.sh "${1:-auto}"
         ;;
     # The one source assessed without measuring first was estimated at 27,276 net-new
@@ -959,10 +1277,9 @@ collect source="" *args:
     usenet-measure)
         uv run python scripts/sources/usenet/measure_usenet_yield.py "$@"
         ;;
-    # Reads every archive in all five pools, so it takes about forty minutes of CPU
-    # at 8 workers and sends no request. `ARK_USENET_SRC` picks the pool, because the
-    # archives were downloaded into five directories and the default constant names
-    # only the first, which is now empty.
+    # Reads every archive in all five pools: about forty minutes of CPU at 8 workers and no
+    # request. `ARK_USENET_SRC` picks the pool, because the default constant names only the
+    # first directory, which is now empty.
     usenet-whois)
         for pool in usenet_bulk usenet_new usenet_probe usenet_probe5 usenet_msft; do
             [ -d "data/raw/$pool" ] || continue
@@ -970,14 +1287,19 @@ collect source="" *args:
                 --workers "${1:-8}" --tag "$pool"
         done
         uv run python scripts/sources/usenet/split_usenet_whois.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_dated      data/raw/usenet_whois/usenet_whois_dated.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest usenet_whois_candidates data/raw/usenet_whois/usenet_whois_candidates.jsonl.gz
         ;;
     # UUCP maps from comp.mail.maps: a .CA registry dump the Usenet parser read as prose
     uucp-maps)
         uv run python scripts/sources/usenet/split_uucp_maps.py --write
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_listing  data/raw/uucp/uucp_listing.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_creation data/raw/uucp/uucp_creation.jsonl.gz
+        uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest uucp_mentions data/raw/uucp/uucp_mentions.jsonl.gz
         ;;
     "")
@@ -985,163 +1307,175 @@ collect source="" *args:
         echo "  attrition enron maillists pandora-seed rtfm-faqs trade-press"
         echo "  trade-press-american trade-press-reextract tucows usenet-addresses"
         echo "  usenet-bare usenet-ingest usenet-measure usenet-whois uucp-maps"
-        echo "Arguments and what each one reads: docs/runbook.md"
+        echo "Arguments and what each one reads: the collect recipe in the justfile"
         ;;
     *) echo "collect: no source called '{{source}}'; run 'just collect' for the list" >&2; exit 2 ;;
     esac
 
 # --- retention ----------------------------------------------------------------
 
-# Fill docs/releases.md from what is on disk: per-year line counts of every extracted
-# release tree under feedback/, the sha256 of the reviewer's zip where one exists and
-# of our data/archive/<marker>.tar.zst where it does not. Writes only the cells it can
-# compute, so a hash outlives the zip leaving the machine. `just releases --zstd`
-# packs the zip-less trees first; `--refresh` recounts and rehashes everything.
+# Fill docs/registers/releases.md from what is on disk: per-year line counts of every
+# extracted release tree under feedback/, and the sha256 of the reviewer's zip or of our
+# data/archive/<marker>.tar.zst where there is none. Writes only the cells it can compute, so
+# a hash outlives the zip leaving the machine. `--zstd` packs the zip-less trees first;
+# `--refresh` recounts and rehashes everything.
 #
-# fill docs/releases.md from the release trees on disk
+# fill docs/registers/releases.md from the release trees on disk
 releases *args:
     uv run python scripts/round/releases.py {{args}}
 
-# Take one reviewer release: verify the zip's sha256 and record it, extract it beside the
-# other releases, count the year files, remeasure them with his own calculator, point
-# data/baseline.json at the new marker and refresh docs/releases.md. With --mail it also
-# writes the round's row in docs/rounds.md. Every figure comes from the extracted files,
-# never from his mail. Every step prints its wall time; a second run on the same zip
-# changes nothing; --dry-run says what it would do; a marker already recorded under a
-# different sha256 stops the run. It does NOT load the release into the store: that stays
-# a separate deliberate `ark ingest-legacy` step.
+# Take one reviewer release: verify the zip's sha256, extract it beside the other releases,
+# count the year files, remeasure them with his own calculator, point data/baseline.json at
+# the new marker and refresh docs/registers/releases.md; `--mail` also writes the round's row
+# in docs/registers/rounds.md. Every figure comes from the extracted files, never from his
+# mail. A second run on the same zip changes nothing, `--dry-run` says what it would do, and a
+# marker already recorded under a different sha256 stops the run. Then `ark intake` writes the
+# held sets every diff against him reads; nothing of his enters the store.
 #
 # take one reviewer release: verify, extract, remeasure, record
 intake *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     uv run python scripts/round/intake.py {{args}}
+    case "{{args}}" in *--dry-run*) exit 0 ;; esac
+    uv run ark intake
+    # a new baseline the fleet cannot see prices every wave against a stale ceiling
+    bash scripts/harness/sync_fleet.sh
+    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    LABEL=$(date -u +%Y%m%dT%H%MZ)
+    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+        --publish-expected "$FLEET" \
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
+        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+            | cmp -s - "$FLEET/snapshot.json" \
+        || { touch data/logs/.push_pending; echo "push pending: the next tick retries"; }
 
-# Write a round's row in docs/rounds.md from the reviewer's verdict mail: his five
-# figures parsed, S and t computed from the two stamps rather than read off the mail,
-# and a benchmark he never sent marked not received. Pass the mail, the round label
-# and the receipt stamp in his clock, e.g.
+# Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
+# figures parsed, S and t computed from the two stamps rather than read off the mail, and a
+# benchmark he never sent marked not received. Pass the mail, the round label and the receipt
+# stamp in his clock, e.g.
 # `just rounds --mail private/mail/verdict7.txt --round 7 --received "2026-09-02 05:50"`.
 #
-# write a round's row in docs/rounds.md from his verdict mail
+# write a round's row in docs/registers/rounds.md from his verdict mail
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
-# What the retention table says could be deleted, grouped by the conjunction that
-# makes it safe, and what everything else is missing. Deletes nothing: no flag does.
+# The report reads the retention register and deletes nothing. --round and --disk list
+# what they would delete, each file with its proof, and --write deletes what is proven;
+# --disk never touches submissions/, a journal, a sidecar or a store backup.
 #
-# what could be deleted, grouped by the conjunction that makes it safe
+# report retention, or list and delete what somebody serves again
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 
 # --- shipping -----------------------------------------------------------------
 
-# The round-end sequence, in the one order that works, as one recipe.
+# The round-end sequence, in the one order that works, as one recipe. The stages, and what
+# each one runs: `just ship --help`, which prints the chain and runs none of it.
 #
-# `package_delivery.sh` refuses unless output/ matches the store EXACTLY, and the
-# store moves every time the ingest loop banks a journal, which is every few minutes.
-# So a hand-run `ark export && just ship package` races and refuses, and discovering
-# that at 22:00 on the evening a round ships is the wrong time.
+# The store moves only inside `just bank`, and ship holds the sync lock from its bank to the
+# package, so no tick banks in between. `package_delivery.sh` refuses unless the export stamp
+# is a full export whose ledger matches the store and whose claim equals the bank's.
 #
-# Only the INGEST loop has to pause: collectors writing journals do not move the
-# store, so they keep running and their work banks afterwards. Nothing is lost by
-# stopping maintain.sh, since journals are ledgered by content hash and re-offering
-# an ingested one is skipped in milliseconds.
-#
-# **Safe to rehearse with nothing decided.** `bank_approved.py` reports and SKIPS
-# anything still pending, so running the chain before a decision arrives changes no
-# verdict and still exercises every later step: the evening a round ships is the worst
-# time to discover the packaging path is broken. `just ship --help` prints the chain
-# and runs none of it, and `just ship draft` prints the mail it would send without
-# writing it.
-#
-#   all [round]     the whole chain: bank the approved, regenerate the report and the
-#                   .docx, quiesce ingestion, export, the invariants, package, verify
-#                   the delivery as a reviewer would, re-check with his own
-#                   calculator, write the mail draft, close the gate issue
-#   prep            drain the platform sweeps into the store and stage the round for
-#                   approval: pull journals from the VPS, ingest both output units,
-#                   convert this month's sweeps' registrable half, export, gate,
-#                   refresh the merge audit, print the figures
-#   build [round]   the middle of the chain alone: pause ingestion, export, the
-#                   invariants, regenerate and commit the report, package, verify
-#   package [round] the archive alone, into submissions/<round>/
-#   verify          the built delivery, from the newest stage directory
-#   calculator      the reviewer's own calculator over the built files
-#   docx SOURCE     one markdown report into the .docx he asks for
-#   draft           print the mail draft; add --write to save it under private/
+# **Safe to rehearse with nothing decided.** `bank_approved.py` reports and SKIPS anything
+# still pending, and `just ship draft` prints the mail it would send without writing it.
 #
 # ship the round: bank, export, gate, package, verify, draft the mail
 ship stage="all" *args:
     #!/usr/bin/env bash
     set -uo pipefail
     set -- {{args}}
+    # The store's memory limit, as the bank has it, for the full export and the round state.
+    [ -f local.env ] && . ./local.env
+    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
-    # Restart the ingest loop whatever happens, including a failed package. The first
-    # rehearsal of this recipe failed at the report guard and left ingestion dead; it
-    # was noticed only because somebody was watching, and on the evening a round ships
-    # nobody is. The continuous laptop loop retired when the fleet took over
-    # (2026-09-01): restart it on exit ONLY if it was running when ship began.
-    WAS_RUNNING=$(pgrep -f 'maintain[.]sh' >/dev/null && echo yes || echo no)
-    restore() { [ "$WAS_RUNNING" = yes ] && ! pgrep -f 'maintain[.]sh' >/dev/null && \
-        (nohup bash scripts/harness/maintain.sh 900 150 >/dev/null 2>&1 & echo "== ingest loop restarted ==") || true; }
+    newest_stage() { ls -d output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
 
-    newest_stage() { ls -dt output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | head -1; }
+    # Round cleanup requires local checksums and verified remote copies; no upload.
+    stage_retention() {
+        just verify raw
+        just verify offsite --manifest
+        just verify offsite --verify
+        just prune --round --write
+    }
+
+    # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
+    # The drop trap goes in only after our own take, because drop removes the lock whoever holds it.
+    LOCKED=no
+    hold_lock() {
+        [ "$LOCKED" = yes ] && return 0
+        if ! bash scripts/harness/sync_lock.sh take $$; then
+            echo "ship: the sync lock is held, so nothing ran; run it again after that one" >&2
+            exit 1
+        fi
+        LOCKED=yes
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+    }
 
     stage_prep() {
-        source local.env
-        # skip the journals a sweep still holds open: a half-copied one was once
-        # ledgered at a third of its rows and had to be re-ingested by hand
-        BUSY=$(ssh "$ARK_VPS" 'for p in $(pgrep -f cdx_suffix_sweep.py); do ls -l /proc/$p/fd 2>/dev/null | grep -o "suffix_[^ /]*jsonl.gz"; done; true' 2>/dev/null | sort -u)
-        rsync -a --ignore-existing $(for b in $BUSY; do echo "--exclude=$b"; done) "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
-        rsync -a --ignore-existing "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx/cdx_*.jsonl.gz data/raw/cdx/ || true
-        uv run ark ingest-hostnames data/raw/cdx_suffix/ | tail -1
-        uv run python scripts/engines/cdx_suffix_convert.py --glob 'data/raw/cdx_suffix/suffix_*_202609*.jsonl.gz' --tag "platforms$(date -u +%Y%m%dT%H%M)"
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_suffix_platforms*.jsonl.gz | tail -1 || true
-        uv run ark ingest cdx_snapshot data/raw/cdx/cdx_vedge_*.jsonl.gz data/raw/cdx/cdx_gaploc_*.jsonl.gz | tail -1 || true
-        uv run ark export | tail -1
-        uv run ark check | tail -1
+        set -e
+        if bash scripts/harness/hold.sh holds com.ark.sync; then
+            echo "ship prep: the hold is on, so the bank would not run" >&2
+            exit 1
+        fi
+        hold_lock
+        # A bank handed the lock skips its preflight, so ship runs it, as a bank by hand does.
+        uv run python scripts/harness/bank_hygiene.py preflight
+        BEFORE=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        ARK_LOCK_HELD=$$ just bank --force
+        AFTER=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+        if [ "$AFTER" = "$BEFORE" ] || ! grep -q '"mode": "claim"' <<<"$AFTER"; then
+            echo "ship prep: the bank wrote no claim export" >&2
+            exit 1
+        fi
+        # The promotion tranche, measured and never banked: without --write it writes nothing.
+        uv run python scripts/engines/build_promotion_journals.py --tag "dryrun$(date -u +%Y%m%d)"
         uv run python scripts/round/merge_against_baseline.py | tail -3
-        uv run python scripts/round/round_figures.py | head -13
+        uv run python scripts/round/round_figures.py | sed -n '1,13p'
     }
 
     stage_build() {
-        trap restore EXIT
         set -e
-        echo "== pausing the ingest loop so the store stops moving =="
-        pkill -f 'maintain[.]sh' 2>/dev/null || true
-        until ! pgrep -f '[a]rk ingest' >/dev/null; do echo "  waiting for an ingest in flight"; sleep 10; done
-        echo "== exporting =="
-        uv run ark export
+        hold_lock
+        # The bank's claim, set aside where packaging compares it with the full export's.
+        if ! grep -q '"mode": "claim"' output/netnew/export_stamp.json 2>/dev/null; then
+            echo "== the claim export =="
+            uv run python scripts/harness/bank_hygiene.py space
+            uv run ark export --claim
+        fi
+        mkdir -p data/exports/claim
+        cp output/netnew/candidate_additions.txt output/netnew/export_stamp.json data/exports/claim/
+        echo "== the full export =="
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark export --provenance
         echo "== the data invariants =="
         uv run ark check
-        # `package_delivery.sh` regenerates the report and refuses if it changed, so a
-        # human reviews the diff. Doing it here instead makes this a single pass: the
-        # diff is by construction nothing but regenerated figures, and committing it
-        # leaves exactly the same reviewable record in git history.
-        echo "== regenerating the round report =="
+        echo "== the round state, with the store sections =="
+        uv run python scripts/round/build_round_state.py --full
+        # `package_delivery.sh` regenerates the report and refuses a dirty tree or a report that
+        # changed, so a human reviews the diff. Rebuilding and committing the report and its
+        # .docx here makes this one pass: the diff is nothing but regenerated figures.
+        echo "== regenerating the report and the .docx he asks for =="
         uv run python scripts/round/fill_report.py
-        if ! git diff --quiet -- docs/report.md; then
-            git --no-pager diff --stat -- docs/report.md
-            git add docs/report.md
-            git commit -q -m "Regenerate docs/report.md from the store before packaging"
-            echo "== committed the regenerated report =="
+        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
+        if ! git diff --quiet -- docs/report.md docs/report.docx; then
+            git add docs/report.md docs/report.docx
+            git commit -q -m "Regenerate the round report and its .docx before packaging"
+            echo "== committed the regenerated report artifacts =="
         fi
         echo "== packaging =="
         bash scripts/round/package_delivery.sh "${1:-}"
         echo "== verifying the built delivery the way a reviewer would =="
-        # The directory is passed explicitly. `verify_delivery.sh` defaults to its own
-        # location, which is correct when it ships INSIDE a delivery and wrong when it is
-        # run from this repository: the fourth rehearsal built a valid 1.4 GB archive and
-        # then reported "additions/1996.txt is missing", because it had verified the
-        # scripts/ directory rather than the delivery.
-        # The stage name carries the mandatory submission stamp since 2026-09-01, so
-        # resolve the newest one rather than hardcoding (a hardcoded path once verified
-        # the PREVIOUS round's stage and reported its figures as this round's).
+        # The directory is passed explicitly, and resolved as the newest stage rather than
+        # hardcoded. `verify_delivery.sh` defaults to its own location, which is right when
+        # it ships INSIDE a delivery and wrong from this repository; a hardcoded path once
+        # verified the PREVIOUS round's stage and reported its figures as this round's.
         bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
     }
 
-    # Close the gate issue only on a delivery that has been verified, and only when
-    # one is open: `bank` latches it once per crossing, so a second close would be a
-    # second notification for the same round.
+    # Close the gate issue only on a verified delivery, and only when one is open: the
+    # issue is latched once per crossing, so a second close notifies twice for one round.
     close_gate_issue() {
         if ! command -v gh >/dev/null 2>&1; then echo "no gh on PATH: gate issue left open"; return 0; fi
         local n
@@ -1157,16 +1491,18 @@ ship stage="all" *args:
     case "{{stage}}" in
     -h|--help|help)
         echo "just ship <stage> [args]"
-        echo "  all [round]      bank the approved, regenerate the report and the .docx,"
-        echo "                   pause ingestion, export, the invariants, package, verify"
-        echo "                   the delivery, the reviewer's calculator, the mail draft,"
-        echo "                   then close the gate issue"
-        echo "  prep             drain the sweeps, ingest, export, gate, merge audit, figures"
-        echo "  build [round]    pause ingestion, export, invariants, report, package, verify"
-        echo "  package [round]  the archive alone"
-        echo "  verify           the newest built delivery, as a reviewer would"
+        echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
+        echo "                   draft, and closing the gate issue"
+        echo "  prep             take the sync lock, bank --force, promotion dry run, merge"
+        echo "                   audit, figures"
+        echo "  build [round]    take the sync lock, full export, invariants, round state,"
+        echo "                   report and .docx, package, verify"
+        echo "  package [round]  package, verify delivery and retained copies, round cleanup"
+        echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
         echo "  docx SOURCE      one markdown report into .docx"
+        echo "  orq [DIR]        both research-questions folders into DIR (default"
+        echo "                   \$TMPDIR/orq), never output/ or submissions/, and the page count"
         echo "  draft [--write]  the mail draft, printed unless --write"
         echo ""
         echo "Nothing above has run. A rehearsal with nothing decided:"
@@ -1175,17 +1511,65 @@ ship stage="all" *args:
         ;;
     prep) stage_prep ;;
     build) stage_build "${1:-}" ;;
-    package) bash scripts/round/package_delivery.sh "${1:-}" ;;
-    verify) bash scripts/round/verify_delivery.sh "$(newest_stage)" ;;
+    package)
+        set -e
+        hold_lock
+        bash scripts/round/package_delivery.sh "${1:-}"
+        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
+        ;;
+    verify)
+        set -e
+        hold_lock
+        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        stage_retention
+        ;;
     calculator) uv run python scripts/round/round_figures.py --verify ;;
     docx)
         if [ $# -lt 1 ]; then echo "ship docx SOURCE.md" >&2; exit 2; fi
-        # The email carries the five fields and nothing else; the method goes in an
-        # attached report, and Ding wants that attachment as .docx. Drafts under
-        # `private/` carry a status block and a notes-to-self section, and the builder
-        # strips both, because trimming them by eye is the operation that eventually
-        # sends one.
+        # The mail carries the five fields and nothing else; the method goes in an attached
+        # report, as .docx. Drafts under `private/` carry a status block and a notes-to-self
+        # section and the builder strips both, because trimming them by eye eventually sends one.
         uv run python scripts/round/build_report_docx.py "$1" --keep-markdown
+        ;;
+    orq)
+        # Both research-questions folders alone, to read before a ship. orq.py refuses a
+        # target under output/ or submissions/, so a look never lands in a delivery.
+        dest="${1:-${TMPDIR:-/tmp}/orq}"
+        uv run python scripts/round/orq.py --preview "$dest" || exit 1
+        doc="$(cd "$dest" && pwd -P)/Open Research Questions/Open Research Questions.docx"
+        # Only Word lays the document out, so only it can count pages. The first run waits
+        # on a macOS permission prompt and there is no timeout command, so osascript runs in
+        # the background and is given up on after a minute.
+        said="$(mktemp)"
+        osascript - "$doc" > "$said" 2>&1 <<'APPLESCRIPT' &
+    on run argv
+        set f to POSIX file (item 1 of argv)
+        set p to f as text
+        tell application "Microsoft Word"
+            repeat with d in (documents whose full name is p)
+                close d saving no
+            end repeat
+            open f
+            set d to active document
+            if (full name of d) is not p then error "Word opened another document"
+            set n to (compute statistics d statistic statistic pages)
+            close d saving no
+        end tell
+        return n
+    end run
+    APPLESCRIPT
+        asked=$!
+        for _ in $(seq 60); do kill -0 "$asked" 2>/dev/null || break; sleep 1; done
+        if kill -0 "$asked" 2>/dev/null; then
+            kill "$asked"
+            echo "Word did not answer within a minute: open $doc to count its pages"
+        elif wait "$asked"; then
+            echo "Word counts $(cat "$said") pages in $doc"
+        else
+            echo "Word could not count the pages: $(cat "$said")"
+        fi
+        rm -f "$said"
         ;;
     draft)
         uv run python scripts/round/ship_mail.py "$@"
@@ -1194,22 +1578,7 @@ ship stage="all" *args:
     all)
         set -e
         round="${1:-}"
-        echo "== banking newly approved classes =="
-        uv run python scripts/harness/bank_approved.py --write
-        # Regenerate and COMMIT the report artifacts before packaging, not after.
-        # `package_delivery.sh` refuses to run against a dirty tree, correctly, because
-        # source/ would not match the results it ships. docs/report.docx and
-        # docs/report-sendable.md are tracked and are rebuilt from docs/report.md, so
-        # building them afterwards left the tree dirty and the first rehearsal of this
-        # failed at the packaging step. Order matters here, not tidiness.
-        echo "== regenerating the report and the .docx he asks for =="
-        uv run python scripts/round/fill_report.py
-        uv run python scripts/round/build_report_docx.py docs/report.md --keep-markdown
-        if ! git diff --quiet -- docs/report.md docs/report.docx docs/report-sendable.md; then
-            git add docs/report.md docs/report.docx docs/report-sendable.md
-            git commit -q -m "Regenerate the round report and its .docx before packaging"
-            echo "== committed the regenerated report artifacts =="
-        fi
+        stage_prep
         stage_build "$round"
         echo "== the reviewer's own calculator =="
         uv run python scripts/round/round_figures.py --verify
@@ -1217,58 +1586,109 @@ ship stage="all" *args:
         uv run python scripts/round/ship_mail.py --write --archive "$(newest_stage)"
         close_gate_issue
         ;;
-    *) echo "ship: all prep build package verify calculator docx draft (--help for the chain)" >&2; exit 2 ;;
+    *) echo "ship: all prep build package verify calculator docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
 
 # --- unattended ---------------------------------------------------------------
 
-# Two launchd jobs. com.ark.bank runs `just bank` at five past every hour, so the
-# round moves without a session open, and reads the `ship-now` label (the header of
-# scripts/harness/scheduled_bank.sh). com.ark.cycle runs the health check four times
-# a day; it reports and does not act, and scheduled_cycle.sh says why a restarting
-# watchdog is the wrong shape here.
+# Long form: the header of scripts/harness/hold.sh.
 #
-# **This needs Full Disk Access and will fail silently without it.** The repository
-# lives under ~/Documents, which macOS TCC protects, and a launchd agent inherits no
-# grant from the terminal that installed it. The first install exited 126 four times
-# a day while `launchctl list` looked normal, so `install` runs the cycle job once as
-# the probe and reports its exit status rather than trusting the load. launchd also
-# starts with a bare PATH, which is why the templates carry one that finds just, uv,
-# gh and claude: the second install exited 127 the same silent way.
+# stop every laptop job, flag and fleet workflow until lifted by hand: on off status
+hold what="on" name="":
+    bash scripts/harness/hold.sh {{what}} {{name}}
+
+# The launchd jobs. com.ark.sync runs `just sync` at five past every hour, which banks what
+# arrived without a session open, and reads the `ship-now` label (the header of
+# scripts/harness/scheduled_sync.sh). com.ark.cycle runs the health check four times a day and
+# reports rather than acts; scheduled_cycle.sh says why a restarting watchdog is the wrong
+# shape here. com.ark.collectors is the closed CDX parent sweep lane: it runs once at load
+# and exits.
 #
-# the launchd jobs that bank and health-check unattended: install remove status
-schedule what="install":
+# **The checkout lives under ~/GitHub so that none of this needs Full Disk Access.** Under
+# ~/Documents, which macOS TCC protects, a launchd agent inherits no grant from the terminal
+# that installed it and exits 126 with `launchctl list` looking normal, so `install` runs a job
+# once as the probe and reports what it did. launchd also starts with a bare PATH, which is why
+# the templates carry one that finds just, uv, gh and claude; 127 is that failure.
+#
+# A second argument names ONE job, because the three are switched on at different times and
+# loading all three to get one would start banking unattended a round early.
+#
+# the launchd jobs that collect, bank and health-check unattended: install remove status
+schedule what="install" job="":
     #!/usr/bin/env bash
     set -uo pipefail
-    JOBS="com.ark.bank com.ark.cycle"
+    JOBS="com.ark.sync com.ark.cycle com.ark.collectors com.ark.digest"
+    if [ -n "{{job}}" ]; then
+        case " $JOBS " in
+        *" {{job}} "*) JOBS="{{job}}" ;;
+        *) echo "schedule: no such job {{job}}, one of: $JOBS" >&2; exit 2 ;;
+        esac
+    fi
+    DOMAIN="gui/$(id -u)"
     case "{{what}}" in
     install)
         set -euo pipefail
+        # A hold is lifted only by hand, and an install would lift it one job at a time.
+        if bash scripts/harness/hold.sh holds; then
+            echo "schedule: the laptop is held; lift it with 'just hold off' first" >&2
+            exit 1
+        fi
         mkdir -p "$HOME/Library/LaunchAgents" data/logs
+        # The hourly job was com.ark.bank once. An installed plist outlives the rename and
+        # names a script that no longer exists, firing a 127 every hour with `launchctl
+        # list` looking normal, and `remove` cannot reach a name the list above has dropped.
+        stale="$HOME/Library/LaunchAgents/com.ark.bank.plist"
+        if [ -f "$stale" ]; then
+            launchctl bootout "$DOMAIN/com.ark.bank" 2>/dev/null || true
+            rm -f "$stale"
+            echo "removed the superseded com.ark.bank job"
+        fi
         for job in $JOBS; do
             plist="$HOME/Library/LaunchAgents/$job.plist"
             sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
                 "scripts/harness/$job.plist.template" > "$plist"
-            launchctl unload "$plist" 2>/dev/null || true
-            launchctl load "$plist"
+            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
+            launchctl enable "$DOMAIN/$job"
+            # A job still stopping from the bootout refuses the bootstrap once.
+            launchctl bootstrap "$DOMAIN" "$plist" || { sleep 2; launchctl bootstrap "$DOMAIN" "$plist"; }
             echo "loaded $job"
         done
-        echo "running com.ark.cycle once to find out whether launchd can reach this directory"
-        launchctl kickstart -k "gui/$(id -u)/com.ark.cycle" 2>/dev/null || true
+        # The probe is the cycle job when it was loaded, because it exits rather than
+        # running for hours; otherwise the job just loaded answers for itself.
+        probe=com.ark.cycle
+        case " $JOBS " in *" com.ark.cycle "*) ;; *) probe="${JOBS%% *}" ;; esac
+        echo "running $probe once to find out whether launchd can reach this directory"
+        launchctl kickstart -k "$DOMAIN/$probe" 2>/dev/null || true
         sleep 20
-        status=$(launchctl list | awk '$3 == "com.ark.cycle" { print $2 }')
-        if [ "${status:-0}" = "0" ]; then
-            echo "OK: exited 0. com.ark.bank runs at :05 every hour and appends to data/logs/scheduled_bank.log"
+        # A job that RUNS for hours has no exit status yet, so a pid is its pass and an exit
+        # of 0 is the pass for one that finishes. Reading only the status calls a healthy
+        # collector lane a failure.
+        line=$(launchctl list | awk -v p="$probe" '$3 == p { print $1, $2 }')
+        pid=${line%% *}
+        status=${line##* }
+        if [ -n "$line" ] && { [ "$pid" != "-" ] || [ "$status" = "0" ]; }; then
+            if [ "$pid" != "-" ]; then
+                echo "OK: $probe is running as pid $pid"
+            else
+                echo "OK: $probe exited 0"
+            fi
+            case " $JOBS " in
+            *" com.ark.sync "*) echo "com.ark.sync runs at :05 every hour and appends to data/logs/scheduled_sync.log" ;;
+            esac
+            case " $JOBS " in
+            *" com.ark.collectors "*) echo "com.ark.collectors is the closed CDX lane: it runs once and exits" ;;
+            esac
         else
-            echo "FAILED: last exit status $status"
+            echo "FAILED: ${line:-$probe is not loaded}"
             echo
-            echo "  126 or 1 here is almost always macOS TCC: this repository is under"
-            echo "  ~/Documents, and a launchd agent gets no access to it without a grant."
-            echo "  Fix: System Settings > Privacy & Security > Full Disk Access, add"
-            echo "  /bin/bash. Then run 'just schedule' again. 127 means a tool is not on"
-            echo "  the PATH the template sets."
+            echo "  126 or 1 here means launchd cannot read this checkout. It lives"
+            echo "  under ~/GitHub, which macOS does not protect, so the usual cause is"
+            echo "  a plist still rendered from an old path, or a checkout moved under a"
+            echo "  protected directory: re-run 'just schedule install' from where the"
+            echo "  repository is now. 127 means a tool is not on the PATH the"
+            echo "  template sets."
             echo
-            echo "  Until then a terminal that runs 'just bank' hourly covers the same"
+            echo "  Until then a terminal that runs 'just sync' hourly covers the same"
             echo "  ground, because it inherits the grant of the terminal that started it."
             tail -3 data/logs/scheduled_cycle.err 2>/dev/null || true
         fi
@@ -1278,15 +1698,14 @@ schedule what="install":
             line=$(launchctl list | awk -v j="$job" '$3 == j { print "pid " $1 ", last exit " $2 }')
             echo "$job: ${line:-not loaded}"
         done
-        for log in scheduled_bank scheduled_cycle; do
+        for log in scheduled_sync scheduled_cycle; do
             [ -f "data/logs/$log.log" ] && { echo "--- data/logs/$log.log"; grep '^===== scheduled' "data/logs/$log.log" | tail -2; }
         done
         ;;
     remove)
         for job in $JOBS; do
-            plist="$HOME/Library/LaunchAgents/$job.plist"
-            launchctl unload "$plist" 2>/dev/null || true
-            rm -f "$plist"
+            launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
+            rm -f "$HOME/Library/LaunchAgents/$job.plist"
             echo "removed $job"
         done
         ;;

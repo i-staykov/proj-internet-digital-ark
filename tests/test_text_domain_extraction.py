@@ -1,146 +1,78 @@
-"""The text extractor must not invent a domain out of a longer real hostname.
-
-`probe_texts_corpus.domains_in` is the shared extractor for every corpus of prose or OCR
-this project prices or ingests: `price_items.py` imports it, so does the trade-press
-collector and the RTFM FAQ splitter. It had no test until 2026-08-18, which is how the
-following survived.
-
-Its TLD whitelist carries `uk` and `au` because both are worth having, and the pattern
-had no right boundary, so `www.nctu.edu.tw` matched `www.nctu.edu` and collapsed to
-`nctu.edu`, and `tuvok.au.af.mil` matched `tuvok.au`. Both results are well-formed
-domains, so no store invariant could see them, and the error ran in the flattering
-direction twice over: the real host is lost, so the pair count falls, and the invented
-TLD outweighs the real one, so the equivalent-English rises. `.edu` is 0.9717 against
-`.edu.tw` at 0.1338.
-
-Measured over both affected corpora at the whole-corpus level, the old pattern invented
-534 names in the trade-press OCR and 1,442 in the RTFM FAQs, 1,934 distinct. 128 of them
-reached the annual files, worth 85.2549 equivalent-English, and every one of those 128
-also carries same-year evidence from another source, which is the corroboration split
-doing exactly what it is for. So the register was contained and the pricing was not.
-"""
+"""The prose extractor and the wide one for hostname lists never invent a domain out of a longer
+host or a filename; the wide one keeps every TLD that carries an English weight."""
 
 import importlib.util
+import json
 from pathlib import Path
 
-_SPEC = importlib.util.spec_from_file_location(
-    "probe_texts_corpus",
-    Path(__file__).resolve().parent.parent / "scripts/pricing/probe_texts_corpus.py",
-)
-texts = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(texts)
+import pytest
+
+PRICING = Path(__file__).resolve().parents[1] / "scripts/pricing"
 
 
-def test_a_multi_label_cctld_host_is_not_truncated_to_a_fake_edu() -> None:
-    """The exact case found while pricing arXiv: nctu.edu.tw must not become nctu.edu."""
-    assert "nctu.edu" not in texts.domains_in("see www.nctu.edu.tw for the mirror")
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(name, PRICING / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def test_an_academic_cctld_in_an_address_is_not_truncated() -> None:
-    assert "tku.edu" not in texts.domains_in("mail x@dept.tku.edu.tw please")
+texts, price_items = _load("probe_texts_corpus"), _load("price_items")
+NARROW, WIDE = texts.domains_in, price_items.wide_domains_in
 
 
-def test_a_military_host_is_not_truncated_to_a_fake_au() -> None:
-    """`.au` is 0.9904 and `.mil` is 0.9981, so this one swapped a real name for a fake
-    one of almost equal weight, which is the version hardest to notice."""
-    assert "tuvok.au" not in texts.domains_in("host tuvok.au.af.mil answered")
+CASES = {
+    "narrow-edu-tw-host": (NARROW, "see www.nctu.edu.tw for the mirror", set()),
+    "narrow-edu-tw-address": (NARROW, "mail x@dept.tku.edu.tw please", set()),
+    "narrow-mil-under-au-label": (NARROW, "host tuvok.au.af.mil answered", {"af.mil"}),
+    "narrow-co-uk": (NARROW, "the site www.bbc.co.uk works", {"bbc.co.uk"}),
+    "narrow-edu-au": (NARROW, "try www.unimelb.edu.au now", {"unimelb.edu.au"}),
+    "narrow-com-au": (NARROW, "real foo.com.au host", {"foo.com.au"}),
+    "narrow-two-labels": (NARROW, "plain foo.com here", {"foo.com"}),
+    "narrow-sentence-period": (NARROW, "ends a sentence at foo.com.", {"foo.com"}),
+    "narrow-url-path": (NARROW, "go to http://foo.org/index.html now", {"foo.org"}),
+    "narrow-dotted-filename": (NARROW, "a file foo.org.html on disk", set()),
+    "narrow-mil": (NARROW, "see www.army.mil today", {"army.mil"}),
+    "narrow-zip-file": (NARROW, "a file archive.zip here", set()),
+    "narrow-so-and-ps-files": (NARROW, "lib.so and doc.ps", set()),
+    "wide-low-english-tail": (
+        WIDE,
+        "www.uni-koeln.de and www.sony.co.jp and baz.dk",
+        {"uni-koeln.de", "sony.co.jp", "baz.dk"},
+    ),
+    "wide-two-labels": (WIDE, "plain foo.com here", {"foo.com"}),
+    "wide-co-uk": (WIDE, "the site www.bbc.co.uk works", {"bbc.co.uk"}),
+    "wide-unweighted-tld": (WIDE, "file foo.invalidtld here", set()),
+    "wide-edu-tw-whole": (WIDE, "see www.nctu.edu.tw for the mirror", {"nctu.edu.tw"}),
+    "wide-md-file-upper-bound": (WIDE, "open readme.md now", {"readme.md"}),
+}
 
 
-def test_the_whole_extraction_is_empty_rather_than_wrong() -> None:
-    """Refusing the match is deliberate. An omission is survivable, a fabrication is not,
-    and this module already trades recall on low-weight ccTLDs for exactly that reason."""
-    assert texts.domains_in("see www.nctu.edu.tw only") == set()
+@pytest.mark.parametrize(("extract", "text", "found"), CASES.values(), ids=CASES.keys())
+def test_the_extractors_find_exactly_these_names(extract, text, found) -> None:
+    """Exactly these names: none cut out of a longer host, a filename or a sentence."""
+    assert extract(text) == found
 
 
-def test_a_real_second_level_uk_host_still_extracts() -> None:
-    """The fix must not cost the multi-label TLDs the whitelist exists to catch."""
-    assert "bbc.co.uk" in texts.domains_in("the site www.bbc.co.uk works")
+def test_an_items_own_host_field_is_a_name_whatever_its_text_says() -> None:
+    """The `host` and `domain` fields are read as names; prose in `text` is not."""
+    record = {"host": "0---0-animal.dk", "year": 2001, "text": "DK Zonen header 20010413"}
+    assert price_items.field_names(record) == {"0---0-animal.dk"}
+    assert price_items.field_names({"text": "just prose"}) == set()
+    assert price_items.field_names({"domain": "www.example.co.uk"}) == {"example.co.uk"}
 
 
-def test_a_real_second_level_au_host_still_extracts() -> None:
-    assert "unimelb.edu.au" in texts.domains_in("try www.unimelb.edu.au now")
-    assert "foo.com.au" in texts.domains_in("real foo.com.au host")
-
-
-def test_a_bare_two_label_name_still_extracts() -> None:
-    """The 2026-08 widening that found 12,788 rows in cached OCR must survive this."""
-    assert "foo.com" in texts.domains_in("plain foo.com here")
-
-
-def test_a_trailing_sentence_period_is_not_a_label() -> None:
-    """The lookahead needs a letter after the dot, so prose punctuation still reads."""
-    assert "foo.com" in texts.domains_in("ends a sentence at foo.com.")
-
-
-def test_a_url_path_still_extracts_the_host() -> None:
-    assert "foo.org" in texts.domains_in("go to http://foo.org/index.html now")
-
-
-def test_a_dotted_filename_no_longer_reads_as_a_domain() -> None:
-    """A small recall loss in the safe direction: foo.org.html is a file, not a host."""
-    assert texts.domains_in("a file foo.org.html on disk") == set()
-
-
-# `.mil` is 0.9981, the highest real weight in the model, and it was missing from the whitelist.
-#
-# Measured 2026-08-18 over both corpora this extractor feeds: 46 `.mil` names recovered, mostly
-# famous (`army.mil`, `darpa.mil`, `ddn.mil`, `dtic.mil`), so it is taken for correctness rather
-# than yield. Before this, `au.af.mil` extracted as the fabricated `tuvok.au` and then, after the
-# morning's boundary fix, as nothing at all.
-#
-# The same measurement REFUSED widening any further, and that is the part worth pinning. A
-# whitelist-free pattern over the same corpora finds 34,494 more hostname-shaped names worth
-# 12,033.9 equivalent-English as a ceiling, and the largest single contributor is `.zip` at 3,547
-# names and 2,056.2 EE, which is a file extension. So are `.so`, `.ps`, `.st` and `.in`. Only
-# 21,114 of the 34,494 are undated, and an undated name scores zero under the corroboration split
-# by definition, so the whole apparent gain is fabricated candidates.
-
-
-def test_a_military_host_now_extracts_correctly() -> None:
-    """The case that was fabricated, then dropped, and is now right."""
-    assert texts.domains_in("host tuvok.au.af.mil answered") == {"af.mil"}
-
-
-def test_a_plain_mil_host_extracts() -> None:
-    assert "army.mil" in texts.domains_in("see www.army.mil today")
-
-
-def test_a_zip_file_is_still_not_a_domain() -> None:
-    """The largest single prize a whitelist-free pattern offers on prose, and it is a filename.
-    `.zip` became a real TLD in 2023 and carries weight 0.5797, which is why this matters."""
-    assert texts.domains_in("a file archive.zip here") == set()
-
-
-def test_a_shared_object_and_a_postscript_file_are_not_domains() -> None:
-    """`.so` and `.ps` are both real ccTLDs and both common extensions."""
-    assert texts.domains_in("lib.so and doc.ps") == set()
-
-
-def test_the_ocr_file_name_comes_from_metadata_not_from_the_identifier() -> None:
-    """`<identifier>_djvu.txt` is the usual name, not the rule.
-
-    A magazine scan uploaded as "Internet Magazine 031 [1997-06].pdf" carries
-    "Internet Magazine 031 [1997-06]_djvu.txt" beside it, and guessing the name called
-    32 of 33 in-window UK issues unreachable on 2026-08-27 where the metadata shows
-    33 of 33. Unreachable and unnamed look identical from the outside, so the reachable
-    share this script prints was a floor on every corpus it has closed.
-    """
+def test_the_ocr_file_name_comes_from_metadata_not_from_the_identifier(monkeypatch) -> None:
+    """The djvu text's name is read from the item's metadata, since a scan may be named freely."""
     calls: list[str] = []
-
-    def fake_fetch(url: str) -> bytes:
-        calls.append(url)
-        return (
-            b'{"files": [{"name": "Internet Magazine 031 [1997-06].pdf", "format": "Image '
-            b'Container PDF"}, {"name": "Internet Magazine 031 [1997-06]_djvu.txt", '
-            b'"format": "DjVuTXT"}]}'
-        )
-
-    original = texts.fetch
-    texts.fetch = fake_fetch
-    try:
-        assert texts.djvu_name("internet-magazine-031-1997-06") == (
-            "Internet Magazine 031 [1997-06]_djvu.txt"
-        )
-    finally:
-        texts.fetch = original
+    files = [
+        {"name": "Internet Magazine 031 [1997-06].pdf", "format": "Image Container PDF"},
+        {"name": "Internet Magazine 031 [1997-06]_djvu.txt", "format": "DjVuTXT"},
+    ]
+    monkeypatch.setattr(
+        texts, "fetch", lambda url: calls.append(url) or json.dumps({"files": files}).encode()
+    )
+    assert texts.djvu_name("internet-magazine-031-1997-06") == (
+        "Internet Magazine 031 [1997-06]_djvu.txt"
+    )
     assert calls == ["https://archive.org/metadata/internet-magazine-031-1997-06"]

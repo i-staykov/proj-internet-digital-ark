@@ -1,48 +1,35 @@
-"""Generate `docs/ROUND.md`: where the round stands, right now.
+"""Generate `docs/ROUND.md` and `data/brief.json`: where the round stands, right now.
 
-**Why this is generated and not written.** `docs/phase5-handoff.md` was a
-hand-written snapshot of the current state. It was accurate for one day, and by
-the next morning three of its claims were disproved: `alt.*` had been called the
-largest open question about the corpus when it turns out to be proportionate, a
-command it told you to run before ordering a queue could not run at all, and the
-figures in its state table were two ingests old. **Current state is the one
-category of memory that cannot be hand-maintained**, because it changes faster
-than anyone updates prose, and a stale statement of it is worse than none: it
-reads as authoritative.
+**Current state is the one category of memory that cannot be hand-maintained**: it changes
+faster than anyone updates prose, and a stale statement of it reads as authoritative. So this
+assembles the answer from the programs that own each piece rather than restating any of it:
 
-So this assembles the answer from the programs that already own each piece rather
-than restating any of it:
+    round_figures.py       the five fields, from the claim export's files
+    ark.approvals          what is waiting on a human: the pending register rows
+    ark stats              the scoreboard, with --full
+    audit_residual.py      what is on disk that nothing has read, with --full
 
-    ark stats              the scoreboard and the two outcomes
-    round_figures.py       the five fields and the per-source split
-    engine_status.sh       what both collectors are doing, and UNKNOWN when it
-                           could not reach the VPS to ask
-    audit_residual.py      what is on disk that nothing has read
-    key-decisions.md       what is waiting on a human
+By default it reads files and never the store, so the bank writes it while it holds the writer,
+and `just state` runs the same. `--full` adds the two store sections, read-only.
 
-Nothing here is a second copy of a figure. If a producer changes, this changes
-with it.
+The brief takes fields 3 to 5 as the very strings ROUND.md prints, so every reader quotes one
+field 5. `just brief` prints it from a session-start hook, so it stays small.
 
-**Staleness is detectable rather than prevented.** The file ends in a
-machine-readable state line, and `--check` recomputes those counts and exits 1 if
-the store has moved since the file was written. That is the honest guarantee: not
-"this is current" but "you can tell in one command whether it is".
+**Staleness is detectable rather than prevented.** The footer holds his release's marker and
+the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
+change.
 
-The same run writes `data/brief.json`, the snapshot `just brief` reads. That
-reader must never touch the store (900 s lock wait) or ssh, since it runs from a
-session-start hook, so everything it needs is copied out here while the store is
-open anyway. The VPS address stays out of it: the collectors are keyed by role.
-
-    uv run python scripts/round/build_round_state.py           # write docs/ROUND.md
+    uv run python scripts/round/build_round_state.py            # write docs/ROUND.md
+    uv run python scripts/round/build_round_state.py --full     # plus the store sections
     uv run python scripts/round/build_round_state.py --check    # exit 1 if it is stale
 """
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
 import sys
-import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -52,6 +39,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import db, export  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
@@ -60,40 +48,40 @@ from ark.baseline import (  # noqa: E402
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
 )
-from ark.key_decisions import open_titles  # noqa: E402
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
-DECISIONS = ROOT / "docs/key-decisions.md"
-AMENDMENTS = ROOT / "docs/brief_amendments.md"
+AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
-SECTION_RE = re.compile(r"^== (.*?) ==$", re.MULTILINE)
 GATE_PCT = Decimal(5)
+# Fields 3 to 5 exactly as round_figures prints them.
+FIELD_RE = {
+    "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
+    "4": re.compile(r"^4\. .*: ([0-9,.]+)$", re.M),
+    "5": re.compile(r"^5\. .*: ([0-9.]+)%$", re.M),
+}
+STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    """Wait out a writer rather than crashing against one. A long ingest holds the
-    lock for minutes, and this is a reporting tool: waiting is correct."""
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"the store was still being written after {patience_s}s; "
-                    "re-run when the ingest finishes"
-                ) from None
-            time.sleep(3)
+    """Wait out a writer rather than crashing against one: this is a reporting tool. Through
+    `ark.db`, which carries the memory and thread caps. Only `--full` calls it."""
+    try:
+        return db.connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" in str(exc):
+            raise SystemExit(
+                f"the store was still being written after {patience_s}s; "
+                "re-run when the ingest finishes"
+            ) from None
+        raise
 
 
 def run(cmd: list[str], timeout: int) -> str:
     """Capture a producer's own output. A producer that fails says so in the
-    document rather than aborting the build, because a state file missing its
-    collector section is still worth having."""
+    document rather than aborting the build, because a state file missing one
+    section is still worth having."""
     try:
         done = subprocess.run(
             cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=False
@@ -104,45 +92,38 @@ def run(cmd: list[str], timeout: int) -> str:
     return out.strip() or f"(no output from {' '.join(cmd)})"
 
 
-def headline(conn: duckdb.DuckDBPyConnection) -> dict:
-    """The four counts the staleness check compares."""
-    stats = collect_stats(conn)
-    return {
-        "pairs": stats["netnew_pairs_total"],
-        "domains": stats["netnew_domains"],
-        "ee": f"{stats['ee_netnew']:.4f}",
-        "evidence": stats["evidence_rows"],
-        "_stats": stats,
-    }
+def claim_state() -> dict[str, str]:
+    """His release's marker, then each claim file's sha256 by its path under `output/`."""
+    state = {"baseline": CURRENT_BASELINE_MARKER}
+    for path in export.claim_files(ROOT / export.NETNEW_DIR, ROOT / export.CANDIDATES_PATH):
+        rel = path.relative_to(ROOT / "output").as_posix()
+        if path.is_file():
+            with path.open("rb") as fh:
+                state[rel] = hashlib.file_digest(fh, "sha256").hexdigest()
+        else:
+            state[rel] = "missing"
+    return state
 
 
-def open_decisions() -> list[str]:
-    """The OPEN headings, via the module that owns that block.
+def export_problem() -> str | None:
+    """Why `output/netnew` cannot be quoted, or None. An export with no stamp crashed or came
+    before stamps, and one diffed against another release counts against the wrong one."""
+    stamp = export.read_stamp(ROOT / export.NETNEW_DIR)
+    if stamp is None:
+        found = "holds no export stamp"
+    elif stamp.get("baseline") != CURRENT_BASELINE_MARKER:
+        found = f"was diffed against {stamp.get('baseline')}, not {CURRENT_BASELINE_MARKER}"
+    else:
+        return None
+    return f"output/netnew {found}: the next bank re-exports it, or `just bank --force`"
 
-    Parsed in one place rather than two: this file and the cycle both need it, and a
-    second copy of the parser would eventually disagree with the first about what
-    counts as open, which is the failure `sources.md` already carries a scar from.
-    """
-    return open_titles(DECISIONS)
 
-
-def collector_lines(engines: str) -> dict[str, str]:
-    """One line per machine out of `engine_status.sh`: the first line under its
-    `local` and `VPS (...)` sections, which is `up ...`, `NOT RUNNING` or
-    `unreachable`. Keyed by role so the address never enters the brief. A run that
-    produced no sections (timed out, no output) leaves both UNKNOWN, which is the
-    honest reading: not asked is not idle."""
-    lines = {"local": "UNKNOWN", "vps": "UNKNOWN"}
-    heads = list(SECTION_RE.finditer(engines))
-    for i, head in enumerate(heads):
-        role = "vps" if head.group(1).startswith("VPS") else head.group(1)
-        if role not in lines:
-            continue
-        end = heads[i + 1].start() if i + 1 < len(heads) else len(engines)
-        body = [ln.strip() for ln in engines[head.end() : end].splitlines() if ln.strip()]
-        if body:
-            lines[role] = body[0][:120]
-    return lines
+def parse_fields(figures: str) -> dict[str, str] | None:
+    """Fields 3 to 5 as printed, or None when round_figures did not print all three."""
+    found = {key: rx.search(figures) for key, rx in FIELD_RE.items()}
+    if not all(found.values()):
+        return None
+    return {key: m.group(1) for key, m in found.items()}
 
 
 def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
@@ -161,64 +142,76 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(head: dict, engines: str, approvals: int, decisions: int) -> dict:
-    """The snapshot `scripts/agents/brief.py` prints. Small on purpose: it is
-    injected into every session start, and thirty lines is the budget."""
-    stats = head["_stats"]
-    ee = stats["ee_netnew"]
-    gate_ee = REVIEWER_BASELINE_EE * GATE_PCT / 100
-    return {
+def brief(fields: dict[str, str] | None, approvals: int) -> dict:
+    """The snapshot `scripts/agents/brief.py` prints. Without the five fields it carries no
+    `field5_percent`, and every reader refuses rather than quote a figure of its own."""
+    snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
         "round": CURRENT_ROUND_LABEL,
-        "netnew_pairs": head["pairs"],
-        "netnew_domains": head["domains"],
-        "netnew_ee": round(float(ee), 4),
-        "percent": round(float(stats["ee_netnew_growth_pct"]), 4),
+    }
+    if fields:
+        ee = Decimal(fields["4"].replace(",", ""))
+        snapshot |= {
+            "netnew_pairs": int(fields["3"].replace(",", "")),
+            "netnew_ee": float(ee),
+            # a string, so the trailing zeros ROUND.md prints survive `jq -r`
+            "field5_percent": fields["5"],
+            "distance_to_gate_ee": round(float(REVIEWER_BASELINE_EE * GATE_PCT / 100 - ee), 4),
+        }
+    return snapshot | {
         "gate_pct": float(GATE_PCT),
-        "distance_to_gate_ee": round(float(gate_ee - ee), 4),
-        "collectors": collector_lines(engines),
-        "waiting_on_human": {"approvals": approvals, "open_decisions": decisions},
+        "waiting_on_human": {"approvals": approvals},
         "pending_amendments": pending_amendments(),
     }
 
 
-def build() -> tuple[str, dict, dict]:
-    conn = read_only_store()
-    try:
-        head = headline(conn)
-    finally:
-        conn.close()
+def build(full: bool = False) -> tuple[str, dict]:
+    # Hashed before the figures run: a file that changes in between reads as stale, never
+    # as current.
+    state = claim_state()
+    scoreboard = residual = None
+    if full:
+        conn = read_only_store()
+        try:
+            scoreboard = format_stats(collect_stats(conn))
+        finally:
+            conn.close()
+    # Producers run after the store connection is closed, because under --full they open it
+    # themselves and DuckDB allows many readers only when no writer is waiting.
+    figures = export_problem() or run(
+        ["uv", "run", "python", "scripts/round/round_figures.py", *(["--full"] if full else [])],
+        timeout=900,
+    )
+    if full:
+        residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
 
-    # Producers run after the store connection is closed, because two of them open
-    # it themselves and DuckDB allows many readers only when no writer is waiting.
-    figures = run(["uv", "run", "python", "scripts/round/round_figures.py"], timeout=900)
-    engines = run(["bash", "scripts/engines/engine_status.sh"], timeout=120)
-    residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
-
-    decisions = open_decisions()
     waiting = pending_approvals()
     parts = [
         "# Where the round stands",
         "",
-        "**Generated by `just state`. Do not edit: every number here belongs to another program,",
-        "and a hand edit makes this disagree with the store rather than correcting it.**",
+        "**Generated by `scripts/round/build_round_state.py`. Do not edit: every number here",
+        "belongs to another program, and a hand edit makes this disagree with its owner rather",
+        "than correcting it.**",
         "",
         f"Measured against **{CURRENT_BASELINE_MARKER}**, the reviewer's current release:",
         f"{REVIEWER_BASELINE_PAIRS:,} pairs and {REVIEWER_BASELINE_EE:,.4f} equivalent-English.",
-        f"The round window opens at `{CURRENT_ROUND_SINCE}`, held in `src/ark/baseline.py`.",
+    ]
+    if full:
+        parts += [
+            f"The round window opens at `{CURRENT_ROUND_SINCE}`, held in `src/ark/baseline.py`."
+        ]
+    parts += [
         "",
         "Run `just state --check` to find out whether this file is still current. It compares",
-        "the counts in its own footer against the store and exits 1 if the store has moved.",
+        "the claim files' sha256s against its footer and exits 1 if any has changed.",
         "",
         "---",
         "",
-        "## The scoreboard",
-        "",
-        "```",
-        format_stats(head["_stats"]),
-        "```",
-        "",
+    ]
+    if scoreboard is not None:
+        parts += ["## The scoreboard", "", "```", scoreboard, "```", ""]
+    parts += [
         "## The five fields, and the per-source split",
         "",
         "The format the reviewer set. Send with `--verify`, which re-scores the increment with his",
@@ -228,28 +221,19 @@ def build() -> tuple[str, dict, dict]:
         figures,
         "```",
         "",
-        "## The collectors, right now",
-        "",
-        "**`UNKNOWN` is not `nothing to fetch`.** It means the VPS could not be reached",
-        "to ask, and a journal left on its disk is work already paid for and not banked.",
-        "",
-        "```",
-        engines,
-        "```",
-        "",
-        "## What is on disk that nothing has read",
-        "",
-        "```",
-        residual,
-        "```",
-        "",
+    ]
+    if residual is not None:
+        parts += ["## What is on disk that nothing has read", "", "```", residual, "```", ""]
+    parts += [
         "## Waiting on a human",
         "",
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
-        "on disk untouched until a `Decision:` line in `docs/approved-sources-list.md` says",
-        "otherwise. Each one is also raised under `## OPEN` in `docs/key-decisions.md`, which is",
-        "the only surface Ivo reads. Nothing is lost by leaving them; nothing enters an annual",
-        "file while they wait.",
+        "on disk untouched until a `Decision:` line in",
+        "`docs/registers/approved-sources-list.md` says",
+        "otherwise. Each one at or above the filing floor, unless it waits only on work, is also",
+        "an issue labelled `needs-owner` with a one-line pull request, which",
+        "`scripts/harness/sync_approvals.py` files. Nothing is lost by leaving them; nothing",
+        "enters an annual file while they wait.",
         "",
     ]
     if waiting:
@@ -258,24 +242,17 @@ def build() -> tuple[str, dict, dict]:
             for a in waiting
         ]
     else:
-        parts += ["Nothing pending in `docs/approved-sources-list.md`."]
-    parts += ["", "**Open decisions.**", ""]
-    if decisions:
-        parts += [f"- {d}" for d in decisions]
-        parts += ["", "Full context in `docs/key-decisions.md`."]
-    else:
-        parts += ["Nothing open in `docs/key-decisions.md`."]
+        parts += ["Nothing pending in `docs/registers/approved-sources-list.md`."]
     parts += [
         "",
         "---",
         "",
         "State line, used by `--check` to detect that this file has gone stale:",
         "",
-        f"<!-- ark-round-state: pairs={head['pairs']} domains={head['domains']} "
-        f"ee={head['ee']} evidence={head['evidence']} -->",
+        f"<!-- ark-round-state: {' '.join(f'{k}={v}' for k, v in state.items())} -->",
         "",
     ]
-    return "\n".join(parts), head, brief(head, engines, len(waiting), len(decisions))
+    return "\n".join(parts), brief(parse_fields(figures), len(waiting))
 
 
 def parse_state(text: str) -> dict[str, str] | None:
@@ -290,7 +267,12 @@ def main() -> None:
     ap.add_argument(
         "--check",
         action="store_true",
-        help="exit 1 if docs/ROUND.md is missing or its counts no longer match the store",
+        help="exit 1 if docs/ROUND.md is missing or a claim file no longer matches its footer",
+    )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="also read the store: the scoreboard and what is on disk that nothing has read",
     )
     args = ap.parse_args()
 
@@ -300,30 +282,31 @@ def main() -> None:
         recorded = parse_state(OUT.read_text(encoding="utf-8"))
         if recorded is None:
             raise SystemExit(f"{OUT.relative_to(ROOT)} carries no state line: run `just state`")
-        conn = read_only_store()
-        try:
-            head = headline(conn)
-        finally:
-            conn.close()
-        drift = {
-            key: (recorded.get(key), str(head[key]))
-            for key in ("pairs", "domains", "ee", "evidence")
-            if recorded.get(key) != str(head[key])
-        }
+        problem = export_problem()
+        if problem:
+            raise SystemExit(problem)
+        now = claim_state()
+        drift = sorted(k for k in now.keys() | recorded.keys() if recorded.get(k) != now.get(k))
         if drift:
-            for key, (was, now) in drift.items():
-                print(f"  {key}: file says {was}, store says {now}")
-            raise SystemExit("docs/ROUND.md is stale: run `just state`")
-        print(f"docs/ROUND.md is current: {head['pairs']:,} pairs, {head['ee']} EE")
+            for key in drift:
+                print(f"  {key}: changed")
+            raise SystemExit(STALE)
+        print(f"docs/ROUND.md is current: its footer matches the {len(now) - 1} claim files")
         return
 
-    body, head, snapshot = build()
+    body, snapshot = build(args.full)
     OUT.write_text(body, encoding="utf-8")
     BRIEF.parent.mkdir(parents=True, exist_ok=True)
     BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
+    if "field5_percent" not in snapshot:
+        raise SystemExit(
+            f"wrote {OUT.relative_to(ROOT)} without the five fields, so data/brief.json carries "
+            f"no field 5: {export_problem() or 'round_figures.py failed'}"
+        )
     print(
-        f"wrote {OUT.relative_to(ROOT)}: {head['pairs']:,} net-new pairs, "
-        f"{head['domains']:,} net-new domains, {head['ee']} equivalent-English"
+        f"wrote {OUT.relative_to(ROOT)}: field 3 {snapshot['netnew_pairs']:,} records, "
+        f"field 4 {snapshot['netnew_ee']:,.4f} EE, field 5 {snapshot['field5_percent']}%, "
+        f"{snapshot['distance_to_gate_ee']:,.4f} EE short of {GATE_PCT}%"
     )
 
 

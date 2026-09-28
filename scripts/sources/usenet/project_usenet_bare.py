@@ -6,7 +6,7 @@ already cost this project a wrong verdict:
 - **the marginal figure.** Most bare hits are domains the corpus already gave up
   through their `www.` or URL form, or through `usenet_address`. The gross count
   is meaningless; what counts is pairs that survive the corroboration split AND
-  are not already assigned. This reports how much of the gross each of those two
+  are not already dated. This reports how much of the gross each of those two
   filters removed, and names the Usenet sources the overlap belongs to.
 - **a live measurement.** On 8 August a header-mode projection of 10,889
   equivalent-English delivered 1,038, because it was measured against a snapshot
@@ -37,6 +37,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
@@ -132,19 +133,19 @@ def main() -> None:
     ap.add_argument("--archives", type=int, required=True, help="archives the journal walked")
     ap.add_argument("--corpus", type=int, default=CORPUS_ARCHIVES)
     args = ap.parse_args()
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
 
     seen = read_journal(args.journal)
     print(f"{len(seen):,} distinct (domain, year) in {args.journal.name}")
 
+    names = {domain for domain, _ in seen}
     conn = open_store()
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
-        held = {
-            (r[0], r[1])
-            for r in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, names, his)
+        known = held.known_years(conn, names, his)
         placeholders = ", ".join("?" for _ in USENET_SOURCES)
         usenet_pairs = {
             (r[0], r[1])
@@ -166,11 +167,11 @@ def main() -> None:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in pairs), Decimal(0))
 
     corroborated = {p for p in seen if p[0] in attested}
-    fresh = {p for p in corroborated if p not in held}
+    fresh = {p for p in corroborated if p not in known}
     from_usenet = {p for p in seen if p in usenet_pairs}
 
     print(f"\n  already asserted by {' or '.join(USENET_SOURCES)} : {len(from_usenet):,}")
-    print(f"  already assigned by any source                    : {len(seen.keys() & held):,}")
+    print(f"  already dated, by us or his file for that year    : {len(seen.keys() & known):,}")
     uncorroborated = len(seen) - len(corroborated)
     print(f"  uncorroborated, candidate pool only               : {uncorroborated:,}")
     print(f"  corroborated -> dated_directory                   : {len(corroborated):,}")

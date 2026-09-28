@@ -1,14 +1,13 @@
 """The last gate before tracked bytes become world-readable.
 
-`origin` is public and every branch but `main` may now be pushed, so a secret, a machine
-address or a local path in a tracked file is published the moment the push lands. One scan
-covers all three, `tests/test_repo_hygiene.py` calls it, and the pre-commit hook and CI run
-it as `uv run python -m ark.hygiene`.
+`origin` is public and every branch but `main` may be pushed, so a secret, a machine address
+or a local path in a tracked file is published the moment the push lands. One scan covers
+those and the house bans on em and en dashes and on decision numbers; `tests/test_hygiene.py`
+proves it catches each, and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
 
-The rules are deliberately narrow: each one matches a shape that has no legitimate reason to
-sit in this repository. A hit is read in context, and then either it is a real leak, which is
-fixed and never committed, or it is a fixture or a public host, which goes on the allowlist
-below with a comment saying why.
+The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
+in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
+public host, which goes on the allowlist below with a comment saying why.
 """
 
 import ipaddress
@@ -33,7 +32,7 @@ DOCUMENTATION_RANGES = ("192.0.2.", "198.51.100.", "203.0.113.")
 # one fails until somebody reads it and adds it here, which is the point of the rule.
 KNOWN_ADDRESSES = frozenset(
     {
-        # fixture rows in tests/test_isc_hostnames.py and tests/test_ripe_nserver_hostnames.py
+        # fixture rows in tests/test_hostnames.py (the ISC survey, RIPE and zone fixtures)
         "1.0.0.2",
         "1.125.2.7",
         "1.125.2.8",
@@ -72,13 +71,18 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     ("home path", re.compile(r"(?<![A-Za-z0-9._-])/(?:Users|home)/[A-Za-z0-9._-]+/"), False),
     ("ssh target", re.compile(r"\bssh\s+[A-Za-z0-9._-]+@[A-Za-z0-9.-]+"), False),
     # A login against a bare address, in ANY range. The address check below fires only on
-    # globally routable addresses, and the collector host sits in private space, so a
-    # shell default of that shape passed every guard and reached published history in
-    # seven files (docs/security-posture.md, 2026-09-03). The rule it broke is about that host, so
-    # the class of the address is irrelevant and the shape is what must be refused.
-    # No literal example here: this file is scanned too.
+    # globally routable addresses and the collector host sits in private space, so a shell
+    # default of that shape passes every guard: the class of the address is irrelevant and
+    # the shape is what must be refused. No literal example here, this file being scanned.
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
+    # No em or en dash in any file the scan reads: quote a 1999 artifact with a hyphen.
+    ("dash", re.compile(r"[\u2013\u2014]"), True),
+    # A rule is cited by its words or a pointer, never a decision number.
+    ("decision number", re.compile(r"\bC-\d{1,3}\b|ADR-\d+"), True),
 )
+
+# Frozen submissions are never edited, so they keep the decision numbers they were sent with.
+FROZEN = "submissions"
 
 # Every pattern above is written so that its own source line does not match it, which is
 # why the separators sit outside the character classes. Keep that true when editing one.
@@ -112,11 +116,14 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
         text = text_of(Path(path))
         if text is None:
             continue
+        frozen = FROZEN in Path(path).parts
         for number, line in enumerate(text.splitlines(), 1):
             for rule, pattern, may_print in _RULES:
                 for match in pattern.finditer(line):
                     hit = match.group(0)
                     if rule == "host login" and any(r in hit for r in DOCUMENTATION_RANGES):
+                        continue
+                    if rule == "decision number" and frozen:
                         continue
                     detail = hit[:120] if may_print else f"{len(hit)} chars, not printed"
                     findings.append(Finding(Path(path), number, rule, detail))
@@ -131,12 +138,12 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
 
 
 def tracked_files(root: Path) -> list[Path]:
-    """Tracked files worth scanning: frozen submissions keep whatever their round shipped."""
+    """Every tracked file, the kept submissions included."""
     out = subprocess.run(
         ["git", "ls-files", "-z"], cwd=root, check=True, capture_output=True
     ).stdout
     rels = [p for p in out.decode("utf-8").split("\0") if p and (root / p).is_file()]
-    return [root / rel for rel in rels if not rel.startswith("submissions/")]
+    return [root / rel for rel in rels]
 
 
 def main() -> int:
@@ -153,7 +160,8 @@ def main() -> int:
     if findings:
         print(
             f"\n{len(findings)} finding(s). Read each in context: a real leak is fixed and never "
-            "committed, and an address that is a fixture or a public host joins KNOWN_ADDRESSES "
+            "committed, a dash becomes a hyphen, a decision number becomes the rule's words, and "
+            "an address that is a fixture or a public host joins KNOWN_ADDRESSES "
             "in src/ark/hygiene.py with a comment saying why."
         )
         return 1

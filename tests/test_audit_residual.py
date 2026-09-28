@@ -1,152 +1,90 @@
-"""The residual auditor: the two checks that have to fire on a real defect.
-
-Loaded by path, like the other script tests: `scripts/` is not a package.
-
-The pair of checks is the point. `unread` catches a glob matching files the
-ledger has never read, which is the 496-shard case worth 14,956 equivalent-English.
-`glob_too_narrow` catches the opposite, a file the ledger holds that the documented
-glob cannot reach, which loses nothing now and makes `just reproduce` rebuild a
-store missing it later. A tool that found only one of the two would read as clean
-in exactly the case that has already happened twice.
-"""
+"""The residual auditor: `unread` and `glob_too_narrow` must each fire on a real defect."""
 
 import importlib.util
+import os
 from pathlib import Path
 
 import duckdb
+import pytest
 
-from ark.db import connect, init_db
+from ark.db import add_candidate, connect, ensure_source, init_db
 
 _SPEC = importlib.util.spec_from_file_location(
-    "audit_residual",
-    Path(__file__).resolve().parents[1] / "scripts/harness/audit_residual.py",
+    "audit_residual", Path(__file__).resolve().parents[1] / "scripts/harness/audit_residual.py"
 )
 audit_residual = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(audit_residual)
+INGEST = "uv run ark ingest isc_survey data/raw/demo/*.gz"
 
 
-def _ledger(**by_source: set[str]) -> dict[str, set[str]]:
-    return dict(by_source)
-
-
-def _fake_source_tree(tmp_path: Path, monkeypatch, ingest_line: str, files: list[str]) -> None:
+def _tree(tmp_path: Path, monkeypatch, ingest_line: str, files: list[str]) -> None:
     """A justfile with one ingest line, and a data tree it points at."""
     for name in files:
         target = tmp_path / "data" / "raw" / "demo" / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("x")
-    justfile = tmp_path / "justfile"
-    justfile.write_text(f"demo:\n    {ingest_line}\n")
+    (tmp_path / "justfile").write_text(f"demo:\n    {ingest_line}\n")
     monkeypatch.setattr(audit_residual, "ROOT", tmp_path)
-    monkeypatch.setattr(audit_residual, "JUSTFILE", justfile)
+    monkeypatch.setattr(audit_residual, "JUSTFILE", tmp_path / "justfile")
     monkeypatch.setattr(audit_residual, "RAW", tmp_path / "data" / "raw")
 
 
-def test_unread_reports_files_a_documented_glob_matches(tmp_path, monkeypatch, capsys) -> None:
-    """The 496-shard shape: the glob is right and no ingest ever ran it."""
-    _fake_source_tree(
-        tmp_path,
-        monkeypatch,
-        "uv run ark ingest isc_survey data/raw/demo/*.gz",
-        ["a.gz", "b.gz", "c.gz"],
-    )
-    found = audit_residual.check_unread(_ledger(isc_survey={"a.gz"}), verbose=True)
+@pytest.mark.parametrize(
+    ("line", "ledger", "found", "shown"),
+    [
+        pytest.param(INGEST, {"a.gz"}, 2, ["b.gz", "c.gz"], id="reports_files_a_glob_matches"),
+        pytest.param(INGEST, {"a.gz", "b.gz", "c.gz"}, 0, ["nothing"], id="silent_when_all_held"),
+        pytest.param("# " + INGEST, set(), 0, ["nothing"], id="commented_ingest_is_undocumented"),
+    ],
+)
+def test_unread(tmp_path, monkeypatch, capsys, line, ledger, found, shown) -> None:
+    _tree(tmp_path, monkeypatch, line, ["a.gz", "b.gz", "c.gz"])
+    assert audit_residual.check_unread({"isc_survey": ledger}, verbose=True) == found
     out = capsys.readouterr().out
-    assert found == 2
-    assert "b.gz" in out and "c.gz" in out
+    assert all(s in out for s in shown)
     assert "a.gz" not in out
-
-
-def test_unread_is_silent_when_the_ledger_holds_everything(tmp_path, monkeypatch, capsys) -> None:
-    _fake_source_tree(
-        tmp_path, monkeypatch, "uv run ark ingest isc_survey data/raw/demo/*.gz", ["a.gz", "b.gz"]
-    )
-    found = audit_residual.check_unread(_ledger(isc_survey={"a.gz", "b.gz"}), verbose=False)
-    assert found == 0
-    assert "nothing" in capsys.readouterr().out
 
 
 def test_glob_too_narrow_reports_an_ingested_file_the_glob_cannot_reach(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    """The 2026-07-26 shape: `*.domains.gz` missed a file that was ingested."""
-    _fake_source_tree(
-        tmp_path,
-        monkeypatch,
-        "uv run ark ingest isc_survey data/raw/demo/*.domains.gz",
-        ["x.domains.gz", "wb_nw_9607_org.gz"],
-    )
-    found = audit_residual.check_glob_too_narrow(
-        _ledger(isc_survey={"x.domains.gz", "wb_nw_9607_org.gz"}), verbose=True
-    )
-    out = capsys.readouterr().out
-    assert found == 1
-    assert "wb_nw_9607_org.gz" in out
+    held = ["x.domains.gz", "wb_nw_9607_org.gz"]
+    _tree(tmp_path, monkeypatch, "uv run ark ingest isc_survey data/raw/demo/*.domains.gz", held)
+    assert audit_residual.check_glob_too_narrow({"isc_survey": set(held)}, verbose=True) == 1
+    assert "wb_nw_9607_org.gz" in capsys.readouterr().out
 
 
-def test_a_commented_out_ingest_line_is_not_read_as_documented(
-    tmp_path, monkeypatch, capsys
-) -> None:
-    """`arquivo_ia`'s input was deleted at 47 GB and its line commented out, so a
-    commented line must not be reported as an unread source."""
-    _fake_source_tree(
-        tmp_path,
-        monkeypatch,
-        "# uv run ark ingest isc_survey data/raw/demo/*.gz",
-        ["a.gz", "b.gz"],
-    )
-    assert audit_residual.check_unread(_ledger(), verbose=False) == 0
-    assert "nothing" in capsys.readouterr().out
-
-
-def test_a_writer_that_outlasts_our_patience_gets_an_explanation_not_a_traceback(
+def test_a_locked_store_exits_with_an_explanation_and_a_corrupt_one_raises(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Found by running the tool while `ark seed` held the lock for 20 minutes.
+    def fail(message: str):
+        def connect_(*_args, **_kwargs):
+            raise duckdb.IOException(message)
 
-    A read-only reporting tool that ends in a DuckDB traceback reads as a broken
-    tool rather than as a busy store, and the first version gave up after 117
-    seconds for the same reason.
-    """
-    import duckdb as _duckdb
+        return connect_
 
-    def always_locked(*_args, **_kwargs):
-        raise _duckdb.IOException(
-            'IO Error: Could not set lock on file "x": Conflicting lock is held in '
-            "/usr/bin/python3.12 (PID 73793) by user someone."
-        )
-
-    monkeypatch.setattr(audit_residual.duckdb, "connect", always_locked)
-    try:
+    lock = 'IO Error: Could not set lock on file "x": Conflicting lock is held in py (PID 73793)'
+    monkeypatch.setattr(audit_residual.duckdb, "connect", fail(lock))
+    with pytest.raises(SystemExit, match="PID 73793") as exc:
         audit_residual.read_only_store(tmp_path / "store.duckdb", patience_s=0)
-    except SystemExit as exc:
-        assert "PID 73793" in str(exc)
-        assert "waits for the writer" in str(exc)
-    else:
-        raise AssertionError("a permanently locked store must exit with an explanation")
-
-
-def test_a_non_lock_error_is_not_swallowed(tmp_path: Path, monkeypatch) -> None:
-    """Waiting is right for a lock and wrong for a missing or corrupt file."""
-    import duckdb as _duckdb
-
-    def broken(*_args, **_kwargs):
-        raise _duckdb.IOException("IO Error: file is not a valid DuckDB database")
-
-    monkeypatch.setattr(audit_residual.duckdb, "connect", broken)
-    try:
+    assert "waits for the writer" in str(exc.value)
+    monkeypatch.setattr(audit_residual.duckdb, "connect", fail("not a valid DuckDB database"))
+    with pytest.raises(duckdb.IOException, match="valid DuckDB database"):
         audit_residual.read_only_store(tmp_path / "store.duckdb", patience_s=60)
-    except SystemExit:
-        raise AssertionError("a corrupt store must not be reported as a busy one") from None
-    except _duckdb.IOException as exc:
-        assert "valid DuckDB database" in str(exc)
 
 
-def test_stale_derived_skips_a_store_with_no_baseline() -> None:
-    """No baseline evidence means nothing to be stale against, which is a skip
-    rather than a pass: a check that examined nothing must not read like one that
-    found nothing wrong."""
-    conn: duckdb.DuckDBPyConnection = connect(":memory:")
+def test_stale_derived_judges_every_list_in_a_store_with_no_rows_of_his(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    conn = connect(":memory:")
     init_db(conn)
-    assert audit_residual.baseline_loaded_at(conn) is None
-    assert audit_residual.check_stale_derived(conn) == 0
+    add_candidate(conn, "fresh.com", ensure_source(conn, "demo", "candidate_only"))
+    rel = audit_residual.DERIVED[0][0]
+    queue = tmp_path / rel
+    queue.parent.mkdir(parents=True)
+    queue.write_text("a.com\n")
+    os.utime(queue, (0, 0))
+    monkeypatch.setattr(audit_residual, "ROOT", tmp_path)
+    assert audit_residual.check_stale_derived(conn) == 1
+    out = capsys.readouterr().out
+    assert f"[STALE] {rel}" in out and "newest candidates" in out

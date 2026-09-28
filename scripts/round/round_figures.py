@@ -18,17 +18,20 @@ catches records his validator rejects and ours does not, which is a live risk ev
 time a source widens: a rejected record scores zero for him and full weight for us.
 
     uv run python scripts/round/round_figures.py
+    uv run python scripts/round/round_figures.py --full
     uv run python scripts/round/round_figures.py --verify
 
-Read-only, so it is safe to run while the collectors are working.
+By default it reads only the export's files and his release as `ark intake` prepared it,
+never the store, so it runs while a bank holds the writer. `--full` adds the store's own
+lines, read-only.
 """
 
 import argparse
+import functools
 import json
 import subprocess
 import sys
 import tempfile
-import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -37,32 +40,33 @@ sys.path.insert(0, str(REPO / "src"))
 
 import duckdb  # noqa: E402
 
-from ark import export  # noqa: E402
+from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
-    baseline_dir,
     calculator_path,
 )
+from ark.db import DB_TEMP_DIR  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
+YEARS = range(1996, 2002)
+NETNEW = REPO / "output/netnew"
+# `YYYY<TAB>registrable` for every pair of ours that his year file lacks, sorted as a whole
+# under LC_ALL=C. With his files and ours it is every name held in a year.
+ATTESTED = NETNEW / "attested_registrables.txt"
 
 
-# Both inputs come from `ark.baseline`, which owns the fact of which release is current
-# and therefore owns finding it. This file used to carry its own resolver; a third caller
-# needing the same answer is what moved it, and `tests/test_baseline_paths.py` pins it.
+# From `ark.baseline`, which owns the fact of which release is current and therefore owns
+# finding it; `tests/test_baseline_paths.py` pins it.
 CALCULATOR = calculator_path()
-MERGED_BASELINE = baseline_dir()
 
 # The round window opens where the last shipped release closes, so it comes from
-# `ark.baseline` rather than being retyped here. `increment()` does not actually
-# need it: each of its queries carries NOT_BASELINE, so a pair the reviewer has
-# merged drops out by itself. `held` does, and cannot be fixed the same way: a
-# candidate is never in the baseline, so the time window is the only thing
-# separating this round's held names from the last round's.
+# `ark.baseline` rather than being retyped here. It bounds both store counts under
+# `--full`, and for the held names it is the only thing separating this round's from the
+# last round's.
 SINCE = CURRENT_ROUND_SINCE
 
 # His merged 1996-2001 files after the last round was folded in, from `ark.baseline`
@@ -84,44 +88,66 @@ BASELINE_EE_BY_YEAR = REVIEWER_BASELINE_EE_BY_YEAR
 LAST_PAIRS = 946_266
 LAST_EE = Decimal("603401.7811")
 
-# A pair the shared baseline already holds is not ours to report. `prior_reused` is
-# the evidence type recording that a pair arrived with the baseline.
-from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
 
-SHIPPED = _shipping_filter("y.")
-
-NOT_BASELINE = """
-    NOT EXISTS (
-        SELECT 1 FROM evidence p
-        WHERE p.domain = y.domain AND p.evidence_year = y.assigned_year
-          AND p.evidence_type = 'prior_reused'
-    )
-"""
+@functools.cache
+def his_year(year: int) -> Path:
+    """His file for `year` as `ark intake` prepared it, sorted and checked. Every diff here
+    reads it, and `held.load` refuses a release his files have moved past."""
+    return held.load().year(year)
 
 
-def open_store(attempts: int = 40, pause: float = 15.0) -> duckdb.DuckDBPyConnection:
-    """Wait out the maintain loop rather than failing the whole measurement."""
-    for remaining in range(attempts, 0, -1):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            if remaining == 1:
-                raise
-            time.sleep(pause)
-    raise RuntimeError("unreachable")
+def open_store(patience_s: int = 2700) -> duckdb.DuckDBPyConnection:
+    """Wait out a bank rather than failing the whole measurement.
+
+    The shared helper rather than a fourth hand-written retry loop, which is what this was:
+    `ark.db.connect_read_only_patiently` exists precisely because the same loop had been
+    written twice and omitted twice. 45 minutes of patience, not 10, because a bank that
+    folds 500 sweep journals holds the writer for longer than that, which is exactly when the
+    figures are wanted.
+    """
+    from ark.db import connect_read_only_patiently
+
+    return connect_read_only_patiently(STORE, patience_s=patience_s)
 
 
 def increment(conn: duckdb.DuckDBPyConnection) -> dict:
+    """The round so far: our pairs verified since it opened that the export would ship, each
+    screened for its capture and diffed against his file for its year by exact name."""
     weights = english_weights()
-    rows = conn.execute(f"""
-        SELECT s.name, split_part(y.domain, '.', -1) AS tld,
-               y.assigned_year, count(*) AS pairs
-        FROM domain_year y
-        JOIN evidence e ON e.evidence_id = y.evidence_id
-        JOIN source s ON s.source_id = e.source_id
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-        GROUP BY 1, 2, 3
-    """).fetchall()
+    his = held.load()
+    Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=DB_TEMP_DIR) as tmp:
+        work = Path(tmp)
+        held.claim_pairs(conn)
+        held.netnew(conn, his, work)
+        since = f"""
+            FROM netnew_pair np
+            JOIN domain_year y ON y.domain = np.domain AND y.assigned_year = np.year
+            JOIN evidence e ON e.evidence_id = np.evidence_id
+            JOIN source s ON s.source_id = e.source_id
+            WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}'
+        """
+        rows = conn.execute(
+            f"SELECT s.name, split_part(np.domain, '.', -1), np.year, count(*) {since} "
+            "GROUP BY 1, 2, 3"
+        ).fetchall()
+        domains = conn.execute(f"SELECT count(DISTINCT np.domain) {since}").fetchone()[0]
+
+        # Dated by one source but not yet corroborated, so in no file of ours, and not in his.
+        # Same definition as the 119,055 quoted last round, so the two are comparable.
+        usenet = work / "usenet.txt"
+        held.dump(
+            conn,
+            f"""
+            SELECT DISTINCT e.domain FROM evidence e
+            JOIN source s ON s.source_id = e.source_id
+            WHERE s.name = 'usenet_mention' AND e.ingested_at >= TIMESTAMPTZ '{SINCE}'
+              AND NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = e.domain)
+            ORDER BY 1
+            """,
+            usenet,
+        )
+        held_back = held.minus(usenet, his.all, work / "held_back.txt")
 
     by_source: dict[str, list] = {}
     by_year: dict[int, list] = {}
@@ -132,64 +158,47 @@ def increment(conn: duckdb.DuckDBPyConnection) -> dict:
             slot[0] += pairs
             slot[1] += ee
 
-    domains = conn.execute(f"""
-        SELECT count(DISTINCT y.domain) FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-    """).fetchone()[0]
-
-    # Dated by one source but not yet corroborated, so not in an annual file. Same
-    # definition as the 119,055 quoted last round, so the two are comparable.
-    held = conn.execute(f"""
-        SELECT count(DISTINCT e.domain) FROM evidence e
-        JOIN source s ON s.source_id = e.source_id
-        WHERE s.name = 'usenet_mention' AND e.ingested_at >= TIMESTAMPTZ '{SINCE}'
-          AND NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = e.domain)
-    """).fetchone()[0]
-
     return {
         "by_source": by_source,
         "by_year": by_year,
         "pairs": sum(v[0] for v in by_year.values()),
         "ee": sum((v[1] for v in by_year.values()), Decimal(0)),
         "domains": domains,
-        "held": held,
+        "held": held_back,
     }
 
 
-def already_in_his_files(per_year: dict[int, list[str]]) -> int:
-    """Records we are about to report that his merged files already hold.
+def already_in_his_files() -> int:
+    """Lines of the shipped files that his file for the same year already holds, by exact name.
 
-    The increment is defined by `verified_at` plus the absence of a `prior_reused`
-    marker, and neither of those knows what he actually holds. Since `merged260802`
-    was ingested this should now read zero, but the check stays: the moment he issues
-    a release and it is not loaded, the store's idea of the baseline goes stale and
-    net-new silently starts including work he already has. That is exactly what
-    happened between 2 and 7 August, and it is the one error he would catch and we
-    would not.
+    The export diffs each file against his by `comm`, so this reads zero unless the files were
+    written against another release than his current one. Then net-new includes work he
+    already has, which is the one error he would catch and we would not.
     """
     overlap = 0
-    for year, ours in sorted(per_year.items()):
-        path = MERGED_BASELINE / f"{year}.txt"
-        if not path.is_file():
-            raise SystemExit(f"merged baseline not found at {path}")
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            his = {line.strip().lower() for line in fh if line.strip()}
-        overlap += len(his & {d.lower() for d in ours})
+    with tempfile.TemporaryDirectory() as tmp:
+        for year in YEARS:
+            for unit in ("", "_hostnames"):
+                path = NETNEW / f"{year}{unit}.txt"
+                if path.exists():
+                    overlap += held.intersect(path, his_year(year), Path(tmp) / f"o{year}{unit}")
     return overlap
 
 
-def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
+def verify_with_his_calculator() -> dict:
     """Score the increment with his program, per year, and return his totals."""
     if not CALCULATOR.is_file():
         raise SystemExit(f"calculator not found at {CALCULATOR}")
-    rows = conn.execute(f"""
-        SELECT y.assigned_year, y.domain FROM domain_year y
-        WHERE y.verified_at >= TIMESTAMPTZ '{SINCE}' AND {NOT_BASELINE} AND {SHIPPED}
-        ORDER BY 1, 2
-    """).fetchall()
+    # Both halves come from the shipped files, the population the five fields count. A checker
+    # that reads a different set from the thing it checks does not fail safe, it cries wolf,
+    # and `just ship` refuses to package on it.
     per_year: dict[int, list[str]] = {}
-    for year, domain in rows:
-        per_year.setdefault(int(year), []).append(domain)
+    for year in YEARS:
+        path = NETNEW / f"{year}.txt"
+        if path.exists():
+            per_year[year] = [
+                line.strip() for line in path.read_text().splitlines() if line.strip()
+            ]
 
     totals = {
         "ee": Decimal(0),
@@ -201,12 +210,12 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     }
     # The hostname files are scored by the same program, so a hostname his validator
     # refuses is caught here and not by him.
-    for year in range(1996, 2002):
-        path = REPO / f"output/netnew/{year}_hostnames.txt"
+    for year in YEARS:
+        path = NETNEW / f"{year}_hostnames.txt"
         if path.exists():
             hosts = [h.strip() for h in path.read_text().splitlines() if h.strip()]
             per_year.setdefault(year, []).extend(hosts)
-    totals["overlap"] = already_in_his_files(per_year)
+    totals["overlap"] = already_in_his_files()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         for year, domains in sorted(per_year.items()):
@@ -228,50 +237,126 @@ def verify_with_his_calculator(conn: duckdb.DuckDBPyConnection) -> dict:
     return totals
 
 
-def hostname_increment() -> tuple[int, Decimal]:
-    """Records and EE of the shipped hostname files, priced with his weight model."""
-    weights = english_weights()
-    pairs, ee = 0, Decimal(0)
-    for year in range(1996, 2002):
-        path = REPO / f"output/netnew/{year}_hostnames.txt"
-        if not path.exists():
-            continue
-        with path.open() as fh:
-            for line in fh:
-                host = line.strip()
-                if host:
-                    pairs += 1
-                    ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
-    return pairs, ee
+def shipped_by_year(pattern: str) -> dict[int, tuple[int, Decimal]]:
+    """Records and EE per year of a shipped annual file family, priced with his weight model.
 
-
-def www_alias_seam(conn: duckdb.DuckDBPyConnection) -> tuple[int, Decimal]:
-    """What ADR-007 keeps OUT of the hostname files: `www.<a name held that same year>`.
-
-    The rows are net-new against the reviewer's files and would have shipped before
-    2026-09-03, when 364,524 of them carried 201,767.94 EE, 61.0% of the hostname half.
-    Reported every round rather than left in a commit message, because the reviewer has
-    not yet ruled on the alias and both readings have to stay visible: a CDX corpus
-    re-read at hostname grain is almost nothing else, while a corpus of URLs people typed
-    keeps three quarters of its figure. The predicate is imported from the export, so this
-    figure cannot drift from the rule that produced it.
+    What he merges is the shipped files, so that is what the five fields count, both units,
+    with no session window. A round's registrables since it opened is a store question,
+    printed under `--full`, where the timestamps are.
     """
     weights = english_weights()
-    export.load_baseline_hostnames(conn)
-    rows, ee = 0, Decimal(0)
-    for year in range(1996, 2002):
-        excluded = conn.execute(
-            f"""
-            SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE hy.assigned_year = {year}
-              AND {export.NOT_IN_BASELINE_HOSTNAME}
-              AND NOT {export.NOT_WWW_ALIAS}
-            """
-        ).fetchall()
-        rows += len(excluded)
-        for (host,) in excluded:
-            ee += weights.get(host.rsplit(".", 1)[-1], Decimal(0))
-    return rows, ee
+    by_year = {}
+    for year in YEARS:
+        records, year_ee = 0, Decimal(0)
+        path = NETNEW / pattern.format(year=year)
+        if path.exists():
+            with path.open() as fh:
+                for line in fh:
+                    name = line.strip()
+                    if name:
+                        records += 1
+                        year_ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
+        by_year[year] = (records, year_ee)
+    return by_year
+
+
+def summed(by_year: dict[int, tuple[int, Decimal]]) -> tuple[int, Decimal]:
+    return sum(n for n, _ in by_year.values()), sum((e for _, e in by_year.values()), Decimal(0))
+
+
+def hostname_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped hostname files."""
+    return summed(shipped_by_year("{year}_hostnames.txt"))
+
+
+def registrable_increment() -> tuple[int, Decimal]:
+    """Records and EE of the shipped registrable additions."""
+    return summed(shipped_by_year("{year}.txt"))
+
+
+def candidate_potential() -> tuple[int, Decimal]:
+    """Size of the shipped candidate pool, priced but NOT claimed.
+
+    His section XI: "Report annual and active-candidate Equivalent-English contributions
+    separately." Separately is the whole instruction. A candidate carries no in-window
+    evidence, so this is what the pool would be worth if every name in it were later dated,
+    which is a ceiling on future work and not a contribution to this round. It is printed
+    under its own heading, in its own sentence, so it can never be read into the five fields.
+    """
+    weights = english_weights()
+    path = REPO / "output/candidate_unverified.txt"
+    if not path.exists():
+        return 0, Decimal(0)
+    names, ee = 0, Decimal(0)
+    with path.open() as fh:
+        for line in fh:
+            name = line.strip()
+            if name:
+                names += 1
+                ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
+    return names, ee
+
+
+def candidate_track() -> dict:
+    """The candidate-track claim as the export measured it, or an empty result.
+
+    His 0906 update scores candidates separately and at the same rate as annual records,
+    so this is the second of the two numbers a round is judged on and it belongs beside
+    the first. The working pool in `candidates.txt` is not it: measured 2026-09-10 the
+    two were 2,279,755 and 29,327.
+    """
+    path = NETNEW / "candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0"}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def common_lines(sorted_a: Path, sorted_b: Path) -> set[str]:
+    """Lines two LC_ALL=C sorted files share, by `comm` on files checked for order first."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "common.txt"
+        held.intersect(sorted_a, sorted_b, out)
+        return set(out.read_text(encoding="utf-8").splitlines())
+
+
+def www_alias_share() -> tuple[int, Decimal] | None:
+    """How much of the hostname half is `www.<a name held that same year>`, or None.
+
+    These rows ship: his section XI makes a base hostname and a distinct subdomain hostname
+    each an annual record. The share is still reported every round, because it is the one
+    number that says whether a corpus was worth reading: a bulk CDX index re-read at hostname
+    grain is 99.5% to 100.0% alias, so it adds names without adding sites, while a corpus of
+    URLs people typed is 22.2%. That difference is what picks the next corpus.
+
+    Held that year means a line of his year file, of either shipped file for the year, or of
+    the year's block of the attested list. None when the export wrote no attested list.
+    """
+    if not ATTESTED.is_file():
+        return None
+    aliased: set[str] = set()
+    tagged: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for year in YEARS:
+            hosts = NETNEW / f"{year}_hostnames.txt"
+            with hosts.open(encoding="utf-8") as fh:
+                bare = sorted({h.strip()[4:] for h in fh if h.startswith("www.")})
+            if not bare:
+                continue
+            his = his_year(year)
+            listing = Path(tmp) / f"www_{year}.txt"
+            listing.write_text("".join(f"{n}\n" for n in bare), encoding="utf-8")
+            for other in (his, NETNEW / f"{year}.txt", hosts):
+                aliased |= {f"{year}\t{n}" for n in common_lines(listing, other)}
+            tagged += [f"{year}\t{n}" for n in bare]
+        if tagged:
+            # The attested list is sorted as a whole, so the names tagged with their year
+            # find every year's hits in one pass.
+            listing = Path(tmp) / "www_tagged.txt"
+            listing.write_text("".join(f"{t}\n" for t in tagged), encoding="utf-8")
+            aliased |= common_lines(listing, ATTESTED)
+    weights = english_weights()
+    ee = sum((weights.get(t.rsplit(".", 1)[-1], Decimal(0)) for t in aliased), Decimal(0))
+    return len(aliased), ee
 
 
 def main() -> None:
@@ -281,26 +366,30 @@ def main() -> None:
         action="store_true",
         help="re-score the increment with his calculator and fail on any disagreement",
     )
+    ap.add_argument(
+        "--full",
+        action="store_true",
+        help="also read the store: the round so far, the held count, by source",
+    )
     args = ap.parse_args()
 
-    conn = open_store()
-    try:
-        m = increment(conn)
-        seam_rows, seam_ee = www_alias_seam(conn)
-        his = verify_with_his_calculator(conn) if args.verify else None
-    finally:
-        conn.close()
-
-    pairs, ee = m["pairs"], m["ee"]
-    if not pairs:
-        raise SystemExit("nothing added since the submission: nothing to report")
-    # Both output units count in the five fields since 2026-09-01: he accepted valid
-    # hostnames as annual records and his calculator scores one distinct hostname per
-    # year at full weight, so the increment is the union of the registrable files and
-    # the hostname files. The split is printed beneath, registrables first, because he
-    # still asks for those to be prioritized.
-    h_pairs, h_ee = hostname_increment()
-    all_pairs, all_ee = pairs + h_pairs, ee + h_ee
+    missing = [
+        f"{year}{unit}.txt"
+        for year in YEARS
+        for unit in ("", "_hostnames")
+        if not (NETNEW / f"{year}{unit}.txt").is_file()
+    ]
+    if missing:
+        raise SystemExit(f"output/netnew lacks {', '.join(missing)}: run ark export --claim")
+    # Both units count in the five fields: his calculator scores one distinct valid hostname
+    # per year at full weight, so the increment is the union of the registrable files and the
+    # hostname files. The split is printed beneath, registrables first, because he still asks
+    # for those to be prioritized.
+    r_years = shipped_by_year("{year}.txt")
+    h_years = shipped_by_year("{year}_hostnames.txt")
+    r_pairs, r_ee = summed(r_years)
+    h_pairs, h_ee = summed(h_years)
+    all_pairs, all_ee = r_pairs + h_pairs, r_ee + h_ee
     growth = all_ee / BASELINE_EE * 100
 
     print("The five fields, in his order\n")
@@ -309,43 +398,82 @@ def main() -> None:
     print(f"3. Increment                                  : {all_pairs:,} records")
     print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
-    print(f"\n  registrable domains (additions/)  : {pairs:,} records  {ee:,.4f}")
+    print(f"\n  registrable domains (additions/)  : {r_pairs:,} records  {r_ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
-    if seam_rows:
-        # These are OUT of the figures above, so the share is of what the two readings
-        # differ by, and the alternative growth rate is printed rather than implied.
-        with_seam = (all_ee + seam_ee) / BASELINE_EE * 100
+    www = www_alias_share()
+    if www is None:
         print(
-            f"    excluded, www.<held that year>  : {seam_rows:,} records  {seam_ee:,.4f}"
-            f"  (ADR-007; {with_seam:.6f}% if the reviewer counts them)"
+            f"    of which www.<held that year>   : not measured, output/netnew lacks "
+            f"{ATTESTED.name}: run ark export --claim"
         )
-    print(f"  registrable-only growth rate      : {ee / BASELINE_EE * 100:.6f}%")
-
-    mean = ee / pairs
-    last_mean = LAST_EE / LAST_PAIRS
-    print(f"\ndistinct domains in the increment : {m['domains']:,}")
-    print(f"dated but held back, not counted  : {m['held']:,}")
-    print(
-        f"mean weight                       : {mean:.4f} "
-        f"against last round's {last_mean:.4f}, {(mean / last_mean - 1) * 100:+.1f}%"
-    )
-    print(f"equivalent-English against last round: {(ee / LAST_EE - 1) * 100:+.1f}%")
+    elif www[0] and h_ee:
+        # Inside the hostname figure above, so the share is of the hostname half and reads
+        # as a quality signal, not as a withheld alternative.
+        www_rows, www_ee = www
+        print(
+            f"    of which www.<held that year>   : {www_rows:,} records  {www_ee:,.4f}"
+            f"  ({www_ee / h_ee * 100:.1f}% of the hostname half)"
+        )
+    print(f"  registrable-only growth rate      : {r_ee / BASELINE_EE * 100:.6f}%")
+    c_names, c_ee = candidate_potential()
+    if c_names:
+        # Reported separately because his XI says separately, and never added to anything.
+        # The CLAIM is the net-new pool, not the working set: he scores the candidate track
+        # at the same rate as the annual one, so it is the number that has to be watched.
+        print(
+            f"\n  candidate pool (candidates.txt), the working set: "
+            f"{c_names:,} names, {c_ee:,.4f} EE if every one were later dated"
+        )
+    track = candidate_track()
+    if track["candidates"]:
+        # Its own name, never `ee`: `mean weight` under --full divides `ee` by `pairs`, so a
+        # candidate EE bound to `ee` prints candidate EE over annual records under that label.
+        track_ee = Decimal(track["equivalent_english"])
+        print(
+            f"  CANDIDATE TRACK CLAIM (candidate_additions.txt), scored separately at the "
+            f"same rate: {track['candidates']:,} names, {track_ee:,.4f} EE, "
+            f"{track_ee / BASELINE_EE * 100:.6f}% of the same denominator"
+        )
 
     print("\n| Year | Records | Equivalent-English | Growth on that year's baseline |")
     print("|---|---|---|---|")
-    for year in sorted(m["by_year"]):
-        n, year_ee = m["by_year"][year]
+    for year in YEARS:
+        n = r_years[year][0] + h_years[year][0]
+        year_ee = r_years[year][1] + h_years[year][1]
         share = year_ee / BASELINE_EE_BY_YEAR[year] * 100
         print(f"| {year} | {n:,} | {year_ee:,.4f} | {share:.4f}% |")
 
-    print("\nby source")
-    for name, (n, source_ee) in sorted(m["by_source"].items(), key=lambda kv: -kv[1][0]):
-        print(f"  {name:<24} {n:>8,}  {source_ee:>13,.4f}  mean {source_ee / n:.4f}")
+    if args.full:
+        conn = open_store()
+        try:
+            m = increment(conn)
+        finally:
+            conn.close()
+        pairs, ee = m["pairs"], m["ee"]
+        print("\nfrom the store")
+        print(
+            f"  since this round opened ({SINCE[:16]}), registrables only: "
+            f"{pairs:,} records  {ee:,.4f}"
+        )
+        print(f"  distinct domains in the increment : {m['domains']:,}")
+        print(f"  dated but held back, not counted  : {m['held']:,}")
+        if pairs:
+            mean = ee / pairs
+            last_mean = LAST_EE / LAST_PAIRS
+            print(
+                f"  mean weight                       : {mean:.4f} "
+                f"against last round's {last_mean:.4f}, {(mean / last_mean - 1) * 100:+.1f}%"
+            )
+            print(f"  equivalent-English against last round: {(ee / LAST_EE - 1) * 100:+.1f}%")
+        print("\n  by source")
+        for name, (n, source_ee) in sorted(m["by_source"].items(), key=lambda kv: -kv[1][0]):
+            print(f"    {name:<24} {n:>8,}  {source_ee:>13,.4f}  mean {source_ee / n:.4f}")
 
-    if his is None:
+    if not args.verify:
         print("\npass --verify to re-score this with his calculator before sending")
         return
 
+    his = verify_with_his_calculator()
     print("\nverified with his equivalent_english_domains.py")
     print(f"  records scored            : {his['records']:,}")
     print(f"  rejected by his validator : {his['invalid']:,}")
@@ -363,4 +491,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None

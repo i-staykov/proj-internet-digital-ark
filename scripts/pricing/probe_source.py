@@ -1,21 +1,21 @@
 """Turn a URL into a priceable journal from a TOML description, writing no Python.
 
 **What this is for.** The discovery loop's own output says it cannot write the
-fetcher that turns a source into dated items, and that step used to stand between
-a hypothesis and a number: 186 lines of collector before anyone could find out
-whether the source was worth 186 lines. Of the last four sources considered, two
-were rejected on measurement and never needed a parser at all. So the thing worth
-making cheap is the **measurement**, not the ingest.
+fetcher that turns a source into dated items, and without this that step stands
+between a hypothesis and a number: a collector written before anyone can find out
+whether the source is worth it. Many sources are rejected on measurement and never
+need a parser at all. So the thing worth making cheap is the **measurement**, not the
+ingest.
 
     uv run python scripts/pricing/probe_source.py probes/example.toml
     just price --items data/raw/probes/example.jsonl --label example
 
 **What it deliberately cannot do.** Its output has no entry in `ark.sources.SOURCES`,
 so `ark ingest` has no spec to run and there is no path by which a probe can date a
-year. That is not a policy, it is an absence, which is the same safety ADR-003 chose:
+year. That is not a policy, it is an absence, the same safety as the approval gate:
 an unwired thing cannot contaminate. A source that prices well still earns a
 hand-written collector whose refusals are specific to its document, and a human still
-classifies the class in `docs/approved-sources-list.md`. Reasoning in ADR-004.
+classifies the class in `docs/registers/approved-sources-list.md`.
 
 **It refuses to guess.** No column sniffing, no "find the date somewhere on the page".
 The spec names the column or field, and a spec that names the wrong one fails on the
@@ -302,7 +302,7 @@ def main() -> None:
         )
     print(
         f"\n  next: just price --items {out.relative_to(ROOT)} --label {spec['name']}\n"
-        f"  A probe cannot date a year: it has no ingest spec, by design (ADR-004). "
+        f"  A probe cannot date a year: it has no ingest spec, by design. "
         f"If it prices well it earns a collector."
     )
     if not kept:

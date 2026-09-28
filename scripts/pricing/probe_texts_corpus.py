@@ -17,8 +17,8 @@ script measures all three rather than arguing them:
   survive a public-suffix parse and how many are corroborated by the store,
   which bounds the junk rate from below.
 - **net-new (domain, year) pairs and their equivalent-English weight**, against
-  the store rather than against the supplied annual files, because comparing to
-  the wrong baseline is how the NYPW estimate came out 500x too high.
+  every pair already dated, ours in the store and his in his annual files, because
+  comparing to the wrong baseline is how the NYPW estimate came out 500x too high.
 
 Read-only against the store, opened `read_only=True` with retries, because a
 maintenance loop takes the write lock periodically.
@@ -42,8 +42,6 @@ from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
-import duckdb  # noqa: E402
 
 from ark.canonical import to_registrable  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -198,16 +196,11 @@ def domains_in(text: str) -> set[str]:
     return found
 
 
-def open_store() -> duckdb.DuckDBPyConnection:
-    for _ in range(6):
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.IOException:
-            time.sleep(10)
-    raise SystemExit("store stayed locked")
-
-
 def main() -> None:
+    # the store and his files are read here alone: other scripts import this one for `domains_in`
+    from ark import held
+    from ark.db import connect_read_only_patiently
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--query", required=True, help="Solr query, without the mediatype filter")
     parser.add_argument("--rows", type=int, default=40, help="items to sample")
@@ -246,15 +239,18 @@ def main() -> None:
     print(f"\nfull text reachable for {reachable}/{len(docs)} items")
     print(f"extracted {len(pairs):,} pairs over {len({d for d, _ in pairs}):,} domains")
 
-    conn = open_store()
     try:
-        held_pairs = {
-            (d, y)
-            for d, y in conn.execute("SELECT domain, assigned_year FROM domain_year").fetchall()
-        }
-        known = {r[0] for r in conn.execute("SELECT domain FROM domain").fetchall()}
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
+    names = sorted({d for d, _ in pairs})
+    conn = connect_read_only_patiently(STORE)
+    try:
+        held_pairs = held.known_years(conn, names, his)
+        known = held.known_names(conn, names, his)
     finally:
         conn.close()
+    # his all.txt is his six year files merged, so this is `held.attested` without a second scan
     held_domains = {d for d, _ in held_pairs}
 
     new_pairs = pairs - held_pairs

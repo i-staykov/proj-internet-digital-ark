@@ -1,5 +1,6 @@
 """Command-line entry point for the ark pipeline."""
 
+import json
 import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -14,23 +15,24 @@ import typer
 from loguru import logger
 from tqdm import tqdm
 
-from ark import approvals
+from ark import approvals, held
 from ark.audit import write_audit
-from ark.baseline import CURRENT_BASELINE_MARKER, baseline_dir
+from ark.baseline import baseline_dir
 from ark.bulk import ingest_files
 from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
-from ark.checks import collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, init_db
+from ark.checks import AUDIT_PATH, collect_checks, format_checks
+from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_only_patiently, init_db
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
-from ark.gaps import write_creation_candidates, write_gap_candidates
-from ark.ingest import YEARS, ingest_legacy
+from ark.ingest import YEARS
 from ark.journal import journal_path, journal_writer, queried_domains, write_journal_line
 from ark.legacy_review import DEFAULT_DROPLIST_PATH, review_legacy
 from ark.metrics import record_metrics
+from ark.price_snapshot import SnapshotError
+from ark.price_snapshot import price as price_against_snapshot
 from ark.provenance import PROVENANCE_DIR, load_provenance
 from ark.seed import seed_from_file
 from ark.seed_pool import combine_parts, write_source_part
@@ -62,18 +64,25 @@ EXPAND_JOURNAL_PREFIX = "expand"
 def _abortable_pool(workers: int) -> Iterator[ThreadPoolExecutor]:
     """A worker pool that drops its queued work when the run stops early.
 
-    `with ThreadPoolExecutor(...)` waits for every queued task on the way out.
-    These runs submit the whole batch up front, so on Ctrl-C or SIGTERM that
-    turns "stop" into "first finish the eleven hundred requests still queued",
-    and the process looks like it is ignoring the signal. Cancelling the pending
-    futures loses nothing: an unanswered domain was never journalled, so the next
-    run simply asks again.
+    These runs submit the whole batch up front, and a plain `with ThreadPoolExecutor`
+    waits for every queued task on the way out, so Ctrl-C looks ignored. Cancelling
+    pending futures loses nothing: an unanswered domain was never journalled.
     """
     pool = ThreadPoolExecutor(workers)
     try:
         yield pool
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
+
+
+@contextmanager
+def _held_sets() -> Iterator[None]:
+    """His held sets missing or stale is a step to take, and its message names it: no traceback."""
+    try:
+        yield
+    except held.HeldError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.callback()
@@ -96,37 +105,25 @@ def init() -> None:
     logger.info(f"work queue ready at {DEFAULT_QUEUE_PATH}")
 
 
-@app.command(name="ingest-legacy")
-def ingest_legacy_cmd(
-    legacy_dir: Annotated[
-        Path,
+@app.command()
+def intake(
+    baseline: Annotated[
+        Path | None,
         typer.Option(
-            help="Folder holding the provided baseline files. Defaults to wherever the "
-            "current release actually is: the repository path, or `baseline/<marker>/` "
-            "in an unpacked delivery, where the repository path does not exist."
+            help="His release folder. Defaults to wherever the current release actually is: "
+            "the repository path, or `baseline/<marker>/` in an unpacked delivery."
         ),
-    ] = BASELINE_DIR,
-    marker_prefix: Annotated[
-        str,
-        typer.Option(
-            "--marker-prefix",
-            help="Namespace for this baseline's evidence markers, e.g. 'merged260727'. Required "
-            "when loading a later release: the marker is the file name alone, so a second "
-            "1996.txt would otherwise be skipped as already ingested. Defaults to the current "
-            "release; pass the pair explicitly to load an older one.",
-        ),
-    ] = CURRENT_BASELINE_MARKER,
+    ] = None,
 ) -> None:
-    """Load the baseline year files and merge stats into the store."""
-    conn = connect()
-    init_db(conn)
-    all_stats = ingest_legacy(conn, legacy_dir, marker_prefix=marker_prefix)
-    ingested = [s for s in all_stats if not s["skipped"]]
-    total_rows = sum(s.get("year_rows", 0) for s in ingested)
-    total_rejected = sum(s.get("rejected", 0) for s in ingested)
+    """Check his current release and write its sorted name sets under `data/held/<marker>/`.
+
+    Opens no store, and never writes a file of his.
+    """
+    with _held_sets():
+        his = held.prepare(baseline)
     logger.info(
-        f"done: {len(ingested)} files ingested, {len(all_stats) - len(ingested)} skipped, "
-        f"{total_rows} year rows added, {total_rejected} lines rejected"
+        f"{his.marker}: {his.counts['all']:,} names in {his.all}, "
+        f"{his.counts['candidates']:,} in {his.candidates}"
     )
 
 
@@ -146,11 +143,9 @@ def legacy_review_cmd(
     logger.info(f"see {DEFAULT_DROPLIST_PATH} ({sum(counts.values())} distinct entries)")
 
 
-# Banking a finished journal is top of ADR-001's ordering, so this is the job that
-# waits rather than the one that yields. Generous: an `ark seed` has been measured
-# holding the lock for 33 minutes, and a banking pass that gives up because a seed
-# was running leaves collected work sitting on disk, which is the one outcome the
-# whole journals-not-evidence design exists to avoid.
+# Banking a finished journal outranks every other writer, so this is the job that waits
+# rather than the one that yields. Generous, because `ark seed` has been measured holding
+# the lock for 33 minutes and a banking pass that gives up leaves collected work on disk.
 INGEST_LOCK_PATIENCE_S = 2400
 
 
@@ -178,7 +173,12 @@ def ingest_cmd(
     Idempotent per file: a file already in the ledger is skipped whole.
     Example: ark ingest early_web data/raw/early_web/*.cdx.gz
     """
+    from ark.hostnames import FLEETREAD_SOURCE
+
     spec = SOURCES.get(source)
+    if spec is None and FLEETREAD_SOURCE.match(source):
+        _ingest_fleet_read(source, files)
+        return
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     # Checked before the store is opened, so an unapproved ingest does not even take
@@ -189,15 +189,36 @@ def ingest_cmd(
     except approvals.NotApproved as exc:
         typer.echo(f"refusing to ingest: {exc}", err=True)
         raise typer.Exit(code=2) from None
-    # This is the job ADR-001 puts at the top: banking a collector's finished journal is
-    # work already paid for. So it is the one that waits, and everything below it in that
-    # ordering yields to it. It used to be the reverse by accident: `ingest` had no
-    # patience at all, so a long seed made the ingest loop crash every pass while the
-    # seed ran to completion, which is the priority upside down.
+    # Banking a collector's finished journal outranks every other writer: it is work already
+    # paid for, so this is the job that waits and everything below it yields to it.
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     queue_conn = connect_queue()
     ingest_files(conn, spec, files, queue_conn=queue_conn, discovered_round=round_)
+
+
+def _ingest_fleet_read(source: str, files: list[Path]) -> None:
+    """A fleet read banks both halves under its own source: its journal parts through the
+    hostname ingest, its registrables through the `cdx_snapshot` parser. A file that is not
+    this read's, a refused part or a failed file exits non-zero, so the bank stops there."""
+    from ark.hostnames import fleet_read_spec, ingest_hostname_journal
+
+    try:
+        specs = [fleet_read_spec(source, path) for path in files]
+        approvals.check(source, "cdx_timestamp")
+    except (ValueError, approvals.NotApproved) as exc:
+        typer.echo(f"refusing to ingest: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path, spec in zip(files, specs, strict=True):
+        if spec is None:
+            failed = bool(ingest_hostname_journal(conn, path).get("refused"))
+        else:
+            failed = bool(ingest_files(conn, spec, [path]).get("files_failed"))
+        if failed:
+            typer.echo(f"{source}: {path.name} did not ingest", err=True)
+            raise typer.Exit(code=1)
 
 
 @app.command(name="ingest-hostnames")
@@ -213,10 +234,9 @@ def ingest_hostnames_cmd(
 ) -> None:
     """Fill hostname_year from raw CDX capture journals (second output unit).
 
-    Accepted by the reviewer 2026-09-01: hostnames are annual records beside
-    registrables. Evidence class is the approved cdx_timestamp; a hostname that is
-    its own registrable is refused here because it belongs to domain_year.
-    Idempotent per file. Example: ark ingest-hostnames data/raw/cdx_suffix/
+    Class cdx_timestamp. A hostname that is its own registrable is refused here,
+    because it belongs to domain_year. Idempotent per file.
+    Example: ark ingest-hostnames data/raw/cdx_suffix/
     """
     from ark.hostnames import ingest_hostname_dir
 
@@ -224,6 +244,62 @@ def ingest_hostnames_cmd(
     init_db(conn)
     for path in paths:
         ingest_hostname_dir(conn, path)
+
+
+@app.command(name="retract-status")
+def retract_status_cmd(
+    audit: Annotated[
+        Path,
+        typer.Option(help="The status audit's error captures, `status_errors.tsv.gz`."),
+    ] = Path("data/audit/status_errors.tsv.gz"),
+    write: Annotated[
+        bool, typer.Option("--write", help="Repoint and retract; without it, count only.")
+    ] = False,
+) -> None:
+    """Take every master record off the 4xx and 5xx captures `status_audit.py` lists.
+
+    A host-year with a 2xx or 3xx in the audited raw moves to a new evidence row at the
+    earliest one; the rest keep a row that now carries its error status, so they fail XIII
+    and export as candidates. `--write` then reads the other web families' journals again
+    for the host-years left on an error capture, so a year another family holds comes back.
+    """
+    from ark.hostnames import AUDITED_FAMILIES, retract_error_captures
+
+    for path in (audit, audit.with_name("status_repoint.tsv.gz")):
+        if not path.is_file():
+            raise typer.BadParameter(f"no {path}; run scripts/round/status_audit.py")
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    stats = retract_error_captures(conn, audit, write=write)
+
+    def total(prefix: str) -> int:
+        return sum(n for k, n in stats.items() if k.startswith(prefix))
+
+    for scope, prefix in (("shipped", "shipped_"), ("store", "")):
+        count = {
+            (grain, action): total(f"{prefix}{grain}_hit_{action}_")
+            for grain in ("hy", "dy")
+            for action in ("retract", "repoint", "retracted")
+        }
+        retract = count["hy", "retract"] + count["dy", "retract"]
+        repoint = count["hy", "repoint"] + count["dy", "repoint"]
+        by_family = ", ".join(
+            f"{total(f'{prefix}hy_hit_retract_{f}') + total(f'{prefix}dy_hit_retract_{f}')} {f}"
+            for f in AUDITED_FAMILIES
+        )
+        typer.echo(
+            f"{scope}: {retract + repoint:,} records on a 4xx or 5xx capture "
+            f"({count['hy', 'retract'] + count['hy', 'repoint']:,} hostname years, "
+            f"{count['dy', 'retract'] + count['dy', 'repoint']:,} domain years): "
+            f"{retract:,} to retract ({by_family}), {repoint:,} to repoint; "
+            f"{count['hy', 'retracted'] + count['dy', 'retracted']:,} already retracted"
+        )
+    if write:
+        typer.echo(
+            f"written; {stats['parent_years_moved_to_another_row']:,} parent years moved to "
+            f"another row, {stats['restored_by_another_web_family']:,} host-years restored by "
+            f"another web family, {stats['left_on_an_error_capture']:,} left as candidates"
+        )
 
 
 @app.command(name="ingest-zone-hostnames")
@@ -237,8 +313,8 @@ def ingest_zone_hostnames_cmd(
 
     `ark ingest internic_zone` records the delegated names; this records the hosts
     they point at, which a web crawl never fetches. Dated by the zone's own SOA
-    serial, class artifact_listing, idempotent per file. Admitted 2026-09-02 under
-    the standing rule. Example: ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz
+    serial, class artifact_listing, idempotent per file.
+    Example: ark ingest-zone-hostnames data/raw/internic_zones/org.zone.gz
     """
     from ark.hostnames import ingest_zone_hostnames
 
@@ -264,8 +340,8 @@ def ingest_blocklist_hostnames_cmd(
 
     `ark ingest squidguard_2001_blacklist` and `chastity_dated` collapse every listed
     host to its registrable; this keeps the host. Dated by the same stamps, squidGuard's
-    compile header and chastity's tar member header, so the tarball is what it reads.
-    Admitted 2026-09-02 under the standing rule. Idempotent per file.
+    compile header and chastity's tar member header, so it reads the tarball.
+    Idempotent per file.
     """
     from ark.hostnames import ingest_blocklist_hostnames
 
@@ -295,8 +371,7 @@ def ingest_ripe_nserver_hostnames_cmd(
     `ark ingest ripe_dbase_1999` and `ripe_dbase_split_2004` record the delegated
     names; this records the `*ns:` / `nserver:` hosts they name, dated by the same
     stamps (the snapshot's header, the object's latest `changed:` line). Class
-    artifact_listing, under the RIPE NCC permission of 2026-08-26. Admitted 2026-09-02
-    under the standing rule. Idempotent per file.
+    artifact_listing, under the RIPE NCC permission. Idempotent per file.
     """
     from ark.hostnames import ingest_ripe_nserver_hostnames
 
@@ -321,8 +396,7 @@ def ingest_isc_hostnames_cmd(
 
     `ark ingest isc_survey` collapses every `IP hostname` line to its registrable;
     this keeps the host itself, dated by the same `YYMM` survey code, class
-    artifact_listing. `.domains` files are skipped by name. Admitted 2026-09-02
-    under the standing rule. Idempotent per file.
+    artifact_listing. `.domains` files are skipped by name. Idempotent per file.
     Example: ark ingest-isc-hostnames data/raw/isc_survey/wb_nw_*.gz
     """
     from ark.hostnames import ingest_isc_hostnames
@@ -331,6 +405,175 @@ def ingest_isc_hostnames_cmd(
     init_db(conn)
     for path in paths:
         typer.echo(str(ingest_isc_hostnames(conn, path)))
+
+
+@app.command(name="ingest-usenet-hostnames")
+def ingest_usenet_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards, or directories of them "
+            "(`data/raw/usenet_*_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Usenet posts.
+
+    Class link_source. The host authority of an explicit `http://`, `https://` or
+    `ftp://` URL in the post BODY only: a `Path`, `Xref`, `NNTP-Posting-Host`,
+    `Message-ID`, `From` or `Organization` host is a news relay or a mailbox, never a
+    host that served a page. Idempotent per shard, keyed by pool and shard name.
+    Example: ark ingest-usenet-hostnames data/raw/usenet_comp_items
+    """
+    from ark.hostnames import ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path)))
+
+
+@app.command(name="ingest-maillist-hostnames")
+def ingest_maillist_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_maillist_pool.py, or directories "
+            "of them (`data/raw/maillists_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated mailing-list messages.
+
+    Class link_source, the Usenet lane's evidence shape read from pipermail month files.
+    The item pointer is `<host>/<list>__<YYYY-Month>.txt#<n>`, message n of a file the
+    archive host still serves by name. Idempotent per shard.
+    Example: ark ingest-maillist-hostnames data/raw/maillists_items
+    """
+    from ark.hostnames import MAILLIST_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=MAILLIST_FAMILY)))
+
+
+@app.command(name="ingest-enron-hostnames")
+def ingest_enron_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_enron_pool.py, or directories "
+            "of them (`data/raw/enron_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the hosts typed as body URLs in dated Enron messages.
+
+    Class link_source, the third member of the body-URL family, from the CMU release of
+    the Enron mailbox. The item pointer is the message's own path inside the tarball,
+    `maildir/<custodian>/<folder>/<n>.`. Idempotent per shard.
+    Example: ark ingest-enron-hostnames data/raw/enron_items
+    """
+    from ark.hostnames import ENRON_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=ENRON_FAMILY)))
+
+
+@app.command(name="ingest-apache-header-hostnames")
+def ingest_apache_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_apache_header_pool.py, or "
+            "directories of them (`data/raw/apache_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated Apache list messages.
+
+    Class link_source, for the `Received: ... by <host>` clause ALONE: the receiving
+    MTA writes its own name there, so the field is machine-written and takes no
+    corroboration split. The `from` clause is a sender-chosen HELO name and is not read,
+    nor is the parenthesised reverse-DNS: neither was approved. The item pointer is
+    `<list domain>/<list>__<YYYY-MM>#<n>`, message n of that list-month's mbox export.
+    Idempotent per shard.
+    Example: ark ingest-apache-header-hostnames data/raw/apache_header_items
+    """
+    from ark.hostnames import APACHE_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=APACHE_FAMILY)))
+
+
+@app.command(name="ingest-ietf-header-hostnames")
+def ingest_ietf_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from collect_ietf_mail_archive.py, or "
+            "directories of them (`data/raw/ietf_header_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated IETF list messages.
+
+    The Apache class at a second host, not a new class: the same `Received: ... by <host>`
+    clause, read by the Apache lane's parser, with `from` and the parenthesised
+    reverse-DNS skipped here too. The item pointer is `www.ietf.org/<tree>/<list>/<file>#<n>`,
+    and the file name is carried whole because the archive spells early months `1996-03`
+    and later ones `1999-05.mail`. Idempotent per shard.
+    Example: ark ingest-ietf-header-hostnames data/raw/ietf_header_items
+    """
+    from ark.hostnames import IETF_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
+
+
+@app.command(name="ingest-usenet-header-hostnames")
+def ingest_usenet_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_usenet_header_pool.py, or "
+            "directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the server-written header hosts of dated Usenet posts.
+
+    Three fields, all written by a news server about a transaction it completed: the
+    trailing hostname of `X-Trace:`, the `NNTP-Posting-Host:` the accepting server
+    logged, and the final `Path:` hop. The `Message-ID` host is client-written and is
+    not read. Idempotent per shard.
+    Example: ark ingest-usenet-header-hostnames data/raw/usenet_header_items
+    """
+    from ark.hostnames import USENET_HEADER_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
 
 
 @app.command(name="seed-pool")
@@ -346,13 +589,11 @@ def seed_pool(
 ) -> None:
     """Extract a source's raw hostnames and URLs into the auxiliary seed pool.
 
-    Deliberately not called `seed`: `ark seed` loads candidate DOMAINS into the
-    verification pool, while this writes the HOSTNAME and URL download seeds
-    that III.8's registered-domain counting unit necessarily discards.
-
-    Reads the same files through the same parser as `ark ingest`, keeping the raw
-    value instead of the canonical one, so a seed cannot disagree with the
-    evidence it came from. Re-running a source replaces only its own rows.
+    Deliberately not `ark seed`, which loads candidate DOMAINS: this writes the HOSTNAME
+    and URL download seeds kept by registrable-grain parsers, and they do not replace the
+    evidence-backed annual hostname records brief IV.8 requires. Same files, same parser
+    as `ark ingest`, keeping the raw value instead of the canonical one, so a seed cannot
+    disagree with the evidence it came from. Re-running a source replaces only its rows.
 
     Example: ark seed-pool isc_survey data/raw/isc_survey/*.gz
     """
@@ -360,20 +601,15 @@ def seed_pool(
     if spec is None:
         raise typer.BadParameter(f"unknown source '{source}'; known: {', '.join(sorted(SOURCES))}")
     stats = write_source_part(spec, files)
-    combined = combine_parts(connect())
+    with _held_sets():
+        combined = combine_parts(connect())
     typer.echo(f"seed-pool {source}: {dict(stats)}\nseed pool: {combined}")
 
 
-# Deliberately short, and the first attempt at this got the direction wrong. Waiting
-# 600s made the seed *queue* for the lock instead of yielding it: it duly won the lock
-# and then held it for its whole run, and the ingest loop started crashing against the
-# seed rather than the other way round. Removing a traceback by moving it to the
-# priority job is not an improvement.
-#
-# So this is only long enough to ride out the gap between two files inside one ingest
-# pass. ADR-001 is explicit that seeding yields, because a candidate claims nothing
-# until something dates it, and that a seed blocking anything valuable is interrupted
-# rather than waited out.
+# Deliberately short: long enough to ride out the gap between two files inside one ingest
+# pass, no longer. A generous wait does not make the seed polite, it makes it QUEUE, so it
+# wins the lock the moment the ingest finishes and then holds it for its own long run.
+# Seeding yields, because a candidate claims nothing until something dates it.
 SEED_LOCK_PATIENCE_S = 20
 
 
@@ -392,18 +628,10 @@ def seed(
 
     Example: ark seed legacy-data/deduplicated_urls_2001-2002.txt --limit 5000
 
-    **It yields to a writer rather than crashing against one.** ADR-001 puts banking
-    a collector's finished journal above seeding, because a candidate claims nothing
-    until something dates it. That rule was in force and this command still died with
-    a DuckDB traceback whenever the ingest loop held the lock, which is not yielding,
-    it is failing: unattended, a stack trace out of a routine collision reads as a
-    broken invariant. It now waits only long enough to ride out a gap inside one ingest
-    pass and then says plainly that it yielded, which is safe to re-run because inserts
-    autocommit and the insert is `INSERT OR IGNORE`.
-
-    **The patience is short on purpose.** A long one does not make the seed polite, it
-    makes it queue: it wins the lock the moment the ingest finishes and then holds it for
-    its own long run, so the traceback simply moves to the job that outranks it.
+    Yields to a writer rather than crashing against one: banking a collector's
+    journal outranks seeding. It waits only long enough to ride out a gap
+    inside one ingest pass, then says it yielded. Safe to re-run: inserts autocommit
+    and are `INSERT OR IGNORE`.
     """
     try:
         conn = connect_patiently(patience_s=SEED_LOCK_PATIENCE_S)
@@ -413,13 +641,14 @@ def seed(
         raise SystemExit(
             f"the store was still being written after {SEED_LOCK_PATIENCE_S}s, so this seed "
             f"yielded and wrote nothing.\n"
-            f"Per ADR-001 banking a finished journal outranks seeding, so waiting is correct "
+            f"Banking a finished journal outranks seeding, so waiting is correct "
             f"and this is not an error.\n"
             f"Re-run when the ingest loop is idle: a re-run is additive, since inserts "
             f"autocommit and the insert ignores duplicates."
         ) from None
     queue_conn = connect_queue()
-    seed_from_file(conn, queue_conn, seed_file, limit)
+    with _held_sets():
+        seed_from_file(conn, queue_conn, seed_file, limit)
 
 
 @app.command()
@@ -453,15 +682,12 @@ def download(
         ),
     ] = None,
 ) -> None:
-    """Fetch archived pages and extract the domains they link to (brief section VII).
+    """Fetch archived pages and extract links for the brief's source-expansion loop.
 
-    Collection only: writes a per-run journal and never opens the store. Turn it
-    into evidence with `ark ingest expansion_links <journal> --round N` for the
-    candidate half, and `ark ingest expansion_directory <journal> --round N` for
-    pages asserted to be curated directories, whose capture date evidences their
-    entries.
-
-    Resumable: a page already answered in a journal in the same folder is skipped.
+    Collection only: writes a per-run journal and never opens the store. Bank it with
+    `ark ingest expansion_links <journal> --round N` for the candidate half, or
+    `expansion_directory` for pages asserted to be curated directories, whose capture
+    date evidences their entries. Resumable: a page already answered is skipped.
     """
     path = out or journal_path(EXPAND_JOURNAL_DIR, EXPAND_JOURNAL_PREFIX)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -526,19 +752,89 @@ def download(
 
 
 @app.command()
-def export() -> None:
-    """Write net-new year files, candidates, manifest, and merged masters.
+def export(
+    provenance: Annotated[
+        bool,
+        typer.Option(
+            "--provenance/--no-provenance",
+            help="Also write the provenance graph. Needed to ship a round or to `ark rebuild`.",
+        ),
+    ] = False,
+    claim: Annotated[
+        bool,
+        typer.Option(
+            "--claim",
+            help="Write only the claim and its stamp, as the bank does. Packaging refuses it.",
+        ),
+    ] = False,
+) -> None:
+    """Write net-new year files, candidates, manifests and the stamp; `--claim` writes only the
+    claim files ROUND.md reads and the stamp. Needs the held sets `ark intake` writes.
 
-    **Patient, because it is the first step of shipping a round.** DuckDB blocks a
-    write connection against any other process holding the file, including a mere
-    reader, and this project always has readers: the discovery cycle measures the
-    store every hour and the ingest loop banks a journal every few minutes. An
-    impatient export crashed the shipping rehearsal on 2026-08-13 with a raw
-    IOException, which under deadline reads as a broken exporter rather than a busy
-    database.
+    Patient, because it is the first step of shipping a round: DuckDB blocks a write
+    connection against any other process holding the file, even a reader, and this
+    project always has readers.
+
+    **The provenance graph is off unless asked for**: it is 229 of the command's 444
+    seconds and 2,319 MB, and only `package_delivery.sh` and `just rebuild` read it.
     """
+    if claim and provenance:
+        raise typer.BadParameter("--claim writes no provenance graph: pass one of the two")
     conn = connect_patiently()
-    export_all(conn)
+    with _held_sets():
+        export_all(conn, with_provenance=provenance, claim_only=claim)
+
+
+@app.command(name="price-snapshot")
+def price_snapshot_cmd(
+    snapshot: Annotated[
+        Path,
+        typer.Option(help="Snapshot: manifest.json, the marker, netnew, candidates, calculator."),
+    ],
+    items: Annotated[
+        Path,
+        typer.Option(
+            help="JSONL(.gz), one item per line: {host, year, text?} or {url, timestamp, status}."
+        ),
+    ],
+    track: Annotated[
+        str, typer.Option(help="`annual` for (name, year) records, `candidate` for undated names.")
+    ] = "annual",
+    split: Annotated[
+        str,
+        typer.Option(
+            help="`auto` counts a name read only from free text when its registrable is dated "
+            "that year; `none` counts every net-new name."
+        ),
+    ] = "auto",
+    evidence_class: Annotated[
+        str | None,
+        typer.Option(
+            "--class",
+            help="The lead's evidence class: a listing, a registry record or a web method "
+            "takes no split.",
+        ),
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
+) -> None:
+    """Price items against a pushed snapshot and print one JSON object.
+
+    The only price a fleet leg may quote. Reads no store, writes only `--out`, and refuses a
+    snapshot whose files disagree with its manifest, so the figure is reproducible from
+    the marker and `built_at` it carries.
+    """
+    try:
+        priced = price_against_snapshot(
+            snapshot, items, track, split=split, evidence_class=evidence_class
+        )
+    except SnapshotError as exc:
+        logger.error(str(exc))
+        raise typer.Exit(2) from exc
+    text = json.dumps(priced, indent=2)
+    if out is not None:
+        out.write_text(text + "\n", encoding="utf-8")
+    # stdout is the JSON and nothing else: a leg copies fields out of it.
+    typer.echo(text)
 
 
 @app.command()
@@ -557,74 +853,11 @@ def stats() -> None:
     # Waits out the ingest loop rather than raising a lock traceback: this records a
     # metrics row, so it needs the write lock even though it only reports.
     conn = connect_patiently()
-    scoreboard = collect_stats(conn)
+    with _held_sets():
+        scoreboard = collect_stats(conn)
     typer.echo(format_stats(scoreboard))
     # the exact reported figures leave a timestamped audit trail
     record_metrics(conn, "stats", "scoreboard", scoreboard)
-
-
-@app.command()
-def gaps(
-    out: Annotated[
-        Path, typer.Option("--out", help="Where to write the prioritised domain list.")
-    ] = Path("data/raw/cdx/gap_candidates.txt"),
-    creation: Annotated[
-        bool,
-        typer.Option(
-            "--creation",
-            help="Instead list the population a registry creation date can address: domains "
-            "missing an in-window year next to one they hold, most-missing first. Not bounded "
-            "to years before the earliest held one, because a creation date resets on "
-            "re-registration and can therefore fall after years already held.",
-        ),
-    ] = False,
-    legacy_year_order: Annotated[
-        bool,
-        typer.Option(
-            "--legacy-year-order",
-            help="Order by thinnest gap year instead of by expected equivalent-English. The "
-            "pre-August-2026 order, kept for reproducing earlier rounds; measured 54% worse "
-            "per query under the current metric.",
-        ),
-    ] = False,
-    shards: Annotated[
-        int,
-        typer.Option(
-            "--shards",
-            help="Split the list into this many disjoint slices by content hash, so several "
-            "machines can collect in parallel without ever querying the same domain twice.",
-        ),
-    ] = 1,
-    shard: Annotated[
-        int, typer.Option("--shard", help="Which slice to write, from 0 to --shards minus 1.")
-    ] = 0,
-) -> None:
-    """List held domains worth a per-domain query, best target first.
-
-    By default: domains whose missing year is bracketed by two held years, which
-    is the population an archive query addresses. One archive query answers every
-    year for a domain, so the output is a domain list. Feed it to `ark cdx`.
-
-    Ordered by expected equivalent-English: the English share of the domain's TLD
-    times the number of bracketed years a capture could fill. The hit rate is
-    near-uniform over this population, so what separates targets is what an answer
-    is worth, not the chance of getting one.
-    """
-    conn = connect_patiently()
-    if creation:
-        summary = write_creation_candidates(conn, out)
-        record_metrics(conn, "gaps", "creation_addressable", summary)
-        logger.info(f"gaps (creation): {summary} -> {out}")
-        # No "next" line any more: the RDAP client that consumed this list is retired
-        # (docs/retired.md), and nothing has replaced it as a creation-date route.
-        typer.echo(f"gaps (creation): {summary}\nwrote {out}")
-        return
-    summary = write_gap_candidates(
-        conn, out, legacy_year_order=legacy_year_order, shards=shards, shard=shard
-    )
-    record_metrics(conn, "gaps", "sandwich", summary)
-    logger.info(f"gaps: {summary} -> {out}")
-    typer.echo(f"gaps: {summary}\nwrote {out}\nnext: uv run ark cdx {out}")
 
 
 @app.command()
@@ -706,7 +939,7 @@ def cdx(
 
     One collapsed query covers all six years. Requests are paced by an adaptive
     governor that eases up while the service is healthy and backs off hard on
-    429/503/504, honouring Retry-After, per brief section VI. Resumable: any
+    429/503/504, honouring Retry-After, per brief section VII. Resumable: any
     domain already recorded in a journal in the same folder is skipped.
     """
     path = out or journal_path(CDX_JOURNAL_DIR, CDX_JOURNAL_PREFIX)
@@ -805,17 +1038,15 @@ def rebuild(
 ) -> None:
     """Rebuild the result from a provenance export, with no source data.
 
-    Loads the exported evidence graph into the store and re-runs the
-    exporter over it, which regenerates the annual files, the merged masters,
-    the candidate list and the manifest. Run `ark check` afterwards to put the
-    rebuilt store through the same integrity gate as the original.
+    Loads the exported evidence graph into the store, with the schema's keys and defaults and
+    each sequence past the export's ids so the store takes new ingests, and re-runs the
+    exporter, which regenerates the annual files, the candidate lists and the manifests. Needs
+    the held sets `ark intake` writes, checked before anything is dropped. Run `ark check`
+    afterwards.
 
-    Refuses when the store holds ingested files the export does not, because
-    this command DROPS the store's tables before recreating them from Parquet.
-    On a finished delivery that is exactly right. During collection it is
-    destructive: anything ingested since the last `ark export` is not in the
-    Parquet yet and would be discarded without a word. Pass --force if the
-    discard is intended.
+    DROPS the store's tables before recreating them from Parquet, so it refuses when the
+    store holds ingested files the export does not: during collection anything banked
+    since the last `ark export` would be discarded silently. --force if that is intended.
 
     Example: ark rebuild ../provenance
     """
@@ -839,20 +1070,26 @@ def rebuild(
             f"first, or pass --force if that is what you want."
         )
 
-    load_provenance(conn, provenance_dir)
-    stats = export_all(conn)
+    with _held_sets():
+        held.load()
+        load_provenance(conn, provenance_dir)
+        stats = export_all(conn)
     typer.echo(f"rebuilt from {provenance_dir}: {stats}\nnext: uv run ark check")
 
 
 @app.command()
 def check() -> None:
     """Run integrity checks over the store; exit non-zero if any fails."""
-    # Same reason as `stats`, and it matters more here: a lock traceback out of the
-    # integrity gate reads as a broken invariant when the database is merely busy.
-    conn = connect_patiently()
-    results = collect_checks(conn)
+    # Read-only and patient: the gate writes nothing, and a lock traceback out of it reads
+    # as a broken invariant when the store is merely busy. Closed before returning, since a
+    # read-write open in the same process fails while this connection lives.
+    conn = connect_read_only_patiently()
+    try:
+        with _held_sets():
+            results = collect_checks(conn, audit=AUDIT_PATH)
+    finally:
+        conn.close()
     typer.echo(format_checks(results))
-    record_metrics(conn, "check", "integrity", {r["name"]: r["offending"] for r in results})
     if any(not r["ok"] for r in results):
         raise typer.Exit(code=1)
 

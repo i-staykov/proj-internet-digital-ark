@@ -1,21 +1,14 @@
-"""The ranking score, `S_i = k * p_i / t_i`, computed the way the reviewer computes it.
+"""The ranking score, `S_i = k * p_i / t_i`, with `t_i` in whole calendar days.
 
-From his brief update of 2026-08-20: `p_i` is the percentage he awards a round and
-`t_i` the elapsed time from the release of the benchmark package the round is measured
-against to the receipt of the submission. Reconstructed on 2026-09-02 from the mail
-archive, his two quoted scores fix the rule to the digit: `t_i` is the elapsed time in
-his clock, rounded UP to whole days. Round 6 ran 5.19 days from the `merged260821`
-release and he quotes 6.88, so `t_6 = 6`; round 7 ran 11.77 days from the same release
-and he quotes 6.302372, so `t_7 = 12`. Calendar days give round 6 `t = 5` and 8.26, and
-counting them from the current release floored to one day is how round 7's report came
-to state S = 226.43 for a round he scored at 6.302372.
-
-Pure arithmetic over timestamp strings. The rounds themselves live in `ark.baseline`;
-this module only knows how to turn two stamps and a percentage into his number.
+`t_i` counts whole calendar days from the task assignment, `TASK_ASSIGNED_DATE`, never below
+one, and never resets (`t_days_assignment`): his round 8 and 9 divisors, 33 and 39, put the
+assignment there. `t_days` is the benchmark clock, release to receipt rounded up, which his
+round 6 and 7 scores fit; `rounds.py` fills `S_i computed` with it. Stamps are in his clock,
+US Pacific. Pure arithmetic over timestamp strings; the rounds live in `ark.baseline`.
 """
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from math import ceil
 from zoneinfo import ZoneInfo
@@ -32,6 +25,11 @@ SCORE_RULE_SINCE = "2026-08-20 03:37"
 
 # He quotes S_7 to six places.
 PLACES = Decimal("0.000001")
+
+# The origin of the assignment rule, read out of his own arithmetic, not our receipts:
+# he scored round 8 as 10 x (18.769714 / 33), so the divisor 33
+# puts the origin here. One day of error moves every S_i.
+TASK_ASSIGNED_DATE = "2026-08-02"
 
 
 def parse_stamp(stamp: str) -> datetime:
@@ -51,12 +49,21 @@ def elapsed_days(release_ts: str, receipt_ts: str) -> Decimal:
 
 
 def t_days(release_ts: str, receipt_ts: str) -> int:
-    """`t_i`: the elapsed time rounded up to whole days, never below one.
+    """`t_i` under the BENCHMARK rule: elapsed days rounded up, never below one.
 
-    The floor only matters for a receipt inside the release minute, where his rule
-    would otherwise divide by zero.
+    The floor only matters for a receipt inside the release minute, which would divide
+    by zero.
     """
     return max(1, ceil(elapsed_days(release_ts, receipt_ts)))
+
+
+def t_days_assignment(receipt_ts: str, assigned: str = TASK_ASSIGNED_DATE) -> int:
+    """`t_i` under the ASSIGNMENT rule: whole calendar days, min 1.
+
+    Dates, not stamps: "measured in whole calendar days", so time of day drops out.
+    """
+    days = (date.fromisoformat(receipt_ts[:10]) - date.fromisoformat(assigned)).days
+    return max(1, days)
 
 
 def score(p: Decimal, t: int) -> Decimal:

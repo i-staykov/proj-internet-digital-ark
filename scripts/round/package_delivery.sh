@@ -2,7 +2,7 @@
 # Assemble the delivery archive: one compressed file plus its checksum, holding
 # the results, the evidence behind them, the code that produced them, and the
 # documentation. Run from anywhere; paths resolve relative to the repo root.
-# Regenerate the data first with `ark export`.
+# Regenerate the data first with `ark export --provenance`.
 #
 # Usage: bash scripts/round/package_delivery.sh [round-label]
 #
@@ -15,6 +15,52 @@
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJ"
+
+# The fleet checkout ships as source/fleet.tar.gz and the open research questions are built
+# from it, so it must be the fleet as it stands: the top of a git checkout (a worktree's
+# `.git` is a file), its HEAD on the fleet's main, and no older than the newest drain the
+# laptop banked, whose name is the drain's UTC minute.
+FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+TOP=$(git -C "$FLEET" rev-parse --show-toplevel 2>/dev/null) || true
+if [ -z "$TOP" ] || [ "$(cd "$TOP" && pwd -P)" != "$(cd "$FLEET" && pwd -P)" ]; then
+    echo "refusing to package: $FLEET is not the top of a fleet checkout; set ARK_FLEET" >&2
+    exit 1
+fi
+if ! git -C "$FLEET" merge-base --is-ancestor HEAD refs/remotes/origin/main 2>/dev/null; then
+    echo "refusing to package: HEAD of $FLEET is not on the fleet's origin/main" >&2
+    exit 1
+fi
+NEWEST=$(ls data/fleet_findings/banked 2>/dev/null | grep -E '^[0-9]{8}T[0-9]{4}Z' | cut -c1-14 | sort | tail -1) || true
+HEAD_AT=$(TZ=UTC git -C "$FLEET" log -1 --format=%cd --date=format-local:%Y%m%dT%H%MZ HEAD)
+if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
+    echo "refusing to package: the fleet at $FLEET was committed $HEAD_AT, before the newest banked drain $NEWEST; pull it" >&2
+    exit 1
+fi
+
+# The reproduction note is quoted into the report, so a verdict count it names must be the
+# one verify.sh prints, or the report ships a stale claim about its own archive.
+VERDICTS=$(sed -n 's/^VERDICTS=\([0-9][0-9]*\)$/\1/p' scripts/round/verify_delivery.sh)
+COUNTS=(zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
+SAID=$(grep -oE '[a-z]+ `verify\.sh` verdicts' docs/round/reproduction.txt | head -1 | cut -d' ' -f1) || true
+if [ -z "$VERDICTS" ]; then
+    echo "refusing to package: scripts/round/verify_delivery.sh declares no VERDICTS" >&2
+    exit 1
+fi
+if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
+    echo "refusing to package: docs/round/reproduction.txt says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
+    exit 1
+fi
+
+# The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
+# writes only the claim, so the manifests, ISC files and contribution tables beside it are
+# whatever the last full export left; only a full export with provenance, against the current
+# release and with the bank's claim set aside, ships.
+PROBLEMS=$(uv run python -c 'from ark.export import stamp_problems; print("\n".join(stamp_problems()))')
+if [ -n "$PROBLEMS" ]; then
+    echo "refusing to package:" >&2
+    printf '%s\n' "$PROBLEMS" >&2
+    exit 1
+fi
 
 ROUND="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 if [ "$ROUND" = "HEAD" ] || [ -z "$ROUND" ]; then
@@ -38,9 +84,9 @@ ROUND_DIR="submissions/$ROUND"
 # code, and a reviewer running it would have regenerated the withdrawn rows.
 #
 # `submissions/` is excluded because it is this script's own OUTPUT, not an input
-# to the source snapshot. Every run rewrites the round's MANIFEST, checksum and
-# report copy, so including it made the second packaging run refuse on the first
-# run's results, which is a guard tripping over its own footprints.
+# to the source snapshot. Every run rewrites the round's MANIFEST and checksum, so
+# including it made the second packaging run refuse on the first run's results,
+# which is a guard tripping over its own footprints.
 DIRTY=$(git status --porcelain --untracked-files=no -- . ':(exclude)submissions')
 if [ -n "$DIRTY" ]; then
     echo "refusing to package: tracked files are modified, so source/ would not match the results" >&2
@@ -54,42 +100,24 @@ fi
 # the store. Shipping a stale one understates the result and contradicts the
 # report, which quotes the store. Caught this way once, 1,513 pairs behind.
 SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
-# Retried, and not silenced. `2>/dev/null` here turned a busy store into an empty
-# STORED, which then failed the comparison below and told the operator the export
-# was stale when it was current. A guard that misreports why it fired is worse
-# than no guard: it sends you to fix the wrong thing.
-# `|| true` is load-bearing. `set -e` is on, so a bare `STORED=$(cmd)` whose
-# command fails aborts the script instantly: the retry below never ran, the
-# diagnostic below never printed, and packaging exited 1 in silence. That went
-# unnoticed while nothing else held the store, and surfaced the moment the ingest
-# loop began running continuously beside two collectors.
-STORED=""
-for _ in $(seq 1 60); do
-    # Counted through the SAME shipping filter the export applies, not the raw
-    # store total. Those two were equal until the export learned to drop a pair
-    # whose TLD did not exist in its year, and from then on the guard compared a
-    # pre-filter number with a post-filter one and refused a perfectly current
-    # export forever: 726,344 in the store against 726,336 on disk, a difference
-    # that is the filter working rather than the export being stale.
-    STORED=$(uv run python -c "
-import duckdb
-from ark.export import netnew_shipped_pairs
-print(netnew_shipped_pairs(duckdb.connect('data/ark.duckdb', read_only=True)))
-" 2>&1 | tail -1) || true
-    case "$STORED" in
-        ''|*[!0-9]*) sleep 5 ;;
-        *) break ;;
-    esac
-done
-case "$STORED" in
-    ''|*[!0-9]*)
-        echo "refusing to package: could not read the store's net-new count" >&2
-        echo "$STORED" >&2
-        exit 1 ;;
-esac
+# Read-only and patient, so a bank holding the writer is a wait and never a refusal that
+# names the wrong cause. The stamps' ledgers must equal the store's, the bank's claim must
+# equal the full export's, and the count goes through the export's own shipping filter.
+STORED=$(uv run python -c "
+import sys
+from ark.db import connect_read_only_patiently
+from ark.export import netnew_shipped_pairs, stamp_problems
+conn = connect_read_only_patiently('data/ark.duckdb')
+conn.execute('SET enable_progress_bar = false')
+problems = stamp_problems(conn)
+if problems:
+    print('\n'.join(problems), file=sys.stderr)
+    sys.exit(3)
+print(netnew_shipped_pairs(conn))
+") || { echo "refusing to package: the export does not match the store (above)" >&2; exit 1; }
 if [ "$SHIPPED" != "$STORED" ]; then
     echo "refusing to package: output/ holds $SHIPPED net-new pairs, the store holds $STORED" >&2
-    echo "run 'uv run ark export' first, then re-run." >&2
+    echo "run 'uv run ark export --provenance' first, then re-run." >&2
     exit 1
 fi
 
@@ -104,7 +132,7 @@ fi
 # Regenerating is cheap and idempotent, so this rebuilds the report and refuses
 # if that changed anything. A report that is already current is a no-op here.
 # The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while the maintain loop holds the write lock,
+# read-only connection still fails while a bank holds the write lock,
 # and this guard went in without one and refused to package for that reason
 # alone. Swallowing the error made it look like the report was broken when the
 # store was merely busy, so the failure is printed now rather than hidden.
@@ -191,11 +219,11 @@ cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
 # The archive name carries the packaging minute, so the README's checksum command
 # is filled in here; a hard-coded name went stale the round the name changed.
-sed "s/\[ARCHIVE\]/$RELEASE/g" docs/delivery_readme.md > "$STAGE/README.md"
-cp docs/sources.md "$STAGE/sources.md"
+sed "s/\[ARCHIVE\]/$RELEASE/g" docs/round/delivery_readme.md > "$STAGE/README.md"
+cp docs/registers/sources.md "$STAGE/sources.md"
 # The register is two pages: closed families moved to sources-closed.md and shipping
 # sources.md alone would hand him an incomplete register.
-cp docs/sources-closed.md "$STAGE/sources-closed.md"
+cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
@@ -203,8 +231,27 @@ cp docs/sources-closed.md "$STAGE/sources-closed.md"
 # The two register pages above are the full register those two distil; both are
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
-cp docs/experience-summary.md "$STAGE/experience-summary.md"
-cp docs/metric-explained.md "$STAGE/metric-explained.md"
+cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
+# The round's research findings, kept out of the report so the report stays the five
+# figures and the receipts. The report links here rather than carrying the method essay.
+cp docs/round/findings.md "$STAGE/findings.md"
+cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
+
+# The research loop itself, from the fleet checkout checked at the top: workflows, prompts,
+# policy and leads, tracked files only so no secret can ride along (the workflows name
+# theirs by reference). Both open research questions folders are built from that commit.
+git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
+git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
+if ! uv run python scripts/round/orq.py --stage "$STAGE" --fleet "$FLEET"; then
+    echo "refusing to package: the open research questions did not build" >&2
+    exit 1
+fi
+for folder in "Open Research Questions" "开放性研究问题"; do
+    if [ ! -d "$STAGE/$folder" ]; then
+        echo "refusing to package: $STAGE/$folder is missing" >&2
+        exit 1
+    fi
+done
 
 # The D3 audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
@@ -214,9 +261,39 @@ cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
 
+# Nothing ships that his baseline already holds. The export diffs every list against his
+# own annual files, so a non-zero overlap here means that diff did not run or ran against
+# a stale baseline directory, and the round would claim records he already has. It was
+# 304 on 2026-09-10, from a store whose ingested baseline predated his current release.
+OVERLAP=$(python3 -c "import json,sys; print(int(json.load(open(sys.argv[1]))['totals']['already_in_baseline_records']))" \
+    "output/merge/merge_audit_ark_${MERGE_STAMP}.json")
+if [ "$OVERLAP" != 0 ]; then
+    echo "refusing to package: $OVERLAP submitted records are already in the baseline." >&2
+    echo "re-run \`uv run ark export\` against the current baseline, then the merge audit." >&2
+    exit 1
+fi
 
-# merged master year lists + net-new additions + provenance
-cp data/exports/199[6-9].txt data/exports/200[01].txt "$STAGE/masters/" 2>/dev/null || true
+
+# masters/: his year file merged with our two net-new files by exact name, no roll-up, as
+# README.md states it. `sort -m` on unsorted input is silently wrong, so each input is checked,
+# and a year `ark intake` had to copy refuses: his raw file would not reproduce the merge.
+HELD_YEARS=$(uv run python -c '
+import sys
+from ark import held
+try:
+    his = held.load()
+except held.HeldError as error:
+    sys.exit(f"refusing to package: {error}")
+for year, path in his.years.items():
+    if path != his.baseline / f"{year}.txt":
+        sys.exit(f"refusing to package: his {year}.txt is not sorted, unique and lowercase")
+    print(year, path)') || exit 1
+while read -r y HISY; do
+    for f in "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt"; do
+        LC_ALL=C sort -c -u "$f" || { echo "refusing to package: $f is not LC_ALL=C sorted and unique" >&2; exit 1; }
+    done
+    LC_ALL=C sort -m -u "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt" > "$STAGE/masters/$y.txt"
+done <<< "$HELD_YEARS"
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 # The second output unit (his acceptance of 2026-09-01): hostname records per year,
@@ -224,13 +301,48 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# ISC candidates must stay separate from annual records and carry per-host provenance.
+mkdir -p "$STAGE/isc_survey_hostnames"
+cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
+    output/netnew/isc_candidates.txt output/netnew/isc_candidates_summary.json \
+    output/netnew/isc_survey_provenance.csv "$STAGE/isc_survey_hostnames/"
+cp src/ark/data/tld_english_share.json "$STAGE/isc_survey_hostnames/"
+cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
+cp scripts/round/verify_isc_candidates.py "$STAGE/"
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
+# Section XIII's second source-specific candidate collection: hosts whose only dated evidence
+# is a server-written header or another non-web class, with provenance and the run's ledger.
+mkdir -p "$STAGE/server_header_hostnames"
+cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
+    output/netnew/header_candidates_summary.json output/netnew/header_candidates_exclusions.csv \
+    "$STAGE/server_header_hostnames/"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
 # writes it, so a failure here means the export was not run.
 cp output/candidate_unverified.txt "$STAGE/candidates.txt"
+# THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
+# name his release holds as a candidate (pool, ISC collection, unparsed names) or lists in
+# any annual file. He scores candidates
+# separately and at the same rate as annual records, so the claim is held to the same
+# net-new standard the annual files are. Provenance for each name is in `provenance/` and
+# in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
+cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
+cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
+# The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
+# recoverable values only in a separately labeled unparsed or normalization-review file." Each
+# row carries the reason the funnel refused it, and none of it counts toward any figure.
+#
+# **Kept in `output/netnew/` and rebuilt only when a journal is newer than it.** The scan is
+# exhaustive by design, and exhaustive now means reading 226 GB of gzip: it cost 25 minutes of
+# every packaging run, repeated in full whenever a report line changed. The journals only grow,
+# so a copy younger than every journal is the same file the scan would write.
+UNPARSED="output/netnew/candidates_unparsed.txt"
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit)" ]; then
+    uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
+fi
+cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
@@ -243,7 +355,6 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # nothing, and the archive loudly documented a rule nobody is applying. The
 # deliverable is `additions/`, and `candidates.txt` beside it holds the names that
 # have not earned a year.
-cp output/legacy_review/dropped_domains.txt "$STAGE/dropped_domains.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
 # domain counting unit necessarily drops
@@ -281,11 +392,14 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 # The tar pipe rather than `cp --parents`, which is GNU-only, and `--strip-components=2`
 # to drop the `data/raw` prefix so `cp -R journals/. data/raw/` restores the tree exactly.
 #
-# **The RDAP query logs are the second exclusion, and it is a SIZE decision and nothing
-# else.** 6.5 GB of walks that the registries' terms do not let us re-run, so tier 3 cannot
-# replay `rdap_snapshot`; tier 2 covers every pair it backs, which is what `verify.sh`
-# tests. Available on request. Ivo, 2026-08-26. The journals README below names all five
-# excluded sets with their sizes, so the archive states its own limitation.
+# **Journal sets held out of the archive on size, on one three-part test**: the assignments
+# they back are in the provenance Parquet, which `verify.sh` tests (tier 2); the source they
+# parse is linked in `sources.md`; and the parser ships in `source/`, so they re-derive offline
+# and only a tier-3 replay needs them. The RDAP logs fail the second part (the registries' terms
+# forbid re-walking them) and are held out on size alone, sent on request. A set that fails the
+# test ships whatever its size: the two bulk IA CDX reads at hostname grain, whose converter is
+# not in `source/`, and the Usenet header extraction journals, which no register row names. The
+# journals README below carries the sizes, so the archive states its own limitation.
 #
 # ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
 # tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
@@ -293,52 +407,45 @@ cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds
 #
 # One expression for the copy and for the count guard at the bottom, so the two cannot
 # disagree about what should be present.
-# **Four more size exclusions, same argument as the RDAP logs (2026-09-01).** The Usenet
-# extraction journals (usenet_addr 8.4 GB, usenet_bare 1.8 GB) are our own extractors'
-# output over archive.org mboxes the register links, so they re-derive offline; the raw
-# platform-sweep journals (cdx_suffix, 0.8 GB) and the NYPW hostname-grain conversions
-# (0.3 GB) re-derive the same way. Together they pushed the archive from 1.9 GB to
-# 13 GB. Every assignment they back is in the provenance Parquet (tier 2), which
-# `verify.sh` tests. Available on request.
-#
-# **Three more, on the same measured argument (Ivo, 2026-09-02).** The three remaining
-# Usenet journal sets (usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB) were
-# 0.86 GB of a 4.5 GB archive, 19% of it, for sources banked in earlier rounds and shipped
-# with those archives. The same three-part test as above decides it: the assignments are in
-# the provenance Parquet, the mboxes they parse are linked in the register, and the parser
-# ships in `source/`, so they re-derive offline and only a tier-3 replay of those older
-# sources needs them.
 journal_paths() {
     find data/raw -name '*.jsonl.gz' \
         -not -path '*/superseded/*' \
-        -not -path 'data/raw/rdap/*' \
-        -not -path 'data/raw/rdap_pool/*' \
-        -not -path 'data/raw/usenet_addr/*' \
-        -not -path 'data/raw/usenet_bare/*' \
-        -not -path 'data/raw/cdx_suffix/*' \
-        -not -path 'data/raw/nypw_hostgrain/*' \
-        -not -path 'data/raw/usenet/*' \
-        -not -path 'data/raw/usenet_hdr/*' \
-        -not -path 'data/raw/usenet_new/*' "$@"
+        -not -path 'data/raw/rdap/*' -not -path 'data/raw/rdap_pool/*' \
+        -not -path 'data/raw/usenet_addr/*' -not -path 'data/raw/usenet_bare/*' \
+        -not -path 'data/raw/usenet/*' -not -path 'data/raw/usenet_hdr/*' \
+        -not -path 'data/raw/usenet_new/*' -not -path 'data/raw/cdx_suffix/*' \
+        -not -path 'data/raw/nypw_hostgrain/*' -not -path 'data/raw/nypw_firstcdx_hostgrain/*' \
+        -not -path 'data/raw/ukwa_hostgrain/*' -not -path 'data/raw/arquivo_hostgrain/*' \
+        -not -path 'data/raw/usenet_alt_items/*' -not -path 'data/raw/usenet_alt2_items/*' \
+        -not -path 'data/raw/usenet_aus_items/*' -not -path 'data/raw/usenet_biz_items/*' \
+        -not -path 'data/raw/usenet_bulk_items/*' -not -path 'data/raw/usenet_can_items/*' \
+        -not -path 'data/raw/usenet_comp_items/*' -not -path 'data/raw/usenet_misc_items/*' \
+        -not -path 'data/raw/usenet_new_items/*' -not -path 'data/raw/usenet_news_items/*' \
+        -not -path 'data/raw/usenet_rec_items/*' -not -path 'data/raw/usenet_sci_items/*' \
+        -not -path 'data/raw/usenet_soc_items/*' -not -path 'data/raw/usenet_talk_items/*' \
+        -not -path 'data/raw/usenet_uk_items/*' "$@"
 }
 if [ -z "${ARK_SLIM:-}" ]; then
     journal_paths -print0 \
         | tar -cf - --null -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
     cat > "$STAGE/journals/README.txt" <<'EXCL'
-Eight raw-journal sets are deliberately not here, on size and nothing else: the RDAP walks
-(rdap/, rdap_pool/, 6.5 GB), the Usenet extraction and posting journals (usenet_addr/
-8.4 GB, usenet_bare/ 1.8 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/ 127 MB), the
-raw platform-sweep capture journals (cdx_suffix/, 0.9 GB) and the NYPW hostname-grain
-conversions (nypw_hostgrain/, 0.3 GB). Together they are about 19 GB against under 2 GB for
-everything else.
+Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on disk,
+2026-09-22): the RDAP walks (rdap/, 3.6 GB), the Usenet extraction and posting journals
+(usenet_addr/ 9.9 GB, usenet_bare/ 2.1 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/
+123 MB), the raw platform-sweep capture journals (cdx_suffix/, 21.6 GB), the NYPW hostname-grain
+conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web Archive geoindex
+conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
+and the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB).
+Together about 39 GB against under 1 GB for everything here.
 
 Every assignment they back still ships and is still checkable: each (domain, year) and
 (hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
 over every assignment. Each set re-derives from a linked public source named in sources.md
-(archive.org mboxes for the Usenet sets, the NYPW TimeMap item for nypw_hostgrain, the IA
-CDX API for cdx_suffix) with the parser in source/, so tier 3 can rebuild them; the RDAP
-logs cannot be re-walked under the registries' terms and will be sent on request.
+(archive.org mboxes for the Usenet sets, the NYPW first-capture and TimeMap items, the UK Web
+Archive geoindex, the Arquivo.pt CDXJ dataset, the IA CDX API for cdx_suffix) with the parser
+in source/, so tier 3 can rebuild them; the RDAP logs cannot be re-walked under the registries'
+terms and will be sent on request.
 EXCL
 fi
 
@@ -356,41 +463,22 @@ cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 # BOTH baselines, in separate folders, because conflating them made the shipped
 # archive wrong about its own scoring reference.
 #
-# `original/` is the first baseline supplied to this project. It is what
-# `ark ingest-legacy` reads, so tier 3 needs it.
-#
-# The second folder is the reference this round's additions are COUNTED against,
-# and it was once not shipped at all. A reviewer following tier 3 would have
-# rebuilt against `original/` and scored against a much smaller baseline, which
-# cannot reproduce any headline in the report. Worse, the archive looked
-# self-contained while being unable to reproduce its own central figure.
-#
-# Ding supplies that baseline, so this ships his own file back to him. That is the
-# point: the archive should be checkable without reference to anything outside it.
-#
-# **Both the folder name and the source directory come from `ark.baseline`, not
-# from this script.** They were hardcoded to `merged260730` and stayed there after
-# the store moved to `merged260802`, so the archive would have shipped a
-# superseded baseline while asserting in `baseline/README.txt` that it was the one
-# the figures mean. Scoring these additions against it gives a different answer
-# than the report claims, and nothing in the archive would have revealed why.
-# `shlex.quote`, because the reviewer's own directory names contain spaces:
-# `feedback-phase-6/Domain_Data_Collection_Task 2/merged260821`. Unquoted, `eval` split
-# that into three words and ran `2/merged260821` as a command, so the baseline never
-# reached the archive and packaging died at the copy with "No such file or directory".
 eval "$(uv run python -c "
 import shlex
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 print(f'MERGED={shlex.quote(str(CURRENT_BASELINE_DIR))}')
 print(f'MARKER={shlex.quote(CURRENT_BASELINE_MARKER)}')
 ")"
-mkdir -p "$STAGE/baseline/original" "$STAGE/baseline/$MARKER"
-cp legacy-data/199[6-9].txt legacy-data/200[01].txt "$STAGE/baseline/original/" 2>/dev/null || true
-cp legacy-data/merge_stats_new0714.csv "$STAGE/baseline/original/" 2>/dev/null || true
-cp legacy-data/deduplicated_urls_2001-2002.txt "$STAGE/baseline/original/" 2>/dev/null || true
+mkdir -p "$STAGE/baseline/$MARKER"
 
 if [ -d "$MERGED" ]; then
     cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
+    cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
+    # the rest of what the candidate claim is diffed against (`held.candidate_files`),
+    # or a reproduce from this archive hands his ISC names back to him
+    cp "$MERGED/candidate_pool_unparsed_format.txt" "$STAGE/baseline/$MARKER/"
+    mkdir -p "$STAGE/baseline/$MARKER/isc_survey_hostnames"
+    cp "$MERGED"/isc_survey_hostnames/*.txt "$STAGE/baseline/$MARKER/isc_survey_hostnames/"
     cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/$MARKER/" 2>/dev/null || true
 else
     echo "refusing to package: $MARKER not found at $MERGED, so the archive could not" >&2
@@ -398,52 +486,36 @@ else
     exit 1
 fi
 
+uv run python scripts/round/verify_isc_candidates.py \
+    --collection "$STAGE/isc_survey_hostnames" --baseline "$STAGE/baseline/$MARKER" \
+    --annual-dirs "$STAGE/masters" "$STAGE/additions" "$STAGE/hostnames" \
+    --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
+
 MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARKER"/200[01].txt \
     | wc -l | tr -d ' ')
 cat > "$STAGE/baseline/README.txt" <<BASELINES
-Two baselines, and they are not interchangeable.
-
-original/
-    The first baseline supplied to this project. \`ark ingest-legacy\` reads these
-    six year files, so the tier-3 rebuild starts here. 8,224,963 raw lines.
-
 $MARKER/
-    The shared reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued
-    by the reviewer. $MERGED_LINES raw lines, collapsed to registered domains
-    under SPEC III.8. Every "net-new" figure in report.md means "not present in
-    these files".
-
-    The pipeline ingests these under a marker namespace so their rows stay
-    distinguishable from this project's evidence, which is what makes the net-new
-    calculation possible at all.
-
-If you score these additions against original/ instead of $MARKER/ you will get a
-larger number than the report claims, because $MARKER already contains the
-previous rounds of additions.
+    The reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued by the
+    reviewer: the six annual files, candidate_pool.txt, candidate_pool_unparsed_format.txt
+    and isc_survey_hostnames/*.txt, $MERGED_LINES raw annual lines, copied unchanged.
+    Compare by exact name. Every "net-new" figure in report.md means "not present in
+    these files". Additions scored against any earlier release give a larger number
+    than the report claims.
 BASELINES
 
 # the provenance graph as Parquet: which source saw which domain in which year,
 # so any shipped line can be traced without the source data or the database
 # everything the export wrote, not a hand-listed subset: naming the files here
 # once shipped the data without trace.py, the tool the README tells them to run
-cp -R output/provenance/. "$STAGE/provenance/" 2>/dev/null || true
-
-# The FULL evidence table ships, baseline rows included, and the 429 MB they cost is
-# not optional. Dropping `prior_reused` was tried on 2026-08-17 and shipped once. It
-# looked free: those rows are the reviewer's own data returning to him, and
-# `verify.sh` passed because it reads the additions manifest rather than the parquet.
-#
-# Running the archive's own tier-2 reproduction against a freshly extracted copy is
-# what caught it. Without the baseline rows, 11,316,960 of 16,619,832 `domain_year`
-# rows point at an `evidence_id` that no longer exists, so `ark check` fails on
-# `evidence_wall_intact` and `every_pair_has_master_evidence`. Worse, net-new is
-# DEFINED as "no baseline evidence for this (domain, year)", so with those rows gone
-# the rebuild re-claims the entire corpus: 712,927 additions for 1996 against a true
-# 63,162. That is the exact failure `notes.md` records from phase 2, where shipping
-# would have claimed 1,339,783 pairs instead of 17,418.
-#
-# The lesson is not "keep the rows", it is that a size cut which no guard covers is
-# an unmeasured change. `verify_delivery.sh` now checks the evidence wall directly.
+# `ark export` no longer writes this: it was 52% of that command and only ever read
+# here and by `just rebuild`. So it is asked for, and its absence refuses the package
+# rather than shipping an empty folder the way `|| true` used to.
+if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
+    echo "refusing to package: output/provenance is empty" >&2
+    echo "run 'uv run ark export --provenance' first, then re-run." >&2
+    exit 1
+fi
+cp -R output/provenance/. "$STAGE/provenance/"
 
 # The reviewer's own scorer, so the archive can re-derive its headline figure without
 # reference to anything outside itself. `round_figures.py --verify` is named in the
@@ -488,16 +560,6 @@ done
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
-# The research loop itself: workflows, prompts, policy and the hypothesis register from
-# the fleet repo, when it sits beside this one. Section 4 of the report describes it, and
-# a description of an unattended loop is weaker than the loop's own files. Tracked files
-# only, so no secret can ride along (the workflows name theirs by reference).
-FLEET="${ARK_FLEET:-$(dirname "$PWD")/ark-fleet}"
-if [ -d "$FLEET/.git" ]; then
-    git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
-    git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
-fi
-
 # Every journal on disk must be in the archive. Naming source directories by hand
 # has now failed twice: once a ledgered CDX journal sat one directory down and
 # matched neither the packaging glob nor the ingest glob, and once Usenet, Tucows
@@ -535,20 +597,24 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
 tar -czf "$ARCHIVE" -C output "$RELEASE"
+# A mail transfer service refuses an archive over 5 GB, and the masters carry his six year
+# files as released, so a round can reach that. Such an archive goes as a Drive link.
+TRANSFER_BYTES=5000000000
+ARCHIVE_BYTES=$(wc -c < "$ARCHIVE" | tr -d ' ')
+if [ "$ARCHIVE_BYTES" -gt "$TRANSFER_BYTES" ]; then
+    echo "WARNING: $ARCHIVE_BYTES bytes, over a transfer service's 5 GB: send it as a Drive link," >&2
+    echo "         with its size, sha256 and the link in the mail" >&2
+fi
 # The checksum file records the bare filename, not the build path: a reviewer
 # who downloads only the archive runs `shasum -c` beside it, and a stored path
 # of `submissions/...` makes that fail before they have checked anything.
 ( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
 
-# What stays in git after the tarball is git-ignored: the report as sent, the
-# checksum, and a manifest naming the commit and the baseline. Together those are
-# enough to say later exactly what was claimed in a given round and to prove a
-# recovered tarball is the one that was sent, without keeping gigabytes in the
-# repository. Rebuilding a superseded round is `git checkout <commit>` then
+# What stays in git after the tarball is git-ignored: the checksum, and a manifest
+# naming the commit and the baseline. The report and registers as sent are at that
+# commit (phase-9's at 37e331cc, since its manifest names one no branch holds), and the
+# checksum proves a recovered tarball is the one that was sent, so no copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
-cp docs/report.md "$ROUND_DIR/report.md"
-cp docs/sources.md "$ROUND_DIR/sources.md"
-cp docs/sources-closed.md "$ROUND_DIR/sources-closed.md"
 {
     echo "round        $ROUND"
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -575,6 +641,6 @@ Delivery archive ready, in $ROUND_DIR/
   sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
-Tracked beside it: report.md, sources.md, sources-closed.md, MANIFEST.txt, and the .sha256.
-The tarball itself is git-ignored. Add the round's row to docs/rounds.md.
+Tracked beside it: MANIFEST.txt and the .sha256.
+The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF

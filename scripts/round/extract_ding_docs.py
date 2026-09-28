@@ -1,4 +1,4 @@
-"""Transcribe Prof. Ding's own task files into `docs/ding/`, verbatim.
+"""Transcribe Prof. Ding's own task files into `docs/brief/ding/`, verbatim.
 
 The body is pandoc's conversion of his `.docx`, never retyped, because a paraphrase
 of the brief is the one document in this repository that must not exist. Only a
@@ -7,7 +7,8 @@ reader can prove the transcription belongs to that exact document.
 
 Rerun after any new task package arrives:
 
-    uv run python scripts/round/extract_ding_docs.py --package feedback-phase-N
+    uv run python scripts/round/extract_ding_docs.py --package <document-directory> \
+        --archive '<archive or URL> (<delivery date>)' --stamp <transcription-date>
 """
 
 from __future__ import annotations
@@ -34,9 +35,10 @@ ours, and it outranks everything in this repository except a later message from 
 | delivered in | {archive} |
 | transcribed | {stamp} by `scripts/round/extract_ding_docs.py` |
 
-Verbatim below. Nothing is summarised, reordered or corrected. To check the
-transcription, run `pandoc -f docx -t gfm --wrap=none` over the source file and
-diff against everything under the rule.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks
+and curly quotation marks are normalised. Wording, order and section numbering
+are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
+provenance values above to check it.
 
 ---
 
@@ -45,19 +47,21 @@ diff against everything under the rule.
 # source file, output name, title. Filenames carry his own dates, so a package
 # that renames one is a signal to look rather than something to guess around.
 # **The brief's filename carries its own date, so it changes with every package**:
-# `..._0815_Update.docx` became `..._0820_Update_v2.docx`. Hardcoding it meant the
-# 2026-08-20 package raised FileNotFoundError, which reads like a missing document
-# rather than a renamed one. The glob is anchored on the stable part of the name and
+# `..._0815_Update.docx`, then `..._0820_Update_v2.docx`. A hardcoded name raises
+# FileNotFoundError on the next package, which reads like a missing document rather
+# than a renamed one. The glob is anchored on the stable part of the name and
 # `_pick` fails loudly if it matches none or several, because silently transcribing
 # the wrong one of two briefs is worse than not transcribing at all.
+# **One file, and it is the current state of the task.** `Update_Log.docx` is a changelog of
+# how the rules USED to read and `Task_Package_File_Guide.txt` describes a package layout we
+# re-read from the package itself; both amend a document we already transcribe whole, and
+# git holds what either of them would have said.
 DOCS = (
     (
         "Internet_Digital_Ark_Project_*.docx",
         "project-brief.md",
         "The task brief (Internet Digital Ark Project)",
     ),
-    ("Update_Log.docx", "update-log.md", "The task brief update log"),
-    ("Task_Package_File_Guide.txt", "task-package-file-guide.md", "Task package file guide"),
 )
 
 
@@ -103,17 +107,17 @@ def body(src: Path) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--package", type=Path, default=REPO / "feedback-phase-6")
-    ap.add_argument("--out", type=Path, default=REPO / "docs" / "ding")
+    ap.add_argument("--package", type=Path, required=True, help="Directory holding the task files")
+    ap.add_argument("--out", type=Path, default=REPO / "docs" / "brief" / "ding")
     ap.add_argument(
-        "--archive", default="https://www.transfernow.net/dl/20260817w4qMbvxo (2026-08-17)"
+        "--archive", required=True, help="Source archive or delivery URL, with its delivery date"
     )
-    ap.add_argument("--stamp", default="2026-08-18")
+    ap.add_argument("--stamp", required=True, help="Transcription date, YYYY-MM-DD")
     args = ap.parse_args()
 
     package = args.package.resolve()
     rel = package.relative_to(REPO) if package.is_relative_to(REPO) else package
-    args.out.mkdir(parents=True, exist_ok=True)
+    rendered = []
     for name, out_name, title in DOCS:
         src = _pick(package, name)
         sha = hashlib.sha256(src.read_bytes()).hexdigest()
@@ -124,6 +128,10 @@ def main() -> None:
             archive=f"`{rel}/`, from {args.archive}",
             stamp=args.stamp,
         ) + body(src)
+        rendered.append((out_name, text, sha))
+    # Validate every source before replacing any of the authoritative documents.
+    args.out.mkdir(parents=True, exist_ok=True)
+    for out_name, text, sha in rendered:
         (args.out / out_name).write_text(text, encoding="utf-8")
         print(f"{args.out / out_name}: {len(text.splitlines())} lines, sha {sha[:16]}")
 

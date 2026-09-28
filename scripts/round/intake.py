@@ -4,8 +4,8 @@ The baseline goes stale between his release and our next measurement, and every 
 collected against a stale denominator prices itself wrong. So the whole intake is one
 command, and the order is fixed:
 
-    checksum -> extract -> count -> measure -> data/baseline.json -> docs/releases.md
-    -> docs/rounds.md (only with --mail)
+    checksum -> extract -> count -> measure -> data/baseline.json -> docs/registers/releases.md
+    -> docs/registers/rounds.md (only with --mail)
 
     uv run python scripts/round/intake.py feedback/feedback-phase-8/his.zip
     uv run python scripts/round/intake.py his.zip --mail private/mail/verdict7.txt \\
@@ -15,7 +15,7 @@ command, and the order is fixed:
 **Every figure is read from the extracted files, never from his mail.** The pairs are
 `wc -l` over the six year files and the equivalent-English is his own calculator run
 over each of them, because the mail quotes a merge we cannot check and the files are
-the thing the store is loaded from.
+what every diff against him reads.
 
 The run is idempotent: a second run on the same zip re-reads what is there, writes
 nothing and says so, and the expensive step is skipped when the JSON already carries
@@ -23,8 +23,8 @@ this release with the same line counts (`--recompute` forces it). It refuses rat
 than half-applying: a marker already recorded under a different sha256 stops the run
 before anything is written.
 
-Loading the release into the store is NOT part of this. `ark ingest-legacy` stays a
-separate, deliberate step, with `--marker-prefix` naming the new marker.
+Writing the held sets is not part of this script: `just intake` runs `uv run ark intake`
+after it, on the release this points `data/baseline.json` at.
 """
 
 import argparse
@@ -125,7 +125,7 @@ def released_at(zip_path: Path, marker: str, given: str | None) -> str:
 
 
 def recorded_sha(page: Path, marker: str) -> str | None:
-    """The sha256 docs/releases.md already carries for a marker, if it carries one."""
+    """The sha256 docs/registers/releases.md already carries for a marker, if it carries one."""
     if not page.is_file():
         return None
     _, rows, _ = releases.split_page(page.read_text(encoding="utf-8"))

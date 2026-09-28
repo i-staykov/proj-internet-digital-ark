@@ -1,10 +1,8 @@
 """Promotion re-files an observation; it must not alter one.
 
-The tranche is 106,604 pairs written under a MASTER source, so a field mangled here
-becomes a year assignment nobody can trace back to a post. The round-trip test is the
-one that matters: what the builder writes must parse back to the evidence value the
-loader originally stored, or the Message-ID in the shipped corpus stops naming the
-post it claims to name.
+The tranche is 106,604 pairs written under a MASTER source. The round trip is the test that
+matters: what the builder writes must parse back to the evidence value the loader stored, or
+the Message-ID in the shipped corpus stops naming the post it claims to name.
 """
 
 import gzip
@@ -13,6 +11,10 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from his_release import WEB_METHOD, capture
+
+from ark import held
+from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.sources import SOURCES
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -77,3 +79,36 @@ def test_a_written_line_parses_back_to_the_same_evidence_value(tmp_path) -> None
     assert records[0].raw == "brownschool.com"
     assert records[0].year == 1997
     assert records[0].evidence_value == value
+
+
+def test_a_pair_held_by_us_or_by_his_exact_name_is_not_promoted(his_files) -> None:
+    """Held is our assignment or the exact name in his file for that year, and only an
+    assignment of ours corroborates a mention."""
+    conn = connect(":memory:")
+    init_db(conn)
+    mention = ensure_source(conn, "usenet_mention", "candidate_only")
+    cdx = ensure_source(conn, "ia_cdx", "timestamped")
+    names = ("fresh.com", "already-his.com", "rolled.com", "undated.com", "dated.com")
+    for name in names:
+        add_candidate(conn, name, cdx)
+    for name, year in [
+        ("fresh.com", 1998),
+        ("already-his.com", 1997),  # his 1997 file holds the name
+        ("rolled.com", 1999),  # his 1999 file holds only www.rolled.com
+        ("undated.com", 1998),  # no assignment of ours corroborates it
+        ("dated.com", 1998),  # ours already
+    ]:
+        record_evidence(conn, name, mention, year, "link_target", f"alt.test <{name}>", "u")
+    for name, year in [
+        ("fresh.com", 2000),
+        ("already-his.com", 2000),
+        ("rolled.com", 2000),
+        ("dated.com", 1998),
+    ]:
+        eid = record_evidence(
+            conn, name, cdx, year, "cdx_timestamp", capture(name, year), None, WEB_METHOD
+        )
+        assign_year(conn, eid)
+
+    rows = promo.select(conn, "usenet_mention", held.load())
+    assert sorted((d, y) for d, y, _v, _u in rows) == [("fresh.com", 1998), ("rolled.com", 1999)]

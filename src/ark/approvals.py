@@ -1,39 +1,26 @@
 """Which source classes a human has approved for the annual files, and the gate.
 
-**The problem this solves.** The pipeline can measure a source without help, and it
-cannot decide whether that source's records belong in the annual files. That is a
-judgement about what counts as proof, and the thing being distrusted in an
-unattended run is precisely **the agent's own reasoning about its own sources**. An
-ADR written by the agent arguing that its find is master evidence is the least
-trustworthy artifact in the repository.
+The pipeline can measure a source; it cannot decide whether that source's records belong in
+the annual files. What is distrusted in an unattended run is **the agent's own reasoning
+about its own sources**, so the classification is a human decision recorded in
+`docs/registers/approved-sources-list.md` and **enforced here rather than remembered**.
 
-So the classification is a human decision, taken from external evidence, recorded
-in `docs/approved-sources-list.md`, and **enforced here rather than remembered**.
+**The quarantine is the journal on disk, outside the store.** Collectors never open the
+database, so an unapproved source cannot contaminate anything, having never been written.
 
-**Where the quarantine lives, and why it is outside the store.** Collectors already
-write journals and never open the database, so "collected but not yet classified"
-needs no new state: the journal sits on disk and this gate refuses the ingest. That
-is strictly stronger than a flag inside the store, because an unapproved source
-**cannot contaminate anything, having never been written**, rather than relying on
-every future query to respect a marker. It is also less code.
+A **master-eligible** evidence type needs approval, because its rows can create a year
+assignment. A **candidate-only** type does not: a candidate claims nothing, and waiting on
+a human to grow a pool would stall collection for no gain.
 
-**What needs approval and what does not.**
-
-- A source whose evidence type is **master-eligible** needs approval, because its
-  rows can create a year assignment.
-- A source whose evidence type is **candidate-only** does not. A candidate claims
-  nothing, the reviewer asked for the pool to be as large as practicable, and
-  waiting on a human to grow a pool would stall collection for no gain.
-
-**The decision vocabulary**, one line per request in `docs/approved-sources-list.md`:
+**The decision vocabulary**, one line per request in the register:
 
     Decision: pending          nobody has looked yet; ingest refuses
     Decision: master           approved for the annual files
     Decision: candidate-only   collect it, but its rows may never date a year
     Decision: rejected         do not ingest at all, and do not re-request
 
-`rejected` binds: the gate refuses it and the request generator refuses to re-open
-it, because an agent that forgets a rejection re-proposes it next week.
+`rejected` binds in both directions: the gate refuses it and the request generator refuses
+to re-open it, because an agent that forgets a rejection re-proposes it next week.
 """
 
 import re
@@ -44,7 +31,7 @@ from ark.evidence_types import MASTER_TYPES
 
 # Module-level rather than a default argument bound at import, so a test can point
 # the gate at a fixture file. Production code never reassigns it.
-DEFAULT_APPROVALS_PATH = Path("docs/approved-sources-list.md")
+DEFAULT_APPROVALS_PATH = Path("docs/registers/approved-sources-list.md")
 
 DECISIONS = ("pending", "master", "candidate-only", "rejected")
 _REQUEST_RE = re.compile(r"^###\s+(?P<source>\S+)\s+/\s+(?P<etype>\S+)\s*$")
@@ -52,10 +39,10 @@ _DECISION_RE = re.compile(r"^\s*Decision:\s*(?P<value>[a-z-]+)\s*$", re.IGNORECA
 _SECTION_RE = re.compile(r"^##\s+(?P<title>.+?)\s*$")
 
 # The heading under which a source found but not yet priced waits. Entries here are a
-# work queue that grows without bound by design (Ivo, 2026-08-12), which is exactly why
-# the section has to be identifiable: a priced request earns its own line on his review
-# surface, and forty unpriced ones must collapse to a single count or that surface stops
-# being readable and therefore stops being read.
+# work queue that grows without bound by design, which is exactly why the section has
+# to be identifiable: a priced request earns its own line on the owner's review surface,
+# and forty unpriced ones must collapse to a single count or that surface stops being
+# readable and therefore stops being read.
 TRIAGE_SECTION = "Found, awaiting triage"
 
 
@@ -90,12 +77,11 @@ class Approval:
 
 
 def load(path: Path | str | None = None) -> dict[tuple[str, str], Approval]:
-    """Parse `docs/approved-sources-list.md`, keyed by (source name, evidence type).
+    """Parse `docs/registers/approved-sources-list.md`, keyed by (source name, evidence type).
 
-    The file is the single source of truth and is edited by a human: a reviewer
-    changes one `Decision:` line. Parsing it rather than keeping a second machine
-    file means the record a person reads and the record the gate enforces cannot
-    disagree, which is the failure mode `sources.md` already carries a scar from.
+    The single source of truth, edited by a human changing one `Decision:` line. Parsing it
+    rather than keeping a second machine file means the record a person reads and the record
+    the gate enforces cannot disagree.
     """
     path = Path(path) if path is not None else DEFAULT_APPROVALS_PATH
     if not path.exists():

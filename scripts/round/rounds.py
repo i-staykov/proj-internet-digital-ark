@@ -1,4 +1,4 @@
-"""Read one verdict mail and write its round's row in docs/rounds.md.
+"""Read one verdict mail and write its round's row in docs/registers/rounds.md.
 
 His verdicts follow one template: five labelled figures, sometimes numbered, sometimes
 with a sixth candidate-pool line, and sometimes a `Score calculation:` line. Only the
@@ -31,7 +31,7 @@ from pathlib import Path
 from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS
 from ark.figures import elapsed_days, score, t_days
 
-PAGE = Path("docs/rounds.md")
+PAGE = Path("docs/registers/rounds.md")
 FEEDBACK = Path("feedback")
 
 # A cell of a new row that nothing here can fill.
@@ -42,7 +42,7 @@ NOT_RECEIVED = "not received"
 # labels come before the words they contain: "Equivalent-English increment" must not be
 # read as "Increment", and the candidate-pool line must not be read as line 5.
 FIGURES = (
-    ("candidate_growth", "candidate"),
+    ("candidate_growth", "candidatepoolequivalentenglishgrowthrate"),
     ("increment_ee", "equivalentenglishincrement"),
     ("growth", "equivalentenglishgrowthrate"),
     ("total_ee", "equivalentenglishtotal"),
@@ -54,7 +54,15 @@ NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 MARKER = re.compile(r"`(merged\d{6}(?:-\d+)?)`")
 LETTERS = re.compile(r"[^a-z]")
 # The trailing `= 6.302372` of his score line, which is read only to be compared.
-QUOTED_SCORE = re.compile(r"=\s*(\d+(?:\.\d+)?)\s*$")
+# The tail is optional backticks and whitespace because he writes the whole expression
+# as inline code, and anchoring on the bare end of line read every scored mail since
+# round 8 as quoting nothing at all.
+QUOTED_SCORE = re.compile(r"=\s*(\d+(?:\.\d+)?)\s*`*\s*$")
+# His own divisor, out of `S = 10 x (3.682488 / 39) = 0.944228`. t counts whole days from
+# the task assignment, 2 August 2026, so his divisor is the t a round is paid on and the
+# page records it as `t_i`; `S_i computed` stays on the benchmark clock, which his round 6
+# and 7 scores fit.
+QUOTED_DIVISOR = re.compile(r"10\s*[x\u00d7*]\s*\(\s*[\d.,]+\s*[/\u00f7]\s*(\d+)\s*\)")
 
 TWO_PLACES = Decimal("0.01")
 
@@ -76,9 +84,14 @@ def parse_mail(text: str) -> dict:
         label, _, value = line.partition(":")
         key = LETTERS.sub("", label.lower())
         if "score" in key:
+            # The candidate-pool score is a second `score` line and is not S for the
+            # annual track, so only the first one seen fills these.
             m = QUOTED_SCORE.search(value.strip())
-            if m:
+            if m and "quoted_score" not in found:
                 found["quoted_score"] = Decimal(m.group(1))
+            d = QUOTED_DIVISOR.search(value)
+            if d and "quoted_t" not in found:
+                found["quoted_t"] = int(d.group(1))
             continue
         for name, needle in FIGURES:
             if needle in key and name not in found:
@@ -168,6 +181,12 @@ def main() -> None:
     ap.add_argument("--round", required=True, help="the round label, as the page writes it")
     ap.add_argument("--received", required=True, help="'YYYY-MM-DD HH:MM' in his clock")
     ap.add_argument("--released", help="the benchmark release stamp, same format")
+    # His mail names two markers when he rescores: the one we measured against and the
+    # one he actually divided by. Round 9 read "your 5.374421% was against the earlier
+    # `merged260908`... the official figures below are recalculated against the current
+    # pre-merge benchmark, `merged260911-2`". The regex takes the first, which is ours
+    # and not his, so the marker is stated when the two differ.
+    ap.add_argument("--against", help="the benchmark HE scored against, when he rescored")
     ap.add_argument("--page", type=Path, default=PAGE)
     ap.add_argument("--feedback", type=Path, default=FEEDBACK)
     ap.add_argument("--sent-records", help="records sent, which the mail does not carry")
@@ -190,10 +209,14 @@ def main() -> None:
         print(f"  candidate-pool growth rate {mail['candidate_growth']}%, not part of S")
 
     quoted = mail.get("quoted_score")
+    his_t = mail.get("quoted_t")
+    clocks_agree = his_t is None or his_t == t
+    if not clocks_agree:
+        print(f"  his t = {his_t}, ours = {t}: recording his, since it is what he paid on")
     if quoted is not None and quoted.quantize(TWO_PLACES) != s.quantize(TWO_PLACES):
         print(f"  WARNING: he quotes S = {quoted}, the rule gives {s}: the clocks disagree")
 
-    against = mail.get("marker")
+    against = args.against or mail.get("marker")
     if against and not marker_received(args.feedback, against):
         print(f"  {against}: {NOT_RECEIVED} under {args.feedback}/")
         against = f"{against} ({NOT_RECEIVED})"
@@ -210,7 +233,7 @@ def main() -> None:
         "released": released,
         "received": args.received,
         "days": f"{elapsed_days(released, args.received):.2f}",
-        "t_i": str(t),
+        "t_i": str(his_t if his_t is not None else t),
         "s_i computed": f"{s}",
         "s_i quoted": str(quoted) if quoted is not None else "not quoted",
         "note": args.note,

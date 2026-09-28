@@ -1,11 +1,14 @@
-"""DuckDB schema, connection, and the only write path into the provenance store.
+"""DuckDB schema, connection, and write helpers for the store.
 
-The schema enforces what it can (an assignment cannot exist without evidence).
-The helpers enforce the cross-row rules: every domain passes through
-to_registrable(), and a year assignment is derived from its evidence row,
-so a mismatched assignment cannot be expressed.
+The store is an index rebuilt from the provenance Parquet. A table keeps a primary key only
+where `INSERT OR IGNORE` or `ON CONFLICT` needs one: `evidence` has none and no table has a
+foreign key, since each is an index DuckDB holds in memory while it writes, several GB for
+`evidence` alone, and `ark check` asserts the walls they held. The helpers enforce the
+cross-row rules: every domain passes through to_registrable(), and a year assignment is
+derived from its evidence row, so a mismatched assignment cannot be expressed.
 """
 
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +20,52 @@ from ark.canonical import to_registrable
 from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
+
+
+# **DuckDB takes 80% of the machine by default**, and several processes open the store at
+# once. These are aggregations over a few wide tables and DuckDB spills to `temp_directory`,
+# so a cap costs disk and no correctness.
+# ARK_DB_MEMORY_LIMIT overrides it, the VPS and CI being much smaller.
+def _default_memory_limit() -> str:
+    """40% of physical memory, floored at 2 GB.
+
+    A fraction, not an absolute: 14GB is right on the 36 GB laptop and absurd on the
+    7 GB VPS. The floor keeps CI containers and in-memory test databases working.
+    """
+    try:
+        total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (AttributeError, ValueError, OSError):
+        return "4GB"
+    return f"{max(2, int(total * 0.4 // 1024**3))}GB"
+
+
+DB_MEMORY_LIMIT = os.environ.get("ARK_DB_MEMORY_LIMIT") or _default_memory_limit()
+# **Two, and not only about the cores.** Peak memory scales with threads and not every
+# operator can spill: `build_round_state.py` fails outright at a 10 GB limit with 4
+# threads and completes at 14 GB with 2. The limit and the thread count were tested as a
+# pair, so do not move one alone.
+DB_THREADS = os.environ.get("ARK_DB_THREADS", "2")
+DB_TEMP_DIR = os.environ.get("ARK_DB_TEMP_DIR", "data/duckdb_tmp")
+
+
+def _tune(conn: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyConnection:
+    """Apply the memory, thread and spill settings to a fresh connection.
+
+    Failures are ignored deliberately: an unknown setting on an older DuckDB must not
+    take down an ingest, and the default behaviour without them is what we had before.
+    """
+    Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    for statement in (
+        f"SET memory_limit='{DB_MEMORY_LIMIT}'",
+        f"SET threads={DB_THREADS}",
+        f"SET temp_directory='{DB_TEMP_DIR}'",
+    ):
+        try:
+            conn.execute(statement)
+        except duckdb.Error:
+            pass
+    return conn
+
 
 # the evidence_type CHECK is generated from the taxonomy, so code and schema
 # cannot drift apart
@@ -35,45 +84,49 @@ CREATE TABLE IF NOT EXISTS source (
 CREATE TABLE IF NOT EXISTS domain (
     domain            TEXT PRIMARY KEY,
     tld               TEXT,
-    discovered_source INTEGER NOT NULL REFERENCES source(source_id),
+    discovered_source INTEGER NOT NULL,
     discovered_round  INTEGER NOT NULL DEFAULT 0,
     first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE SEQUENCE IF NOT EXISTS evidence_seq START 1;
 
+-- `source_file` is the file a row was read from and `record_location` its place in it
+-- (`record 12`, `line 40`, a capture URL). Last, where MIGRATIONS puts them on an older store,
+-- so a fresh and a migrated store export the same columns; rows older than them may lack both.
 CREATE TABLE IF NOT EXISTS evidence (
-    evidence_id        BIGINT PRIMARY KEY DEFAULT nextval('evidence_seq'),
-    domain             TEXT NOT NULL REFERENCES domain(domain),
-    source_id          INTEGER NOT NULL REFERENCES source(source_id),
+    evidence_id        BIGINT NOT NULL DEFAULT nextval('evidence_seq'),
+    domain             TEXT NOT NULL,
+    source_id          INTEGER NOT NULL,
     evidence_year      INTEGER NOT NULL CHECK (evidence_year BETWEEN 1996 AND 2001),
     evidence_type      TEXT NOT NULL CHECK (evidence_type IN ({_EVIDENCE_TYPE_LIST})),
     evidence_value     TEXT NOT NULL,
     evidence_url       TEXT,
     acquisition_method TEXT,
     captured_at        TIMESTAMPTZ,
-    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    ingested_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source_file        TEXT,
+    record_location    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS domain_year (
-    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    domain        TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
-    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    evidence_id   BIGINT  NOT NULL,
     verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (domain, assigned_year)
 );
 
--- Hostname records, admitted 2026-09-01 when the reviewer accepted "both registrable
--- domains and valid hostnames as annual database records" (his reply, verbatim, in
--- private/personal-context.md). Same evidence wall as domain_year: every row points at
--- one evidence observation, and the checks enforce that the hostname reduces to
--- parent_domain and is not itself a bare registrable (those stay in domain_year).
--- Registrables remain the prioritized unit; hostnames ship as separate per-year files.
+-- Hostname records: the reviewer accepts "both registrable domains and valid hostnames
+-- as annual database records", in his words. Same evidence wall as domain_year, and the
+-- checks enforce that the hostname reduces to parent_domain and is not itself a bare
+-- registrable (those stay in domain_year). Registrables remain the prioritized unit;
+-- hostnames ship as separate per-year files.
 CREATE TABLE IF NOT EXISTS hostname_year (
     hostname      TEXT    NOT NULL,
-    parent_domain TEXT    NOT NULL REFERENCES domain(domain),
+    parent_domain TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
-    evidence_id   BIGINT  NOT NULL REFERENCES evidence(evidence_id),
+    evidence_id   BIGINT  NOT NULL,
     verified_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (hostname, assigned_year)
 );
@@ -87,18 +140,13 @@ CREATE TABLE IF NOT EXISTS ingested_file (
     PRIMARY KEY (source_name, file_name)
 );
 
--- Language verification, deliberately NOT an evidence type. Every row in
--- `evidence` answers "did this domain exist in this year". A language verdict
--- answers "what was this website in this year", which is orthogonal, and a
--- domain can be perfectly evidenced and still inadmissible under the English
--- standard. Mixing the two would corrupt a taxonomy that MASTER_TYPES, the
--- evidence_type CHECK and four integrity checks all depend on.
---
--- `evidence_urls` is what separates this from a TLD prior: it names the exact
--- snapshots that were read, so a reviewer can refetch them and recompute the
--- verdict.
+-- Language verification, deliberately NOT an evidence type. `evidence` answers "did this
+-- domain exist in this year"; a verdict answers "what was this website", which is
+-- orthogonal, and mixing them corrupts the taxonomy MASTER_TYPES, the evidence_type
+-- CHECK and four integrity checks depend on. `evidence_urls` names the exact snapshots
+-- read, so a reviewer can refetch them and recompute the verdict.
 CREATE TABLE IF NOT EXISTS domain_language (
-    domain        TEXT    NOT NULL REFERENCES domain(domain),
+    domain        TEXT    NOT NULL,
     assigned_year INTEGER NOT NULL CHECK (assigned_year BETWEEN 1996 AND 2001),
     verdict       TEXT    NOT NULL CHECK (verdict IN ('english', 'other', 'undetermined')),
     english_share DOUBLE,
@@ -112,14 +160,13 @@ CREATE TABLE IF NOT EXISTS domain_language (
 );
 """
 
-# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does
-# nothing to a table that is already there, so a new column in SCHEMA_SQL reaches
-# fresh stores only and silently skips every existing one. Each entry is applied
-# with IF NOT EXISTS, so running this on either kind of store is a no-op or a
-# one-line change and never an error.
+# Columns added after a store already existed. `CREATE TABLE IF NOT EXISTS` does nothing
+# to a table already there, so a new column in SCHEMA_SQL reaches fresh stores only.
 MIGRATIONS = (
     ("domain_language", "reason", "TEXT"),
     ("domain_language", "engine_version", "INTEGER DEFAULT 0"),
+    ("evidence", "source_file", "TEXT"),
+    ("evidence", "record_location", "TEXT"),
 )
 
 
@@ -128,24 +175,17 @@ def connect(db_path: Path | str = DEFAULT_DB_PATH) -> duckdb.DuckDBPyConnection:
     path = Path(db_path)
     if str(path) != ":memory:":
         path.parent.mkdir(parents=True, exist_ok=True)
-    return duckdb.connect(str(path))
+    return _tune(duckdb.connect(str(path)))
 
 
 def connect_patiently(
     db_path: Path | str = DEFAULT_DB_PATH, patience_s: int = 900
 ) -> duckdb.DuckDBPyConnection:
-    """Wait out a writer instead of crashing against one, for a reporting command.
+    """Wait out a writer instead of crashing against one, for a command that writes.
 
-    The read-only tools already do this. `ark check` and `ark stats` could not, because
-    both record a metrics row and so need the write lock themselves, and the ingest loop
-    holds it every fifteen minutes. Against a live loop they raised a DuckDB traceback,
-    which for a scheduled unattended run reads as a broken invariant rather than as a
-    busy database: exactly the confusion `ark check` exists to prevent by reporting SKIP
-    rather than PASS.
-
-    Waiting is the correct behaviour here and not merely the polite one. Per ADR-001,
-    banking a collector's finished journal outranks measuring, so the reporting side is
-    the side that yields.
+    For export, ingest and `ark stats`, which records a metrics row. Banking a collector's
+    journal comes before measuring, so a reporting command yields rather than emitting a
+    traceback a scheduled run reads as broken.
     """
     deadline = time.monotonic() + patience_s
     while True:
@@ -162,21 +202,14 @@ def connect_read_only_patiently(
 ) -> duckdb.DuckDBPyConnection:
     """Read-only, and waits out a writer instead of crashing against one.
 
-    **DuckDB's single writer excludes readers too**, so a reporting command that opens
-    read-only still meets the lock every time the ingest loop banks a journal, which is
-    every few minutes. `connect_patiently` covers the commands that need to write a
-    metrics row; this covers the ones that must not write at all.
-
-    It exists because the same retry loop had been hand-written twice, in
-    `round_figures.py` and `build_round_state.py`, while `fill_report.py` and
-    `report_figures.py` crashed outright. That is the worst possible split: the round
-    report generator, which is only ever run at the end of a round when the collectors
-    are busiest, was the one that would fail.
+    **DuckDB's single writer excludes readers too**, so even a read-only reporting
+    command meets the lock while a bank writes. Use
+    this for anything that must not write; `connect_patiently` for the rest.
     """
     deadline = time.monotonic() + patience_s
     while True:
         try:
-            return duckdb.connect(str(Path(db_path)), read_only=True)
+            return _tune(duckdb.connect(str(Path(db_path)), read_only=True))
         except duckdb.Error as exc:
             if "Conflicting lock" not in str(exc) or time.monotonic() >= deadline:
                 raise
@@ -186,10 +219,8 @@ def connect_read_only_patiently(
 def _statements(schema: str) -> list[str]:
     """Split the schema into statements, ignoring `--` comment lines.
 
-    Statements are separated on `;`, so a semicolon inside a comment would cut a
-    CREATE TABLE in half and fail with a parser error pointing at prose. Comments
-    are stripped before the split rather than after, which keeps the explanatory
-    text in the source and out of the executed SQL.
+    Comments are stripped BEFORE the split on `;`, or a semicolon inside a comment cuts
+    a CREATE TABLE in half and fails with a parser error pointing at prose.
     """
     body = "\n".join(line for line in schema.splitlines() if not line.lstrip().startswith("--"))
     return [statement for statement in body.split(";") if statement.strip()]
@@ -201,6 +232,16 @@ def init_db(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute(statement)
     for table, column, column_type in MIGRATIONS:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {column_type}")
+    # `located_from` is the first evidence id this store wrote itself, for `ark check`. Nothing
+    # draws from it, so it keeps its start, where DuckDB writes `evidence_seq` back with its next
+    # id as its start. `load_provenance` sets it; a store without it starts past its own rows.
+    located = conn.execute(
+        "SELECT count(*) FROM duckdb_sequences() "
+        "WHERE sequence_name = 'located_from' AND database_name = current_database()"
+    ).fetchone()[0]
+    if not located:
+        start = conn.execute("SELECT coalesce(max(evidence_id), 0) + 1 FROM evidence").fetchone()[0]
+        conn.execute(f"CREATE SEQUENCE located_from START WITH {int(start)}")
 
 
 def ensure_source(conn: duckdb.DuckDBPyConnection, name: str, kind: str) -> int:
@@ -248,38 +289,16 @@ def add_candidates(
 ) -> int:
     """Register many already-canonical domains in ONE set-based statement.
 
-    **This is the answer to ADR-001, and it took three wrong guesses to find.** The
-    seed held the store's only write lock for 26 minutes on 6,079 names and 33 on
-    35,391, blocking every reader. Blamed first on `add_candidate` in a Python loop,
-    which was real and was replaced by `executemany`; the seed stayed slow. Blamed next
-    on the classification query, which measures 0.33 s for 3,000 names. Blamed third,
-    by me, on per-row autocommit inside `executemany`: wrapping the whole batch in an
-    explicit transaction measured **12.03 s against 11.88 s, no difference at all.**
+    **Never a Python loop and never `executemany`**, which is N prepared-statement
+    executions against a columnar store: on a 4,000,000-row table inserting 13,078,
+    `executemany` takes 13.47 s (971 rows/s) against the set-based anti-join from an Arrow
+    table at 0.05 s (259,242 rows/s), 267x. That is what held the only write lock for 26
+    minutes on a 6,079-name seed.
 
-    Measured against a 4,000,000-row table, inserting 13,078:
+    **Deduplicate the batch first**: the anti-join tests each row against the TABLE, so two
+    identical names inside one batch both pass and collide on the primary key.
 
-        executemany, row at a time      13.47 s        971 rows/s
-        set-based from an Arrow table    0.05 s    259,242 rows/s      267x
-
-    `executemany` is not a batch. It is N prepared-statement executions, and DuckDB is
-    columnar, so each one pays a whole statement's overhead against an 8 GB store. The
-    fix is the idiom `bulk.py` has used all along: register the batch as an Arrow table
-    and let one statement do an anti-join insert. `INSERT OR IGNORE` becomes
-    `WHERE NOT EXISTS`, which is the same thing said set-wise.
-
-    **The batch is deduplicated first**, which `INSERT OR IGNORE` used to do implicitly:
-    the anti-join tests each row against the *table*, so two identical names inside one
-    batch would both pass it and collide on the primary key.
-
-    Takes canonical names rather than raw ones, because the caller has already parsed
-    them: `add_candidate` calls `to_registrable` a second time on a value its caller
-    just produced.
-
-    One consequence, since ADR-001's interim rule leaned on the opposite. An
-    interrupted seed no longer keeps a partial insert, because this is now a single
-    statement. That is a better trade than it sounds: the window shrinks from twenty
-    minutes to a fraction of a second, and a re-run stays additive because the
-    anti-join skips whatever is already there.
+    Takes canonical names; the caller has parsed them. An interrupted call keeps nothing.
     """
     if not domains:
         return 0
@@ -315,13 +334,28 @@ def record_evidence(
     url: str | None = None,
     acquisition_method: str | None = None,
     captured_at: datetime | None = None,
+    *,
+    source_file: str | None = None,
+    record_location: str | None = None,
 ) -> int:
-    """Store one per-year proof for a registered domain and return its id."""
+    """Store one per-year proof for a registered domain and return its id. `source_file` and
+    `record_location` name the file the row was read from and its place in it."""
     return conn.execute(
         "INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, "
-        "evidence_value, evidence_url, acquisition_method, captured_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING evidence_id",
-        [domain, source_id, year, evidence_type, value, url, acquisition_method, captured_at],
+        "evidence_value, evidence_url, acquisition_method, captured_at, source_file, "
+        "record_location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING evidence_id",
+        [
+            domain,
+            source_id,
+            year,
+            evidence_type,
+            value,
+            url,
+            acquisition_method,
+            captured_at,
+            source_file,
+            record_location,
+        ],
     ).fetchone()[0]
 
 

@@ -14,7 +14,7 @@ frozen `submissions/phase-N` gets a row without a file written inside it. The
 manifests stay untracked: 89k lines that move with every collector run do not belong
 in a public repo.
 
-`docs/retention.md` is tracked, one row per entry: the children of `data/raw/`,
+`docs/registers/retention.md` is tracked, one row per entry: the children of `data/raw/`,
 `output/` and `feedback/`, every `data/*.bak`, the archived releases under
 `data/archive/` and the frozen `submissions/phase-*`. The class comes from the tables
 below; an entry they do not name defaults to `reference` and is flagged. A path with
@@ -37,10 +37,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-RETENTION = "docs/retention.md"
+RETENTION = "docs/registers/retention.md"
 CATALOG = "data/raw/usenet_catalog.json"
 SUMS, SHA1S, STAT = "SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat"
-MANIFESTS = frozenset({SUMS, SHA1S, STAT})
+# DELETED.tsv records what `prune.py --disk` gave back to archive.org: a sidecar, not data.
+MANIFESTS = frozenset({SUMS, SHA1S, STAT, "DELETED.tsv"})
 
 # Every child of a root is an entry; with a glob, only the matching children are (the
 # store backups, never the store itself), and they share the root's manifest.
@@ -57,10 +58,12 @@ OWN = "own_journal"
 UNKNOWN = "unknown"
 NONE = "none"
 IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
+# The evidence authority: `ark rebuild` makes the store from it, so it goes off-site each round.
+PROVENANCE = "output/provenance"
 
 # What the retention audit of 2026-09-02 left unpriced at hostname grain. It listed 26;
 # the E9.5 batch priced 24 of them on 2026-09-03 and they moved to `reference` (a measured
-# negative, verdict and figure in `sources.md`) or to `keep_until_decided` below. These two
+# negative, verdict and figure in `sources.md`) or were read and banked. These two
 # are left because their terms, not their value, are unsettled, and that is Ivo's word.
 # `None` is honest: nobody has found where the bytes came from.
 KEEP_UNTIL_PRICED: dict[str, str | None] = {
@@ -68,18 +71,8 @@ KEEP_UNTIL_PRICED: dict[str, str | None] = {
     "internic_zones": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/",
 }
 
-# Priced, and the bytes are what a yes would be ingested from, so neither `prune` nor the
-# off-site rule may treat them as spent. `ukwa` waits on whether `www.<a name already held
-# that year>` is a record at all (`key-decisions.md`, 2026-09-03); the two Usenet pools wait
-# on the `usenet_body_url_hostnames` class, 64,840.4 EE measured over both read whole.
-KEEP_UNTIL_DECIDED: dict[str, str] = {
-    "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
-    "usenet_bulk": "https://archive.org/details/usenet-alt",
-    "usenet_new": IA_USENET,
-}
-
 # Third-party bytes read by `just reproduce` or `just collect pandora-seed`:
-# the offline rebuild breaks without them. `None` means docs/sources.md has the URL
+# the offline rebuild breaks without them. `None` means docs/registers/sources.md has the URL
 # and this table does not carry it yet.
 LIVE_INPUT: dict[str, str | None] = {
     "afnic": None,
@@ -111,8 +104,14 @@ LIVE_INPUT: dict[str, str | None] = {
 
 # Our own collectors' journals, replayed by `just reproduce sources` or `journals`, or
 # a hostname-grain journal a later ingest reads.
+# Our own collectors' output, plus the item journals a Usenet pool leaves behind: the
+# `{item, year, text}` shards the bank ingests, while the pool's zips go back to archive.org.
 KEEP_JOURNAL = frozenset(
     {
+        f"usenet_{h}_items"
+        for h in ("aus", "biz", "can", "comp", "misc", "news", "rec", "sci", "soc", "talk", "uk")
+    }
+    | {
         "cdx",
         "cdx_suffix",
         "early_web_hostgrain",
@@ -133,7 +132,7 @@ KEEP_JOURNAL = frozenset(
     }
 )
 
-# Kept for the record: measured negatives whose verdict is in docs/sources.md, spent
+# Kept for the record: measured negatives whose verdict is in docs/registers/sources.md, spent
 # probes, quarantined journals, and the older checksum records. The 2026-09-03 block is
 # the E9.5 batch, each priced at hostname grain and each under the bar, with its row in
 # the register's `Evaluated and rejected` table.
@@ -141,6 +140,12 @@ REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
     "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
+    # read and banked; archive.org serves every zip again by name, and usenet_new's have no
+    # per-file catalog here yet
+    "usenet_bulk": "https://archive.org/details/usenet-alt",
+    "usenet_new": IA_USENET,
+    # read and banked; the UK Web Archive serves its open-data geoindex again
+    "ukwa": "https://data.webarchive.org.uk/opendata/ukwa.ds.2/geoindex/",
     "attrition": "https://raw.githubusercontent.com/attrition-org/web-hack-mirror/main/mirror/",
     "bl": UNKNOWN,
     "can_domain": "https://archive.org/download/usenet-can/can.domain.mbox.zip",
@@ -187,6 +192,8 @@ REGENERABLE: dict[str, str] = {
     "gapfill_candidates.txt": "derived list, no reader",
     "gapfill_sample.txt": "derived list, no reader",
     "isc_survey_hostgrain.log": "just reproduce sources",
+    "early_web_3xx_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
+    "early_web_nonok_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
     "nypw_firstcdx_hostgrain": "scripts/sources/nypw/nypw_firstcdx_hostgrain.py",
     "nypw_hostgrain": "regenerable from nypw_timemaps",
     "ukwa_hostgrain": "scripts/sources/ukwa/ukwa_hostgrain.py",
@@ -199,8 +206,6 @@ def classify(key: str) -> tuple[str, str] | None:
     if root == "data/raw":
         if name in KEEP_UNTIL_PRICED:
             return "keep_until_priced", KEEP_UNTIL_PRICED[name] or UNKNOWN
-        if name in KEEP_UNTIL_DECIDED:
-            return "keep_until_decided", KEEP_UNTIL_DECIDED[name]
         if name in LIVE_INPUT:
             return "live_input", LIVE_INPUT[name] or UNKNOWN
         if name in KEEP_JOURNAL:
@@ -210,6 +215,8 @@ def classify(key: str) -> tuple[str, str] | None:
         if name in REGENERABLE:
             return "regenerable", REGENERABLE[name]
         return None
+    if key == PROVENANCE:
+        return "keep_authority", OWN
     if root == "output":
         return "regenerable", "just ship, or ark export"
     if root == "feedback":
@@ -217,7 +224,7 @@ def classify(key: str) -> tuple[str, str] | None:
     if root == "data" and name.endswith(".bak"):
         return "regenerable", "just reproduce"
     if root == "data/archive" and name.endswith(".tar.zst"):
-        # the reviewer's release, repacked where his zip was discarded (docs/releases.md)
+        # the reviewer's release, repacked where his zip was discarded (docs/registers/releases.md)
         return "reference", "reviewer_release"
     if root == "submissions":
         return "reference", NONE
@@ -426,6 +433,8 @@ def write_if_changed(path: Path, text: str, dry_run: bool, report: Report) -> No
     if dry_run:
         return
     if text:
+        # docs/ grew subdirectories on 2026-09-06, so the page's parent may not exist yet
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
     else:
         path.unlink()
@@ -533,14 +542,14 @@ HEADER = "\n".join(
         "`SHA256SUMS` lines, followed by its `SHA1SUMS` lines where IA's own sha1 from "
         "`data/raw/usenet_catalog.json` stands in for a rehash of a Usenet zip; the manifests "
         "sit untracked beside the data, or at the root a frozen entry shares, and `record` "
-        "names them. `refetch` is a URL, `own_journal` for what our own collectors wrote, the "
-        "recipe that rebuilds the entry, `reviewer_release` for what arrived by mail, `none` "
-        "for what we sent and nobody sends back, or `unknown`.",
+        "names them. `refetch` is a URL, `own_journal` for what our own collectors or export "
+        "wrote, the recipe that rebuilds the entry, `reviewer_release` for what arrived by mail, "
+        "`none` for what we sent and nobody sends back, or `unknown`.",
         "",
         "Classes: `live_input` is third-party bytes read by a `just reproduce` stage or by "
         "`just collect pandora-seed`; `keep_journal` is a journal of our own that a recipe "
-        "replays; `keep_until_priced` waits for its pricing at hostname grain; "
-        "`keep_until_decided` is priced and waits for a human word, so it is not spent; "
+        "replays; `keep_authority` is the provenance Parquet the store is rebuilt from; "
+        "`keep_until_priced` waits for its pricing at hostname grain; "
         "`reference` is kept for the record; `regenerable` is rebuilt by a recipe.",
         "",
         "| entry | class | files | bytes | digest | refetch | record |",

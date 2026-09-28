@@ -1,11 +1,9 @@
 """The shipped saturation ledger, on a two-page register small enough to read.
 
-The ledger is a SHIPPED artifact built from prose, so the risk is silent: a column
-added to the register shifts every cell after it and the CSV still looks fine. These
-tests pin the bytes for one row of each shape the register carries, then reorder the
-register's columns and demand the same bytes back.
-
-Loaded by path, like the other script tests: `scripts/` is not a package.
+The ledger is a SHIPPED artifact built from prose, so the risk is silent: a column added to
+the register shifts every cell after it and the CSV still looks fine. These pin the bytes for
+one row of each shape the register carries, then reorder its columns and demand the same
+bytes back.
 """
 
 import importlib.util
@@ -58,10 +56,9 @@ def _build(tmp_path: Path, sources: str | None = None, closed: str | None = None
 
 
 def _expected() -> bytes:
-    """The fixture is stored with LF so git's newline handling cannot rewrite it.
-
-    The CSV module writes CRLF, which is the artifact's real shape, and no field in
-    the fixture holds a newline of its own, so the substitution is exact.
+    """The fixture is stored with LF so git's newline handling cannot rewrite it. The CSV module
+    writes CRLF, which is the artifact's real shape, and no field in the fixture holds a
+    newline of its own, so the substitution is exact.
     """
     return (FIXTURES / "expected_ledger.csv").read_bytes().replace(b"\n", b"\r\n")
 
@@ -78,7 +75,7 @@ def _reorder(page: str, order: list[int]) -> str:
 
 
 def test_the_ledger_is_byte_for_byte_what_the_register_says(tmp_path: Path) -> None:
-    """Every cell shape in one assertion: filled, `n/a`, detail-only, closed page."""
+    """Every cell shape in one assertion: filled, `n/a`, reopen in a cell, closed page."""
     assert _build(tmp_path) == _expected()
 
 
@@ -96,9 +93,7 @@ def test_reordering_the_register_columns_changes_nothing(tmp_path: Path) -> None
 
 def test_an_added_column_does_not_shift_a_cell(tmp_path: Path) -> None:
     """A column the exporter has never heard of leaves the named ones where they are.
-
-    Prepended, because that is the position a positional reader gets wrong: the source
-    name came out of the first cell until this ticket.
+    Prepended, because that is the position a positional reader gets wrong.
     """
     sources = (FIXTURES / "sources.md").read_text(encoding="utf-8")
     grown = []
@@ -125,7 +120,7 @@ def test_a_missing_required_column_names_the_headers_it_found() -> None:
         "| a_family | 2026-09-01 | 12 EE (2026-09-01) | none |\n"
     )
     with pytest.raises(ValueError) as caught:
-        ledger.rows_from_register(page, "docs/sources.md")
+        ledger.rows_from_register(page, "docs/registers/sources.md")
     message = str(caught.value)
     assert "source_link" in message
     assert "Headers found: source, version or date, net-new EE (date), quality issues" in message
@@ -142,9 +137,15 @@ def test_retrieval_method_is_populated_from_the_register_column() -> None:
 
 
 def test_the_closed_page_reads_its_five_columns_and_leaves_the_rest_empty() -> None:
-    """No retrieval, coverage, overlap or effort column exists there, so those are empty."""
-    text = (FIXTURES / "sources-closed.md").read_text(encoding="utf-8")
-    (row,) = ledger.rows_from_register(text, "docs/sources-closed.md")
+    """No retrieval, coverage, overlap or effort column exists there, so those are empty, and
+    a row's verdict is its reason's closed word, whatever its prose says after it."""
+    text = (FIXTURES / "sources-closed.md").read_text(encoding="utf-8") + (
+        "| not_a_source | 2026-09-01 | 0 EE | REJECTED. FIND, not a source. |  |\n"
+        "| aged_out | 2026-09-19, retired | 0 EE | RETIRED: never priced; retired unmeasured |  |\n"
+    )
+    row, rejected, retired = ledger.rows_from_register(text, "docs/registers/sources-closed.md")
+    assert rejected["status"] == "rejected" and not rejected["decision"].startswith("retain")
+    assert (retired["status"], retired["decision"]) == ("retired", "retired unmeasured")
     assert row["source_family"] == "closed_on_measurement"
     assert row["coverage_ee"] == "4.44"
     assert row["source_link"] == "https://example.org/irr-dump.txt"

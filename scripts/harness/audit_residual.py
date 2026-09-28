@@ -5,12 +5,10 @@ used: "unprocessed files, failed parses, truncated runs, unqueried candidates,
 missing date partitions". This answers the file half of that in one command, with
 no network and no write lock, so it can run before every collection decision.
 
-**It exists because the answer was worth 14,956 equivalent-English on 2026-08-10.**
-496 per-TLD ISC survey shards had been on disk since 5 August, matched by a glob
-`just reproduce sources` already documented, and no ingest had ever read them. Nothing here
-searched for a new source; it diffed disk against the ingest ledger. Every
-measurement the project takes starts from the store, so every one of them was
-blind to those files.
+**Every measurement starts from the store, so a file no ingest has read is invisible
+to all of them.** This searches for no new source; it diffs disk against the ingest
+ledger. Its first finding, 496 unread per-TLD ISC survey shards matched by a documented
+glob, was worth 14,956 equivalent-English.
 
 Five checks, each of which has caught something real:
 
@@ -18,10 +16,10 @@ Five checks, each of which has caught something real:
                  read, per source. The ISC case, and the first thing to look at.
 `glob_too_narrow` files the ledger holds that the documented glob does NOT match.
                  Not lost yield: a reproduction defect, because `just reproduce`
-                 rebuilds a store missing them. Found twice on 2026-07-26, where
-                 `isc_survey/*.domains.gz` silently missed `wb_nw_9607_org.gz`.
+                 rebuilds a store missing them: `isc_survey/*.domains.gz`
+                 silently misses `wb_nw_9607_org.gz`.
 `unreferenced`   directories under data/raw/ that no ingest glob points into at
-                 all. These are the "bytes nothing reads" in `docs/sources.md`,
+                 all. These are the "bytes nothing reads" in `docs/registers/sources.md`,
                  and one of them is a National Library of Australia title index.
 `usenet`         the corpus has its own `.processed` ledger rather than rows in
                  `ingested_file`, so it needs its own three-way comparison
@@ -31,11 +29,8 @@ Five checks, each of which has caught something real:
                  for a gap queue, newest candidates for a pool queue, and for the
                  pool queue also the newest **journal**, because its ordering is a
                  measured hit rate and that is measured out of the journals rather
-                 than out of the store. It used to compare against the baseline
-                 release alone, which changes monthly. Each correction found
-                 staleness the previous form called fine: three lists the first
-                 time, and the pool queue's own ranking the second. A blind queue
-                 once hid 102,628 targets.
+                 than out of the store. The baseline release alone, which changes
+                 monthly, misses every one of these marks.
 
 Nothing here is a gate. It reports and exits 0, because "there is unread material
 on disk" is a fact about the round rather than a broken invariant, and a check
@@ -57,9 +52,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import duckdb  # noqa: E402
 
-from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
-from ark.stats import BASELINE_TYPE  # noqa: E402
 
 STORE = ROOT / "data/ark.duckdb"
 RAW = ROOT / "data/raw"
@@ -73,63 +67,20 @@ INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
 # Derived artifacts, each with the thing that makes it stale. Every one is
 # regenerable, so a finding is "rebuild this", never "you have lost something".
 #
-# **The `against` column is the fix for a real miss.** This check first compared every
-# artifact to the baseline load and nothing else, and reported the candidate-pool queue
-# as fine while 4,333 freshly seeded UDRP names, 88% of them absent from the store and
-# all of them parties to real legal proceedings, sat in the pool where the running
-# engine could never see them. A queue is stale relative to **the newest row that
-# should be in it**, which for a pool queue is the newest candidate and for a gap queue
-# is the newest assigned pair, because a new pair both creates and closes brackets.
-#
-#   baseline    the reviewer's release: a bigger merged corpus creates new gaps
 #   candidates  the newest domain with no year, which a pool queue should carry
 #   pairs       the newest assigned pair, which changes what is bracketed
 DERIVED = (
-    # The operative lists since the two-machine split of 2026-08-11: the VPS works
-    # bracketed gaps, the local engine works the candidate pool.
-    ("data/raw/cdx/queue_gap_vps.txt", "build_query_queue.py --population gap", "pairs"),
-    # Two marks, and the second one is not in the store at all. A pool queue goes stale
-    # when new candidates arrive, and ALSO when new journals arrive, because its
-    # ordering is `measured hit rate x English share` and the rate is measured out of
-    # the journals. On 11 August at 22:20 the queue was two hours old and correctly
-    # reported fresh against candidates, while three of the four sources at its head had
-    # had their (source, TLD) cells measured in the meantime: 0.086, 0.111 and 0.536
-    # against the 0.874 they had been inheriting. The population had not changed and the
-    # ranking was out of date, which no store mark can see.
-    (
-        "data/raw/cdx/queue_pool_local.txt",
-        "build_query_queue.py --population pool",
-        ("candidates", "journals"),
-    ),
-    # **The list the local engine reads since 2026-08-20.** C-24 kept the local engine on
-    # the candidate pool and left one explicit contingency: "the edge queue is available
-    # for whenever the pool runs thin." It has. Measured per journal in run order rather
-    # than over a window that reaches back into better ones, the pool's last fifteen runs
-    # gave 15.8% and 0.110 equivalent-English per query, against 0.6075 expected for the
-    # best 250,000 edge targets. The pool list above is kept and kept fresh, because a
-    # population that has run thin is not a population that is finished.
-    (
-        "data/raw/cdx/queue_edge_local.txt",
-        "build_query_queue.py --population edge",
-        ("candidates", "journals"),
-    ),
-    # The list the RDAP sweep actually reads. It was `pool_targets_org.txt` until
-    # 2026-08-14, and watching the wrong file is the same defect as watching the wrong
-    # journal prefix: the alarm stays quiet about the list in use. Restricted to TLDs with
-    # a measured in-window rate, because the builder falls back to the pool-wide rate where
-    # it has no sample and that floated `.vi`, `.bm` and `.pn` above `.com` for a measured
-    # 1 in-window date in 97 queries. Five TLDs qualified when this was written and twelve
-    # do now, which is why the set lives in one place rather than in a comment.
+    # The list the RDAP sweep actually reads: watching any other file is the same defect
+    # as watching the wrong journal prefix, the alarm stays quiet about the list in use.
+    # Restricted to TLDs with a measured in-window rate, because the builder falls back to
+    # the pool-wide rate where it has no sample and that floated `.vi`, `.bm` and `.pn`
+    # above `.com` for a measured 1 in-window date in 97 queries. The set grows with the
+    # sample, which is why it lives in one place rather than in a comment.
     (
         "data/raw/rdap/pool_targets_measured.txt",
         "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
         "candidates",
     ),
-    # The mixed queue, kept because a shard of it may still be in flight on a
-    # machine that has not been re-pointed yet.
-    ("data/raw/cdx/queue_shard0.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_shard1.txt", "just query-queue", "baseline"),
-    ("data/raw/cdx/queue_manifest.tsv.gz", "just query-queue", "baseline"),
 )
 
 # Directories whose contents are inputs to a collector rather than to an ingest,
@@ -148,22 +99,19 @@ ACCOUNTED = {
     "texts": "trade-press OCR cache, read by scripts/sources/trade_press/reextract_trade_press.py",
     "webbase": "rejected on measurement: 99.99% already held, and re-tested 2026-08-27 "
     "on the held-and-missing-2001 screen at exactly 0 pairs",
-    # 806 MB that reads as the largest unexplained block on disk and is fully processed
-    # INPUT, checked 2026-08-27. `cdx_suffix_convert.py` collapses these capture rows
-    # into `cdx_snapshot` shape under `data/raw/cdx/cdx_suffix_*.jsonl.gz`, 46 of which
-    # are in the ledger, and the newest converted journal (2026-08-27 02:36) postdates
-    # the newest raw one (2026-08-24 10:51) with no stranded `.part`. So every capture
-    # has been banked. `unreferenced` cannot tell "raw input already converted" from
-    # "bytes nothing reads", which is why this needs saying here rather than being
-    # rediscovered.
-    "cdx_suffix": "raw sweep input; converted to cdx_snapshot journals, all banked",
-    # Deliberately unreachable, and it must stay that way until Ivo rules. Nominet's
+    # The largest block on disk, and INPUT: `ark ingest-hostnames` reads these capture rows
+    # and `cdx_suffix_convert.py` turns their exact-host registrables into `cdx_snapshot`
+    # journals under `data/raw/cdx/`. `unreferenced` cannot tell "raw input" from "bytes
+    # nothing reads", which is why this needs saying here rather than being rediscovered.
+    "cdx_suffix": "raw sweep input; converted incrementally, state in "
+    "data/raw/cdx/cdx_suffix_convert.state.tsv",
+    # Deliberately unreachable, and it must stay that way until the owner rules. Nominet's
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
-    # collection, so these three journals are held where no ingest glob matches them
-    # and `maintain.sh` cannot bank them. See docs/key-decisions.md.
+    # collection, so these three journals are held where no ingest or bank glob matches
+    # them.
     "rdap_hold_uk": "quarantined pending the Nominet extraction-clause decision",
-    # 511 MB that is three byte-for-byte duplicates, checked 2026-08-27: all three
+    # 511 MB that is three byte-for-byte duplicates: all three
     # names exist in `data/raw/usenet_new/` at identical sizes and all three are in
     # that pool's `.processed` ledger, so the announce, address, header and bare
     # extractors have each already read them.
@@ -177,17 +125,17 @@ ACCOUNTED = {
     # clear it on its own: seeds candidates, evidences nothing, has no date column
     "pandora-titles": "seed-only, read by scripts/sources/directories/seed_pandora_titles.py",
     "pandora": "byte-identical duplicate of pandora-titles/pandora-titles.csv",
-    # 982 MB that read as the largest opportunity on disk for five days and is not
-    # one. Traced on 2026-08-11: `enron.tar.gz` is the input
+    # 982 MB that looks like the largest opportunity on disk and is not one:
+    # `enron.tar.gz` is the input
     # scripts/sources/mail_corpora/collect_enron.py
     # names directly, `mlists` and `attrition` fed ingested sources, and
     # `hathitrust_ef` is the HathiTrust route already closed on measurement inside the
-    # printed-directory verdict. Re-measured to be sure: 74 net-new pairs and 49.4 EE
-    # after the split, against a ~5,000-pair bar.
+    # printed-directory verdict. Measured at 74 net-new pairs and 49.4 EE after the
+    # split, under the bar.
     "source_probe_260806": "collector inputs (enron, mlists, attrition) plus the "
-    "hathitrust_ef route closed on measurement, see docs/sources.md",
+    "hathitrust_ef route closed on measurement, see docs/registers/sources.md",
     "probes": "cached pages and journals from scripts/pricing/probe_source.py, read by "
-    "scripts/pricing/price_items.py; a probe has no ingest spec by design (ADR-004)",
+    "scripts/pricing/price_items.py; a probe has no ingest spec by design",
     "udrp": "the dockets collector's own input and journal, ingested as "
     "udrp_proceedings; udrp_hosts.txt is the seed list built beside it",
     "gapfill_candidates.txt": "target list",
@@ -198,37 +146,26 @@ ACCOUNTED = {
 
 
 def read_only_store(path: Path, patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    """Open for reading, waiting out a writer.
+    """Open for reading through `ark.db`, which caps memory and waits out a writer.
 
-    Patience is 15 minutes, not the 2 minutes this first shipped with. That was
-    sized against `just maintain`, which holds the write lock for seconds, and it
-    failed the first time it met a real writer: `ark seed` over 29,432 names holds
-    the lock for more than twenty minutes, so a read-only audit gave up at
-    exactly the moment the audit was worth running. A writer that outlasts even
-    this gets a one-line explanation naming its PID, because a traceback out of a
-    read-only reporting tool reads as a defect in the tool.
+    Patience is 15 minutes because `ark seed` over tens of thousands of names holds the
+    lock for more than twenty. A writer that outlasts even this gets a one-line
+    explanation naming its PID, because a traceback out of a read-only reporting tool
+    reads as a defect in the tool.
     """
-    deadline = time.monotonic() + patience_s
-    announced = False
-    while True:
-        try:
-            return duckdb.connect(str(path), read_only=True)
-        except duckdb.Error as exc:
-            message = str(exc)
-            if "Conflicting lock" not in message:
-                raise
-            if time.monotonic() >= deadline:
-                pid = re.search(r"PID (\d+)", message)
-                who = f" (PID {pid.group(1)})" if pid else ""
-                raise SystemExit(
-                    f"the store is being written{who} and still was after "
-                    f"{patience_s}s. Nothing is wrong: this reads the store, so it "
-                    f"waits for the writer. Re-run when the ingest or seed finishes."
-                ) from None
-            if not announced:
-                print(f"waiting for a writer to release {path.name} ...", flush=True)
-                announced = True
-            time.sleep(3)
+    try:
+        return connect_read_only_patiently(path, patience_s=patience_s)
+    except duckdb.Error as exc:
+        message = str(exc)
+        if "Conflicting lock" not in message:
+            raise
+        pid = re.search(r"PID (\d+)", message)
+        who = f" (PID {pid.group(1)})" if pid else ""
+        raise SystemExit(
+            f"the store is being written{who} and still was after "
+            f"{patience_s}s. Nothing is wrong: this reads the store, so it "
+            f"waits for the writer. Re-run when the ingest or seed finishes."
+        ) from None
 
 
 def ingest_globs() -> list[tuple[str, str, str]]:
@@ -241,9 +178,8 @@ def ingest_globs() -> list[tuple[str, str, str]]:
         key, pattern = match.group(1), match.group(2)
         spec = SOURCES.get(key)
         if spec is None:
-            # `ingest-legacy` and any journal spec not in SOURCES; the ledger
-            # cannot be joined for those, so they are out of scope rather than
-            # silently reported as clean.
+            # A journal spec not in SOURCES: the ledger cannot be joined for it,
+            # so it is out of scope rather than silently reported as clean.
             continue
         out.append((key, spec.source_name, pattern))
     return out
@@ -283,10 +219,9 @@ def check_glob_too_narrow(ledger: dict[str, set[str]], verbose: bool) -> int:
     the reproduction path claims more than it delivers.
 
     **The two causes need separating, because they have different fixes and the
-    lumped total misleads.** Reported as one number this read 1,798 on 2026-08-27
-    and a hand estimate the same night put it at "about 20": both were describing
-    a real thing and neither was the same thing. Widening a glob fixes one of
-    them; nothing fixes the other, and saying so is the honest claim.
+    lumped total misleads.** As one number it conflates two real things of very
+    different size. Widening a glob fixes one of them; nothing fixes the other, and
+    saying so is the honest claim.
 
     `narrow`  the file is on disk and no documented glob matches its name.
     `absent`  the file is not on disk at all, so no glob can reach it and the
@@ -418,7 +353,6 @@ def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
     to Python and it is not a dependency here.
     """
     marks: dict[str, float | None] = {}
-    marks["baseline"] = baseline_loaded_at(conn)
     row = conn.execute(
         """
         SELECT max(epoch(d.first_seen_at)) FROM domain d
@@ -440,34 +374,14 @@ def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
     return marks
 
 
-def baseline_loaded_at(conn: duckdb.DuckDBPyConnection) -> float | None:
-    """Unix time at which the newest `prior_reused` evidence landed.
-
-    Anchored on the evidence rather than on `ingested_file`, because the legacy
-    loader does not write a ledger row a file glob can find, and because the
-    evidence rows are what actually changed: they are the reason a queue built
-    earlier is blind to the release. Read as epoch seconds inside SQL, since
-    DuckDB needs `pytz` to hand a TIMESTAMPTZ to Python and it is not a
-    dependency here.
-    """
-    row = conn.execute(
-        "SELECT max(epoch(ingested_at)) FROM evidence WHERE evidence_type = ?", [BASELINE_TYPE]
-    ).fetchone()
-    return float(row[0]) if row and row[0] is not None else None
-
-
 def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
     """Derived artifacts older than the newest row that ought to be in them."""
     print("\n== stale_derived: built before the rows they should carry ==")
     marks = freshness_marks(conn)
-    if marks["baseline"] is None:
-        print("  skipped: no baseline evidence in the store, so nothing to be stale against")
-        return 0
-    for kind in ("baseline", "candidates", "pairs", "journals"):
+    for kind in ("candidates", "pairs", "journals"):
         when = marks[kind]
         shown = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(when)) if when else "none"
         label = {
-            "baseline": f"newest {CURRENT_BASELINE_MARKER} evidence",
             "candidates": "newest candidate with no year",
             "pairs": "newest assigned pair",
             "journals": "newest finished cdx journal",
@@ -546,7 +460,7 @@ def main() -> None:
     print(
         "\nNot a gate: unread material is a fact about the round, not a broken invariant.\n"
         "An `unread` count above zero is the cheapest yield in the project. Price it\n"
-        "against the live store before ingesting, per docs/discovery.md."
+        "against the live store before ingesting."
     )
 
 

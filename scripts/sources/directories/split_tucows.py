@@ -14,9 +14,10 @@ on domains the store already knows, which are the long-lived, well-covered ones.
 Drift would show precisely in the names never seen before, which are exactly
 the 775 that would otherwise become net-new domains on this source's word alone.
 
-So the same rule as Usenet: a domain another source already places in an annual
-file carries the release date as `dated_directory`; a name appearing only here
-goes to the candidate pool and earns its year from a capture.
+So the same rule as Usenet: a domain already dated, by a year of ours or by a
+line of his files that is exactly the name, carries the release date as
+`dated_directory`; a name appearing only here goes to the candidate pool and earns
+its year from a capture.
 
     uv run python scripts/sources/directories/split_tucows.py --write
 """
@@ -28,9 +29,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
-import duckdb  # noqa: E402
-
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
@@ -42,6 +43,9 @@ YEARS = range(1996, 2002)
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--write", action="store_true")
+    parser.add_argument(
+        "--out", type=Path, default=OUT_DIR, help="journal directory (default %(default)s)"
+    )
     args = parser.parse_args()
 
     items = json.loads(SOURCE.read_text(encoding="utf-8"))
@@ -61,11 +65,9 @@ def main() -> None:
             continue
         seen.setdefault((domain, int(year_text)), item.get("identifier", ""))
 
-    conn = duckdb.connect(str(STORE), read_only=True)
+    conn = connect_read_only_patiently(STORE)
     try:
-        attested = {
-            r[0] for r in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
+        attested = held.attested(conn, {domain for domain, _ in seen})
     finally:
         conn.close()
 
@@ -85,17 +87,15 @@ def main() -> None:
         (dated if domain in attested else candidates).append(record)
 
     print(f"in-window pairs: {len(seen):,}")
-    print(f"  corroborated (another source places the domain in an annual file): {len(dated):,}")
-    print(
-        f"  uncorroborated (candidate pool only)                             : {len(candidates):,}"
-    )
+    print(f"  corroborated (dated by us or named exactly in his files): {len(dated):,}")
+    print(f"  uncorroborated (candidate pool only)                    : {len(candidates):,}")
     if not args.write:
         print("dry run; pass --write to create both journals")
         return
 
     for path, batch in (
-        (OUT_DIR / "tucows_dated.jsonl.gz", dated),
-        (OUT_DIR / "tucows_candidates.jsonl.gz", candidates),
+        (args.out / "tucows_dated.jsonl.gz", dated),
+        (args.out / "tucows_candidates.jsonl.gz", candidates),
     ):
         with journal_writer(path) as fh:
             for record in batch:

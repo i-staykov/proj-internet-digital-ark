@@ -1,9 +1,10 @@
 """Copy off-site what nothing else could bring back, and check it without downloading.
 
-The payload is not everything on disk. It is the entries of `docs/retention.md` that
+The payload is not everything on disk. It is the entries of `docs/registers/retention.md` that
 are neither regenerable by a recipe nor refetchable from somebody else:
 
   * `keep_journal`, our own collectors' output, which nobody else holds;
+  * `keep_authority`, the provenance Parquet the store is rebuilt from;
   * `reference` that arrived by mail as a reviewer release, the archived releases
     of `data/archive/` among them, or whose refetch cell names nobody, which is
     every frozen `submissions/phase-*`;
@@ -14,12 +15,16 @@ are neither regenerable by a recipe nor refetchable from somebody else:
     already recorded in `data/raw/usenet_catalog.json`.
 
 Everything else stays local only: a recipe rebuilds it, or a URL in its row fetches
-it. `private/` has no row and so can never appear (C-62).
+it. `private/` has no row and so can never appear.
 
     uv run python scripts/round/offsite.py --manifest        # price the payload
     uv run python scripts/round/offsite.py --upload          # print the commands
     uv run python scripts/round/offsite.py --upload --yes    # run them
     uv run python scripts/round/offsite.py --verify          # remote against manifest
+
+`--entry PATH`, repeatable, narrows `--upload` and `--verify` to those manifest rows, so a
+round can go to Drive without the whole payload going first. A narrowed `--verify` writes a
+receipt for exactly the rows it checked.
 
 `--manifest` writes `data/offsite-manifest.tsv` (untracked, like the `SHA256SUMS`
 files it reads) and refuses any entry whose row carries no checksum record: an
@@ -31,17 +36,21 @@ uploaded for the purpose: all three hashes came back populated and the sha256
 matched the local file, so each file is compared with the hash its own local
 manifest holds (sha256, or IA's sha1 for the Usenet zips in `SHA1SUMS`).
 
-Deleting the local bytes afterwards is a separate ticket. This script never deletes
-anything, locally or on the remote.
+Verification records per-file receipts under data/logs/, valid for 24 hours and bound
+to local file identity and timestamps. Unchanged files reuse their local hash; remote
+hashes are checked on every run. This script never deletes local or remote data.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
+import stat
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,6 +60,8 @@ REPO = HERE.parents[1]
 REMOTE = "gdrive:ark-offsite"
 MANIFEST = "data/offsite-manifest.tsv"
 LOGS = "data/logs"
+RECEIPT = "data/logs/offsite-verified.json"
+MAX_AGE = 24 * 3600
 COLUMNS = ("entry", "class", "bytes", "files", "digest", "reason")
 
 # The two corpora archive.org can serve again, by name, so the rule that holds every
@@ -58,7 +69,7 @@ COLUMNS = ("entry", "class", "bytes", "files", "digest", "reason")
 REFETCHABLE = {"data/raw/usenet_bulk", "data/raw/usenet_new"}
 
 # Written beside the data by verify_raw.py, so not part of any entry's own manifest.
-SIDECARS = ("SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat")
+SIDECARS = ("SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", "DELETED.tsv")
 
 
 def _load(name: str):
@@ -80,6 +91,8 @@ def reason(entry) -> str | None:
     """Why this entry must go off-site, or None when something else can bring it back."""
     if Path(entry.key).name == ".DS_Store":
         return None
+    if entry.cls == "keep_authority":
+        return "the evidence authority, the store rebuilds from it"
     if entry.cls == "keep_journal":
         return "our own collector wrote it, nobody else holds it"
     if entry.cls == "reference":
@@ -149,7 +162,7 @@ def payload(entries: list) -> tuple[list[Row], list[tuple[str, str]], list[str]]
 
 def render(rows: list[Row]) -> str:
     out = [
-        "# Off-site payload: the entries of docs/retention.md that are neither",
+        "# Off-site payload: the entries of docs/registers/retention.md that are neither",
         "# regenerable nor refetchable. Written by scripts/round/offsite.py --manifest.",
         "\t".join(COLUMNS),
     ]
@@ -260,7 +273,9 @@ class Check:
     @property
     def verified(self) -> bool:
         """Every file the manifest names is on the remote with the hash it should have."""
-        return bool(self.matched) and not (self.differ or self.missing or self.nohash)
+        return len(self.matched) == self.row.files > 0 and not (
+            self.differ or self.missing or self.nohash or self.note
+        )
 
 
 def remote_listing(row: Row, root: Path, remote: str) -> tuple[dict[str, dict], str]:
@@ -278,7 +293,11 @@ def remote_listing(row: Row, root: Path, remote: str) -> tuple[dict[str, dict], 
         if "not found" in (done.stderr or "").lower():
             return {}, "nothing at that remote path"
         return {}, last[0][:120]
-    return {obj["Path"]: obj for obj in json.loads(done.stdout or "[]")}, ""
+    objects = json.loads(done.stdout or "[]")
+    listing = {obj["Path"]: obj for obj in objects}
+    if len(listing) != len(objects):
+        return {}, "duplicate remote paths"
+    return listing, ""
 
 
 def check_entry(row: Row, root: Path, remote: str) -> Check:
@@ -310,6 +329,125 @@ def check_entry(row: Row, root: Path, remote: str) -> Check:
             res.differ.append(rel)
     res.extra = sorted(set(listing) - set(expect))
     return res
+
+
+def signature(root: Path, path: Path) -> list[int]:
+    """Only regular files below root, with no symlink in any path component."""
+    rel = path.relative_to(root)
+    if not rel.parts or any(p in ("..", "private") for p in rel.parts):
+        raise ValueError(f"unsafe local path: {rel}")
+    for parent in (path, *path.parents):
+        if parent == root:
+            break
+        if parent.is_symlink():
+            raise ValueError(f"symlink refused: {rel}")
+    st = path.stat()
+    if not stat.S_ISREG(st.st_mode):
+        raise ValueError(f"not a regular file: {rel}")
+    return [st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns]
+
+
+def local_files(root: Path, path: Path) -> dict[str, list[int]]:
+    """Inventory without following links or omitting unmanifested payload files."""
+    if path.is_file():
+        return {path.name: signature(root, path)}
+    if not path.is_dir() or path.is_symlink():
+        raise ValueError(f"missing directory or symlink: {path}")
+    out = {}
+    for child in sorted(path.rglob("*")):
+        if child.is_symlink():
+            raise ValueError(f"symlink refused: {child}")
+        if child.is_dir():
+            continue
+        if child.parent == path and child.name in SIDECARS:
+            continue
+        out[child.relative_to(path).as_posix()] = signature(root, child)
+    return out
+
+
+def read_receipt(root: Path, remote: str = REMOTE) -> dict:
+    try:
+        saved = json.loads((root / RECEIPT).read_text())
+        age = time.time() - saved["verified_at"]
+        if (
+            saved["version"] == 1
+            and saved["root"] == str(root.resolve())
+            and saved["remote"] == remote
+            and 0 <= age <= MAX_AGE
+            and isinstance(saved["files"], dict)
+        ):
+            return saved["files"]
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return {}
+
+
+def write_receipt(root: Path, remote: str, files: dict) -> None:
+    target = root / RECEIPT
+    target.parent.mkdir(parents=True, exist_ok=True)
+    saved = {
+        "version": 1,
+        "root": str(root.resolve()),
+        "remote": remote,
+        "verified_at": time.time(),
+        "files": files,
+    }
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(json.dumps(saved, sort_keys=True) + "\n")
+    temporary.replace(target)
+
+
+def pin_local(check: Check, root: Path, previous: dict) -> dict:
+    """Bind a remote match to the current local bytes, not just a checksum sidecar."""
+    if not check.verified:
+        return {}
+    local = check.row.local(root)
+    expected = expected_files(root, check.row.entry)
+    before = local_files(root, local)
+    if set(before) != set(expected) or sum(s[2] for s in before.values()) != check.row.size:
+        raise ValueError(
+            "local inventory differs from manifest; run just verify raw and --manifest"
+        )
+    pinned = {}
+    for rel, (kind, digest) in expected.items():
+        path = local if local.is_file() else local / rel
+        key = path.relative_to(root).as_posix()
+        record = {"stat": before[rel], "kind": kind, "digest": digest.lower()}
+        if previous.get(key) != record:
+            with path.open("rb") as stream:
+                if hashlib.file_digest(stream, kind).hexdigest() != digest.lower():
+                    raise ValueError(f"local checksum differs: {key}")
+        pinned[key] = record
+    if local_files(root, local) != before:
+        raise ValueError("local files changed during verification")
+    return pinned
+
+
+def deletion_proof(root: Path, path: Path) -> list[int]:
+    """Require a fresh receipt, unchanged local bytes and a current remote hash match."""
+    key = path.relative_to(root).as_posix()
+    current = signature(root, path)
+    record = read_receipt(root).get(key)
+    if not record or record.get("stat") != current:
+        raise ValueError(f"no current off-site receipt for {key}; run just verify offsite --verify")
+    kind, digest = record["kind"], record["digest"]
+    if kind not in ("sha256", "sha1"):
+        raise ValueError(f"unsupported checksum for {key}")
+    done = rclone(
+        ["lsjson", "--stat", "--hash", "--hash-type", kind, f"{REMOTE}/{key}"], check=False
+    )
+    if done.returncode:
+        raise ValueError(f"remote check failed for {key}")
+    obj = json.loads(done.stdout)
+    if (
+        obj.get("IsDir")
+        or obj.get("Size") != current[2]
+        or (obj.get("Hashes") or {}).get(kind, "").lower() != digest
+    ):
+        raise ValueError(f"remote file missing, changed or unhashed: {key}")
+    if signature(root, path) != current:
+        raise ValueError(f"local file changed during remote check: {key}")
+    return current
 
 
 def verify_report(checks: list[Check], remote: str) -> list[str]:
@@ -393,13 +531,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--table", type=Path, default=None, help="retention table (default under --root)"
     )
+    ap.add_argument(
+        "--entry",
+        action="append",
+        default=[],
+        help="with --upload or --verify, only this manifest row (repeatable)",
+    )
     args = ap.parse_args(sys.argv[1:] if argv is None else argv)
 
-    root: Path = args.root
+    root: Path = args.root.resolve()
     manifest = root / MANIFEST
 
     if args.manifest:
-        table = args.table or root / "docs/retention.md"
+        table = args.table or root / "docs/registers/retention.md"
         entries = prune.read_table(table)
         rows, refused, empty = payload(entries)
         held = [(e.key, held_because(e), e.size or 0) for e in entries if reason(e) is None]
@@ -408,16 +552,34 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(manifest_report(rows, refused, empty, held, manifest)))
         return 1 if refused else 0
 
+    previous = read_receipt(root, args.remote) if args.verify else {}
+    if args.verify:
+        write_receipt(root, args.remote, {})
     if not manifest.is_file():
         print(f"{manifest} is missing: run --manifest first.", file=sys.stderr)
         return 2
     rows = read_manifest(manifest)
+    if args.entry:
+        unknown = sorted(set(args.entry) - {row.entry for row in rows})
+        if unknown:
+            print(f"not in {manifest.name}: {', '.join(unknown)}", file=sys.stderr)
+            return 2
+        rows = [row for row in rows if row.entry in args.entry]
 
     if args.upload:
         print("\n".join(upload(rows, root, args.remote, args.yes)))
         return 0
 
-    checks = [check_entry(r, root, args.remote) for r in rows]
+    checks, pinned = [], {}
+    for row in rows:
+        check = Check(row)
+        try:
+            check = check_entry(row, root, args.remote)
+            pinned.update(pin_local(check, root, previous))
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+            check.note = str(exc)
+        checks.append(check)
+    write_receipt(root, args.remote, pinned)
     print("\n".join(verify_report(checks, args.remote)))
     return 0 if all(c.verified for c in checks) else 1
 

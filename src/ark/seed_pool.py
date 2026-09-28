@@ -1,45 +1,32 @@
 """The auxiliary seed pool: hostnames and URLs, not registered domains.
 
-Backs `ark seed-pool`. Not to be confused with `ark.seed`, which reads a list of
-candidate domains INTO the store and queues them for verification; this module
-writes download seeds OUT of evidence already held.
+Backs `ark seed-pool`, the opposite way to `ark.seed`: that reads candidate domains INTO the
+store, this writes download seeds OUT of evidence already held. Brief I asks for historical
+URL seeds and IV.2 permits an auxiliary pool with no year evidence of its own. **These seeds
+do not replace annual hostname records**, which IV.8 requires to carry their own evidence.
 
-Brief III.8 fixes the registered domain as the counting unit, so `foo.com`,
-`www.foo.com` and `shop.foo.com` are one line in the annual files. That is the
-right unit for counting and the wrong unit for downloading: a crawler handed
-`foo.com` never sees the pages that only ever existed at `shop.foo.com`. Brief I
-asks for historical URL seeds alongside the domain lists, and III.2 names an
-auxiliary seed pool as a legitimate home for data that carries no year evidence
-of its own.
-
-This module rebuilds that lost granularity without a second parser. Every bulk
-parser already yields `BulkRecord.raw`, the value exactly as the source wrote it,
-before canonicalization; the annual files keep the canonical form and the seed
-pool keeps the raw one. Reusing the same parsers is the point: a seed can never
-disagree with the evidence it came from, because both are read from one pass over
-one file.
-
-Only seeds whose raw form differs from the registered domain are kept, since a
-raw value equal to the domain adds nothing a year file does not already carry.
+No second parser: every bulk parser already yields `BulkRecord.raw`, the value exactly as
+the source wrote it, so a seed cannot disagree with the evidence it came from. Only seeds
+whose raw form differs from the registered domain are kept.
 
 Shipped, under `output/seeds/`:
-  `download_seeds.txt`     the download list: one distinct raw hostname or URL
-                           per line, sorted
-  `download_seeds.csv`     the same seeds with the registered domain, the year
-                           the source dates them to, and the source name
+  `download_seeds.txt`     one distinct raw hostname or URL per line, sorted
+  `download_seeds.csv`     the same seeds with domain, year and source name
 
-Intermediate, under `data/seeds/parts/`: one CSV per source, so re-running a
-source replaces only its own rows. Not shipped, because the two files above
-already hold everything in it.
+Intermediate, under `data/seeds/parts/`: one CSV per source, so re-running a source replaces
+only its own rows.
 """
 
 import csv
+import tempfile
 from collections import Counter
 from pathlib import Path
 
 import duckdb
 from loguru import logger
 
+from ark import db as ark_db
+from ark import held
 from ark.bulk import SourceSpec
 from ark.canonical import to_registrable
 from ark.ingest import YEARS
@@ -72,7 +59,7 @@ def write_source_part(spec: SourceSpec, paths: list[Path], parts_dir: Path = PAR
                     stats["unusable"] += 1
                     continue
                 if record.raw == domain:
-                    # already the counting unit, so the year files hold it
+                    # no extra retrieval granularity beyond this parser's registrable
                     stats["no_extra_granularity"] += 1
                     continue
                 key = (record.raw, record.year)
@@ -93,9 +80,8 @@ def combine_parts(
 ) -> dict[str, int]:
     """Merge every part file into the two shipped seed files.
 
-    Given a store connection, also reports how many seeds belong to domains the
-    baseline did not have, which is the figure that says whether the pool is
-    worth downloading.
+    Given a store connection, also reports how many of the seeds' domains his files do
+    not hold, which is the figure that says whether the pool is worth downloading.
     """
     parts = sorted(parts_dir.glob("*.csv"))
     if not parts:
@@ -106,6 +92,7 @@ def combine_parts(
     # never carried between two connections in Python. Doing that with
     # executemany once took minutes and held the store's write lock throughout.
     owned = conn is None
+    his = None if owned else held.load()
     db = duckdb.connect(":memory:") if owned else conn
     union = " UNION ALL ".join(
         f"SELECT seed, domain, year, '{p.stem}' AS source FROM read_csv_auto('{p}')" for p in parts
@@ -132,15 +119,17 @@ def combine_parts(
         "domains": db.execute("SELECT count(DISTINCT domain) FROM seed_pool").fetchone()[0],
     }
     if not owned:
-        result["domains_not_in_baseline"] = db.execute(
-            """
-            SELECT count(*) FROM (SELECT DISTINCT domain FROM seed_pool) sd
-            WHERE NOT EXISTS (
-                SELECT 1 FROM evidence e
-                WHERE e.domain = sd.domain AND e.evidence_type = 'prior_reused'
+        Path(ark_db.DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=ark_db.DB_TEMP_DIR) as tmp:
+            names = Path(tmp) / "domains.txt"
+            # `dump` refuses a byte our names never hold: one odd part row must not fail it
+            held.dump(
+                db,
+                "SELECT DISTINCT domain FROM seed_pool "
+                "WHERE regexp_matches(domain, '^[a-z0-9.-]+$') ORDER BY 1",
+                names,
             )
-            """
-        ).fetchone()[0]
+            result["domains_not_in_his_files"] = held.minus(names, his.all, Path(tmp) / "new.txt")
 
     db.execute("DROP TABLE IF EXISTS seed_pool")
     if owned:

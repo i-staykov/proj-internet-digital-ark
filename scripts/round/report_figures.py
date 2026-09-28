@@ -16,19 +16,20 @@ Everything is read-only, so it is safe to run while the collectors are working.
 import argparse
 import json
 import sys
+import tempfile
 from decimal import Decimal
 from pathlib import Path
 
 import duckdb
 
-from ark.db import connect_read_only_patiently
+from ark.db import DB_TEMP_DIR, connect_read_only_patiently
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from ark.baseline import CURRENT_BASELINE_MARKER  # noqa: E402
-from ark.delegation import shipping_filter as _shipping_filter  # noqa: E402
+from ark import held  # noqa: E402
+from ark.baseline import CURRENT_BASELINE_MARKER, REVIEWER_BASELINE_EE  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.stats import REVIEWER_BASELINE_EE  # noqa: E402
+from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 
@@ -38,66 +39,56 @@ DB = Path("data/ark.duckdb")
 # figures were right and the label was wrong, which is the harder kind to catch.
 BASELINE = CURRENT_BASELINE_MARKER
 
-# The marginal contribution: pairs this project added that the shared baseline
-# does not already hold. `prior_reused` is the evidence type recording that a
-# pair came from the baseline, so its absence is what "net-new" means.
-NOT_BASELINE = """
-    NOT EXISTS (
-        SELECT 1 FROM evidence p
-        WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-          AND p.evidence_type = 'prior_reused'
-    )
+# **The net-new pairs are the export's own.** Our assignments, each on a capture of exactly
+# its name, less `.arpa` and TLDs that did not exist in the year, then minus his file for
+# the year by exact name: `netnew_pair` is what the year files hold, so no table here counts
+# a row the shipped files do not carry.
+_NETNEW = """
+    FROM netnew_pair np
+    JOIN evidence e ON e.evidence_id = np.evidence_id
+    JOIN source s ON s.source_id = e.source_id
 """
 
-# The rows that reach a shipped file. `ark export` drops `.arpa` and any pair whose
-# TLD did not exist in its year, so counting without the same predicate describes the
-# store rather than the delivery: the report said 1,929,667 pairs, 1,660,237 domains
-# and a 2,380,575-line candidate pool beside annual files holding 1,929,655, 1,660,226
-# and 2,380,517. Found 2026-08-26 by grepping the shipped manifest for the round's
-# largest source and getting four fewer pairs than the report printed.
-SHIPPED = _shipping_filter("dy.")
-CANDIDATES_SHIPPED = _shipping_filter("d.", with_year=False)
 
-
-def figures(conn: duckdb.DuckDBPyConnection) -> dict:
+def figures(conn: duckdb.DuckDBPyConnection, baseline: Path | None = None) -> dict:
     out: dict = {}
+    his = held.load(baseline)
+    if not CANDIDATES_PATH.is_file():
+        raise SystemExit(f"{CANDIDATES_PATH} is missing: run ark export")
+    Path(DB_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=DB_TEMP_DIR) as tmp:
+        held.claim_pairs(conn)
+        held.netnew(conn, his, Path(tmp))
+        held.held_any(conn, his, Path(tmp))
 
     out["netnew_by_year"] = {
         int(y): int(n)
-        for y, n in conn.execute(f"""
-            SELECT assigned_year, count(*) FROM domain_year dy
-            WHERE {NOT_BASELINE} AND {SHIPPED} GROUP BY 1 ORDER BY 1
-        """).fetchall()
+        for y, n in conn.execute(
+            "SELECT year, count(*) FROM netnew_pair GROUP BY 1 ORDER BY 1"
+        ).fetchall()
     }
     out["netnew_pairs"] = sum(out["netnew_by_year"].values())
     out["netnew_unique_domains"] = conn.execute(
-        f"SELECT count(DISTINCT domain) FROM domain_year dy WHERE {NOT_BASELINE} AND {SHIPPED}"
+        "SELECT count(DISTINCT domain) FROM netnew_pair"
     ).fetchone()[0]
 
-    # Genuinely new DOMAINS: a name the baseline does not hold in any year at
-    # all, which is a stricter and much smaller claim than a new pair.
-    out["netnew_domains_absent_from_baseline"] = conn.execute(f"""
-        SELECT count(*) FROM (
-            SELECT DISTINCT dy.domain FROM domain_year dy
-            WHERE NOT EXISTS (
-                SELECT 1 FROM evidence p
-                WHERE p.domain = dy.domain AND p.evidence_type = 'prior_reused'
-            )
-            AND {SHIPPED}
-        )
-    """).fetchone()[0]
+    # Genuinely new DOMAINS: a name his files do not hold in any year at all, which is
+    # a stricter and much smaller claim than a new pair.
+    out["netnew_domains_absent_from_baseline"] = conn.execute(
+        "SELECT count(DISTINCT domain) FROM netnew_pair "
+        "WHERE domain NOT IN (SELECT name FROM held_any)"
+    ).fetchone()[0]
 
     # Additions whose year is backed by an archive capture specifically, as opposed
     # to a registry date or a dated artifact. NOT a claim that the rest have no
     # capture, only that these are the ones the store already names one for.
     out["capture_backed_by_year"] = {
         int(y): int(n)
-        for y, n in conn.execute(f"""
-            SELECT dy.assigned_year, count(*)
-            FROM domain_year dy
-            WHERE {NOT_BASELINE} AND EXISTS (
+        for y, n in conn.execute("""
+            SELECT np.year, count(*) FROM netnew_pair np
+            WHERE EXISTS (
                 SELECT 1 FROM evidence c
-                WHERE c.domain = dy.domain AND c.evidence_year = dy.assigned_year
+                WHERE c.domain = np.domain AND c.evidence_year = np.year
                   AND c.evidence_type = 'cdx_timestamp'
             )
             GROUP BY 1 ORDER BY 1
@@ -112,14 +103,9 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     # reported only in pairs looks stronger or weaker than it is.
     weights = english_weights()
     ee_by_source: dict[str, Decimal] = {}
-    for name, tld, n in conn.execute(f"""
-        SELECT s.name, split_part(dy.domain, '.', -1), count(*)
-        FROM domain_year dy
-        JOIN evidence e ON e.evidence_id = dy.evidence_id
-        JOIN source s ON s.source_id = e.source_id
-        WHERE {NOT_BASELINE} AND {SHIPPED}
-        GROUP BY 1, 2
-    """).fetchall():
+    for name, tld, n in conn.execute(
+        f"SELECT s.name, split_part(np.domain, '.', -1), count(*) {_NETNEW} GROUP BY 1, 2"
+    ).fetchall():
         ee_by_source[name] = ee_by_source.get(name, Decimal(0)) + weights.get(tld, Decimal(0)) * n
     # The evidence type each source's assignments actually carry, read from the
     # rows rather than from a table of intentions. This is the column the reviewer
@@ -137,12 +123,8 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
             "ee": ee_by_source.get(s, Decimal(0)),
         }
         for s, k, etype, p, d in conn.execute(f"""
-            SELECT s.name, s.kind, e.evidence_type, count(*), count(DISTINCT dy.domain)
-            FROM domain_year dy
-            JOIN evidence e ON e.evidence_id = dy.evidence_id
-            JOIN source s ON s.source_id = e.source_id
-            WHERE {NOT_BASELINE} AND {SHIPPED}
-            GROUP BY 1, 2, 3 ORDER BY 4 DESC
+            SELECT s.name, s.kind, e.evidence_type, count(*), count(DISTINCT np.domain)
+            {_NETNEW} GROUP BY 1, 2, 3 ORDER BY 4 DESC
         """).fetchall()
     ]
     out["by_source"].sort(key=lambda r: r["ee"], reverse=True)
@@ -160,22 +142,12 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     out["ee_baseline"] = REVIEWER_BASELINE_EE
     out["ee_mean_weight"] = netnew_ee / out["netnew_pairs"] if out["netnew_pairs"] else Decimal(0)
 
-    # Baseline pairs per year, by THIS counting unit, so the growth percentages in
-    # the completeness table are derived rather than copied. merged260730 ships
-    # 10,263,632 raw lines; collapsed to registered domains under SPEC III.8 that
-    # is what this measures, and the difference is a counting unit rather than a
-    # discrepancy.
-    out["baseline_by_year"] = {
-        int(y): int(n)
-        for y, n in conn.execute("""
-            SELECT dy.assigned_year, count(*) FROM domain_year dy
-            WHERE EXISTS (
-                SELECT 1 FROM evidence p
-                WHERE p.domain = dy.domain AND p.evidence_year = dy.assigned_year
-                  AND p.evidence_type = 'prior_reused'
-            )
-            GROUP BY 1 ORDER BY 1
-        """).fetchall()
+    # His lines per year, hostnames included, as `ark intake` counted his files; against them,
+    # our additions in both units, the registrable and the hostname file of the year.
+    out["baseline_by_year"] = {year: his.counts[str(year)] for year in his.years}
+    hosts = {year: NETNEW_DIR / f"{year}_hostnames.txt" for year in his.years}
+    out["hostname_lines_by_year"] = {
+        year: held.lines(path) if path.is_file() else 0 for year, path in hosts.items()
     }
     out["baseline_pairs"] = sum(out["baseline_by_year"].values())
 
@@ -184,20 +156,17 @@ def figures(conn: duckdb.DuckDBPyConnection) -> dict:
     # the shared merged baseline". Once the reviewer reissues the baseline that
     # split answers itself: everything net-new against the CURRENT release was
     # harvested after he last merged, because anything older is already in it.
-    # This used to subtract a hardcoded 32,698, which stopped meaning anything the
-    # moment the baseline moved and would have silently understated the round.
+    # A hardcoded subtraction stops meaning anything the moment the baseline moves
+    # and silently understates the round.
     out["harvested_this_round"] = out["netnew_pairs"]
 
     out["syntax_anomalous"] = 0
 
-    out["candidate_pool"] = conn.execute(f"""
-        SELECT count(*) FROM (
-            SELECT DISTINCT d.domain FROM domain d
-            WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-            AND {CANDIDATES_SHIPPED}
-        )
-    """).fetchone()[0]
+    # The pool the export shipped, which holds no name of his; the store's undated
+    # domains still count names his files hold.
+    out["candidate_pool"] = held.lines(CANDIDATES_PATH)
 
+    # The store holds only our rows and the names we know, so each table counts whole.
     out["store"] = {
         "pairs_total": conn.execute("SELECT count(*) FROM domain_year").fetchone()[0],
         "domains_total": conn.execute("SELECT count(*) FROM domain").fetchone()[0],
@@ -300,10 +269,10 @@ def markdown(f: dict) -> str:
 
     add("### Completeness")
     add("")
-    add("| Year | Additions | Growth vs baseline | Under 10,000? | Under 0.1%? |")
+    add("| Year | Additions, both units | Growth vs his lines | Under 10,000? | Under 0.1%? |")
     add("|---|--:|--:|:-:|:-:|")
     for year in sorted(f["netnew_by_year"]):
-        added = f["netnew_by_year"][year]
+        added = f["netnew_by_year"][year] + f["hostname_lines_by_year"].get(year, 0)
         base = f["baseline_by_year"].get(year, 0)
         growth = 100.0 * added / base if base else 0.0
         add(

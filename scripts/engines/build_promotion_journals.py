@@ -4,8 +4,7 @@
 that year only if some other source already places that domain in an annual file.
 Names that failed that test when they were first read have since been dated by the
 CDX and RDAP engines, so the same unchanged rule, applied to a store that has grown,
-admits them now. The staged re-split called this category `PROMOTED` since
-2026-08-06, when it was 4,154 pairs.
+admits them now. The staged re-split calls this category `PROMOTED`.
 
 **It is a re-file rather than a re-parse.** Each mention source has a dated sibling
 that shares the *same parser and the same journal format*, differing only in the
@@ -17,18 +16,19 @@ reconstructed from the evidence row, since the loader stores `evidence_value` as
 
 **Three filters, and the last two are the ones that matter.**
 
-  corroborated  the domain is placed in an annual file by a source that is neither
-                the Usenet corpus itself, nor the baseline. Without that exclusion
-                the corpus corroborates itself.
+  corroborated  one of our assignments places the domain in an annual file, on a
+                row from a source other than the Usenet corpus itself. Without that
+                exclusion the corpus corroborates itself.
 
-  not already   the pair is not in `domain_year` and carries no baseline evidence,
-                so nothing here can inflate the net-new figure with rows we hold.
+  not already   the pair is not one of our assignments and his file for that year
+                does not hold the exact name, so nothing here can inflate the
+                net-new figure with pairs already held.
 
   not contra-   the registry does not say the domain was created AFTER the year the
   dicted        message claims. Measured 2026-08-15: 35.0% of the raw promotion set
                 fails this against 16.5% of the Usenet pairs the store has already
-                accepted, so the promotion population was twice as contradicted as
-                the accepted one until this filter was added. Registry dates read
+                accepted, so without this filter the promotion population is twice
+                as contradicted as the accepted one. Registry dates read
                 late for a re-registered name, which inflates both figures; the
                 comparison is what justifies the filter, not the absolute level.
 
@@ -51,16 +51,16 @@ printed rather than run.
 
 import argparse
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from decimal import Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
+from ark import held  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
 from ark.journal import journal_writer, write_journal_line  # noqa: E402
-from ark.stats import BASELINE_TYPE  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
 OUT_DIR = Path("data/staging/promotion")
@@ -92,8 +92,7 @@ corroborated AS (
   SELECT DISTINCT dy.domain FROM domain_year dy
   JOIN evidence e2 ON e2.evidence_id = dy.evidence_id
   JOIN source s2 ON s2.source_id = e2.source_id
-  WHERE e2.evidence_type NOT IN ('link_target', '{baseline}')
-    AND s2.name NOT LIKE 'usenet%' AND s2.name <> 'prior_task'
+  WHERE e2.evidence_type <> 'link_target' AND s2.name NOT LIKE 'usenet%'
 ),
 created AS (
   SELECT domain, min(evidence_year) AS first_year FROM evidence
@@ -104,9 +103,6 @@ FROM mention m LEFT JOIN created c ON c.domain = m.domain
 WHERE m.domain IN (SELECT domain FROM corroborated)
   AND NOT EXISTS (
     SELECT 1 FROM domain_year dy WHERE dy.domain = m.domain AND dy.assigned_year = m.y)
-  AND NOT EXISTS (
-    SELECT 1 FROM evidence b WHERE b.domain = m.domain AND b.evidence_year = m.y
-      AND b.evidence_type = '{baseline}')
   AND (c.first_year IS NULL OR m.y >= c.first_year)
 """
 
@@ -130,8 +126,14 @@ def journal_line(domain: str, year: int, value: str, url: str | None) -> dict:
     return record
 
 
-def select(conn, mention_source: str) -> list[tuple]:
-    return conn.execute(_SELECT.format(baseline=BASELINE_TYPE), [mention_source]).fetchall()
+def select(conn, mention_source: str, his: held.Held) -> list[tuple]:
+    """The promotable mentions of one source, less the pairs his file for that year holds."""
+    rows = conn.execute(_SELECT, [mention_source]).fetchall()
+    by_year: dict[int, set[str]] = defaultdict(set)
+    for domain, year, _v, _u in rows:
+        by_year[year].add(domain)
+    his_pairs = {(d, y) for y, names in by_year.items() for d in held.names_in(names, his.year(y))}
+    return [row for row in rows if (row[0], row[1]) not in his_pairs]
 
 
 def main() -> None:
@@ -141,13 +143,17 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=OUT_DIR)
     args = parser.parse_args()
 
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
     conn = connect_read_only_patiently(STORE, patience_s=900)
     try:
         seen: set[tuple[str, int]] = set()
         total_pairs = 0
         commands: list[str] = []
         for mention_source, ingest_key in PROMOTION.items():
-            rows = select(conn, mention_source)
+            rows = select(conn, mention_source, his)
             weighed = sum(
                 (weight_of(domain.rsplit(".", 1)[-1]) for domain, _y, _v, _u in rows),
                 Decimal(0),

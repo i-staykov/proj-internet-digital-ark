@@ -5,27 +5,28 @@
 # dependencies live inside source/ and are not available until a reviewer has
 # already decided to trust the contents.
 #
-# Ten checks, each printed with its own verdict (D3 prints two):
-#   1. every file matches SHA256SUMS
-#   2. the six annual addition files, with their pair counts
-#   3. every one of those pairs is present in the evidence manifest
-#   2b, 3b. the same two for the hostname files, plus that they repeat no registrable line
-#   4. every assignment in the provenance export cites evidence shipped beside it
-#   5. the code snapshot carries its dependency manifest and lockfile          (D1)
-#   6. the experience summary is here and covers what he asked it to cover     (D2)
-#   7. the merge audit is here and every reconciliation check in it passed     (D3)
-#   8. his own calculator runs here and reproduces the audit's baseline figure (D4)
+# The verdicts, in the order printed: checksums; the annual addition files and their counts;
+# an evidence row for every addition; the hostname files, disjoint from the registrable files,
+# and an evidence row for each; the ISC candidate collection reconciled against the reference
+# release; the header candidate collection complete and inside the claim; the evidence wall
+# (every provenance assignment cites an evidence row shipped here); then the four deliverables
+# D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
+# asked, every merge reconciliation check passed and agrees with the shipped files, and the
+# reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
+# research questions folders, their questions, headings, labels and files.
 #
-# Checks 5 to 8 police the four deliverables he added on 2026-08-17, called D1 to D4
-# throughout this project. They are checks rather than a checklist for one reason: the
-# evidence wall broke in a shipped archive because the requirement lived only in
-# prose, and check 4 exists because of that.
+# Checks 5 to 8 police the four deliverables he added, called D1 to D4 throughout
+# this project. They are checks rather than a checklist because a requirement that
+# lives only in prose breaks in a shipped archive.
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
 cd "${1:-$(dirname "$0")}"
 
 fail=0
+# The labelled verdicts a full archive prints. Packaging refuses a reproduction note that
+# names another count, and tests/test_orq.py counts the labels in this file against it.
+VERDICTS=14
 say() { printf '%-46s %s\n' "$1" "$2"; }
 
 # --- 1. file integrity -------------------------------------------------------
@@ -84,7 +85,7 @@ if missing:
     sys.exit(1)
 print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
 
-# The second output unit (accepted 2026-09-01): hostnames/NNNN_hostnames.txt, each line a
+# The second output unit: hostnames/NNNN_hostnames.txt, each line a
 # valid hostname beneath a registrable, each traced to its own capture in the hostname
 # manifest, and none of them repeating a line of the registrable file for that year.
 hostnames = {}
@@ -126,13 +127,57 @@ else:
 
 PY
 
+# ISC candidates require complete provenance and exact-name reconciliation across all years.
+if [ -d isc_survey_hostnames ]; then
+    if command -v uv >/dev/null 2>&1; then
+        marker=$(python3 -c 'import json; print(json.load(open("isc_survey_hostnames/isc_candidates_summary.json"))["baseline"])') && \
+        uv run --with duckdb --no-project python verify_isc_candidates.py \
+            --collection isc_survey_hostnames --baseline "baseline/$marker" \
+            --annual-dirs masters additions hostnames \
+            --weights isc_survey_hostnames/tld_english_share.json || fail=1
+    else
+        say "ISC candidates" "FAIL  needs uv (https://docs.astral.sh/uv/)"; fail=1
+    fi
+else
+    say "ISC candidates" "SKIP  no isc_survey_hostnames/ in this archive"
+fi
+
+# The header candidate collection: its count matches its summary, every name has a provenance
+# row, every name sits inside the candidate-track claim that counts it, and the exclusion
+# ledger of its validation run is here.
+if [ -d server_header_hostnames ]; then
+python3 - <<'PY' || fail=1
+import csv, json, sys
+from pathlib import Path
+def say(k, v): print(f"{k:<46} {v}")
+d = Path("server_header_hostnames")
+names = {l.strip() for l in (d / "header_candidates.txt").read_text().splitlines() if l.strip()}
+summary = json.loads((d / "header_candidates_summary.json").read_text())
+with (d / "header_candidates_provenance.csv").open(newline="") as f:
+    prov = {r["hostname"] for r in csv.DictReader(f)}
+claim = {l.strip() for l in Path("candidate_additions.txt").read_text().splitlines() if l.strip()}
+problems = []
+if len(names) != summary["candidates"]:
+    problems.append(f"{len(names)} names, summary says {summary['candidates']}")
+if names - prov:
+    problems.append(f"{len(names - prov)} names without a provenance row")
+if names - claim:
+    problems.append(f"{len(names - claim)} names outside candidate_additions.txt")
+if not (d / "header_candidates_exclusions.csv").is_file():
+    problems.append("no exclusion ledger")
+if problems:
+    say("header candidates", "FAIL  " + "; ".join(problems)); sys.exit(1)
+say("header candidates", f"PASS  {len(names)} names, each with a provenance row, each in the claim")
+PY
+else
+    say "header candidates" "SKIP  no server_header_hostnames/ in this archive"
+fi
+
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
-# Added 2026-08-17, after an archive shipped with 11,316,960 of 16,619,832
-# assignments pointing at an `evidence_id` that was not in the file beside them. A
-# packaging change had filtered the evidence table to save 429 MB; every check above
-# passed, because they all read the additions manifest and none of them read the
-# parquet. The archive's central claim is that any line of any annual file traces to
-# an observation IN THIS ARCHIVE, and nothing was testing it.
+# Every check above reads the additions manifest and none reads the parquet, so a
+# packaging change that filters the evidence table leaves assignments pointing at an
+# `evidence_id` not in the file beside them while all of them pass. The archive's central
+# claim is that any line of any annual file traces to an observation IN THIS ARCHIVE.
 #
 # `uv` is optional here on purpose: the rest of this script needs only coreutils and
 # python3, and a reviewer who has not installed uv should still get the first three
@@ -168,7 +213,7 @@ else
     say "evidence wall intact" "SKIP  no provenance export here"
 fi
 
-# --- 5 to 8. the four deliverables added on 2026-08-17 -----------------------
+# --- 5 to 8. the four added deliverables -------------------------------------
 python3 - <<'PY' || fail=1
 import json
 import subprocess
@@ -200,6 +245,7 @@ else:
         "scripts/round/merge_against_baseline.py": "the D3 merge and reconciliation",
         "scripts/round/round_figures.py": "the five headline figures",
         "src/ark/baseline.py": "which baseline the figures mean",
+        "scripts/round/orq.py": "the open research questions builder",
     }
     try:
         with tarfile.open(snapshot) as tf:
@@ -345,12 +391,105 @@ else:
 
 sys.exit(1 if fail else 0)
 PY
-# Three checks that once sat here are gone with the standard they policed: they verified
-# `additions_english/` against the additions and against `additions_unverified/`, and that
-# every rejection in `disqualified.csv` carried a reason. The reviewer retired the
-# page-level English standard in August 2026 and the archive stopped shipping all three
-# files, at which point the checks printed SKIP lines about folders that no longer exist.
-# A check that examines nothing reads like a check that found nothing wrong.
+# --- 9 (E1): the two open research questions folders -------------------------
+# Section IV-A asks for `Open Research Questions/` holding `Open Research Questions.docx`
+# with its code, logs, samples and screenshots beside it, and section X for `开放性研究问题/`
+# of plain-text answers under six headings. A missing folder fails; no screenshots warns.
+python3 - <<'PY' || fail=1
+import csv
+import gzip
+import html
+import re
+import sys
+import zipfile
+from pathlib import Path
+
+LABEL = "E1 open research questions"
+EN, ZH = Path("Open Research Questions"), Path("开放性研究问题")
+QUESTIONS = (
+    "How can historical web data from before 1996 be discovered and acquired at scale?",
+    "How can the year in which a website existed be determined more accurately?",
+)
+HEADINGS = (
+    "Proposed approaches",
+    "Completed related work or tests",
+    "Preliminary technical-feasibility findings",
+    "Preliminary practical-operability findings",
+    "Limitations",
+    "Next steps",
+)
+LABELS = {"Validated", "Tested, not independently verified", "Pending validation"}
+problems = [f"{folder}/ is missing" for folder in (EN, ZH) if not folder.is_dir()]
+
+
+def contents(path):
+    """Every byte a reader could see: a .docx is a zip and a .gz is compressed."""
+    if path.suffix == ".docx":
+        with zipfile.ZipFile(path) as z:
+            return b"".join(z.read(name) for name in z.namelist())
+    if path.suffix == ".gz":
+        return gzip.decompress(path.read_bytes())
+    return path.read_bytes()
+
+
+if not problems:
+    docx = EN / "Open Research Questions.docx"
+    try:
+        with zipfile.ZipFile(docx) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+    except (OSError, KeyError, zipfile.BadZipFile) as exc:
+        problems.append(f"{docx} unreadable: {exc}")
+        xml = ""
+    # A heading can be split across runs, so each paragraph's runs are joined first.
+    paragraphs = [
+        html.unescape("".join(re.findall(r"<w:t(?:\s[^>]*)?>([^<]*)</w:t>", p)))
+        for p in re.findall(r"<w:p[\s>].*?</w:p>", xml, re.S)
+    ]
+    for question in QUESTIONS:
+        if xml and not any(question in p for p in paragraphs):
+            problems.append(f"the docx does not ask: {question}")
+    answered = 0
+    for path in sorted(ZH.glob("*.txt")):
+        try:
+            text = path.read_bytes().decode("utf-8")
+        except UnicodeDecodeError:
+            problems.append(f"{path} is not UTF-8")
+            continue
+        lines = {line.strip() for line in text.splitlines()}
+        answered += bool(text.strip()) and set(HEADINGS) <= lines
+    if answered < 2:
+        problems.append(f"{answered} .txt answers carry the six headings, not 2")
+    tests = EN / "tests.csv"
+    if not tests.is_file():
+        problems.append("tests.csv is missing")
+    else:
+        with tests.open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        labels = {row.get("label", "") for row in rows}
+        if not rows or labels - LABELS:
+            problems.append(f"tests.csv labels outside the three: {sorted(labels - LABELS)}")
+        for row in rows:
+            for column in ("evidence", "code", "logs", "sample"):
+                if row.get(column) and not (EN / row[column]).exists():
+                    problems.append(f"tests.csv names a missing {row[column]}")
+    for path in sorted(p for folder in (EN, ZH) for p in folder.rglob("*")):
+        if path.is_symlink():
+            problems.append(f"{path} is a link, not a copy")
+        elif path.is_file():
+            try:
+                if b"private/" in contents(path):
+                    problems.append(f"{path} names private/")
+            except (OSError, zipfile.BadZipFile, EOFError) as exc:
+                problems.append(f"{path} unreadable: {exc}")
+
+if problems:
+    print(f"{LABEL:<46} FAIL  {'; '.join(problems[:5])}")
+    sys.exit(1)
+shots = [p for p in (EN / "screenshots").glob("*") if p.is_file()] if (EN / "screenshots").is_dir() else []
+print(f"{LABEL:<46} PASS  both folders, both questions, the six headings, three labels")
+if not shots:
+    print(f"{'':<46}       WARN  no screenshots/ beside the document")
+PY
 
 echo
 if [ "$fail" -eq 0 ]; then

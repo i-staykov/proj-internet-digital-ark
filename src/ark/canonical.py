@@ -45,28 +45,26 @@ extract = tldextract.TLDExtract(
     extra_suffixes=HISTORICAL_SUFFIXES,
 )
 
-# accepted label characters while parsing; underscores occur in real
-# 1996-2001 subdomains and are only rejected in the registered label
-_LABEL = re.compile(r"^[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?$")
+# accepted label characters while parsing; underscores occur in real 1996-2001 subdomains
+# and are only rejected in the registered label.
+#
+# **The `{0,61}` is RFC 1035's 63-character label limit, which his own calculator enforces.**
+# Without it the funnel admits names that cannot exist in DNS, such as 112-character joke
+# labels typed into Usenet posts, so it belongs here and not in a shipping filter.
+_LABEL = re.compile(r"^[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?$")
 # the registered label itself must be strictly valid DNS
-_STRICT_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+_STRICT_LABEL = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+# RFC 1035's total length, which his validator also enforces as `(?=.{1,253}\Z)`
+_MAX_HOST_LEN = 253
 # define pattern to match IPv4 addresses
 _IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}$")
 
 
-# **A reverse-DNS zone is not a website and never was.** `build_query_queue.py` already knew
-# this and refused to spend a capture request on one, but nothing stopped one being STORED, so
-# 64 of them reached the shipped annual files: `206.in-addr.arpa` and friends, harvested out of
-# Usenet `From:` headers and announcement bodies.
-#
-# The reason it matters more than 64 rows should is the weight. `.arpa` scores **1.0000** in the
-# CC-MAIN model, the highest value in the whole table, above `.mil` at 0.9981, so this is junk
-# concentrated in the top weight: exactly the shape law 5 describes. Ding's own validator accepts
-# `206.in-addr.arpa` as a well-formed domain, so his side would score it too.
-#
-# Found 2026-08-18 by a hunt lens that noticed `.arpa` entering the metric at weight 1. Rejected
-# here rather than at export, because this function is the single funnel every domain from every
-# source passes through before touching the database.
+# **A reverse-DNS zone is not a website and never was**, and `206.in-addr.arpa` reaches the
+# funnel from Usenet `From:` headers. It matters more than the row count because `.arpa`
+# scores **1.0000** in the CC-MAIN model, the highest weight in the table, and his validator
+# accepts it as well-formed. Rejected HERE rather than at export, this being the single
+# funnel every domain from every source passes before touching the database.
 _REVERSE_DNS = (".in-addr.arpa", ".ip6.arpa")
 
 
@@ -94,6 +92,8 @@ def _canonicalize(raw: str) -> tuple[str | None, str | None]:
         return None, "ip address, not a domain"
     if host.endswith(_REVERSE_DNS) or host in {"in-addr.arpa", "ip6.arpa"}:
         return None, "reverse-dns zone, not a website"
+    if len(host) > _MAX_HOST_LEN:
+        return None, "longer than 253 characters, so not a name DNS can carry"
     if not all(_LABEL.match(label) for label in host.split(".")):
         return None, "invalid hostname syntax"
     # extract domain and suffix using the pinned PSL plus historical ccTLDs

@@ -44,7 +44,7 @@ so a resume at another size converts its position.
 import argparse
 import gzip
 import json
-import sys
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -54,10 +54,12 @@ from pathlib import Path
 UA = "InternetDigitalArk/1.0 (+historical domain research; ivaylo.staykov@gmail.com)"
 BASE = "https://web.archive.org/cdx/search/cdx"
 OUT = Path("data/raw/cdx_suffix")
+# Consecutive 403s on the count probe before the parent is given up.
+MAX_COUNT_REFUSALS = 3
 # Researcher waves need the archive unthrottled; the fleet touches this flag before
 # dispatching agents and removes it after, and the sweep idles while it exists. A
 # flag file rather than systemctl, because the sweep runs as a plain user process.
-PAUSE_FLAG = Path("/tmp/ark-pause-sweeps")
+PAUSE_FLAG = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state")) / "pause"
 
 
 def fetch(params: dict, timeout: int) -> tuple[str, list[str]]:
@@ -99,35 +101,55 @@ def main() -> None:
             pass
     print(f"{args.suffix}: starting at page {page:,}, journal {journal.name}")
 
-    # An archive outage of a few minutes once cost thirteen parents in one walk,
-    # each refused on its first probe; a probe that fails is retried before the
-    # parent is given up on.
-    # An outage is waited out, not given up on: a bounded retry drained a queue into
-    # `platform_retry.txt` one parent per six minutes while the archive was down.
-    attempt = 0
-    while True:
-        status, rows = fetch({"url": "bbc.co.uk", "limit": 2}, args.timeout)
-        if status == "200":
-            break
-        attempt += 1
-        if time.time() > args.deadline:
-            sys.exit(f"control failed ({status}) at the deadline; refusing to sweep")
-        print(f"  control probe {attempt}: {status}, waiting", flush=True)
-        time.sleep(min(60 * attempt, 300))
-
     base = {
         "url": args.suffix,
         "matchType": "domain",
         "fl": "original,timestamp",
         "from": "1996",
         "to": "2001",
-        "filter": "statuscode:200",
+        # 2xx and 3xx, not 200 alone. A 3xx is a host that resolved and answered
+        # with a redirect, which is an observation of that hostname serving; measured 2.4% more
+        # rows for the same request, 98.6% of the extra net-new. 4xx and 5xx stay out: a 404
+        # shows the server answered, not that the hostname served anything.
+        "filter": "statuscode:[23][0-9][0-9]",
         "pageSize": args.page_size,
     }
     num_pages = None
     # `fl` turns the count into a row of dashes, so it is left out of this one query
     count_q = {k: v for k, v in base.items() if k != "fl"}
-    status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
+    # **This query is also the availability check.** A separate probe on a fixed small URL
+    # gates every parent behind a request the sweep does not otherwise need, and can answer
+    # 503 while this parent's own `matchType=domain` count answers 200 in 0.45 s, refusing
+    # work the archive is willing to do. Asking the question the sweep actually needs is one
+    # request fewer and cannot disagree with itself.
+    #
+    # A 503 here is transient rather than a throttle signal, on that same evidence, so the
+    # first retries are quick before settling into the long wait an outage deserves.
+    #
+    # **A 403 is a refusal, not a throttle, and waiting it out costs the whole parent.**
+    # `guardian.co.uk` answered 403 to every count probe and this loop retried it to the
+    # parent deadline, so one shard spent 45 minutes per pass writing nothing. Three tries
+    # covers a transient one; past that the parent is given up and the loop moves on. It is
+    # NOT marked done, so the yield test queues it for retry rather than parking it as a dud.
+    attempt = 0
+    refusals = 0
+    while True:
+        status, rows = fetch({**count_q, "showNumPages": "true"}, args.timeout)
+        if status == "200" or time.time() > args.deadline:
+            break
+        if "403" in str(status):
+            refusals += 1
+            if refusals >= MAX_COUNT_REFUSALS:
+                print(
+                    f"{args.suffix}: {refusals} count probes refused with {status}, "
+                    f"giving the parent up rather than waiting out the window",
+                    flush=True,
+                )
+                return
+        attempt += 1
+        wait = min(5 * 3 ** (attempt - 1), 300)
+        print(f"  count probe {attempt}: {status}, waiting {wait}s", flush=True)
+        time.sleep(wait)
     if status == "200" and rows and rows[0].strip().isdigit():
         num_pages = int(rows[0])
         print(f"  {num_pages:,} pages of {args.page_size:,} blocks", flush=True)

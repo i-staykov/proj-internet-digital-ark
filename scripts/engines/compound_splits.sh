@@ -2,7 +2,7 @@
 # Re-split the mention corpora on a loop, because the split gets more valuable as the
 # store grows and every master ingest can unlock names the previous pass could not admit.
 #
-# **Measured 2026-08-27, and this is the largest lever in the round.** The corroboration
+# **This is the largest lever in the round.** The corroboration
 # split promotes a mention to a dated record only when some OTHER source already places
 # that domain in a year, and that test is re-evaluated every time the split runs. On one
 # morning: re-splitting the address journals paid 30,645.6 EE against roughly 700 pairs
@@ -10,7 +10,7 @@
 # 11,447.7 EE against 128.17 EE for its 400 new archives. Ratios of about 40:1 and 90:1
 # in favour of re-splitting over reading.
 #
-# `maintain.sh` already MEASURES the promotion tranche every pass and deliberately does
+# `build_promotion_journals.py` without `--write` MEASURES the promotion tranche and does
 # not bank it, because banking is a judgement. The judgement is made: these classes are
 # all already `master` or `candidate-only`, so the tranche is a re-derivation of evidence
 # we hold rather than a new source, and it needs no further decision.
@@ -49,8 +49,6 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     # The spec key is per corpus and is NOT the prefix. Getting this wrong files the
     # bare lane's rows under `usenet_address`, which is a wrong attribution in
     # `audit/source_contribution.csv` even though the evidence itself is identical.
-    # It happened on pass 1 of 2026-08-27 and cost nothing only because that pass
-    # returned zero new pairs.
     for triple in "usenet_addr:data/raw/usenet_addr:usenet_addr" \
                   "usenet_bare:data/raw/usenet_bare:usenet_bare"; do
         prefix="${triple%%:*}"; rest="${triple#*:}"
@@ -58,13 +56,10 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
         [ -d "$dir" ] || continue
         # **Sweep the orphans of earlier passes BEFORE making more.**
         # Each pass renames its output to a per-pass `_cmp<tag>` name and then ingests it,
-        # and nothing here ever revisited a tagged file whose ingest did not happen. The
-        # watchdog replaced this loop at 04:21 on 2026-08-28, so the instance it replaced
-        # died between the rename and the ingest, and 38 dated journals plus 38 candidate
-        # journals, 443 MB written from 2026-08-27 09:03 onward, were invisible to every
-        # later pass. `audit_residual.py --check unread` found them; this makes the loop
-        # able to find them itself. An ingest of an already-ingested file is a cheap
-        # no-op, so sweeping unconditionally costs nothing and needs no state of its own.
+        # so a pass killed between the two (a watchdog restart) leaves tagged journals nothing
+        # else ingests. `audit_residual.py --check unread` reports them; this sweep ingests
+        # them on the next pass. An ingest of an already-ingested file is a cheap no-op, so
+        # sweeping unconditionally costs nothing and needs no state of its own.
         for lane in dated candidates; do
             for orphan in "${dir}/${prefix}_${lane}_cmp"*.jsonl.gz; do
                 [ -f "$orphan" ] || continue

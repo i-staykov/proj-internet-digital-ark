@@ -32,16 +32,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_figures import BASELINE, figures  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
-    CURRENT_BASELINE_RELEASED,
     CURRENT_ROUND_LABEL,
+    REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
     SUBMITTED_ROUNDS,
+    awarded_score_of,
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 from ark.figures import cumulative as score_total  # noqa: E402
-from ark.figures import now_in_his_clock, score, scored_under_rule, t_days  # noqa: E402
+from ark.figures import (  # noqa: E402
+    now_in_his_clock,
+    score,
+    scored_under_rule,
+    t_days,
+    t_days_assignment,
+)
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -55,13 +64,13 @@ DB = Path("data/ark.duckdb")
 #
 # The email is filled too, but ONLY out of `private/`, which is git-ignored.
 # `package_delivery.sh` ships `git archive HEAD`, so every tracked file reaches the
-# reviewer, and the 2 August archive carried an email draft's "notes for Ivo" section:
-# private reasoning about how to present the work to him. A template addressed to a
-# person is one edit away from carrying that again, so the whole pair stays outside git
+# reviewer, and an email draft's notes section holds private reasoning about how to
+# present the work to him. A template addressed to a person is one edit away from
+# carrying that, so the whole pair stays outside git
 # and the fill is what keeps its five figures identical to the report's.
 # (template, target, an unwritten round section is fatal). Fatal for the report, which
 # ships: an empty section 5 reaching the reviewer is the failure the whole token
-# mechanism exists to prevent. Not fatal for the email, which is a draft Ivo finishes by
+# mechanism exists to prevent. Not fatal for the email, which is a draft the owner finishes by
 # hand at submission time and which never leaves `private/`. Making it fatal there would
 # block every packaging run for a document nobody is sending yet.
 DOCUMENTS = (
@@ -74,7 +83,7 @@ def per_year_table(f: dict) -> str:
     """Volume and equivalent-English per year, read from the shipped merge audit.
 
     **Read from the audit rather than from the store, because the two disagree by a few
-    records and the report used to print both.** The store counts a canonicalised
+    records and a report printing both contradicts itself.** The store counts a canonicalised
     (domain, year); the audit counts what survives export into the annual files and is
     then scored by the reviewer's own calculator, so a name his validator refuses is in
     the first and not the second. His figure is the one that matters and it is the one
@@ -117,12 +126,59 @@ def per_year_table(f: dict) -> str:
 # appears, described by its evidence class, so the table can never silently drop a row.
 # Hostname sources are keyed by acquisition method because both live under one source row.
 GROUNDS: dict[str, tuple[str, str]] = {
+    "bulk_cdx_file": (
+        "a public Internet Archive CDX index read whole",
+        "the row's own 14-digit capture timestamp in the archive's index",
+    ),
     "nypw_timemap_hostgrain": (
         "NYPW TimeMaps (IA, CC BY 4.0), 34 parts held since round 6, re-read at hostname grain",
-        "the row's own 14-digit capture timestamp",
+        "the row's own 14-digit capture timestamp, in the archive's Not Your Parents' Web "
+        "first-capture index",
     ),
     "ia_cdx_domain_sweep": (
-        "IA CDX `matchType=domain` sweeps of `.uk` suffixes and subdomain platforms, raw journals",
+        "IA CDX `matchType=domain` sweeps, two clients, parents ranked by the hosts we lack",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_server_written_header": (
+        "Usenet spool (IA), already held, re-read for the three headers a news server writes "
+        "about itself: `Path:`, `X-Trace:`, `NNTP-Posting-Host:`",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ietf_list_received_by": (
+        "IETF mail archive, one raw mbox per list-month",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "apache_list_received_by": (
+        "Apache mailing-list archive, the same clause at a second host",
+        "the message's `Date:` header, checked against the month the archive filed it under",
+    ),
+    "poland_pl_extract_hostgrain": (
+        "Poland `.pl` ccTLD extraction 2001-12-31 (IA), 19 CDX indexes, 1.24 GB, each verified "
+        "against its published sha256",
+        "the row's own 14-digit capture timestamp, from the original URL and never the SURT key",
+    ),
+    "arquivo_ia_cdxj_hostgrain": (
+        "Arquivo.pt `IA.cdxj` capture index, held since 2026-08, re-read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "ia_cdx_gap_hostgrain": (
+        "IA CDX queries over bracketed year gaps, read at hostname grain",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_header_fqdn_hostnames": (
+        "the registrable half of the Usenet server-header lane above",
+        "the post's own machine-written `Date:` header",
+    ),
+    "poland_pl_extract_hostnames": (
+        "the registrable half of the Poland `.pl` extraction above",
+        "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_body_url_hostnames": (
+        "the registrable half of the Usenet body-URL lane",
+        "the post's own machine-written `Date:` header",
+    ),
+    "ia_cdx_hostnames": (
+        "the registrable half of the CDX sweeps above",
         "the row's own 14-digit capture timestamp",
     ),
     "early_web_hostgrain": (
@@ -132,6 +188,11 @@ GROUNDS: dict[str, tuple[str, str]] = {
     "usfedgov_extract_hostgrain": (
         "IA USFEDGOV-EXTRACT 1996-2001 merged CDX indexes, one capture per host, bulk download",
         "the row's own 14-digit capture timestamp",
+    ),
+    "usenet_body_url": (
+        "Every non-alt Usenet hierarchy (IA), 224 GB read whole, hosts only from explicit "
+        "http, https and ftp URLs in the post body",
+        "the post's own machine-written `Date:` header",
     ),
     "isc_survey_host_list": (
         "ISC Internet Domain Survey per-TLD host files (9607, 9701, 9707), read at hostname grain",
@@ -154,7 +215,7 @@ GROUNDS: dict[str, tuple[str, str]] = {
         "the row's own 14-digit capture timestamp",
     ),
     "ia_cdx_bulk": (
-        "IA CDX per-domain queries over bracketed gaps and the candidate pool",
+        "IA CDX per-domain queries over bracketed year gaps and the candidate pool",
         "the capture timestamp of a URL on that host",
     ),
     "usenet_address": (
@@ -332,11 +393,9 @@ def newest_audit(merge_dir: Path) -> Path | None:
     """The most recently WRITTEN merge audit, or None.
 
     **By modification time, never by name, and there is exactly one of these because two
-    call sites disagreeing is how the report contradicted itself twice on 2026-08-26.**
-    Sorting alphabetically picks `merge_audit_ark_20260824c.json` over a freshly written
-    `merge_audit_ark.json`, since the tagged name sorts last. That put a 488,722 increment
-    beside a 5.3344% growth rate in section 1, and after that was fixed in one place it did
-    the same again in section 8's merge table.
+    call sites that disagree make the report contradict itself.** Sorting alphabetically
+    picks `merge_audit_ark_20260824c.json` over a freshly written `merge_audit_ark.json`,
+    since the tagged name sorts last, and puts a stale increment beside a live growth rate.
     """
     audits = list(merge_dir.glob("merge_audit_ark*.json"))
     if not audits:
@@ -362,7 +421,9 @@ def accepted_totals() -> dict | None:
     return json.loads(newest.read_text(encoding="utf-8"))["totals"]
 
 
-ATTRIBUTION_TOP_ROWS = 6
+# A source is named in the report when it carries at least this much of the round; the rest
+# is one row pointing at the register: nothing under 4,000 EE by name.
+ATTRIBUTION_FLOOR_EE = Decimal(4000)
 
 
 def attribution_rows(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> list[tuple]:
@@ -383,10 +444,11 @@ def attribution_rows(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> list[tup
 
 def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     """The few sources that carry the round, one row each; the long tail is one row
-    pointing at the register. Ivo, 2026-09-02: the full table cost a page of the
-    report and belongs in `sources.md` and `audit/source_contribution.csv`."""
+    pointing at the register. The full table costs a page of the report and
+    belongs in `sources.md` and `audit/source_contribution.csv`."""
     rows = attribution_rows(f, hosts)
-    shown, rest = rows[:ATTRIBUTION_TOP_ROWS], rows[ATTRIBUTION_TOP_ROWS:]
+    shown = [r for r in rows if r[5] >= ATTRIBUTION_FLOOR_EE]
+    rest = rows[len(shown) :]
     lines = [
         "| Source | Unit | What dates one record | Records | EE |",
         "|------------------------|------|----------------------------|--------:|-------:|",
@@ -429,6 +491,13 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
     list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
     lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
     h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
+    # The server-written-header class, split the way the report argues it: the Usenet
+    # reading on one side, the two mailing-list archives it generalised from on the
+    # other. Summed here rather than typed, so the prose cannot drift from the table.
+    h_usenet_hdr = hosts.get("usenet_server_written_header", (0, Decimal(0)))
+    mail_methods = ("ietf_list_received_by", "apache_list_received_by")
+    mail_hdr = [hosts.get(m, (0, Decimal(0))) for m in mail_methods]
+    h_mail_hdr = (sum(r[0] for r in mail_hdr), sum((r[1] for r in mail_hdr), Decimal(0)))
     return {
         "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
         "HOST_NYPW_N": f"{h_nypw[0]:,}",
@@ -440,6 +509,10 @@ def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]
         "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
         "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
         "HOST_SWEEP_N": f"{h_sweep[0]:,}",
+        "HOST_USENETHDR_EE": f"{h_usenet_hdr[1]:,.0f}",
+        "HOST_USENETHDR_N": f"{h_usenet_hdr[0]:,}",
+        "HOST_MAILHDR_EE": f"{h_mail_hdr[1]:,.0f}",
+        "HOST_MAILHDR_N": f"{h_mail_hdr[0]:,}",
         "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
         "REG_CDX_EE": f"{total(cdx)[1]:,.0f}",
         "REG_USENET_EE": f"{total(usenet)[1]:,.0f}",
@@ -463,12 +536,11 @@ def substitutions(f: dict) -> dict[str, str]:
     )
     reg_pairs = int(accepted["submitted_registrable_records"]) if accepted else f["netnew_pairs"]
     # **The headline increment comes from the MERGE AUDIT and the growth rate from the
-    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5.** Caught on
-    # 2026-08-26 with the audit reading 769,438 records and 488,722 EE beside a live
-    # 5.3344% that implies 712,801. Both numbers were individually right and the table was
-    # nonsense. Re-run `merge_against_baseline.py` after the last ingest of a round; this
-    # refuses to fill rather than shipping a self-contradicting table. The audit scores
-    # both units, so the store side of the comparison is registrables plus hostnames.
+    # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5**, each number
+    # right on its own and the table nonsense. Re-run `merge_against_baseline.py` after the
+    # last ingest of a round; this refuses to fill rather than shipping a self-contradicting
+    # table. The audit scores both units, so the store side of the comparison is
+    # registrables plus hostnames.
     if accepted:
         store_ee = Decimal(f["ee_netnew"]) + h_ee
         drift = abs(store_ee - ee_total)
@@ -521,11 +593,10 @@ def substitutions(f: dict) -> dict[str, str]:
         "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
         **grouped_ee(f, hosts),
-        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES) if t != "prior_reused"),
+        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES)),
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),
-        "CUMULATIVE": cumulative(f, growth),
         "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
@@ -536,8 +607,81 @@ def substitutions(f: dict) -> dict[str, str]:
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
+    # The ISC folder ships beside the claim as a question, never inside it, so its size is
+    # counted from the files that actually ship rather than typed into the prose.
+    isc = 0
+    for year in range(1996, 2002):
+        path = NETNEW_DIR / f"{year}-ISC.txt"
+        if path.is_file():
+            with path.open(encoding="utf-8", errors="replace") as fh:
+                isc += sum(1 for line in fh if line.strip())
+    subs["ISCPAIRS"] = f"{isc:,}"
+    # The case FOR asking about the survey, generated rather than typed: every registrable
+    # domain the artifact names is already in his files, so the artifact's NAMES are not what
+    # is in question, only the host below them. A hardcoded figure here would drift the moment
+    # a release moved.
+    subs["ISCHELD"] = f"{isc_registrables_he_holds():,}"
+    # His XI: report annual and active-candidate EE separately. Generated, so the report and
+    # `round_figures.py` cannot disagree about a figure that must never be added to the claim.
+    from round_figures import candidate_potential
+
+    subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
+    # The candidate TRACK, which he scores separately and at the same rate as the annual
+    # one. Two collections, both counted the way the annual claim is: net-new against his
+    # files. The whole pool is not the claim, and the gap is 78x.
+    pool = candidate_additions()
+    subs["CANDADD"] = f"{pool['candidates']:,}"
+    subs["CANDTRACKEE"] = f"{Decimal(pool['equivalent_english']):,.4f}"
+    subs["CANDTRACKPCT"] = f"{Decimal(pool['equivalent_english']) / f['ee_baseline'] * 100:.4f}%"
+    subs["CANDHELD"] = f"{pool.get('held_by_him', {}).get('names', 0):,}"
+    by_unit = pool.get("by_unit", {})
+    for unit, token in (("registrable", "CANDREG"), ("hostname", "CANDHOST")):
+        row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})
+        subs[token] = f"{row['names']:,}"
+        subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
+    # The two provenance-linked hostname collections inside that hostname half.
+    for token, name in (
+        ("CANDISC", "isc_candidates_summary.json"),
+        ("CANDHDR", "header_candidates_summary.json"),
+    ):
+        path = NETNEW_DIR / name
+        n = json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else 0
+        subs[token] = f"{n:,}"
+
+    # Both scores at the six places he awards in, and the divisor he would use today.
+    # The email states them as he states them, `S = 10 x (p / t)`, so he can check the
+    # arithmetic without opening the report. Bare numbers, because they sit inside his
+    # formula and a percent sign inside it would not be his notation.
+    t_now = t_days_assignment(now_in_his_clock())
+    cand_pct = candidate_growth()
+    subs["TDAYS"] = str(t_now)
+    subs["EEGROWTH6"] = f"{growth:.6f}"
+    subs["SCORE_ANNUAL"] = f"{score(growth, t_now):.6f}"
+    subs["CANDTRACKPCT6"] = f"{cand_pct:.6f}"
+    subs["SCORE_CANDIDATE"] = f"{score(cand_pct, t_now):.6f}"
+
+    # The mail quotes the reconciliation count too, and it is read from the audit rather
+    # than typed, because a mail claiming a pass count the audit does not hold is the one
+    # error he would never have to look for.
+    audit = newest_audit(Path(__file__).resolve().parents[2] / "output/merge")
+    checks = []
+    if audit is not None:
+        checks = json.loads(audit.read_text(encoding="utf-8")).get("reconciliation", [])
+    subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
 
     return subs
+
+
+def candidate_additions() -> dict:
+    """The candidate-track claim as the export measured it, from its own summary.
+
+    Read rather than re-derived: the pool is one file and one number, and a second
+    derivation here would be a second thing to keep in step with the first.
+    """
+    path = NETNEW_DIR / "candidate_additions_summary.json"
+    if not path.is_file():
+        return {"candidates": 0, "equivalent_english": "0", "by_unit": {}}
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def reproduction_result() -> str:
@@ -547,7 +691,7 @@ def reproduction_result() -> str:
     "verified" is worth nothing next to one that names the run. `just ship` writes
     it; if it is absent the report says so instead of implying a pass.
     """
-    path = Path(__file__).resolve().parents[2] / "docs/reproduction.txt"
+    path = Path(__file__).resolve().parents[2] / "docs/round/reproduction.txt"
     if not path.is_file():
         return (
             "_The reproduction has not been run against this build. "
@@ -557,70 +701,36 @@ def reproduction_result() -> str:
 
 
 class ScoreRow(NamedTuple):
-    """One round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
+    """One submitted round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
 
     label: str
     p: Decimal
-    t: int
     s: Decimal
     scored: bool
 
 
-def score_rows(growth: Decimal) -> list[ScoreRow]:
-    """Every submitted round and this one, priced by `ark.figures`.
+def score_rows() -> list[ScoreRow]:
+    """Every submitted round, priced by `ark.figures`.
 
     The awarded percentages and both timestamps are quoted in
     `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
-    it. This round uses its own unverified growth and this minute as its receipt, and is
-    never marked scored, because he has not seen it.
+    it. Where he has stated the score himself, his figure wins over our model of the rule,
+    so the total is one he recognises.
     """
     rows = []
     for r in SUBMITTED_ROUNDS:
-        t = t_days(r[6], r[7])
-        rows.append(ScoreRow(r[0], r[5], t, score(r[5], t), scored_under_rule(r[7])))
-    t_now = t_days(CURRENT_BASELINE_RELEASED, now_in_his_clock())
-    rows.append(
-        ScoreRow(f"{CURRENT_ROUND_LABEL} (this round)", growth, t_now, score(growth, t_now), False)
-    )
+        his = awarded_score_of(r[0])
+        s = his.score if his is not None else score(r[5], t_days(r[6], r[7]))
+        rows.append(ScoreRow(r[0], r[5], s, scored_under_rule(r[7])))
     return rows
 
 
-def _score_parts(rows: list[ScoreRow]) -> tuple[Decimal, Decimal, list[ScoreRow], list[ScoreRow]]:
-    """Cumulative percentage, his S_total, the rounds he scored and the ones before the rule."""
-    pct = sum((r.p for r in rows), Decimal(0))
+def _score_parts(growth: Decimal) -> tuple[Decimal, Decimal, list[ScoreRow]]:
+    """Cumulative percentage, this round and round 1 on records included, and his S_total."""
+    rows = score_rows()
+    pct = sum((r.p for r in rows), growth)
     scored = [r for r in rows if r.scored]
-    early = [r for r in rows[:-1] if not r.scored]
-    return pct, score_total(r.s for r in scored), scored, early
-
-
-def _per_round(rows: list[ScoreRow]) -> str:
-    """`label: p / t = S`, p at the six places he awards so the division checks by hand."""
-    return "; ".join(f"{r.label.split()[0]}: {r.p:.6f}% / {r.t}d = {r.s:.6f}" for r in rows)
-
-
-def cumulative(f: dict, growth: Decimal) -> str:
-    """Both official records: the cumulative percentage and the time-weighted score.
-
-    The percentage record is the direct arithmetic sum of what he awarded, round 1
-    included on Ivo's instruction of 2026-09-02 even though it was awarded on records.
-    The score record is the sum of S_i over the rounds he has scored, which his rule
-    only covers from its 2026-08-20 update: earlier rounds get their would-be S in a
-    clause of their own, and this round its prediction, labelled as such.
-    """
-    rows = score_rows(growth)
-    pct, total, scored, early = _score_parts(rows)
-    this = rows[-1]
-    early_labels = ", ".join(r.label for r in early[:-1]) + f" and {early[-1].label}"
-    return (
-        f"**Score, by both rules in your brief.** Cumulative verified percentage "
-        f"**{pct:.4f}%**, this round counted at its own unverified {growth:.4f}% and round 1 "
-        f"on records. Time-weighted **S = {total:.6f}** over the rounds you have scored "
-        f"({_per_round(scored)}), with t_i the elapsed time from the release of the package "
-        "a round is measured against to receipt, rounded up to whole days in your clock, "
-        "which reproduces the 6.88 and 6.302372 you quoted. This round would add "
-        f"{this.s:.6f} at t = {this.t} if received now. Rounds {early_labels} predate the "
-        f"rule; under it they would have scored {_per_round(early)}."
-    )
+    return pct, score_total(r.s for r in scored), scored
 
 
 def merge_reconciliation() -> str:
@@ -656,29 +766,81 @@ def merge_reconciliation() -> str:
         [
             *rows,
             "",
-            f"Overlap with the baseline is **{int(t['already_in_baseline_records']):,} records**, "
-            f"so all {int(t['submitted_records']):,} submitted count once, and "
-            f"**{passed} of {len(checks)} reconciliation checks pass**. "
-            "`merge_against_baseline.py` unions both units into the baseline, deduplicates on the "
-            "lowercased line within each year and scores every file with your own calculator; the "
-            "per-check verdicts are in `audit/merge_audit_ark_*.json` and the per-year form in "
-            "`audit/merge_stats_ark_*.csv`, in your column names.",
+            (
+                f"**Not one of the {int(t['submitted_records']):,} records submitted is already "
+                "in the baseline"
+                if int(t["already_in_baseline_records"]) == 0
+                else f"Of the {int(t['submitted_records']):,} records submitted, "
+                f"**{int(t['already_in_baseline_records']):,} are already in the baseline** and "
+                "are excluded"
+            )
+            + f"; {passed} of {len(checks)} reconciliation checks pass.** Per-check verdicts: "
+            "`audit/merge_audit_ark_*.json`; the per-year form, in your column names: "
+            "`audit/merge_stats_ark_*.csv`.",
         ]
     )
 
 
+def as_he_wrote_it(s: Decimal) -> str:
+    """A score with his own trailing digits: he wrote 6.88, not 6.880000."""
+    text = f"{s:f}"
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def candidate_growth() -> Decimal:
+    """The candidate track's growth rate, which he scores separately at the same rate.
+
+    Over the ANNUAL equivalent-English denominator, because that is the denominator his
+    own candidate-pool score divides by, and the constant rather than the figures dict so
+    the sentence can be rendered without a store behind it.
+    """
+    return Decimal(candidate_additions()["equivalent_english"]) / REVIEWER_BASELINE_EE * 100
+
+
 def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The same two records, as one sentence for the email."""
-    rows = score_rows(growth)
-    pct, total, scored, _ = _score_parts(rows)
-    this = rows[-1]
+    """The two official records in one sentence, written the way he writes them.
+
+    **His figures, in his own arithmetic.** He states one score per round and sets each
+    track out as `S = 10 x (p / t)`, so the total is the sum of the scores he has quoted
+    rather than our model of them, and this round is given as the two lines he would write
+    himself, t whole days since the task assignment, 2 August 2026.
+    """
+    pct, total, scored = _score_parts(growth)
+    t_now = t_days_assignment(now_in_his_clock())
+    addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
+    labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
+    cand = candidate_growth()
     return (
-        f"Counting this round at its own figure, my cumulative verified percentage is "
-        f"{pct:.4f}% (round 1 included, although it was awarded on records), and my "
-        f"time-weighted score over the rounds you have scored is {total:.6f} "
-        f"({' + '.join(f'{r.s:.6f}' for r in scored)}), to which this round would add "
-        f"{this.s:.6f} at t = {this.t} if received now."
+        f"Cumulative credited percentage {pct:.4f}%: each scored round at the figure you credited, "
+        f"this round at its own unverified {growth:.4f}%. Time-weighted score {addends} = "
+        f"{as_he_wrote_it(total)}, your own scores for rounds {labels}. Under the specification's "
+        f"time-weighted score this round is t = {t_now}, whole days since the 2 August assignment. "
+        f"Domain-Year Score: S = 10 x ({growth:.6f} / {t_now}) = {score(growth, t_now):.6f}. "
+        f"Candidate-Pool Score: S = 10 x ({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )
+
+
+def isc_registrables_he_holds() -> int:
+    """Distinct registrables the ISC survey names that his current files already carry.
+
+    Measured 2026-09-04 at 1,414,080 of 1,414,080, which is the whole argument for asking
+    about the host grain: he treats this artifact as naming real 1996-1997 domains, and the
+    only open question is whether the machine below the name is a record too.
+    """
+    from ark.db import connect_read_only_patiently
+
+    conn = connect_read_only_patiently()
+    try:
+        names = {
+            d
+            for (d,) in conn.execute(
+                "SELECT DISTINCT e.domain FROM evidence e JOIN source s USING (source_id) "
+                "WHERE s.name IN ('isc_survey', 'isc_survey_hostnames')"
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+    return len(held.names_in(names, held.load().all))
 
 
 def pool_restricted() -> str:
@@ -686,120 +848,70 @@ def pool_restricted() -> str:
 
     Was typed as 575,417 and had drifted, in the one sentence of the report that argues
     the gate is worth something. Generated so it cannot drift again, and the namespaces
-    are now named in the prose so a reviewer can reproduce the query.
+    are now named in the prose so a reviewer can reproduce the count. Counted in the pool
+    the export shipped, the one `[CANDIDATES]` counts, so it holds no name of his.
     """
-    from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently
-    from ark.delegation import shipping_filter
-
-    conn = connect_read_only_patiently(DEFAULT_DB_PATH)
-    try:
-        n = conn.execute(f"""
-            SELECT count(*) FROM domain d
-            WHERE (d.domain LIKE '%.edu' OR d.domain LIKE '%.gov' OR d.domain LIKE '%.mil')
-              AND NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-              AND {shipping_filter("d.", with_year=False)}
-        """).fetchone()[0]
-    finally:
-        conn.close()
+    with CANDIDATES_PATH.open(encoding="utf-8") as fh:
+        n = sum(1 for line in fh if line.rstrip("\n").endswith((".edu", ".gov", ".mil")))
     return f"{n:,}"
 
 
-def _register_rows(text: str, heading: str) -> int:
-    """Rows of one register table, by the heading it sits under.
-
-    Rows the register itself labels "Not a source" are notes about our own queue,
-    not families searched, and counting them overstated the headline by two.
-    """
-    if heading not in text:
+def _table_rows(path: Path) -> int:
+    """Data rows of a register page's source table, which holds one row per source."""
+    if not path.is_file():
         return 0
-    section = text.split(heading, 1)[1].split("\n## ", 1)[0]
-    return sum(
-        1
-        for line in section.splitlines()
-        if line.startswith("|")
-        and not line.startswith("|--")
-        and not line.lower().startswith("| source")
-        and "not a source" not in line.lower()
-    )
+    rows, inside = 0, False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("|"):
+            inside = False
+        elif line.lower().startswith("| source |"):
+            inside = True
+        elif inside and set(line) - set("|-: "):
+            rows += 1
+    return rows
 
 
 def datasets_searched(docs: Path | None = None) -> str:
     """The register of families searched, read from the register rather than retyped.
 
-    The reviewer asks for every external dataset and repository searched. That list
-    only stays true if it is derived from the register itself: a hand-written copy
-    omits whatever was added after it was written, and the omission is invisible.
-
-    The register has two halves and they are counted separately, because a prose
-    sentence that said "roughly sixty" sat directly above a generated "26" in the
-    first draft of this section. Developed sources get a `## ` heading each;
-    families evaluated and rejected are one table row each under a single heading.
-    Both are searches, and the second half is much the larger.
-
-    **Both files are counted.** The rejected half lives in two documents since
-    `convert_register.py` moved closed families to `sources-closed.md`, and counting
-    `sources.md` alone dropped the figure from 495 to 129, which would have
-    understated our own work to the reviewer fourfold.
+    The reviewer asks for every external dataset and repository searched, and that list
+    only stays true if it is derived from the register itself: a hand-written copy omits
+    whatever was added after it was written, and the omission is invisible. Each page is
+    one table with one row per source, `sources.md` for the developed ones and
+    `sources-closed.md` for the ones measured and closed, so the count is their rows.
     """
-    docs = docs or Path(__file__).resolve().parents[2] / "docs"
-    path = docs / "sources.md"
-    if not path.is_file():
+    docs = docs or Path(__file__).resolve().parents[2] / "docs/registers"
+    if not (docs / "sources.md").is_file():
         return "_`sources.md` not found beside this report._"
 
-    text = path.read_text(encoding="utf-8")
-    closed = docs / "sources-closed.md"
-    closed_text = closed.read_text(encoding="utf-8") if closed.is_file() else ""
-
-    # Headings at this level that are prose about the file rather than a source.
-    skip = {
-        "Summary",
-        "Source names that are not separate sources",
-        "Evaluated and rejected",
-        "Measured, and each blocked on something other than work",
-        # the appendix `convert_register.py` writes: one `### ` block per row above
-        "Detail",
-    }
-    developed = [
-        line[3:].strip()
-        for line in text.splitlines()
-        if line.startswith("## ") and line[3:].strip() not in skip
-    ]
-
-    rejected = _register_rows(text, "## Evaluated and rejected") + _register_rows(
-        closed_text, "## Closed families, converted from the register"
-    )
-
-    if not developed and not rejected:
+    developed = _table_rows(docs / "sources.md")
+    closed = _table_rows(docs / "sources-closed.md")
+    if not developed and not closed:
         return "_No families recorded._"
 
-    # Counts only, and the names deliberately omitted. The reviewer's requirement is
-    # that every dataset searched be documented, not that it be documented twice: the
-    # register itself ships beside the report and is the place to read it. Naming all
-    # 26 developed families inline cost most of a page and told him nothing the file
-    # does not, which is why the list was cut on Ivo's instruction (2026-08-17).
+    # Counts only: the register ships beside the report and is the place to read the names.
     return (
-        f"**{len(developed) + rejected} source families searched and recorded** in "
-        f"`sources.md` and `sources-closed.md`: {len(developed)} developed, {rejected} evaluated "
+        f"**{developed + closed:,} source families searched and recorded** in "
+        f"`sources.md` and `sources-closed.md`: {developed:,} developed, {closed:,} evaluated "
         "and closed with the measurement that closed them, so the same ground is not broken twice."
     )
 
 
 # The template marks each section whose prose a human must write for this round as
 # `<!-- ROUND [ROUND]: ... -->`. An unwritten one is exactly the failure the token
-# mechanism exists to prevent, and it slipped through: on 2026-08-18 `docs/report.md`
-# held four of them, `--check` said "would fill cleanly", and `just ship` would have
-# packaged a report whose sections 2, 4, 5 and 6 were empty. Sections 5 and 6 are the
-# ones the template itself calls the ones he reads most closely.
+# mechanism exists to prevent: without this `--check` says "would fill cleanly" over a
+# report with empty sections, and sections 5 and 6 are the ones the template itself
+# says he reads most closely.
 UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
 
 # A stub can also be satisfied from a tracked file rather than by hand, which is why
 # this exists: `private/email-draft.md` is REGENERATED from its template, so prose typed
 # straight into the draft is destroyed by the next fill. That happened, and the round's
-# email had to be rewritten from a copy kept elsewhere. `docs/email-sections.md` is
+# email had to be rewritten from a copy kept elsewhere. `docs/round/email-sections.md` is
 # tracked (and export-ignored, so it never reaches the reviewer), holding one `## name`
 # heading per section. The first stub in the template takes the first section, the second
 # the second, in order, so the template keeps owning what sections exist.
-EMAIL_SECTIONS = Path("docs/email-sections.md")
+EMAIL_SECTIONS = Path("docs/round/email-sections.md")
 _STUB_RE = re.compile(r"<!--\s*ROUND\b.*?-->", re.S | re.I)
 
 

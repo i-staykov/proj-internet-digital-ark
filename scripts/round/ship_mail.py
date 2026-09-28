@@ -3,10 +3,12 @@
 Three parts and no fourth. The FIGURES are not computed here: `fill_report.py` fills
 `private/email-draft.md` from the store, and this appends to that body rather than keeping a
 second copy of a number that would then drift from the report. The REMINDERS come from
-`docs/questions.md`, because a question he never answered is only asked again if a program puts
+`docs/registers/questions.md`, because a question he never answered is only asked again
+if a program puts
 it in front of whoever sends the mail; the row's `remind-on` decides when, and a remind-on that
 names an event rather than a date is due at the next mail, since a ship IS that event. The
-CUMULATIVE record is read from the `awarded p_i` and `S_i quoted` columns of `docs/rounds.md`
+CUMULATIVE record is read from the `awarded p_i` and `S_i quoted` columns of
+`docs/registers/rounds.md`
 by column name, so the numbers are the ones he quoted and not ours.
 
 Without `--write` the whole draft goes to stdout and nothing is written, which is what a ship
@@ -21,8 +23,8 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
-QUESTIONS = Path("docs/questions.md")
-ROUNDS = Path("docs/rounds.md")
+QUESTIONS = Path("docs/registers/questions.md")
+ROUNDS = Path("docs/registers/rounds.md")
 BODY = Path("private/email-draft.md")
 OUT_DIR = Path("private/emails/drafts")
 
@@ -92,7 +94,7 @@ def cumulative(text: str) -> list[str]:
     quoted = [(r["round"], number(r.get("s_i quoted", ""))) for r in table]
     quoted = [(label, value) for label, value in quoted if value is not None]
     if not awarded:
-        return ["_No scored round in docs/rounds.md._"]
+        return ["_No scored round in docs/registers/rounds.md._"]
     total = sum(value for _, value in awarded)
     labels = ", ".join(label for label, _ in awarded)
     out = [
@@ -129,8 +131,8 @@ def compose(body: str, due: list[str], cumulative_lines: list[str], archive: str
     parts = [f"# Submission mail draft, {datetime.now(UTC):%Y-%m-%dT%H:%MZ}", ""]
     parts += [body.strip() if body.strip() else "_No filled body: run fill_report.py first._", ""]
     parts += ["---", "", "## The delivery", "", *archive_lines(archive), ""]
-    parts += ["## Cumulative record, from docs/rounds.md", "", *cumulative_lines, ""]
-    parts += ["## Open questions due for a reminder, from docs/questions.md", ""]
+    parts += ["## Cumulative record, from docs/registers/rounds.md", "", *cumulative_lines, ""]
+    parts += ["## Open questions due for a reminder, from docs/registers/questions.md", ""]
     parts += due if due else ["- None open and due."]
     parts += ["", "Send: paste the body, attach the report .docx, upload the archive."]
     return "\n".join(parts) + "\n"

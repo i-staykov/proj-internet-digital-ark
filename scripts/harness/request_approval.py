@@ -33,7 +33,6 @@ import gzip
 import json
 import random
 import sys
-import time
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
@@ -44,30 +43,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import duckdb  # noqa: E402
 
+from ark import held  # noqa: E402
 from ark.approvals import load  # noqa: E402
+from ark.canonical import to_registrable  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.key_decisions import raise_open  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
-APPROVALS = ROOT / "docs/approved-sources-list.md"
-DECISIONS_DOC = ROOT / "docs/key-decisions.md"
+# The exit when his held sets are missing or stale: nothing was refused, so `fleet_request.py`
+# writes no block and the next bank asks again.
+NOT_NOW = 3
+
+APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 SAMPLE_SIZE = 6
 
 
 def read_only_store(patience_s: int = 1800) -> duckdb.DuckDBPyConnection:
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(ROOT / "data/ark.duckdb"), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    "the store stayed locked; re-run when the ingest finishes"
-                ) from None
-            time.sleep(5)
+    try:
+        return connect_read_only_patiently(ROOT / "data/ark.duckdb", patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" not in str(exc):
+            raise
+        raise SystemExit("the store stayed locked; re-run when the ingest finishes") from None
 
 
 def records_of(journal: Path, source: str = "") -> list[dict]:
@@ -125,7 +123,7 @@ def nearest_closed(source_name: str) -> str:
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
-        "screen_hypothesis", ROOT / "scripts" / "screen_hypothesis.py"
+        "screen_hypothesis", ROOT / "scripts" / "harness" / "screen_hypothesis.py"
     )
     screen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(screen)
@@ -138,6 +136,17 @@ def nearest_closed(source_name: str) -> str:
         f"closest closed family, {shared} shared terms, `{entry.where}`: "
         f"**{entry.name}**, closed on {entry.closed_on}."
     )
+
+
+def append(text: str, block: str) -> str:
+    """The page with the block last in `## Pending requests`, whose `None.` then goes."""
+    marker = "## Pending requests"
+    if marker not in text:
+        return text.rstrip("\n") + "\n\n" + marker + "\n\n" + block
+    head, tail = text.split(marker, 1)
+    section, sep, rest = tail.partition("\n## ")
+    section = "\n".join(line for line in section.split("\n") if line.strip() != "None.")
+    return head + marker + section.rstrip("\n") + "\n\n" + block + sep + rest
 
 
 def main() -> None:
@@ -197,27 +206,28 @@ def main() -> None:
         )
 
     records = records_of(args.journal, args.source)
-    pairs = {(r["domain"], r["year"]) for r in records if r.get("domain") and r.get("year")}
+    # a journal's `domain` is raw until the ingest canonicalizes it; held asks the result
+    pairs = {
+        (name, r["year"])
+        for r in records
+        if r.get("domain") and r.get("year") and (name := to_registrable(str(r["domain"])))
+    }
     weights = english_weights()
 
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        # nothing is decided without his files: the bank asks again once `ark intake` has run
+        print(error, file=sys.stderr)
+        raise SystemExit(NOT_NOW) from None
     conn = read_only_store()
     try:
-        names = sorted({d for d, _ in pairs})
-        held_pairs: set[tuple[str, int]] = set()
-        attested: set[str] = set()
-        for start in range(0, len(names), 4000):
-            batch = names[start : start + 4000]
-            marks = ", ".join("?" * len(batch))
-            held_pairs |= {
-                (d, y)
-                for d, y in conn.execute(
-                    f"SELECT domain, assigned_year FROM domain_year WHERE domain IN ({marks})",
-                    batch,
-                ).fetchall()
-            }
-        attested = {d for d, _ in held_pairs}
+        # dated already: a pair of ours, or the exact name in his file for that year
+        held_pairs = held.known_years(conn, {d for d, _ in pairs}, his)
     finally:
         conn.close()
+    # his all.txt is his six year files merged, so this is `held.attested` without a second scan
+    attested = {d for d, _ in held_pairs}
 
     def ee(rows) -> Decimal:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
@@ -240,15 +250,18 @@ def main() -> None:
         else "NOT GIVEN, so an approval merged where the bytes are not banks nothing"
     )
     by_year = Counter(y for _d, y in netnew)
+    # No blank line after the heading or at the end: the compactor's shape. The blank lines
+    # inside stay, because a block with a table keeps them or stops rendering.
     lines = [
         f"### {spec.source_name} / {spec.evidence_type}",
-        "",
         f"- ingest spec: `{args.source}`",
         f"- source: {args.source_url or 'NOT GIVEN, which is itself a reason to refuse'}",
         f"- journal: `{shown_journal}`",
         f"- refetch: {refetch}",
         f"- agent's dating claim: {args.dating or 'NOT STATED, which is a reason to refuse'}",
         f"- {nearest_closed(spec.source_name)}",
+        # The figure `sync_approvals.py` files the block by: the master net-new EE below.
+        f"- potential: {ee(netnew):.0f}",
         "",
         "**Check these before reading anything else.** Seeded-random sample, "
         f"seed `{args.seed}`, so it is reproducible and was not chosen by the agent:",
@@ -263,15 +276,15 @@ def main() -> None:
 
     lines += [
         "",
-        "**Measured against the live store**, by program, not by the agent:",
+        "**Measured against the live store and his files**, by program, not by the agent:",
         "",
         "| | |",
         "|---|--:|",
         f"| records in the journal | {len(records):,} |",
         f"| distinct (domain, year) | {len(pairs):,} |",
         f"| over distinct domains | {len({d for d, _ in pairs}):,} |",
-        f"| already held by the store | {len(pairs) - len(netnew):,} |",
-        f"| absent from the store | {len(netnew) / max(len(pairs), 1):.1%} |",
+        f"| already held, ours or his | {len(pairs) - len(netnew):,} |",
+        f"| held by neither | {len(netnew) / max(len(pairs), 1):.1%} |",
         "",
         "**The counterfactual, so the stake is visible before you decide:**",
         "",
@@ -297,56 +310,15 @@ def main() -> None:
         "",
     ]
 
-    block = "\n".join(lines)
-    text = APPROVALS.read_text(encoding="utf-8")
-    marker = "## Pending requests"
-    if marker in text:
-        head, tail = text.split(marker, 1)
-        # drop the "nothing pending" placeholder once there is something
-        placeholder = (
-            "\nNothing pending. New requests are appended here by\n"
-            "`uv run python scripts/harness/request_approval.py <source> --journal <journal>`, "
-            "which refuses to re-open a\nclass already marked `rejected`.\n"
-        )
-        tail = tail.replace(placeholder, "\n")
-        # Append inside the Pending block, not at the end of the file. `tail` runs to
-        # the end of the document, so writing the block after it dropped a priced
-        # request into `## Found, awaiting triage`, where `approvals.py` reads it as a
-        # triage line. Triage lines reach Ivo as a single collective counter, so the
-        # request he most needed to see was the one made hardest to find.
-        section, sep, rest = tail.partition("\n## ")
-        APPROVALS.write_text(
-            head + marker + section.rstrip("\n") + "\n\n" + block + sep + rest,
-            encoding="utf-8",
-        )
-    else:
-        APPROVALS.write_text(text.rstrip("\n") + "\n\n" + marker + "\n\n" + block, encoding="utf-8")
-
-    # Mirrored into the one surface Ivo reads, at the moment the request is written
-    # rather than whenever a cycle next runs. A request he never learns about is a
-    # journal that sits on disk indefinitely while the harness reports it as "the queue
-    # working", which is how this file's own pending block went unnoticed for a day.
-    raised = raise_open(
-        f"Approve, refuse or downgrade {spec.source_name} / {spec.evidence_type}",
-        f"`{APPROVALS.name}` has this class as `pending`, so `ark ingest` refuses it and its "
-        f"journal waits on disk. At stake: **{len(netnew):,} net-new pairs and "
-        f"{ee(netnew):,.1f} equivalent-English** under `master`, against {len(corroborated):,} "
-        f"and {ee(corroborated):,.1f} if it takes the corroboration split, and zero if it stays "
-        f"`candidate-only` (the names still grow the pool).\n\n"
-        f"The request block in `{APPROVALS.name}` carries a seeded-random sample with a live link "
-        f"per record, the figures measured by program, and the reasons to refuse. **Decide from "
-        f"those, not from the agent's argument.** Set the `Decision:` line to `master`, "
-        f"`candidate-only` or `rejected`.",
-        DECISIONS_DOC,
-    )
+    APPROVALS.write_text(append(APPROVALS.read_text(encoding="utf-8"), "\n".join(lines)), "utf-8")
 
     print(f"appended a pending request to {APPROVALS.relative_to(ROOT)}")
     print(f"  {spec.source_name} / {spec.evidence_type}")
     print(f"  {len(netnew):,} net-new pairs at stake, {ee(netnew):,.1f} equivalent-English")
     print("  ingest refuses until its Decision line says master, candidate-only or rejected")
     print(
-        f"  {'raised' if raised else 'already open'} in {DECISIONS_DOC.relative_to(ROOT)}, "
-        f"which is the only surface Ivo reads"
+        "  at or above the floor, sync_approvals.py files it as a needs-owner issue with a "
+        "one-line pull request"
     )
 
 

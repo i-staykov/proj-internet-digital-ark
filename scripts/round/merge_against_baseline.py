@@ -1,14 +1,16 @@
 """Merge this round's additions into the reviewer's baseline, and audit the arithmetic.
 
-**D3 of the submission standard** (`docs/brief_amendments.md`): "the code and explanation
-used to normalize, merge, and deduplicate the submitted annual files against the latest
-baseline, including overlap counts, the accepted increment, and reconciliation checks."
+**D3 of the submission standard** (the brief, section X, "Baseline merge and deduplication
+method"): "the code and a clear explanation for comparing the submitted annual files with the
+latest supplied baseline, normalizing the counting unit, removing duplicates within each year,
+identifying the true baseline-external increment, and producing or verifying the merged annual
+result."
 
-Until 2026-08-17 the reviewer did this merge on his own side and shipped his audit of it
-beside the next release. He now asks each contributor to produce it too, so his figure and
-ours can be diffed rather than compared by eye. **The column names below are therefore his,
-copied from `merge_stats_ivaylo_0817.csv`, and must not be improved.** A reconciliation whose
-two sides use different words for the same quantity is not a reconciliation.
+The reviewer ships his audit of this merge beside each release, and each contributor produces
+it too, so his figure and ours can be diffed rather than compared by eye. **The column names
+below are therefore his, copied from `merge_stats_ivaylo_0817.csv`, and must not be
+improved.** A reconciliation whose two sides use different words for the same quantity is not a
+reconciliation.
 
 The one number that matters most is `already_in_baseline`. It is the overlap that turned
 phase 5 from the 2,838,715 records it was submitted with into the 2,608,322 he credited,
@@ -87,7 +89,7 @@ ADDITIONS = _first_holding(
     "2001.txt",
 )
 
-# The second output unit, accepted on 2026-09-01: valid hostnames beneath held
+# The second output unit: valid hostnames beneath held
 # registrables, one file per year beside the registrable one. His calculator scores a
 # distinct hostname at full weight, so the submitted set per year is the union of both
 # files. `ark export` writes them next to the registrable files; the archive stages them

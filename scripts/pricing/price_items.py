@@ -31,7 +31,7 @@ generalised; nothing downstream of them can be got wrong twice.
 - **It counts domains and pairs separately.** Conflating them once reported
   1,161,961 domains against a true 463,566.
 - **It bounds the typo rate** by checking how many never-before-seen names are one
-  edit from a name already held, which is the honest upper bound on OCR and
+  edit from a name already known, which is the honest upper bound on OCR and
   transcription junk.
 - **It never writes.** Pricing decides whether to build a collector; it is not one.
 
@@ -45,7 +45,6 @@ import importlib.util
 import json
 import re
 import sys
-import time
 from collections import Counter
 from decimal import Decimal
 from pathlib import Path
@@ -57,6 +56,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import duckdb  # noqa: E402
 from probe_texts_corpus import domains_in, to_registrable  # noqa: E402
 
+from ark import held  # noqa: E402
+from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
 # **The prose extractor's TLD whitelist is wrong for a list of hostnames, and it errs in
@@ -94,6 +95,22 @@ def wide_domains_in(text: str) -> set[str]:
     return out
 
 
+def field_names(record: dict) -> set[str]:
+    """The name an item carries in its own field, beside whatever its prose says.
+
+    A fleet price leg writes `{host, year, text}`: the name in its own field and the stamp
+    in `text`. The snapshot pricer reads the field; this one read only the prose and priced
+    358,529 dated .dk names at 0 EE on 2026-09-15. A field is a name, not prose, so the
+    whitelist that guards against OCR punctuation does not apply to it.
+    """
+    out: set[str] = set()
+    for field in ("host", "domain"):
+        value = record.get(field)
+        if value:
+            out |= wide_domains_in(str(value))
+    return out
+
+
 # The two fits live in the script that first needed them; importing rather than
 # reimplementing is the point, since a second saturation curve would eventually
 # disagree with the first.
@@ -110,19 +127,15 @@ ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789-."
 
 
 def read_only_store(patience_s: int = 900) -> duckdb.DuckDBPyConnection:
-    deadline = time.monotonic() + patience_s
-    while True:
-        try:
-            return duckdb.connect(str(STORE), read_only=True)
-        except duckdb.Error as exc:
-            if "Conflicting lock" not in str(exc):
-                raise
-            if time.monotonic() >= deadline:
-                raise SystemExit(
-                    f"the store was still being written after {patience_s}s; "
-                    "pricing reads it, so re-run when the ingest finishes"
-                ) from None
-            time.sleep(3)
+    try:
+        return connect_read_only_patiently(STORE, patience_s=patience_s)
+    except duckdb.Error as exc:
+        if "Conflicting lock" not in str(exc):
+            raise
+        raise SystemExit(
+            f"the store was still being written after {patience_s}s; "
+            "pricing reads it, so re-run when the ingest finishes"
+        ) from None
 
 
 def opener(path: Path):
@@ -144,23 +157,19 @@ def year_of(record: dict) -> int | None:
     return int(found.group(1)) if found else None
 
 
-def within_one_edit(name: str, held: set[str]) -> bool:
-    """Whether one edit of `name` is a name the store already holds.
+def one_edit_variants(name: str) -> set[str]:
+    """Every name one deletion, substitution or insertion away from `name`.
 
-    Generates the neighbourhood rather than scanning `held`, so it is a few
-    hundred set lookups instead of millions of comparisons.
+    Asking about this neighbourhood rather than scanning every known name is a few
+    hundred lookups per name instead of millions of comparisons.
     """
+    out: set[str] = set()
     for i in range(len(name)):
-        if name[:i] + name[i + 1 :] in held:
-            return True
-        for ch in ALPHABET:
-            if ch != name[i] and name[:i] + ch + name[i + 1 :] in held:
-                return True
+        out.add(name[:i] + name[i + 1 :])
+        out.update(name[:i] + ch + name[i + 1 :] for ch in ALPHABET if ch != name[i])
     for i in range(len(name) + 1):
-        for ch in ALPHABET:
-            if name[:i] + ch + name[i:] in held:
-                return True
-    return False
+        out.update(name[:i] + ch + name[i:] for ch in ALPHABET)
+    return out
 
 
 def main() -> None:
@@ -179,6 +188,12 @@ def main() -> None:
         help="price with no TLD whitelist. Correct when each item's text is a list of "
         "hostnames rather than prose: the whitelist drops the low-English tail, which "
         "understates pairs and overstates the mean weight at the same time.",
+    )
+    ap.add_argument(
+        "--no-split",
+        action="store_true",
+        help="the names sit in a delimited field of a self-dating artifact (a registry list, "
+        "a catalogue field, a docket column), which takes no corroboration split",
     )
     args = ap.parse_args()
 
@@ -212,6 +227,7 @@ def main() -> None:
                 else:
                     kept = narrow
                     dropped |= wide_domains_in(text) - narrow
+                kept = kept | field_names(record)
                 for name in kept:
                     key = (name, year)
                     if key not in seen_pair:
@@ -221,37 +237,26 @@ def main() -> None:
     pairs = seen_pair
     names = sorted({d for d, _ in pairs})
 
+    try:
+        his = held.load()
+    except held.HeldError as error:
+        raise SystemExit(str(error)) from None
     conn = read_only_store()
     try:
-        held_pairs: set[tuple[str, int]] = set()
-        known: set[str] = set()
-        attested: set[str] = set()
-        for start in range(0, len(names), 4000):
-            batch = names[start : start + 4000]
-            marks = ", ".join("?" * len(batch))
-            held_pairs |= {
-                (d, y)
-                for d, y in conn.execute(
-                    f"SELECT domain, assigned_year FROM domain_year WHERE domain IN ({marks})",
-                    batch,
-                ).fetchall()
-            }
-            known |= {
-                r[0]
-                for r in conn.execute(
-                    f"SELECT domain FROM domain WHERE domain IN ({marks})", batch
-                ).fetchall()
-            }
-        attested = {d for d, _ in held_pairs}
-        # The typo bound asks whether a never-seen name is one edit from a held one,
-        # which needs the whole name set rather than a lookup, so it is loaded only
-        # when there is something to check.
-        candidate_new = [d for d in names if d not in known]
-        all_known: set[str] = set()
-        if candidate_new:
-            all_known = {r[0] for r in conn.execute("SELECT domain FROM domain").fetchall()}
+        # dated already: a pair of ours, or the exact name in his file for that year
+        held_pairs = held.known_years(conn, names, his)
+        # The typo bound asks whether a net-new name is one edit from a known one. Only
+        # the edits of the sampled names are asked about, in the same pass as the names
+        # themselves, so no whole name set is loaded.
+        sample_names = sorted({d for d, y in pairs if (d, y) not in held_pairs})[:1500]
+        variants = {v for d in sample_names for v in one_edit_variants(d)}
+        found = held.known_names(conn, variants.union(names), his)
     finally:
         conn.close()
+    # his all.txt is his six year files merged, so this is `held.attested` without a second scan
+    attested = {d for d, _ in held_pairs}
+    known = found.intersection(names)
+    near_known = found & variants
 
     # cumulative net-new equivalent-English against item count, for the fits
     curve: list[tuple[int, float]] = []
@@ -271,7 +276,10 @@ def main() -> None:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
 
     netnew = pairs - held_pairs
-    corroborated = {(d, y) for d, y in netnew if d in attested}
+    # A name in a delimited field of a self-dating artifact takes
+    # no corroboration split. `--no-split` says the items are that, so the figure to quote
+    # is the whole net-new set; the split is still computed and printed for the record.
+    corroborated = netnew if args.no_split else {(d, y) for d, y in netnew if d in attested}
     pooled = netnew - corroborated
     label = f" [{args.label}]" if args.label else ""
 
@@ -282,12 +290,23 @@ def main() -> None:
     print(
         f"distinct (domain, year)    : {len(pairs):,} over {len({d for d, _ in pairs}):,} domains"
     )
-    print(f"already held by the store  : {len(pairs) - len(netnew):,}")
+    print(f"already held, ours or his  : {len(pairs) - len(netnew):,}")
     print()
-    print(
-        f"net-new BEFORE the split   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE  <- DO NOT QUOTE"
-    )
-    print(f"net-new AFTER the split    : {len(corroborated):,} pairs, {ee(corroborated):,.1f} EE")
+    if args.no_split:
+        split = {(d, y) for d, y in netnew if d in attested}
+        print(f"net-new, no split          : {len(netnew):,} pairs, {ee(netnew):,.1f} EE")
+        print(
+            f"  the split would have kept: {len(split):,} pairs, {ee(split):,.1f} EE"
+            "  <- for the record"
+        )
+    else:
+        print(
+            f"net-new BEFORE the split   : {len(netnew):,} pairs, {ee(netnew):,.1f} EE"
+            "  <- DO NOT QUOTE"
+        )
+        print(
+            f"net-new AFTER the split    : {len(corroborated):,} pairs, {ee(corroborated):,.1f} EE"
+        )
     mean = ee(corroborated) / len(corroborated) if corroborated else Decimal(0)
     print(f"  net-new domains          : {len({d for d, _ in corroborated}):,}")
     print(f"  mean weight of net-new   : {mean:.4f}")
@@ -325,12 +344,11 @@ def main() -> None:
         print(f"  by year                  : {dict(sorted(by_year.items()))}")
         print(f"  by tld                   : {dict(by_tld.most_common(6))}")
 
-    sample_names = sorted({d for d, _ in netnew})[:1500]
-    if sample_names and all_known:
-        near = sum(1 for d in sample_names if within_one_edit(d, all_known))
+    if sample_names:
+        near = sum(1 for d in sample_names if not near_known.isdisjoint(one_edit_variants(d)))
         print(
             f"  typo upper bound         : {near:,} of {len(sample_names):,} sampled net-new names "
-            f"({near / len(sample_names) * 100:.1f}%) are one edit from a name already held"
+            f"({near / len(sample_names) * 100:.1f}%) are one edit from a name already known"
         )
 
     if args.sample_of and stats["items"]:
@@ -352,7 +370,7 @@ def main() -> None:
 
     print()
     bar_pairs = len(corroborated) if not args.sample_of else None
-    print("== against the bar in docs/discovery.md ==")
+    print("== against the ~5,000 net-new pair volume bar ==")
     if bar_pairs is not None:
         verdict = "clears it" if bar_pairs >= 5000 else "below the ~5,000 net-new pair bar"
         print(f"  volume      : {bar_pairs:,} net-new pairs, {verdict}")

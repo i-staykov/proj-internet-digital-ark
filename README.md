@@ -9,9 +9,8 @@ share of its right-most TLD (`foo.uk` 0.9813, `foo.de` 0.1324).
 
 The core rule is structural rather than editorial: **no year without an observation**
 (`domain_year.evidence_id` and `hostname_year.evidence_id` are NOT NULL onto `evidence`), checked on
-every export, and no source class may date a year until a human has written the decision that admits
-it. Negative results are first-class: the register keeps every family tried and the measurement that
-closed it.
+every export, and no new evidence class may date a year until a human has approved it. Negative
+results are first-class: the register keeps every family tried and the measurement that closed it.
 
 ## Reproduce it
 
@@ -22,20 +21,59 @@ just check       # lint, format, tests, then the store invariants
 ```
 
 A delivery archive verifies itself without this repository: `bash verify.sh` inside a fresh
-extraction. The other two reproduction tiers, and what each command should print, are in the
-runbook.
+extraction. All three reproduction tiers are in
+[docs/round/delivery_readme.md](docs/round/delivery_readme.md), the archive's own README.
+`just intake <zip>` takes a new release of his and runs `uv run ark intake`; without its
+held sets every export refuses and `ark check` fails.
+
+## Collect unattended
+
+Validation runs as three walker lanes, one per archive client; the runbook's Validation paragraph
+has the command. The CDX parent sweep, `com.ark.collectors`, stays held.
+
+```bash
+just hold status   # HELD or NOT HELD, one line per job, pause flag and fleet workflow
+just hold          # every launchd job, both pause flags here and on the VPS, the workflows
+```
+
+The hold survives a reboot: only `just hold off [name]` lifts it.
+
+## Take in what the fleet found
+
+```bash
+just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
+just bank        # what the tick runs when something arrived; --force runs it anyway, never on red
+```
+
+The fleet measures; `just bank` is the automatic store writer, run only when a FIND, an approval, a
+baseline or journals arrived. **No fleet figure is booked on its own**: the bank re-prices every
+confirmed FIND on the live store, books both numbers, decides what the standing rule covers, asks
+about the rest, ingests, gates and pushes the fleet's snapshot. The runbook has each step.
+
+Nothing the fleet downloads bypasses one program:
+
+```bash
+uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only download path
+```
+
+It reads the whole robots.txt of each host, including the next one before it follows a redirect,
+honours `Retry-After`, caps and re-counts the bytes, extracts no archive to disk, and prints the
+sha256 the finding has to quote. Anything over the cap waits in the fleet's download backlog for a
+decision. `CLAUDE.md`, Autonomy and Channel, state the rules it enforces.
 
 ## Where the round stands
 
-In `docs/ROUND.md`, written by `just state` from the programs that own each figure. It is generated
+In `docs/ROUND.md`, written by the bank and `just state` from the claim files. It is generated
 and untracked, because the figures move daily and the page names the machine that collects them.
 This page states no round figure, so it cannot go stale.
+`just ship orq` builds the two research-questions folders into `$TMPDIR/orq` to read before a ship,
+and `scripts/round/header_promotion.py` re-derives the header collection's promotion rate.
 
 ## Where to read next
 
 | | |
 |---|---|
-| [CLAUDE.md](CLAUDE.md) | the standing rules, and the order to work in |
+| [CLAUDE.md](CLAUDE.md) | every standing rule, stated once |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
-| [docs/runbook.md](docs/runbook.md) | every command, what it prints, and how the machines are arranged |
+| [docs/ops/runbook.md](docs/ops/runbook.md) | the loop's commands and procedures, in the order a session runs them |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

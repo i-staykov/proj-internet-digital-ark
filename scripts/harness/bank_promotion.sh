@@ -4,7 +4,7 @@
 # `build_promotion_journals.py` deliberately prints the ingest commands rather than
 # running them, because whether to bank a tranche is a judgement. This runs them
 # once that judgement is made, and exists because typing seven commands by hand
-# while `maintain.sh` holds the write lock produces seven silent failures.
+# while a bank holds the write lock produces seven silent failures.
 #
 # Usage: bash scripts/harness/bank_promotion.sh <tag>
 

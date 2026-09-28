@@ -4,16 +4,16 @@
 BIND was configured to serve and could not load. The DATE is excellent: each reject edition
 stamps its own generation instant in its bytes, `Rejected Zone List:  7-May-2001 22:11 GMT`, and
 the Wayback capture fixes when the file existed. But the zone NAME was typed by a customer into a
-submission form, so under the project's split a name some other source already dates is real and
-the edition's stamp settles its year, while a name appearing only here parks in the candidate pool
-to earn its own.
+submission form, so under the project's split a name already dated, by a year of ours or by a line
+of his files that is exactly the name, is real and the edition's stamp settles its year, while a
+name appearing only here parks in the candidate pool to earn its own.
 
-**The held-fraction is why this source is worth having**, and it is the transferable part: 60.4%
-on the 1999 prune list and 46.8% on the 2001 reject union, against 87 to 99% for authority
-corpora, ~50% for blocklists and 98.4 to 99.6% for visitor logs. A zone is not a page, so no
-crawler reaches it through a link and the artifact is not head-selected: these are people who had
-a domain and no server. The population also does not collapse on the 2001 threshold, P(lacks 2001
-| held) measuring com 0.5745 here against the store-wide 0.611.
+**The corroborated fraction is why this source is worth having**, and it is the transferable
+part: 60.4% on the 1999 prune list and 46.8% on the 2001 reject union, against 87 to 99% for
+authority corpora, ~50% for blocklists and 98.4 to 99.6% for visitor logs. A zone is not a page,
+so no crawler reaches it through a link and the artifact is not head-selected: these are people
+who had a domain and no server. The population also does not collapse on the 2001 threshold,
+P(lacks 2001 | corroborated) measuring com 0.5745 here against the store-wide 0.611.
 
 **One lane pair per edition, because each edition carries its own date.** Six reject editions all
 stamped 2001 and one prune list stamped 1999, so the year comes from the artifact and never from a
@@ -35,6 +35,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
+from ark import held  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DEFAULT_DB_PATH, connect_read_only_patiently  # noqa: E402
 from ark.english_share import weight_of  # noqa: E402
@@ -72,6 +73,7 @@ def prune_list(path: Path) -> tuple[int, set[str]]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--write", action="store_true", help="write the two lanes per edition")
+    ap.add_argument("--out", type=Path, default=SRC, help="lane directory (default %(default)s)")
     args = ap.parse_args()
 
     editions: list[tuple[str, int, set[str]]] = []
@@ -86,15 +88,19 @@ def main() -> int:
         print(f"nothing under {SRC}; run collect_granitecanyon.py first")
         return 1
 
+    zones = {n for _stamp, _year, names in editions for n in names}
     conn = connect_read_only_patiently(DEFAULT_DB_PATH)
     try:
-        corroborated = {
-            row[0] for row in conn.execute("SELECT DISTINCT domain FROM domain_year").fetchall()
-        }
+        corroborated = held.attested(conn, zones)
     finally:
         conn.close()
-    print(f"{len(corroborated):,} domains already carry an assigned year\n")
+    print(
+        f"{len(corroborated):,} of {len(zones):,} names are dated by us "
+        "or named exactly in his files\n"
+    )
 
+    if args.write:
+        args.out.mkdir(parents=True, exist_ok=True)
     total_dated = total_cand = 0
     dated_ee = Decimal(0)
     for stamp, year, names in editions:
@@ -103,14 +109,14 @@ def main() -> int:
         total_dated += len(keep)
         total_cand += len(park)
         dated_ee += sum((Decimal(weight_of(n.rsplit(".", 1)[-1])) for n in keep), Decimal(0))
-        held = len(keep) / len(names) if names else 0.0
+        share = len(keep) / len(names) if names else 0.0
         print(
             f"  {stamp} ({year}): {len(names):,} zones -> "
-            f"{len(keep):,} dated ({held:.1%} held), {len(park):,} candidate"
+            f"{len(keep):,} dated ({share:.1%} corroborated), {len(park):,} candidate"
         )
         if args.write:
-            (SRC / f"granitecanyon-dated.{stamp}.txt").write_text("\n".join(keep) + "\n")
-            (SRC / f"granitecanyon-cand.{stamp}.txt").write_text("\n".join(park) + "\n")
+            (args.out / f"granitecanyon-dated.{stamp}.txt").write_text("\n".join(keep) + "\n")
+            (args.out / f"granitecanyon-cand.{stamp}.txt").write_text("\n".join(park) + "\n")
 
     print(f"\ntotal across editions: {total_dated:,} dated rows, {total_cand:,} candidate rows")
     print(f"gross EE of the dated lane (before removing pairs already held): {dated_ee:,.1f}")

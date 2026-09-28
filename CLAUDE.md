@@ -1,70 +1,38 @@
 # Internet Digital Ark
 
-Rebuild the list of domains that existed 1996-2001 for Prof. Ding, scored on **equivalent-English
-(EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY. The
-deliverable is demonstrated research capability**: autonomous, creative, intelligent discovery (Ivo,
-2026-08-27), so a measured negative with a reason is a result and the METHOD outranks the source.
-**The 5% gate is hard**, and the first priority does not soften it: it decides what to do with the
-hours that find no outlier.
+## Rule 0: lean, or it is worthless
 
-**Where the round stands is in `docs/ROUND.md`, which is generated. Never state it here.** The task
-does not end at a gate: keep collecting until the discoverable sources are exhausted, and submit
-early, because percentages add and the denominator grows.
+**These docs are the source of truth as of today. Never write how things were.** Git is the only
+history. Verbosity is the enemy of quality: this is research for people with no time, and a longer
+text is worth less. Say it once, as short as it can be said, then stop. **Never grow a file:** the
+edit that adds a rule deletes the rule it replaces. No restating, no preamble, no AI slop.
 
-## Before task X, read page Y
+**No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
-| doing this | read |
+---
+Rebuild the domains that existed in 1996 to 2001 for Prof. Ding, scored on **equivalent-English (EE)**: each `(domain, year)` counts its TLD's English share. **EE and speed are the PROXY; the deliverable is demonstrated research capability**, and the harness is that research: a measured negative with a reason is a result, and the METHOD outranks the source.
+
+- **Only 1996 to 2001.** Nothing dated outside it is banked or shipped, not even as a candidate; it may be studied. No `www` or bare variant is generated.
+- **The annual masters are a WEBSITE-evidence product** (spec XIII). Only an exact-host capture that answered 2xx or 3xx enters `1996.txt`-`2001.txt`: an IA CDX capture, a dated snapshot or web link-graph record, or a custodian's per-host/year web-capture extract. Error captures (4xx, 5xx), DNS, registry, RDAP, WHOIS, mail and Usenet headers and textual mentions are CANDIDATES, scored at the same rate. A candidate needs no approval. Every annual `(name, year)` points at the evidence row that dates it, and nothing is interpolated.
+- **Held by him** is the exact name in his files, tested by LC_ALL=C comm. Both tracks ship net-new against them; overlap corroborates a reading, never justifies one. A name of his short of XIII stays his, not ours to clean: we add valid names, and a flood of those or a large drop in his release is a question for him, not a find.
+- **Nothing ships under the 5% gate.** We may ASK Ding to accept less when the research side carries it; he decides. Where the round stands is in `docs/ROUND.md`.
+- **Autonomy.** A lead inside the standing size, terms, robots and class bounds gets its `Decision:` line from the loop and proceeds without approval; its register row and ledger line document it for review with the submission. Outside any bound it parks `pending`. The owner approves a new evidence class, and packages and sends every round; no agent does either. Its size and terms bounds live once in ark-fleet `policy.json` `standing`; robots and class are fixed clauses. A material change to a class's extraction re-opens its `Decision:` line.
+- **Asks.** An open ask is an issue labelled `needs-owner`.
+- **Price** net-new post-split EE, never gross. A lever under 300 EE per client-hour closes.
+- **Registers.** Every source gets one row with a LINK in `docs/registers/sources.md` before ingest, beside the sentence saying what dates one item; a closed row moves to `docs/registers/sources-closed.md`. Every result, hit or miss, replaces its row, so nobody re-tests it.
+- **Channel.** Three archive clients at most, all on `web.archive.org/cdx`, two on the laptop and one on the VPS, and no agent queries it. The rest of archive.org is open to a research lane, and no lane pauses a collector. Before the first request to a host, read its terms and whole robots.txt; send an honest User-Agent, honour `Retry-After` and back off on 429, 503 and 504; on throttling, retire a client, never add one.
+- **Accounts.** Model work runs only in the harness. Legs run on the primary token; only a PR the owner merges flips ark-fleet `policy.json` `token`.
+- **Git.** Any branch but `main` may be pushed; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface; every other PR is merged by the owner or a session the owner names, after review. Treat both repos as PUBLIC: no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, and big data never reaches git.
+- **Worktrees.** Several agents share both clones: branch and edit only in your own `git worktree`, and never switch a shared checkout's branch or leave edits in it.
+- The hook gate (ruff, format, scan, pytest) on every commit, and ark check after every ingest and before every ship.
+- **Files.** A rule lives only here, a measured fact only in `docs/lore/laws.md`. His files stay append-only. Generated files are never hand-edited, the brief in `docs/brief/ding/` and every page `docs/index.md` marks generated among them, and frozen `submissions/` are never edited.
+- The provenance Parquet is the evidence authority; DuckDB is an index rebuilt from it.
+- **Hunting.** A bulk dated HOSTNAME corpus that meets the XIII standard comes first. One lens per leg, never the same twice running, even when the last one paid; two empty hunts change the method, not the effort.
+- **No em or en dashes.**
+
+| before | read |
 |---|---|
-| pricing a source | [docs/laws.md](docs/laws.md) |
-| touching a number | [docs/traps.md](docs/traps.md) |
-| an ingest or a commit | [docs/rules.md](docs/rules.md) |
-| running anything | [docs/runbook.md](docs/runbook.md) |
-| quoting a round figure | `docs/ROUND.md` |
-| proposing a lens | [docs/sources-closed.md](docs/sources-closed.md), then grep [docs/sources.md](docs/sources.md) |
-
-Every page is listed in [docs/index.md](docs/index.md). Decisions: [docs/key-decisions.md](docs/key-decisions.md).
-
-## When prompted, in this order
-
-1. `just cycle`. Fix anything it flags that a program cannot decide.
-2. **Hunt a bulk dated corpus. This is the job.** Querying pays 255 EE/hour, so only a large bulk
-   corpus can close the gap; the arithmetic is in `docs/laws.md`.
-3. Price what you find: net-new post-split EE against the store, dates inside 1996-2001.
-4. Bank what clears the bar. Raise an approval request only if the class is master-eligible.
-5. Log the result in `docs/sources.md` whatever the answer, so nobody re-tests it.
-
-## The ten rules that bind every session
-
-1. **Pushing (amended by Ivo, 2026-09-03): any branch except `main` may be pushed, and `main`
-   is reached only by a PR.** `origin` is PUBLIC, `i-staykov/proj-internet-digital-ark`, kept
-   public deliberately as a portfolio, so every pushed commit and its message is world-readable
-   the moment it lands. That is what the freedom costs: a commit message names no hosts, no IP
-   addresses, no email bodies and no personal context (`docs/ROUND.md` is ignored precisely
-   because it embeds the VPS address, and a commit message must not re-leak what the ignore
-   protects). `main` is never pushed by any agent, and branch protection enforces it.
-2. Gate before every commit, never through a pipe:
-   `uv run ruff check . && uv run ruff format --check . && uv run pytest -q && uv run ark check`,
-   with `ark export` before `ark check`.
-3. Never edit `docs/SPEC.md`, `docs/report.md`, `docs/ROUND.md` or frozen `submissions/`.
-4. `private/` never ships.
-5. **Big data must never reach git.**
-6. Two archive clients maximum. Honest User-Agent, honour `Retry-After`, back off on 429/503/504.
-7. **The standing approval rule (Ivo, 2026-08-29): the loop writes the `Decision:` line itself, citing
-   this rule, when all four hold**: the class is already master-eligible, a machine-written stamp
-   inside the artifact dates one item and is quoted, the terms permit it, and `ark check` passes after
-   the ingest. Failing any one parks the source as `pending`. Undated is still fatal, and so are terms
-   we do not hold.
-8. **Every source gets a LINK in `docs/sources.md` before it is ingested** (Ivo, 2026-08-31), next to
-   the sentence saying what dates one item and why it clears the bar.
-9. No AI attribution in commits.
-10. **No em-dashes or en-dashes.**
-
-## How to work
-
-**Verbosity is the opposite of quality.** Keep instructions, wake-ups and agent prompts short, direct,
-simple. If a rule takes a paragraph, it is being over-explained.
-
-**If two hunts in a row return nothing, change the method, not the effort.** Widen the lens, not the
-list: ask what *kind* of artifact you have never looked for, not which host you have not tried.
-
-**One lens per cycle, and never the same lens twice running.** Rotate even when the last one paid.
+| pricing, hunting or quoting a figure | [docs/lore/laws.md](docs/lore/laws.md) |
+| running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
+| proposing a source or briefing an agent | `just find <term>` over the registers |
+| arguing what Ding accepts | [the brief](docs/brief/ding/project-brief.md), then `private/personal-context.md` |
