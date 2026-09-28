@@ -267,8 +267,8 @@ def test_ten_agreeing_finds_hand_the_decision_to_the_program_figure(
 
 
 def test_a_request_and_its_decision_leave_the_pages_the_compactors_fixed_point(tmp_path, capsys):
-    """The commit hook checks the pages are the compactor's fixed point, so a citation the
-    compactor would rewrite or drop fails the bank's commit and stops the tick."""
+    """A citation the compactor would rewrite or drop is lost on its next run, and with it the
+    record of what decided."""
     request = _load("fleet_request_on_the_pages", ROOT / "scripts/harness/fleet_request.py")
     compactor = _load("compact_registers", ROOT / "scripts/round/compact_registers.py")
     approved = "## Approved\n\n### old_source / cdx_timestamp\n- ingest specs: `old_spec`\n"
