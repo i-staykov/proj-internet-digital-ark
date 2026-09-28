@@ -1,9 +1,23 @@
-"""CLI wiring: the app and its stub commands run and exit cleanly."""
+"""CLI wiring: the app and its commands run and exit cleanly, and a fleet read banks as itself."""
 
+import gzip
+import importlib.util
+import json
+from functools import partial
+from pathlib import Path
+
+import duckdb
+import pytest
+import typer
 from typer.testing import CliRunner
 
 import ark
+from ark import cli
+from ark.bulk import ingest_files
+from ark.checks import collect_checks
 from ark.cli import app
+from ark.db import init_db
+from ark.hostnames import fleet_read_registrables_tag
 
 runner = CliRunner()
 
@@ -103,3 +117,46 @@ def test_rebuild_proceeds_when_the_export_is_current(tmp_path, monkeypatch, his_
     result = runner.invoke(app, ["rebuild", "output/provenance"])
     assert result.exit_code == 0, result.output
     assert "rebuilt from" in result.output
+
+
+def test_a_fleet_read_banks_both_halves_under_its_own_source(tmp_path, monkeypatch) -> None:
+    """`ark ingest fleet_x_hostnames` banks the converter's registrables and the parts under the
+    read's own source and method, so one unbank takes the read back. Another lead's part, or a
+    file of neither half, exits 2 before anything banks."""
+    rows = [
+        ("http://example.com/", "19990301000000", "200"),
+        ("http://www.example.com/", "19990301000000", "200"),
+        ("http://shop.example.org/", "20000101000000", "200"),
+        ("http://gone.com/", "19980101000000", "404"),
+    ]
+    (read := tmp_path / "read").mkdir()
+    part = read / "fleetread_bulk_cdx_file__x_0001.jsonl.gz"
+    lines = (json.dumps(dict(zip(("url", "timestamp", "status"), r, strict=True))) for r in rows)
+    part.write_bytes(gzip.compress("\n".join(lines).encode() + b"\n"))
+    engine = Path(__file__).resolve().parents[1] / "scripts/engines/cdx_suffix_convert.py"
+    spec = importlib.util.spec_from_file_location("cdx_suffix_convert", engine)
+    spec.loader.exec_module(convert := importlib.util.module_from_spec(spec))
+    tag = fleet_read_registrables_tag("bulk_cdx_file", "x", "ab" * 32)
+    out, state = tmp_path / "cdx", tmp_path / "state.tsv"
+    convert.main(
+        ["--glob", f"{read}/fleetread_*", "--tag", tag, "--out", str(out), "--state", str(state)]
+    )
+    registrables = out / f"cdx_suffix_{tag}.jsonl.gz"
+    init_db(conn := duckdb.connect())
+    monkeypatch.setattr(cli, "connect_patiently", lambda **_: conn)
+    monkeypatch.setattr(cli, "ingest_files", partial(ingest_files, report_dir=tmp_path))
+    for source, files in (("fleet_y_hostnames", [part]), ("fleet_x_hostnames", [part, engine])):
+        with pytest.raises(typer.Exit) as refused:
+            cli._ingest_fleet_read(source, files)
+        assert refused.value.exit_code == 2 and not conn.execute("FROM evidence").fetchall()
+    cli._ingest_fleet_read("fleet_x_hostnames", [registrables, part])
+    join = "evidence e JOIN source s USING (source_id)"
+    by = conn.execute(f"SELECT DISTINCT s.name, e.acquisition_method FROM {join}").fetchall()
+    assert by == [("fleet_x_hostnames", "bulk_cdx_file")]
+    # the registrable half dates example.com on its own stamp; a host dates only itself, and the
+    # 404 dates nothing
+    dated = "SELECT dy.domain, assigned_year, evidence_value FROM domain_year dy JOIN evidence"
+    assert conn.execute(f"{dated} USING (evidence_id)").fetchall() == [
+        ("example.com", 1999, "cdx capture 19990301000000 example.com")
+    ]
+    assert all(r["ok"] for r in collect_checks(conn, Path("no-such-export")))

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import duckdb
+import pytest
 from his_release import WEB_METHOD, capture, stage, text
 
 from ark import held
@@ -264,6 +265,37 @@ def _planted(conn: duckdb.DuckDBPyConnection, check: str) -> dict:
     results = _results_by_name(conn)
     assert [n for n, r in results.items() if not r["ok"]] == [check]
     return results[check]
+
+
+SERVING, OWN = "hostname_observed_serving_web", "a_www_record_has_its_own_evidence"
+
+
+@pytest.mark.parametrize(
+    "source,method,named,failing",
+    [
+        ("isc_survey_hostnames", None, "www.x.com", [SERVING]),
+        ("fleet_x_hostnames", "internic_zone_ns_target", "www.x.com", [SERVING]),
+        ("fleet_x_hostnames", "bulk_cdx_file", "www.x.com", []),
+        ("ia_cdx_hostnames", None, "x.com", [OWN]),
+    ],
+    ids=["dns-lane", "fleet-read-not-web", "fleet-read-web", "www-on-its-parent"],
+)
+def test_a_host_record_needs_a_web_lane_and_evidence_naming_it(source, method, named, failing):
+    """A DNS lane or a fleet read of a method that is not web never shows a host in use, and a
+    `www.<parent>` record on its parent's capture never stands for a capture of `www.`."""
+    conn = _clean_store()
+    src = ensure_source(conn, source, "timestamped")
+    add_candidate(conn, "x.com", src)
+    value = f"cdx capture 19990101000000 {named}"
+    row = record_evidence(conn, "x.com", src, 1999, "cdx_timestamp", value, None, method, **AT)
+    if named == "x.com":  # the parent's own capture, which dates the parent
+        assign_year(conn, row)
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+        "VALUES ('www.x.com', 'x.com', 1999, ?)",
+        [row],
+    )
+    assert [n for n, r in _results_by_name(conn).items() if not r["ok"]] == failing
 
 
 def test_detects_two_evidence_rows_sharing_an_id() -> None:

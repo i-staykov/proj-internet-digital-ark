@@ -188,13 +188,14 @@ def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_p
 
 
 def test_a_status_lane_without_statuses_is_refused_whole(tmp_path) -> None:
-    """NYPW and Early Web rows are cut from CDX holding a status; a sweep asked for 2xx and 3xx."""
+    """NYPW, Early Web and fleet-read rows are cut from CDX holding a status, and an error lane,
+    named by its suffix alone, must show its errors; a sweep asked for 2xx and 3xx only."""
     init_db(conn := duckdb.connect())
-    for name in ("nypw_t_hostgrain", "early_web_t_hostgrain", "x_4xx"):
+    for name in ("nypw_t", "early_web_t", "x_5xx_status", "fleetread_bulk_cdx_file__x_0001"):
         assert _read(conn, tmp_path, CAPTURES, f"{name}.jsonl.gz")["refused"] is True, name
     for table in ("hostname_year", "evidence", "ingested_file"):
         assert not _q(conn, f"FROM {table}"), table
-    assert _read(conn, tmp_path, CAPTURES)["hostname_year_rows"] == 3
+    assert _read(conn, tmp_path, CAPTURES, "suffix_4xxx_nu_t.jsonl.gz")["hostname_year_rows"] == 3
 
 
 def test_a_host_capture_dates_that_host_alone_and_a_dns_lane_writes_no_record(tmp_path) -> None:
@@ -215,15 +216,18 @@ def test_a_host_capture_dates_that_host_alone_and_a_dns_lane_writes_no_record(tm
 
 
 def test_every_row_names_its_journal_and_line_and_a_repeat_adds_no_row(tmp_path) -> None:
-    """The line is the journal's own, and one row per host-year whichever file or source repeats
-    it; 1995 is outside the window."""
+    """The line is the journal's own, a journal grown under its name is read again, and one row
+    per host-year whichever file or source repeats it; Arquivo, whose terms require its own
+    citation, banks as itself, and 1995 is outside the window."""
     init_db(conn := duckdb.connect())
     rows = [*CAPTURES, ("http://old.example.com/", "19950101000000")]
-    first = _read(conn, tmp_path, rows)
+    first, grown = (_read(conn, tmp_path, r) for r in (rows[:2], rows))
     conn.execute("DELETE FROM ingested_file")
     repeats = [_read(conn, tmp_path, rows, n) for n in ("sweep_t.gz", "arquivo_ia_0.gz")]
-    assert [s["evidence_rows"] for s in (first, *repeats)] == [3, 0, 0]
-    assert first["out_of_window"] == 1
+    assert [s["evidence_rows"] for s in (first, grown, *repeats)] == [2, 1, 0, 0]
+    assert grown["out_of_window"] == 1
+    sources = [("arquivo_ia_hostnames",), ("ia_cdx_hostnames",)]
+    assert _q(conn, "SELECT name FROM source ORDER BY 1") == sources
     cited = "SELECT evidence_value, source_file, record_location FROM evidence ORDER BY 1"
     assert _q(conn, cited) == [
         ("cdx capture 19980301000000 www.example.com", "sweep_test.jsonl.gz", "line 1"),
@@ -289,6 +293,7 @@ def test_a_record_on_an_error_capture_is_repointed_or_retracted_and_a_rerun_rest
     assert _parent_years(conn) == [(1999,), (2001,)], "2000 stays on its error row, a candidate"
     restored = [("suffix_example_com_t.jsonl.gz", "line 1")]
     assert _q(conn, f"{cited}'cdx capture 20000301000000 b.example.com'") == restored
+    assert _q(conn, "SELECT file_name FROM ingested_file") == [("nypw_status_t.jsonl.gz",)]
 
 
 def test_a_parent_year_moves_only_onto_a_master_row_and_a_same_second_capture_repoints(tmp_path):
