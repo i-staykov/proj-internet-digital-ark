@@ -641,7 +641,7 @@ elif args[:2] == ["run", "download"]:
 
 def test_the_drain_takes_every_dispatched_run_and_a_404_skips_only_that_workflow(tmp_path):
     """A run is PROCESSED once completed, so one still running is taken again. The watchdog's
-    scheduled runs carry nothing, and a run past GitHub's default listing of 20 is still found."""
+    scheduled runs carry nothing, and the oldest of a day's dispatched runs is still found."""
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin/gh").write_text(f"#!{sys.executable} -S\n{FAKE_GH}")
     (tmp_path / "bin/gh").chmod(0o755)
@@ -667,9 +667,9 @@ def test_the_drain_takes_every_dispatched_run_and_a_404_skips_only_that_workflow
     assert drained(read=reads) == ["9", "8"]
     assert processed.read_text().split() == ["7", "8"]
     day = [run(rid, event="schedule" if rid % 5 == 0 else "workflow_dispatch")
-           for rid in range(1030, 1000, -1)]  # fmt: skip
+           for rid in range(1330, 1000, -1)]  # fmt: skip
     with processed.open("a") as fh:
-        fh.write("".join(f"{r['id']}\n" for r in day if r["id"] not in (1001, 1030)))
+        fh.write("".join(f"{r['id']}\n" for r in day if r["id"] not in (1001, 1330)))
     assert drained(leg=day, read=reads) == ["1001", "9"]
 
 
@@ -704,7 +704,7 @@ def test_every_fleet_step_names_the_fleet_and_outcomes_follow_the_commit_before_
         'fleet_findings.py outcome "$IN" data/fleet_findings/banked/*/',
         "fleet_leads.py",
         "push_fleet.sh",
-        "A drain leaves `incoming/` only once its rows are committed.",
+        'mv "$IN" "data/fleet_findings/banked/$LABEL"',  # a drain leaves once committed
     ]
     at = [BANK.index(text) for text in order]
     assert at == sorted(at), order

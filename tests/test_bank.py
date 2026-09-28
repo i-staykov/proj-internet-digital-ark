@@ -13,6 +13,7 @@ import sys
 import time
 import urllib.error
 from datetime import UTC, datetime
+from fnmatch import fnmatchcase
 from functools import partial
 from pathlib import Path
 from unittest.mock import ANY, Mock
@@ -303,11 +304,19 @@ def test_preflight_refuses_main_and_low_space_before_the_pull(
     assert code == 2 and lines[-1].startswith("REFUSED") and calls == asked
 
 
-def test_a_space_setting_that_is_not_a_positive_number_fails_closed(tmp_path, monkeypatch):
-    monkeypatch.setenv("ARK_FREE_SPACE_GIB", "0")
-    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=1000 * hyg.GIB))
-    code, lines = hyg.space(root=tmp_path)
-    assert code == 2 and lines[0].startswith("REFUSED: cannot establish free space")
+@pytest.mark.parametrize(
+    ("floor", "free", "code"),
+    [("10", 14, 2), ("10", 15, 0), ("0", 1000, 2), ("-1", 1000, 2)],
+    ids=["below-floor-plus-budget", "at-floor-plus-budget", "setting-0", "setting-negative"],
+)
+def test_space_is_the_floor_plus_the_budget_and_a_setting_not_positive_fails_closed(
+    tmp_path, monkeypatch, floor, free, code
+):
+    monkeypatch.setenv("ARK_FREE_SPACE_GIB", floor)
+    monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "5")
+    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=free * hyg.GIB))
+    code_got, lines = hyg.space(root=tmp_path)
+    assert code_got == code and (code == 0 or lines[-1].startswith("REFUSED")), lines
 
 
 def test_prune_takes_only_old_staging_with_a_verified_copy(tmp_path, monkeypatch) -> None:
@@ -366,6 +375,26 @@ def test_a_brief_without_field_5_is_refused(tmp_path: Path, monkeypatch, capsys)
 
 
 # --- bank_trigger: when the tick calls the bank ------------------------------------------
+
+
+def test_fold_covers_every_glob_the_bank_ingests():
+    """A journal whose glob FOLD misses is folded only when something unrelated triggers."""
+    recipe = re.search(r"^bank\b[^\n]*:\n((?:[ \t][^\n]*\n|\n)*)", RECIPE, re.M).group(1)
+    loops = dict(re.findall(r"\bfor (\w+) in ([^\s;]+)", recipe))
+    # A directory is read with its reader's globs, and these readers take plain `.jsonl` too.
+    both = ("ingest-usenet-hostnames", "ingest-maillist-hostnames", "ingest-enron-hostnames")
+    checked, missed = [], []
+    for cmd, args in re.findall(r"(?:uv run ark (ingest\S*)|^\s*ingest_all)\s+(.*)", recipe, re.M):
+        for word in (word.strip("\"'") for word in args.split()):
+            word = loops.get(word.lstrip("$").strip("{}"), word).rstrip("/")
+            if word.startswith("data/raw/"):
+                checked.append(word)
+                exts = (".jsonl.gz", ".jsonl") if cmd in both else (".jsonl.gz",)
+                is_dir = "." not in word.rsplit("/", 1)[-1]
+                for sample in [f"{word}/x{e}" for e in exts] if is_dir else [word]:
+                    if not any(fnmatchcase(sample.replace("*", "x"), g) for g in bt.FOLD):
+                        missed.append(sample)
+    assert checked and not missed, f"FOLD misses what the bank ingests: {missed}"
 
 
 def _tree(root: Path) -> Path:

@@ -203,13 +203,18 @@ NEW_CLASS = REGISTER.replace("### old_source / cdx_timestamp", "### old_source /
         (with_clause("robots", {"ok": False, "evidence": "robots.txt refused"}), REGISTER,
          "the robots clause is not ok: robots.txt refused"),
         (with_clause("window", None), REGISTER, "the window clause is missing"),
-        (with_clause("terms", {"ok": "yes", "evidence": "said yes"}), REGISTER,
-         "the terms clause is not ok: said yes"),
+        (with_clause("terms", {"ok": 1, "evidence": "said 1"}), REGISTER,
+         "the terms clause is not ok: said 1"),
         (with_clause("custody", {"ok": False}), REGISTER,
          "the custody clause is not ok: no evidence recorded"),
+        (dict(LEAD, standing="admitted"), REGISTER, "the lead carries no standing admission"),
+        (dict(LEAD, standing=dict(STANDING, clauses=list(STANDING["clauses"].values()))),
+         REGISTER, "; ".join(f"the {name} clause is missing" for name in rule.CLAUSES)),
+        (with_clause("terms", True), REGISTER, "the terms clause is not ok: true"),
     ],
     ids=["new-class", "no-lead-travelled", "not-admitted", "clause-not-ok", "clause-missing",
-         "only-true-is-ok", "a-clause-the-fleet-added"],
+         "only-true-is-ok", "a-clause-the-fleet-added", "standing-not-a-mapping",
+         "clauses-not-keyed-by-name", "a-bare-true-clause"],
 )  # fmt: skip
 def test_one_bound_outside_parks_naming_it_alone(tmp_path, capsys, lead, register, said):
     incoming, path = setup(tmp_path, lead=lead, register=register)
@@ -242,13 +247,16 @@ STORE, PROGRAM = ("store", 7000.0), ("program", 7050.0)
                 outcome(0, program=1100.0)], STORE),
         (BOTH, [*NINE, outcome(98, store=None), outcome(99)], PROGRAM),
         ({"status": "priced", "ee": 7000.0, "fleet_program_ee": 0.0}, AGREEING, STORE),
+        ({"status": "priced", "ee": 7000.0, "fleet_program_ee": -5.0}, AGREEING, STORE),
         (UNPRICED, [], None),
+        ({"status": "priced", "ee": -5.0}, [], None),
         (UNPRICED, AGREEING, PROGRAM),
     ],
     ids=["no-streak", "ten-agreeing", "nine-finds-one-booked-twice", "one-outside-1pct",
          "one-without-a-program-figure", "a-rebooked-find-counts-at-its-latest-line",
          "a-line-without-a-store-figure-is-no-find", "a-zero-program-figure-never-decides",
-         "unpriced-by-the-store", "unpriced-by-the-store-under-the-streak"],
+         "a-negative-program-figure-never-decides", "unpriced-by-the-store",
+         "a-negative-store-figure-is-no-candidate", "unpriced-by-the-store-under-the-streak"],
 )  # fmt: skip
 def test_ten_agreeing_finds_hand_the_decision_to_the_program_figure(
     tmp_path, price, outcomes, want
