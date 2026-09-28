@@ -1,7 +1,7 @@
 """The launchd templates name a script that exists and a PATH that finds the tools.
 
-The installed cycle job once pointed at a script that had moved and exited 127 four times a
-day while `launchctl list` looked normal; launchd's bare PATH fails the same silent way.
+A job whose script has moved exits 127 while `launchctl list` looks normal; launchd's bare
+PATH fails the same silent way.
 """
 
 import plistlib
@@ -25,7 +25,7 @@ def test_every_job_is_shipped():
     reading a file that is not there.
     """
     names = [t.name.removesuffix(".plist.template") for t in TEMPLATES]
-    assert names == ["com.ark.collectors", "com.ark.cycle", "com.ark.digest", "com.ark.sync"]
+    assert names == ["com.ark.sync"]
     recipe = (ROOT / "justfile").read_text()
     for name in names:
         assert name in recipe, name

@@ -66,7 +66,6 @@ scripts/engines/cdx_platform_walk.py <seeds> --lane N --lanes 3 --deadline <epoc
 a lane: start each detached, again after a reboot or its deadline. It idles while the
 `pause-platform` flag is up (`just hold off pause-platform`) and refuses to start at its
 `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
-`com.ark.collectors`, the parent sweep, stays held (`docs/lore/laws.md`, Do not rebuild).
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished
@@ -88,25 +87,26 @@ Autonomy", or parks it naming the clause; the line stands only if `ark check` pa
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
 above its `--floor`; its merge (`CLAUDE.md`, Git) approves it.
 
-**The hold.** `just hold` disables every `com.ark.*` job, writes `pause` and `pause-platform` here
-and on the VPS, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
-status` shows each name and `just hold off <name>` lifts one. It survives a reboot; while it lists
-`com.ark.sync` the tick and the bank exit `held` and `just schedule install` refuses. A dry run's
-hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run. Right after
-`just hold off com.ark.sync`, run `just bank --force` by hand: with no `data/logs/bank_stamp.json`
-the first tick fires every reason, and the converter's first pass takes about an hour.
+**The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on the VPS,
+and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
+each name and `just hold off <name>` lifts one, or drops a name it does not know. It survives a
+reboot; while it lists `com.ark.sync` the tick and the bank exit `held` and `just schedule
+install` refuses. A dry run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline
+for that one run. Right after `just hold off com.ark.sync`, run `just bank --force` by hand: with
+no `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass
+takes about an hour.
 
 ## Commands
 
 | to | run |
 |---|---|
-| one pass of every check | `just cycle`, which `com.ark.cycle` runs four times a day and only reports; `just state` rebuilds `docs/ROUND.md`, `--check` exits 1 when stale |
+| one pass of every check | `just cycle`, which only reports; `just state` rebuilds `docs/ROUND.md`, `--check` exits 1 when stale |
 | measure a URL with no Python | `just probe probes/<x>.toml`: priceable, never dates a year |
 | download | `uv run python scripts/harness/fetch.py <url> [--to <path>\|-]`, which enforces robots, `Retry-After` and caps |
 | re-ask leads closed on reach | `just reprobe` |
 | re-price a parked source | `just price` or `just price-hosts` before reopening it: its net-new falls as the store grows |
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
-| prove what is on disk | `just verify raw`, `just verify offsite --verify`; `just schedule status` for the jobs |
+| prove what is on disk | `just verify raw`, `just verify offsite --verify`; `just schedule status` for the hourly job |
 | a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
 | retention | `just prune`; `just prune --round --write` removes only what has its proofs, a `data/ark.duckdb.pre-*.bak` once a later credited round is in `data/baseline.json`; a backup needs no Drive copy |
 | triage a VPS scanner alert | its File and Malware panes first: a corpus path with `JS/Obfuscator`, `HTML/` or an era worm is expected; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer, check `auth.log` for non-publickey logins, `ss -tulpn`, crontabs and recently modified units. A laptop alert: `docs/ops/security-posture.md` |

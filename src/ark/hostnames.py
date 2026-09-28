@@ -419,7 +419,7 @@ def ingest_hostname_journal(
             stats = _ingest_rows(conn, path, source_name, method, stats, only)
         logger.info(str(stats))
         return stats
-    # **Skip on the CONTENT, not on the name**, because `cdx_suffix_sweep.py` appends to its
+    # **Skip on the CONTENT, not on the name**, because an append-style collector writes its
     # journal under the journal's FINAL name, one batch per index page, for hours. A name-only
     # ledger marks a live journal done at whatever length it happened to have, and every row
     # written afterwards is never read. The `.part`-then-rename convention does not cover an

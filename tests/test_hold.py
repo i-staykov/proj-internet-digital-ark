@@ -1,8 +1,8 @@
-"""`just hold`: every laptop job, both pause flags and the fleet workflows off until lifted.
+"""`just hold`: the hourly job, the walkers' flag and the fleet workflows off until lifted.
 
 launchctl, gh and ssh are shims that act on files under tmp, so the order of every call and
 what each leaves behind can be read back: disable before bootout, enable before bootstrap,
-both flags here and on the VPS, and the refusals the hold file drives.
+the flag here and on the VPS, and the refusals the hold file drives.
 """
 
 import os
@@ -13,11 +13,10 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-JOBS = ["com.ark.sync", "com.ark.collectors", "com.ark.cycle", "com.ark.digest"]
-FLAGS = ["pause", "pause-platform"]
+JOBS = ["com.ark.sync"]
+FLAGS = ["pause-platform"]
 WORKFLOWS = ["leg.yaml", "read.yaml", "improver.yaml"]
 NAMES = [*JOBS, *FLAGS, *WORKFLOWS]
-PLISTS = ["com.ark.sync", "com.ark.collectors"]
 JUST = shutil.which("just")
 UID = os.getuid()
 
@@ -66,14 +65,14 @@ class Box:
         self.agents = tmp / "home" / "Library" / "LaunchAgents"
         harness = self.repo / "scripts" / "harness"
         harness.mkdir(parents=True)
-        for name in ("hold.sh", "collectors.sh", "scheduled_sync.sh"):
+        for name in ("hold.sh", "scheduled_sync.sh"):
             shutil.copy(ROOT / "scripts" / "harness" / name, harness / name)
         shutil.copy(ROOT / "justfile", self.repo / "justfile")
         # The sync and the bank stop at the lock, so reaching it is passing the hold.
         (harness / "sync_lock.sh").write_text('echo "reached the lock"; exit 3\n')
         self.agents.mkdir(parents=True)
         (self.shim / "launchd" / "loaded").mkdir(parents=True)
-        for job in PLISTS:
+        for job in JOBS:
             (self.agents / f"{job}.plist").write_text("<plist/>\n")
             (self.shim / "launchd" / "loaded" / job).touch()
         bin_dir = tmp / "bin"
@@ -123,7 +122,7 @@ def box(tmp_path) -> Box:
     return Box(tmp_path)
 
 
-def test_on_disables_before_bootout_and_writes_both_flags_here_and_on_the_vps(box):
+def test_on_disables_before_bootout_and_writes_the_flag_here_and_on_the_vps(box):
     out = box.hold("on")
     assert out.returncode == 0, out.stdout + out.stderr
     calls = box.launchd_calls()
@@ -144,15 +143,14 @@ def test_on_disables_before_bootout_and_writes_both_flags_here_and_on_the_vps(bo
     assert status.returncode == 0, status.stdout
     assert status.stdout.splitlines() == [f"HELD      {name}" for name in NAMES]
     # Status reads the machine, not the file.
-    (box.shim / "launchd" / "disabled" / "com.ark.cycle").unlink()
-    (box.shim / "launchd" / "loaded" / "com.ark.digest").touch()
+    (box.shim / "launchd" / "disabled" / "com.ark.sync").unlink()
+    (box.shim / "launchd" / "loaded" / "com.ark.sync").touch()
     (box.vps_state / "pause-platform").unlink()
     (box.shim / "workflows" / "leg.yaml").write_text("active\n")
     status = box.hold("status")
     assert status.returncode == 1
     for line in (
-        "NOT HELD  com.ark.cycle: not disabled",
-        "NOT HELD  com.ark.digest: loaded",
+        "NOT HELD  com.ark.sync: not disabled, loaded",
         "NOT HELD  pause-platform: no flag on the VPS",
         "NOT HELD  leg.yaml: active",
         "HELD      read.yaml",
@@ -171,8 +169,6 @@ def test_off_one_job_lifts_only_that_job(box):
     ]
     assert box.hold_names() == [n for n in NAMES if n != "com.ark.sync"]
     assert box.hold("holds", "com.ark.sync").returncode == 1
-    collectors = box.run("bash", str(box.repo / "scripts/harness/collectors.sh"), "run")
-    assert (collectors.returncode, collectors.stdout.strip()) == (0, "held")
 
 
 @pytest.mark.skipif(JUST is None, reason="just not on PATH")
@@ -212,7 +208,7 @@ def test_a_dry_run_hand_run_passes_the_hold_and_lifts_nothing(box):
         assert (done.returncode, done.stdout.strip()) == (0, "held"), recipe
     assert box.hold_names() == names
     assert box.launchd_calls()[before:] == []
-    assert (box.state / "pause").exists() and (box.state / "pause-platform").exists()
+    assert (box.state / "pause-platform").exists()
 
 
 def test_bare_off_enables_before_bootstrap_and_removes_everything(box):
@@ -223,11 +219,7 @@ def test_bare_off_enables_before_bootstrap_and_removes_everything(box):
     calls = box.launchd_calls()[before:]
     for job in JOBS:
         enable = calls.index(f"launchctl enable gui/{UID}/{job}")
-        bootstrap = f"launchctl bootstrap gui/{UID} {box.agents / f'{job}.plist'}"
-        if job in PLISTS:
-            assert enable < calls.index(bootstrap), job
-        else:
-            assert bootstrap not in calls, job
+        assert enable < calls.index(f"launchctl bootstrap gui/{UID} {box.agents / f'{job}.plist'}")
     assert not (box.state / "hold").exists()
     for home in (box.state, box.vps_state):
         assert not any((home / flag).exists() for flag in FLAGS), home
@@ -244,5 +236,26 @@ def test_an_unreachable_vps_and_gh_leave_the_local_hold_whole(box):
     assert not list((box.shim / "launchd" / "loaded").iterdir())
     status = box.hold("status")
     assert status.returncode == 1
-    assert "NOT HELD  pause: the VPS did not answer" in status.stdout
+    assert "NOT HELD  pause-platform: the VPS did not answer" in status.stdout
     assert "HELD      com.ark.sync" in status.stdout
+
+
+def test_a_name_the_hold_does_not_know_is_not_held_and_off_only_drops_its_line(box):
+    box.state.mkdir()
+    (box.state / "pause").write_text("human\n")
+    (box.state / "hold").write_text("human\n2026-01-01T00:00:00Z\ncom.ark.cycle\npause\n")
+    status = box.hold("status")
+    assert status.returncode == 1
+    assert "NOT HELD  com.ark.cycle: not a hold name; 'just hold off com.ark.cycle' drops it" in (
+        status.stdout.splitlines()
+    )
+    assert box.hold("off", "com.ark.other").returncode == 2
+    assert box.hold("off", "com.ark.cycle").returncode == 0
+    assert box.hold_names() == ["pause"]
+    out = box.hold("off")
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "pause: not a hold name, dropped" in out.stdout
+    assert not (box.state / "hold").exists()
+    assert (box.state / "pause").exists()
+    log = box.log.read_text()
+    assert box.launchd_calls() == [] and "gh workflow" not in log and "rm -f" not in log

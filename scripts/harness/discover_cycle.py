@@ -434,8 +434,7 @@ def main() -> None:
         action="store_true",
         help="skip the re-probe, which is the only step that leaves the machine",
     )
-    # **The slot check wants an hourly caller and this script has a six-hourly one.**
-    # `com.ark.cycle` fires at 01, 07, 13 and 19, so the hourly sync calls this flag, and the
+    # **The slot check wants an hourly caller**, so the hourly sync calls this flag, and the
     # check itself is not duplicated anywhere.
     ap.add_argument(
         "--slots-only",
