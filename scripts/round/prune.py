@@ -306,6 +306,10 @@ IA = "https://archive.org"
 # The reviewer's own words, kept wherever they sit, even inside a superseded release tree.
 DOCUMENTS = {".md", ".docx", ".doc", ".pdf", ".rtf", ".odt"}
 USER_AGENT = "ark-prune/1.0 (checks archive.org metadata before a delete)"
+FETCH = REPO / "scripts/harness/fetch.py"
+# archive.org's metadata for each item usenet_new's zips came from, saved beside them by
+# fetch_usenet_hierarchies.sh.
+IA_METADATA = "data/raw/usenet_new/.meta-*.json"
 
 
 def _minus(suffix: str):
@@ -318,10 +322,12 @@ def _minus(suffix: str):
 
 
 def _catalogued(rel: str, name: str, catalog: dict) -> tuple[str, str] | None:
-    """A Usenet zip the IA catalog lists, in `usenet-<hierarchy>`; a subdirectory, as in
-    usenet_hdr2, must be that hierarchy."""
+    """A Usenet zip the IA catalog lists at its route, `usenet-<hierarchy>` for the hierarchy
+    its name starts with; a subdirectory, as in usenet_hdr2, must be that hierarchy."""
     hit = catalog.get(name)
-    if hit is None or (rel.count("/") == 1 and rel.split("/")[0] != hit[0]) or rel.count("/") > 1:
+    if hit is None or hit[0] != name.split(".", 1)[0] or rel.count("/") > 1:
+        return None
+    if rel.count("/") == 1 and rel.split("/")[0] != hit[0]:
         return None
     return f"usenet-{hit[0]}", name
 
@@ -353,11 +359,11 @@ SPENT = {
     "usenet_uk": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_probe5": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_hdr2": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
+    "usenet_new": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
 }
-# Listed so the list says why they stay: no per-file copy, or none catalogued yet.
+# Listed so the list says why they stay: no per-file copy.
 UNPROVABLE = {
     "rtfm": "its files are members of one archive.org tar, which has no per-file copy",
-    "usenet_new": "its zips are in no archive.org catalog yet",
 }
 
 
@@ -373,14 +379,22 @@ class Candidate:
 
 
 def _catalog(root: Path) -> dict[str, tuple[str, str, int]]:
-    """IA zip name -> (hierarchy, sha1, size), from the catalog verify_raw reads."""
+    """IA file name -> (hierarchy, sha1, size), from the catalog verify_raw reads and the
+    IA_METADATA copies; a file IA gives no sha1 for is left out, as --write would hold it."""
     path = root / "data/raw/usenet_catalog.json"
-    if not path.is_file():
-        return {}
     out = {}
-    for key, items in json.loads(path.read_text()).items():
+    for key, items in json.loads(path.read_text()).items() if path.is_file() else ():
         for it in items:
             out[it["name"]] = (key, it["sha1"], int(it["size"]))
+    for meta in sorted(root.glob(IA_METADATA)):
+        try:
+            answer = json.loads(meta.read_text())
+        except ValueError:
+            continue
+        item = (answer.get("metadata") or {}).get("identifier", "")
+        for f in answer.get("files") or []:
+            if f.get("sha1"):
+                out[f["name"]] = (item.removeprefix("usenet-"), f["sha1"], int(f["size"]))
     return out
 
 
@@ -522,7 +536,10 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
                 held = f"{st.st_size:,} B here, {listed[2]:,} B in the catalog: a partial download"
             out.append(Candidate("spent raw", path, st.st_size, held, hit[0], hit[1], digest))
     for entry, (count, size) in unnamed.items():
-        notes.append(f"kept {count} archives of data/raw/{entry}, {human(size)}: in no catalog")
+        notes.append(
+            f"kept {count} archives of data/raw/{entry}, {human(size)}: no catalog lists them "
+            "at their route"
+        )
     return out, notes
 
 
@@ -558,13 +575,24 @@ def backups_listed(root: Path) -> list[Candidate]:
 
 
 def ia_file(item: str, name: str, cache: dict) -> dict | None:
-    """archive.org's metadata for one file of one item, or None when it has no such file."""
+    """archive.org's metadata for one file of one item, or None when it has no such file.
+
+    Each item is asked once a run, through fetch.py: robots.txt first, Retry-After or a
+    backoff on a 429, 503 or 504. After one failed ask the run asks archive.org nothing more,
+    so every file not yet proven is held."""
     if item not in cache:
-        request = urllib.request.Request(
-            f"{IA}/metadata/{item}", headers={"User-Agent": USER_AGENT}
-        )
-        with urllib.request.urlopen(request, timeout=60) as reply:
-            cache[item] = json.load(reply)
+        if IA in cache:
+            raise ValueError(cache[IA])
+        url = f"{IA}/metadata/{item}"
+        command = [sys.executable, str(FETCH), url, "--to", "-", "--max-bytes", "64M"]
+        done = subprocess.run(command, stdout=subprocess.PIPE, check=False)
+        try:
+            if done.returncode:
+                raise ValueError(f"fetch.py exit {done.returncode}")
+            cache[item] = json.loads(done.stdout)
+        except ValueError as exc:
+            cache[IA] = f"{url}: {exc}, so archive.org is asked nothing more this run"
+            raise ValueError(cache[IA]) from None
     meta = cache[item].get("metadata") or {}
     restricted = cache[item].get("is_dark") or meta.get("access-restricted-item") in (True, "true")
     files = cache[item].get("files") or []
@@ -586,8 +614,6 @@ def record_deleted(folder: Path, rel: str, size: int, digest: str, url: str) -> 
     """One line in the entry's DELETED.tsv, written and flushed before the file goes."""
     path = folder / DELETED
     lines = path.read_text().splitlines() if path.is_file() else ["# rel\tbytes\tdigest\turl"]
-    if any(line.split("\t", 1)[0] == rel for line in lines[1:]):
-        return
     lines.append(f"{rel}\t{size}\t{digest}\t{url}")
     tmp = path.with_suffix(".tmp")
     with tmp.open("w") as handle:
