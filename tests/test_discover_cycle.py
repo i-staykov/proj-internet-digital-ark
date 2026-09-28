@@ -189,8 +189,8 @@ def test_a_workflow_github_cannot_find_is_could_not_check(tmp_path, monkeypatch)
 
 
 def test_slots_only_runs_the_check_alone_and_exits(tmp_path, monkeypatch, capsys):
-    """`com.ark.cycle` fires four times a day, so the hourly sync calls this flag instead. It
-    must not drag the rest of the cycle in with it, and it reads the fleet it is given."""
+    """The hourly sync calls this flag. It must not drag the rest of the cycle in with it, and
+    it reads the fleet it is given."""
     called, seen = [], []
 
     def check(fleet):

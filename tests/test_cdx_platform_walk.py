@@ -107,13 +107,19 @@ def test_a_refusal_parks_the_platform(tmp_path, monkeypatch):
     assert not (args.state_dir / "a_net.done").exists()
 
 
-def test_a_journal_left_by_a_killed_run_is_promoted(tmp_path, monkeypatch):
+def test_an_open_journal_is_a_part_and_one_a_killed_run_left_is_promoted(tmp_path):
     args = _args(tmp_path)
     left = args.out / "suffix_a_net_rk_20260923T080000Z_00000.jsonl.gz.part"
     with gzip.open(left, "wt") as fh:
         fh.write('{"url": "http://x.a.net/", "timestamp": "19990101000000", "status": "200"}\n')
-    walk.Walk("a.net", args)
-    assert not left.exists() and left.with_name(left.name[: -len(".part")]).exists()
+    one = walk.Walk("a.net", args)
+    promoted = left.with_name(left.name[: -len(".part")])
+    assert not left.exists() and promoted.exists()
+    # The sync pulls `suffix_*.jsonl.gz`, so an open journal stays behind only as a `.part`.
+    one.write([["http://y.a.net/", "20000101000000", "200"]])
+    assert sorted(args.out.iterdir()) == sorted([promoted, one.part])
+    assert one.part.name.endswith(".jsonl.gz.part")
+    one.close()
 
 
 def test_retry_after_takes_seconds_or_a_date_and_never_goes_negative():

@@ -41,7 +41,7 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - `www.<registrable>` is its own hostname record where evidence names that exact host (`a_www_record_has_its_own_evidence`); 1,221,065 of his names carry both forms in one year.
 - His merge kept all 1,313,547 `www.` names of one round, 1,106,188 beside the bare name in the same year, and credited it 7.562846%, so the alias ships (`scripts/round/round_figures.py` `www_alias_share`).
 - Neither `www.` nor any other host evidences the registrable: a registrable line ships only on a capture of its own name, and 790 of 806 shipped lines rested on another host's capture (`src/ark/checks.py` `a_registrable_record_has_its_own_capture`).
-- A 3xx filter adds 2.4% more CDX rows; dropping the status filter adds another 3.3%, all 4xx and 5xx: the server answered, the host served nothing (`scripts/engines/cdx_suffix_sweep.py`).
+- A 3xx filter adds 2.4% more CDX rows; dropping the status filter adds another 3.3%, all 4xx and 5xx: the server answered, the host served nothing (`scripts/engines/cdx_platform_walk.py`).
 - A replay status is not the page: a 200 can be a period IIS 404, and a 301 an acquisition redirect onto a live 404 (FTP Search); `just find ftp_index_server_inventories`.
 
 ## Scoring
@@ -166,18 +166,18 @@ The rules these facts support live in CLAUDE.md; `just find <term>` opens a regi
 - A running collector is not a working one: a queue led by 2,675 `.mil` names ran 1,200 queries for zero in-window captures while every mechanical check was clean, so `just cycle` checks yield (`src/ark/yield_check.py`).
 - Hit rate, not query rate, tells queues apart: one returned nothing on 1,114 of 1,200 queries while another in the same hour gave 1,647 years per 1,200, 45x apart (`src/ark/yield_check.py`).
 - Journal bytes, rows and peaks are not rates: a journal is a file and only a distinct net-new (host, year) is a record, and a stopwatch on journals per minute parked `columbia.edu` at 885,968 capture rows (`src/ark/yield_check.py`).
-- An archive client is its open journal, not its process: a `uv run` wrapper plus its python child doubles a process count (`scripts/harness/collectors.sh` `local_clients()`).
+- A `uv run` wrapper plus its python child doubles a process count, so a client is counted by its python process (`scripts/engines/cdx_platform_walk.py` `cdx_clients()`).
 - More CDX workers never raised throughput: 4 lost the archive, a bigger server was no faster, 3 ran slower than 2 (`src/ark/cdx.py`).
 - CDX seconds per query (1,179 journals): by_host 2.78 to 4.93, scan 3.65 to 7.58, by_root 11.84 to 46.00, 32.9% of seconds for 15.3% of years (`src/ark/cdx.py`).
-- A CDX page costs about the same at any size (200 blocks 11 to 42 s, 10,000 blocks 110 s), so sweeps page at 10,000 and ask `showNumPages` first (`scripts/engines/cdx_suffix_sweep.py`).
-- `matchType=domain` on a public suffix returns its names in disjoint pages (`co.uk` is 3,387,186 blocks, 339 requests); a bare TLD answers 403, so `.com` cannot be walked (`scripts/engines/cdx_suffix_sweep.py`).
-- Page 0 of a CDX namespace is about twice as dense as the whole, so a page 0 projection is an upper bound (`scripts/engines/cdx_suffix_sweep.py`).
+- A CDX page costs about the same at any size (200 blocks 11 to 42 s, 10,000 blocks 110 s); `just find ia_cdx_hostnames`.
+- `matchType=domain` on a public suffix returns its names in disjoint pages (`co.uk` is 3,387,186 blocks, 339 requests); a bare TLD answers 403, so `.com` cannot be walked; `just find "public-suffix sweep"`.
+- Page 0 of a CDX namespace is about twice as dense as the whole, so a page 0 projection is an upper bound; `just find ia_cdx_hostnames`.
 - A page-number walk that skips a failed page still ends `.done`: five of 31 platform walks stopped short, so the walker asks `showResumeKey` until the index twice says no more (`scripts/engines/cdx_platform_walk.py`).
 - `collapse=timestamp:4` on a domain walk folds a host into its SURT neighbour in the same year, at least 56.7% of `cjb.net` host-years, so the walker keeps one row per (host, year) itself (`cdx_platform_walk.py`).
 - One `matchType=domain` answer names thousands of hosts: 14,256,371 capture rows in 75 minutes gave 774,767 net-new records, 482,567.9442 EE; `just find ia_cdx_hostnames`.
 - Distinct hosts per capture row, not TLD weight, set a sweep page's worth: `co.uk`, first at weight 0.9813, paid 16.0 EE per 1,000 rows at 61.5 rows a host against 657.2 at 1.5 (42x); one index page measures it, and above about 20 most requests re-read named hosts; `just find ia_cdx_hostnames`.
 - The domain-wide sweep's rate decays: 193,000 EE per client-hour on its dense head, 210 an hour for two clients once walked; `just find ia_cdx_hostnames`.
-- The CDX API takes the regex filter `statuscode:[23][0-9][0-9]`; a multi-clause negated filter returns HTTP 400 (`scripts/engines/cdx_suffix_sweep.py`).
+- The CDX API takes the regex filter `statuscode:[23][0-9][0-9]`; a multi-clause negated filter returns HTTP 400 (`scripts/engines/cdx_platform_walk.py`).
 - `archive.org/wayback/available` can answer 429, `x-rl: 0`, no `Retry-After`, with none of our clients running while CDX answers normally; the block is per service and per IP (8 of 8 answered from the VPS while the laptop sat at 429); `just find availability`.
 - A throttle recorded as "no capture" spends a queue entry and learns nothing: the availability queue build recorded 429s that way; `just find availability`.
 - TimeMaps (`/web/timemap/link/<url>`) answer through the availability block and list every memento with its datetime; `just find ftp_index_server_inventories`.

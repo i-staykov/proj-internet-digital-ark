@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# The hold: every laptop job, both pause flags and the fleet's Leg, Read and Improver workflows
-# stop, stay stopped across a reboot, and start again only when a human lifts them. `just hold`
-# is the interface.
+# The hold: the hourly job, the walkers' `pause-platform` flag and the fleet's Leg, Read and
+# Improver workflows stop, stay stopped across a reboot, and start again only when a human lifts
+# them. `just hold` is the interface.
 #
 # A reboot undoes a bootout, because launchd loads every plist in ~/Library/LaunchAgents at
 # login. `launchctl disable` is what persists, so `on` disables a job before booting it out and
 # `off` enables it before bootstrapping it. The hold file names what is held, one name per line
-# under `human` and a UTC stamp. While it lists their job, the collector supervisor exits `held`,
-# and so do `just sync` and `just bank` unless one hand run sets `ARK_HOLD_BYPASS=dry-run` inline;
-# `just schedule install` refuses while the file exists.
+# under `human` and a UTC stamp. While it lists `com.ark.sync`, `just sync` and `just bank` exit
+# `held` unless one hand run sets `ARK_HOLD_BYPASS=dry-run` inline; `just schedule install`
+# refuses while the file exists. A listed name this script does not know is NOT HELD, and `off`
+# only drops its line.
 #
-# The VPS and GitHub are asked, never relied on: without them the jobs and the local flags
+# The VPS and GitHub are asked, never relied on: without them the job and the local flag
 # still go, and what could not be confirmed is printed, not fatal.
 #
 # Usage:
@@ -27,19 +28,19 @@ STATE_DIR="${ARK_STATE_DIR:-$HOME/ark/state}"
 HOLD="$STATE_DIR/hold"
 AGENTS="$HOME/Library/LaunchAgents"
 DOMAIN="gui/$(id -u)"
-JOBS="com.ark.sync com.ark.collectors com.ark.cycle com.ark.digest"
-FLAGS="pause pause-platform"
+JOBS="com.ark.sync"
+FLAGS="pause-platform"
 WORKFLOWS="leg.yaml read.yaml improver.yaml"
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
-# On the VPS the flags follow that machine's own ARK_STATE_DIR.
+# On the VPS the flag follows that machine's own ARK_STATE_DIR.
 REMOTE_DIR='d="${ARK_STATE_DIR:-$HOME/ark/state}"; mkdir -p "$d"'
 
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
-listed() { [ -f "$HOLD" ] && grep -qx -- "$1" "$HOLD"; }
-
 names() { sed -n '3,$p' "$HOLD" 2>/dev/null; }
+
+listed() { names | grep -x -- "$1" > /dev/null; }
 
 drop() { grep -vx -- "$1" "$HOLD" > "$HOLD.tmp"; mv "$HOLD.tmp" "$HOLD"; }
 
@@ -73,7 +74,7 @@ cmd_on() {
     local rc=0 job f wf was waited
     mkdir -p "$STATE_DIR" || exit 1
     # The file goes first, so a job that starts while this runs already reads it, and the
-    # flags next, so the sweeps idle after the page in flight before their job goes.
+    # flag next, so the walkers idle after the page in flight.
     { printf 'human\n%s\n' "$STAMP"; printf '%s\n' $JOBS $FLAGS $WORKFLOWS; } > "$HOLD" || exit 1
     echo "hold: $HOLD written"
     for f in $FLAGS; do
@@ -152,7 +153,7 @@ lift() {
             return 1
         fi
         echo "$name: removed"
-    else
+    elif in_list "$name" "$WORKFLOWS"; then
         case "$(wf_state "$name")" in
         active) echo "$name: already active" ;;
         disabled*)
@@ -165,6 +166,8 @@ lift() {
             return 1
             ;;
         esac
+    else
+        echo "$name: not a hold name, dropped"
     fi
 }
 
@@ -172,7 +175,7 @@ cmd_off() {
     local todo name rc=0
     [ -f "$HOLD" ] || { echo "hold: nothing is held"; return 0; }
     if [ -n "${1:-}" ]; then
-        if ! in_list "$1" "$JOBS $FLAGS $WORKFLOWS"; then
+        if ! in_list "$1" "$JOBS $FLAGS $WORKFLOWS" && ! listed "$1"; then
             echo "hold: no such name $1, one of: $JOBS $FLAGS $WORKFLOWS" >&2
             return 2
         fi
@@ -231,6 +234,11 @@ cmd_status() {
             echo "NOT HELD  $name: $why"
             rc=1
         fi
+    done
+    for name in $(names); do
+        in_list "$name" "$JOBS $FLAGS $WORKFLOWS" && continue
+        echo "NOT HELD  $name: not a hold name; 'just hold off $name' drops it"
+        rc=1
     done
     return $rc
 }
