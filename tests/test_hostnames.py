@@ -58,9 +58,9 @@ def journal(tmp_path: Path, items: list[tuple], name: str = "shard_000.jsonl.gz"
 
 def family(fam, source, noun, dup, reg, other, urls, id):
     """A lane's items: `dup` names one host twice in a year (the lower item is quoted), `reg` a host
-    beside its registrable, `other` another lane's pointer, and the first item again in 2004."""
+    beside its registrable and a name off his rule, `other` another lane's pointer, and 2004."""
     (a, b, year, host), (item, ryear, rhost, registrable) = dup, reg
-    items = [(a, year, host), (b, year, host), (item, ryear, f"{rhost} {registrable}")]
+    items = [(a, year, host), (b, year, host), (item, ryear, f"{rhost} {registrable} x_{rhost}")]
     items += [(other, 1999, "other.example.org"), (a, 2004, "later.example.org")]
     kept = {host: (year, urls[0]), rhost: (ryear, urls[1])}
     return pytest.param(fam, source, items, f"{noun} {year} {a} {host}", kept, id=id)
@@ -116,7 +116,8 @@ def test_funnel_one_row_per_host_year_quotes_the_lowest(tmp_path, fam, source, i
     assert [(r[0], r[2]) for r in rows] == sorted((h, y) for h, (y, _) in kept.items())
     assert {r[0]: r[4] for r in rows} == {h: url for h, (_, url) in kept.items()}
     assert {r[0]: r[3] for r in rows}[items[0][2]] == quoted
-    assert (counts["bad_item"], counts["out_of_window"], counts["registrable_row"]) == (1, 1, 1)
+    assert tuple(items[2][2].split()[:2]) in {r[:2] for r in rows}  # filed under its registrable
+    assert counts == dict(lines=5, bad_item=1, out_of_window=1, registrable_row=1, rejected_host=1)
 
 
 @pytest.mark.parametrize("fam,source,items,quoted,kept", FAMILIES)
@@ -126,11 +127,13 @@ def test_funnel_ingest_lands_under_its_own_source_once(tmp_path, fam, source, it
     # every pool names its first shard `shard_000.jsonl.gz`, so the pool is part of the key
     sql = "SELECT DISTINCT name, source_file FROM evidence JOIN source USING (source_id)"
     assert q(conn, sql) == [(source, "items/shard_000.jsonl.gz")]
-    # a host named in a message dates that host, never its parent
+    # a host named in a message is a link filed under its parent, and never dates that parent
+    want = [(*r[:3], "link_source") for r in hn.usenet_item_rows(path, Counter(), family=fam)]
+    sql = "SELECT hostname, parent_domain, assigned_year, evidence_type FROM hostname_year JOIN "
+    assert q(conn, sql + "evidence USING (evidence_id) ORDER BY ALL") == want
     assert q(conn, "SELECT count(*) FROM domain_year") == [(0,)]
-    lines = gzip.decompress(path.read_bytes()).decode().splitlines()
     for value, where in q(conn, "SELECT evidence_value, record_location FROM evidence"):
-        assert json.loads(lines[int(where.removeprefix("line ")) - 1])["item"] in value
+        assert items[int(where.removeprefix("line ")) - 1][0] in value  # journal line N is item N
     assert hn.ingest_usenet_item_journal(conn, path, family=fam)["skipped"] is True
 
 
@@ -343,8 +346,7 @@ REFUSED = [  # (ingest, file, the stat that refuses it, id)
 
 @pytest.mark.parametrize("ingest,file,key", [pytest.param(*c[:3], id=c[3]) for c in REFUSED])
 def test_wall_a_file_outside_the_window_or_the_lane_writes_nothing(tmp_path, ingest, file, key):
-    conn = store()
-    assert ingest(conn, write(tmp_path / file[0], file[1])).get(key) == 1
+    assert ingest(conn := store(), write(tmp_path / file[0], file[1])).get(key) == 1
     sql = "SELECT (SELECT count(*) FROM evidence) + (SELECT count(*) FROM hostname_year)"
     assert q(conn, sql) == [(0,)]
 
@@ -433,8 +435,7 @@ MONTH = [
 
 @pytest.mark.parametrize("lines,n,stats", [pytest.param(*m[:3], id=m[3]) for m in MONTH])
 def test_wall_and_funnel_ietf_header_month_files(lines, n, stats) -> None:
-    c = script(IETF)
-    got = c.new_stats()
+    got = (c := script(IETF)).new_stats()
     rows = list(c.rows_of(iter(lines), f"www.ietf.org/{IE}", 1996, got))
     hosts = ["cnri.reston.va.us", "second.example.org"][:n]
     want = [(f"www.ietf.org/{IE}#{i + 1}", h) for i, h in enumerate(hosts)]
@@ -456,8 +457,7 @@ def test_wall_apache_header_a_message_its_own_date_denies_is_dropped(tmp_path) -
 
 
 def test_funnel_ietf_header_a_growing_plain_shard_is_read_again(tmp_path) -> None:
-    items = FAMILIES[1].values[2]
-    conn, shard = store(), journal(tmp_path, items[:1], "snmpv2.jsonl")
+    conn, shard = store(), journal(tmp_path, (items := FAMILIES[1].values[2])[:1], "snmpv2.jsonl")
     walked = hn.ingest_usenet_item_dir(conn, shard.parent, family=hn.IETF_FAMILY)
     assert (walked["files_seen"], walked["hostname_year_rows"]) == (1, 1)
     with shard.open("a") as fh:
