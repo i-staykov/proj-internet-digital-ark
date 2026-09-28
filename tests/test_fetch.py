@@ -1,6 +1,5 @@
 """fetch.py on loopback hosts that log each request: a robots refusal costs the artifact zero
-requests, the cap holds when `Content-Length` lies, and a destination outside the roots opens no
-socket."""
+requests, the cap holds when `Content-Length` lies, and no Wayback CDX url is ever asked."""
 
 import gzip
 import hashlib
@@ -33,9 +32,10 @@ BY_NAME_REFUSAL = PERMISSIVE + ("\n# padding\n" * 40) + "User-agent: ClaudeBot\n
 NAMED = "User-agent: *\nAllow: /\n\nUser-agent: {}\nDisallow: /data\n"
 OURS = ("Claude-User", "anthropic-ai", "InternetDigitalArk")
 NARROW = "User-agent: *\nDisallow: /data\nAllow: /data/public\n"
+STAR = "User-agent: *\nDisallow: /private\n"
 PAYLOAD = b"".join(b"com,example%d)/ 1999%08d 200\n" % (i, i) for i in range(60000))
 SECOND, WHOLE, BIG = b"second-half", b"first-halfsecond-half", 1 << 40
-RANGE0 = {"content-range": "bytes 0-20/21"}
+RANGE0, TAIL = {"content-range": "bytes 0-20/21"}, f"bytes=600000-{len(PAYLOAD) - 1}"
 CASES = pytest.mark.parametrize("case", [str.title, str.lower], ids=["title-case", "lower-case"])
 
 
@@ -56,14 +56,14 @@ class Server:
 
         class Handler(BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
-
-            def log_message(self, *_):
-                pass
+            log_message = lambda *_: None  # noqa: E731
 
             def do_GET(self):
                 outer.asked.append(self.path)
                 outer.ranges.append(self.headers.get("Range"))
                 route = outer.routes.get(self.path, (404, {}, b""))
+                if isinstance(route, list):  # successive answers, the last one repeated
+                    route = route.pop(0) if len(route) > 1 else route[0]
                 if callable(route) and (route := route(self)) is None:
                     return
                 status, headers, body = route
@@ -77,8 +77,7 @@ class Server:
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-        host, port = self.httpd.server_address[:2]
-        self.base = f"http://{host}:{port}"
+        self.base = "http://{}:{}".format(*self.httpd.server_address[:2])
 
 
 def dropping(payload: bytes, drop: int, reset=False, drop_ranges=False, honour=True):
@@ -102,8 +101,7 @@ def dropping(payload: bytes, drop: int, reset=False, drop_ranges=False, honour=T
         handler.wfile.write(body[:cut])
         if cut < len(body):
             handler.wfile.flush()
-            if reset:
-                # Time for the reader to take what arrived, then a linger of zero.
+            if reset:  # time for the reader to take what arrived, then a linger of zero
                 time.sleep(0.2)
                 linger = struct.pack("ii", 1, 0)
                 handler.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
@@ -116,16 +114,14 @@ def dropping(payload: bytes, drop: int, reset=False, drop_ranges=False, honour=T
 @pytest.fixture
 def leg(tmp_path, monkeypatch):
     """The probe root fetch.py writes under, and `serve` for hosts shut down at teardown."""
-    probe = tmp_path / "probe"
-    probe.mkdir()
+    (probe := tmp_path / "probe").mkdir()
     monkeypatch.setenv("ARK_PROBE_DIR", str(probe))
     monkeypatch.delenv("ARK_FETCH_DEST_ROOT", raising=False)
     made = []
 
     def serve(routes: dict, robots: str | None = PERMISSIVE) -> Server:
-        if robots is not None:
-            routes = {"/robots.txt": page(robots.encode()), **routes}
-        made.append(Server(routes))
+        extra = {} if robots is None else {"/robots.txt": page(robots.encode())}
+        made.append(Server(extra | routes))
         return made[-1]
 
     yield types.SimpleNamespace(probe=probe, serve=serve)
@@ -147,8 +143,7 @@ def run(url: str, *args, env: dict | None = None) -> tuple[int, dict, str, bytes
 def test_a_by_name_refusal_exits_three_with_zero_requests_for_the_artifact(leg):
     server = leg.serve({"/zones/1999.txt": page(b"never read\n")}, robots=BY_NAME_REFUSAL)
     code, receipt, *_ = run(f"{server.base}/zones/1999.txt")
-    assert code == fetch.ROBOTS_REFUSED
-    assert receipt["robots"] == "refused"
+    assert (code, receipt["robots"]) == (fetch.ROBOTS_REFUSED, "refused")
     assert "claudebot" in receipt["reason"].lower()
     assert server.asked == ["/robots.txt"], "the artifact was asked for anyway"
     assert list(leg.probe.iterdir()) == []
@@ -157,7 +152,7 @@ def test_a_by_name_refusal_exits_three_with_zero_requests_for_the_artifact(leg):
 ROBOTS = {
     "by-name-below-star": (BY_NAME_REFUSAL, "/zones/1999.txt", ("refused", 0.0)),
     **{n: (NAMED.format(n), "/data/x.gz", ("refused", 0.0)) for n in OURS},
-    "star": ("User-agent: *\nDisallow: /private\n", "/private/x", ("refused", 0.0)),
+    "star": (STAR, "/private/x", ("refused", 0.0)),
     "outside-the-narrow-allow": (NARROW, "/data/private/x", ("refused", 0.0)),
     "narrower-allow-wins": (NARROW, "/data/public/x", ("allowed", 0.0)),
     "crawl-delay-is-read": ("User-agent: *\nCrawl-delay: 5\nDisallow:\n", "/x", ("allowed", 5.0)),
@@ -170,8 +165,7 @@ def test_a_refusal_in_any_of_our_groups_refuses_the_path(text, path, expected):
 
 
 def test_no_robots_is_allowed_and_an_unreadable_or_dead_one_fails_closed(leg):
-    open_host = leg.serve({"/x.txt": page()}, robots=None)
-    code, receipt, *_ = run(f"{open_host.base}/x.txt")
+    code, receipt, *_ = run(f"{leg.serve({'/x.txt': page()}, robots=None).base}/x.txt")
     assert (code, receipt["robots"]) == (fetch.OK, "allowed")
     broken = leg.serve({"/robots.txt": (500, {}, b"oops\n"), "/x.txt": page()})
     code, receipt, *_ = run(f"{broken.base}/x.txt")
@@ -186,14 +180,10 @@ def test_no_robots_is_allowed_and_an_unreadable_or_dead_one_fails_closed(leg):
 
 @CASES
 def test_a_two_gigabyte_content_length_stops_at_the_cap_and_reads_no_body(leg, case):
-    two_gb = 2 * 1024**3
-    headers = {case("content-type"): "application/gzip", case("content-length"): str(two_gb)}
-    server = leg.serve({"/IA.cdxj.gz": (200, headers, b"")})
-    code, receipt, *_ = run(f"{server.base}/IA.cdxj.gz")  # the default cap is 1G
-    assert code == fetch.OVER_CAP, receipt
-    assert receipt["capped"] is True
-    assert receipt["bytes"] == two_gb
-    assert "downloads.md" in receipt["reason"]
+    headers = {case("content-type"): "application/gzip", case("content-length"): str(2 << 30)}
+    code, receipt, *_ = run(f"{leg.serve({'/IA.gz': (200, headers, b'')}).base}/IA.gz")
+    assert (code, receipt["capped"], receipt["bytes"]) == (fetch.OVER_CAP, True, 2 << 30)
+    assert "downloads.md" in receipt["reason"], "the default cap is 1G"
     assert list(leg.probe.iterdir()) == [], "a capped fetch must leave nothing behind"
 
 
@@ -201,16 +191,13 @@ def test_the_stream_is_counted_when_the_server_understates_its_length(leg):
     liar = {"Content-Type": "text/plain", "Transfer-Encoding": "identity"}
     server = leg.serve({"/liar.txt": (200, liar, b"x" * 40_000)})
     code, receipt, *_ = run(f"{server.base}/liar.txt", "--max-bytes", "1024")
-    assert code == fetch.OVER_CAP
-    assert receipt["capped"] is True
-    assert receipt["path"] is None
+    assert (code, receipt["capped"], receipt["path"]) == (fetch.OVER_CAP, True, None)
     assert list(leg.probe.iterdir()) == []
 
 
 def test_sizes_parse_in_binary_units():
-    assert fetch.parse_size("1G") == fetch.parse_size("1GiB") == 1024**3
-    assert fetch.parse_size("512m") == 512 * 1024**2
-    assert fetch.parse_size("1073741824") == 1024**3
+    assert fetch.parse_size("1G") == fetch.parse_size("1GiB") == fetch.parse_size("1073741824")
+    assert (fetch.parse_size("1G"), fetch.parse_size("512m")) == (1024**3, 512 * 1024**2)
     for bad in ("", "1X", "-1", "0", "lots"):
         with pytest.raises(ValueError):
             fetch.parse_size(bad)
@@ -218,16 +205,16 @@ def test_sizes_parse_in_binary_units():
 
 @CASES
 def test_a_clean_fetch_writes_one_file_and_prints_the_receipt(leg, case):
-    body = gzip.compress(b"org,example)/ 19991128153001\n")
-    gz = {case("content-type"): "application/gzip"}
-    server = leg.serve({"/zones/1999.cdx.gz": (200, gz, body)})
-    code, receipt, *_ = run(f"{server.base}/zones/1999.cdx.gz")
-    assert code == fetch.OK, receipt
+    body, gz = (
+        gzip.compress(b"org,example)/ 19991128153001\n"),
+        {case("content-type"): "application/gzip"},
+    )
+    code, receipt, *_ = run(
+        f"{leg.serve({'/zones/1999.cdx.gz': (200, gz, body)}).base}/zones/1999.cdx.gz"
+    )
     written = leg.probe / "1999.cdx.gz"
-    assert written.read_bytes() == body
-    assert receipt["bytes"] == len(body)
-    assert receipt["path"] == str(written)
-    assert receipt["content_type"] == "application/gzip"
+    assert (code, written.read_bytes(), receipt["path"]) == (fetch.OK, body, str(written)), receipt
+    assert (receipt["bytes"], receipt["content_type"]) == (len(body), "application/gzip")
     assert receipt["sha256"] == hashlib.sha256(body).hexdigest()
 
 
@@ -235,39 +222,34 @@ def test_a_destination_outside_the_roots_is_refused_before_a_request(leg, tmp_pa
     server = leg.serve({"/x.txt": page()})
     outside = tmp_path / "workspace" / "x.txt"
     outside.parent.mkdir()
-    code, receipt, *_ = run(f"{server.base}/x.txt", "--to", str(outside))
-    assert code == fetch.USAGE
-    assert "outside" in receipt["reason"]
+    outside.write_text("mine\n")
     # A symlinked parent is the same escape by another route, and so is a symlinked target.
     (leg.probe / "elsewhere").symlink_to(outside.parent, target_is_directory=True)
-    code, *_ = run(f"{server.base}/x.txt", "--to", str(leg.probe / "elsewhere" / "x.txt"))
-    assert code == fetch.USAGE
-    outside.write_text("mine\n")
     (leg.probe / "x.txt").symlink_to(outside)
-    code, receipt, *_ = run(f"{server.base}/x.txt", "--to", str(leg.probe / "x.txt"))
-    assert code == fetch.USAGE
-    assert "symlink" in receipt["reason"]
+    escapes = {
+        outside: "outside",
+        leg.probe / "elsewhere/x.txt": "",
+        leg.probe / "x.txt": "symlink",
+    }
+    for to, why in escapes.items():
+        code, receipt, *_ = run(f"{server.base}/x.txt", "--to", str(to))
+        assert (code, why in receipt["reason"]) == (fetch.USAGE, True), to
     assert outside.read_text() == "mine\n", "it wrote through the link"
     code, receipt, *_ = run(f"{server.base}/x.txt", env={"ARK_PROBE_DIR": ""})
-    assert code == fetch.USAGE
-    assert "nowhere" in receipt["reason"]
+    assert (code, "nowhere" in receipt["reason"]) == (fetch.USAGE, True)
     assert server.asked == [], "robots was read for a fetch that could never write"
 
 
 def test_the_content_type_decides_where_the_bytes_may_go(leg, tmp_path):
     corpus = tmp_path / "corpora" / "arquivo-ia-cdxj"
     corpus.mkdir(parents=True)
-    risky, exe = (
-        page(b"a line\n", "application/octet-stream"),
-        page(b"MZ\n", "application/x-msdownload"),
-    )
-    server = leg.serve({"/IA.cdxj": risky, "/setup.exe": exe})
+    risky = page(b"a line\n", "application/octet-stream")
+    server = leg.serve({"/IA.cdxj": risky, "/setup.exe": page(b"MZ\n", "application/x-msdownload")})
     approved = {"ARK_FETCH_DEST_ROOT": str(corpus)}
     # A risky type stays off the probe root, even with the approved root set elsewhere.
     for env in (None, approved):
         code, receipt, *_ = run(f"{server.base}/IA.cdxj", env=env)
-        assert code == fetch.BAD_TYPE, env
-        assert "downloads.md" in receipt["reason"]
+        assert (code, "downloads.md" in receipt["reason"]) == (fetch.BAD_TYPE, True), env
         assert receipt["path"].startswith(str(leg.probe))
     # In-stream it may be read: the payload owns stdout and the receipt goes to stderr.
     code, receipt, err, out = run(f"{server.base}/IA.cdxj", "--to", "-")
@@ -275,19 +257,16 @@ def test_the_content_type_decides_where_the_bytes_may_go(leg, tmp_path):
     assert json.loads(err.splitlines()[-1])["bytes"] == receipt["bytes"] == len(out)
     assert list(leg.probe.iterdir()) == [], "a streamed fetch writes no file"
     code, receipt, *_ = run(f"{server.base}/IA.cdxj", "--to", str(corpus), env=approved)
-    assert code == fetch.OK, receipt
-    assert (corpus / "IA.cdxj").read_bytes() == b"a line\n"
+    assert (code, (corpus / "IA.cdxj").read_bytes()) == (fetch.OK, b"a line\n"), receipt
     # An executable is refused whatever the destination.
     for args, env in (([], None), (["--to", "-"], None), (["--to", str(corpus)], approved)):
         code, receipt, *_ = run(f"{server.base}/setup.exe", *args, env=env)
-        assert code == fetch.BAD_TYPE, receipt
-        assert "allowlist" in receipt["reason"]
+        assert (code, "allowlist" in receipt["reason"]) == (fetch.BAD_TYPE, True), receipt
 
 
 def test_a_redirect_onto_a_refusing_host_is_refused_and_never_fetched(leg):
     refuser = leg.serve({"/data.txt": page(b"never read\n")}, robots=BY_NAME_REFUSAL)
-    landing = leg.serve({"/get": hop(f"{refuser.base}/data.txt")})
-    code, receipt, *_ = run(f"{landing.base}/get")
+    code, receipt, *_ = run(f"{leg.serve({'/get': hop(f'{refuser.base}/data.txt')}).base}/get")
     assert code == fetch.ROBOTS_REFUSED, receipt
     assert receipt["url"].endswith("/data.txt"), "the receipt must name the host that refused"
     assert refuser.asked == ["/robots.txt"], "the second host was fetched without a check"
@@ -295,31 +274,14 @@ def test_a_redirect_onto_a_refusing_host_is_refused_and_never_fetched(leg):
 
 
 def test_a_redirect_within_one_host_rechecks_the_new_path(leg):
-    routes = {"/public": hop("/private/x.txt"), "/private/x.txt": page(b"never read\n")}
-    server = leg.serve(routes, robots="User-agent: *\nDisallow: /private\n")
+    server = leg.serve({"/public": hop("/private/x.txt"), "/private/x.txt": page()}, robots=STAR)
     code, receipt, *_ = run(f"{server.base}/public")
     assert code == fetch.ROBOTS_REFUSED, receipt
-    assert "/private/x.txt" not in server.asked
-    assert server.asked.count("/robots.txt") == 1, "robots is reused for the second hop"
-
-
-@pytest.mark.parametrize(
-    ("routes", "reason"),
-    [
-        ({"/a": hop("/b"), "/b": hop("/a")}, "redirects"),
-        ({"/a": hop("file:///x")}, "not http or https"),
-    ],
-    ids=["loop", "off-http"],
-)
-def test_a_redirect_that_leads_nowhere_fails(leg, routes, reason):
-    server = leg.serve(routes)
-    code, receipt, *_ = run(f"{server.base}/a")
-    assert code == fetch.HTTP_FAILED
-    assert reason in receipt["reason"]
-    assert len([p for p in server.asked if p in ("/a", "/b")]) <= fetch.MAX_HOPS + 1
+    assert server.asked == ["/robots.txt", "/public"], "robots is reused for the second hop"
 
 
 CDX, WB = "/cdx/search/cdx?url=example.com&matchType=domain", "/__wb/sparkline?url=example.com"
+HOP = "a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop"
 
 
 @pytest.mark.parametrize(
@@ -333,8 +295,8 @@ CDX, WB = "/cdx/search/cdx?url=example.com&matchType=domain", "/__wb/sparkline?u
     ],
     ids=[
         "a_cdx_url_is_refused_before_any_request",
-        "a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop-file",
-        "a_redirect_within_one_host_onto_the_cdx_is_refused_before_the_hop-stream",
+        HOP + "-file",
+        HOP + "-stream",
         "a_redirect_onto_the_cdx_of_another_host_asks_that_host_nothing",
         "a_url_whose_decoded_host_cannot_be_parsed_is_refused_as_one_would_be",
     ],
@@ -345,70 +307,51 @@ def test_the_wayback_cdx_is_asked_nothing_by_the_url_or_any_hop(leg, start, to, 
     cdx = leg.serve({"/list.txt": hop(CDX), CDX: page(b"com,example)/ 19990101000000\n")})
     at = {"cdx": cdx.base, "landing": leg.serve({"/get": hop(f"{cdx.base}{WB}", 301)}).base}
     code, receipt, err, _ = run(start.format(**at), *to)
-    assert code == fetch.CDX_REFUSED, receipt
-    assert "Wayback CDX API" in receipt["reason"]
+    assert (code, "Wayback CDX API" in receipt["reason"]) == (fetch.CDX_REFUSED, True), receipt
     assert (receipt["url"], receipt["bytes"]) == (refused.format(**at), 0), "names what it refused"
     assert (f"to {receipt['url']}, reading its robots" in err) == (start != refused), "a hop"
-    assert cdx.asked == asked
-    assert list(leg.probe.iterdir()) == []
+    assert (cdx.asked, list(leg.probe.iterdir())) == (asked, [])
     if "%5B" in start:  # a decoded host that cannot be parsed is refused, not guessed at
         with pytest.raises(ValueError):
             fetch.cdx_query(start)
 
 
 ADDRESSES = "127.0.0.1 2130706433 0x7f000001 0177.0.0.01 127.1 [::1] [::ffff:127.0.0.1]".split()
-ADDRESSES.append("\uff11\uff12\uff17.\uff10.\uff10.\uff11")  # full-width digits
-# Any spelling of the host and path.
-SPELLED = [
-    "https://web.archive.org/cdx/search/cdx?url=example.com&matchType=domain",
-    "http://WEB.archive.org.:80//cdx/search/cdx",
-    "https://wayback.archive.org/%63dx/search/cdx",
-    "https://web.archive.org/web/timemap/cdx?url=example.com",
-    "https://web.archive.org/__wb/sparkline?output=json&url=example.com&collection=web",
-    "https://web.archive.org/__WB/calendarcaptures/2?url=example.com&date=1999",
-    "https://archive.org/wayback/available?url=example.com&timestamp=19990101",
-    "http://www.archive.org/wayback/available?url=example.com",
-    "https://wayback.archive.org/wayback/available?url=example.com",
-    "http://127.0.0.1/cdx/search/cdx?url=example.com",
-    "http://[::1]:8080/__wb/sparkline?url=example.com",
-    "https://web.archive.org/web/../cdx/search/cdx?url=example.com",
-    "https://web.archive.org/x%3F/%2e%2e/cdx/search/cdx?url=example.com",
-    "https://web.archive.org/;/cdx/search/cdx?url=example.com",
-    "https://\uff57\uff45\uff42.archive.org/cdx/search/cdx?url=example.com",
-    "https://web%2Earchive.org/cdx/search/cdx?url=example.com",
-    "https://%77eb.archive.org/cdx/search/cdx?url=example.com",
-    "https://archive%2Eorg/wayback/available?url=example.com",
-    "https://web.archive.org%3A443/cdx/search/cdx?url=example.com",
-    "http://127%2E0%2E0%2E1/cdx/search/cdx?url=example.com",
-]
+ADDRESSES.append("１２７.０.０.１")  # full-width digits
+# Any spelling of the host and path; `?Q` is the query `?url=example.com`.
+SPELLED = """
+https://web.archive.org/cdx/search/cdx?url=example.com&matchType=domain
+http://WEB.archive.org.:80//cdx/search/cdx         https://wayback.archive.org/%63dx/search/cdx
+https://web.archive.org/web/timemap/cdx?Q          http://www.archive.org/wayback/available?Q
+https://web.archive.org/__wb/sparkline?output=json&url=example.com&collection=web
+https://web.archive.org/__WB/calendarcaptures/2?url=example.com&date=1999
+https://archive.org/wayback/available?url=example.com&timestamp=19990101
+https://wayback.archive.org/wayback/available?Q    http://127.0.0.1/cdx/search/cdx?Q
+http://[::1]:8080/__wb/sparkline?Q                 https://web.archive.org/web/../cdx/search/cdx?Q
+https://web.archive.org/x%3F/%2e%2e/cdx/search/cdx?Q  https://web.archive.org/;/cdx/search/cdx?Q
+https://ｗｅｂ.archive.org/cdx/search/cdx?Q  https://web%2Earchive.org/cdx/search/cdx?Q
+https://%77eb.archive.org/cdx/search/cdx?Q         https://archive%2Eorg/wayback/available?Q
+https://web.archive.org%3A443/cdx/search/cdx?Q     http://127%2E0%2E0%2E1/cdx/search/cdx?Q
+""".replace("?Q", "?url=example.com").split()
 # An address in any form could be the Wayback's, but its download is not a query.
-ADDRESSED = [
-    f"http://{host}{path}?url=example.com"
-    for host in ADDRESSES
-    for path in ("/cdx/search/cdx", "/web/timemap/json")
-]
+PATHS = ("/cdx/search/cdx", "/web/timemap/json")
+ADDRESSED = [f"http://{host}{path}?url=example.com" for host in ADDRESSES for path in PATHS]
+DOWNLOADS = [f"http://{host}/download/x/x.cdx.gz" for host in ADDRESSES]
 # A replay, a download, or another host.
-NOT_CDX = [
-    "https://archive.org/download/some-item/big.cdx.gz",
-    "https://archive.org/download/some-item/wayback/available.txt",
-    "https://archive%2Eorg/download/some-item/big.cdx.gz",
-    "https://archive.org/cdx/search/cdx",
-    "https://ia800100.us.archive.org/cdx/x.cdx.gz",
-    "https://web.archive.org/web/2001id_/http://example.com/cdx/list.txt",
-    "https://web.archive.org/web/19991128153001/http://example.com/",
-    "https://example.org/cdx/search/cdx",
-    "https://example.org/__wb/sparkline?url=example.com",
-    "http://127.0.0.1/small.cdx",
-]
+NOT_CDX = """
+https://archive.org/download/some-item/big.cdx.gz  https://archive.org/cdx/search/cdx
+https://archive.org/download/some-item/wayback/available.txt
+https://archive%2Eorg/download/some-item/big.cdx.gz  https://ia800100.us.archive.org/cdx/x.cdx.gz
+https://web.archive.org/web/2001id_/http://example.com/cdx/list.txt
+https://web.archive.org/web/19991128153001/http://example.com/
+https://example.org/cdx/search/cdx  https://example.org/__wb/sparkline?url=example.com
+http://127.0.0.1/small.cdx
+""".split()
 
 
 @pytest.mark.parametrize(
     ("asks", "asks_not"),
-    [
-        (SPELLED, []),
-        (ADDRESSED, [f"http://{host}/download/x/x.cdx.gz" for host in ADDRESSES]),
-        ([], NOT_CDX),
-    ],
+    [(SPELLED, []), (ADDRESSED, DOWNLOADS), ([], NOT_CDX)],
     ids=[
         "a_cdx_url_is_one_however_it_is_spelled",
         "an_address_in_any_form_the_resolver_takes_could_be_the_wayback",
@@ -425,42 +368,26 @@ def test_retry_after_is_honoured_in_seconds_and_as_a_date():
     assert fetch.retry_after_seconds({"Retry-After": "30"}) == 30.0
     header = {"retry-after": "Wed, 09 Sep 2026 12:00:30 GMT"}
     assert 0 <= fetch.retry_after_seconds(header, now=1789300800.0) <= 120
-    assert fetch.retry_after_seconds({}) is None
-    assert fetch.retry_after_seconds({"Retry-After": "soon"}) is None
+    assert fetch.retry_after_seconds({}) is fetch.retry_after_seconds({"Retry-After": "x"}) is None
 
 
 @CASES
 def test_a_503_is_retried_and_an_allowed_redirect_followed_to_the_asked_name(leg, case):
-    body, asks = b"a,b\n1,2\n", []
+    body = b"a,b\n1,2\n"
     final = leg.serve({"/real.csv": (200, {case("content-type"): "text/csv"}, body)})
-
-    def flaky(_handler):
-        asks.append(1)
-        if len(asks) == 1:
-            return 503, {case("retry-after"): "0"}, b""
-        return 301, {case("location"): f"{final.base}/real.csv"}, b""
-
-    server = leg.serve({"/x.txt": flaky})
+    moved = (301, {case("location"): f"{final.base}/real.csv"}, b"")
+    server = leg.serve({"/x.txt": [(503, {case("retry-after"): "0"}, b""), moved]})
     code, receipt, *_ = run(f"{server.base}/x.txt")
     assert code == fetch.OK, receipt
-    assert (receipt["url"].endswith("/real.csv"), receipt["bytes"], len(asks)) == (True, 8, 2)
+    assert (receipt["url"].endswith("/real.csv"), receipt["bytes"]) == (True, 8)
+    assert server.asked == ["/robots.txt", "/x.txt", "/x.txt"], "the 503 is asked again once"
     # Named from the URL the caller asked for: a redirect must not move where it writes.
-    assert (leg.probe / "x.txt").read_bytes() == body
-    assert not (leg.probe / "real.csv").exists()
+    assert [(p.name, p.read_bytes()) for p in leg.probe.iterdir()] == [("x.txt", body)]
     # A wait longer than the leg has is a refusal for now, not a nap.
-    slept = []
-    server.routes["/x.txt"] = (503, {"Retry-After": "9000"}, b"")
+    slept, server.routes["/x.txt"] = [], (503, {"Retry-After": "9000"}, b"")
     code, receipt = fetch.fetch(f"{server.base}/x.txt", 1024, None, 30.0, sleep=slept.append)
     assert (code, slept) == (fetch.HTTP_FAILED, [])
     assert "longer than we wait" in receipt["reason"]
-
-
-def test_a_404_or_a_non_http_url_is_a_failure_not_an_empty_success(leg):
-    code, receipt, *_ = run(f"{leg.serve({}).base}/gone.txt")
-    assert (code, receipt["bytes"], receipt["sha256"]) == (fetch.HTTP_FAILED, 0, None)
-    code, _, err, _ = run("file:///etc/passwd")
-    assert code == fetch.USAGE
-    assert "http" in err
 
 
 RESUME = {
@@ -491,13 +418,10 @@ def test_resume_appends_only_the_next_bytes(tmp_path, rounds, cap, pipe, total, 
     assert got == total
     assert reason is None if why is None else why in reason, reason
     # A bounded span from where it stopped: `bytes=N-` past 2 GiB is answered 206 and empty.
-    assert calls == [(10, 20)] * asks
-    assert slept == [3.0] * (rounds[0][0] == 503)
-    kept = b"" if pipe else b"first-half"
-    want = kept + SECOND if why is None else kept
+    assert (calls, slept) == ([(10, 20)] * asks, [3.0] * (rounds[0][0] == 503))
+    want = (b"" if pipe else b"first-half") + (SECOND if why is None else b"")
     assert (sink.getvalue() if pipe else path.read_bytes()) == want
-    if why is None:
-        assert digest.hexdigest() == hashlib.sha256(WHOLE).hexdigest()
+    assert why or digest.hexdigest() == hashlib.sha256(WHOLE).hexdigest()
 
 
 def test_a_part_file_from_an_earlier_run_is_continued(leg):
@@ -505,49 +429,41 @@ def test_a_part_file_from_an_earlier_run_is_continued(leg):
     server = leg.serve({"/half.txt": dropping(whole, len(whole))})
     (leg.probe / "half.txt").write_bytes(whole[:20])
     code, receipt = fetch.fetch(f"{server.base}/half.txt", 1 << 30, str(leg.probe), 10.0)
-    assert code == fetch.OK, receipt
-    assert receipt["bytes"] == len(whole)
+    assert (code, receipt["bytes"]) == (fetch.OK, len(whole)), receipt
     assert receipt["sha256"] == hashlib.sha256(whole).hexdigest()
     assert (leg.probe / "half.txt").read_bytes() == whole
     assert [r for r in server.ranges if r] == [f"bytes=20-{len(whole) - 1}"]
 
 
-@pytest.mark.parametrize(
-    ("drop", "reset", "every_round"),
-    [(600_000, False, False), (600_000, True, False), (300_000, True, True)],
-    ids=["early-eof", "reset", "drops-every-round"],
-)
-def test_a_dropped_stream_resumes_and_hashes_the_whole_artifact(leg, drop, reset, every_round):
-    server = leg.serve({"/read.cdx": dropping(PAYLOAD, drop, reset, every_round)}, robots=None)
-    code, receipt, _, out = run(f"{server.base}/read.cdx", "--to", "-", "--max-bytes", "1G")
-    assert code == fetch.OK, receipt
-    assert out == PAYLOAD, "the pipe saw every byte once and in order"
-    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
-    assert receipt["bytes"] == len(PAYLOAD)
-    if every_round:
-        assert receipt["resumes"] >= len(PAYLOAD) // drop
-    else:
-        assert receipt["resumes"] == 1
-    if not reset:
-        assert server.ranges[-1] == f"bytes=600000-{len(PAYLOAD) - 1}"
-    assert list(leg.probe.iterdir()) == [], "a streamed read writes no file"
+DROPPED = "a_dropped_stream_resumes_and_hashes_the_whole_artifact-"
+FAULT = "a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it-"
+ALL = len(PAYLOAD)
+DROPS = {
+    DROPPED + "early-eof": (600_000, False, False, None, True),
+    DROPPED + "reset": (600_000, True, False, None, True),
+    DROPPED + "drops-every-round": (300_000, True, True, None, True),
+    FAULT + "pipe": (ALL, False, False, "600000", True),
+    "a_fault_on_a_file_fetch_resumes_into_the_same_file": (ALL, False, False, "600000", False),
+}
 
 
 @pytest.mark.parametrize(
-    "pipe", [True, False], ids=["pipe", "a_fault_on_a_file_fetch_resumes_into_the_same_file"]
+    ("drop", "reset", "every", "fault", "pipe"), list(DROPS.values()), ids=list(DROPS)
 )
-def test_a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it(leg, pipe):
-    """A server that never hangs up, so the one drop is the one `--fault-after-bytes` asked
-    for, and the Range continuation is not cut."""
-    server = leg.serve({"/read.cdx": dropping(PAYLOAD, len(PAYLOAD))}, robots=None)
-    to = ("--to", "-" if pipe else str(leg.probe / "read.cdx"), "--fault-after-bytes", "600000")
+def test_a_dropped_transfer_resumes_every_byte_once(leg, drop, reset, every, fault, pipe):
+    """A `--fault-after-bytes` server never hangs up, so its one drop is the one asked for."""
+    server = leg.serve({"/read.cdx": dropping(PAYLOAD, drop, reset, every)}, robots=None)
+    to = ["--to", "-" if pipe else str(leg.probe / "read.cdx")]
+    to += ["--fault-after-bytes", fault] if fault else []
     code, receipt, _, out = run(f"{server.base}/read.cdx", *to)
     assert code == fetch.OK, receipt
     got = out if pipe else (leg.probe / "read.cdx").read_bytes()
     assert got == PAYLOAD, "every byte once, in order and into the same file"
-    assert receipt["sha256"] == hashlib.sha256(PAYLOAD).hexdigest()
-    assert (receipt["resumes"], receipt["fault_after_bytes"]) == (1, 600000)
-    assert server.ranges == [None, None, f"bytes=600000-{len(PAYLOAD) - 1}"], "robots, then two"
+    assert (receipt["bytes"], receipt["sha256"]) == (len(got), hashlib.sha256(got).hexdigest())
+    assert receipt["resumes"] >= len(PAYLOAD) // drop if every else receipt["resumes"] == 1
+    assert receipt.get("fault_after_bytes") == (fault and int(fault))
+    assert reset or server.ranges == [None, None, TAIL], "robots, then the read and its range"
+    assert [p.name for p in leg.probe.iterdir()] == ([] if pipe else ["read.cdx"])
 
 
 @pytest.mark.parametrize(
@@ -564,8 +480,7 @@ def test_a_fault_after_n_bytes_is_dropped_once_and_the_range_continues_it(leg, p
 def test_a_fault_it_cannot_resume_from_exits_two_and_writes_nothing(leg, fault, why, asked):
     server = leg.serve({"/read.cdx": dropping(PAYLOAD, len(PAYLOAD))}, robots=None)
     code, _, err, out = run(f"{server.base}/read.cdx", "--to", "-", "--fault-after-bytes", fault)
-    assert (code, out) == (fetch.USAGE, b""), err
-    assert why in err
+    assert (code, out, why in err) == (fetch.USAGE, b"", True), err
     assert (server.asked, server.ranges) == (asked, [None] * len(asked)), "no range was asked for"
 
 
@@ -573,11 +488,26 @@ def test_a_fault_it_cannot_resume_from_exits_two_and_writes_nothing(leg, fault, 
 def test_a_transfer_that_dies_where_the_range_is_ignored_fails_and_writes_nothing_twice(leg, pipe):
     server = leg.serve({"/half.txt": dropping(PAYLOAD, 600_000, honour=False)})
     code, receipt, err, out = run(f"{server.base}/half.txt", *(("--to", "-") if pipe else ()))
-    assert code == fetch.HTTP_FAILED, (receipt, err)
-    assert "Traceback" not in err
+    assert (code, "Traceback" in err) == (fetch.HTTP_FAILED, False), (receipt, err)
     assert "ignored the Range header" in receipt["reason"], receipt["reason"]
-    assert list(leg.probe.iterdir()) == [], "a part-file was left behind"
-    if pipe:
-        assert out == PAYLOAD[:600_000], "nothing was written twice"
-    else:
-        assert receipt["path"] is None
+    assert (list(leg.probe.iterdir()), receipt["path"]) == ([], None), "a part-file was left"
+    assert not pipe or out == PAYLOAD[:600_000], "nothing was written twice"
+
+
+@pytest.mark.parametrize(
+    ("routes", "why"),
+    [({"/a": hop("/b"), "/b": hop("/a")}, "redirects"), ({"/a": hop("file:///x")}, "not http")],
+    ids=["loop", "off-http"],
+)
+def test_a_redirect_that_leads_nowhere_fails(leg, routes, why):
+    server = leg.serve(routes)
+    code, receipt, *_ = run(f"{server.base}/a")
+    assert (code, why in receipt["reason"]) == (fetch.HTTP_FAILED, True)
+    assert len([p for p in server.asked if p in ("/a", "/b")]) <= fetch.MAX_HOPS + 1
+
+
+def test_a_404_or_a_non_http_url_is_a_failure_not_an_empty_success(leg):
+    code, receipt, *_ = run(f"{leg.serve({}).base}/gone.txt")
+    assert (code, receipt["bytes"], receipt["sha256"]) == (fetch.HTTP_FAILED, 0, None)
+    code, _, err, _ = run("file:///etc/passwd")
+    assert (code, "http" in err) == (fetch.USAGE, True)
