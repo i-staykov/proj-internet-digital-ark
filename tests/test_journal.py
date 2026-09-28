@@ -29,9 +29,10 @@ def test_a_live_journal_is_hidden_from_ingest_but_not_from_the_resume_scan(tmp_p
 @pytest.mark.parametrize("stop", ["the-run-raises", "the-supervisor-sends-sigterm"])
 def test_the_journal_is_published_however_the_run_stops(tmp_path, stop) -> None:
     before, path = signal.getsignal(signal.SIGTERM), journal.journal_path(tmp_path, "rdap")
-    with pytest.raises((RuntimeError, SystemExit)), journal.journal_writer(path) as fh:
+    sigterm = stop == "the-supervisor-sends-sigterm"
+    with pytest.raises(SystemExit if sigterm else RuntimeError), journal.journal_writer(path) as fh:
         journal.write_journal_line(fh, {"domain": "before.com", "status": 200})
-        if stop == "the-supervisor-sends-sigterm":
+        if sigterm:
             os.kill(os.getpid(), signal.SIGTERM)
             time.sleep(5)  # the handler raises out of this at once
         raise RuntimeError("network died mid-run")

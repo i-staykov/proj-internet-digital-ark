@@ -194,8 +194,10 @@ def test_over_the_cap_it_stops_and_leaves_nothing_behind(leg, headers, body, cap
     code, receipt, *_ = run(f"{leg.serve({'/IA.gz': (200, headers, body)}).base}/IA.gz", *args)
     assert (code, receipt["capped"]) == (fetch.OVER_CAP, True)
     assert f"the {cap or 1 << 30} byte cap" in receipt["reason"]
+    assert cap or receipt["bytes"] == 2 << 30, "the leg backlogs the declared size"
     assert list(leg.probe.iterdir()) == [], "a capped fetch must leave nothing behind"
     assert fetch.parse_size("1G") == fetch.parse_size("1GiB") == fetch.parse_size(str(1 << 30))
+    assert fetch.parse_size("512m") == 512 << 20
     for bad in ("", "1X", "0"):
         with pytest.raises(ValueError):
             fetch.parse_size(bad)
@@ -231,7 +233,8 @@ def test_the_content_type_decides_where_the_bytes_may_go(leg, tmp_path, monkeypa
     assert (corpus / "IA.cdxj").read_bytes() == b"a line\n"
     assert get(f"{url}/setup.exe", str(corpus))[0] == fetch.BAD_TYPE
     # In-stream a risky type may be read, and an executable never.
-    assert fetch.content_type_verdict("application/octet-stream", True, False) is None
+    code, _, err, out = run(f"{url}/IA.cdxj", "--to", "-")
+    assert (code, out, list(leg.probe.iterdir())) == (fetch.OK, b"a line\n", []), err
     assert "allowlist" in fetch.content_type_verdict("application/x-exe", True, True)
 
 
@@ -262,11 +265,13 @@ CDX, WB = "/cdx/search/cdx?url=example.com&matchType=domain", "/__wb/sparkline?u
 def test_the_wayback_cdx_is_asked_nothing_by_the_url_or_any_hop(leg, start, refused, asked):
     """A loopback host is an address, so it could be the Wayback's: not even its robots.txt is
     asked for. Within one host the robots.txt is read, so the hop would be the next request."""
-    cdx = leg.serve({"/list.txt": hop(CDX), CDX: page(b"com,example)/ 19990101000000\n")})
-    at = {"cdx": cdx.base, "landing": leg.serve({"/get": hop(f"{cdx.base}{WB}", 301)}).base}
-    code, receipt = get(start.format(**at))
-    assert (code, receipt["url"], receipt["bytes"]) == (fetch.CDX_REFUSED, refused.format(**at), 0)
-    assert (cdx.asked, list(leg.probe.iterdir())) == (asked, [])
+    for to in (None, "-"):  # into the probe root, and into a pipe
+        cdx = leg.serve({"/list.txt": hop(CDX), CDX: page(b"com,example)/ 19990101000000\n")})
+        at = {"cdx": cdx.base, "landing": leg.serve({"/get": hop(f"{cdx.base}{WB}", 301)}).base}
+        code, receipt = get(start.format(**at), to)
+        want = (fetch.CDX_REFUSED, refused.format(**at), 0)
+        assert (code, receipt["url"], receipt["bytes"]) == want, to
+        assert (cdx.asked, list(leg.probe.iterdir())) == (asked, []), to
 
 
 ADDRESSES = "127.0.0.1 2130706433 0x7f000001 0177.0.0.01 127.1 [::1] [::ffff:127.0.0.1]".split()
@@ -318,18 +323,22 @@ def test_retry_after_is_honoured_in_seconds_and_as_a_date():
 
 
 def test_a_503_is_retried_and_an_allowed_redirect_followed_to_the_asked_name(leg):
-    body, slept = b"a,b\n1,2\n", []
-    final = leg.serve({"/real.csv": (200, {"Content-Type": "text/csv"}, body)})
-    moved = hop(f"{final.base}/real.csv", 301)
-    server = leg.serve({"/x.txt": [(503, {"Retry-After": "7"}, b""), moved]})
-    code, receipt = get(f"{server.base}/x.txt", sleep=slept.append)
-    assert (code, receipt["url"], slept) == (fetch.OK, f"{final.base}/real.csv", [7.0]), receipt
-    assert server.asked == ["/robots.txt", "/x.txt", "/x.txt"], "the 503 is asked again once"
+    body, slept = b"org,example)/ 19991128153001\n", []
+    final = leg.serve({"/real.gz": (200, {"Content-Type": "application/gzip"}, body)})
+    moved = hop(f"{final.base}/real.gz", 301)
+    server = leg.serve({"/x.gz": [(503, {"Retry-After": "7"}, b""), moved]})
+    code, receipt = get(f"{server.base}/x.gz", sleep=slept.append)
+    assert (code, receipt["url"], slept) == (fetch.OK, f"{final.base}/real.gz", [7.0]), receipt
+    assert server.asked == ["/robots.txt", "/x.gz", "/x.gz"], "the 503 is asked again once"
     # Named from the URL the caller asked for: a redirect must not move where it writes.
-    assert [(p.name, p.read_bytes()) for p in leg.probe.iterdir()] == [("x.txt", body)]
+    assert [(p.name, p.read_bytes()) for p in leg.probe.iterdir()] == [("x.gz", body)]
+    # the receipt a leg quotes in its finding
+    fields = [receipt[k] for k in ("bytes", "sha256", "path", "content_type")]
+    sha = hashlib.sha256(body).hexdigest()
+    assert fields == [len(body), sha, str(leg.probe / "x.gz"), "application/gzip"]
     # A wait longer than the leg has is a refusal for now, not a nap.
-    slept, server.routes["/x.txt"] = [], (503, {"Retry-After": "9000"}, b"")
-    code, receipt = get(f"{server.base}/x.txt", sleep=slept.append)
+    slept, server.routes["/x.gz"] = [], (503, {"Retry-After": "9000"}, b"")
+    code, receipt = get(f"{server.base}/x.gz", sleep=slept.append)
     assert (code, slept) == (fetch.HTTP_FAILED, []) and "longer than we wait" in receipt["reason"]
 
 

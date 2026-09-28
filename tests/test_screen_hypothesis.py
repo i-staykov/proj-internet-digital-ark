@@ -16,7 +16,12 @@ screen = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(screen)
 
 
-def test_the_register_parses_to_one_lead_per_row_and_one_entry_per_lead() -> None:
+def test_the_register_parses_to_one_lead_per_row_and_one_entry_per_lead(tmp_path) -> None:
+    # the container heading of the older table shape is not a lead, and its header is title-case
+    (legacy := tmp_path / "sources.md").write_text(
+        "## Evaluated and rejected\n\n| Source | Verdict |\n|---|---|\n| Old | dead |\n"
+    )
+    assert [entry.name for entry in screen.closed_leads(legacy)] == ["Old"]
     register = screen.closed_leads(CLOSED)
     assert len(register) == len(screen.closed_leads(CLOSED, CLOSED)) == 6, "a lead on both pages"
     names = " | ".join(entry.name.lower() for entry in register)

@@ -25,6 +25,10 @@ _SPEC.loader.exec_module(walk)
 ONLY_2XX_3XX = "filter=statuscode%3A%5B23%5D%5B0-9%5D%5B0-9%5D"
 
 
+def throttled(request, timeout):
+    raise urllib.error.HTTPError(request.full_url, 429, "slow", {"Retry-After": "7"}, None)
+
+
 def gov(delay: float = 0.0, min_delay: float = 0.0, sleep=None, **kw) -> RateGovernor:
     return RateGovernor(delay=delay, min_delay=min_delay, sleep=sleep or (lambda _s: None), **kw)
 
@@ -41,7 +45,8 @@ def test_every_query_asks_one_bounded_question_for_captures_the_host_answered() 
         assert ONLY_2XX_3XX in url and "fl=timestamp%2Coriginal" in url, url
     # expansion asks one exact page's in-window captures, then their original bytes
     captures = expand.page_captures_url("http://x.com/", 1996, 2001, limit=3)
-    assert "from=1996&to=2001" in captures and "statuscode%3A200" in captures
+    parts = ("from=1996&to=2001", "statuscode%3A200", "collapse=timestamp%3A4")
+    assert all(p in captures for p in parts) and captures.endswith("&limit=3"), captures
     snapshot = expand.snapshot_url("19980101000000", "http://x.com/")
     assert snapshot == "https://web.archive.org/web/19980101000000id_/http://x.com/"
 
@@ -74,9 +79,6 @@ def test_a_throttle_sleeps_out_its_retry_after_then_succeeds(monkeypatch) -> Non
     assert len(slept) == 1 and 0.5 < slept[0] <= 1.0, slept
 
     # the transport hands the server's Retry-After up as the body of a throttle
-    def throttled(request, timeout):
-        raise urllib.error.HTTPError(request.full_url, 429, "slow", {"Retry-After": "7"}, None)
-
     monkeypatch.setattr(urllib.request, "urlopen", throttled)
     assert cdx._http_get("https://example.invalid/cdx") == (429, "7")
 
@@ -92,6 +94,7 @@ def test_a_truncated_response_probes_only_the_years_it_missed_unless_switched_of
     record = lookup_years("x.com", 1996, 2001, lambda u: asked.append(u) or answer(u), **common)
     assert (record["truncated"], record["years"]) == (True, [1998, 2000])
     assert not any("from=1998&to=1998" in u for u in asked), "a year already seen is re-probed"
+    assert len(asked) == 6 and all(u.endswith("&limit=1") for u in asked[1:]), asked
     record = lookup_years("x.com", 1996, 2001, fetch=answer, probe_missing=False, **common)
     assert (record["truncated"], record["years"]) == (True, [1998])
 
@@ -146,14 +149,12 @@ SHAPES = (("matchType=host", "host"), ("%2A.", "scan"), ("url=www.", "www"))
 
 
 def shapes(**answers):
-    """A fake CDX answering by the shape of the question, and naming each shape it was asked."""
+    """A fake CDX answering by the shape of the question, and naming each question it was asked."""
     asked = []
 
     def fetch(url: str) -> tuple[int, str]:
-        shape = next((name for key, name in SHAPES if key in url), "apex")
-        if not asked or asked[-1] != shape:
-            asked.append(shape)
-        return answers.get(shape, (200, ""))
+        asked.append(next((name for key, name in SHAPES if key in url), "apex"))
+        return answers.get(asked[-1], (200, ""))
 
     return fetch, asked
 
@@ -162,15 +163,18 @@ B97 = (200, "19970101000000 http://www.foo.com/\n19990505000000 http://a.foo.com
 ROOTS = {"apex": (200, "19980101000000 http://foo.com/\n")}
 ROOTS["www"] = (200, "20000202000000 http://www.foo.com/\n")
 BIG_HOST, BIG_SCAN = ROOTS | {"host": (504, "")}, ROOTS | {"scan": (504, "")}
+DEAD_WWW, REFUSING = BIG_HOST | {"www": (504, "")}, {"host": (REFUSED, "")}
 Y97, H97 = [1997, 1999], ["a.foo.com", "www.foo.com"]
 Y98, H98 = [1998, 2000], ["foo.com", "www.foo.com"]
-# case: host first, what each shape answers, (status, years, strategy, hosts), the shapes asked
+# case: host first, what each shape answers, (status, years, strategy, hosts), every ask; a 504
+# is asked once, and a refusal until the retries run out
 TIERS = {
     "the-host-answers-and-no-scan-runs": (1, {"host": B97}, (200, Y97, "by_host", H97), "host"),
     "an-empty-host-buys-the-scan": (1, {"scan": B97}, (200, Y97, None, H97), "host scan"),
     "a-failed-scan-still-settles-it": (1, BIG_SCAN, (200, [], "by_host", []), "host scan"),
-    "a-refused-host-buys-no-scan": (1, {"host": (REFUSED, "")}, (REFUSED, [], None, []), "host"),
+    "a-refused-host-buys-no-scan": (1, REFUSING, (REFUSED, [], None, []), "host " * 4),
     "a-big-host-asks-the-roots": (1, BIG_HOST, (200, Y98, "by_root", H98), "host apex www"),
+    "a-dead-root-is-asked-once": (1, DEAD_WWW, (200, Y98[:1], "by_root", H98[:1]), "host apex www"),
     "a-big-scan-asks-the-roots": (0, BIG_SCAN, (200, Y98, "by_root", H98), "scan apex www"),
     "an-answered-scan-is-never-replaced": (0, {"scan": B97}, (200, Y97, None, H97), "scan"),
 }
@@ -183,7 +187,7 @@ def test_each_tier_answers_what_the_cheaper_one_cannot() -> None:
         fetch, asked = shapes(**answers)
         r = lookup_years("foo.com", 1996, 2001, fetch, gov(), host_first=bool(host_first))
         got = (r["status"], r["years"], r.get("strategy"), sorted(r.get("hosts", {})))
-        if (got, " ".join(asked)) != (want, want_asked):
+        if (r.get("domain"), got, " ".join(asked)) != ("foo.com", want, want_asked.strip()):
             wrong[case] = (got, asked)
     assert wrong == {}
 
@@ -235,12 +239,17 @@ def test_the_walk_follows_the_key_dedupes_and_marks_done(tmp_path, monkeypatch):
         "http://other.com/ 19990101000000 200\n\nKEY1\n"
     )
     page2 = "http://y.a.net/ 20010101000000 200\nhttp://x.a.net/ 20000101000000 200\n"
-    _, asked = _fake(monkeypatch, tmp_path, [("200", page1, None)] + [("200", page2, None)] * 2)
+    # a keyless resumed page is asked once more, and so is the next one after a new key
+    pages = (page1, page2, page2 + "\nKEY2\n", "", "")
+    _, asked = _fake(monkeypatch, tmp_path, [("200", p, None) for p in pages])
     args = _args(tmp_path)
-    assert walk.Walk("a.net", args).run().startswith("done: 2 pages, 3 host-years")
-    assert "resumeKey" not in asked[0] and asked[1]["resumeKey"] == asked[2]["resumeKey"] == "KEY1"
-    # no collapse: it folds a host into its neighbour whenever both sit in one year
-    assert asked[0]["fl"] == "original,timestamp,statuscode" and "collapse" not in asked[0]
+    assert walk.Walk("a.net", args).run().startswith("done: 3 pages, 3 host-years")
+    assert [p.get("resumeKey") for p in asked] == [None, "KEY1", "KEY1", "KEY2", "KEY2"]
+    # captures the host answered, in the window, bounded; no collapse, which folds a host into
+    # its neighbour whenever both sit in one year
+    query = {"from": "1996", "to": "2001", "filter": "statuscode:[23][0-9][0-9]", "limit": "3"}
+    query["fl"] = "original,timestamp,statuscode"
+    assert query.items() <= asked[0].items() and "collapse" not in asked[0], asked[0]
     stamps = ["http://x.a.net:80/ 1999", "http://y.a.net/ 2001", "http://x.a.net/ 2000"]
     journals = sorted(args.out.glob("suffix_a_net_rk_*.jsonl.gz"))
     rows = [json.loads(ln) for j in journals for ln in gzip.decompress(j.read_bytes()).splitlines()]
@@ -257,8 +266,9 @@ def test_a_failed_walk_is_never_marked_done(tmp_path, monkeypatch):
     _fake(monkeypatch, tmp_path, [("HTTP403", "", None)])
     assert "parked" in walk.Walk("b.net", args).run()
     for run in range(3):  # a giant whose page the server cannot finish, three runs running
-        _fake(monkeypatch, tmp_path, [("HTTP504", "", None)] * 3)
+        slept, _ = _fake(monkeypatch, tmp_path, [("HTTP504", "", None)] * 3)
         assert ("parked" in walk.Walk("c.net", args).run()) == (run == 2)
+        assert slept and min(slept) > 0, "a 504 is backed off"
     parked = sorted(p.name for p in args.state_dir.glob("*.refused"))
     assert (parked, list(args.state_dir.glob("*.done"))) == (["b_net.refused", "c_net.refused"], [])
     # a new process picks up the saved key
@@ -267,6 +277,8 @@ def test_a_failed_walk_is_never_marked_done(tmp_path, monkeypatch):
 
 
 def test_retry_after_is_slept_and_five_throttles_stop_the_client(tmp_path, monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", throttled)
+    assert walk.fetch({"url": "a.net"}, 5) == ("HTTP429", "", 7.0)
     soon = email.utils.formatdate(time.time() + 60, usegmt=True)
     assert [walk.retry_after(v) for v in ("42", "-5", "soon", None)] == [42.0, 0.0, None, None]
     assert 50 < walk.retry_after(soon) <= 60
@@ -355,4 +367,4 @@ def test_corroboration_keeps_known_names_curated_and_routes_the_rest() -> None:
     assert unverified[0]["domains"] == ["arvard.edu"]
     assert unverified[0]["curated"] is False, "a candidate earns its own year"
     unseen = [{**page, "domains": ["never-seen.example"]}]
-    assert expand.split_by_corroboration(unseen, set())[0] == []
+    assert expand.split_by_corroboration(unseen, set()) == ([], [{**unseen[0], "curated": False}])
