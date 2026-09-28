@@ -937,8 +937,7 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         metavar="N",
-        help="end the first response after N bytes, once, so the Range resume runs on a real "
-        "artifact (the dry run's D1)",
+        help="end the first response after N bytes, once, so the Range resume runs on real bytes",
     )
     args = ap.parse_args(argv)
 
