@@ -1,13 +1,11 @@
 """A small release of his, laid out as his real one is, for the tests that diff through `held`.
 
 His candidate files are left unsorted on purpose: his real `candidate_pool_unparsed_format.txt`
-is, so the sorted-copy path runs in every test that prepares this release.
+is, so preparing this release takes the sorted-copy path.
 """
 
 import hashlib
 from pathlib import Path
-
-from ark.ingest import YEARS
 
 MARKER = "merged260922"
 
@@ -25,7 +23,6 @@ HIS_CANDIDATES = {
     "isc_survey_hostnames/1999-01.txt": ["mail.isc-held.net"],
     "isc_survey_hostnames/2000-07.txt": ["ns.isc-held.net", "ftp.isc-held.net"],
 }
-README = "isc_survey_hostnames/README.md"
 
 
 # A web method whose rows name their host last, so a fixture row passes the exact-host test
@@ -46,7 +43,7 @@ def stage(root: Path, files: dict[str, bytes] | None = None) -> Path:
     folder = root / MARKER
     contents = {f"{year}.txt": text(sorted(names)) for year, names in HIS_YEARS.items()}
     contents |= {rel: text(names) for rel, names in HIS_CANDIDATES.items()}
-    contents[README] = b"not a list of names\n"
+    contents["isc_survey_hostnames/README.md"] = b"not a list of names\n"
     for rel, data in (contents | (files or {})).items():
         path = folder / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,11 +54,7 @@ def stage(root: Path, files: dict[str, bytes] | None = None) -> Path:
 def digests(folder: Path) -> dict[str, str]:
     """Every file of the release by its sha256, to prove nothing of his was written."""
     return {
-        str(path.relative_to(folder)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(folder.rglob("*"))
-        if path.is_file()
+        str(p.relative_to(folder)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(folder.rglob("*"))
+        if p.is_file()
     }
-
-
-def all_names() -> set[str]:
-    return {name for year in YEARS for name in HIS_YEARS[year]}
