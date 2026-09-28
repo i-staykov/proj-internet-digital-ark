@@ -503,7 +503,8 @@ def test_verify_trees_claims_each_copy_that_matches_its_zip_and_writes_nothing(r
     _zip(future, feedback / "future.zip")
     _zip(shallow, feedback / "release.zip")
     assert releases.find_trees(feedback, {})[shallow.name] == [shallow, deep]
-    last = run(releases, "--verify-trees").splitlines()[-1]
+    last = (out := run(releases, "--verify-trees")).splitlines()[-1]
+    assert out.count("7 members, 7 matched, 0 mismatched, 0 missing on disk, 0 extra on disk") == 3
     assert all(str(tree) in last for tree in (future, shallow, deep))
     (deep / "1996.txt").write_text(ZITE)  # one failing copy leaves the others claimed
     last = run(releases, "--verify-trees", stops="^1$").splitlines()[-1]
@@ -567,6 +568,7 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert [rows["merged260830"][str(y)] for y in YEARS] == ["3", "0", "5", "1", "2", "1,234"]
     assert rows["merged260830"]["sha256"] == digests(tmp_path / "feedback")[ZIP7]
     assert rows["merged260810"]["sha256"] == "pending", "a zip-less tree has no artifact yet"
+    assert rows["merged260810"]["2001"] == "1,234", "its year cells come from disk"
     assert rows["merged260902-3"]["released"] == "2026-09-02"
     for m, (_, successor) in releases.NOT_RECEIVED.items():
         assert rows[m]["sha256"] == "none" and rows[m]["received"].startswith("not received")
