@@ -405,6 +405,17 @@ def test_three_scout_leads_closed_at_filing_book_three_compacted_rows(
     assert {name: (pages / name).read_bytes() for name in PAGES} == written
 
 
+def test_a_brief_audit_headed_with_its_claim_books_nothing(tmp_path, monkeypatch, capsys):
+    """The heading is the slug, and the compactor drops a `brief-audit:` row the scribe wrote."""
+    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
+    incoming.mkdir()
+    audit = "# brief-audit: a 4xx capture is annual under his XIII\n\nverdict: FIND, a rule\n"
+    (incoming / "brief-audit-1-leg.md").write_text(audit, "utf-8")
+    written = {name: (pages / name).read_bytes() for name in PAGES}
+    assert "rule audit, not a source" in bank(incoming, pages, monkeypatch, capsys)
+    assert {name: (pages / name).read_bytes() for name in PAGES} == written
+
+
 def test_a_scout_that_says_find_with_a_closed_lead_books_closed(tmp_path, monkeypatch, capsys):
     pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
     prose = "verdict: FIND, 12,000 EE projected from one page\nlens: web-link-graphs\n"
