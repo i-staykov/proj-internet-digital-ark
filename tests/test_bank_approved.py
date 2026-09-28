@@ -45,18 +45,17 @@ def _block(*lines: str, heading: str = FOO, decision: str = "master") -> str:
     return f"### {heading}\n\n" + "".join(f"- {s}\n" for s in lines) + f"\nDecision: {decision}\n\n"
 
 
-def _approved(root: Path, *blocks: str, journal: bool = False) -> tuple[str, dict]:
-    """The blocks read back through the real approvals parser, the journal on disk if asked."""
+def _approved(root: Path, *blocks: str, journal: bool = False):
+    """The bank's planner, given what is banked, over the blocks the real approvals parser read."""
     text = "# approvals\n\n## Priced\n\n" + "".join(blocks)
     (root / "approved-sources-list.md").write_text(text, encoding="utf-8")
     if journal:
         (root / JOURNAL).parent.mkdir(parents=True)
         (root / JOURNAL).write_bytes(b"rows")
-    return text, load(root / "approved-sources-list.md")
-
-
-def _plan(root: Path, text: str, approvals: dict, banked=()):
-    return bank.plan_bank(text, approvals, root=root, read=lambda _: set(banked), specs=SPECS)
+    approvals = load(root / "approved-sources-list.md")
+    return lambda banked=(): bank.plan_bank(
+        text, approvals, root=root, read=lambda _: set(banked), specs=SPECS
+    )
 
 
 def _outcomes(plan, root: Path) -> dict[str, list[tuple]]:
@@ -110,29 +109,28 @@ def _read_dir(root: Path, parts=PARTS, extra=(), complete=True) -> None:
          "read-another-leads-part", "read-not-a-web-method"],
 )  # fmt: skip
 def test_each_approved_class_plans_to_one_outcome(tmp_path, block, disk, banked, expected):
-    text, approvals = _approved(tmp_path, block, journal=disk == "journal")
+    plan = _approved(tmp_path, block, journal=disk == "journal")
     if isinstance(disk, dict):
         _read_dir(tmp_path, **disk)
     if isinstance(expected, str):
         expected = (READ, f"{expected} in {READ_DIR} on this machine")
     expected = {"blocked": [expected]} if isinstance(expected, tuple) else expected
-    assert _outcomes(_plan(tmp_path, text, approvals, banked), tmp_path) == expected
+    assert _outcomes(plan(banked), tmp_path) == expected
 
 
 def test_an_absent_journal_is_reported_refetched_and_then_banked(tmp_path, capsys) -> None:
     """A block ends at a heading, keys are backticked, planning writes nothing, unbanked is loud."""
     bar = _block("ingest spec: `bar_spec`", "journal: `data/raw/bar/bar.gz`", heading=BAR)
     foo = _block("ingest spec: `foo_spec`, reading `*dn:` and nothing else", JLINE, REFETCH)
-    text, approvals = _approved(tmp_path, bar, foo)
+    plan_of = _approved(tmp_path, bar, foo)
     tree = lambda: {p: p.is_file() and p.read_bytes() for p in tmp_path.rglob("*")}  # noqa: E731
-    before, plan = tree(), _plan(tmp_path, text, approvals)
-    assert _plan(tmp_path, text, approvals) == plan and tree() == before
-    bank.report(plan)
-    printed = capsys.readouterr().out
+    before, plan = tree(), plan_of()
+    assert plan_of() == plan and tree() == before
+    printed = bank.report(plan) or capsys.readouterr().out
     assert f"refetching from {URL}" in printed and f"NOT BANKED: 1\n!!   {BAR}: journal" in printed
     fetch = partial(bank.download, opener=lambda *a, **k: io.BytesIO(b"rows"))
     assert "refetched foo.jsonl.gz for foo_spec" in bank.run_refetches(plan.refetch, fetch)[0]
-    assert _plan(tmp_path, text, approvals).ready == [("foo_spec", tmp_path / JOURNAL)]
+    assert plan_of().ready == [("foo_spec", tmp_path / JOURNAL)]
 
 
 @pytest.mark.parametrize(
@@ -160,11 +158,11 @@ def test_a_red_gate_unbanks_only_the_reads_source(tmp_path, monkeypatch, capsys)
     start = subprocess.run(["date", "-u", f"+{begun.group(1)}"], capture_output=True, text=True)
     _approved(tmp_path, READ_BLOCK)
     _read_dir(tmp_path)
-    (tmp_path / REGISTRABLES).parent.mkdir(parents=True)
     ran = []
 
     def run(command, **_):
         if bank.CONVERTER in command:  # the converter found one exact-host registrable
+            (tmp_path / REGISTRABLES).parent.mkdir(parents=True)
             (tmp_path / REGISTRABLES).write_bytes(b"{}")
         return ran.append(command) or Mock(returncode=0)
 
@@ -181,8 +179,7 @@ def test_a_red_gate_unbanks_only_the_reads_source(tmp_path, monkeypatch, capsys)
     assert ran[1:] == [[*ingest, REGISTRABLES], [*ingest, *(f"{READ_DIR}/{p}" for p in PARTS)]]
     awk = subprocess.run(["awk", found.group(1)], input=log, capture_output=True, text=True)
     assert awk.stdout.split() == ["fleet_x_hostnames", "fleet_x_hostnames", "cdx_snapshot"]
-    db = str(tmp_path / "ark.duckdb")
-    with duckdb.connect(db) as conn:
+    with duckdb.connect(db := str(tmp_path / "ark.duckdb")) as conn:
         conn.execute(
             SCHEMA_SQL + ";INSERT INTO source VALUES (1, 'ia_cdx_bulk', 'timestamped', NULL),"
             " (2, 'fleet_x_hostnames', 'timestamped', NULL); INSERT INTO domain"
@@ -197,8 +194,7 @@ def test_a_red_gate_unbanks_only_the_reads_source(tmp_path, monkeypatch, capsys)
         )
         held = unbank.counts(conn, "ia_cdx_bulk")
     args = [*awk.stdout.split(), "--db", db, "--write", "--run-start", start.stdout.strip()]
-    assert unbank.main(args) == 1
-    assert "REFUSED ia_cdx_bulk" in capsys.readouterr().err
+    assert (unbank.main(args), "REFUSED ia_cdx_bulk" in capsys.readouterr().err) == (1, True)
     with duckdb.connect(db, read_only=True) as conn:
         assert unbank.counts(conn, "ia_cdx_bulk") == held == dict.fromkeys(held, 2), "every grain"
         assert not any(unbank.counts(conn, "fleet_x_hostnames").values())

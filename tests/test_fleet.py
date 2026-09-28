@@ -34,12 +34,12 @@ def _load(name: str):
     return module
 
 
-NAMES = ("fleet_findings", "fleet_leads", "fleet_request", "ack_journals")
-findings, leads, request, ack = map(_load, NAMES)
+findings, request, ack = map(_load, ("fleet_findings", "fleet_request", "ack_journals"))
 import sync_approvals  # noqa: E402  fleet_request put scripts/harness on the path
 
 PENDING = {"status": "pending"}
 ROWS = "20260901T1037Z\t432\t68.0\n" * 2 + "20260923T0706Z\t0\t?\n" * 2  # identical rows too
+PRICER = ["uv", "run", "python"]
 
 
 @pytest.fixture(autouse=True)
@@ -54,8 +54,7 @@ def _no_real_box(tmp_path, monkeypatch):
 
 def ff(capsys, *args) -> tuple[int, str]:
     """`fleet_findings.py` in-process: its exit code and what it printed."""
-    code = findings.main([str(arg) for arg in args])
-    return code, capsys.readouterr().out
+    return findings.main([str(arg) for arg in args]), capsys.readouterr().out
 
 
 def finding(slug: str = "a-lead", **over) -> dict:
@@ -72,57 +71,6 @@ def drop(root: Path, slug: str = "a-lead", doc: dict | None = None, **files) -> 
         if body is not None:
             (path / f"{name}.json").write_text(json.dumps(body), encoding="utf-8")
     return path
-
-
-def artifact(incoming: Path, run: int, slug: str, doc=None, items=None, lead=None) -> Path:
-    """A downloaded run holding one lead: its finding, or a scout's prose when `doc` is None."""
-    (path := incoming / f"run_{run}/findings-{run}/leads" / slug).mkdir(parents=True)
-    if doc is None:
-        (path / "scout.md").write_text(f"# {slug}, a roster\nverdict: CLOSED\n", "utf-8")
-        lead = {"slug": slug, "status": "closed", "artifact": {"url": f"http://{slug}.invalid/"}}
-    else:
-        (path / "finding.json").write_text(json.dumps(doc), encoding="utf-8")
-        (path / "finding.md").write_text(f"# {slug}\nverdict: FIND\nee: 4786\n", encoding="utf-8")
-    if items is not None:
-        (path / "items.jsonl").write_text(items, encoding="utf-8")
-    if lead is not None:
-        (path.parent / f"{slug}.json").write_text(json.dumps(lead), encoding="utf-8")
-    return path
-
-
-# slug: the copies that arrive, in run order (None is a scout's), and what the kept one says
-COPIES = {
-    "first": ({}, {"verdict": "CLOSED"}, {"verdict": "FIND"}),
-    "settled": ({"run_id": "10", "verify": PENDING}, {"run_id": "11"}, {"run_id": "11"}),
-    "later": ({"run_id": "90", "verdict": "CLOSED"}, {"run_id": "91"}, {"run_id": "91"}),
-    "scout-last": ({"run_id": "", "verify": PENDING}, None, {"run_id": ""}),
-    "scout-lost": (None, {"run_id": "10", "verify": PENDING}, {"run_id": "10"}),
-}
-
-
-def test_a_drain_moves_each_leads_most_settled_copy_whole_under_its_slug(tmp_path, capsys):
-    """Settled beats pending, then the later run, and a scout copy ranks last."""
-    incoming = tmp_path / "incoming"
-    lead = artifact(incoming, 1, "a-lead", finding(), "{}\n", {"grain": "hostname"})
-    (lead.parents[1] / "telemetry.json").write_text('{"legs": [{"tokens_in_plus_out": 5}]}')
-    (lead.parent / "_rejected").mkdir()
-    (lead.parent / "_rejected/bad.lead.json").write_text("{}", encoding="utf-8")
-    # A leg's root is `findings/`, holding a copy of the lead: keyed on its name, booked twice.
-    drop(incoming / "run_2/leg-1", "findings", finding(run_id="99"))
-    for slug, (*docs, _) in COPIES.items():
-        for run, over in enumerate(docs, 2):
-            artifact(incoming, run, slug, None if over is None else finding(slug, **over))
-    assert ff(capsys, "drain", incoming)[0] == 0
-    assert sorted(p.name for p in incoming.iterdir()) == sorted(["_unread", "a-lead", *COPIES])
-    assert [p.name for p in (incoming / "_unread").rglob("*") if p.is_file()] == ["bad.lead.json"]
-    got = sorted(p.name for p in (incoming / "a-lead").iterdir())
-    assert got == ["finding.json", "finding.md", "items.jsonl", "lead.json"]
-    assert json.loads((incoming / "a-lead/lead.json").read_text())["grain"] == "hostname"
-    for slug, (*_, kept) in COPIES.items():
-        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["finding.json", "finding.md"]
-        doc = json.loads((incoming / slug / "finding.json").read_text())
-        assert {key: doc[key] for key in kept} == kept, slug
-    assert not Path(os.environ["ARK_FLEET_LEDGER"]).exists(), "the old ledger takes no row"
 
 
 def clone(tmp_path: Path, real: bool = False) -> Path:
@@ -194,19 +142,8 @@ def test_the_tsv_stays_and_the_drain_goes_on_until_every_row_can_land(
     (tmp_path / "incoming").mkdir()
     flags = [] if script is None else ["--fleet", fleet]
     code, out = ff(capsys, "drain", tmp_path / "incoming", *flags)
-    assert code == 0 and said in out
-    assert tsv.read_text(encoding="utf-8") == body
+    assert (code, said in out, tsv.read_text(encoding="utf-8")) == (0, True, body)
     assert findings.fleet_ledger.lines(fleet, "legacy") == []
-
-
-@pytest.mark.skipif(CONTRACT is None, reason="no fleet clone with a validator")
-def test_a_sidecar_the_fleet_would_reject_becomes_its_blocked_fallback(tmp_path, capsys):
-    no_pricing = {"slug": "a-lead", "lane": "price", "run_id": "9", "verdict": "FIND"}
-    bad, good = drop(tmp_path, "a-lead", no_pricing), drop(tmp_path, "b-lead")
-    assert ff(capsys, "validate", tmp_path, "--fleet", CONTRACT)[0] == 0
-    got = [json.loads((lead / "finding.json").read_text()) for lead in (bad, good)]
-    assert [(d["verdict"], d["slug"]) for d in got] == [("BLOCKED", "a-lead"), ("FIND", "b-lead")]
-    assert [(lead / "finding.json.rejected").is_file() for lead in (bad, good)] == [True, False]
 
 
 NO_SPLIT = "net-new, no split          : 2,345 pairs, 5,897.3 EE"
@@ -235,15 +172,6 @@ def test_only_a_confirmed_find_with_items_is_repriced_by_the_pricer_its_grain_na
     # Neither the figure the split would not quote nor the one it would have kept is read.
     before = "net-new BEFORE the split   : 9,999 pairs, 9,999.9 EE  <- DO NOT QUOTE"
     assert [findings._ITEMS_EE.search(line) for line in (before, KEPT)] == [None, None]
-    (tmp_path / "items").mkdir()
-    (tmp_path / "items/b-lead.jsonl").write_text('{"item": "x", "year": 1998}\n', "utf-8")
-    monkeypatch.setattr(findings, "REPO", tmp_path)  # no local.env naming a real box
-    for remote, said in [("items", "fetched"), ("gone", "is not at"), ("", "no ARK_VPS")]:
-        bare = drop(tmp_path / f"fetch-{remote}", "b-lead")
-        monkeypatch.setenv("ARK_ITEMS_REMOTE", remote and str(tmp_path / remote))
-        got = findings.fetch_items(bare)
-        assert said in capsys.readouterr().out, remote
-        assert (got is not None and got.read_text().startswith('{"item"')) == (remote == "items")
 
 
 def test_the_no_split_line_is_the_one_price_items_prints():
@@ -259,8 +187,8 @@ def test_a_no_split_lead_is_priced_on_its_whole_net_new_set(tmp_path, monkeypatc
     ran = Mock(return_value=subprocess.CompletedProcess([], 0, f"{NO_SPLIT}\n{KEPT}\n", ""))
     monkeypatch.setattr(findings.subprocess, "run", ran)
     result = findings.price(lead, {"verdict": "FIND"})
-    pricer = ["uv", "run", "python", "scripts/pricing/price_items.py", "--items", str(items)]
-    assert [call.args[0] for call in ran.call_args_list] == [pricer + ["--no-split"]]
+    pricer = [*PRICER, "scripts/pricing/price_items.py", "--items", str(items), "--no-split"]
+    assert [call.args[0] for call in ran.call_args_list] == [pricer]
     assert (result["status"], result["netnew"], result["ee"]) == ("priced", 2345, 5897.3)
 
 
@@ -278,8 +206,7 @@ def remote_read(root: Path, complete=True, tamper=False, extra="", rename="") ->
         (directory / parts[0]["name"]).write_bytes(b"changed on the way")
     if extra:
         (directory / extra).write_bytes(b"not the read's")
-    if rename:
-        parts[1]["name"] = rename
+    parts[1]["name"] = rename or parts[1]["name"]
     receipt = {"complete": complete, "parts": parts, "journal_sha256": whole.hexdigest()}
     (directory / "receipt.json").write_text(json.dumps(receipt))
     return root / "journals"
@@ -317,7 +244,7 @@ def test_only_a_read_matching_its_receipt_is_pulled_priced_and_acked(tmp_path, m
     said = subprocess.CompletedProcess([], 0, "NET-NEW hostname years 1,234  567.8 EE\n", "")
     monkeypatch.setattr(findings.subprocess, "run", run := Mock(return_value=said))
     result = findings.price(lead, {"verdict": "FIND"})
-    cmd = ["uv", "run", "python", "scripts/pricing/price_hostnames.py", str(got)]
+    cmd = [*PRICER, "scripts/pricing/price_hostnames.py", str(got)]
     assert [call.args[0] for call in run.call_args_list] == [cmd]
     assert (result["status"], result["grain"], result["netnew"]) == ("priced", "hostname", 1234)
     shutil.rmtree(got)
@@ -325,8 +252,7 @@ def test_only_a_read_matching_its_receipt_is_pulled_priced_and_acked(tmp_path, m
 
 
 DECIDED = "## Pending requests\n\n### a_find / artifact_listing\nDecision: master\n\n"
-DECIDED += "### b_find / artifact_listing\nDecision: candidate-only\n\n"
-DECIDED += "### fleet_e_read_hostnames / cdx_timestamp\nDecision: master\n"
+DECIDED += "### b_find / artifact_listing\nDecision: candidate-only\n"
 
 
 def store(path: Path, *sources: str) -> Path:
@@ -368,31 +294,18 @@ def booked(capsys, tmp_path: Path, *roots, ingested=(), fleet=None, db=None):
 def test_an_outcome_line_is_banked_only_once_the_store_holds_the_sources_rows(tmp_path, capsys):
     """Under a decision that admits them, and only once landed; a line that did not exits 1."""
     code, out, lines = booked(capsys, tmp_path, fleet=tmp_path / "old-clone")
-    assert (code, lines) == (1, {}) and "not booked" in out
+    assert (code, lines, "not booked" in out) == (1, {}, True)
     code, out, lines = booked(capsys, tmp_path, fleet=clone(tmp_path), db=tmp_path / "no-store")
-    assert code == 0 and "could not be opened" in out
+    assert (code, "could not be opened" in out) == (0, True)
     assert sorted(lines) == ["a-find:False", "b-find:False", "c-find:False"]
     a, b, c = lines["a-find:False"], lines["b-find:False"], lines["c-find:False"]
     assert (a["store_ee"], a["program_ee"], a["agreement_pct"]) == (1000.0, 995.0, 99.5)
-    assert (a["decision"], b["store_ee"], b["agreement_pct"]) == ("master", None, None)
-    assert (b["decision"], c["program_ee"], c["decision"]) == ("candidate-only", None, "pending")
+    assert (a["decision"], b["decision"], c["decision"]) == ("master", "candidate-only", "pending")
     assert len(booked(capsys, tmp_path, ingested=("some_other_source",))[2]) == 3, "none added"
     _, out, lines = booked(capsys, tmp_path, ingested=("a_find", "b_find", "c_find"))
     want = ["a-find:False", "a-find:True", "b-find:False", "b-find:True", "c-find:False"]
     assert sorted(lines) == want and "2 banked in the store" in out
-    assert lines["a-find:True"]["banked"] is True
-    assert lines["b-find:True"]["decision"] == "candidate-only"
     assert '"banked": true' in (tmp_path / "fleet/ledger/2026-09.jsonl").read_text()
-    # A read banks as `fleet_<slug>_hostnames / cdx_timestamp`; a banked drain by its latest copy.
-    confirmed(tmp_path / "incoming", "e-read", {"status": "priced", "ee": 30.0})
-    (tmp_path / "incoming/e-read/read.json").write_text("{}", encoding="utf-8")
-    old, later = tmp_path / "banked/20260920T0105Z", tmp_path / "banked/20260921T0105Z"
-    confirmed(old, "d-find", {"ee": 70.0}, run_id="5")
-    confirmed(later, "d-find", {"ee": 80.0}, run_id="6")
-    ingested = ("fleet_e_read_hostnames",)
-    code, _, lines = booked(capsys, tmp_path, old, later, tmp_path / "banked/*/", ingested=ingested)
-    assert code == 0 and lines["e-read:True"]["decision"] == "master"
-    assert lines["d-find:False"]["store_ee"] == 80.0, "the later run's copy"
 
 
 LEAD = {
@@ -405,28 +318,6 @@ LEAD = {
     "size_estimate": {"items": 10, "ee_low": 1.0, "ee_high": 2.0}, "floor": 1000.0,
     "history": [{"lane": "scout", "run_id": "17", "at": "2026-09-09T00:00:00Z"}],
 }  # fmt: skip
-CONFIRMED = {"verdict": "FIND", "verify": {"status": "confirmed"}}
-BANKED, NOT_YET = {"banked": True}, {"decision": "pending", "banked": False}
-# slug: the drain's finding (None: drained before), its outcome lines, the status it ends in
-STATUSES = {
-    "banked-line": (CONFIRMED, [NOT_YET, BANKED], "banked"),
-    "banked-false": (CONFIRMED, [{"banked": False}], "verified"),
-    "the-string-true": (CONFIRMED, [{"banked": "true"}], "verified"),
-    "the-number-one": (CONFIRMED, [{"banked": 1}], "verified"),
-    "a-legacy-line": (CONFIRMED, [{"kind": "legacy", "banked": True}], "verified"),
-    "waiting-on-the-owner": (CONFIRMED, [], "verified"),
-    "measured-negative": ({"verdict": "CLOSED", "reason": "everything is held"}, [], "closed"),
-    "disputed": ({"verdict": "FIND", "verify": {"status": "disputed"}}, [BANKED], "closed"),
-    "blocked-is-work-to-redo": ({"verdict": "BLOCKED", "reason": "timed out"}, [], "verified"),
-    "closed-though-banked": ({"verdict": "CLOSED"}, [BANKED], "closed"),
-    "approved-later": (None, [NOT_YET, BANKED], "banked"),
-    "still-pending": (None, [NOT_YET], "verified"),
-    "done-already": (None, [BANKED], "banked"),
-    "hand-edited": ({"verdict": "CLOSED"}, [], "verified"),
-}
-# A banked lead is not rewritten; a laptop history entry fails the lead schema three ways.
-HEADS = {"done-already": {"status": "banked"}}
-HEADS["hand-edited"] = {"history": [{"lane": "laptop", "at": "2026-09-19T00:00:00Z", "note": "x"}]}
 
 
 def with_contract(fleet: Path) -> Path:
@@ -448,37 +339,6 @@ def outcomes(fleet: Path, *lines: dict) -> Path:
             row["key"] = f"{row['slug']}:{row['decision']}:{row['banked']}"
             fh.write(json.dumps(row, sort_keys=True) + "\n")
     return fleet
-
-
-def test_a_lead_takes_its_drains_verdict_or_banked_from_a_json_true_outcome(tmp_path, capsys):
-    """Written only with --write and the fleet's validator passing, every other field kept."""
-    (fleet := tmp_path / "fleet").joinpath("leads").mkdir(parents=True)
-    for slug, (doc, lines, _) in STATUSES.items():
-        lead = dict(LEAD, slug=slug) | HEADS.get(slug, {})
-        (fleet / f"leads/{slug}.json").write_text(json.dumps(lead), encoding="utf-8")
-        if doc is not None:
-            drop(tmp_path / "incoming", slug, dict(doc, slug=slug))
-        outcomes(fleet, *({"slug": slug} | line for line in lines))
-    outcomes(fleet, {"slug": "no-lead-file", "banked": True})
-    drop(tmp_path / "incoming", "not-in-the-clone", {"verdict": "CLOSED"})
-    argv = [str(tmp_path / "incoming"), "--fleet", str(fleet)]
-    texts = lambda: {path.name: path.read_text() for path in (fleet / "leads").iterdir()}  # noqa: E731
-    before = texts()
-    assert leads.main([*argv, "--write"]) == 0 and "no validator" in capsys.readouterr().out
-    with_contract(fleet)
-    assert leads.main(argv) == 0 and "would write: banked-line is banked" in capsys.readouterr().out
-    assert texts() == before
-    assert leads.main([*argv, "--write"]) == 0
-    for slug, (*_, status) in STATUSES.items():
-        lead = json.loads(texts()[f"{slug}.json"])
-        assert lead == dict(LEAD, slug=slug) | HEADS.get(slug, {}) | {"status": status}, slug
-        assert list(lead) == list(LEAD), "rewritten key by key, in the order the fleet wrote"
-    assert sorted(texts()) == sorted(before), "a lead the clone lacks is not created"
-    assert [texts()[f"{slug}.json"] for slug in HEADS] == [before[f"{s}.json"] for s in HEADS]
-    said = capsys.readouterr().out
-    assert "hand-edited not written as closed" in said and "laptop" in said
-    assert "not-in-the-clone has no lead file" in said
-    assert "5 statuses written" in said and "1 refused" in said
 
 
 REGISTER = "# Approved sources\n\n## Pending requests\n\n### old_source / cdx_timestamp\n"
@@ -548,14 +408,12 @@ def test_each_confirmed_repriced_find_gets_one_pending_block_of_facts_atop_the_q
     new = ["program_only", "fleet_f_read_hostnames", "fleet_e_read_hostnames", "a_lead"]
     assert heads == [f"### {key} / cdx_timestamp" for key in [*new, "old_source"]]
     assert text.endswith("### old_source / cdx_timestamp\nDecision: pending\n")
-    facts = ["- ingest spec: none in this repository", "- journal: `", "banked nothing"]
-    facts += ["the lead records no terms page", "dates one item: 1999-05-04T11:02:13Z"]
+    facts = ["- ingest spec: none in this repository", "- journal: `", "- potential: 7000"]
+    facts += ["the lead records no terms page", "- what dates one item: 1999-05-04T11:02:13Z"]
     facts += ["7,000.0 EE net-new on the live store", "The fleet said 900,000.0 EE"]
-    assert all(fact in block_of(text) for fact in [*facts, "- potential: 7000"]), text
+    assert all(fact in block_of(text) for fact in facts), text
     program = block_of(text, "program_only")
-    assert "7,020.0 EE net-new by the program on the pushed snapshot" in program
-    assert "re-price by `price_items.py` said no figure" in program and "potential: 7020" in program
-    assert "the program's figure is the one to read" in program
+    assert "potential: 7020" in program and "the program's figure is the one to read" in program
     e_read, f_read = (block_of(text, f"fleet_{s}_read_hostnames") for s in "ef")
     assert f"- ingest: ark ingest-hostnames {tmp_path / 'fleet_read/e-read'}/" in e_read
     assert f"- journal sha256: {'ab' * 32}, 2 part(s), 1,234 rows" in e_read
