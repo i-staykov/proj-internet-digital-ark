@@ -414,7 +414,8 @@ def test_a_store_lacking_a_column_fails_the_check_that_reads_it_by_name(tmp_path
     conn.execute("ALTER TABLE evidence DROP COLUMN record_location")
     result = _results_by_name(conn)["new_rows_have_location"]
     assert result["ok"] is False and "skipped" not in result
-    assert "record_location" in result["error"] and "ark rebuild" in result["error"]
+    fix = "run `uv run ark export --provenance`, then `uv run ark rebuild`"
+    assert "record_location" in result["error"] and fix in result["error"]
     assert f"[FAIL] new_rows_have_location: {result['error']}" in format_checks([result])
     conn.execute("DROP TABLE domain_language")
     result = _results_by_name(conn)["domain_wall_intact"]

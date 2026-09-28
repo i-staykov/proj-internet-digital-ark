@@ -422,8 +422,9 @@ def _count(conn: duckdb.DuckDBPyConnection, sql: str, netnew_dir: Path, audit: P
         what = (
             f"column {column[1]}" if column else f"table {table[1]}" if table else str(exc)
         ).splitlines()[0]
-        fix = "rebuild" if column else "init"  # `init` creates a table, never a column
-        raise _Failed(f"the store lacks {what}: run `uv run ark {fix}`") from None
+        steps = ("export --provenance", "rebuild") if column else ("init",)  # init adds no column
+        run = ", then ".join(f"`uv run ark {step}`" for step in steps)
+        raise _Failed(f"the store lacks {what}: run {run}") from None
 
 
 def collect_checks(
