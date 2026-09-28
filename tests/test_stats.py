@@ -125,7 +125,8 @@ def test_the_scoreboard_counts_only_what_the_export_ships(scored) -> None:
     assert (s["his_release"], s["baseline_domains"], s["candidate_pool"]) == (MARKER, 7, 3)
     # every pair the TLD filter ships, his or ours: early.info and x.arpa weigh nothing
     assert s["ee_assigned"] == 15 * weight_of("x.com") + weight_of("x.fr")
-    assert format_stats(s)  # `ark stats` renders every key it prints
+    out = format_stats(s)  # `ark stats` and ROUND.md show the per-year counts and the release
+    assert "    1998: 6\n" in out and f"(measured against {MARKER}, so" in out
 
 
 def test_corroboration_counts_distinct_master_sources_of_distinct_lineages(scored) -> None:
