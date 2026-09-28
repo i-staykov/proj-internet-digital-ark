@@ -1,4 +1,4 @@
-"""The funnel every name passes: one case per branch of `_canonicalize`, on the vendored PSL."""
+"""The funnel every name passes: one case per reduction and per refusal, on the vendored PSL."""
 
 import pytest
 
@@ -14,9 +14,11 @@ from ark.canonical import reject_reason, to_registrable
     (",.www.comdo-it.com.", "comdo-it.com", None),  # stray separators, never a leading hyphen
     ("a_ashe.howard.edu", "howard.edu", None),  # an underscore in a discarded subdomain
     ("adder.labis.fon.bg.ac.yu", "bg.ac.yu", None),  # a retired ccTLD of the early web
+    ("beograd.yu", "beograd.yu", None),  # and its bare form
     ("   ", None, "empty line"),
     ("192.168.0.1", None, "ip address"),
     ("206.in-addr.arpa", None, "reverse-dns zone"),
+    pytest.param("a." * 127 + "example.com", None, "longer than 253", id="254-plus"),
     ("-s-love.com", None, "invalid hostname syntax"),
     ("localhost", None, "no known public suffix"),
     ("ab.ca", None, "bare public suffix"),

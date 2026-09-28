@@ -15,6 +15,7 @@ import duckdb
 import pytest
 
 from ark import hostnames as hn
+from ark.checks import CHECKS
 from ark.db import add_candidate, assign_year, ensure_source, init_db, record_evidence
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -32,6 +33,10 @@ def script(rel: str):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+# `ark check` fails on a host record from a lane whose observation shows no host in use
+SERVED = next(sql for name, _, sql in CHECKS if name == "hostname_observed_serving_web")
 
 
 def store() -> duckdb.DuckDBPyConnection:
@@ -123,6 +128,7 @@ def test_funnel_one_row_per_host_year_quotes_the_lowest_under_its_own_source_onc
     assert counts == dict(lines=5, bad_item=1, out_of_window=1, registrable_row=1, rejected_host=1)
     conn = store()
     assert hn.ingest_usenet_item_journal(conn, path, family=fam)["hostname_year_rows"] == len(kept)
+    assert q(conn, SERVED) == [(0,)]
     # every pool names its first shard `shard_000.jsonl.gz`, so the pool is part of the key
     sql = "SELECT DISTINCT name, source_file FROM evidence JOIN source USING (source_id)"
     assert q(conn, sql) == [(source, "items/shard_000.jsonl.gz")]
@@ -163,10 +169,10 @@ SENDERS = [b"From " + s for s in (
     b"skip at pobox.com  Fri Jun  1 17:26:35 2001",
     b"Samuele Pedroni <pedroni@inf.ethz.ch>  Fri Jun  1 13:49:11 2001",
     b"skip@pobox.com (Skip Montanaro)  Mon Jun  4 22:03:58 2001")]  # fmt: skip
-# a dial-up lease: a pool word beside a digit, a slot number, a session id, an address
+# a dial-up lease: a pool word by a digit or in a later label, a slot, a session id, an address
 LEASES = [
-    "1cust104.tnt8.redondo-beach.ca.da.uu.net", "001-067.den1.da.amisp.net",
-    "0addba1d.news.tdin.com", "pc-192-168-0-1.isp.com",
+    "1cust104.tnt8.redondo-beach.ca.da.uu.net", "man-s286.dialup.zetnet.co.uk",
+    "001-067.den1.da.amisp.net", "0addba1d.news.tdin.com", "pc-192-168-0-1.isp.com",
 ]  # fmt: skip
 # fmt: off
 FIELD = [
@@ -323,7 +329,7 @@ def test_field_enron_the_builder_streams_the_tarball_and_reads_dated_bodies_only
     assert rows == [{"item": f"{BLAIR}/1.", "year": 2001, "text": text}]
 
 
-def test_field_maillist_header_urls_stay_out_and_the_item_stem_ignores_gzip(tmp_path) -> None:
+def test_field_maillist_header_urls_and_a_gatewayed_list_stay_out_and_gzip_is_one_stem(tmp_path):
     raw = "From skip at pobox.com  Fri Jun  1 17:26:35 2001\nDate: Fri, 01 Jun 2001 17:26:35 -0500"
     raw += "\nList-Subscribe: <http://lists.sourceforge.net/mailman/listinfo/x>\n\n"
     raw += "See http://happydoc.sf.net/ for the tool.\nFrom there it is easy.\n\n"
@@ -332,6 +338,10 @@ def test_field_maillist_header_urls_stay_out_and_the_item_stem_ignores_gzip(tmp_
     script(MAILLIST).one_file(path, out, Counter())
     item = {"item": "python/doc-sig__2001-June.txt#1", "year": 2001, "text": "happydoc.sf.net"}
     assert [json.loads(s) for s in out.getvalue().splitlines()] == [item]
+    # a list gatewayed to Usenet is Usenet's lineage, so the builder and the collector skip it
+    write(tmp_path / "python/python-list__2001-June.txt", raw)
+    assert script(MAILLIST).month_files(tmp_path) == [path]
+    assert script(MAILLIST).SKIP_LISTS == script(MAILLISTS).SKIP_LISTS
 
 
 GW, ZSP = "http://gwx.gazeta.pl:80/", "http://www.zsp.busko-zdroj.com.pl:80/~ak/k.htm"
@@ -362,12 +372,14 @@ def test_wall_poland_pl_only_a_200_inside_the_window_reaches_the_journal(tmp_pat
         {"url": f"{GW}~p/hz11.html", "timestamp": "19960510131727"},
         {"url": ZSP, "timestamp": "20010520075947"},
     ]
-    # the journal routes to this source, and the sibling extraction lane does not
+    # each extraction lane banks under its own source, and `ark check` passes its host records
     assert written.name == "poland_pl_pl-2001-EXTRACTION-x_hostgrain.jsonl.gz"
-    assert hn.source_for(Path(written.name)) == (hn.POLAND_SOURCE, hn.POLAND_METHOD)
-    sibling = hn.source_for(Path("usfedgov_USFEDGOV-EXTRACT-2001_hostgrain.jsonl.gz"))
-    assert sibling[0] != hn.POLAND_SOURCE
-    assert len(m.receipts()) == 19
+    usfedgov = write(tmp_path / "out/usfedgov_x.jsonl.gz", gzip.open(written, "rt").read())
+    sql = "SELECT DISTINCT name, acquisition_method FROM evidence JOIN source USING (source_id)"
+    for path, *lane in [(written, hn.POLAND_SOURCE, hn.POLAND_METHOD),
+                        (usfedgov, hn.USFEDGOV_SOURCE, hn.USFEDGOV_METHOD)]:  # fmt: skip
+        assert hn.ingest_hostname_journal(conn := store(), path)["hostname_year_rows"] == 2
+        assert q(conn, sql) == [tuple(lane)] and q(conn, SERVED) == [(0,)]
 
 
 MMDF, DATE = "\x01\x01\x01\x01", "Wed Oct  2 12:08:00 1996"

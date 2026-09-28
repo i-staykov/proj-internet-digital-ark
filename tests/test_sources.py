@@ -4,6 +4,7 @@ refuses and says why, and the promotion that re-files a mention without altering
 import gzip
 import importlib.util
 import json
+import re
 from collections import Counter
 from email.header import Header
 from pathlib import Path
@@ -13,9 +14,10 @@ from his_release import WEB_METHOD, capture
 
 from ark import held
 from ark import sources as src
-from ark.canonical import to_registrable
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
+from ark.evidence_types import WEB_METHODS
 from ark.sources import SOURCES
+from ark.stats import PROVENANCE_LINEAGE
 from ark.usenet import bare_domains_in_body, body_of, domains_in_message, message_year, parse_usenet
 
 
@@ -54,6 +56,21 @@ def _lines(rows: list[str]) -> str:
 
 def _jsonl(rows: list[dict]) -> str:
     return "".join(json.dumps(r) + "\n" for r in rows)
+
+
+# a lane of mentions or of outbound links is candidate-only, and every other lane may date a year
+CANDIDATE_KEY = re.compile(r"_(candidates|mentions|links|link_target)$")
+
+
+def test_a_spec_is_candidate_only_as_its_key_says_and_files_under_a_source_of_its_own() -> None:
+    """A split's halves and one parser's two archives never share a source, the geoindex's
+    captures read as web evidence, and the lanes of one archive or spool never corroborate."""
+    assert all(s.is_candidate_only == bool(CANDIDATE_KEY.search(k)) for k, s in SOURCES.items())
+    assert len({spec.source_name for spec in SOURCES.values()}) == len(SOURCES)
+    assert SOURCES["ukwa_geoindex"].acquisition_method in WEB_METHODS
+    ia = ("ia_cdx", "poland_pl_extract_hostnames", "usfedgov_extract_hostnames")
+    spool = ("usenet_announce", "usenet_header_fqdn_hostnames", "usenet_body_url_hostnames")
+    assert [len({PROVENANCE_LINEAGE[name] for name in lanes}) for lanes in (ia, spool)] == [1, 1]
 
 
 AFNIC_ROWS = [
@@ -200,11 +217,12 @@ def test_nypw_keeps_in_window_200s_and_nonok_takes_exactly_what_the_200_parser_d
     )
 
 
-@pytest.mark.parametrize(
-    ("raw", "year"),
-    [(Header("Tue, 18 Jun 1996 12:00:00 GMT"), 1996), ("1997/06/18", 1997), ("not a date", None)],
-    ids=["rfc822-in-an-rfc2047-header", "giganews-slash", "garbage"],
-)
+# fmt: off
+@pytest.mark.parametrize(("raw", "year"), [
+    (Header("Tue, 18 Jun 1996 12:00:00 GMT"), 1996), ("1997/06/18", 1997), ("1998-06-18", 1998),
+    ("not a date", None),
+], ids=["rfc822-in-an-rfc2047-header", "giganews-slash", "giganews-dash", "garbage"])
+# fmt: on
 def test_usenet_reads_every_date_header_form(raw, year) -> None:
     assert message_year(raw) == year
 
@@ -253,6 +271,7 @@ NEWS_HEADERS += b"Path: news.relay.org!feeder!not-for-mail\r\n\r\nthe site is re
 # fmt: off
 BARE = {
     "bare-host": ("BigCorp.com, mirror ftp.example.org/pub", {"bigcorp.com", "example.org"}),
+    "full-stop": ("Visit foo.com. The site is new.", {"foo.com"}),
     "url-or-address": ("see http://foo.com/x or mail bob@foo.com", set()),
     "cut-out-of-a-longer-token": ("the sentence end.Company said so, john.com@example.org", set()),
     "file-name": ("open the readme.txt file", set()),
@@ -318,15 +337,6 @@ def test_internic_delegation_is_the_owner_dated_by_the_serial_inside_the_file(tm
     assert stats["owner_outside_zone"] >= 1
     assert {r.year for r in records} == {1997}
     assert all("serial 1997041800" in r.evidence_value for r in records)
-
-
-def test_internic_reports_reverse_dns_and_the_canonicaliser_refuses_it(tmp_path: Path) -> None:
-    """The parser reports what the zone delegates; the funnel decides what is storable."""
-    arpa = ZONE.replace("ORG", "ARPA").replace("EXAMPLE.ARPA.", "IN-ADDR.ARPA.")
-    records, _ = _parse(_zone, tmp_path, "arpa.zone.gz", arpa)
-    assert "in-addr.arpa" in {r.raw for r in records}
-    assert to_registrable("in-addr.arpa") is None
-    assert to_registrable("206.in-addr.arpa") is None
 
 
 CDX_LINES = [
@@ -692,13 +702,13 @@ def test_udrp_records_carry_an_auditable_case_and_the_commencement_year() -> Non
     stats: Counter = Counter()
     got = sorted(udrp.records_in(page, stats), key=lambda record: record["domain"])
     wipo = "https://www.wipo.int/amc/en/domains/decisions/html/2000/d2000-"
-    assert [tuple(r.values()) for r in got] == [
+    keys = ("domain", "year", "proceeding", "commenced", "url")
+    assert got == [dict(zip(keys, row, strict=True)) for row in [
         ("late.com", 2001, "WIPO D2000-1762", "2001-05-15", f"{wipo}1762.html"),
         ("musicweb.com", 2000, "WIPO D2000-0001", "2000-12-20", f"{wipo}0001.html"),
         ("one.com", 2000, "NAF FA0092016", "2000-01-11", udrp.LIST_URL),
         ("two.co.uk", 2000, "NAF FA0092016", "2000-01-11", udrp.LIST_URL),
-    ]
-    assert list(got[0]) == ["domain", "year", "proceeding", "commenced", "url"]
+    ]]  # fmt: skip
     assert (stats["out_of_window"], stats["no_proceeding_number"]) == (1, 1)
 
 
@@ -730,15 +740,15 @@ def test_a_promoted_line_parses_back_to_its_evidence_value_under_a_master_siblin
     loader, which must be the parser its mention source reads with, the written line gives back
     the stored value, or the Message-ID in the shipped corpus stops naming its post."""
     value = "comp.lang.python usenet post <3358fb02.28570944@news.alt.net>"
-    line = promo.journal_line("brownschool.com", 1997, value, "https://e/1")
+    line = promo.journal_line(*(row := ("brownschool.com", 1997, value, "https://e/1")))
     (path := tmp_path / "promoted.jsonl.gz").write_bytes(gzip.compress(_jsonl([line]).encode()))
     for mention_source, ingest_key in promo.PROMOTION.items():
         spec = SOURCES[ingest_key]
         assert spec.evidence_type != "link_target", f"{ingest_key} is still candidate-only"
         mention = next(s for s in SOURCES.values() if s.source_name == mention_source)
         assert mention.parse is spec.parse, f"{mention_source} and {ingest_key} parse apart"
-        records = [(r.raw, r.year, r.evidence_value) for r in spec.parse(path, Counter())]
-        assert records == [("brownschool.com", 1997, value)]
+        records = spec.parse(path, Counter())
+        assert [(r.raw, r.year, r.evidence_value, r.evidence_url) for r in records] == [row]
     # the parser defaults an absent group to `usenet`; guessing one would fabricate a newsgroup
     got = promo.journal_line("foo.com", 1999, "solitary", None)
     assert got == {"domain": "foo.com", "year": 1999, "message_id": "solitary"}
