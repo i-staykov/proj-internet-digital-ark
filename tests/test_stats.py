@@ -14,7 +14,7 @@ from unittest.mock import Mock
 
 import duckdb
 import pytest
-from his_release import HIS_YEARS, WEB_METHOD, capture, stage, text
+from his_release import HIS_YEARS, MARKER, WEB_METHOD, capture, stage, text
 
 from ark import db, held
 from ark import figures as fig
@@ -122,7 +122,7 @@ def test_the_scoreboard_counts_only_what_the_export_ships(scored) -> None:
     # the store still holds every row; only the scored figures narrow, and the pool holds
     # none of his and no name whose TLD never existed in the window
     assert (s["total_domains"], s["total_pairs"], s["evidence_rows"]) == (22, 18, 29)
-    assert (s["baseline_domains"], s["candidate_pool"]) == (7, 3)
+    assert (s["his_release"], s["baseline_domains"], s["candidate_pool"]) == (MARKER, 7, 3)
     # every pair the TLD filter ships, his or ours: early.info and x.arpa weigh nothing
     assert s["ee_assigned"] == 15 * weight_of("x.com") + weight_of("x.fr")
     assert format_stats(s)  # `ark stats` renders every key it prints
@@ -135,6 +135,8 @@ def test_corroboration_counts_distinct_master_sources_of_distinct_lineages(score
     keys += ("independently_corroborated_pairs", "independently_corroborated_netnew")
     assert [scored.stats[k] for k in keys] == [1.3333, 5, 1, 4, 3]
     assert scored.stats["evidence_rows_by_lineage"]["internet_archive"] == 5
+    by_type = {"cdx_timestamp": 21, "artifact_listing": 5, "link_target": 2, "whois_creation": 1}
+    assert list(scored.stats["evidence_rows_by_type"].items()) == list(by_type.items())
 
 
 def test_every_source_has_an_explicit_provenance_lineage() -> None:

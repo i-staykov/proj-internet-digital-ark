@@ -196,8 +196,9 @@ def test_the_annual_files_ship_net_of_his_and_the_guard_counts_what_they_write(r
 def test_a_record_ships_only_on_a_capture_of_exactly_its_name(run) -> None:
     """A capture of `www.` or any host beneath a registrable dates that host, never the
     registrable, and a name whose every year fails XIII ships as a candidate, never in neither."""
-    cited = {r["domain"]: r["evidence_value"] for r in _rows(run, "netnew/evidence_manifest.csv")}
-    assert cited["both.com"] == capture("both.com", 1999)
+    rows = _rows(run, "netnew/evidence_manifest.csv")
+    cited = {r["domain"]: (r["source"], r["evidence_value"]) for r in rows}
+    assert cited["both.com"] == ("ia_cdx", capture("both.com", 1999))
     additions = set(_words(run, "netnew/candidate_additions.txt"))
     assert {"sub.com", "zone-only.dk", "dir.com", "example.org"} <= additions
     assert not {"new.com", "both.com"} & additions
@@ -211,7 +212,8 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filters_still_bite(run) -> Non
     for year in (1999, 2000):
         assert "www.deep.held.com" in _words(run, f"netnew/{year}_hostnames.txt")
     for r in _rows(run, "netnew/hostnames_evidence_manifest.csv"):
-        assert r["evidence_value"] == capture(r["hostname"], int(r["assigned_year"])), r
+        cited = capture(r["hostname"], int(r["assigned_year"]))
+        assert (r["source"], r["evidence_value"]) == ("ia_cdx", cited), r
     names = _words(run, "candidates.txt") + _words(run, "netnew/candidate_additions.txt")
     assert not [name for name in names if name.endswith((".arpa", ".site"))]
 
