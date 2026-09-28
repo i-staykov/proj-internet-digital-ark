@@ -749,6 +749,8 @@ def test_a_promoted_line_parses_back_to_its_evidence_value_under_a_master_siblin
         assert mention.parse is spec.parse, f"{mention_source} and {ingest_key} parse apart"
         records = spec.parse(path, Counter())
         assert [(r.raw, r.year, r.evidence_value, r.evidence_url) for r in records] == [row]
+    # a hand-kept map's posting date evidences nothing, so a uucp mention never files as master
+    assert "uucp_map_mention" not in promo.PROMOTION
     # the parser defaults an absent group to `usenet`; guessing one would fabricate a newsgroup
     got = promo.journal_line("foo.com", 1999, "solitary", None)
     assert got == {"domain": "foo.com", "year": 1999, "message_id": "solitary"}
