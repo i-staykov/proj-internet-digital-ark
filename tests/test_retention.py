@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import zipfile
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -32,7 +33,7 @@ ROWS = {  # entry: class, refetch; the two output/ rows are verify_raw's own
     "data/raw/journal": ("keep_journal", "own_journal"),
     "data/raw/priced": ("keep_until_priced", "https://x"),
     "data/raw/live": ("live_input", "unknown"),
-    "data/raw/checksums.sha256": ("reference", "unknown"),
+    "data/raw/checksums.sha256": ("reference", "none"),  # `none` is no route: off-site
     "data/raw/regen": ("regenerable", "just reproduce"),
     "data/raw/usenet_bulk": ("keep_until_priced", "https://y"),
     "output/provenance": vr.classify("output/provenance"),
@@ -63,7 +64,6 @@ ZIP_FAULTS = {
     "crc": lambda tree, archive: (tree / "1996.txt").write_bytes(OLD.upper().encode()),
     "symlink": lambda tree, archive: (tree / "unique.txt").symlink_to(tree / "1996.txt"),
     "stale": lambda tree, archive: archive.write_bytes(archive.read_bytes() + b"updated"),
-    "second-release": lambda tree, archive: None,
 }
 OLD_STAGE, NEW_STAGE = (f"DomainDataCollectionTask_2026010{d}0000_IvayloStaykov" for d in (1, 2))
 CURRENT, OLD = "feedback/Current_Release/merged261231", "feedback/Old_Release/merged260101"
@@ -126,8 +126,7 @@ def fake_rclone(tmp_path, monkeypatch):
         out = objects[0] if "--stat" in args else objects
         return subprocess.CompletedProcess(args, 0, json.dumps(out), "")
 
-    mock = Mock(side_effect=lsjson)
-    monkeypatch.setattr(offsite, "rclone", mock)
+    monkeypatch.setattr(offsite, "rclone", mock := Mock(side_effect=lsjson))
     return mock
 
 
@@ -136,18 +135,13 @@ def build(root: Path, drop: str | None = "data/raw/nosum") -> None:
         file(root, key if key.endswith(".sha256") else f"{key}/a", key.encode())
     file(root, "data/raw/journal/2001/b")
     scanned, body = {r.key: r for r in vr.run(root).rows}, ""
+    unlisted = {(r.cls, r.refetch) for r in scanned.values() if not r.known}
+    assert unlisted == {("reference", vr.UNKNOWN)}  # an unlisted entry goes off-site
     for key, (cls, refetch) in ROWS.items():
         record = "none" if key.endswith("nosum") else "SHA256SUMS"
         cells = (f"`{key}`", cls, scanned[key].files, scanned[key].size, record, refetch, record)
         body += f"| {' | '.join(map(str, cells))} |\n" if key != drop else ""
     file(root, RETENTION, body.encode())
-
-
-def mirror(root: Path) -> None:
-    """What `--upload --yes` leaves on Drive: every file but the checksum sidecars."""
-    for path in sorted(files_under(root / "data/raw") | files_under(root / "output")):
-        if path.name not in offsite.SIDECARS:
-            shutil.copyfile(path, file(root, f"remote/{path.relative_to(root).as_posix()}"))
 
 
 def run(root: Path, *args: str) -> int:
@@ -157,7 +151,9 @@ def run(root: Path, *args: str) -> int:
 @pytest.fixture
 def verified(tmp_path, fake_rclone):
     build(tmp_path)
-    mirror(tmp_path)
+    for path in sorted(files_under(tmp_path / "data/raw") | files_under(tmp_path / "output")):
+        if path.name not in offsite.SIDECARS:  # what `--upload --yes` leaves on Drive
+            shutil.copyfile(path, file(tmp_path, f"remote/{path.relative_to(tmp_path)}"))
     assert run(tmp_path, "--manifest") == run(tmp_path, "--verify") == 0
     fake_rclone.reset_mock()
     return tmp_path
@@ -206,6 +202,7 @@ def test_a_verify_that_cannot_vouch_for_the_bytes_revokes_them(verified, fake_rc
         before = (verified / JOURNAL).stat()
         file(verified, JOURNAL, b"x" * before.st_size)
         os.utime(verified / JOURNAL, ns=(before.st_atime_ns, before.st_mtime_ns))
+        pytest.raises(ValueError, offsite.deletion_proof, verified, verified / JOURNAL)
     elif fault == "rclone-error":
         fake_rclone.side_effect = subprocess.SubprocessError("x")
     elif fault == "interrupt-after-one":  # one entry matched, then the run stopped
@@ -296,7 +293,7 @@ def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, 
     assert case == "released" or backup.read_bytes() == kept
 
 
-@pytest.mark.parametrize("fault", ["ok", *ZIP_FAULTS])
+@pytest.mark.parametrize("fault", ["ok", "dry-run", "second-release", *ZIP_FAULTS])
 def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, fault):
     """Receipted files under submissions/, output/ and data/raw are never in scope."""
     tree, archive = disk_repo(tmp_path)["old"], tmp_path / "feedback/Old_Release.zip"
@@ -308,17 +305,19 @@ def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, f
     proofs(tmp_path, [archive, *scoped])
     before = {p.name: p.read_bytes() for p in tree.iterdir()}
     ZIP_FAULTS.get(fault, lambda *a: None)(tree, archive)
-    lines = prune.round_cleanup(tmp_path, write=True)[1]
+    lines = prune.round_cleanup(tmp_path, write=fault != "dry-run")[1]
     assert ("removed: feedback/Old_Release.zip" in lines) is (fault == "ok")
     assert archive.exists() is (fault != "ok") and all(p.exists() for p in scoped)
     assert fault != "ok" or {p.name: p.read_bytes() for p in tree.iterdir()} == before
 
 
-def test_every_direct_ingest_and_export_has_an_independent_space_guard():
+def test_every_ingest_and_export_has_an_independent_space_guard():
     lines = (ROOT / "justfile").read_text().splitlines()
     for i, line in enumerate(lines):
         if line.strip().startswith(("uv run ark ingest", "uv run ark export")):
             assert "bank_hygiene.py space" in lines[i - 1] and "|| true" not in lines[i - 1], line
+    run = [line.strip() for line in lines[lines.index("run *args:") :]]  # `just run export`
+    assert run[run.index("ingest*|export)") + 1].endswith("bank_hygiene.py space")
 
 
 def sums(folder: Path, files: list[str], kind: str = "SHA256SUMS") -> None:
@@ -365,10 +364,6 @@ def disk_repo(root: Path) -> dict[str, Path]:
     return {"old": root / OLD, "host": host, "bulk": bulk}
 
 
-def archive_org(monkeypatch, files: dict) -> None:
-    monkeypatch.setattr(prune, "ia_file", lambda item, name, cache: files.get((item, name)))
-
-
 def cleanup(root: Path, **flags) -> str:
     return "\n".join(prune.disk_cleanup(root, write=True, **flags)[1])
 
@@ -398,7 +393,7 @@ def test_disk_takes_exactly_what_is_proven(tmp_path, monkeypatch, capsys, fake_r
     monkeypatch.setattr(offsite, "rclone", fake_rclone)
     ia = {HOST: {"size": "12", "sha1": sha(CDX, "sha1")}}
     ia[("usenet-alt", "alt.test.mbox.zip")] = {"size": "12", "sha1": sha(ZIP, "sha1")}
-    archive_org(monkeypatch, ia)
+    monkeypatch.setattr(prune, "ia_file", lambda item, name, cache: ia.get((item, name)))
     unlink = Path.unlink
 
     def recorded_first(path, *a, **k):
@@ -441,8 +436,10 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
         monkeypatch.setattr(prune, "ia_file", Mock(side_effect=record))
     else:
         ia = None if record is None else {"size": "12", "sha1": sha(CDX, "sha1")} | record
-        archive_org(monkeypatch, {HOST: ia})
+        monkeypatch.setattr(prune, "ia_file", lambda *a: {HOST: ia}.get(a[:2]))
     monkeypatch.setattr(prune, "ia_serves", lambda url: case != "restricted-unserved")
+    if case == "sha1":  # the sidecar sha1 agrees with archive.org; our bytes do not
+        file(spent.parent, "SHA1SUMS", f"{'0' * 40}  ./{HOST[1]}\n".encode())
     if case == "changed":
         spent.write_bytes(b"rewritten after hashing")
     if case == "changed-at-delete":  # moved after its DELETED.tsv line, before the unlink
@@ -456,7 +453,7 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
 
 def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):
     disk_repo(tmp_path)
-    archive_org(monkeypatch, {})
+    monkeypatch.setattr(prune, "ia_file", lambda *a: None)
     held = f"HELD output/{OLD_STAGE}/report.md: Drive"
     assert f"{held} did not list" in cleanup(tmp_path)
     file(tmp_path, f"remote/submissions/phase-9/{NEW_STAGE}.tar.gz", b"another tarball")
@@ -466,26 +463,40 @@ def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatc
     assert (tmp_path / f"output/{OLD_STAGE}/report.md").exists()
 
 
+def test_archive_org_restricts_a_dark_or_restricted_item_and_asks_for_one_byte(monkeypatch):
+    items = {"dark": {"is_dark": True}, "open": {}}
+    items["walled"] = {"metadata": {"access-restricted-item": "true"}}
+    cache = {item: meta | {"files": [{"name": "f"}]} for item, meta in items.items()}
+    assert [prune.ia_file(item, "f", cache)["restricted"] for item in items] == [True, False, True]
+    urlopen = Mock(side_effect=[nullcontext(SimpleNamespace(status=206)), OSError("401")])
+    monkeypatch.setattr(prune.urllib.request, "urlopen", urlopen)
+    assert prune.ia_serves(f"{prune.IA}/open/f") and not prune.ia_serves(f"{prune.IA}/walled/f")
+    assert [c.args[0].get_header("Range") for c in urlopen.call_args_list] == ["bytes=0-0"] * 2
+
+
 @pytest.mark.parametrize("rel", NEVER)
 def test_the_never_list(tmp_path, rel):
     assert prune.never(tmp_path, tmp_path / rel) and prune.never(tmp_path, tmp_path / SPENT) == ""
 
 
-@pytest.mark.parametrize("fault", ["edited", "duplicate-member"])
-def test_a_release_tree_that_fails_its_crc_check_is_held(tmp_path, monkeypatch, fault):
+@pytest.mark.parametrize("fault", ["edited", "duplicate-member", "no-marker"])
+def test_a_release_tree_is_held_without_a_crc_match_or_a_marker(tmp_path, monkeypatch, fault):
     parts = disk_repo(tmp_path)
     tree_file, archive = parts["old"] / "1996.txt", tmp_path / "feedback/Old_Release.zip"
     if fault == "edited":
         tree_file.write_bytes(b"edited after zipping\n")
+    elif fault == "no-marker":  # baseline.json names no marker, so every release is held
+        file(tmp_path, "data/baseline.json", b'{"current": {"directory": "x"}}')
     else:
         with pytest.warns(UserWarning), zipfile.ZipFile(archive, "w") as zf:
             for _ in range(2):
                 zf.write(tree_file, "merged260101/1996.txt")
     proofs(tmp_path, [tree_file, archive])
-    archive_org(monkeypatch, {})
+    monkeypatch.setattr(prune, "ia_file", lambda *a: None)
     text = cleanup(tmp_path)
-    assert tree_file.exists() and f"HELD {OLD}/1996.txt: CRC check" in text
-    assert fault == "edited" or "unsafe or duplicate zip member" in text
+    why = "data/baseline.json names no release marker" if fault == "no-marker" else "CRC check"
+    assert tree_file.exists() and f"HELD {OLD}/1996.txt: {why}" in text
+    assert fault != "duplicate-member" or "unsafe or duplicate zip member" in text
 
 
 def test_a_frozen_submission_gets_no_sidecar_of_its_own(tmp_path):
