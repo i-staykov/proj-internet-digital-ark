@@ -1,7 +1,8 @@
 """The hold, the one sync lock and the launchd job: what stops the hourly loop and keeps one
 writer in the store. launchctl, gh, ssh, rsync, uv and a nested `just` are one logging shim
-acting on files under tmp. `just --dry-run` renders each recipe once and bash runs it as just
-would, so no run writes a new executable for macOS to scan."""
+acting on files under tmp. Each recipe is rendered once as `just --dry-run` shows it, with no
+`just`, which CI lacks, and bash runs it as just would, so no run writes a new executable for
+macOS to scan."""
 
 import os
 import plistlib
@@ -33,7 +34,6 @@ RECIPES = {"sync": ["sync"], "bank": ["bank"], "install": ["schedule", "install"
 SCRIPTS = ("hold.sh", "scheduled_sync.sh", "sync_lock.sh")
 REFUSED = f"a sync is already running as pid {ME}"
 UV = r"uv (.+) lock=(\S*) held=(\S*)"
-needs_just = pytest.mark.skipif(JUST is None, reason="just not on PATH")
 
 SHIM = r"""#!/bin/bash
 name=${0##*/}
@@ -64,12 +64,24 @@ ssh)
     [ -e "$S/offline" ] && exit 255
     for cmd; do :; done; unset ARK_STATE_DIR; HOME=$S/vps; eval "$cmd" ;;
 uv)
-    # Something arrived only when the test says so, and only for the first check.
+    # Something arrived only when the test says so, for the first check. The slot check fails.
     case "$*" in *"bank_trigger.py check lock="*)
-        rm "$S/arrived" 2>/dev/null || { echo "bank: nothing arrived"; exit 1; } ;; esac ;;
+        rm "$S/arrived" 2>/dev/null || { echo "bank: nothing arrived"; exit 1; } ;;
+    *--slots-only*) exit 1 ;; esac ;;
 just) [ "$1" = bank ] && exec bash "$RECIPES/bank"; exit 99 ;;
 esac
 """
+
+
+def recipe(root: Path, name: str) -> str:
+    """A shebang recipe as `just --dry-run` shows it: the body dedented, each `{{x}}` filled
+    from the defaults, a variadic's empty."""
+    text = (root / "justfile").read_text()
+    params, body = re.search(rf"^{name}\b(.*):\n((?:(?:    .*)?\n)+)", text, re.M).groups()
+    given = dict(re.findall(r'(\w+)(?:="([^"]*)")?', params))
+    given["justfile_directory()"] = str(root)
+    body = re.sub(r"^    ", "", body.rstrip("\n") + "\n", flags=re.M)
+    return re.sub(r"\{\{(.+?)\}\}", lambda m: given[m[1].strip()], body)
 
 
 class Box:
@@ -87,10 +99,12 @@ class Box:
         for name in ("launchctl", "gh", "ssh", "rsync", "uv", "just"):
             (bin_dir / name).symlink_to("shim")
         (recipes := tmp / "recipes").mkdir()
-        for name, argv in RECIPES.items() if JUST else ():
-            args = [JUST, "--justfile", str(self.repo / "justfile"), "--dry-run", *argv]
-            rendered = subprocess.run(args, **self.quiet)
-            (recipes / name).write_text(rendered.stderr)
+        for name, argv in RECIPES.items():
+            text = recipe(self.repo, argv[0])
+            if JUST:  # the reading is just's own wherever just is installed
+                args = [JUST, "--justfile", str(self.repo / "justfile"), "--dry-run", *argv]
+                assert subprocess.run(args, **self.quiet).stderr == text, name
+            (recipes / name).write_text(text)
         paths = {"ARK_STATE_DIR": self.state, "ARK_SYNC_LOCK": self.lock, "RECIPES": recipes}
         paths |= {"HOME": tmp / "home", "SHIM_LOG": self.log, "SHIM_STATE": self.shim}
         self.base = {k: str(v) for k, v in paths.items()}
@@ -193,6 +207,9 @@ def test_off_enables_before_bootstrap_lifts_one_name_or_all_and_drops_one_it_doe
     # The header's `human` is not a name, and a name neither known nor listed is refused.
     for name in ("com.ark.other", "human"):
         assert box.hold("off", name).returncode == 2, name
+    # A listed name it does not know, as status says to run it, only drops its line.
+    unknown = box.hold("off", "pause")
+    assert unknown.returncode == 0 and "pause: not a hold name, dropped" in unknown.stdout
     assert box.launchd() == []
     one = box.hold("off", "com.ark.sync")
     assert one.returncode == 0, one.stdout
@@ -200,16 +217,14 @@ def test_off_enables_before_bootstrap_lifts_one_name_or_all_and_drops_one_it_doe
         f"launchctl enable gui/{UID}/com.ark.sync",
         f"launchctl bootstrap gui/{UID} {box.agents / 'com.ark.sync.plist'}",
     ]
-    assert (box.state / "hold").read_text().splitlines()[2:] == [*NAMES[1:], "pause"]
+    assert (box.state / "hold").read_text().splitlines()[2:] == NAMES[1:]
     out = box.hold("off")
     assert out.returncode == 0, out.stdout + out.stderr
-    assert "pause: not a hold name, dropped" in out.stdout.splitlines()
     active = {f"shim/workflows/{wf}": "active\n" for wf in WORKFLOWS}
     loaded = {"shim/launchd/loaded/com.ark.sync": ""}
     assert box.files() == loaded | active | {"state/pause": "human\n"}
 
 
-@needs_just
 def test_the_sync_the_bank_and_the_install_obey_the_hold(box):
     """A recipe past the hold stops at the lock, held here by a live pid; a dry run's hand run
     passes and says so, any other bypass value is held, and nothing is lifted."""
@@ -251,7 +266,6 @@ def test_a_live_lock_names_its_holder_and_a_dead_runs_lock_is_taken_over(box):
     assert (box.lock / "pid").read_text() == f"{ME}\n"
 
 
-@needs_just
 def test_the_bank_takes_the_lock_unless_its_caller_holds_it(box):
     """The tick hands its lock to the bank as ARK_LOCK_HELD, trusted only while the lock
     agrees; any other bank, and a second sync, is refused and names the holder."""
@@ -263,7 +277,8 @@ def test_the_bank_takes_the_lock_unless_its_caller_holds_it(box):
     assert called.stdout.strip() == "bank: nothing arrived", called.stdout + called.stderr
     check = "run python scripts/harness/bank_trigger.py check"
     assert box.uv() == [(check, ME, ME)] and (box.lock / "pid").read_text() == f"{ME}\n"
-    # The tick: its lock before any step, its bank under it, no store opened, the lock dropped.
+    # The tick: its lock before any step, its bank under it, a failed slot check not fatal,
+    # no store opened, the lock dropped.
     shutil.rmtree(box.lock)
     (box.shim / "arrived").touch()
     tick = box.run(["bash", "../recipes/sync"])
@@ -272,20 +287,30 @@ def test_the_bank_takes_the_lock_unless_its_caller_holds_it(box):
     pid = steps[0][1]
     assert pid not in ("", ME) and {lock for _, lock, _ in steps} == {pid}, steps
     assert (check, pid, pid) in steps
-    assert not [cmd for cmd, _, _ in steps if cmd.startswith("run ark ")]
+    slots = "run python scripts/harness/discover_cycle.py --slots-only --fleet "
+    assert [cmd for cmd, _, _ in steps if cmd.startswith(slots)], steps
+    assert "uv run ark " not in (box.tmp / "recipes/sync").read_text()
     assert not box.lock.exists()
+    # By hand, the bank takes the lock under its own pid and drops it when done.
+    box.log.unlink()
+    hand = box.run(["bash", "../recipes/bank"])
+    assert hand.stdout.strip() == "bank: nothing arrived", hand.stdout + hand.stderr
+    ((lock, held),) = {(lock, held) for _, lock, held in box.uv()}
+    assert lock not in ("", ME) and held == "" and not box.lock.exists()
 
 
-@pytest.mark.parametrize("template", sorted(ROOT.glob("scripts/harness/com.ark.*.plist.template")))
-def test_the_launchd_template_names_a_script_that_exists_and_a_path_that_finds_the_tools(template):
-    """A moved script exits 127 while `launchctl list` looks normal; so does a bare PATH."""
-    text = template.read_text()
+def test_the_launchd_template_names_a_script_that_exists_and_a_path_that_finds_the_tools():
+    """A moved script exits 127 while `launchctl list` looks normal; so does a bare PATH, and
+    its stderr log is where either shows. The template is the one the install renders."""
+    job = re.search(r"^JOB=(\S+)$", recipe(ROOT, "schedule"), re.M)[1]
+    text = (ROOT / f"scripts/harness/{job}.plist.template").read_text()
     assert str(ROOT) not in text and "ARK_ROOT" in text and "ARK_HOME" in text
     plist = plistlib.loads(text.replace("ARK_ROOT", str(ROOT)).replace("ARK_HOME", "/h").encode())
-    assert plist["Label"] == template.name.removesuffix(".plist.template")
+    assert plist["Label"] == job
     shell, script = plist["ProgramArguments"]
     assert shell == "/bin/bash" and Path(script).is_file(), script
     assert plist["WorkingDirectory"] == str(ROOT)
+    assert plist["StandardErrorPath"].startswith(str(ROOT / "data/logs"))
     env = plist["EnvironmentVariables"]
     assert {"/opt/homebrew/bin", "/h/.local/bin"} <= set(env["PATH"].split(":"))
     assert env["HOME"] == "/h"

@@ -213,7 +213,7 @@ def test_an_ask_is_one_needs_owner_issue_and_a_one_line_pr(monkeypatch, tmp_path
     calls = fake_gh(monkeypatch, issues=[{"number": 5, "title": "Approve hostlist? 38,500 EE"}])
     assert sa.main([]) == 0 and "open already: Approve hostlist? 38,500" in capsys.readouterr().out
     # Until live holds the block there is no one line to flip: no branch, no issue.
-    calls += fake_gh(monkeypatch)
+    calls = fake_gh(monkeypatch)
     monkeypatch.setattr(sa, "live_register", lambda: "# Approvals\n\n" + DECIDED)
     monkeypatch.setattr(sa.subprocess, "run", lambda *a, **k: pytest.fail(f"ran {a}"))
     assert sa.main([]) == 0 and f"not on live yet: {TITLE}" in capsys.readouterr().out
@@ -267,8 +267,9 @@ REGISTERS = {
 }
 
 
-def test_the_queue_asks_a_class_or_the_send_never_the_store(tmp_path, monkeypatch, capsys):
-    for blocked, ask in (
+@pytest.mark.parametrize(
+    ("blocked", "ask"),
+    [
         ("download decision: 57.6 GB, over the 1 GB fetch cap", ""),
         ("a download decision admitting content type application/x-rpm", ""),
         ("a terms answer and a download decision", ""),
@@ -277,8 +278,33 @@ def test_the_queue_asks_a_class_or_the_send_never_the_store(tmp_path, monkeypatc
         ("download decision. Then a rule on author_mail_host as an evidence class.", "class"),
         ("rule: whether a hostname in a FAQ body is master-eligible", "class"),
         ("ask whether to send the round under the 5% gate", "send"),
-    ):
-        assert lead_queue.ask_of(blocked) == ask, blocked  # only a class or the send is asked
+    ],
+)
+def test_only_a_class_or_the_send_is_asked(blocked, ask):
+    assert lead_queue.ask_of(blocked) == ask
+
+
+@pytest.mark.parametrize(
+    ("brief", "figures"),
+    [
+        ({"round": "11", "baseline": "b1", "field5_percent": 5.2}, ["crossed", "5.2000%", "`b1`"]),
+        (
+            {"round": "9", "field5_percent": 0.3823, "distance_to_gate_ee": 9876.4},
+            ["0.3823%", "9,876"],
+        ),
+        ({"round": "10", "round_percent": 6.0, "percent": 6.0}, []),
+        (None, []),
+    ],
+    ids=["past-the-gate", "under-it", "a-key-the-bank-stopped-writing", "no-brief"],
+)
+def test_the_send_is_field_5_of_the_brief_and_never_a_guess(tmp_path, brief, figures):
+    if brief is not None:
+        (tmp_path / "brief.json").write_text(json.dumps(brief))
+    line = lead_queue.send_line(tmp_path / "brief.json")
+    assert all(f in line for f in figures) and ("%" in line) == bool(figures), line
+
+
+def test_the_page_asks_a_measured_class_and_the_send_never_the_store(tmp_path, monkeypatch, capsys):
     banked = {"t-line": True, "t-string": "true", "t-false": False}
     lines = [json.dumps({"kind": "outcome", "slug": s, "banked": b}) for s, b in banked.items()]
     past = {"round": "Round 11", "baseline": "b1", "field5_percent": 5.2, "gate_pct": 5.0}
@@ -301,19 +327,10 @@ def test_the_queue_asks_a_class_or_the_send_never_the_store(tmp_path, monkeypatc
     assert (rows["ipac"]["low"], rows["ipac"]["high"]) == (3681.7, 3681.7), "the store's figure"
     assert lead_queue.main(["--fleet", str(tmp_path)]) == 0
     page = capsys.readouterr().out
-    assert "crossed the 5% gate** at 5.2000% against `b1`" in page
+    assert lead_queue.send_line(tmp_path / "brief.json") in page
     assert "### Admit `cdx_x`" in page and "[`t-class`](https://e.org/t-class)" in page
     assert "`t-download`" not in page and "80,000" not in page
     outlet, _, foot = page.partition("### Give the XIII-excluded")[2].partition("estimate alone")
     assert "**445 EE**" in outlet and "| 445.1 | [`stranded`](https://e.org/stranded)" in outlet
     assert "guessed" not in outlet and "`guessed`" in foot, "an estimate is not a row"
-    gone = {"round": "10", "round_percent": 6.0, "percent": 6.0, "round_distance_to_gate_ee": 1}
-    (brief := tmp_path / "brief.json").write_text(json.dumps(gone))
-    assert "Not known here" in lead_queue.send_line(brief), "a key the bank stopped writing"
-    assert "Not known here" in lead_queue.send_line(tmp_path / "none.json"), "never guessed"
-    under = {"round": "9", "baseline": "m", "field5_percent": 0.3823, "distance_to_gate_ee": 9876.4}
-    brief.write_text(json.dumps(under))
-    assert lead_queue.send_line(brief) == (
-        "Nothing to send: Round 9 stands at 0.3823% against `m`, under the 5% gate, 9,876 EE short."
-    )
     assert store.mock_calls == [], "the queue opened the store"

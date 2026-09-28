@@ -132,14 +132,21 @@ ROUNDS = """| round | sent EE | awarded p_i | S_i computed | S_i quoted | note |
 """
 
 
-def test_the_draft_reminds_only_open_due_questions_and_sums_his_record_by_column_name():
-    for today, due in (
-        (date(2026, 9, 3), ["Do both hold?"]),  # an event-named one is due, a dated one not yet
-        (date(2026, 9, 30), ["Do both hold?", "[DRAFT"]),  # due on its day
-        (date(2026, 10, 1), ["Do both hold?", "[DRAFT"]),  # and once passed
-    ):
-        lines = ship_mail.reminders(QUESTIONS, today)
-        assert len(lines) == len(due) and all(t in ln for t, ln in zip(due, lines, strict=True))
+@pytest.mark.parametrize(
+    ("today", "due"),
+    [
+        (date(2026, 9, 3), ["Do both hold?"]),
+        (date(2026, 9, 30), ["Do both hold?", "[DRAFT"]),
+        (date(2026, 10, 1), ["Do both hold?", "[DRAFT"]),
+    ],
+    ids=["event-named-due-dated-not-yet", "dated-due-on-its-day", "dated-due-once-passed"],
+)
+def test_only_open_and_due_questions_are_reminded(today, due):
+    lines = ship_mail.reminders(QUESTIONS, today)
+    assert len(lines) == len(due) and all(t in ln for t, ln in zip(due, lines, strict=True))
+
+
+def test_his_record_is_summed_from_his_columns_found_by_name():
     lines = "\n".join(ship_mail.cumulative(ROUNDS))
     # 17.38 + 4.130718 + 7.562846, the three rows with a number in `awarded p_i`
     assert "29.073564% in total" in lines and "3 scored rounds (1, 6, 7)" in lines

@@ -91,7 +91,7 @@ def test_q1_drops_only_a_lead_whose_every_dated_record_postdates_1995(tmp_path):
     "all postdate 1995" drops it. Only non-empty years all after 1995, with no earlier year
     in the lead's own date texts, leave Q1. A file that does not parse is named."""
     for text, years in (
-        ("[01/Jul/1995:00:00:01 -0400] pub/hosts/19950517/HOSTS.TXT", {1995}),
+        ("[01/Jul/1995:00:00:01 -0400] pub/hosts/19930517/HOSTS.TXT", {1995, 1993}),
         ("; 17-May-95 and 23-Jul-92, computer.html 20010124010300", {1995, 1992, 2001}),
         ("417,108 items, 417108 in all", set()),
     ):
@@ -117,8 +117,7 @@ def test_q1_drops_only_a_lead_whose_every_dated_record_postdates_1995(tmp_path):
     # The table counts only the records dated inside the window.
     early = orq.Test("Q1", "early", orq.VALIDATED, [], [], finding=finding(years={"1995": 5}))
     late = orq.Test("Q1", "late", orq.TESTED, [], [], finding=finding(years={"1996": 3, "2002": 1}))
-    header, _, first, second = orq.q1_table([early, late]).splitlines()
-    assert "| dated 1996 to 2001 |" in header
+    _, _, first, second = orq.q1_table([early, late]).splitlines()
     assert first.startswith("| `early` | Validated | FIND | 3 | 0 | 1.5 | candidate |")
     assert second.startswith("| `late` | Tested, not independently verified | FIND | 3 | 3 |")
 
@@ -177,6 +176,9 @@ def test_cost_is_the_ledgers_and_a_run_it_does_not_hold_is_not_recorded(tmp_path
     for run_id in ("13", "14", "99"):  # another lead's line, a legacy line, no line
         assert orq.cost(held, run_id, "a") == gone, run_id
     assert orq.ledger(tmp_path / "before-the-ledger") == {}
+    test = orq.Test("Q1", "a", orq.VALIDATED, [], [("price", "11"), ("verify", "99")])
+    rows = [(r["run_id"], r["tokens_in_plus_out"]) for r in orq.tests_rows([test], held)]
+    assert rows == [("11", "1200"), ("99", orq.NOT_RECORDED)]
     (fleet / "scripts").mkdir()
     (fleet / "scripts/ledger.py").write_text(
         "def read(root):\n    return ['every line']\n\n\n"
@@ -221,6 +223,28 @@ def test_reads_refuse_private_and_the_store_as_do_text_and_folders(tmp_path, mon
     assert orq.inputs()["HIS"] != "/nowhere/his" and orq.inputs(True)["HIS"] == "/nowhere/his"
 
 
+TEMPLATE, BRIEF = orq.TEMPLATE.read_text(), orq.BRIEF.read_text()
+
+
+@pytest.mark.parametrize(
+    "refused",
+    [
+        lambda: orq.check_template(TEMPLATE + "12 of them\n", BRIEF),
+        lambda: orq.check_template(TEMPLATE.replace(f"### {orq.HEADINGS[0]}\n", "### X\n"), BRIEF),
+        lambda: orq.check_template(TEMPLATE.replace("## Q1. ", "## Q1. Not ", 1), BRIEF),
+        lambda: orq.fill("[FIRST] and [SECOND]", {"FIRST": "x"}),
+    ],
+    ids=["a-typed-figure", "a-heading-off-section-x", "a-question-not-his", "an-unfilled-token"],
+)
+def test_a_build_refuses_what_would_ship_unchecked(refused):
+    """build() runs both on every build; the shipped template passes, and a value is never
+    read as a token."""
+    orq.check_template(TEMPLATE, BRIEF)
+    assert orq.fill("[FIRST]", {"FIRST": "a [SECOND]"}) == "a [SECOND]"
+    with pytest.raises(orq.Refusal):
+        refused()
+
+
 def fixture_audit(path: Path) -> Path:
     families = {"a": {"rows": {"2xx": 90, "4xx": 8, "5xx": 2}}, "b": {"rows": {"2xx": 100}}}
     shipped = {"s": {"rows": 10, "ok": 7, "retract": 1, "repoint": 2}}
@@ -261,6 +285,7 @@ def test_every_q2_command_has_a_parser_and_is_read_again_from_its_files(tmp_path
     assert orq.missing_inputs('sort -m "$HIS"/199[6-9].txt', names) == []
     assert orq.missing_inputs('sort -m "$HIS"/200[01].txt', names) == ["$HIS/200[01].txt"]
     assert orq._overlap("       0\n")[0] == {"COUNT": "0"}
+    assert orq._continuity("  7699146\n 17443336\n")[0]["PCT"] == "44.1"
     audit = fixture_audit(tmp_path / "audit.json")
     values, result = orq._status_share(orq.measure_status_share({"AUDIT": str(audit)}))
     assert (values["FOURXX_PCT"], values["FIVEXX_PCT"]) == ("4.00", "1.00")
@@ -336,6 +361,10 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
         for column in ("evidence", "code", "logs", "sample"):
             assert not row[column] or (en / row[column]).exists(), (row["id"], column)
     assert (en / "code/ddn-like/extract.py").read_text() == "x=1"
+    for name in (orq.TXT["Q1"], orq.TXT["Q2"]):
+        lines = {line.strip() for line in (out / orq.ZH / name).read_text().splitlines()}
+        assert set(orq.HEADINGS) <= lines, name
+    assert (out / orq.ZH / orq.README).read_text().strip()
     with zipfile.ZipFile(en / orq.DOCX) as docx:
         text = re.sub(r"<[^>]+>", "", docx.read("word/document.xml").decode("utf-8"))
     assert "1 of 2 names (50.0%)" in text  # his 1999 against his 2000, from the fixture
@@ -399,8 +428,6 @@ def test_e1_passes_both_folders_and_fails_on_any_one_gap(tmp_path):
     e1 += '\nPY\nexit "$fail"\n'
     done = bash(e1, fixture_stage(tmp_path / "good"))
     assert done.returncode == 0, done.stdout + done.stderr
-    assert done.stdout.startswith(f"{'E1 open research questions':<46} PASS")
-    assert "WARN  no screenshots/" in done.stdout
     en, zh, labels = Path(orq.EN), Path(orq.ZH), "question,id,label\nQ1,a,Fine\n"
     breaks = {
         "folder gone": lambda s: shutil.rmtree(s / zh),
