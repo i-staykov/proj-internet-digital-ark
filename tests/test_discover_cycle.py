@@ -59,6 +59,7 @@ def test_an_idle_slot_is_reported_never_dispatched_the_ask_bounded(tmp_path, mon
     """`leg.yaml`'s schedule is the watchdog that starts an idle slot, so the check only
     reports. Inside the hourly sync, which calls `--slots-only`, `STEP_TIMEOUT`, an hour,
     would hold the bank the whole window, so every call it makes is bounded."""
+    assert cycle.run(["sh", "-c", "echo HTTP 404 >&2; exit 1"], 10) == ("HTTP 404", True), "stderr"
     asked = []
     monkeypatch.setattr(cycle, "run", lambda cmd, timeout: asked.append((cmd, timeout)) or said)
     (fleet := tmp_path / "fleet").mkdir()
