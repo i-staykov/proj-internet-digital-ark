@@ -298,6 +298,43 @@ def test_preflight_refuses_main_and_low_space_before_the_pull(
 
 
 @pytest.mark.parametrize(
+    ("pulled", "said"),
+    [
+        ((128, "ssh: Could not resolve hostname github.com: nodename nor servname provided\n"
+               "fatal: Could not read from remote repository."), "did not answer"),
+        ((128, "fatal: unable to access 'https://github.com/o/r/': Could not resolve host"),
+         "did not answer"),
+        ((124, "git pull timed out after 600s"), "did not answer"),
+        ((128, "fatal: Not possible to fast-forward, aborting."), "diverged"),
+    ],
+    ids=["ssh-offline", "https-offline", "timed-out", "diverged"],
+)  # fmt: skip
+def test_a_remote_that_never_answered_is_not_called_a_divergence(
+    tmp_path, monkeypatch, pulled, said
+):
+    """Nine offline ticks once each said the clone had diverged; only a refusal says that."""
+    for name in ("data", "output"):
+        (tmp_path / name).mkdir()
+    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=1000 * hyg.GIB))
+    answers = {"rev-parse": (0, "live"), "status": (0, ""), "pull": pulled}
+    code, lines = hyg.preflight(root=tmp_path, run=lambda args, cwd: answers[args[0]])
+    other = "diverged" if said == "did not answer" else "did not answer"
+    assert code == 2 and any(said in ln for ln in lines), lines
+    assert not any(other in ln for ln in lines), lines
+
+
+def test_a_hung_git_comes_back_as_124_rather_than_a_traceback(monkeypatch):
+    def hang(*args, **kw):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kw["timeout"])
+
+    monkeypatch.setattr(hyg.subprocess, "run", hang)
+    assert hyg.git(["pull", "--ff-only", "origin", "live"]) == (
+        124,
+        f"git pull timed out after {hyg.GIT_TIMEOUT_S}s",
+    )
+
+
+@pytest.mark.parametrize(
     ("floor", "free", "code"),
     [("10", 14, 2), ("10", 15, 0), ("0", 1000, 2), ("-1", 1000, 2)],
     ids=["below-floor-plus-budget", "at-floor-plus-budget", "setting-0", "setting-negative"],
