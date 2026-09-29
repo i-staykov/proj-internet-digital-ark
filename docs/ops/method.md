@@ -15,8 +15,7 @@ says why changes it.
   it, overlap corroborating a reading, never justifying one. His names short of XIII are his, not
   ours to clean: we add valid names; a flood of them or a large drop in his release is his
   question, not a find.
-- **The gate** is `docs/ROUND.md`'s. We may ASK Ding to accept less when the research carries it;
-  he decides.
+- **The gate** is 5% (`docs/ROUND.md`), fixed; the goal is to reach it as fast as possible.
 - **Autonomy.** A lead inside the standing bounds (size and terms: ark-fleet `policy.json`
   `standing`; robots and class fixed) gets its `Decision:` line from the loop and proceeds
   unapproved, reviewed with the submission; otherwise it parks `pending`. A material extraction
