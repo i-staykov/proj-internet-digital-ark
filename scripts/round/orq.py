@@ -15,7 +15,7 @@ one template, `docs/orq/orq.template.md`, so they cannot say different things.
 
 `--stage` writes into a package stage and refuses one under `submissions/`. `--preview`
 writes anywhere else, and refuses `output/` too, so a look at the document never lands
-in a delivery. `--fleet` defaults to `$ARK_FLEET`, else `~/Documents/GitHub/ark-fleet`.
+in a delivery. `--fleet` defaults to `$ARK_FLEET`, else `~/GitHub/ark-fleet`.
 
 **Every figure is computed at build time, never typed.** The template carries prose and
 `[TOKEN]`s. A digit anywhere else in it, outside a heading or a code span, is refused, and
@@ -90,7 +90,7 @@ NETNEW = REPO / "output/netnew"
 CDX = REPO / "data/raw/cdx"
 AUDIT = REPO / "data/audit/status_audit.json"
 SCREENSHOTS = REPO / "data/orq/screenshots"
-DEFAULT_FLEET = Path.home() / "Documents/GitHub/ark-fleet"
+DEFAULT_FLEET = Path.home() / "GitHub/ark-fleet"
 
 EN = "Open Research Questions"
 ZH = "开放性研究问题"
@@ -1248,7 +1248,7 @@ def main(argv: list[str] | None = None) -> int:
         "--fleet",
         type=Path,
         default=Path(os.environ.get("ARK_FLEET") or DEFAULT_FLEET).expanduser(),
-        help="the fleet checkout (default $ARK_FLEET, else ~/Documents/GitHub/ark-fleet)",
+        help="the fleet checkout (default $ARK_FLEET, else ~/GitHub/ark-fleet)",
     )
     args = parser.parse_args(argv)
     try:

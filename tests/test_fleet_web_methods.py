@@ -13,9 +13,7 @@ import pytest
 
 from ark.evidence_types import REDIRECT_METHOD, WEB_METHODS
 
-FLEET_ROOT = Path(
-    os.environ.get("ARK_FLEET") or Path.home() / "Documents/GitHub/ark-fleet"
-).expanduser()
+FLEET_ROOT = Path(os.environ.get("ARK_FLEET") or Path.home() / "GitHub/ark-fleet").expanduser()
 FLEET = FLEET_ROOT / "schemas" / "web_methods.json"
 
 

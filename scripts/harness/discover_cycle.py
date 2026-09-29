@@ -162,7 +162,7 @@ REBUILD_LOCK_STALE_S = 3600
 
 FLEET_REPO = "i-staykov/ark-fleet"
 # The fleet clone the justfile names, for its `policy.json`.
-DEFAULT_FLEET = Path.home() / "Documents/GitHub/ark-fleet"
+DEFAULT_FLEET = Path.home() / "GitHub/ark-fleet"
 # The title `leg.yaml` gives a dispatched run; the watchdog's runs are `Leg watchdog`.
 LEG_TITLE = re.compile(r"Leg slot (0|[1-9][0-9]*)")
 

@@ -375,7 +375,7 @@ def render(rows: list[dict], send: str = "", missing: str = "") -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--fleet", type=Path, default=Path.home() / "Documents/GitHub/ark-fleet")
+    ap.add_argument("--fleet", type=Path, default=Path.home() / "GitHub/ark-fleet")
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args(argv)
     fleet = args.fleet.expanduser()

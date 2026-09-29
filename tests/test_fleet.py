@@ -24,7 +24,7 @@ from ark.price_snapshot import NO_SPLIT_CLASSES
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "scripts/harness"
-FLEET = Path(os.environ.get("ARK_FLEET") or "~/Documents/GitHub/ark-fleet").expanduser()
+FLEET = Path(os.environ.get("ARK_FLEET") or "~/GitHub/ark-fleet").expanduser()
 # The fleet's own validator, schemas and ledger script, copied out or run over scratch files.
 CONTRACT = FLEET if (FLEET / "scripts/contract.py").is_file() else None
 LEDGER = FLEET if all((FLEET / f"scripts/{n}.py").is_file() for n in ("ledger", "pacer")) else None

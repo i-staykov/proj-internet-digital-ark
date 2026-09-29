@@ -20,7 +20,7 @@ cd "$PROJ"
 # from it, so it must be the fleet as it stands: the top of a git checkout (a worktree's
 # `.git` is a file), its HEAD on the fleet's main, and no older than the newest drain the
 # laptop banked, whose name is the drain's UTC minute.
-FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
 TOP=$(git -C "$FLEET" rev-parse --show-toplevel 2>/dev/null) || true
 if [ -z "$TOP" ] || [ "$(cd "$TOP" && pwd -P)" != "$(cd "$FLEET" && pwd -P)" ]; then
     echo "refusing to package: $FLEET is not the top of a fleet checkout; set ARK_FLEET" >&2

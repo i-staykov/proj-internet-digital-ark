@@ -31,7 +31,7 @@ never reaches the register alone**: the EE cell carries the store's own re-price
 or says in words why there is none.
 
     uv run python scripts/harness/bank_findings.py data/fleet_findings/incoming \\
-        --hypotheses ~/Documents/GitHub/ark-fleet/hypotheses.md --run-label wave-123
+        --hypotheses ~/GitHub/ark-fleet/hypotheses.md --run-label wave-123
 """
 
 from __future__ import annotations
