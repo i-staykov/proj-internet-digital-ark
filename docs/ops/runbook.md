@@ -1,22 +1,22 @@
 # Runbook
 
-Rules: `CLAUDE.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
+Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
 
 ## When prompted, in this order
 
 1. `just cycle` (the hook printed the brief); settle what it names that a program cannot decide.
-2. Pick one lens (`CLAUDE.md`, Hunting). Before any request, ask the disk: `just find <term>`,
+2. Pick one lens (`AGENTS.md`, Hunting). Before any request, ask the disk: `just find <term>`,
    `just screen --dating <self|typed|undated> "<what the source is>"`, a grep of `data/raw/`.
-3. Price what you find on both tracks, as Figures says (`CLAUDE.md`, The annual masters; Price;
+3. Price what you find on both tracks, as Figures says (`AGENTS.md`, The annual masters; Price;
    Only 1996 to 2001). A candidate needs no approval: `uv run ark seed <file>` pools it.
-4. Write the source's register row with its link (`CLAUDE.md`, Registers). A fleet find banks
+4. Write the source's register row with its link (`AGENTS.md`, Registers). A fleet find banks
    through the tick and the bank; your own through `just approve <spec> --journal <j>` and its
    `Decision:` line, then a hand ingest as "The sync lock" shows.
 5. Replace the row with the result.
 
 ## Working in the checkout
 
-- The main checkout stays on `live` (`CLAUDE.md`, Git).
+- The main checkout stays on `live` (`AGENTS.md`, Git).
 - The agent shell is zsh: an unquoted `$VAR` never splits; spell a list out, or use `${=VAR}`.
 - The tick and the bank commit `docs/registers/` on the branch that is out and push `live`; their
   preflight refuses `main`, a diverged clone, any modified tracked file but `sources.md`,
@@ -51,7 +51,7 @@ A bare `uv run ark ingest` or `export` skips the space check, so run
 `uv run python scripts/harness/bank_hygiene.py space` first. When an output name may have been
 recycled, compare the ledger's sha256 with the bytes on disk before ingesting or deleting anything.
 
-**The gate** (`CLAUDE.md`, the hook gate): its store half is the block above. Once `bash
+**The gate** (`AGENTS.md`, the hook gate): its store half is the block above. Once `bash
 scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half, the whole
 suite with its output discarded, through the hook `just hooks` installs. A pytest, `ark check` or
 commit beside it makes the hook refuse a green commit, and inside `just ship all` that aborts the
@@ -60,7 +60,7 @@ alone, never through a pipe, before believing a refusal.
 
 ## The loop
 
-**Validation.** One lane per archive client (`CLAUDE.md`, Channel), two on the laptop under
+**Validation.** One lane per archive client (`AGENTS.md`, Channel), two on the laptop under
 `caffeinate -s`, since idle sleep stops a lane with no error, and one on the VPS from its clone with
 `--max-local 1`, whose journals the tick pulls: `python3 scripts/engines/cdx_platform_walk.py
 <seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts a lane: start each detached, again
@@ -82,11 +82,11 @@ pushes `live` and the snapshot, and writes each lead's fate to the fleet. A red 
 and the red says so. Every tick then prints `BANK RED`. Read the red, run the lock block's export
 and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
-**Standing admissions** (`CLAUDE.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
-`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "CLAUDE.md,
+**Standing admissions** (`AGENTS.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
+`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "AGENTS.md,
 Autonomy", or parks it naming the clause; the line stands only if `ark check` passes after the
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
-above its `--floor`; its merge (`CLAUDE.md`, Git) approves it.
+above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
 
 **The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on the VPS,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
@@ -128,7 +128,7 @@ it into `docs/report.md`.
 
 ## Ship: the owner's procedure
 
-The owner runs it (`CLAUDE.md`, Autonomy; Nothing ships under the 5% gate) once the gate issue,
+The owner runs it (`AGENTS.md`, Autonomy; Nothing ships under the 5% gate) once the gate issue,
 labelled `needs-owner`, opens.
 
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.

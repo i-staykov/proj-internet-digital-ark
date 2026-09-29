@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Refuse a commit that fails the hook gate in `CLAUDE.md`: ruff, format, the security
+# Refuse a commit that fails the hook gate in `AGENTS.md`: ruff, format, the security
 # scan and pytest. A gate that depends on someone noticing a red run is not a gate, so the
 # commit itself runs it.
 #

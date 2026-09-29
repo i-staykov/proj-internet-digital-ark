@@ -5,7 +5,8 @@
 **These docs are the source of truth as of today. Never write how things were.** Git is the only
 history. Verbosity is the enemy of quality: this is research for people with no time, and a longer
 text is worth less. Say it once, as short as it can be said, then stop. **Never grow a file:** the
-edit that adds a rule deletes the rule it replaces. No restating, no preamble, no AI slop.
+edit that adds a rule deletes the rule it replaces. No restating, no preamble, no AI slop. Label an
+estimate where its number stands; present nothing unmeasured as measured, pad no list to a count.
 
 **No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
@@ -20,8 +21,8 @@ Rebuild 1996 to 2001's domains for Prof. Ding, scored in **equivalent-English (E
 - **Registers.** Before ingest a source gets one `docs/registers/sources.md` row with its LINK and what dates one item, moved to `docs/registers/sources-closed.md` when closed. Each result, hit or miss, replaces its row.
 - **Channel.** At most three archive clients (two laptop, one VPS) query `web.archive.org/cdx`; no agent does. Research lanes may use the rest of archive.org, pausing no collector. Before a host's first request, read its terms and whole robots.txt; send an honest User-Agent, honour `Retry-After`, back off on 429, 503 and 504; on throttling retire a client, never add one. Collectors run detached to an absolute deadline.
 - **Accounts.** Model work runs only in the harness, legs on the primary token; only an owner-merged PR flips ark-fleet `policy.json` `token`.
-- **Git.** Push any branch; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface, the owner or an owner-named session any other, after review. Both repos are PUBLIC: no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, big data never reaches git. Work only in your own worktree, never switching or editing a shared clone.
-- **Files.** A rule lives only here, landing with its code; a measured fact only in `docs/lore/laws.md`; code's rationale in its docstring or comment. His files are append-only, frozen `submissions/` never edited, generated files (`docs/index.md` marks the pages) never hand-edited. The provenance Parquet is the evidence authority, DuckDB its rebuildable index. Every commit passes the hook gate (ruff, format, scan, pytest); ark check follows each ingest, precedes each ship. Only a zero exit marks work done.
+- **Git.** Push any branch; `main` moves only by PR. The fleet's guard merges an improver PR inside the tunable surface, the owner or an owner-named session any other, after review. Write both repos as PUBLIC (the fleet is private, the project is not): no commit, PR, issue or comment names a machine address, IP, login, token value, local path, mail text or personal context. Nothing carries AI attribution, `private/` never ships, big data never reaches git. Work only in your own worktree, never switching or editing a shared clone; once its PR merges, remove the worktree and its branch.
+- **Files.** A rule lives only here, landing with its code; a measured fact only in `docs/lore/laws.md`; code's rationale in its docstring or comment. His files are append-only, frozen `submissions/` never edited, generated files (`docs/index.md` marks the pages) never hand-edited. The provenance Parquet is the evidence authority, DuckDB its rebuildable index. Local files live only where `scripts/agents/brief.py` `LAYOUT` names; the session brief lists anything else, to move or delete. Every commit passes the hook gate (ruff, format, scan, pytest); ark check follows each ingest, precedes each ship. Only a zero exit marks work done.
 - **Hunting.** A bulk dated HOSTNAME corpus meeting XIII comes first. One lens per leg, never the same twice running; two empty hunts change the method, not the effort.
 - **No em or en dashes.**
 

@@ -3,8 +3,8 @@
 **One line per page: what it is and when to read it.** `lore/` holds the measured facts, `brief/` the
 task in the reviewer's words, `registers/` the current-state ledgers, `round/` the inputs to one
 delivery, `orq/` the open research questions package, `ops/` how to run it; the report and this page
-sit at the root. Rules live in `CLAUDE.md`. *Generated* pages name the script that writes them
-(CLAUDE.md, Files); *not shipped* pages are export-ignored and stay out of the delivery archive.
+sit at the root. Rules live in `AGENTS.md`. *Generated* pages name the script that writes them
+(AGENTS.md, Files); *not shipped* pages are export-ignored and stay out of the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
