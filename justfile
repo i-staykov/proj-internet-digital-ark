@@ -161,7 +161,7 @@ cycle *args:
 # who has it and stops.
 #
 # drain and book the fleet's findings, then bank only what arrived
-sync fleet="~/Documents/GitHub/ark-fleet":
+sync fleet="~/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
     if bash scripts/harness/hold.sh holds com.ark.sync; then
@@ -343,7 +343,7 @@ bank *args:
             *) echo "bank: unknown argument $a"; exit 2 ;;
         esac
     done
-    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
     IN=data/fleet_findings/incoming
     mkdir -p "$IN" data/fleet_findings/banked data/logs
     LABEL=$(date -u +%Y%m%dT%H%MZ)
@@ -1318,7 +1318,7 @@ intake *args:
     uv run ark intake
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
     bash scripts/harness/sync_fleet.sh
-    FLEET="${ARK_FLEET:-$HOME/Documents/GitHub/ark-fleet}"
+    FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
     LABEL=$(date -u +%Y%m%dT%H%MZ)
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
         --publish-expected "$FLEET" \

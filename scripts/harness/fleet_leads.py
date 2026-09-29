@@ -29,7 +29,7 @@ fails, or a clone with no validator, is named and left as it was. No history ent
 added, because the lead schema has no laptop lane.
 
     uv run python scripts/harness/fleet_leads.py data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet [--write]
+        --fleet ~/GitHub/ark-fleet [--write]
 """
 
 from __future__ import annotations

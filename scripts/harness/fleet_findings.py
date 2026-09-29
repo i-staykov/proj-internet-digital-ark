@@ -19,12 +19,12 @@ once its commit has landed, outcome over this drain and every drain banked befor
     outcome   one fleet ledger line per confirmed FIND: both figures, the decision, banked
 
     uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet
+        --fleet ~/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py validate data/fleet_findings/incoming \\
-        --fleet ~/Documents/GitHub/ark-fleet
+        --fleet ~/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming
     uv run python scripts/harness/fleet_findings.py outcome data/fleet_findings/incoming \\
-        data/fleet_findings/banked/*/ --fleet ~/Documents/GitHub/ark-fleet [--register R] [--db D]
+        data/fleet_findings/banked/*/ --fleet ~/GitHub/ark-fleet [--register R] [--db D]
 """
 
 from __future__ import annotations
