@@ -115,8 +115,12 @@ def main() -> None:
     ap.add_argument("--stamp", required=True, help="Transcription date, YYYY-MM-DD")
     args = ap.parse_args()
 
-    package = args.package.resolve()
-    rel = package.relative_to(REPO) if package.is_relative_to(REPO) else package
+    # absolute(), not resolve(): a worktree's feedback/ links to the checkout's, and the header
+    # of a public page names a repository path, never a machine's.
+    package = args.package.absolute()
+    if not package.is_relative_to(REPO):
+        raise SystemExit(f"{args.package}: not inside the repository")
+    rel = package.relative_to(REPO)
     rendered = []
     for name, out_name, title in DOCS:
         src = _pick(package, name)

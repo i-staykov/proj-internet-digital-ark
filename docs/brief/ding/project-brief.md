@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `feedback/Domain_Data_Collection_Task_0922_UpdateV2/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0918_Update.docx` |
-| sha256 | `53c5f87ace85ee0b36792ef5ce134c95dcf9eec1953b64e346239600156b46fd` |
-| delivered in | `feedback/Domain_Data_Collection_Task_0922_UpdateV2/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0922_UpdateV2.zip (2026-09-22) |
-| transcribed | 2026-09-24 by `scripts/round/extract_ding_docs.py` |
+| source file | `feedback/Domain_Data_Collection_Task_0928_Update/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_0923_Update.docx` |
+| sha256 | `83acf3c7756a223c77065211fee55679dc6a38cecdc8f7f55a2d55ba14cd122f` |
+| delivered in | `feedback/Domain_Data_Collection_Task_0928_Update/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_0928_Update.zip (2026-09-28) |
+| transcribed | 2026-09-29 by `scripts/round/extract_ding_docs.py` |
 
 Word files are converted with pandoc; plain text is fenced. Only escaped backticks
 and curly quotation marks are normalised. Wording, order and section numbering
@@ -23,7 +23,7 @@ provenance values above to check it.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-09-18 16:23:34 (UTC+8)
+Update time: 2026-09-23 19:47:37 (UTC+8)
 
 **I. Task Background**
 
@@ -85,25 +85,27 @@ The following rules have the highest priority. All subsequent methods must compl
 
 1.  Annual master results may include only domains supported by evidence for the corresponding year. Here, evidence for the corresponding year means factual material demonstrating that the domain actually existed, was in use, or was active during the specific calendar year in which it is to be included, or an acquisition method whose year scope itself clearly establishes that fact. Such evidence may include a CDX timestamp from that year, a historical webpage snapshot, a dated directory page, a dated index file, a WHOIS record demonstrating registration status in that year, or equivalent material. Evidence from an earlier year alone does not automatically establish that the domain continued to exist or remain active in later years. If a previous task has already recorded item-level evidence for each relevant year, that evidence may be reused without repeating the verification from scratch.
 
-2.  Data without item-level year evidence must not be written directly to `1996.txt` through `2001.txt`. Such data may be placed only in a candidate pool, pending-verification pool, or auxiliary seed pool.
+2.  Mandatory item-level historical-existence evidence: Every hostname-year record submitted for an annual master must retain at least one valid, reproducible item-level evidence record showing that the exact hostname genuinely existed historically in the claimed year. Acceptable evidence includes: (1) an Internet Archive CDX record or Wayback capture with an explicit capture timestamp in the target year for the exact hostname; (2) a dated, traceable, authoritative web directory or web link graph that explicitly lists or links to that exact hostname, together with the source URL, source file, record location, and date basis; or (3) a dataset maintained by a credible custodian that provides an item-level, year-specific record, together with the dataset access link, version, source file, record location, date semantics, and extraction method. A merely similar hostname, a parent domain, an undated dataset, or a non-reproducible link does not satisfy this requirement.
 
-3.  Although `DMOZRDFdump` is a high-value source, if only the aggregate snapshot dated `2015-03-27` is available, all domains in that snapshot must not be distributed indiscriminately across the annual files for 1996-2001. Doing so would undermine the authenticity of the annual results.
+3.  Data without item-level year evidence must not be written directly to `1996.txt` through `2001.txt`. Such data may be placed only in a candidate pool, pending-verification pool, or auxiliary seed pool.
 
-4.  If `DMOZ`, `StanfordWebBase`, certain historical webpage collections, or other data without item-level year labels are used, they must first be treated as candidate seeds. Each domain must then be checked through the IA CDX service or another source containing year-specific evidence to determine whether it actually appeared, existed, or was active in every specific year in which inclusion is proposed. A domain may be written only to the file for a year that has been successfully verified; verification for one year does not justify automatic inclusion in any other year.
+4.  Although `DMOZRDFdump` is a high-value source, if only the aggregate snapshot dated `2015-03-27` is available, all domains in that snapshot must not be distributed indiscriminately across the annual files for 1996-2001. Doing so would undermine the authenticity of the annual results.
 
-5.  The final deliverables must clearly distinguish between two categories of results: annual master results and candidate results without precise year evidence. These categories must not be mixed.
+5.  If `DMOZ`, `StanfordWebBase`, certain historical webpage collections, or other data without item-level year labels are used, they must first be treated as candidate seeds. Each domain must then be checked through the IA CDX service or another source containing year-specific evidence to determine whether it actually appeared, existed, or was active in every specific year in which inclusion is proposed. A domain may be written only to the file for a year that has been successfully verified; verification for one year does not justify automatic inclusion in any other year.
 
-6.  A WHOIS Creation Date is valid evidence of when a domain was created and can establish that the domain existed no later than that date. It may support inclusion in the annual file for the target year in which the creation date falls. However, a WHOIS Creation Date alone does not automatically establish that the domain remained registered, continued to exist, or was active in every subsequent year. Inclusion in later annual files still requires a WHOIS record demonstrating continued registration in that year, a CDX record, a historical snapshot, or other factual evidence tied to that specific year. Even if a domain currently has no usable archive in IA, it may be included in the relevant year when such year-specific evidence is available.
+6.  The final deliverables must clearly distinguish between two categories of results: annual master results and candidate results without precise year evidence. These categories must not be mixed.
 
-7.  The annual files are not limited to the year in which a domain first appeared. If factual evidence or a year-specific acquisition method independently demonstrates that a domain actually existed, was in use, or was active in multiple target years, the domain must appear in every annual file for which that status has been established. Cross-year duplication is therefore permitted and necessary. Deduplication is required within each year, not across different years. Every annual inclusion must have evidence for that year; the date of first appearance alone must not be used to infer presence in later years.
+7.  A WHOIS Creation Date is valid evidence of when a domain was created and can establish that the domain existed no later than that date. It may support inclusion in the annual file for the target year in which the creation date falls. However, a WHOIS Creation Date alone does not automatically establish that the domain remained registered, continued to exist, or was active in every subsequent year. Inclusion in later annual files still requires a WHOIS record demonstrating continued registration in that year, a CDX record, a historical snapshot, or other factual evidence tied to that specific year. Even if a domain currently has no usable archive in IA, it may be included in the relevant year when such year-specific evidence is available.
 
-8.  Counting and output unit: The annual master files use the normalized valid hostname, consistent with the fixed hostname regex and the supplied benchmark. No distinction is made between a registrable domain and a qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records when each specific hostname has qualifying annual evidence. A registrable-domain roll-up may be delivered as an optional secondary analysis, but it must not replace evidence-backed hostnames in the annual master files. Paths, user identifiers embedded in URLs, ports, and other non-hostname fragments are never annual records.
+8.  The annual files are not limited to the year in which a domain first appeared. If factual evidence or a year-specific acquisition method independently demonstrates that a domain actually existed, was in use, or was active in multiple target years, the domain must appear in every annual file for which that status has been established. Cross-year duplication is therefore permitted and necessary. Deduplication is required within each year, not across different years. Every annual inclusion must have evidence for that year; the date of first appearance alone must not be used to infer presence in later years.
 
-9.  An existing filename such as `1996.txt` represents the domains obtained to date for which there is evidence of actual existence, use, or activity during the period from 00:00:00 on January 1, 1996, through 23:59:59 on December 31, 1996. The same standard applies to every other annual file.
+9.  Counting and output unit: The annual master files use the normalized valid hostname, consistent with the fixed hostname regex and the supplied benchmark. No distinction is made between a registrable domain and a qualifying subdomain hostname: cjb.net, alice.cjb.net, and bob.cjb.net are each eligible records when each specific hostname has qualifying annual evidence. A registrable-domain roll-up may be delivered as an optional secondary analysis, but it must not replace evidence-backed hostnames in the annual master files. Paths, user identifiers embedded in URLs, ports, and other non-hostname fragments are never annual records.
 
-10. At the current stage, a separate preliminary CDX validation is not required before a domain enters the processing pool, because downloading CDX records from the IA servers for a specified year inherently performs year validation. A domain may enter an annual master result only after a CDX record has been successfully obtained within that year's date range or another year-specific acquisition method has established its presence in that year. If the acquisition method cannot establish a specific year, the domain may enter only the candidate pool.
+10. An existing filename such as `1996.txt` represents the domains obtained to date for which there is evidence of actual existence, use, or activity during the period from 00:00:00 on January 1, 1996, through 23:59:59 on December 31, 1996. The same standard applies to every other annual file.
 
-11. Every collected domain list must be accompanied by an explanation of the acquisition method and the processing performed. It is strictly unacceptable to expand the lists without documenting the method.
+11. At the current stage, a separate preliminary CDX validation is not required before a domain enters the processing pool, because downloading CDX records from the IA servers for a specified year inherently performs year validation. A domain may enter an annual master result only after a CDX record has been successfully obtained within that year's date range or another year-specific acquisition method has established its presence in that year. If the acquisition method cannot establish a specific year, the domain may enter only the candidate pool.
+
+12. Every collected domain list must be accompanied by an explanation of the acquisition method and the processing performed. It is strictly unacceptable to expand the lists without documenting the method.
 
 **<span class="mark">IV-A. Open Research Questions for Continued Investigation</span>**
 

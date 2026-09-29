@@ -477,7 +477,7 @@ def export_all(
                 stats[f"netnew_{year}"] = count
 
         # The hostname half of the annual contribution ships beside the registrable half.
-        # Brief IV.8 requires exact qualifying hostnames, not a registrable-only roll-up;
+        # Brief IV.9 requires exact qualifying hostnames, not a registrable-only roll-up;
         # these are annual records, not auxiliary seeds.
         with _phase("hostnames"):
             for year in YEARS:

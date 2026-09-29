@@ -592,7 +592,7 @@ def evidence_years(record: dict, first: int, last: int) -> Iterable[int]:
     """In-window years a CDX record attests, which is exactly what it returned.
 
     No inference of any kind: a capture in a year is evidence for that year and
-    for no other, which is what brief IV.7 requires.
+    for no other, which is what brief IV.8 requires.
     """
     for year in record.get("years") or []:
         if isinstance(year, int) and first <= year <= last:

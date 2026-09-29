@@ -38,7 +38,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A UKWA link-graph target is annual only when it is its own registrable (`ukwa_link_target_bare`); `www.` targets (77%) and deeper ones stay candidate `link_target` (`src/ark/sources.py`).
 - `afnic_fr` is the one span source: AFNIC's guide v3.0 defines `crDate` as the last creation date, so `[crDate, deletion or now]` is continuous (`src/ark/checks.py` `_SPAN_SOURCES`).
 - The `www.` alias share of hostname EE: bulk CDX indexes run 99.5% to 100% `www.<held name>` (`ukwa` geoindex, `nypw_firstcdx`), typed-URL corpora 27.3% to 33.8% (`just price-hosts`).
-- `www.<registrable>` is its own hostname record where evidence names that exact host (`a_www_record_has_its_own_evidence`); 1,221,065 of his names carry both forms in one year.
+- `www.<registrable>` is its own hostname record where evidence names that exact host (`a_host_record_has_its_own_evidence`); 1,221,065 of his names carry both forms in one year.
 - His merge kept all 1,313,547 `www.` names of one round, 1,106,188 beside the bare name in the same year, and credited it 7.562846%, so the alias ships (`scripts/round/round_figures.py` `www_alias_share`).
 - Neither `www.` nor any other host evidences the registrable: a registrable line ships only on a capture of its own name, and 790 of 806 shipped lines rested on another host's capture (`src/ark/checks.py` `a_registrable_record_has_its_own_capture`).
 - A 3xx filter adds 2.4% more CDX rows; dropping the status filter adds another 3.3%, all 4xx and 5xx: the server answered, the host served nothing (`scripts/engines/cdx_platform_walk.py`).

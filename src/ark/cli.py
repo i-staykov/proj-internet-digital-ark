@@ -591,7 +591,7 @@ def seed_pool(
 
     Deliberately not `ark seed`, which loads candidate DOMAINS: this writes the HOSTNAME
     and URL download seeds kept by registrable-grain parsers, and they do not replace the
-    evidence-backed annual hostname records brief IV.8 requires. Same files, same parser
+    evidence-backed annual hostname records brief IV.9 requires. Same files, same parser
     as `ark ingest`, keeping the raw value instead of the canonical one, so a seed cannot
     disagree with the evidence it came from. Re-running a source replaces only its rows.
 

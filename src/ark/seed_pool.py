@@ -2,8 +2,8 @@
 
 Backs `ark seed-pool`, the opposite way to `ark.seed`: that reads candidate domains INTO the
 store, this writes download seeds OUT of evidence already held. Brief I asks for historical
-URL seeds and IV.2 permits an auxiliary pool with no year evidence of its own. **These seeds
-do not replace annual hostname records**, which IV.8 requires to carry their own evidence.
+URL seeds and IV.3 permits an auxiliary pool with no year evidence of its own. **These seeds
+do not replace annual hostname records**, which IV.9 requires to carry their own evidence.
 
 No second parser: every bulk parser already yields `BulkRecord.raw`, the value exactly as
 the source wrote it, so a seed cannot disagree with the evidence it came from. Only seeds

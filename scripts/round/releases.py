@@ -74,6 +74,7 @@ RELEASES = (
     "merged260911-4",
     "merged260917-2",
     "merged260922",
+    "merged260928",
 )
 
 # marker -> (date of the mail that quoted its totals, the received release that holds them)
