@@ -1,15 +1,15 @@
 # Runbook
 
-Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
+Rules: `AGENTS.md` and `docs/ops/method.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
 
 ## When prompted, in this order
 
 1. `just cycle` (the hook printed the brief); settle what it names that a program cannot decide.
-2. Pick one lens (`AGENTS.md`, Hunting). Before any request, ask the disk: `just find <term>`,
+2. Pick one lens (`docs/ops/method.md`, Hunting). Before any request, ask the disk: `just find <term>`,
    `just screen --dating <self|typed|undated> "<what the source is>"`, a grep of `data/raw/`.
-3. Price what you find on both tracks, as Figures says (`AGENTS.md`, The annual masters; Price;
+3. Price what you find on both tracks, as Figures says (`docs/ops/method.md`, The annual masters; Price;
    Only 1996 to 2001). A candidate needs no approval: `uv run ark seed <file>` pools it.
-4. Write the source's register row with its link (`AGENTS.md`, Registers). A fleet find banks
+4. Write the source's register row with its link (`docs/ops/method.md`, Registers). A fleet find banks
    through the tick and the bank; your own through `just approve <spec> --journal <j>` and its
    `Decision:` line, then a hand ingest as "The sync lock" shows.
 5. Replace the row with the result.
@@ -51,7 +51,7 @@ A bare `uv run ark ingest` or `export` skips the space check, so run
 `uv run python scripts/harness/bank_hygiene.py space` first. When an output name may have been
 recycled, compare the ledger's sha256 with the bytes on disk before ingesting or deleting anything.
 
-**The gate** (`AGENTS.md`, the hook gate): its store half is the block above. Once `bash
+**The gate** (`AGENTS.md`, Done): its store half is the block above. Once `bash
 scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half, the whole
 suite with its output discarded, through the hook `just hooks` installs. A pytest, `ark check` or
 commit beside it makes the hook refuse a green commit, and inside `just ship all` that aborts the
@@ -82,8 +82,8 @@ pushes `live` and the snapshot, and writes each lead's fate to the fleet. A red 
 and the red says so. Every tick then prints `BANK RED`. Read the red, run the lock block's export
 and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
-**Standing admissions** (`AGENTS.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
-`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "AGENTS.md,
+**Standing admissions** (`docs/ops/method.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
+`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "docs/ops/method.md,
 Autonomy", or parks it naming the clause; the line stands only if `ark check` passes after the
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
 above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
@@ -128,7 +128,7 @@ it into `docs/report.md`.
 
 ## Ship: the owner's procedure
 
-The owner runs it (`AGENTS.md`, Autonomy; Nothing ships under the 5% gate) once the gate issue,
+The owner runs it (`AGENTS.md`, The owner decides; The window) once the gate issue,
 labelled `needs-owner`, opens.
 
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.

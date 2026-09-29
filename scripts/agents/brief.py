@@ -100,7 +100,7 @@ def strays(root: Path = ROOT) -> list[str]:
 
 
 def layout_line(names: list[str]) -> list[str]:
-    return [f"outside the layout (AGENTS.md, Files): {' '.join(names)}"] if names else []
+    return [f"outside the layout (docs/ops/method.md, Files): {' '.join(names)}"] if names else []
 
 
 def handoff_lines(text: str | None, mtime: datetime | None, now: datetime, room: int) -> list[str]:
