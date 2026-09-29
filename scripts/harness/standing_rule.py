@@ -1,6 +1,6 @@
 """Write the `Decision:` line the standing rule already authorises, and no other.
 
-**The rule** (docs/ops/method.md, Autonomy): a lead inside the standing size, terms, robots
+**The rule**: a lead inside the standing size, terms, robots
 and class bounds gets its `Decision:` line from the loop; outside any bound it parks `pending`.
 The owner approves a new evidence class and every send. The bounds live once, in the fleet's
 `policy.json` `standing`.
@@ -63,7 +63,7 @@ FIGURES = {"store": "the store re-price", "program": "the program's figure on th
 # The new-class reason, which `fleet_request.py` reads to head its ask as a class approval.
 NEW_CLASS = "no other {} source is approved as master"
 CITATION = (
-    "- standing rule: the loop wrote the decision below (docs/ops/method.md, Autonomy). "
+    "- standing rule: the loop wrote the decision below (scripts/harness/standing_rule.py). "
     "The class is already approved for the master, and the fleet admitted the lead under "
     "standing policy {policy} with every clause ok: {clauses}. Fleet run {run}, decided on "
     "{figure}, {ee:,.1f} EE. The ingest the decision releases is gated by `ark check`, and a "

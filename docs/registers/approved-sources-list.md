@@ -734,7 +734,7 @@ Decision: master
 - **the projection is a ceiling and the Apache lane is the reason to distrust it.** A log-log fit on the sample's pair curve gives 4.53x at the full partition, about 22,261 EE. The same class measured on lists.apache.org saturated hard across three bands, 5.5 times the messages for 2.4 times the EE, because a busy list's relay hosts recur month to month and the second sighting is not net-new. The realised sweep is the number
 - terms: the IETF Trust Legal Provisions, `https://trustee.ietf.org/documents/trust-legal-provisions/`. `robots.txt` (read 2026-09-10) disallows only `/admin/` and `/search/` and states no crawl delay. Fetched single-threaded at 0.75 s between requests, the rate the fleet's scout measured safe; six parallel listings drew HTTP 429 inside a minute. Not `web.archive.org/cdx`, so not a third client
 - the four conditions of the standing rule, checked: the class `link_source` is already master, and `apache_list_header_hostnames` is this same field at another host under the relay-host rule; a machine-written stamp inside the artifact dates one item and is quoted above; the terms permit it; and `ark check` passed after the ingest
-- linked in `docs/registers/sources.md` before the ingest (`docs/ops/method.md`, Registers)
+- linked in `docs/registers/sources.md` before the ingest (`docs/ops/runbook.md`, step 4)
 Decision: master
 
 ### poland_pl_extract_hostnames / cdx_timestamp

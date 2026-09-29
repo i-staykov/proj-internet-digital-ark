@@ -59,7 +59,7 @@ uv run python scripts/harness/fetch.py URL --max-bytes 1G --to -   # the only do
 It reads the whole robots.txt of each host, including the next one before it follows a redirect,
 honours `Retry-After`, caps and re-counts the bytes, extracts no archive to disk, and prints the
 sha256 the finding has to quote. Anything over the cap waits in the fleet's download backlog for a
-decision. `docs/ops/method.md`, Autonomy, and `AGENTS.md`, Channel, state the rules it enforces.
+decision. `scripts/harness/standing_rule.py` and `AGENTS.md`, Channel, state the rules it enforces.
 
 ## Where the round stands
 
@@ -74,7 +74,6 @@ and `scripts/round/header_promotion.py` re-derives the header collection's promo
 | | |
 |---|---|
 | [AGENTS.md](AGENTS.md) | the hard rules |
-| [docs/ops/method.md](docs/ops/method.md) | the working method, changed by PR |
 | [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
 | [docs/ops/runbook.md](docs/ops/runbook.md) | the loop's commands and procedures, in the order a session runs them |
 | [docs/report.md](docs/report.md) | the round as the reviewer receives it (generated) |

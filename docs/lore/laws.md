@@ -1,7 +1,7 @@
 # Laws
 
 Measured facts, one per line, each with its figure and its pointer. He and his mean the reviewer.
-The rules these facts support live in AGENTS.md and docs/ops/method.md; `just find <term>` opens a register row.
+The rules these facts support live in AGENTS.md; `just find <term>` opens a register row.
 
 ## Evidence
 

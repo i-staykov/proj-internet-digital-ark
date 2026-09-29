@@ -4,7 +4,7 @@
 task in the reviewer's words, `registers/` the current-state ledgers, `round/` the inputs to one
 delivery, `orq/` the open research questions package, `ops/` how to run it; the report and this page
 sit at the root. Hard rules live in `AGENTS.md`. *Generated* pages name the script that writes them
-(ops/method.md, Files); *not shipped* pages are export-ignored and stay out of the delivery archive.
+(AGENTS.md, Frozen); *not shipped* pages are export-ignored and stay out of the delivery archive.
 
 | Page | What it is | Read it when |
 |---|---|---|
@@ -30,6 +30,5 @@ sit at the root. Hard rules live in `AGENTS.md`. *Generated* pages name the scri
 | [round/findings.md](round/findings.md) | The round's research findings and the measurement behind each | when writing up a round |
 | [round/assets/](round/assets/) | `report-reference.docx`, the Word style reference | when the report styling changes |
 | [orq/orq.template.md](orq/orq.template.md) | The two open research question answers with their tokens, filled by `scripts/round/orq.py` into both research-questions folders | when an answer to either open question changes |
-| [ops/method.md](ops/method.md) | The working method: evidence, pricing, registers, hunting, files, changed by PR with a reason | before a method call AGENTS.md does not settle |
 | [ops/runbook.md](ops/runbook.md) | The commands and procedures of the loop as built, in the order a session runs them | before running anything |
 | [ops/security-posture.md](ops/security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |

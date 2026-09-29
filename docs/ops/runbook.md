@@ -1,16 +1,17 @@
 # Runbook
 
-Rules: `AGENTS.md` and `docs/ops/method.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
+Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
 
 ## When prompted, in this order
 
 1. `just cycle` (the hook printed the brief); settle what it names that a program cannot decide.
-2. Pick one lens (`docs/ops/method.md`, Hunting). Before any request, ask the disk: `just find <term>`,
+2. Pick one lens (the `hunt-family` skill). Before any request, ask the disk: `just find <term>`,
    `just screen --dating <self|typed|undated> "<what the source is>"`, a grep of `data/raw/`.
-3. Price what you find on both tracks, as Figures says (`docs/ops/method.md`, The annual masters; Price;
-   Only 1996 to 2001). A candidate needs no approval: `uv run ark seed <file>` pools it.
-4. Write the source's register row with its link (`docs/ops/method.md`, Registers). A fleet find banks
-   through the tick and the bank; your own through `just approve <spec> --journal <j>` and its
+3. Price what you find on both tracks, as Figures says (the brief, XIII; the `price-source` skill;
+   `AGENTS.md`, The window). A candidate needs no approval: `uv run ark seed <file>` pools it.
+4. Write the source's one `docs/registers/sources.md` row: its link and what dates one item.
+   A fleet find banks through the tick and the bank; your own through
+   `just approve <spec> --journal <j>` and its
    `Decision:` line, then a hand ingest as "The sync lock" shows.
 5. Replace the row with the result.
 
@@ -82,9 +83,8 @@ pushes `live` and the snapshot, and writes each lead's fate to the fleet. A red 
 and the red says so. Every tick then prints `BANK RED`. Read the red, run the lock block's export
 and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
-**Standing admissions** (`docs/ops/method.md`, Autonomy). The fleet tests each ark-fleet `policy.json`
-`standing` clause; `scripts/harness/standing_rule.py` writes the `Decision:` line citing "docs/ops/method.md,
-Autonomy", or parks it naming the clause; the line stands only if `ark check` passes after the
+**Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
+`scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
 above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
 
