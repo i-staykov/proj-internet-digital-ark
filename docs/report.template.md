@@ -2,7 +2,7 @@
 
 Additions to the 1996-2001 annual lists and to the candidate pool, against your release
 `[BASELINE]`. "The specification" is your
-`Internet_Digital_Ark_Project_0918_Update.docx` of 18 September, "the evidence rule" its section XIII
+`Internet_Digital_Ark_Project_0923_Update.docx` of 23 September, "the evidence rule" its section XIII
 (Mandatory Evidence Classification and Hostname Integrity Gate), "the two open questions" its
 section IV-A. EE is equivalent-English.
 

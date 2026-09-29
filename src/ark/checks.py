@@ -282,15 +282,13 @@ CHECKS: list[tuple[str, str, Check]] = [
         """,
     ),
     (
-        "a_www_record_has_its_own_evidence",
-        "every `www.<parent>` hostname record points at an evidence row naming that exact "
-        "host, so admitting the shape never turned into asserting it: the parent's "
-        "own capture may not stand in for a capture of `www.` in front of it",
+        "a_host_record_has_its_own_evidence",
+        "every hostname record points at an evidence row naming that exact host (brief "
+        "IV.2): the parent's own capture never stands in for a capture of a host beneath it",
         """
         SELECT count(*) FROM hostname_year hy
         JOIN evidence e ON e.evidence_id = hy.evidence_id
-        WHERE hy.hostname = 'www.' || hy.parent_domain
-          AND e.evidence_value NOT LIKE '% ' || hy.hostname
+        WHERE e.evidence_value NOT LIKE '% ' || hy.hostname
         """,
     ),
     (

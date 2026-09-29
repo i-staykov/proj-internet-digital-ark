@@ -488,7 +488,9 @@ def selected(key: str, only: str | None) -> bool:
     return only is None or key == only or key == f"data/raw/{only}"
 
 
-def run(root: Path, dry_run: bool = False, only: str | None = None) -> Report:
+def run(
+    root: Path, dry_run: bool = False, only: str | None = None, table: Path | None = None
+) -> Report:
     report = Report()
     catalog = load_catalog(root)
     olds: dict[Path, Manifest] = {}
@@ -525,7 +527,7 @@ def run(root: Path, dry_run: bool = False, only: str | None = None) -> Report:
 
     for row, entry, new in scanned:
         fill_row(row, entry, new, root)
-    write_if_changed(root / RETENTION, render(report.rows), dry_run, report)
+    write_if_changed(table or root / RETENTION, render(report.rows), dry_run, report)
     return report
 
 
@@ -585,8 +587,11 @@ def main(argv: list[str] | None = None) -> int:
         "--dry-run", action="store_true", help="hash and write nothing, say what would be"
     )
     ap.add_argument("--entry", help="one entry only: `wwwvl`, `data/raw/wwwvl`, `output/<dir>`")
+    # A worktree links the checkout's data, which this reads only where it lies: `--root` names
+    # the checkout, and the table lands in the worktree that commits it.
+    ap.add_argument("--table", type=Path, help=f"where to write {RETENTION}, default under --root")
     args = ap.parse_args(argv)
-    report = run(args.root.resolve(), dry_run=args.dry_run, only=args.entry)
+    report = run(args.root.resolve(), dry_run=args.dry_run, only=args.entry, table=args.table)
     for row in report.rows:
         if row.files is not None:
             print(f"{row.key:<56} {row.cls:<18} {row.files:>7} {row.size:>14}  {row.record}")

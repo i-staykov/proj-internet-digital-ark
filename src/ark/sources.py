@@ -81,7 +81,7 @@ def parse_early_web_cdx(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # Two sources share the layout. The first-capture index holds each URL's EARLIEST
 # capture only; a TimeMap holds every capture of one URL, one per line. Either way
 # field 3 is the crawler's own 14-digit stamp and a row evidences exactly the year it
-# names and no other (IV.7).
+# names and no other (IV.8).
 _NYPW_FIELDS = 6
 
 
@@ -1712,7 +1712,7 @@ def parse_ukwa_geoindex(path: Path, stats: Counter) -> Iterator[BulkRecord]:
 # AFNIC .fr open data: one semicolon-delimited UTF-8 row per current or recently-withdrawn
 # .fr domain. Column 1 the domain, 11 the creation date, 12 the WHOIS-withdrawal date, both
 # DD-MM-YYYY (12 empty = still registered). A .fr creation date resets on re-registration,
-# so (creation, withdrawal) documents one CONTINUOUS interval and brief IV.6 makes every
+# so (creation, withdrawal) documents one CONTINUOUS interval and brief IV.7 makes every
 # in-window year inside it valid evidence, not only the creation year.
 _AFNIC_MIN_FIELDS = 12
 _AFNIC_NAME_COL = 0
@@ -1846,7 +1846,7 @@ def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[
 
     The creation year itself when it is inside the window, nothing otherwise. A domain
     created before `first` gets no attested year: RDAP shows it existed by then and exists
-    now, but nothing about any year in between, so it stays a candidate (brief IV.6).
+    now, but nothing about any year in between, so it stays a candidate (brief IV.7).
     """
     return (creation,) if first <= creation <= last else ()
 
@@ -1855,7 +1855,7 @@ def attested_years(creation: int, first: int = 1996, last: int = 2001) -> tuple[
 # `queried_at`, `status`, `creation_year`, `response` and `url` (absent before
 # direct routing). The journal is the artifact, so this evidence replays from a
 # hashed file like every other source. Only the creation year is attested
-# (IV.6), so a domain yields at most one record.
+# (IV.7), so a domain yields at most one record.
 def parse_rdap_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per journalled domain whose creation year is in window."""
     try:
@@ -1912,7 +1912,7 @@ def _exact_capture(record: dict, host: str, year: int) -> str | None:
 
 # An `ark cdx` run journal: one JSON object per queried domain, format documented
 # in ark.cdx. A returned in-window capture year is evidence for that year and no
-# other, so there is no inference to make here (IV.7).
+# other, so there is no inference to make here (IV.8).
 def parse_cdx_snapshot(path: Path, stats: Counter) -> Iterator[BulkRecord]:
     """Yield one record per in-window year a CDX query returned for a domain.
 

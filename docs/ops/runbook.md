@@ -26,9 +26,9 @@ Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
   origin live` for a diverged clone), then `just sync`.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
-  store: in the worktree, `git update-index --skip-worktree data/baseline.json`, then
-  `[ -L data ] || rm -r data` (never `rm -rf data/`, which follows a link into the checkout's
-  store), then link `data`, `output`, `feedback` and `local.env` to the checkout's.
+  store: its `data/` stays a directory holding its own tracked `baseline.json`, and every other
+  entry of the checkout's `data/`, then `output`, `feedback` and `local.env`, is linked in, so an
+  intake commits `baseline.json` from the worktree and the checkout takes it on the pull.
 - Read the registers through `just find <term>` (`--detail`: one approved entry) or the
   `register-reader` agent; `.claude/settings.json` denies reading `sources*.md`: append by heredoc.
 
@@ -162,5 +162,6 @@ the check: a check after a new release but before the export flags every credite
 prints the release it measured against, and `--verify` reading zero overlap proves the export diffed
 against the new one; a round diffed against a stale release counts credited work as net-new. On
 `just intake`, `--mail <file> --round <n> --received '<stamp>'` also writes his verdict's row in
-`docs/registers/rounds.md`. Commit `data/baseline.json`, `releases.md` and `rounds.md` before :05,
-or the next tick refuses the tree.
+`docs/registers/rounds.md`. Run it all in a worktree and PR `data/baseline.json`, `releases.md`,
+`rounds.md` and the brief: until the checkout pulls them, its held sets name a release its JSON
+does not, so its export and pricers refuse, naming `ark intake`.

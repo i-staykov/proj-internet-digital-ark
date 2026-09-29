@@ -267,22 +267,33 @@ def _planted(conn: duckdb.DuckDBPyConnection, check: str) -> dict:
     return results[check]
 
 
-SERVING, OWN = "hostname_observed_serving_web", "a_www_record_has_its_own_evidence"
+SERVING, OWN = "hostname_observed_serving_web", "a_host_record_has_its_own_evidence"
 
 
 @pytest.mark.parametrize(
-    "source,method,named,failing",
+    "source,method,host,named,failing",
     [
-        ("isc_survey_hostnames", None, "www.x.com", [SERVING]),
-        ("fleet_x_hostnames", "internic_zone_ns_target", "www.x.com", [SERVING]),
-        ("fleet_x_hostnames", "bulk_cdx_file", "www.x.com", []),
-        ("ia_cdx_hostnames", None, "x.com", [OWN]),
+        ("isc_survey_hostnames", None, "www.x.com", "www.x.com", [SERVING]),
+        ("fleet_x_hostnames", "internic_zone_ns_target", "www.x.com", "www.x.com", [SERVING]),
+        ("fleet_x_hostnames", "bulk_cdx_file", "www.x.com", "www.x.com", []),
+        ("ia_cdx_hostnames", None, "www.x.com", "x.com", [OWN]),
+        ("ia_cdx_hostnames", None, "shop.x.com", "x.com", [OWN]),
+        ("ia_cdx_hostnames", None, "shop.x.com", "www.shop.x.com", [OWN]),
     ],
-    ids=["dns-lane", "fleet-read-not-web", "fleet-read-web", "www-on-its-parent"],
+    ids=[
+        "dns-lane",
+        "fleet-read-not-web",
+        "fleet-read-web",
+        "www-on-its-parent",
+        "host-on-its-parent",
+        "host-on-a-host-beneath-it",
+    ],
 )
-def test_a_host_record_needs_a_web_lane_and_evidence_naming_it(source, method, named, failing):
+def test_a_host_record_needs_a_web_lane_and_evidence_naming_it(
+    source, method, host, named, failing
+):
     """A DNS lane or a fleet read of a method that is not web never shows a host in use, and a
-    `www.<parent>` record on its parent's capture never stands for a capture of `www.`."""
+    host record on any other host's capture, its parent's included, never stands (IV.2)."""
     conn = _clean_store()
     src = ensure_source(conn, source, "timestamped")
     add_candidate(conn, "x.com", src)
@@ -292,8 +303,8 @@ def test_a_host_record_needs_a_web_lane_and_evidence_naming_it(source, method, n
         assign_year(conn, row)
     conn.execute(
         "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
-        "VALUES ('www.x.com', 'x.com', 1999, ?)",
-        [row],
+        "VALUES (?, 'x.com', 1999, ?)",
+        [host, row],
     )
     assert [n for n, r in _results_by_name(conn).items() if not r["ok"]] == failing
 

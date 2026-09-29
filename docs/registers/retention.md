@@ -171,11 +171,11 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/yahoo96` | keep_journal | 6 | 12860 | `8f63f83a54ae3b63146e1aafbc9d774f51a0c266ad053d50a247f5699ead69a1` | own_journal | SHA256SUMS |
 | `output/DomainDataCollectionTask_202609220146_IvayloStaykov` | regenerable | 2043 | 965548111 | `8cc746d6d7a829f7087d0e59b6c49406902505415d6cef1f6790c4b6d7f09502` | just ship, or ark export | SHA256SUMS |
 | `output/DomainDataCollectionTask_202609220250_IvayloStaykov` | regenerable | 2875 | 9193204332 | `22811576bd0e63ad221c6d2ac89df5a078b76da3b4722fb24a52696e46f21937` | just ship, or ark export | SHA256SUMS |
-| `output/candidate_unverified.txt` | regenerable | 1 | 592432 | `525037e941eaf7e809bdac8236a1f445d86cd37577e57173e297718049ad6da7` | just ship, or ark export | line in output/SHA256SUMS |
+| `output/candidate_unverified.txt` | regenerable | 1 | 595142 | `f9e8548470188d50d46df10cc79affc966a93087ad1d09946e35294d9b9c24f9` | just ship, or ark export | line in output/SHA256SUMS |
 | `output/fleet_snapshot` | regenerable | 29 | 4948758732 | `c1de17c8d7ff23433c38aa8e3f83a31ac3a40c3e468ccbcab466342222fc88d6` | just ship, or ark export | SHA256SUMS |
 | `output/journal_acks.tsv` | regenerable | 1 | 6385393 | `8a0356bbe1368f6d19c239e9306f02631d1f66ae62f81a798fb49bd99b05968e` | just ship, or ark export | line in output/SHA256SUMS |
 | `output/merge` | regenerable | 23 | 91843 | `05b0dc16381c7b2cf365f4e445b13c042c81e07500406376d7a5898b8e88bc95` | just ship, or ark export | SHA256SUMS |
-| `output/netnew` | regenerable | 32 | 110681063 | `a6471c270518efd4560f864c710c2efc6c9c52f9bf3051fe873d7c2b2ce213bc` | just ship, or ark export | SHA256SUMS |
+| `output/netnew` | regenerable | 32 | 124241481 | `56f77d5d45da177e6a9944db93d96d302d8ac2e63868ba0d7466f1741cb41991` | just ship, or ark export | SHA256SUMS |
 | `output/provenance` | keep_authority | 9 | 2751138734 | `c27c264e1e10513c981b1b9192d3e48728dddf7235b01d267a564ccd71085756` | own_journal | SHA256SUMS |
 | `output/seeds` | regenerable | 2 | 319638134 | `4153c95b06d96735aa41b438864b08b4d02c22b53bb6cc25d52c87f88a1809bf` | just ship, or ark export | SHA256SUMS |
 | `feedback/.DS_Store` | reference | 1 | 14340 | `042df6c6d9f3189b4070292fb6325c70cfaf0135a56e2725d74079f4954cf1e8` | reviewer_release | line in feedback/SHA256SUMS |
@@ -186,6 +186,8 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `feedback/Domain_Data_Collection_Task_0917_UpdateV2` | reference | 21 | 497033 | `3eccc876ea53587f6a69d3f9eaee4f252bd21b8910a7292f586cc4fc2b6cd4cf` | reviewer_release | SHA256SUMS |
 | `feedback/Domain_Data_Collection_Task_0922_UpdateV2` | reference | 47 | 10785354356 | `72cce2a253140bb9ffb28f46186b145f62a28488d4ea3a694cf31d8978c0903a` | reviewer_release | SHA256SUMS |
 | `feedback/Domain_Data_Collection_Task_0922_UpdateV2.zip` | reference | 1 | 2429082908 | `969e494bf3658e4d9537c38d6d1be05469258114bc0e35246a0bd749fa6e8f1a` | reviewer_release | line in feedback/SHA256SUMS |
+| `feedback/Domain_Data_Collection_Task_0928_Update` | reference | 46 | 10935112115 | `f16727e4049a00a86a4dad006caae72216b42b339e5f0bcbf281be250424d7ae` | reviewer_release | SHA256SUMS |
+| `feedback/Domain_Data_Collection_Task_0928_Update.zip` | reference | 1 | 2465147502 | `5555a2d5d98d1677eb8ba01883be0b7e797764ebaa84f0f7ac0bd5b9b21688f5` | reviewer_release | line in feedback/SHA256SUMS |
 | `feedback/feedback-external-phase-2` | reference | 2 | 52547 | `8ab6fd3026ed7ac08fdeeedb252ffd68211aed166c30a4e6fa14c5b81af0fe11` | reviewer_release | SHA256SUMS |
 | `feedback/feedback-phase-1` | reference | 2 | 43921 | `f6320f0b76a822e0713893f3ee34001eff31f7d623ba288b42374c417b041318` | reviewer_release | SHA256SUMS |
 | `feedback/feedback-phase-3` | reference | 8 | 375971 | `fd390258c8af11d3ec76555bb5e484eebadfae7dca69da69ce5bd13c159b186e` | reviewer_release | SHA256SUMS |

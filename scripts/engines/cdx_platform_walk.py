@@ -1,6 +1,6 @@
 """Walk multi-tenant platforms to the end of the CDX index with resumeKey, one lane of N.
 
-A free host (`alice.cjb.net`) or dynamic-DNS name is a distinct site, which spec IV.8 counts
+A free host (`alice.cjb.net`) or dynamic-DNS name is a distinct site, which spec IV.9 counts
 host by host. A page-number walk ends `.done` past a failed page (`docs/lore/laws.md`,
 Channel), so this asks `matchType=domain` with `showResumeKey` until the index says twice that
 there is no more, and writes `.done` only then.

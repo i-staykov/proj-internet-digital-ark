@@ -548,3 +548,10 @@ def test_a_frozen_submission_gets_no_sidecar_of_its_own(tmp_path):
     assert shared == sorted(f"{sha(n.encode())}  ./phase-4/{n}" for n in names)
     assert vr.within(phase, tmp_path / "submissions", "./phase-40/report.md") is None
     assert (frozen.cls, frozen.files) == ("reference", 2) and frozen.record.startswith("lines in")
+
+
+def test_a_worktree_reads_the_checkouts_data_and_writes_its_own_table(tmp_path):
+    checkout, table = tmp_path / "checkout", tmp_path / "worktree" / RETENTION
+    file(checkout / "data/raw/live", "a", b"a")
+    vr.main(["--root", str(checkout), "--table", str(table)])
+    assert "`data/raw/live`" in table.read_text() and not (checkout / RETENTION).exists()
