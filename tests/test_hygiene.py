@@ -1,5 +1,5 @@
 """`python -m ark.hygiene`, the scan the pre-commit hook and CI run, still catches each shape
-planted in a scratch file, and the list of paths the fleet runs stays honest."""
+planted in a scratch file, and the list of paths the fleet runs and the local layout stay honest."""
 
 import shutil
 import subprocess
@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 from ark.hygiene import scan, tracked_files
 
@@ -72,3 +73,24 @@ def test_no_script_shadows_a_standard_library_module() -> None:
     scripts = (ROOT / "scripts").rglob("*.py")
     clashes = [str(p.relative_to(ROOT)) for p in scripts if p.stem in sys.stdlib_module_names]
     assert clashes == [], "these shadow a standard library module"
+
+
+@needs_git
+def test_every_tracked_name_is_in_the_layout() -> None:
+    """A tracked file or folder at the root or in `data/` the brief would call a stray."""
+    layout = script("agents/brief.py").LAYOUT
+    parts = [p.relative_to(ROOT).parts for p in tracked_files(ROOT)]
+    root = {t[0] for t in parts} - layout[""]
+    data = {t[1] for t in parts if t[0] == "data" and len(t) > 1} - layout["data"]
+    assert (root, data) == (set(), set())
+
+
+def test_the_brief_names_strays_and_what_is_held(tmp_path) -> None:
+    brief, repo = script("agents/brief.py"), tmp_path / "repo"
+    (repo / "data" / "raw").mkdir(parents=True)
+    for name in ("plan.md", "data/ark.duckdb.pre-x.bak", "data/migrate"):
+        (repo / name).mkdir() if "." not in Path(name).name else (repo / name).touch()
+    assert brief.strays(repo) == ["plan.md", "data/ark.duckdb.pre-x.bak", "data/migrate"]
+    assert brief.hold_line(None) == "held: nothing"
+    held = brief.hold_line("human\n2026-09-29T08:00:00Z\nleg.yaml\nread.yaml\n")
+    assert held.startswith("held since 2026-09-29T08:00:00Z: leg.yaml read.yaml")

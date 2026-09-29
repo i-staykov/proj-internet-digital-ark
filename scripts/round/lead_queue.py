@@ -6,11 +6,11 @@ live, ranked by what it is worth, and it goes stale the moment a lead moves. So 
 derived from the fleet's own `leads/*.json` every sync and never hand-edited.
 
 **Two things are his to decide, and the page lists nothing else: a new evidence class and
-the send** (CLAUDE.md, Autonomy). A lead inside the standing size, terms, robots and class
-bounds is read and banked by the loop without asking, and a download, a terms page or a
-re-run is the loop's to settle, not his. So a lead is on the page only when it asks for a
-class nothing admits yet, and the send is where the round stands against the 5% gate, read
-from `data/brief.json`.
+the send** (scripts/harness/standing_rule.py). A lead inside the standing size, terms,
+robots and class bounds is read and banked by the loop without asking, and a download, a
+terms page or a re-run is the loop's to settle, not his. So a lead is on the page only when
+it asks for a class nothing admits yet, and the send is where the round stands against the
+5% gate, read from `data/brief.json`.
 
 **Ranked on `ee_low`, not `ee_high`.** The high figure is a projection and has been wrong
 by five orders of magnitude at least once: `isc-domain-survey-free-editions` was scouted at
