@@ -125,6 +125,22 @@ def space(*, root: Path = ROOT) -> tuple[int, list[str]]:
         return 2, [f"REFUSED: cannot establish free space: {exc}"]
 
 
+GIT_TIMEOUT_S = 600
+# What git prints when the remote never answered, over ssh or https. Anything else that
+# fails a fast-forward is a divergence, which only a human reconciles.
+UNREACHABLE = (
+    "Could not resolve host",
+    "Could not read from remote repository",
+    "unable to access",
+    "Connection refused",
+    "Connection timed out",
+    "Operation timed out",
+    "Network is unreachable",
+    "Failed to connect",
+    "timed out after",
+)
+
+
 def clean_env() -> dict[str, str]:
     """The environment minus git's own variables.
 
@@ -136,17 +152,34 @@ def clean_env() -> dict[str, str]:
 
 
 def git(args: list[str], cwd: Path = ROOT) -> tuple[int, str]:
-    """One git command against the clone at `cwd`, returning its status and its output."""
-    done = subprocess.run(
-        ["git", *args],
-        cwd=cwd,
-        env=clean_env(),
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=600,
-    )
+    """One git command against the clone at `cwd`, returning its status and its output.
+
+    A hung remote is an answer, not a crash: measured 2026-09-28 on a hotspot, a pull that
+    timed out raised out of the preflight and the tick died on a traceback. It comes back
+    as 124, the status `timeout(1)` uses, so the preflight can say the remote did not answer.
+    """
+    try:
+        done = subprocess.run(
+            ["git", *args],
+            cwd=cwd,
+            env=clean_env(),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=GIT_TIMEOUT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"git {args[0]} timed out after {GIT_TIMEOUT_S}s"
     return done.returncode, (done.stdout + done.stderr).strip()
+
+
+def unreachable(out: str) -> bool:
+    """True when git's output says the remote did not answer, rather than that it refused.
+
+    Measured 2026-09-29: nine hourly ticks with the laptop offline each printed "the clone
+    has diverged", and the clone was level with its remote the whole night.
+    """
+    return any(sign in out for sign in UNREACHABLE)
 
 
 def unsafe(status: str) -> tuple[list[str], list[str]]:
@@ -227,7 +260,12 @@ def preflight(
     if code != 0:
         lines.append(f"REFUSED: `git pull --ff-only {remote} {branch}` failed:")
         lines.append(f"  {out.splitlines()[-1] if out else 'no output'}")
-        lines.append("  the clone has diverged. Reconcile by hand; the bank never force-pushes.")
+        if code == 124 or unreachable(out):
+            lines.append(f"  {remote} did not answer. Nothing was fetched; the next tick retries.")
+        else:
+            lines.append(
+                "  the clone has diverged. Reconcile by hand; the bank never force-pushes."
+            )
         return 2, lines
     lines.append(f"fast-forwarded from {remote}/{branch}")
     return 0, lines
