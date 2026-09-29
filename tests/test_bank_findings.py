@@ -1,185 +1,77 @@
-"""The scribe's row, and the one rule it exists to enforce about figures.
+"""The scribe's promises: a fleet figure never reaches the register alone, a slug gets one row
+however many copies of it a drain, or a retried drain, holds, and a closed row is keyed on the
+artifact it names."""
 
-**A fleet figure never reaches the register alone.** The leg measured against a pushed copy
-of this store, the laptop against the store, so the row carries both or says in words why
-there is only one.
-"""
-
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
+import pytest
+from conftest import script
+
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts/harness/bank_findings.py"
+scribe = script("harness/bank_findings.py", "bank_findings")
+drainer = script("harness/fleet_findings.py")
 
-_SPEC = importlib.util.spec_from_file_location("bank_findings", SCRIPT)
-scribe = importlib.util.module_from_spec(_SPEC)
-sys.modules["bank_findings"] = scribe
-_SPEC.loader.exec_module(scribe)
-
-PROSE = """# a-lead
-verdict: FIND
-ee: 9,999
-what dates one item: Tue, 4 May 1999 in the Received header
-artifact: https://example.invalid/list
-method: read one month of http://example.invalid/archive, extracted the relay hosts
-"""
-
+PROSE = "# a-lead\nverdict: FIND\nee: 9,999\nartifact: https://example.invalid/list\n"
 SIDECAR = {
     "slug": "a-lead",
-    "lane": "price",
     "run_id": "1741",
     "verdict": "FIND",
     "pricing": {"ee": 4786.0, "track": "annual"},
     "verify": {"status": "confirmed", "reason": "re-ran the command"},
 }
+PRICED = {"status": "priced", "ee": 4102.5}
+JOURNAL = "0123456789abcdef" * 4
 
 
-def lead_dir(tmp_path, store: dict | None = None, sidecar: dict | None = SIDECAR) -> Path:
-    incoming = tmp_path / "incoming"
-    lead = incoming / "a-lead"
-    lead.mkdir(parents=True)
-    (lead / "finding.md").write_text(PROSE, encoding="utf-8")
-    if sidecar is not None:
-        (lead / "finding.json").write_text(json.dumps(sidecar), encoding="utf-8")
+def lead(incoming: Path, name="a-lead", store=None, prose=True, **over) -> Path:
+    """A drained lead directory: the sidecar, the prose unless not, and the store's re-price."""
+    (path := incoming / name).mkdir(parents=True)
+    if prose:
+        (path / "finding.md").write_text(PROSE, encoding="utf-8")
+    (path / "finding.json").write_text(json.dumps(SIDECAR | over), encoding="utf-8")
     if store is not None:
-        (lead / "store_price.json").write_text(json.dumps(store), encoding="utf-8")
-    return incoming
+        (path / "store_price.json").write_text(json.dumps(store), encoding="utf-8")
+    return path
 
 
-def row(incoming: Path) -> str:
-    findings = scribe.findings_in(incoming)
-    assert len(findings) == 1
-    return scribe.register_row(findings[0], "wave-1")
+def scout(incoming: Path, name: str, prose: str, status="closed", filed=False, **doc) -> None:
+    """A lead the fleet filed with a scout's prose and no finding, drained, or `filed` as a run
+    artifact carries it: `leads/<slug>/scout.md` beside `leads/<slug>.json`."""
+    (path := incoming / name).mkdir(parents=True)
+    (path / "scout.md").write_text(prose, encoding="utf-8")
+    doc = {"status": status, "artifact": {"url": f"https://{name}.invalid/a"}} | doc
+    (incoming / f"{name}.json" if filed else path / "lead.json").write_text(json.dumps(doc))
 
 
-def test_the_sidecar_wins_over_the_prose_and_the_store_figure_sits_beside_it(tmp_path):
-    # The prose says 9,999 and the JSON says 4,786. The JSON is the one a program checked.
-    text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5}))
-    assert "fleet 4,786.0 EE, store 4,102.5 EE" in text
-    assert "9,999" not in text
+@pytest.mark.parametrize(
+    ("store", "cell"),
+    [
+        (PRICED, "fleet 4,786.0 EE, store 4,102.5 EE"),
+        ({"status": "no items shipped", "ee": None},
+         "fleet 4,786.0 EE, store not re-priced: no items shipped"),
+        (None, "fleet 4,786.0 EE, store not re-priced: no store price"),
+    ],
+    ids=["both-figures", "says-why-not-repriced", "no-store-price-at-all"],
+)  # fmt: skip
+def test_a_fleet_figure_never_reaches_the_register_alone(tmp_path, store, cell):
+    """The sidecar's figure, never the prose's, with the store's beside it or why there is none."""
+    lead(tmp_path / "incoming", store=store)
+    (finding,) = scribe.findings_in(tmp_path / "incoming")
+    row = scribe.register_row(finding, "wave-1")
+    assert f"| {cell} (" in row and "9,999" not in row
 
 
-def test_a_find_nobody_could_reprice_says_why_rather_than_looking_measured(tmp_path):
-    text = row(lead_dir(tmp_path, store={"status": "no items shipped", "ee": None}))
-    assert "store not re-priced: no items shipped" in text
-
-
-def test_the_verify_status_is_in_the_verdict_cell(tmp_path):
-    text = row(lead_dir(tmp_path, store={"status": "priced", "ee": 1.0}))
-    assert "FIND (confirmed)" in text
-    assert text.endswith("| <https://example.invalid/list> <http://example.invalid/archive> |")
-
-
-def test_a_closed_finding_keeps_one_plain_figure(tmp_path):
-    sidecar = dict(SIDECAR, verdict="CLOSED", pricing={"ee": 0.0, "track": "annual"})
-    text = row(lead_dir(tmp_path, sidecar=sidecar))
-    assert "0.0 EE" in text
-    assert "store" not in text
-
-
-def test_a_loose_markdown_finding_still_books_the_old_way(tmp_path):
-    incoming = tmp_path / "incoming"
-    incoming.mkdir()
-    (incoming / "old-lead.md").write_text(PROSE.replace("# a-lead", "# old-lead"), "utf-8")
-    text = row(incoming)
-    # No sidecar, so no second figure to name and no verify status to report.
-    assert "9999 EE" in text
-    assert "store" not in text
-
-
-def test_a_lead_directory_with_only_a_sidecar_is_still_booked(tmp_path):
-    incoming = tmp_path / "incoming"
-    lead = incoming / "a-lead"
-    lead.mkdir(parents=True)
-    (lead / "finding.json").write_text(
-        json.dumps({"slug": "a-lead", "verdict": "BLOCKED", "reason": "schema"}), encoding="utf-8"
-    )
-    text = row(incoming)
-    assert "BLOCKED" in text and "schema" in text
-
-
-# --- which register a finding goes to, and how often -----------------------------
-
-
-NUMBER = "C" + "-95"  # built, so this file quotes no decision number
-CLOSED_PROSE = f"""# a-scout-lead
-verdict: CLOSED, 20.92 EE (22 net-new pairs of 553) against a 5,000 EE floor
-lens: academic-datasets
-what dates one item: the origin server's own HTTP `Date:` header
-artifact: <http://example.invalid/webkb-data.gtar.gz>, the CMU data set
-probe: 5,802 of 8,282 carry a Date line per {NUMBER}, read at http://example.invalid/{NUMBER}/r
-"""
-
-
-def closed_lead(tmp_path, prose: str = CLOSED_PROSE, lead: dict | None = None) -> Path:
-    incoming = tmp_path / "incoming"
-    lead_dir = incoming / "a-scout-lead"
-    lead_dir.mkdir(parents=True)
-    (lead_dir / "finding.md").write_text(prose, encoding="utf-8")
-    if lead is not None:
-        (lead_dir / "lead.json").write_text(json.dumps(lead), encoding="utf-8")
-    return incoming
-
-
-def test_a_measured_negative_gets_a_closed_row_not_an_all_na_row(tmp_path):
-    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path)))
-    row = scribe.closed_row(findings[0], "wave-1")
-    assert row.startswith("| a-scout-lead / ")
-    # The reason opens with its verdict word, read off `verdict: CLOSED, 20.92 EE ...`.
-    assert "| CLOSED. lens academic-datasets. 5,802 of 8,282" in row
-    assert "20.92 EE" in row
-    assert f"Date line, read at http://example.invalid/{NUMBER}/r |" in row
-    assert row.endswith(f"gtar.gz> <http://example.invalid/{NUMBER}/r> |")
-    assert "n/a" not in row
-
-
-def test_the_closed_row_prefers_the_leads_own_lens_and_class(tmp_path):
-    lead = {"lens": "registry publications", "evidence_class": "artifact_listing"}
-    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path, lead=lead)))
-    row = scribe.closed_row(findings[0], "wave-1")
-    assert "a-scout-lead / artifact_listing" in row
-    assert "lens registry publications" in row
-
-
-def test_a_negative_with_no_figure_reads_not_priced(tmp_path):
-    prose = CLOSED_PROSE.replace("verdict: CLOSED, 20.92 EE", "verdict: CLOSED, 0 EE")
-    findings = scribe.one_per_slug(scribe.findings_in(closed_lead(tmp_path, prose=prose)))
-    assert "| not priced |" in scribe.closed_row(findings[0], "wave-1")
-
-
-def test_one_row_per_slug_when_a_leg_directory_duplicates_the_lead(tmp_path):
-    # The leg artifact's root is called `findings`, so its copy of a finding used to be
-    # booked as a second lead and the same slug reached the register twice.
-    incoming = tmp_path / "incoming"
-    for name in ("a-lead", "findings"):
-        d = incoming / name
-        d.mkdir(parents=True)
-        (d / "finding.md").write_text(PROSE, encoding="utf-8")
-        (d / "finding.json").write_text(json.dumps(SIDECAR), encoding="utf-8")
-    findings = scribe.one_per_slug(scribe.findings_in(incoming))
-    assert [f["slug"] for f in findings] == ["a-lead"]
-
-
-def test_a_find_outranks_a_measured_negative_for_the_same_slug(tmp_path):
-    incoming = tmp_path / "incoming"
-    for name, verdict in (("a-lead", "FIND"), ("copy", "CLOSED")):
-        d = incoming / name
-        d.mkdir(parents=True)
-        (d / "finding.json").write_text(
-            json.dumps(dict(SIDECAR, verdict=verdict)), encoding="utf-8"
-        )
-        (d / "finding.md").write_text(PROSE, encoding="utf-8")
-    kept = scribe.one_per_slug(scribe.findings_in(incoming))
-    assert len(kept) == 1 and kept[0]["verdict"] == "FIND"
-
-
-def test_two_drains_leave_one_row_per_slug_and_the_second_writes_nothing(
+def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     tmp_path, monkeypatch, capsys
 ):
-    # A FIND re-measuring its own FIND row replaces it at the top of the table; a settled
-    # row and a closed slug are left alone, and a retried drain books nothing.
+    """A FIND re-measuring its own FIND row replaces it at the top, naming its read, its method
+    and never its verdict trimmed to the row limit; a read whose read.json is not here names
+    none. A settled row and a closed slug stay. A leg artifact's `findings` copy of a lead, a
+    negative copy of a FIND and a loose `<slug> / <class>` file are that slug; a negative naming
+    an artifact a closed row names, a pipe in its URL too, is that row's. A scout is booked
+    closed whatever it says, once closed."""
     pages = tmp_path / "registers"
     pages.mkdir()
     old = [
@@ -189,449 +81,117 @@ def test_two_drains_leave_one_row_per_slug_and_the_second_writes_nothing(
     (pages / "sources.md").write_text(f"{scribe.REGISTER_HEADER}\n|---|\n" + "\n".join(old))
     shut = "| shut / x | d | 0 EE | CLOSED. |  |\n"
     (pages / "sources-closed.md").write_text(f"# Closed\n\n{scribe.CLOSED_HEADING}\n|---|\n{shut}")
-    incoming = lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5})
-    for slug, verdict in (("kept", "FIND"), ("shut", "FIND"), ("new", "FIND"), ("neg", "CLOSED")):
-        (incoming / slug).mkdir()
-        sidecar = json.dumps(dict(SIDECAR, slug=slug, verdict=verdict))
-        (incoming / slug / "finding.json").write_text(sidecar, "utf-8")
-    hypo = str(tmp_path / "gone.md")
-    argv = ["bank", str(incoming), "--hypotheses", hypo, "--registers", str(pages)]
+    incoming, named = tmp_path / "incoming", {"artifact": {"url": "https://neg.invalid/x?f=a|b"}}
+    read = lead(incoming, store=PRICED)
+    (read / "finding.md").write_text(PROSE + "method: " + "a long sentence " * 60)
+    clauses = {"size": {"ok": True}, "robots": {"ok": False}}
+    standing = {"admitted": False, "policy_version": 3, "clauses": clauses}
+    for path in (read, lead(incoming, "new", prose=False, slug="new")):
+        (path / "lead.json").write_text(json.dumps({"status": "read", "standing": standing}))
+    (read / "read.json").write_text(json.dumps({"receipt": {"journal_sha256": JOURNAL}}))
+    lead(incoming, "findings", store=PRICED)
+    for slug, verdict in (("kept", "FIND"), ("shut", "FIND")):
+        lead(incoming, slug, prose=False, slug=slug, verdict=verdict)
+    lead(incoming, "copy", prose=False, slug="new", verdict="CLOSED")
+    for slug in ("neg", "neg-twin"):
+        lead(incoming, slug, prose=False, slug=slug, verdict="CLOSED", **named)
+    loose = "# neg / link_source\nverdict: CLOSED\nartifact: <https://loose.invalid/b>\n"
+    (incoming / "neg.md").write_text(loose, encoding="utf-8")
+    scout(incoming, "says-find", "verdict: FIND, 12,000 EE projected from one page\n")
+    scout(incoming, "open", "verdict: FIND\n", status="scouted")
+    hypotheses = tmp_path / "gone.md"
+    argv = ["bank", str(incoming), "--hypotheses", str(hypotheses), "--registers", str(pages)]
     monkeypatch.setattr(sys, "argv", argv)
-    for said in ("2 new rows, 1 replaced, 2 already booked", "0 new rows, 0 replaced, 5 already"):
-        scribe.main()
+    for said in ("3 new rows, 1 replaced, 4 already booked", "0 new rows, 0 replaced, 8 already"):
+        assert scribe.main() == 0
         assert f"scribe: {said}" in capsys.readouterr().out
-    table = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1]
-    assert table.startswith("| a-lead |") and table.count("| a-lead |") == 1
-    assert table.endswith(old[1])
-    assert "| neg / unclassified |" in (pages / "sources-closed.md").read_text("utf-8")
+    rows = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1].splitlines()
+    assert [scribe.first_cell(r) for r in rows] == ["a-lead", "new", "kept"] and rows[2] == old[1]
+    assert [scribe._cells(r)[9] for r in rows[:2]] == [
+        "FIND (confirmed); whole read not admitted under standing policy 3: size held; "
+        f"robots not held; journal sha256 {JOURNAL}",
+        "FIND (confirmed)",
+    ]
+    assert len(rows[0]) <= scribe.ROW_LIMIT
+    closed = (pages / "sources-closed.md").read_text("utf-8").split("|---|\n")[1].splitlines()
+    assert [scribe.closed_key(r) for r in closed] == ["neg", "says-find", "shut"]
+    assert not hypotheses.exists(), "the hypothesis ledger is gone, and nothing recreates it"
 
 
-def test_a_missing_hypothesis_ledger_writes_nothing_and_does_not_stop_the_sync(tmp_path):
-    # The ledger left the fleet with v1 (ark-fleet #83); a lead's fate travels in leads/.
-    gone = tmp_path / "hypotheses.md"
-    finding = {"slug": "a-lead", "verdict": "CLOSED", "ee": "0", "fields": {}}
-    assert scribe.write_result_lines(gone, [finding]) == 0
-    assert not gone.exists()
+def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reason(tmp_path):
+    """The tick's drain turns `leads/<slug>/scout.md` and `leads/<slug>.json` into `<slug>/`
+    holding both. The row gives the fleet's `closed_reason` over the scout's prose, the lead's
+    URL before the prose's, the host when there is no URL, and the class held to a clause."""
+    leads, incoming = tmp_path / "incoming/run_1/leads", tmp_path / "incoming"
+    why = "XIII: hostname-grain class custodian is not a web method"
+    host = {"artifact": {"host": "ftp.one.invalid"}, "closed_reason": why}
+    scout(leads, "scout-a", "verdict: FIND, 12,000 EE projected\n", filed=True, **host)
+    prose = "verdict: CLOSED\nartifact: <http://mirror.invalid/copy.gz>, the mirror's copy\n"
+    scout(leads, "scout-b", prose, filed=True, evidence_class="link_source (Received: " * 40)
+    assert drainer.drain(incoming) == 0
+    for slug in ("scout-a", "scout-b"):
+        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
+    assert not (incoming / "_unread").exists(), "the lead file moved, no copy left unread"
+    rows = [scribe.closed_row(f, "r1") for f in scribe.findings_in(incoming)]
+    assert [scribe._cells(r)[3:] for r in rows] == [
+        [f"CLOSED. lens no lens recorded. {why}", "ftp.one.invalid"],
+        [
+            "CLOSED. lens no lens recorded.",
+            "<https://scout-b.invalid/a> <http://mirror.invalid/copy.gz>",
+        ],
+    ]
+    assert max(map(len, rows)) <= scribe.ROW_LIMIT
 
 
-def test_the_fleet_push_never_stages_the_ledger_unconditionally():
-    script = (ROOT / "scripts/harness/push_fleet.sh").read_text(encoding="utf-8")
-    assert "git add hypotheses.md leads" not in script
-    assert "[ -f hypotheses.md ] && git add hypotheses.md" in script
+NAMED = scribe.artifacts({
+    "mirror": "| mirror / x | d | 0 EE | CLOSED. | <ftp://ftp.mirror.invalid/pub/netinfo/> |",
+    "old": "| old / x | d | 0 EE | CLOSED. | ftp.gone.invalid |",
+})  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("fetched", "filed", "row"),
+    [
+        (None, {"host": "ftp.gone.invalid"}, "old"),
+        (None, {"url": "https://ftp.gone.invalid/pub/", "host": "ftp.gone.invalid"}, None),
+        (None, {"url": "ftp://ftp.mirror.invalid/pub/doc/rfc-index.txt"}, None),
+        (None, {"url": "ftp://FTP.mirror.invalid/pub/netinfo"}, "mirror"),
+        ("ftp://ftp.mirror.invalid/pub/netinfo/", {"url": "https://filed.invalid/x"}, "mirror"),
+    ],
+    ids=["no-url-keys-its-host", "a-url-beats-its-host", "one-host-many-artifacts",
+         "host-case-and-slash-fold", "the-url-the-leg-fetched-beats-the-scouts"],
+)  # fmt: skip
+def test_a_closed_row_is_keyed_by_its_artifact_url_and_only_without_one_by_its_host(
+    fetched, filed, row
+):
+    finding = {"fields": {}, "artifact": {"url": fetched}, "lead": {"artifact": filed}}
+    assert scribe.named_by(finding, NAMED) == row
+
+
+@pytest.mark.parametrize(
+    ("verdict", "figure"),
+    [
+        ("CLOSED\n\n## next\n\n    dk-hostmaster domains.txt, 9,702 EE pending\n", "0"),
+        ("CLOSED, about 3,000 EE projected, at 276.23 net-new EE measured, against a\n"
+         "5,000 EE floor\n", "276.23"),
+        ("CLOSED under a 4,000 EE ceiling, family ceiling ~1,000 EE, against the\n"
+         "5,000 EE floor and the 2,500 EE candidate floor\n", "0"),
+        ("CLOSED, 39.7 EE on one month\nee: 16.8469 candidate, 28 net-new pairs\n", "16.8469"),
+    ],
+    ids=["another-sources-figure", "measured-beats-projected", "bounds-only", "its-ee-line"],
+)  # fmt: skip
+def test_a_scout_negatives_figure_is_its_own_never_a_bound_or_another_sources(
+    tmp_path, verdict, figure
+):
+    (path := tmp_path / "scout.md").write_text(f"verdict: {verdict}", encoding="utf-8")
+    assert scribe.scout_figure(path) == figure
 
 
 def test_a_closed_row_never_exceeds_the_register_line_limit():
     """The reason is trimmed after its verdict word, never the slug or the link."""
-    # The lead's `lens` can swallow the scout's whole verdict, and a CDX query is long.
     lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
     url = "http://example.invalid/cdx?url=*.example.org/*&" + "fl=original&" * 30
-    finding = {
-        "slug": "a-lead",
-        "verdict": "CLOSED",
-        "ee": "0",
-        "fields": {"artifact": url},
-        "lead": {"lens": lens},
-    }
-    row = scribe.closed_row(finding, "wave-1")
-    assert len(row) <= scribe.ROW_LIMIT
-    assert row.startswith("| a-lead / unclassified |")
+    finding = {"slug": "a-lead", "verdict": "CLOSED", "ee": "0", "fields": {"artifact": url}}
+    row = scribe.closed_row(finding | {"lead": {"lens": lens}}, "wave-1")
+    assert len(row) <= scribe.ROW_LIMIT and row.startswith("| a-lead / unclassified |")
     assert row.endswith(f"| CLOSED. | <{url}> |")
-
-
-def test_a_trimmed_reason_keeps_its_substance_and_points_at_no_dead_file():
-    """A long reason is cut inside its prose, never at its first clause or into a pointer."""
-    cells = [
-        "a-lead / link_target",
-        "2026-09-19, laptop",
-        "0 EE",
-        "lens dated-link-graph. CLOSED: every daily register 404s on replay and the one "
-        "capture names zero external hosts. " + "More measured detail. " * 20,
-        "http://example.invalid/x",
-    ]
-    row = scribe._within_limit(cells, order=(3,))
-    assert len(row) <= scribe.ROW_LIMIT
-    assert "hypothesis ledger" not in row, "a pointer to a deleted file is not a record"
-    assert "404s on replay" in row, "the substance after the first clause must survive"
-    assert row.endswith("| http://example.invalid/x |")
-
-
-def test_a_closed_rows_class_and_lens_are_held_to_a_clause():
-    """A wave can write a paragraph where the class and the lens belong."""
-    finding = {
-        "slug": "a-lead",
-        "verdict": "CLOSED",
-        "ee": "0",
-        "fields": {"artifact": "http://example.invalid/data.gz"},
-        "lead": {
-            "evidence_class": "link_source (mail relay host, the Received: clause " * 12,
-            "lens": "server-written-headers, " + "which is to say " * 20,
-        },
-    }
-    row = scribe.closed_row(finding, "wave-1")
-    assert len(row) <= scribe.ROW_LIMIT
-    assert row.startswith("| a-lead / link_source")
-    assert "lens server-written-headers" in row
-
-
-def test_a_brief_audit_is_not_booked_in_either_register():
-    """A rule audit's `verdict: FIND` is a rule to decide, not a source."""
-    audit = {
-        "slug": "brief-audit-1-leg-1-2",
-        "verdict": "FIND",
-        "ee": "0",
-        "fields": {"lens": "brief-audit", "next": "rule decision"},
-    }
-    assert scribe.is_brief_audit(audit)
-    assert not scribe.is_brief_audit({"slug": "a-lead", "verdict": "FIND", "ee": "0", "fields": {}})
-
-
-# --- scout negatives and whole reads, on a copy of the real pages ----------------
-
-
-PAGES = ("sources.md", "sources-closed.md", "approved-sources-list.md")
-CR_SPEC = importlib.util.spec_from_file_location(
-    "compact_registers", ROOT / "scripts/round/compact_registers.py"
-)
-compactor = importlib.util.module_from_spec(CR_SPEC)
-sys.modules["compact_registers"] = compactor
-CR_SPEC.loader.exec_module(compactor)
-FF_SPEC = importlib.util.spec_from_file_location(
-    "fleet_findings", ROOT / "scripts/harness/fleet_findings.py"
-)
-drainer = importlib.util.module_from_spec(FF_SPEC)
-FF_SPEC.loader.exec_module(drainer)
-
-SCOUTS = {
-    # A heading that is not the slug, and a sentence where the artifact's URL belongs.
-    "fixture-scout-robots-register": (
-        "# the robots register\n\nverdict: CLOSED, 25.14 EE on the candidate track (40 net-new"
-        "\nnames of 6,032) against a 5,000 floor\nlens: academic-datasets\n\n"
-        "artifact: the Web Robots Database, one text file\n",
-        {"url": "https://robots.invalid/db/all.txt", "host": "robots.invalid"},
-        None,
-    ),
-    # The fleet refused the class, so its reason is the fleet's, not the scout's FIND.
-    "fixture-scout-howto-editions": (
-        "verdict: FIND (unpriced; one edition read)\nlens: candidate-bulk\n",
-        {"url": "https://howto.invalid/editions/", "host": "howto.invalid"},
-        "hostname-grain class 'url_mention' is not a web method",
-    ),
-    # No verdict line and an ftp artifact: the lens is the reason, and the ftp URLs are links.
-    "fixture-scout-netfind-seed": (
-        "# fixture-scout-netfind-seed\n\n## artifact\n\nnothing fetched\n\n"
-        "probe: listed at ftp://netfind.invalid/pub/netfind/README, one file\n",
-        {"url": "ftp://netfind.invalid/pub/netfind/", "host": "netfind.invalid"},
-        None,
-    ),
-}
-
-
-def scout(root: Path, slug: str, prose: str, artifact: dict, filed=False, **lead) -> None:
-    """A closed scout lead, drained, or `filed` as a run artifact carries it."""
-    d = root / slug
-    d.mkdir(parents=True)
-    (d / "scout.md").write_text(prose, "utf-8")
-    doc = {"slug": slug, "lens": "fixture-lens", "status": "closed", "artifact": artifact}
-    doc.update(evidence_class="dated_directory", **lead)
-    (root / f"{slug}.json" if filed else d / "lead.json").write_text(json.dumps(doc), "utf-8")
-
-
-def pages_copy(tmp_path) -> Path:
-    pages = tmp_path / "registers"
-    pages.mkdir()
-    for name in PAGES:
-        (pages / name).write_text((ROOT / "docs/registers" / name).read_text("utf-8"), "utf-8")
-    return pages
-
-
-def bank(incoming: Path, pages: Path, monkeypatch, capsys) -> str:
-    argv = ["bank", str(incoming), "--hypotheses", str(pages / "gone.md")]
-    monkeypatch.setattr(sys, "argv", [*argv, "--registers", str(pages), "--run-label", "r1"])
-    assert scribe.main() == 0
-    return capsys.readouterr().out
-
-
-def check(pages: Path, capsys) -> tuple[set[str], str]:
-    """`compact_registers.py --check` on the copy: its failing lines, and its whole output."""
-    compactor.main(["--check", "--registers", str(pages)])
-    out = capsys.readouterr().out
-    return {line for line in out.splitlines() if line.endswith("FAIL")}, out
-
-
-def closed_table(pages: Path) -> list[str]:
-    return (pages / "sources-closed.md").read_text("utf-8").split("|---|\n")[1].splitlines()
-
-
-def test_three_scout_leads_closed_at_filing_book_three_compacted_rows(
-    tmp_path, monkeypatch, capsys
-):
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    for slug, (prose, artifact, why) in SCOUTS.items():
-        extra = {"closed_reason": why} if why else {}
-        scout(incoming / "run_1/leads", slug, prose, artifact, filed=True, **extra)
-    assert drainer.drain(incoming) == 0
-    for slug in SCOUTS:
-        assert sorted(p.name for p in (incoming / slug).iterdir()) == ["lead.json", "scout.md"]
-    assert not (incoming / "_unread").exists()
-    before, _ = check(pages, capsys)
-    assert "scribe: 3 new rows, 0 replaced, 0 already booked" in bank(
-        incoming, pages, monkeypatch, capsys
-    )
-    rows = {row.split(" / ")[0][2:]: row for row in closed_table(pages)[:3]}
-    assert sorted(rows) == sorted(SCOUTS)
-    day = scribe.dt.date.today().isoformat()
-    robots = rows["fixture-scout-robots-register"]
-    assert robots == (
-        f"| fixture-scout-robots-register / dated_directory | {day}, fleet r1 | 25.14 EE | "
-        "CLOSED. lens fixture-lens. 25.14 EE on the candidate track (40 net-new names of 6,032) "
-        "against a 5,000 floor | <https://robots.invalid/db/all.txt> |"
-    )
-    assert (
-        "| CLOSED. lens fixture-lens. hostname-grain class 'url_mention' is not"
-        in (rows["fixture-scout-howto-editions"])
-    )
-    assert rows["fixture-scout-netfind-seed"].endswith(
-        "| not priced | CLOSED. lens fixture-lens. | <ftp://netfind.invalid/pub/netfind/> "
-        "<ftp://netfind.invalid/pub/netfind/README> |"
-    )
-    # The pages stay the compactor's fixed point, and booking adds no failing count.
-    after, out = check(pages, capsys)
-    assert after <= before
-    assert "fixed point: yes" in out and "pages that would change: 0" in out
-    # A re-run books nothing and leaves every page byte for byte.
-    written = {name: (pages / name).read_bytes() for name in PAGES}
-    said = bank(incoming, pages, monkeypatch, capsys)
-    assert "scribe: 0 new rows, 0 replaced, 3 already booked" in said
-    assert {name: (pages / name).read_bytes() for name in PAGES} == written
-
-
-def test_a_brief_audit_headed_with_its_claim_books_nothing(tmp_path, monkeypatch, capsys):
-    """The heading is the slug, and the compactor drops a `brief-audit:` row the scribe wrote."""
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    incoming.mkdir()
-    audit = "# brief-audit: a 4xx capture is annual under his XIII\n\nverdict: FIND, a rule\n"
-    (incoming / "brief-audit-1-leg.md").write_text(audit, "utf-8")
-    written = {name: (pages / name).read_bytes() for name in PAGES}
-    assert "rule audit, not a source" in bank(incoming, pages, monkeypatch, capsys)
-    assert {name: (pages / name).read_bytes() for name in PAGES} == written
-
-
-def test_a_scout_that_says_find_with_a_closed_lead_books_closed(tmp_path, monkeypatch, capsys):
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    prose = "verdict: FIND, 12,000 EE projected from one page\nlens: web-link-graphs\n"
-    scout(incoming, "fixture-scout-says-find", prose, {"url": "https://find.invalid/a"})
-    (finding,) = scribe.findings_in(incoming)
-    assert finding["verdict"] == "CLOSED"
-    open_page = (pages / "sources.md").read_text("utf-8")
-    assert "scribe: 1 new rows" in bank(incoming, pages, monkeypatch, capsys)
-    assert (pages / "sources.md").read_text("utf-8") == open_page
-    assert closed_table(pages)[0].startswith("| fixture-scout-says-find / dated_directory |")
-    assert (
-        "| CLOSED. lens fixture-lens. 12,000 EE projected from one page |"
-        in (closed_table(pages)[0])
-    )
-
-
-def test_a_scouted_lead_books_nothing(tmp_path):
-    incoming = tmp_path / "incoming"
-    scout(incoming, "fixture-scout-open", "verdict: FIND\n", {"url": "https://open.invalid/"})
-    lead = json.loads((incoming / "fixture-scout-open/lead.json").read_text("utf-8"))
-    for status in ("scouted", "priced", "read"):
-        lead["status"] = status
-        (incoming / "fixture-scout-open/lead.json").write_text(json.dumps(lead), "utf-8")
-        assert scribe.findings_in(incoming) == []
-
-
-def test_a_scout_negatives_figure_is_its_own_never_a_bound_or_another_sources(tmp_path):
-    cases = {
-        # A bare verdict, then an indented block quoting another source's figure.
-        "fixture-scout-bare": (
-            "verdict: CLOSED\n\n## next\n\n    dk-hostmaster domains.txt, 9,702 EE pending\n",
-            "not priced",
-        ),
-        # A projection, then the figure it measured, which wins.
-        "fixture-scout-measured": (
-            "verdict: CLOSED, about 3,000 EE projected, at 276.23 net-new EE measured, against"
-            " a\n5,000 EE floor\n",
-            "276.23 EE",
-        ),
-        # Ceilings and floors, and nothing measured.
-        "fixture-scout-bounds": (
-            "verdict: CLOSED under a 4,000 EE ceiling, family ceiling ~1,000 EE, against the\n"
-            "5,000 EE floor and the 2,500 EE candidate floor\n",
-            "not priced",
-        ),
-        # An `ee:` line says it outright.
-        "fixture-scout-ee": (
-            "verdict: CLOSED, 39.7 EE on one month\nee: 16.8469 candidate, 28 net-new pairs\n",
-            "16.8469 EE",
-        ),
-    }
-    for slug, (prose, _) in cases.items():
-        scout(tmp_path / "incoming", slug, prose, {"url": f"https://{slug}.invalid/"})
-    found = scribe.findings_in(tmp_path / "incoming")
-    measured = {f["slug"]: scribe._cells(scribe.closed_row(f, "r1"))[2] for f in found}
-    assert measured == {slug: figure for slug, (_, figure) in cases.items()}
-
-
-def test_the_leads_artifact_url_wins_over_the_prose(tmp_path):
-    incoming = tmp_path / "incoming"
-    prose = "verdict: CLOSED\nartifact: <http://prose.invalid/other.gz>, the mirror's copy\n"
-    scout(incoming, "fixture-scout-link", prose, {"url": "https://lead.invalid/list.txt"})
-    row = scribe.closed_row(scribe.findings_in(incoming)[0], "r1")
-    assert row.endswith("| <https://lead.invalid/list.txt> <http://prose.invalid/other.gz> |")
-
-
-def test_two_leads_with_one_artifact_url_book_one_row(tmp_path, monkeypatch, capsys):
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    # A comma and a pipe, which the link cell escapes, still key one URL.
-    url = "https://shared.invalid/cdx?fl=original,timestamp&filter=a|b"
-    for slug in ("fixture-scout-b-second", "fixture-scout-a-first"):
-        scout(incoming, slug, "verdict: CLOSED\n", {"url": url, "host": "shared.invalid"})
-    # A closed row already on the page names this one's URL, with a slash and brackets.
-    scout(incoming, "fixture-scout-c-late", "verdict: CLOSED\n", {"url": "https://old.invalid/x"})
-    old = "| fixture-old-row / x | 2026-09-01 | 0 EE | CLOSED. | <https://OLD.invalid/x/> |"
-    text = (pages / "sources-closed.md").read_text("utf-8")
-    at = text.index("\n", text.index("|---|")) + 1
-    (pages / "sources-closed.md").write_text(text[:at] + old + "\n" + text[at:], "utf-8")
-    said = bank(incoming, pages, monkeypatch, capsys)
-    assert "scribe: 1 new rows, 0 replaced, 2 already booked" in said
-    assert "fixture-scout-b-second its artifact is fixture-scout-a-first's" in said
-    assert "fixture-scout-c-late its artifact is fixture-old-row's" in said
-    table = closed_table(pages)
-    assert table[0].startswith("| fixture-scout-a-first / ") and table[1] == old
-    assert sum(url.replace("|", "\\|") in row for row in table) == 1
-
-
-def test_the_url_the_leg_fetched_keys_the_row_over_the_one_the_scout_filed(
-    tmp_path, monkeypatch, capsys
-):
-    pages, first = pages_copy(tmp_path), tmp_path / "first"
-    fetched, filed = "https://fetched.invalid/1999/issue.html", "https://filed.invalid/index.html"
-    lead = first / "fixture-leg-closed"
-    lead.mkdir(parents=True)
-    prose = "verdict: CLOSED\nartifact: the weekly issue, one page\n"
-    (lead / "finding.md").write_text(prose, "utf-8")
-    artifact = {"url": fetched, "host": "fetched.invalid"}
-    sidecar = dict(SIDECAR, slug=lead.name, verdict="CLOSED", artifact=artifact)
-    (lead / "finding.json").write_text(json.dumps(sidecar), "utf-8")
-    filed_by = {"slug": lead.name, "status": "closed", "artifact": {"url": filed}}
-    (lead / "lead.json").write_text(json.dumps(filed_by), "utf-8")
-    (finding,) = scribe.findings_in(first)
-    assert scribe.named_by(finding, {scribe._url_key(fetched): "by-url"}) == "by-url"
-    assert "scribe: 1 new rows" in bank(first, pages, monkeypatch, capsys)
-    assert scribe._cells(closed_table(pages)[0])[-1].startswith(f"<{fetched}>")
-    # A later scout naming the fetched URL is a keep, not a second row.
-    scout(tmp_path / "later", "fixture-scout-names-it", "verdict: CLOSED\n", artifact)
-    said = bank(tmp_path / "later", pages, monkeypatch, capsys)
-    assert "fixture-scout-names-it its artifact is fixture-leg-closed's" in said
-    assert "scribe: 0 new rows, 0 replaced, 1 already booked" in said
-
-
-def test_a_loose_finding_headed_slug_and_class_keys_on_its_slug_in_the_same_drain(
-    tmp_path, monkeypatch, capsys
-):
-    """A loose finding headed the register's way, `slug / class`, beside that slug's lead."""
-    pages, incoming = pages_copy(tmp_path), tmp_path / "incoming"
-    scout(incoming, "fixture-scout-dup", "verdict: CLOSED\n", {"url": "https://dup.invalid/a"})
-    prose = (
-        "# fixture-scout-dup / link_source\nverdict: CLOSED\nartifact: <https://dup.invalid/b>\n"
-    )
-    (incoming / "fixture-scout-dup.md").write_text(prose, "utf-8")
-    assert "scribe: 1 new rows, 0 replaced, 1 already booked" in bank(
-        incoming, pages, monkeypatch, capsys
-    )
-    rows = [row for row in closed_table(pages) if scribe.closed_key(row) == "fixture-scout-dup"]
-    assert len(rows) == 1 and "<https://dup.invalid/a>" in rows[0]
-
-
-def test_an_artifact_is_keyed_by_its_url_of_any_scheme_and_only_with_none_by_its_host():
-    mirror = "| mirror / x | d | 0 EE | CLOSED. | <ftp://ftp.mirror.invalid/pub/netinfo/> |"
-    old = "| old / x | d | 0 EE | CLOSED. | ftp.gone.invalid |"
-    named = scribe.artifacts({"old": old, "mirror": mirror})
-    finding = {"slug": "new", "verdict": "CLOSED", "ee": "0", "fields": {}}
-    finding["lead"] = {"artifact": {"host": "ftp.gone.invalid"}}
-    assert scribe.named_by(finding, named) == "old"
-    assert scribe.closed_row(finding, "r1").endswith("| ftp.gone.invalid |")
-    # With a URL, only the URL keys it, ftp too: one host serves many artifacts.
-    for url in ("ftp://ftp.gone.invalid/pub/", "https://ftp.gone.invalid/pub/"):
-        finding["lead"]["artifact"]["url"] = url
-        assert scribe.named_by(finding, named) is None
-    other = "ftp://ftp.mirror.invalid/pub/doc/rfc-index.txt"
-    finding["lead"]["artifact"] = {"url": other, "host": "ftp.mirror.invalid"}
-    assert scribe.named_by(finding, named) is None
-    assert scribe.closed_row(finding, "r1").endswith(f"| <{other}> |")
-    finding["lead"]["artifact"]["url"] = "ftp://FTP.mirror.invalid/pub/netinfo"
-    assert scribe.named_by(finding, named) == "mirror"
-
-
-JOURNAL = "0123456789abcdef" * 4
-STANDING = {
-    "admitted": True,
-    "policy_version": 3,
-    "clauses": {
-        name: {"ok": True, "evidence": f"{name} held on the fixture"}
-        for name in ("size", "terms", "robots", "class", "window")
-    },
-}
-# `leads/<slug>/read.json` as the fleet's `read.py combine` writes it: the sha256 is the
-# receipt's, never a top-level key.
-PRICE = {"netnew_pairs": 2, "ee": 1.5, "by_year": {"1999": 1}, "manifest_sha": "d" * 64}
-READ_JSON = {
-    "slug": "a-lead",
-    "source": "program",
-    "receipt": {
-        "slug": "a-lead",
-        "url": "https://example.invalid/list",
-        "complete": True,
-        "journal_sha256": JOURNAL,
-        "reason": "read whole",
-    },
-    "annual": dict(PRICE, track="annual"),
-    "candidate": dict(PRICE, track="candidate"),
-}
-
-
-def test_a_standing_reads_row_names_its_clauses_and_journal_sha256(tmp_path, monkeypatch, capsys):
-    pages = pages_copy(tmp_path)
-    incoming = lead_dir(tmp_path, store={"status": "priced", "ee": 4102.5})
-    long = PROSE.replace("method: read", "method: " + "a long method sentence " * 40 + "read")
-    (incoming / "a-lead/finding.md").write_text(long, "utf-8")
-    lead = {"slug": "a-lead", "status": "confirmed", "what_dates_one_item": "the capture id"}
-    (incoming / "a-lead/lead.json").write_text(json.dumps(lead), "utf-8")
-    assert "scribe: 1 new rows" in bank(incoming, pages, monkeypatch, capsys)
-    before, _ = check(pages, capsys)
-    # The read lands: the lead is `read` and carries its standing admission and read.json.
-    lead.update(status="read", standing=STANDING)
-    (incoming / "a-lead/lead.json").write_text(json.dumps(lead), "utf-8")
-    (incoming / "a-lead/read.json").write_text(json.dumps(READ_JSON), "utf-8")
-    assert "scribe: 0 new rows, 1 replaced, 0 already booked" in bank(
-        incoming, pages, monkeypatch, capsys
-    )
-    table = (pages / "sources.md").read_text("utf-8").split("|---|\n")[1].splitlines()
-    assert table[0].startswith("| a-lead |") and sum(r.startswith("| a-lead |") for r in table) == 1
-    verdict = scribe._cells(table[0])[9]
-    assert verdict == (
-        "FIND (confirmed); whole read admitted under standing policy 3: size, terms, robots, "
-        f"class, window held; journal sha256 {JOURNAL}"
-    )
-    assert len(table[0]) <= scribe.ROW_LIMIT, "the method is trimmed, never the verdict"
-    after, out = check(pages, capsys)
-    assert after <= before and "fixed point: yes" in out
-    assert "scribe: 0 new rows, 0 replaced, 1 already booked" in bank(
-        incoming, pages, monkeypatch, capsys
-    )
-
-
-def test_a_clause_that_did_not_hold_is_named_as_such():
-    clauses = dict(STANDING["clauses"], robots={"ok": False, "evidence": "robots.txt refused"})
-    lead = {"status": "read", "standing": dict(STANDING, admitted=False, clauses=clauses)}
-    finding = {"lead": lead, "read": READ_JSON}
-    note = (
-        "whole read not admitted under standing policy 3: size, terms, class, window held; "
-        f"robots not held; journal sha256 {JOURNAL}"
-    )
-    assert scribe.read_note(finding) == note
-    # A flat read.json carrying the sha256 at the top still names it.
-    assert scribe.read_note(dict(finding, read={"journal_sha256": JOURNAL})) == note
-    assert scribe.read_note(dict(finding, read={})) == ""

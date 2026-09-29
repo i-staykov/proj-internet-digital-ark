@@ -408,14 +408,15 @@ def test_a_store_made_before_the_location_sequence_counts_only_rows_written_afte
 
 
 def test_a_store_lacking_a_column_fails_the_check_that_reads_it_by_name(tmp_path: Path) -> None:
-    """A store made before a column, never migrated, fails the check reading it and says which
-    column; only a check reading the exported files skips on a query that cannot bind."""
+    """A store lacking a column fails the check reading it and says which column and its fix;
+    only a check reading the exported files skips on a query that cannot bind."""
     conn = _clean_store()
     conn.execute("ALTER TABLE evidence DROP COLUMN record_location")
     result = _results_by_name(conn)["new_rows_have_location"]
     assert result["ok"] is False and "skipped" not in result
-    assert "record_location" in result["error"] and "ark init" in result["error"]
+    fix = "run `uv run ark export --provenance`, then `uv run ark rebuild`"
+    assert "record_location" in result["error"] and fix in result["error"]
     assert f"[FAIL] new_rows_have_location: {result['error']}" in format_checks([result])
     conn.execute("DROP TABLE domain_language")
     result = _results_by_name(conn)["domain_wall_intact"]
-    assert result["ok"] is False and "table domain_language" in result["error"]
+    assert result["ok"] is False and "domain_language: run `uv run ark init`" in result["error"]

@@ -4,6 +4,7 @@ Each check counts offending rows, by a SQL query or a function, and passes at ze
 check` runs them all and exits non-zero if any fails, so it doubles as a release gate: no
 annual result ships unless every invariant below holds. Several encode a rule the delivery
 report states, so a reader who doubts the rule can run the gate instead of taking it on trust.
+Each invariant is here for a failure it would catch or a property costly to find broken.
 """
 
 import re
@@ -422,7 +423,9 @@ def _count(conn: duckdb.DuckDBPyConnection, sql: str, netnew_dir: Path, audit: P
         what = (
             f"column {column[1]}" if column else f"table {table[1]}" if table else str(exc)
         ).splitlines()[0]
-        raise _Failed(f"the store lacks {what}: run `uv run ark init`") from None
+        steps = ("export --provenance", "rebuild") if column else ("init",)  # init adds no column
+        run = ", then ".join(f"`uv run ark {step}`" for step in steps)
+        raise _Failed(f"the store lacks {what}: run {run}") from None
 
 
 def collect_checks(

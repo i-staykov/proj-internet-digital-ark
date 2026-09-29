@@ -4,6 +4,7 @@
 or a local path in a tracked file is published the moment the push lands. One scan covers
 those and the house bans on em and en dashes and on decision numbers; `tests/test_hygiene.py`
 proves it catches each, and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
+It does not catch `private/` text or big data.
 
 The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
 in this repository. A hit is either a real leak, fixed and never committed, or a fixture or

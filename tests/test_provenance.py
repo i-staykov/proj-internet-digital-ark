@@ -155,14 +155,12 @@ def test_the_load_keeps_every_key_and_value_and_the_store_takes_new_rows(tmp_pat
         record_evidence(rebuilt, "example.com", cdx, 2005, "cdx_timestamp", "20050101000000")
 
 
-@pytest.mark.parametrize(("asked", "expected"), [(1000, 1000), (1, 2)], ids=["later", "earlier"])
-def test_a_sequence_start_never_reissues_an_id(tmp_path, asked: int, expected: int) -> None:
+def test_a_rebuilt_store_asks_a_file_and_a_place_only_of_the_rows_it_writes(tmp_path) -> None:
     write_provenance(_store(), tmp_path)
     rebuilt = connect(":memory:")
-    load_provenance(rebuilt, tmp_path, starts={"evidence_seq": asked})
-    assert rebuilt.execute("SELECT nextval('evidence_seq')").fetchone() == (expected,)
-    start = "SELECT start_value FROM duckdb_sequences() WHERE sequence_name = 'evidence_seq'"
-    assert rebuilt.execute(start).fetchone() == (expected,)
+    load_provenance(rebuilt, tmp_path)
+    start = "SELECT start_value FROM duckdb_sequences() WHERE sequence_name = 'located_from'"
+    assert rebuilt.execute(start).fetchone() == (2,)
 
 
 def test_an_older_export_rebuilds_an_older_store_in_place(tmp_path) -> None:
@@ -170,7 +168,7 @@ def test_an_older_export_rebuilds_an_older_store_in_place(tmp_path) -> None:
     `engine_version`, loads each missing column as its default or NULL. A store made while
     tables carried foreign keys loses every table, referrers first, as DuckDB requires."""
     conn = _store(his=True)
-    conn.execute("UPDATE domain_language SET engine_version = 3")
+    conn.execute("UPDATE domain_language SET engine_version = 3, reason = 'r'")
     write_provenance(conn, tmp_path)
     reader = duckdb.connect()
     old = {"evidence": "source_file, record_location", "domain_language": "engine_version"}
@@ -189,7 +187,8 @@ def test_an_older_export_rebuilds_an_older_store_in_place(tmp_path) -> None:
     assert store.execute(fks).fetchone() == (0,)
     rows = store.execute("SELECT DISTINCT source_file, record_location FROM evidence")
     assert rows.fetchall() == [(None, None)]
-    assert store.execute("SELECT DISTINCT engine_version FROM domain_language").fetchall() == [(0,)]
+    verdicts = store.execute("SELECT DISTINCT engine_version, reason FROM domain_language")
+    assert verdicts.fetchall() == [(0, "r")]
 
 
 def test_a_provenance_export_rebuilds_the_same_result(tmp_path, his_files) -> None:

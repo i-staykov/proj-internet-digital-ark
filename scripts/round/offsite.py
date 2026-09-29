@@ -11,8 +11,8 @@ are neither regenerable by a recipe nor refetchable from somebody else:
   * `live_input` whose refetch cell is `unknown`, so a `just reproduce` stage reads
     bytes we could not fetch twice;
   * `keep_until_priced`, held until somebody prices it, EXCEPT `usenet_bulk` and
-    `usenet_new`: archive.org serves those two again and their sha1 per zip is
-    already recorded in `data/raw/usenet_catalog.json`.
+    `usenet_new`: archive.org serves those two again and lists each zip's sha1 in
+    `data/raw/usenet_catalog.json` or in usenet_new's `.meta-<hierarchy>.json`.
 
 Everything else stays local only: a recipe rebuilds it, or a URL in its row fetches
 it. `private/` has no row and so can never appear.
@@ -112,7 +112,7 @@ def held_because(entry) -> str:
     if Path(entry.key).name == ".DS_Store":
         return "Finder metadata, not data"
     if entry.key in REFETCHABLE:
-        return "archive.org refetch, sha1 per zip in data/raw/usenet_catalog.json"
+        return "archive.org refetch, IA's sha1 per zip on disk"
     if entry.cls == "regenerable":
         return "a recipe rebuilds it"
     return f"{entry.cls}, refetch recorded"

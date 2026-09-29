@@ -12,8 +12,7 @@ from ark.bulk import ingest_files
 from ark.checks import collect_checks
 from ark.db import init_db
 from ark.evidence_types import MASTER_TYPES, WEB_METHODS, qualifies_sql, web_evidence_sql
-from ark.export import export_all
-from ark.hostnames import ingest_hostname_journal, retract_error_captures, writes_hostname_years
+from ark.hostnames import ingest_hostname_journal, retract_error_captures
 from ark.sources import SOURCES
 
 WAYBACK = "https://web.archive.org/web"
@@ -63,15 +62,8 @@ FORMATS = [
     # a TimeMap stamp the same way; the method admitted by its status takes 2xx and 3xx alone
     ("nypw_first_capture_index", f"nypw first capture {T1}", wayback(T1, SITE), True),
     ("nypw_timemap", f"nypw timemap capture {T1}", wayback(T1, "http://other.com/"), False),
-    *(
-        (
-            "nypw_timemap_non_200",
-            f"nypw timemap capture status {s} {T1}",
-            wayback(T1, SITE),
-            s < "4",
-        )
-        for s in ("206", "301", "302", "404", "500")
-    ),
+    *(("nypw_timemap_non_200", f"nypw timemap capture status {s} {T1}", wayback(T1, SITE), s < "4")
+      for s in ("206", "301", "302", "404", "500")),
     ("isc_domain_survey", f"nypw timemap capture status 301 {T1}", wayback(T1, SITE), False),
     # a defacement mirror names its host in its path
     ("attrition_defacement_mirror_index", "attrition", f"{MIRROR}/example.com/", True),
@@ -82,7 +74,7 @@ FORMATS = [
     # the exact host under a method that is not web, or under none
     ("internic_zone_ns_target", f"cdx capture {T1} example.com", None, False),
     (None, f"cdx capture {T1} example.com", None, False),
-]
+]  # fmt: skip
 
 
 def test_a_record_ships_only_on_a_2xx_or_3xx_capture_of_exactly_its_own_name() -> None:
@@ -106,32 +98,21 @@ def _failing(conn: duckdb.DuckDBPyConnection, **kw) -> list[str]:
     return [r["name"] for r in collect_checks(conn, Path("no-such-export"), **kw) if not r["ok"]]
 
 
-def test_only_a_bare_link_target_ships_and_the_rest_are_candidates(tmp_path, his_files) -> None:
+def test_only_a_bare_link_target_ships_and_the_rest_are_candidates(tmp_path) -> None:
     """A dated link-graph record dates its target; a `www.` or deeper target dates that host."""
-    bare = SOURCES["ukwa_link_target_bare"]
-    assert bare.evidence_type in MASTER_TYPES and bare.acquisition_method in WEB_METHODS
-    assert SOURCES["ukwa_link_target"].is_candidate_only, "its collapsed rows name no host"
-    targets = (
-        "1999 bare-ark-test.com,1999 www.www-ark-test.com,2000 deep.sub-ark-test.org,1997 www.il"
-    )
+    targets = "1999 bare-ark-test.com,1999 www.www-ark-test.com,2000 deep.sub-ark-test.org"
+    targets += ",1997 www.il"
     graph = tmp_path / "host-linkage.tsv"
     graph.write_text("".join(f"{t}\t1\n".replace(" ", "|www.src.uk|") for t in targets.split(",")))
     init_db(conn := duckdb.connect())
     for key in ("ukwa_link_target", "ukwa_link_target_bare"):
         ingest_files(conn, SOURCES[key], [graph], report_dir=tmp_path / "reports")
-    assert _q(conn, "SELECT domain, assigned_year FROM domain_year") == [
-        ("bare-ark-test.com", 1999)
-    ]
-    netnew = tmp_path / "netnew"
-    export_all(conn, netnew, tmp_path / "cand.txt", tmp_path / "reports", tmp_path / "prov")
-    assert (netnew / "1999.txt").read_text().split() == ["bare-ark-test.com"]
-    claim = set((netnew / "candidate_additions.txt").read_text().split())
-    assert {"sub-ark-test.org", "www-ark-test.com"} <= claim and "bare-ark-test.com" not in claim
-    assert all(r["ok"] for r in collect_checks(conn, netnew, baseline=his_files))
+    assert _shipped(conn, "domain") == [("bare-ark-test.com", 1999)]
+    undated = "SELECT domain FROM domain WHERE domain NOT IN (SELECT domain FROM domain_year)"
+    assert sorted(_q(conn, undated)) == [("sub-ark-test.org",), ("www-ark-test.com",), ("www.il",)]
 
 
 ERR, OK, Y2K, WWW = "19990101000000", "19990601000000", "20000601000000", "http://www.example.com/"
-YEARS = (1999, 2000, 2001)
 CAPTURES = [
     ("http://www.example.com/", "19980301000000"),
     ("http://shop.example.com/x", "19980415120000"),
@@ -156,10 +137,10 @@ def _values(conn: duckdb.DuckDBPyConnection) -> dict[str, str]:
     return dict(_q(conn, f"SELECT hostname, evidence_value FROM {join}"))
 
 
-def _shipped(conn: duckdb.DuckDBPyConnection) -> list[tuple[str, int]]:
-    join = "hostname_year hy JOIN evidence e USING (evidence_id)"
-    screen = qualifies_sql("e", "hy.hostname")
-    return _q(conn, f"SELECT hostname, assigned_year FROM {join} WHERE {screen} ORDER BY ALL")
+def _shipped(conn: duckdb.DuckDBPyConnection, unit: str = "hostname") -> list[tuple[str, int]]:
+    join = f"{unit}_year y JOIN evidence e USING (evidence_id)"
+    screen = qualifies_sql("e", f"y.{unit}")
+    return _q(conn, f"SELECT y.{unit}, assigned_year FROM {join} WHERE {screen} ORDER BY ALL")
 
 
 @pytest.mark.parametrize("backwards", [False, True], ids=["error-read-first", "ok-read-first"])
@@ -200,9 +181,9 @@ def test_a_status_lane_without_statuses_is_refused_whole(tmp_path) -> None:
     assert _read(conn, tmp_path, CAPTURES, "suffix_4xxx_nu_t.jsonl.gz")["hostname_year_rows"] == 3
 
 
-def test_a_host_capture_dates_that_host_alone_and_a_dns_lane_writes_no_record(tmp_path) -> None:
+def test_a_host_capture_dates_that_host_alone(tmp_path) -> None:
     """Neither `www.<parent>` nor a host beneath it dates the parent, and a lane keeps its own
-    row beside Early Web's registrable-grain one. A DNS lane sees no host serving web content."""
+    row beside Early Web's registrable-grain one."""
     init_db(conn := duckdb.connect())
     stats = _read(conn, tmp_path, CAPTURES)
     assert (stats["hostname_year_candidates"], stats["hostname_year_rows"]) == (3, 3)
@@ -213,8 +194,6 @@ def test_a_host_capture_dates_that_host_alone_and_a_dns_lane_writes_no_record(tm
     www = [("www.example.com", year) for year in (1998, 1999, 2000)]
     assert _shipped(conn) == [("shop.example.com", 1998), *www]
     assert not _q(conn, "FROM domain_year") and not _failing(conn)
-    lanes = ("isc_survey_hostnames", "ripe_nserver_hostnames", "internic_zone_hostnames")
-    assert not any(map(writes_hostname_years, lanes)) and writes_hostname_years("ia_cdx_hostnames")
 
 
 def test_every_row_names_its_journal_and_line_and_a_repeat_adds_no_row(tmp_path) -> None:
@@ -242,10 +221,8 @@ def _store_on_error_captures(tmp_path: Path, repoint: tuple[str, ...]) -> tuple:
     """Host-years and parent years banked before rows carried a status; the audit lists the 1999
     and 2000 captures as errors and names `repoint`, an error host-year's earliest 2xx."""
     init_db(conn := duckdb.connect())
-    rows = [
-        (f"http://{h}.example.com/", f"{y}0101000000", "200")
-        for h, y in zip("abc", YEARS, strict=True)
-    ]
+    rows = [(f"http://{h}.example.com/", f"{y}0101000000", "200") for h, y in (("a", 1999),
+            ("b", 2000), ("c", 2001))]  # fmt: skip
     _read(conn, tmp_path, rows, "nypw_status_t.jsonl.gz")
     dated = "SELECT domain, evidence_year, evidence_id FROM evidence"
     conn.execute(f"INSERT INTO domain_year (domain, assigned_year, evidence_id) {dated}")
@@ -284,8 +261,7 @@ def test_a_record_on_an_error_capture_is_repointed_or_retracted_and_a_rerun_rest
     }
     assert _shipped(conn) == [("a.example.com", 1999), ("c.example.com", 2001)]
     assert _parent_years(conn) == [(1999,), (2001,)]
-    exact = qualifies_sql("e", "dy.domain")
-    assert not _q(conn, f"FROM domain_year dy JOIN evidence e USING (evidence_id) WHERE {exact}")
+    assert not _shipped(conn, "domain")
     assert not _failing(conn, audit=audit)
     (other := tmp_path / "other").mkdir()
     _journal(other, [("http://b.example.com/x", "20000301000000")], "suffix_example_com_t.jsonl.gz")

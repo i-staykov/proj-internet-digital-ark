@@ -5,7 +5,6 @@ Temporary trees only: Drive is the folder tmp_path/remote, archive.org a dict.
 
 import hashlib
 import http.client
-import importlib.util
 import json
 import os
 import shutil
@@ -19,13 +18,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
-if "prune" not in sys.modules:  # registered first: the dataclasses read their module back
-    _SPEC = importlib.util.spec_from_file_location("prune", ROOT / "scripts/round/prune.py")
-    sys.modules["prune"] = importlib.util.module_from_spec(_SPEC)
-    _SPEC.loader.exec_module(sys.modules["prune"])
-prune = sys.modules["prune"]
+prune = sys.modules.get("prune") or script("round/prune.py", "prune")
 offsite, vr = prune.sibling("offsite"), prune.sibling("verify_raw")
 RETENTION, JOURNAL = "docs/registers/retention.md", "data/raw/journal/a"
 HASHES = ("sha256", "sha1")
@@ -54,7 +50,7 @@ OTHER = ("rclone-error", "interrupt-after-one", "no-manifest", "bad-manifest")
 RECEIPT_FAULTS = ("stale", "future", "wrong-root", "wrong-remote", "no-receipt")
 OBJECT_FAULTS = {"missing": None, "hashless": {"Hashes": {}}, "size": {"Size": 1}}
 OBJECT_FAULTS |= {"changed": {"Hashes": {"sha256": "0" * 64}}, "dir": {"IsDir": True}, "failed": {}}
-BACKUP = ("released", "dry-run", "same-day", "uncredited", "named-hold", "check", "wal")
+BACKUP = ("released", "dry-run", "same-day", "uncredited", "check", "wal")
 BACKUP += ("missing-store", "store-replaced", "backup-changed")
 ZIP_FAULTS = {
     "no-receipt": lambda tree, archive: (tree.parents[2] / offsite.RECEIPT).unlink(),
@@ -261,8 +257,7 @@ def proofs(root: Path, paths: list[Path]) -> None:
 
 @pytest.mark.parametrize("case", BACKUP)
 def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, monkeypatch, case):
-    name = "pre-stage-a" if case == "named-hold" else "pre-test"  # BACKUP_HOLDS keeps it by name
-    backup = file(tmp_path, f"data/ark.duckdb.{name}.bak", b"previous")
+    backup = file(tmp_path, "data/ark.duckdb.pre-test.bak", b"previous")
     os.utime(backup, ns=(1_000_000, 1_000_000))
     store = file(tmp_path, "data/ark.duckdb", b"current")
     day = "1970-01-01" if case == "same-day" else "2026-09-05"
@@ -288,7 +283,7 @@ def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, 
     assert code == int(not released) and backup.exists() is (case != "released")
     checked = case in ("released", "check", "store-replaced", "backup-changed")
     assert calls == [(["uv", "run", "ark", "check"], {"cwd": tmp_path, "check": False})] * checked
-    assert released or f"HELD data/ark.duckdb.{name}.bak" in "\n".join(lines)
+    assert released or "HELD data/ark.duckdb.pre-test.bak" in "\n".join(lines)
     kept = b"new local-only backup" if case == "backup-changed" else b"previous"
     assert case == "released" or backup.read_bytes() == kept
 
@@ -345,7 +340,7 @@ def disk_repo(root: Path) -> dict[str, Path]:
     kept += [f"private/{r}" for r in ("notes.md", "v3/big.bin", *KEPT_PRIVATE)]
     kept += [f"data/archive/merged{m}.tar.zst" for m in (250101, 270101)]
     kept += ["feedback/partial.zip", f"output/{NEW_STAGE}/report.md", "data/raw/host_cdx/bank.log"]
-    for rel in kept + [f"data/ark.duckdb.{n}.bak" for n in ("pre-stage-a", "pre-166")]:
+    for rel in [*kept, "data/ark.duckdb.pre-166.bak"]:
         file(root, rel)
     sidecar = f"{sha(TARBALL)}  {NEW_STAGE}.tar.gz\n".encode()
     file(root, f"submissions/phase-9/{NEW_STAGE}.tar.gz.sha256", sidecar)
@@ -412,8 +407,7 @@ def test_disk_takes_exactly_what_is_proven(tmp_path, monkeypatch, capsys, fake_r
     assert digest == f"sha1:{sha(CDX, 'sha1')} sha256:{sha(CDX)}"
     assert f"sha1:{sha(ZIP, 'sha1')}\t" in (parts["bulk"] / "DELETED.tsv").read_text()
     text = "\n".join(lines)
-    assert code == 1 and "pre-stage-a.bak: held until #181's rebuild" in text  # even receipted
-    assert "pre-166.bak: a store backup is deleted by the agents that own the store" in text
+    assert code == 1 and "pre-166.bak: a store backup is deleted by the agents" in text  # receipted
     before = files_under(tmp_path)
     code, lines = prune.disk_cleanup(tmp_path, write=True, private=True)
     assert code == 1 and "without --owner-go: nothing was deleted" in lines[0]
@@ -449,6 +443,51 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
     assert spent.exists() is (case != "restricted-served")
     wrote = case in ("restricted-served", "changed-at-delete")
     assert (spent.parent / "DELETED.tsv").exists() is wrote
+
+
+def test_usenet_new_goes_where_its_saved_ia_metadata_routes_it(tmp_path, monkeypatch):
+    """A zip goes at its route once our bytes hash to IA's sha1: each item asked once, through
+    fetch.py, and nothing asked after a failed ask."""
+    new = tmp_path / "data/raw/usenet_new"
+    theirs = {"bit": {"bit.c.mbox.zip": b"same", "free.c.mbox.zip": b"off its route"}}
+    theirs["free"] = {"free.a.mbox.zip": b"same", "free.b.mbox.zip": b"IA's", "free.d.txt": b"x"}
+    theirs["free"]["free.e.mbox.zip"] = b"md5!"
+    ours = theirs["bit"] | theirs["free"] | {"free.b.mbox.zip": b"ours"}
+    meta = {}
+    for h, got in theirs.items():
+        files = [{"name": n, "size": str(len(b)), "sha1": sha(b, "sha1")} for n, b in got.items()]
+        meta[f"usenet-{h}"] = {"metadata": {"identifier": f"usenet-{h}"}, "files": files}
+    meta["usenet-free"]["files"][-1] |= {"sha1": "", "md5": sha(b"md5!", "md5")}  # no sha1
+    others = ["usenet_dated_new1.jsonl.gz", ".banked/free.a.mbox.zip.ok"]
+    for name, data in (ours | dict.fromkeys(others, b"x")).items():
+        file(new, name, data)
+    sums(new, [*ours, *others])
+    for item, answer in meta.items():
+        file(new, f".meta-{item[7:]}.json", json.dumps(answer).encode())
+    file(new, ".meta-gov.json", b"<html>500</html>")  # an error page saved as the metadata
+    stale = f"free.a.mbox.zip\t4\tsha1:{'0' * 40}\tx"  # a copy deleted before, other bytes
+    file(new, "DELETED.tsv", f"# rel\tbytes\tdigest\turl\n{stale}\n".encode())
+    file(tmp_path, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
+    asked, exit_code = [], [7]
+
+    def fetch(command, **kwargs):
+        assert command[1] == str(ROOT / "scripts/harness/fetch.py")
+        assert command[3:5] == ["--to", "-"]
+        asked.append(command[2].rsplit("/", 1)[1])
+        answer = json.dumps(meta[asked[-1]]).encode()
+        return subprocess.CompletedProcess(command, exit_code[0], answer)
+
+    monkeypatch.setattr(prune.subprocess, "run", fetch)
+    before, text = files_under(new), cleanup(tmp_path)
+    assert f"free.b.mbox.zip: {prune.IA}/metadata/usenet-bit: fetch.py exit 7" in text
+    assert asked == ["usenet-bit"] and files_under(new) == before
+    asked[:], exit_code[0] = [], 0
+    text = cleanup(tmp_path)
+    assert asked == ["usenet-bit", "usenet-free"]
+    assert "HELD data/raw/usenet_new/free.b.mbox.zip: the sha1 of our bytes differs" in text
+    assert "kept 2 archives of data/raw/usenet_new, 17 B: no catalog lists them" in text
+    assert before - files_under(new) == {new / "bit.c.mbox.zip", new / "free.a.mbox.zip"}
+    assert f"free.a.mbox.zip\t4\tsha1:{sha(b'same', 'sha1')} " in (new / "DELETED.tsv").read_text()
 
 
 def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):

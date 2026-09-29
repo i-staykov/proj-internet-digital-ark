@@ -58,7 +58,7 @@ has no weight and contributes zero. Worked examples, read straight from the mode
 **The table is frozen.** His brief requires the same weights for the baseline and every submission
 compared against it, and it must not change unless he reissues it for all comparisons. Practically
 this means a `.uk` record is worth 7.4 times a `.de` one, so a large non-English source is a small
-source, and the ranking in `build_query_queue.py` follows from that rather than from preference.
+source.
 
 ## 3. The formula
 

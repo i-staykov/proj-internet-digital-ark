@@ -568,13 +568,6 @@ def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7), keep: int =
     return assemble()
 
 
-def is_brief_audit(f: dict) -> bool:
-    """A slug `compact_registers.py` drops as an audit, the fleet's `# brief-audit: <claim>`
-    heading among them: a row booked for one is deleted and booked again every tick."""
-    slug = re.sub(r"[^a-z0-9]+", "-", f["slug"].lower()).strip("-")
-    return slug.startswith("brief-audit") or f["fields"].get("lens", "") == "brief-audit"
-
-
 def closed_row(f: dict, run_label: str) -> str:
     """The five-column row a measured negative gets, in `sources-closed.md`.
 
@@ -708,11 +701,6 @@ def main() -> int:
     closed: list[str] = []
     counts = {"new": 0, "replace": 0, "booked": 0}
     for f in findings:
-        # A brief audit reads his brief against a rule of ours, and its FIND means "a rule
-        # to decide", not a source with a figure. It stays in the drain for a human.
-        if is_brief_audit(f):
-            print(f"rule audit, not a source: {f['slug']} is left in the drain for a human to file")
-            continue
         row = (
             register_row(f, args.run_label)
             if f["verdict"] == "FIND"

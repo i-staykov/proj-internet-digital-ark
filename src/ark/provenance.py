@@ -128,11 +128,7 @@ def write_provenance(
     return counts
 
 
-def load_provenance(
-    conn: duckdb.DuckDBPyConnection,
-    source_dir: Path = PROVENANCE_DIR,
-    starts: dict[str, int] | None = None,
-) -> dict:
+def load_provenance(conn: duckdb.DuckDBPyConnection, source_dir: Path = PROVENANCE_DIR) -> dict:
     """Recreate the store's tables from a provenance export.
 
     The reproduction path that needs no source data: the export holds every observation and
@@ -142,9 +138,9 @@ def load_provenance(
     `init_db` creates every table before its rows go in, so the rebuilt store keeps each
     primary key, CHECK, NOT NULL and DEFAULT and takes new ingests. A row keeps every value it
     shipped with, `ingested_at` included; a column an older export lacks loads as its default
-    or NULL. Each sequence starts one past the ids the export holds, or at `starts[name]` when
-    that is later, so no id is issued twice. Run it outside a transaction: each table is
-    checkpointed once loaded, which frees the memory its index held.
+    or NULL. Each sequence starts one past the ids the export holds, so no id is issued twice.
+    Run it outside a transaction: each table is checkpointed once loaded, which frees the
+    memory its index held.
     """
     missing = [t for t in CORE_TABLES if not (source_dir / f"{t}.parquet").exists()]
     if missing:
@@ -156,11 +152,10 @@ def load_provenance(
     for table in reversed(TABLES):
         conn.execute(f"DROP TABLE IF EXISTS {table}")
     for name, (table, column) in SEQUENCES.items():
-        shipped = conn.execute(
-            f"SELECT coalesce(max({column}), 0) FROM read_parquet(?)",
+        start = conn.execute(
+            f"SELECT coalesce(max({column}), 0) + 1 FROM read_parquet(?)",
             [str(source_dir / f"{table}.parquet")],
         ).fetchone()[0]
-        start = max(shipped + 1, (starts or {}).get(name, 1))
         conn.execute(f"DROP SEQUENCE IF EXISTS {name}")
         conn.execute(f"CREATE SEQUENCE {name} START WITH {int(start)}")
         if name == "evidence_seq":
