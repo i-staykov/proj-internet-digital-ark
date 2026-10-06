@@ -2,8 +2,8 @@
 
 Three results from this round that transfer to anyone doing this work; each says what it was
 measured on. Totals are in `report.md`; failures, yields and next steps in `experience-summary.md`.
-"The evidence rule" is section XIII of your specification of 17 September
-(`Internet_Digital_Ark_Project_0917_Update.docx`); EE is equivalent-English.
+"The evidence rule" is section XIII of your specification of 6 October
+(`Internet_Digital_Ark_Project_1006_Update.docx`); EE is equivalent-English.
 
 ## 1. Price a collection at the grain that ships, and measure the shipped files, not the code
 
