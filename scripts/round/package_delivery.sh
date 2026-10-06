@@ -37,19 +37,21 @@ if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
     exit 1
 fi
 
-# The reproduction note is quoted into the report, so a verdict count it names must be the
-# one verify.sh prints, or the report ships a stale claim about its own archive.
+# The reproduction note is quoted into the report and the README ships, so a verdict count
+# either names must be the one verify.sh prints, or the archive ships a stale claim about itself.
 VERDICTS=$(sed -n 's/^VERDICTS=\([0-9][0-9]*\)$/\1/p' scripts/round/verify_delivery.sh)
 COUNTS=(zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
-SAID=$(grep -oE '[a-z]+ `verify\.sh` verdicts' docs/round/reproduction.txt | head -1 | cut -d' ' -f1) || true
 if [ -z "$VERDICTS" ]; then
     echo "refusing to package: scripts/round/verify_delivery.sh declares no VERDICTS" >&2
     exit 1
 fi
-if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
-    echo "refusing to package: docs/round/reproduction.txt says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
-    exit 1
-fi
+for NOTE in docs/round/reproduction.txt docs/round/delivery_readme.md; do
+    SAID=$(grep -oE '[a-z]+ (`verify\.sh` |labelled )verdicts' "$NOTE" 2>/dev/null | head -1 | cut -d' ' -f1) || true
+    if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
+        echo "refusing to package: $NOTE says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
+        exit 1
+    fi
+done
 
 # The export stamp first, from files alone, so a wrong export refuses in seconds. A bank
 # writes only the claim, so the manifests, ISC files and contribution tables beside it are
@@ -301,15 +303,20 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
-# extended_years/: his 2002 to 2015 file merged with our additions for each year we add to,
-# the additions alone, their ledger, dedup report and manifest, as extended_export.py wrote them.
+# extended_years/: the additions, their ledger, dedup report and manifest as extended_export.py
+# wrote them, and for each year we add to his 2002 to 2015 file merged with ours, as masters/.
 EXT=output/extended_years
 if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     uv run python scripts/round/extended_export.py --check \
         || { echo "refusing to package: $EXT is stale" >&2; exit 1; }
     mkdir -p "$STAGE/extended_years"
-    cp -R "$EXT/additions" "$EXT"/20[01][0-9].txt "$EXT/evidence_ledger.csv" \
-        "$EXT/dedup_report.csv" "$EXT/manifest.json" "$STAGE/extended_years/"
+    cp -R "$EXT/additions" "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" \
+        "$EXT/manifest.json" "$STAGE/extended_years/"
+    HIS_EXT=$(uv run python -c 'from ark.baseline import baseline_dir; print(baseline_dir())')
+    for adds in "$EXT"/additions/20[01][0-9].txt; do
+        LC_ALL=C sort -m -u "$HIS_EXT/$(basename "$adds")" "$adds" \
+            > "$STAGE/extended_years/$(basename "$adds")"
+    done
 else
     echo "no extended additions: packaging without extended_years/"
 fi

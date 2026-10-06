@@ -320,6 +320,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     run = lambda cmd, timeout: calls.append(cmd) or figures  # noqa: E731
     brs = _script("build_round_state", monkeypatch, run=run, **paths)
     monkeypatch.setattr(brs, "pending_approvals", lambda: [])
+    monkeypatch.setattr(brs.extended, "INPUTS", {"*": str(tmp_path / "raw/*/*.jsonl*")})
     monkeypatch.setattr("ark.db.connect_read_only_patiently", REFUSE)
     monkeypatch.setattr(duckdb, "connect", REFUSE)
     stamp = json.dumps({"baseline": brs.CURRENT_BASELINE_MARKER})
@@ -341,5 +342,14 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     (tmp_path / "output/netnew/export_stamp.json").unlink()  # an unstamped export is not quoted
     monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
     with pytest.raises(SystemExit, match="no export stamp"):
+        brs.main()
+    assert "gate_percent" not in json.loads(brs.BRIEF.read_text())
+    # nor is an extended export written against another release
+    manifest = json.dumps({"baseline": "merged-other", "inputs": [], "globs": {}})
+    _write(
+        tmp_path / "output",
+        {"netnew/export_stamp.json": stamp, "extended_years/manifest.json": manifest},
+    )
+    with pytest.raises(SystemExit, match="extended_years is stale, written against merged-other"):
         brs.main()
     assert "gate_percent" not in json.loads(brs.BRIEF.read_text())

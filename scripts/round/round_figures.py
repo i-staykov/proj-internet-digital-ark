@@ -229,15 +229,18 @@ def verify_with_his_calculator() -> dict:
     totals["overlap"] = already_in_his_files()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
+        listings = {}
+        for year, domains in per_year.items():
+            listings[year] = work / f"increment_{year}.txt"
+            listings[year].write_text("\n".join(domains) + "\n", encoding="utf-8")
+        # An extended additions file is a listing already, so his calculator reads it as shipped.
         for year in EXTENDED_YEARS:
             path = EXTENDED / "additions" / f"{year}.txt"
             if path.exists():
-                per_year[year] = [h.strip() for h in path.read_text().splitlines() if h.strip()]
+                listings[year] = path
                 his = baseline_dir() / f"{year}.txt"
                 totals["overlap"] += held.intersect(path, his, work / f"o{year}")
-        for year, domains in sorted(per_year.items()):
-            listing = work / f"increment_{year}.txt"
-            listing.write_text("\n".join(domains) + "\n", encoding="utf-8")
+        for year, listing in sorted(listings.items()):
             results = work / f"results_{year}"
             subprocess.run(
                 [sys.executable, str(CALCULATOR), str(listing), "--output-dir", str(results)],

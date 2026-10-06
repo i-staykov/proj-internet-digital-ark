@@ -69,7 +69,7 @@ For one annual file:
 where `N_t` is the number of unique valid records under TLD `t` and `w_t` is that TLD's English
 share. The unit is the **domain-year record**: the same domain contributes once in each annual file
 for which year evidence exists, and duplicates within a year are removed before the sum. Across the
-annual files the totals add: the 5% gate is of his 1996 to 2015 total, core and extended together.
+annual files the totals add.
 
     increment    = post-merge total - baseline total
     growth rate  = increment / baseline total * 100

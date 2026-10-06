@@ -1,4 +1,4 @@
-"""When each TLD was delegated, for TLDs that did not exist throughout 1996-2001.
+"""When a TLD entered the root, for TLDs absent from part of 1996-2001, or a ccTLD left it.
 
 **A domain cannot have existed before its TLD did**, and that is exactly the class the
 reviewer's validator is entitled to reject: measured 1,087 pairs and 450.2 EE predating
@@ -50,6 +50,29 @@ DELEGATED: dict[str, int] = {
 # characters was delegated in 2001 or later, so a 1996-2001 pair under it is impossible.
 # Two-letter labels are ccTLDs, which existed throughout bar the handful in DELEGATED.
 WINDOW_GTLDS = ("com", "net", "org", "edu", "gov", "mil", "int", "arpa")
+
+# Two-letter ccTLDs taken out of the root, by the last year each was in it (0: never was).
+RETIRED: dict[str, int] = {
+    "an": 2011,
+    "bu": 0,
+    "cs": 1995,
+    "dd": 0,
+    "tp": 2015,
+    "um": 2008,
+    "yu": 2010,
+    "zr": 2001,
+}
+
+
+def existed(tld: str, year: int) -> bool:
+    """Whether a host under `tld` could exist in `year`: a window gTLD bar `arpa`, a ccTLD
+    between its delegation and its retirement, or a TLD `DELEGATED` by then. Any other TLD
+    fails closed."""
+    if tld in WINDOW_GTLDS:
+        return tld != "arpa"
+    if len(tld) == 2:
+        return DELEGATED.get(tld, 0) <= year <= RETIRED.get(tld, year)
+    return DELEGATED.get(tld, year + 1) <= year
 
 
 def existed_predicate(column: str = "domain", year_column: str = "assigned_year") -> str:

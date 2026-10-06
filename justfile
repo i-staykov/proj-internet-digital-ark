@@ -537,6 +537,10 @@ bank *args:
         uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
     fi
     uv run python scripts/harness/bank_hygiene.py space
+    # The 2002 to 2015 additions, re-exported when a journal or his release changed, so the GATE
+    # line prices what is on disk; an export that cannot run leaves the round state withholding it.
+    uv run python scripts/round/extended_export.py --check >/dev/null \
+        || nice -n 10 uv run python scripts/round/extended_export.py || true
     uv run python scripts/round/build_round_state.py | tail -1 || true
     uv run python scripts/harness/bank_trigger.py stamp
     git add docs/registers/

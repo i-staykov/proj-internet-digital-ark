@@ -27,6 +27,7 @@ change.
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import re
 import subprocess
@@ -55,11 +56,17 @@ from ark.baseline import (  # noqa: E402
 )
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
+_spec = importlib.util.spec_from_file_location(
+    "extended_export", Path(__file__).with_name("extended_export.py")
+)
+extended = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(extended)
+
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
-EXTENDED_MANIFEST = Path("output/extended_years/manifest.json")
+EXTENDED_MANIFEST = extended.OUT / "manifest.json"
 # Fields 3 to 5 and the gate line exactly as round_figures prints them.
 FIELD_RE = {
     "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
@@ -115,15 +122,22 @@ def claim_state() -> dict[str, str]:
 
 
 def export_problem() -> str | None:
-    """Why `output/netnew` cannot be quoted, or None. An export with no stamp crashed or came
-    before stamps, and one diffed against another release counts against the wrong one."""
+    """Why the claim cannot be quoted, or None. An `output/netnew` with no stamp crashed or came
+    before stamps, and one diffed against another release counts against the wrong one; so
+    does an `output/extended_years` written against another release or other journals."""
     stamp = export.read_stamp(ROOT / export.NETNEW_DIR)
     if stamp is None:
         found = "holds no export stamp"
     elif stamp.get("baseline") != CURRENT_BASELINE_MARKER:
         found = f"was diffed against {stamp.get('baseline')}, not {CURRENT_BASELINE_MARKER}"
     else:
-        return None
+        try:
+            stale = extended.stale(ROOT / extended.OUT)
+        except SystemExit as exc:
+            stale = [str(exc)]
+        if not stale:
+            return None
+        return f"{extended.OUT} is stale, {'; '.join(stale)}: the next bank re-exports it"
     return f"output/netnew {found}: the next bank re-exports it, or `just bank --force`"
 
 

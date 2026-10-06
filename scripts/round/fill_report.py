@@ -614,10 +614,11 @@ def substitutions(f: dict) -> dict[str, str]:
     manifest = Path("output/extended_years/manifest.json")
     ext = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
     ext_ee = Decimal(ext.get("increment_ee", "0"))
+    ext_growth = ext_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
     subs |= {
         "EXTPAIRS": f"{ext.get('accepted_new', 0):,}",
         "EXTEE": f"{ext_ee:,.4f}",
-        "EXTGROWTH": f"{ext_ee / REVIEWER_EXTENDED_EE * 100:.4f}%",
+        "EXTGROWTH": f"{ext_growth:.4f}%",
         "EXTBASELINEEE": f"{REVIEWER_EXTENDED_EE:,.4f}",
         "GATEEE": f"{ee_total + ext_ee:,.4f}",
         "GATEPCT": f"{(ee_total + ext_ee) / GATE_BASELINE_EE * 100:.4f}%",

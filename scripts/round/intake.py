@@ -176,7 +176,7 @@ def measure_year(calculator: Path, year_file: Path) -> Decimal:
 
 
 def kept_ee(
-    current: dict, marker: str, counts: dict[int, int], prefix: str = "reviewer"
+    current: dict, marker: str, counts: dict[int, int], prefix: str
 ) -> dict[str, str] | None:
     """The stored per-year EE, when it belongs to exactly these files. `prefix` picks the
     core keys or the `reviewer_extended` ones, so each block skips its own measuring."""
@@ -201,14 +201,13 @@ def update_baseline(
     stamp: str,
     pairs: int,
     ee: dict,
-    ext_pairs: int = 0,
-    ext_ee: dict | None = None,
+    ext_pairs: int,
+    ext_ee: dict,
 ) -> bool:
     """Point `data/baseline.json` at the new release, leaving the round fields alone. The
     extended keys are always written, zero when the release has no 2002 to 2015 file."""
     data = json.loads(path.read_text(encoding="utf-8"))
     before = json.dumps(data, indent=2, ensure_ascii=False)
-    ext_ee = ext_ee or {}
     data["current"].update(
         {
             "marker": marker,

@@ -57,6 +57,8 @@ FOLD = (
     "data/raw/enron_items/*.jsonl.gz",
     "data/raw/enron_items/*.jsonl",
     "data/raw/rdap/rdap_*.jsonl.gz",
+    # read by `scripts/round/extended_export.py` in the bank's last step
+    "data/raw/extended/*/*.jsonl*",
 )
 CHECK_TAIL = 40
 
