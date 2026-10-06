@@ -624,6 +624,10 @@ def substitutions(f: dict) -> dict[str, str]:
         "GATEPCT": f"{(ee_total + ext_ee) / GATE_BASELINE_EE * 100:.4f}%",
         "GATEBASELINEEE": f"{GATE_BASELINE_EE:,.4f}",
     }
+    from round_figures import extended_split
+
+    for unit, (n, unit_ee) in zip(("EXTREG", "EXTHOST"), extended_split(), strict=True):
+        subs[unit + "PAIRS"], subs[unit + "EE"] = f"{n:,}", f"{unit_ee:,.4f}"
     # The ISC folder ships beside the claim as a question, never inside it, so its size is
     # counted from the files that actually ship rather than typed into the prose.
     isc = 0

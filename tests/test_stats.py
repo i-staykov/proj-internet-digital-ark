@@ -239,16 +239,19 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     monkeypatch.setattr(rf, "EXTENDED", tmp_path / "missing")
     rf.main()
     assert "GATE. Core plus extended, 1996-2015           : 1.7500 = " in capsys.readouterr().out
-    _write(tmp_path / "x/additions", {"2002.txt": "x.com\n"})
+    _write(tmp_path / "x/additions", {"2002.txt": "www.x.com\nx.com\n"})
     monkeypatch.setattr(rf, "EXTENDED", tmp_path / "x")
     rf.main()
     out = capsys.readouterr().out
     field = dict(re.findall(r"^([345])\. .*: (.+)$", out, re.M))
     assert field == {"3": "4 records", "4": "1.7500", "5": f"{D('1.75') / rf.BASELINE_EE:.6%}"}
-    assert "| 2001 | 4 | 1.7500 |" in out and "| 2002 | 1 | 0.5000 |" in out
+    assert "| 2001 | 4 | 1.7500 |" in out and "| 2002 | 2 | 1.0000 |" in out
+    # registrable domains first, then the hostnames beneath them, as in the core
+    units = re.findall(r"^     (\w+) .*: 1 records  0\.5000$", out, re.M)
+    assert units == ["registrable", "hostnames"]
     # The gate is core plus extended over his 1996 to 2015 total, the core alone never.
-    gate = re.search(r"^GATE\. .*: 2\.2500 = ([0-9.]+)% of", out, re.M).group(1)
-    assert gate == f"{D('2.25') / (rf.BASELINE_EE + rf.REVIEWER_EXTENDED_EE) * 100:.6f}"
+    gate = re.search(r"^GATE\. .*: 2\.7500 = ([0-9.]+)% of", out, re.M).group(1)
+    assert gate == f"{D('2.75') / (rf.BASELINE_EE + rf.REVIEWER_EXTENDED_EE) * 100:.6f}"
     # a.com is his 2001 and c.net is attested 2001; b.com is held only in 2000
     assert ": 2 records  0.7500  (60.0% of the hostname half)" in out
     (netnew / "1996.txt").unlink()

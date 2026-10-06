@@ -6,8 +6,8 @@ exact-host, year-specific web evidence, and a name known by any other route ship
 The standard is at the end. **The counts are in `report.md` and printed by `bash verify.sh`.**
 
 - **Additions count against the release in `baseline/`, named in `baseline/README.txt`**, no other.
-- **`additions/` and `hostnames/` are the deliverable.** The first holds registrable domains, the
-  second valid hostnames beneath them, disjoint per year, each backed by its own evidence manifest.
+- **`additions/`, `hostnames/` and, for 2002 to 2015, `extended_years/` are the deliverable**:
+  registrable domains and the valid hostnames beneath them, each backed by its own evidence.
 - **`candidates.txt`, `isc_survey_hostnames/` (the Internet Systems Consortium Domain Survey) and
   `server_header_hostnames/` are candidate collections**, claimed together in
   `candidate_additions.txt` and priced separately at the same rate. None enters an annual figure.

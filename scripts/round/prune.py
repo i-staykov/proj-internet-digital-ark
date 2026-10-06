@@ -41,10 +41,10 @@ lists, and with `--write` deletes:
     its bytes, that sha1 and the URL;
   * `output/DomainDataCollectionTask_*` but the newest, once the newest's tarball is on
     Drive with the checksum git keeps;
-  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code reads. Nothing
-    there has a copy anywhere, so `--private --write` deletes only with `--owner-go`, which
-    no recipe passes: #188's last step passes it on the owner's go. Without it, it lists
-    `private/` and deletes nothing at all.
+  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code or an agent's
+    handoff reads. Nothing there has a copy anywhere, so `--private --write` deletes only with
+    `--owner-go`, which no recipe passes: #188's last step passes it on the owner's go.
+    Without it, it lists `private/` and deletes nothing at all.
 
 It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
 sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
@@ -299,7 +299,15 @@ SIDECARS = frozenset({"SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", DELETED})
 HELD_CLASSES = ("live_input", "keep_journal", "keep_until_priced", "keep_until_decided")
 # Read by code: the brief, the mail and the round's own drafts.
 PRIVATE_KEEP = frozenset(
-    {"personal-context.md", "mail", "emails", "email-draft.md", "email.template.md", "handoff.md"}
+    {
+        "personal-context.md",
+        "mail",
+        "emails",
+        "email-draft.md",
+        "email.template.md",
+        "handoff.md",
+        "handoffs",
+    }
 )
 STAGES = "DomainDataCollectionTask_*_IvayloStaykov"
 IA = "https://archive.org"
