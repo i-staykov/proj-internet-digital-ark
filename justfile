@@ -537,6 +537,10 @@ bank *args:
         uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
     fi
     uv run python scripts/harness/bank_hygiene.py space
+    # The 2002 to 2015 additions, re-exported when a journal or his release changed, so the GATE
+    # line prices what is on disk; an export that cannot run leaves the round state withholding it.
+    uv run python scripts/round/extended_export.py --check >/dev/null \
+        || nice -n 10 uv run python scripts/round/extended_export.py || true
     uv run python scripts/round/build_round_state.py | tail -1 || true
     uv run python scripts/harness/bank_trigger.py stamp
     git add docs/registers/
@@ -1408,7 +1412,7 @@ ship stage="all" *args:
         # The promotion tranche, measured and never banked: without --write it writes nothing.
         uv run python scripts/engines/build_promotion_journals.py --tag "dryrun$(date -u +%Y%m%d)"
         uv run python scripts/round/merge_against_baseline.py | tail -3
-        uv run python scripts/round/round_figures.py | sed -n '1,13p'
+        uv run python scripts/round/round_figures.py | sed -n '1,16p'
     }
 
     stage_build() {
@@ -1425,6 +1429,8 @@ ship stage="all" *args:
         echo "== the full export =="
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export --provenance
+        echo "== the 2002 to 2015 additions =="
+        nice -n 10 uv run python scripts/round/extended_export.py
         echo "== the data invariants =="
         uv run ark check
         echo "== the round state, with the store sections =="

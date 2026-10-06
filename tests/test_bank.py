@@ -222,7 +222,7 @@ def test_a_red_gate_unbanks_only_this_banks_source(tmp_path, monkeypatch, capsys
 # --- bank_hygiene: the clone, the disk, the staging and the gate --------------------------
 
 _ENV = hyg.clean_env()  # a hook's GIT_INDEX_FILE would stage these fixture clones into ours
-BRIEF = {"field5_percent": "5.010400", "gate_pct": 5.0, "round": "8", "baseline": "m1"}
+BRIEF = {"gate_percent": "5.010400", "gate_pct": 5.0, "round": "8", "baseline": "m1"}
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -378,13 +378,13 @@ def test_prune_takes_only_old_staging_with_a_verified_copy(tmp_path, monkeypatch
 @pytest.mark.parametrize(
     "brief,listed,said,asked",
     [
-        ({"percent": 5.3597, "round_percent": 5.3597, "field5_percent": "0.252400"}, "",
+        ({"field5_percent": "5.3597", "gate_percent": "0.252400"}, "",
          "at 0.252400%, gate at 5%: not crossed", 0),
         ({}, "12", "gate issue #12 is already open: latched, not re-notifying", 1),
         ({}, "", "opened the gate issue: Round 8 at 5.010400% against m1 (released 2026-09-02)"
          " at 14:03 UTC", 2),
     ],
-    ids=["quotes-field-5-only", "open-issue-is-latched", "crossing-opens-one-issue"],
+    ids=["quotes-the-gate-line-only", "open-issue-is-latched", "crossing-opens-one-issue"],
 )  # fmt: skip
 def test_the_gate_opens_one_issue_per_crossing(tmp_path, brief, listed, said, asked):
     """The second run of each is latched or not crossed, and asks `gh` nothing."""
@@ -398,10 +398,12 @@ def test_the_gate_opens_one_issue_per_crossing(tmp_path, brief, listed, said, as
     assert labels == ["needs-owner"] * (asked == 2)
 
 
-def test_a_brief_without_field_5_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_a_brief_without_the_gate_line_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
+    """A brief written before the 1996 to 2015 gate carries only the core field 5."""
     monkeypatch.setattr(hyg, "BRIEF", tmp_path / "brief.json")
-    hyg.BRIEF.write_text(json.dumps({"percent": 5.5, "baseline": CURRENT_BASELINE_MARKER}))
-    assert hyg._brief() is None and "no field5_percent" in capsys.readouterr().out
+    brief = {"field5_percent": "5.5", "baseline": CURRENT_BASELINE_MARKER}
+    hyg.BRIEF.write_text(json.dumps(brief))
+    assert hyg._brief() is None and "no gate_percent" in capsys.readouterr().out
 
 
 # --- bank_trigger: when the tick calls the bank ------------------------------------------

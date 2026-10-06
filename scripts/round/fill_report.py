@@ -35,8 +35,10 @@ from report_figures import BASELINE, figures  # noqa: E402
 from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_LABEL,
+    GATE_BASELINE_EE,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
+    REVIEWER_EXTENDED_EE,
     SUBMITTED_ROUNDS,
     awarded_score_of,
 )
@@ -607,6 +609,21 @@ def substitutions(f: dict) -> dict[str, str]:
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
+    # The extended years as `extended_export.py` measured them, zero before any addition, and the
+    # gate: core plus extended over his 1996 to 2015 total.
+    manifest = Path("output/extended_years/manifest.json")
+    ext = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
+    ext_ee = Decimal(ext.get("increment_ee", "0"))
+    ext_growth = ext_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
+    subs |= {
+        "EXTPAIRS": f"{ext.get('accepted_new', 0):,}",
+        "EXTEE": f"{ext_ee:,.4f}",
+        "EXTGROWTH": f"{ext_growth:.4f}%",
+        "EXTBASELINEEE": f"{REVIEWER_EXTENDED_EE:,.4f}",
+        "GATEEE": f"{ee_total + ext_ee:,.4f}",
+        "GATEPCT": f"{(ee_total + ext_ee) / GATE_BASELINE_EE * 100:.4f}%",
+        "GATEBASELINEEE": f"{GATE_BASELINE_EE:,.4f}",
+    }
     # The ISC folder ships beside the claim as a question, never inside it, so its size is
     # counted from the files that actually ship rather than typed into the prose.
     isc = 0

@@ -115,8 +115,11 @@ takes about an hour.
 ## Figures
 
 `docs/ROUND.md` field 4 is the headline: the equivalent-English of the registrables and hostnames
-that ship net-new against his files. Field 5 is its percent of his total, the gate's figure. `just
-price --items <f.jsonl>` prices on the store after the corroboration split, at registrable grain;
+that ship net-new against his 1996 to 2001 files, field 5 its percent of them. The gate's figure is
+the GATE line beneath: field 4 plus `output/extended_years/` over his 1996 to 2015 total. The bank
+re-runs `scripts/round/extended_export.py` when `data/raw/extended/<source>/` or his release moves,
+and a stale export withholds the GATE line. `just price --items <f.jsonl>` prices on the store
+after the corroboration split, at registrable grain;
 `just price-hosts <dir>` at hostname grain through the ingest's own funnel. The fleet's figure, `uv
 run ark price-snapshot --snapshot output/fleet_snapshot --items <f.jsonl>` (`--track candidate` for
 the other), reads no store, so it runs while the lock is held; the bank re-prices a FIND on the
@@ -134,8 +137,8 @@ labelled `needs-owner`, opens.
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks, exports in full, runs `ark check`, commits the
-   regenerated report and `.docx`, packages (`masters/` is his year file and ours by `LC_ALL=C sort
-   -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would, prunes verified
+   regenerated report and `.docx`, packages (`masters/` and `extended_years/` are his year file and
+   ours by `LC_ALL=C sort -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would, prunes verified
    round copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent
    and closes the gate issue. It refuses while `just hold status` lists `com.ark.sync`. `just ship
    --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the

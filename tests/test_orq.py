@@ -505,5 +505,7 @@ def test_packaging_refuses_a_note_naming_another_verdict_count_than_verify_decla
     ):
         (tmp_path / "docs/round/reproduction.txt").write_text(f"Before sending, {said}.\n")
         assert bash(check, tmp_path).returncode == code, said
+    (tmp_path / "docs/round/delivery_readme.md").write_text("prints **thirteen labelled verdicts**")
+    assert bash(check, tmp_path).returncode == 1, "the shipped README's count is checked too"
     # the shipped note names no count, so a new verdict can never leave it stale
     assert "`verify.sh` verdicts" not in (REPO / "docs/round/reproduction.txt").read_text()

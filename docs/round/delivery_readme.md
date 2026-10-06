@@ -1,6 +1,6 @@
 # Internet Digital Ark: round 10
 
-Evidence-backed annual domain lists for 1996-2001. **The annual files are a website-evidence
+Evidence-backed annual domain lists for 1996-2015. **The annual files are a website-evidence
 product** under section XIII of your specification: a line qualifies only on
 exact-host, year-specific web evidence, and a name known by any other route ships as a candidate.
 The standard is at the end. **The counts are in `report.md` and printed by `bash verify.sh`.**
@@ -19,6 +19,7 @@ The standard is at the end. **The counts are in `report.md` and printed by `bash
 | `report.docx`, `report.md` | The report: methods, results, per-source yield, limitations |
 | `masters/<year>.txt` | **Your annual file for that year merged with `additions/` and `hostnames/` by exact name**, no roll-up: `LC_ALL=C sort -m -u baseline/<release>/<year>.txt additions/<year>.txt hostnames/<year>_hostnames.txt`. `audit/year_growth.csv` reconciles it |
 | `additions/<year>.txt` | **Additions only**, against the reference baseline |
+| `extended_years/<year>.txt`, `extended_years/additions/<year>.txt` | 2002 to 2015, for each year with an addition: **your file merged with ours**, `LC_ALL=C sort -m -u`, and **ours alone**, each on its own capture that year. `evidence_ledger.csv` holds one capture per addition, `dedup_report.csv` your merge columns, `manifest.json` the sha256 of your file that `verify.sh` proves each merged file contains exactly |
 | `additions/evidence_manifest.csv` | One row per added (domain, year) with the evidence behind it |
 | `hostnames/<year>_hostnames.txt` | **Annual hostname additions**: qualifying exact hostnames beneath held registrables, disjoint from `additions/` |
 | `hostnames/hostnames_evidence_manifest.csv` | One row per added (hostname, year) with its parent, source, method and the capture behind it |
@@ -34,7 +35,7 @@ The standard is at the end. **The counts are in `report.md` and printed by `bash
 | `candidate_additions.txt` | **The candidate-track claim, one pool**: every candidate collection we hold, registrable domains, ISC survey hostnames and server-header hostnames together, minus every name in your `candidate_pool.txt` or in any of your six annual files. Provenance per name is in `provenance/`, `isc_survey_hostnames/isc_survey_provenance.csv` and `server_header_hostnames/header_candidates_provenance.csv` |
 | `candidate_additions_summary.json` | That pool's measured size and equivalent-English, split by counting unit, tied to the reference release |
 | `candidates_unparsed.txt` | **The separately labelled unparsed file your specification asks for**, one row per malformed-but-recoverable value with the reason the parser refused it: `not_rfc1123` (underscores and over-long labels, which the era really had), `no_public_suffix`, `reverse_dns`. Read from the capture journals; in no figure |
-| `baseline/<release>/` | **The reference the additions are counted against**, including the six annual files and `candidate_pool.txt` for exact-name ISC reconciliation. See `baseline/README.txt` |
+| `baseline/<release>/` | **The reference the additions are counted against**, including the six 1996 to 2001 annual files and `candidate_pool.txt` for exact-name ISC reconciliation; each 2002 to 2015 file of yours we add to is named by sha256 in `extended_years/manifest.json`. See `baseline/README.txt` |
 | `provenance/` | The evidence graph as Parquet, plus `trace.py` and `LOAD.sql`. This is what makes the result checkable offline |
 | `audit/` | Normalization and salvage audits, the per-source contribution table, the source-saturation ledger, and `year_growth.csv`, which reconciles `masters/` against `baseline/` plus `additions/` and `hostnames/` |
 | `audit/source_saturation_ledger.csv` | One row per source family evaluated, generated from `sources.md` and `sources-closed.md` by column header. **Thirteen columns**, one per field of the schema you asked for (`coverage_period`, `retrieval_method`, `baseline_overlap`, `effort` and `source_link` among them). `n/a` means the source entry does not say; an empty cell means that page has no such column |
@@ -89,14 +90,15 @@ shasum -a 256 -c [ARCHIVE].tar.gz.sha256   # the sidecar sits beside the .tar.gz
 bash verify.sh                             # from inside this folder
 ```
 
-`verify.sh` prints **fourteen labelled verdicts** and exits non-zero on a failure: checksums; the
+`verify.sh` prints **fifteen labelled verdicts** and exits non-zero on a failure: checksums; the
 six annual and six hostname files with their counts, disjointness and an evidence row per line; the
 ISC collection disjoint from your candidate pool and annual files, its equivalent-English total
 reproduced; the header collection complete and inside the claim; every provenance assignment
-resolving to an evidence row shipped beside it; the four deliverables, among them **your own
-calculator, run from inside this archive, reproducing the audit's baseline figure**; and both open
-research questions folders. SKIP means the checked thing is not in the archive. The calculator
-check needs a writable extraction: it writes into `audit/` and cleans up after itself.
+resolving to an evidence row shipped beside it; the 2002 to 2015 merged files, each your own plus
+additions you lack; the four deliverables, among them **your own calculator, run from inside this
+archive, reproducing the audit's baseline figure**; and both open research questions folders. SKIP
+means the checked thing is not in the archive. The calculator check needs a writable extraction: it
+writes into `audit/` and cleans up after itself.
 
 Why a single domain is in a given year, with no database, only [`uv`](https://docs.astral.sh/uv/),
 one line per observation (source, kind of evidence, artifact or capture timestamp, link):

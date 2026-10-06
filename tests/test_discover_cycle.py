@@ -279,17 +279,17 @@ def test_only_a_class_or_the_send_is_asked(blocked, ask):
 @pytest.mark.parametrize(
     ("brief", "figures"),
     [
-        ({"round": "11", "baseline": "b1", "field5_percent": 5.2}, ["crossed", "5.2000%", "`b1`"]),
+        ({"round": "11", "baseline": "b1", "gate_percent": 5.2}, ["crossed", "5.2000%", "`b1`"]),
         (
-            {"round": "9", "field5_percent": 0.3823, "distance_to_gate_ee": 9876.4},
+            {"round": "9", "gate_percent": 0.3823, "distance_to_gate_ee": 9876.4},
             ["0.3823%", "9,876"],
         ),
-        ({"round": "10", "round_percent": 6.0, "percent": 6.0}, []),
+        ({"round": "10", "field5_percent": 6.0, "percent": 6.0}, []),
         (None, []),
     ],
     ids=["past-the-gate", "under-it", "a-key-the-bank-stopped-writing", "no-brief"],
 )
-def test_the_send_is_field_5_of_the_brief_and_never_a_guess(tmp_path, brief, figures):
+def test_the_send_is_the_gate_line_of_the_brief_and_never_a_guess(tmp_path, brief, figures):
     if brief is not None:
         (tmp_path / "brief.json").write_text(json.dumps(brief))
     line = lead_queue.send_line(tmp_path / "brief.json")
@@ -299,7 +299,7 @@ def test_the_send_is_field_5_of_the_brief_and_never_a_guess(tmp_path, brief, fig
 def test_the_page_asks_a_measured_class_and_the_send_never_the_store(tmp_path, monkeypatch, capsys):
     banked = {"t-line": True, "t-string": "true", "t-false": False}
     lines = [json.dumps({"kind": "outcome", "slug": s, "banked": b}) for s, b in banked.items()]
-    past = {"round": "Round 11", "baseline": "b1", "field5_percent": 5.2, "gate_pct": 5.0}
+    past = {"round": "Round 11", "baseline": "b1", "gate_percent": 5.2, "gate_pct": 5.0}
     files = {**REGISTERS, "brief.json": json.dumps(past), "ledger/2026-09.jsonl": "\n".join(lines)}
     for slug, extra in LEADS.items():
         doc = {"slug": slug, "status": "scouted", "evidence_class": "cdx_x", "grain": "registrable"}
