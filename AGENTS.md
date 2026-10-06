@@ -23,8 +23,8 @@ Rebuild 1996 to 2015's hostnames for Prof. Ding, scored in **equivalent-English 
 - **The window.** A host-year ships only by its own evidence, as an addition to his file for that
   year, 1996 to 2015: 2002 on in `extended_years/YYYY.txt`. All of it counts toward the gate, 5% of
   his 1996 to 2015 EE; nothing ships under it, and the goal is to reach it fast.
-- **Channel.** At most three clients (two laptop, one VPS) query `web.archive.org/cdx`; no agent
-  does. Read a host's terms and whole robots.txt before its first request; back off when it asks.
+- **Channel.** At most three clients (two laptop, one VPS) query `web.archive.org/cdx`, agents only
+  under an owner's contract. Read a host's terms and whole robots.txt first; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
   changes ark-fleet `policy.json` `token`.
 - **Frozen.** His files are append-only; `submissions/` and generated pages (`docs/index.md` marks
