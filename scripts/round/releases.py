@@ -86,7 +86,8 @@ NOT_RECEIVED = {
 
 TREE_ALIASES = {"merged260715-2": Path("legacy-data")}
 
-MARKER = re.compile(r"merged(\d{6})(-\d+)?")
+# He spells it `merged260928` or `merge261006-2`.
+MARKER = re.compile(r"merged?(\d{6})(-\d+)?")
 COLUMNS = ("marker", "released", "received", *map(str, YEARS), "artifact", "sha256")
 BEGIN = "<!-- releases:table -->"
 END = "<!-- /releases:table -->"
@@ -119,13 +120,13 @@ def received_text(marker: str) -> str:
 
 
 def find_trees(feedback: Path, aliases: dict[str, Path]) -> dict[str, list[Path]]:
-    """Extracted release trees by marker: a `merged*` directory holding a year file.
+    """Extracted release trees by marker: a `merge*` directory holding a year file.
 
     Shallowest first, so a duplicate extraction deeper down is reported, not used.
     """
     trees: dict[str, list[Path]] = {}
     if feedback.is_dir():
-        found = (p for p in feedback.rglob("merged*") if p.is_dir() and MARKER.fullmatch(p.name))
+        found = (p for p in feedback.rglob("merge*") if p.is_dir() and MARKER.fullmatch(p.name))
         for p in sorted(found, key=lambda p: (len(p.parts), str(p))):
             if (p / "1996.txt").is_file():
                 trees.setdefault(p.name, []).append(p)
@@ -326,7 +327,7 @@ def split_page(text: str) -> tuple[str, list[dict[str, str]], str]:
     rows = []
     for line in table.strip().splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) != len(COLUMNS) or not cells[0].startswith("`merged"):
+        if len(cells) != len(COLUMNS) or not cells[0].startswith("`merge"):
             continue
         cells[0] = cells[0].strip("`")
         rows.append(dict(zip(COLUMNS, cells, strict=True)))
@@ -431,7 +432,7 @@ def main() -> None:
         return
 
     if not args.feedback.is_dir():
-        print(f"{args.feedback}/ not found: would scan it for merged*/ trees and *.zip files")
+        print(f"{args.feedback}/ not found: would scan it for merge*/ trees and *.zip files")
     if not args.archive.is_dir():
         print(f"{args.archive}/ not found: would look there for <marker>.tar.zst copies")
 

@@ -64,5 +64,5 @@ else
 fi
 ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" \
     "cd /projects/ark-data && [ \$(ls '$MARKER' | grep -c '\\.txt\$') -eq 6 ] \
-    && for d in merged*; do [ \"\$d\" = '$MARKER' ] || rm -rf -- \"\$d\"; done; ls -d merged*"
+    && for d in merge[d0-9]*; do [ \"\$d\" = '$MARKER' ] || rm -rf -- \"\$d\"; done; ls -d merge[d0-9]*"
 echo "fleet prices against $MARKER"
