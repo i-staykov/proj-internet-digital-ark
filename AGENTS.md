@@ -20,8 +20,10 @@ Rebuild 1996 to 2001's domains for Prof. Ding, scored in **equivalent-English (E
   guard. Work in your own worktree, never switching or editing a shared clone.
 - **The owner decides** a new evidence class and packages and sends every round. Asks are
   `needs-owner` issues.
-- **The window.** Nothing dated outside 1996 to 2001 is banked or shipped. The gate is 5%; nothing
-  ships under it, and the goal is to reach it as fast as possible.
+- **The window.** A record ships in `1996.txt` to `2001.txt` only when dated inside 1996 to 2001,
+  and in `extended_years/YYYY.txt` only when its own evidence dates it outside; no year is inferred
+  from another. The gate is 5%; nothing ships under it, and the goal is to reach it as fast as
+  possible.
 - **Channel.** At most three clients (two laptop, one VPS) query `web.archive.org/cdx`; no agent
   does. Read a host's terms and whole robots.txt before its first request; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
