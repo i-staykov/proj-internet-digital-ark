@@ -443,7 +443,7 @@ def _receipted(root: Path, path: Path, receipt: dict) -> str:
 
 
 def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
-    """Superseded release trees (a `merged*` directory with a year file), the release zips
+    """Superseded release trees (a `merge*` directory with a year file), the release zips
     holding none but superseded markers, and the repacked `data/archive/*.tar.zst`. The
     reviewer's own documents are never listed, nor is the current release, matched by its
     resolved path, case-folded, or by its marker, nor a newer one. With no marker to go by,
