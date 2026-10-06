@@ -387,6 +387,7 @@ def _tree_on_disk(where: Path) -> Path:
     where.mkdir(parents=True)
     for y in YEARS:
         (where / f"{y}.txt").write_text("".join(f"site{i}.com\n" for i in range(LINES[y])))
+    (where / "2002.txt").write_text("".join(f"site{i}.com\n" for i in range(4)))
     (where / "candidate_pool.txt").write_text("x.com\n")
     return where
 
@@ -501,7 +502,7 @@ def test_verify_trees_claims_each_copy_that_matches_its_zip_and_writes_nothing(r
     _zip(shallow, feedback / "release.zip")
     assert releases.find_trees(feedback, {})[shallow.name] == [shallow, deep]
     last = (out := run(releases, "--verify-trees")).splitlines()[-1]
-    assert out.count("7 members, 7 matched, 0 mismatched, 0 missing on disk, 0 extra on disk") == 3
+    assert out.count("8 members, 8 matched, 0 mismatched, 0 missing on disk, 0 extra on disk") == 3
     assert all(str(tree) in last for tree in (future, shallow, deep))
     (deep / "1996.txt").write_text(ZITE)  # one failing copy leaves the others claimed
     last = run(releases, "--verify-trees", stops="^1$").splitlines()[-1]
@@ -556,6 +557,9 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert current["reviewer_pairs"] == sum(LINES.values())
     assert current["reviewer_ee_by_year"]["2001"] == "2468.0000"
     assert current["reviewer_ee"] == f"{2 * sum(LINES.values())}.0000"
+    # The extended baseline is measured apart and replaces the tracked release's.
+    extended = ("reviewer_extended_pairs", "reviewer_extended_ee", "reviewer_extended_ee_by_year")
+    assert [current[k] for k in extended] == [4, "8.0000", {"2002": "8.0000"}]
     # The round fields and the ledger are separate decisions, left where they were.
     assert all(current[k] == tracked["current"][k] for k in ("round_label", "round_since"))
     assert (written["rounds"], written["original"]) == (tracked["rounds"], tracked["original"])

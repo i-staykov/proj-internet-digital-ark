@@ -301,6 +301,18 @@ cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
+# extended_years/: his 2002 to 2015 file merged with our additions for each year we add to,
+# the additions alone, their ledger, dedup report and manifest, as extended_export.py wrote them.
+EXT=output/extended_years
+if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
+    uv run python scripts/round/extended_export.py --check \
+        || { echo "refusing to package: $EXT is stale" >&2; exit 1; }
+    mkdir -p "$STAGE/extended_years"
+    cp -R "$EXT/additions" "$EXT"/20[01][0-9].txt "$EXT/evidence_ledger.csv" \
+        "$EXT/dedup_report.csv" "$EXT/manifest.json" "$STAGE/extended_years/"
+else
+    echo "no extended additions: packaging without extended_years/"
+fi
 # ISC candidates must stay separate from annual records and carry per-host provenance.
 mkdir -p "$STAGE/isc_survey_hostnames"
 cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \

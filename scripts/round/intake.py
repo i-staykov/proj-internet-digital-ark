@@ -13,9 +13,10 @@ command, and the order is fixed:
     uv run python scripts/round/intake.py his.zip --dry-run
 
 **Every figure is read from the extracted files, never from his mail.** The pairs are
-`wc -l` over the six year files and the equivalent-English is his own calculator run
-over each of them, because the mail quotes a merge we cannot check and the files are
-what every diff against him reads.
+`wc -l` over the six core year files and the 2002 to 2015 files present (the extended
+baseline, kept apart), and the equivalent-English is his own calculator run over each,
+because the mail quotes a merge we cannot check and the files are what every diff against
+him reads.
 
 The run is idempotent: a second run on the same zip re-reads what is there, writes
 nothing and says so, and the expensive step is skipped when the JSON already carries
@@ -57,7 +58,7 @@ releases = _load("releases")
 # against, which is the one this run is about to replace.
 rounds = _load("rounds")
 
-from ark.baseline import calculator_path  # noqa: E402
+from ark.baseline import EXTENDED_YEARS, calculator_path  # noqa: E402
 
 BASELINE_JSON = Path("data/baseline.json")
 YEARS = releases.YEARS
@@ -174,31 +175,51 @@ def measure_year(calculator: Path, year_file: Path) -> Decimal:
     return Decimal(summary["equivalent_english_domains"]).quantize(FOUR_PLACES)
 
 
-def kept_ee(current: dict, marker: str, counts: dict[int, int]) -> dict[str, str] | None:
-    """The stored per-year EE, when it belongs to exactly these files."""
+def kept_ee(
+    current: dict, marker: str, counts: dict[int, int], prefix: str = "reviewer"
+) -> dict[str, str] | None:
+    """The stored per-year EE, when it belongs to exactly these files. `prefix` picks the
+    core keys or the `reviewer_extended` ones, so each block skips its own measuring."""
     if current.get("marker") != marker:
         return None
-    if current.get("reviewer_pairs") != sum(counts.values()):
+    if current.get(f"{prefix}_pairs") != sum(counts.values()):
         return None
-    stored = current.get("reviewer_ee_by_year", {})
+    stored = current.get(f"{prefix}_ee_by_year", {})
     if sorted(stored) != sorted(str(y) for y in counts):
         return None
     return stored
 
 
-def update_baseline(path: Path, marker: str, tree: Path, stamp: str, pairs: int, ee: dict) -> bool:
-    """Point `data/baseline.json` at the new release, leaving the round fields alone."""
+def _total(ee: dict) -> str:
+    return f"{sum((Decimal(v) for v in ee.values()), Decimal(0)):.4f}"
+
+
+def update_baseline(
+    path: Path,
+    marker: str,
+    tree: Path,
+    stamp: str,
+    pairs: int,
+    ee: dict,
+    ext_pairs: int = 0,
+    ext_ee: dict | None = None,
+) -> bool:
+    """Point `data/baseline.json` at the new release, leaving the round fields alone. The
+    extended keys are always written, zero when the release has no 2002 to 2015 file."""
     data = json.loads(path.read_text(encoding="utf-8"))
     before = json.dumps(data, indent=2, ensure_ascii=False)
-    total = sum((Decimal(v) for v in ee.values()), Decimal(0))
+    ext_ee = ext_ee or {}
     data["current"].update(
         {
             "marker": marker,
             "directory": tree.as_posix(),
             "released_at": stamp,
             "reviewer_pairs": pairs,
-            "reviewer_ee": f"{total:.4f}",
+            "reviewer_ee": _total(ee),
             "reviewer_ee_by_year": ee,
+            "reviewer_extended_pairs": ext_pairs,
+            "reviewer_extended_ee": _total(ext_ee),
+            "reviewer_extended_ee_by_year": ext_ee,
         }
     )
     after = json.dumps(data, indent=2, ensure_ascii=False)
@@ -288,33 +309,44 @@ def main() -> None:
             changed.append(str(beside))
 
     counts: dict[int, int] = {}
+    ext_counts: dict[int, int] = {}
     with step("line counts"):
         if tree is None:
             print("  nothing extracted yet")
         else:
             counts = year_counts(tree)
-            for year in YEARS:
-                print(f"  {year} {counts[year]:,}")
-            print(f"  {sum(counts.values()):,} pairs")
+            ext_counts = {
+                y: releases.count_lines(tree / f"{y}.txt")
+                for y in EXTENDED_YEARS
+                if (tree / f"{y}.txt").is_file()
+            }
+            for year, n in (counts | ext_counts).items():
+                print(f"  {year} {n:,}")
+            print(f"  {sum(counts.values()):,} pairs, {sum(ext_counts.values()):,} extended")
 
     ee: dict[str, str] = {}
+    ext_ee: dict[str, str] = {}
     with step("equivalent English"):
         data = json.loads(args.baseline_json.read_text(encoding="utf-8"))
-        stored = None if args.recompute else kept_ee(data["current"], marker, counts)
         calculator = args.calculator or calculator_path()
-        if stored is not None:
-            ee = stored
-            print(f"  unchanged, kept from {args.baseline_json}")
-        elif not counts:
-            print("  nothing to measure")
-        elif dry:
-            print(f"  would run {calculator} over {len(counts)} year files")
-        elif not Path(calculator).is_file():
-            raise SystemExit(f"calculator not found at {calculator}")
-        else:
-            for year in YEARS:
-                ee[str(year)] = f"{measure_year(Path(calculator), tree / f'{year}.txt'):.4f}"
-                print(f"  {year} {ee[str(year)]}")
+        for block, years, prefix in (
+            (ee, counts, "reviewer"),
+            (ext_ee, ext_counts, "reviewer_extended"),
+        ):
+            stored = None if args.recompute else kept_ee(data["current"], marker, years, prefix)
+            if stored is not None:
+                block.update(stored)
+                print(f"  {prefix}: unchanged, kept from {args.baseline_json}")
+            elif not years:
+                print(f"  {prefix}: nothing to measure")
+            elif dry:
+                print(f"  would run {calculator} over {len(years)} year files")
+            elif not Path(calculator).is_file():
+                raise SystemExit(f"calculator not found at {calculator}")
+            else:
+                for year in years:
+                    block[str(year)] = f"{measure_year(Path(calculator), tree / f'{year}.txt'):.4f}"
+                    print(f"  {year} {block[str(year)]}", flush=True)
 
     with step(str(args.baseline_json)):
         stamp = released_at(args.zip, marker, args.released_at)
@@ -322,7 +354,16 @@ def main() -> None:
             print(f"  would name {marker}, released {stamp}")
         elif not ee or tree is None:
             print("  nothing measured, left alone")
-        elif update_baseline(args.baseline_json, marker, tree, stamp, sum(counts.values()), ee):
+        elif update_baseline(
+            args.baseline_json,
+            marker,
+            tree,
+            stamp,
+            sum(counts.values()),
+            ee,
+            sum(ext_counts.values()),
+            ext_ee,
+        ):
             print(f"  now names {marker}, released {stamp}")
             changed.append(str(args.baseline_json))
         else:

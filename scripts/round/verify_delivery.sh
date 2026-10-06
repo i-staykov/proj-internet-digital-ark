@@ -9,7 +9,8 @@
 # an evidence row for every addition; the hostname files, disjoint from the registrable files,
 # and an evidence row for each; the ISC candidate collection reconciled against the reference
 # release; the header candidate collection complete and inside the claim; the evidence wall
-# (every provenance assignment cites an evidence row shipped here); then the four deliverables
+# (every provenance assignment cites an evidence row shipped here); the 2002 to 2015 extended
+# years, each merged file his own plus additions he lacks; then the four deliverables
 # D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
 # asked, every merge reconciliation check passed and agrees with the shipped files, and the
 # reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
@@ -26,7 +27,7 @@ cd "${1:-$(dirname "$0")}"
 fail=0
 # The labelled verdicts a full archive prints. Packaging refuses a reproduction note that
 # names another count, and tests/test_orq.py counts the labels in this file against it.
-VERDICTS=14
+VERDICTS=15
 say() { printf '%-46s %s\n' "$1" "$2"; }
 
 # --- 1. file integrity -------------------------------------------------------
@@ -212,6 +213,57 @@ print(n)
 else
     say "evidence wall intact" "SKIP  no provenance export here"
 fi
+
+# --- the extended years: his 2002 to 2015 file plus additions he lacks ---------
+# His files are not shipped, so the proof is that the merged file minus our additions hashes
+# to the sha256 the manifest records for his, and that no addition was already in it.
+python3 - <<'PY' || fail=1
+import csv
+import hashlib
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path("extended_years")
+if not (root / "manifest.json").is_file():
+    print(f"{'extended years':<46} SKIP  no extended_years/ in this archive")
+    sys.exit(0)
+env = {**os.environ, "LC_ALL": "C"}
+manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+ledger = {}
+with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
+    for row in csv.DictReader(fh):
+        ledger.setdefault(row["year"], []).append(row["host"])
+problems, shipped = [], 0
+for year, entry in sorted(manifest["years"].items()):
+    adds, merged = root / "additions" / f"{year}.txt", root / f"{year}.txt"
+    if not 2002 <= int(year) <= 2015:
+        problems.append(f"{year} is outside 2002 to 2015")
+    if not entry["accepted_new"]:
+        continue
+    for path in (adds, merged):
+        if subprocess.run(["sort", "-c", "-u", str(path)], env=env, capture_output=True).returncode:
+            problems.append(f"{path} is not sorted and unique")
+    if subprocess.run(["comm", "-13", str(merged), str(adds)], env=env, capture_output=True).stdout:
+        problems.append(f"{adds} has a line {merged} lacks")
+    his = subprocess.Popen(["comm", "-23", str(merged), str(adds)], env=env, stdout=subprocess.PIPE)
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: his.stdout.read(1 << 20), b""):
+        digest.update(chunk)
+    if digest.hexdigest() != entry["baseline_sha256"]:
+        problems.append(f"{merged} minus additions is not his {year}.txt")
+    his.wait()
+    names = adds.read_text(encoding="utf-8").splitlines()
+    if names != ledger.get(year, []) or len(names) != entry["accepted_new"]:
+        problems.append(f"{adds}, its ledger rows and the manifest disagree")
+    shipped += len(names)
+if problems:
+    print(f"{'extended years':<46} FAIL  {'; '.join(problems[:5])}")
+    sys.exit(1)
+print(f"{'extended years':<46} PASS  {shipped:,} additions, none his, merged files his plus ours")
+PY
 
 # --- 5 to 8. the four added deliverables -------------------------------------
 python3 - <<'PY' || fail=1

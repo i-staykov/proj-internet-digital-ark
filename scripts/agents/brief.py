@@ -4,9 +4,9 @@ Reads `data/brief.json`, which `just bank` and `just state` write, the hold file
 writes, the names at the root and in `data/`, and `private/handoff.md` when the last session
 left one. Stdlib only, never the store and
 never the network: the SessionStart hook stops it at 10 s, and opening the store waits
-up to 900 s on a writer's lock. So this reads a file and says how old it is. Field 5 is
-quoted as the snapshot spells it; a stale or missing snapshot, or one without field 5,
-is one line saying where to look.
+up to 900 s on a writer's lock. So this reads a file and says how old it is. Field 5 and
+the gate are quoted as the snapshot spells them; a stale or missing snapshot, or one without
+the gate, is one line saying where to look.
 
     uv run python scripts/agents/brief.py            # just brief
 """
@@ -57,8 +57,8 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
     age = hours_between(parse_stamp(snapshot["written_at"]), now)
     if age > STALE_HOURS:
         return [f"brief is {age / 24:.1f} days old ({snapshot['written_at']}): run `just state`"]
-    if "field5_percent" not in snapshot:
-        return ["brief carries no field 5: docs/ROUND.md says why"]
+    if "gate_percent" not in snapshot:
+        return ["brief carries no gate figure: docs/ROUND.md says why"]
     gap = snapshot["distance_to_gate_ee"]
     gate = f"{snapshot['gate_pct']:g}%"
     standing = (
@@ -68,7 +68,8 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
         f"brief written {age:.1f} h ago ({snapshot['written_at']})",
         f"round {snapshot['round']} against {snapshot['baseline']}: "
         f"field 3 {snapshot['netnew_pairs']:,} records, field 4 {snapshot['netnew_ee']:,.4f} EE, "
-        f"field 5 {snapshot['field5_percent']}%, {standing}",
+        f"field 5 {snapshot['field5_percent']}%, gate {snapshot['gate_percent']}% of 1996 to 2015, "
+        f"{standing}",
         f"waiting on a human: {snapshot['waiting_on_human']['approvals']} approvals pending",
     ]
     pending = snapshot["pending_amendments"]

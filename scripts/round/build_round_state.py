@@ -12,8 +12,9 @@ assembles the answer from the programs that own each piece rather than restating
 By default it reads files and never the store, so the bank writes it while it holds the writer,
 and `just state` runs the same. `--full` adds the two store sections, read-only.
 
-The brief takes fields 3 to 5 as the very strings ROUND.md prints, so every reader quotes one
-field 5. `just brief` prints it from a session-start hook, so it stays small.
+The brief takes fields 3 to 5 and the GATE line as the very strings ROUND.md prints, so every
+reader quotes one gate figure: core plus extended over his 1996 to 2015 total. `just brief`
+prints it from a session-start hook, so it stays small.
 
 **Staleness is detectable rather than prevented.** The footer holds his release's marker and
 the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
@@ -45,8 +46,12 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
     CURRENT_ROUND_LABEL,
     CURRENT_ROUND_SINCE,
+    GATE_BASELINE_EE,
+    GATE_PCT,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
+    REVIEWER_EXTENDED_EE,
+    REVIEWER_EXTENDED_PAIRS,
 )
 from ark.stats import collect_stats, format_stats  # noqa: E402
 
@@ -54,12 +59,14 @@ OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
-GATE_PCT = Decimal(5)
-# Fields 3 to 5 exactly as round_figures prints them.
+EXTENDED_MANIFEST = Path("output/extended_years/manifest.json")
+# Fields 3 to 5 and the gate line exactly as round_figures prints them.
 FIELD_RE = {
     "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
     "4": re.compile(r"^4\. .*: ([0-9,.]+)$", re.M),
     "5": re.compile(r"^5\. .*: ([0-9.]+)%$", re.M),
+    "gate_ee": re.compile(r"^GATE\. .*: ([0-9,.]+) = ", re.M),
+    "gate": re.compile(r"^GATE\. .*= ([0-9.]+)% of ", re.M),
 }
 STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 
@@ -93,9 +100,11 @@ def run(cmd: list[str], timeout: int) -> str:
 
 
 def claim_state() -> dict[str, str]:
-    """His release's marker, then each claim file's sha256 by its path under `output/`."""
-    state = {"baseline": CURRENT_BASELINE_MARKER}
-    for path in export.claim_files(ROOT / export.NETNEW_DIR, ROOT / export.CANDIDATES_PATH):
+    """His release's marker and gate denominator, then each claim file's sha256 by its path
+    under `output/`, the extended export's manifest among them."""
+    state = {"baseline": CURRENT_BASELINE_MARKER, "gate_ee": str(GATE_BASELINE_EE)}
+    claim = export.claim_files(ROOT / export.NETNEW_DIR, ROOT / export.CANDIDATES_PATH)
+    for path in [*claim, ROOT / EXTENDED_MANIFEST]:
         rel = path.relative_to(ROOT / "output").as_posix()
         if path.is_file():
             with path.open("rb") as fh:
@@ -143,8 +152,9 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
 
 
 def brief(fields: dict[str, str] | None, approvals: int) -> dict:
-    """The snapshot `scripts/agents/brief.py` prints. Without the five fields it carries no
-    `field5_percent`, and every reader refuses rather than quote a figure of its own."""
+    """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate line
+    it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
+    `field5_percent` stays as the core component, for information."""
     snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
@@ -152,12 +162,15 @@ def brief(fields: dict[str, str] | None, approvals: int) -> dict:
     }
     if fields:
         ee = Decimal(fields["4"].replace(",", ""))
+        gate_ee = Decimal(fields["gate_ee"].replace(",", ""))
         snapshot |= {
             "netnew_pairs": int(fields["3"].replace(",", "")),
             "netnew_ee": float(ee),
-            # a string, so the trailing zeros ROUND.md prints survive `jq -r`
+            # strings, so the trailing zeros ROUND.md prints survive `jq -r`
             "field5_percent": fields["5"],
-            "distance_to_gate_ee": round(float(REVIEWER_BASELINE_EE * GATE_PCT / 100 - ee), 4),
+            "gate_ee": float(gate_ee),
+            "gate_percent": fields["gate"],
+            "distance_to_gate_ee": round(float(GATE_BASELINE_EE * GATE_PCT / 100 - gate_ee), 4),
         }
     return snapshot | {
         "gate_pct": float(GATE_PCT),
@@ -195,7 +208,9 @@ def build(full: bool = False) -> tuple[str, dict]:
         "than correcting it.**",
         "",
         f"Measured against **{CURRENT_BASELINE_MARKER}**, the reviewer's current release:",
-        f"{REVIEWER_BASELINE_PAIRS:,} pairs and {REVIEWER_BASELINE_EE:,.4f} equivalent-English.",
+        f"{REVIEWER_BASELINE_PAIRS:,} pairs and {REVIEWER_BASELINE_EE:,.4f} equivalent-English",
+        f"in 1996 to 2001, {REVIEWER_EXTENDED_PAIRS:,} and {REVIEWER_EXTENDED_EE:,.4f} in 2002",
+        f"to 2015; the {GATE_PCT}% gate is of their {GATE_BASELINE_EE:,.4f} together.",
     ]
     if full:
         parts += [
@@ -298,14 +313,16 @@ def main() -> None:
     OUT.write_text(body, encoding="utf-8")
     BRIEF.parent.mkdir(parents=True, exist_ok=True)
     BRIEF.write_text(json.dumps(snapshot, indent=1) + "\n", encoding="utf-8")
-    if "field5_percent" not in snapshot:
+    if "gate_percent" not in snapshot:
+        why = export_problem() or "round_figures.py failed"
         raise SystemExit(
-            f"wrote {OUT.relative_to(ROOT)} without the five fields, so data/brief.json carries "
-            f"no field 5: {export_problem() or 'round_figures.py failed'}"
+            f"wrote {OUT.relative_to(ROOT)} without the five fields and the gate line, so "
+            f"data/brief.json carries no gate figure: {why}"
         )
     print(
         f"wrote {OUT.relative_to(ROOT)}: field 3 {snapshot['netnew_pairs']:,} records, "
         f"field 4 {snapshot['netnew_ee']:,.4f} EE, field 5 {snapshot['field5_percent']}%, "
+        f"gate {snapshot['gate_percent']}% of 1996 to 2015, "
         f"{snapshot['distance_to_gate_ee']:,.4f} EE short of {GATE_PCT}%"
     )
 

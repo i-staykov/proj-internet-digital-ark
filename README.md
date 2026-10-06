@@ -1,6 +1,6 @@
 # Internet Digital Ark
 
-A reproducible pipeline that collects historical **domain names for 1996-2001**, each record backed
+A reproducible pipeline that collects historical **domain names for 1996-2015**, each record backed
 by **item-level, per-year evidence**, and ships them as verifiable additions to a baseline the
 reviewer supplies. Built for the Internet Digital Ark research project (Prof. Xiaowei Ding), it
 ships two units, registrable domains and the valid hostnames beneath them, scored in

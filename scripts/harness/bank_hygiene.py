@@ -351,13 +351,14 @@ def gate(
 ) -> list[str]:
     """Open the gate issue on a crossing, once, and say what it did.
 
-    The figure is field 5 from `data/brief.json`, which `build_round_state.py` writes at
-    the end of the bank, quoted as ROUND.md prints it rather than measured a second time.
+    The figure is the gate line of `data/brief.json`, core plus extended over his 1996 to 2015
+    total, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md prints
+    it rather than measured a second time.
     """
     now = now or datetime.now(UTC)
-    # Field 5 counts against his release, so a shipped round reads over the gate until the
-    # next release, and the latch below keys on the release alone: one crossing per release.
-    percent = brief["field5_percent"]
+    # The gate counts against his release, so a shipped round reads over it until the next
+    # release, and the latch below keys on the release alone: one crossing per release.
+    percent = brief["gate_percent"]
     target = float(brief.get("gate_pct", 5.0))
     label = str(brief.get("round", "?"))
     # The brief carries the round number as a bare label ("8"), and the open-issue
@@ -398,7 +399,8 @@ def gate(
     title = f"{round_name} at {percent}% against {marker}{since} at {stamp}"
     body = "\n".join(
         [
-            f"{round_name} crossed the {target:g}% gate: field 5 is {percent}% against "
+            f"{round_name} crossed the {target:g}% gate: {percent}% of his 1996 to 2015 total "
+            f"(core field 5 {brief.get('field5_percent', '?')}%, the rest extended) against "
             f"`{marker}`{since}, read off the last bank at {now.isoformat(timespec='seconds')}.",
             "",
             "Next: merge any open approval PR, then run `just ship` where the store is.",
@@ -432,8 +434,8 @@ def _brief() -> dict | None:
             f"{CURRENT_BASELINE_MARKER}: refresh it before the gate is read"
         )
         return None
-    if "field5_percent" not in brief:
-        print("brief carries no field5_percent: docs/ROUND.md says why; gate not checked")
+    if "gate_percent" not in brief:
+        print("brief carries no gate_percent: docs/ROUND.md says why; gate not checked")
         return None
     return brief
 

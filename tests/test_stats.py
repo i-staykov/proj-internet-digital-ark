@@ -236,11 +236,19 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     monkeypatch.setattr(rf, "his_year", lambda year: his / f"{year}.txt")
     monkeypatch.setattr(rf, "NETNEW", netnew)
     monkeypatch.setattr(rf, "ATTESTED", netnew / "attested_registrables.txt")
+    monkeypatch.setattr(rf, "EXTENDED", tmp_path / "missing")
+    rf.main()
+    assert "GATE. Core plus extended, 1996-2015           : 1.7500 = " in capsys.readouterr().out
+    _write(tmp_path / "x/additions", {"2002.txt": "x.com\n"})
+    monkeypatch.setattr(rf, "EXTENDED", tmp_path / "x")
     rf.main()
     out = capsys.readouterr().out
     field = dict(re.findall(r"^([345])\. .*: (.+)$", out, re.M))
     assert field == {"3": "4 records", "4": "1.7500", "5": f"{D('1.75') / rf.BASELINE_EE:.6%}"}
-    assert "| 2001 | 4 | 1.7500 |" in out
+    assert "| 2001 | 4 | 1.7500 |" in out and "| 2002 | 1 | 0.5000 |" in out
+    # The gate is core plus extended over his 1996 to 2015 total, the core alone never.
+    gate = re.search(r"^GATE\. .*: 2\.2500 = ([0-9.]+)% of", out, re.M).group(1)
+    assert gate == f"{D('2.25') / (rf.BASELINE_EE + rf.REVIEWER_EXTENDED_EE) * 100:.6f}"
     # a.com is his 2001 and c.net is attested 2001; b.com is held only in 2000
     assert ": 2 records  0.7500  (60.0% of the hostname half)" in out
     (netnew / "1996.txt").unlink()
@@ -306,6 +314,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     tmp_path, monkeypatch, capsys
 ) -> None:
     figures = "3. Increment : 1,234 records\n4. EE : 3,456.7800\n5. EE growth : 0.252350%\n"
+    figures += "GATE. Core plus extended : 4,000.0000 = 0.001944% of 205,789,506.8739, gate 5%\n"
     calls = []
     paths = dict(ROOT=tmp_path, OUT=tmp_path / "ROUND.md", BRIEF=tmp_path / "brief.json")
     run = lambda cmd, timeout: calls.append(cmd) or figures  # noqa: E731
@@ -320,6 +329,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     page, brief = brs.OUT.read_text(), json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
     assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", {"approvals": 0})
+    assert (brief["gate_percent"], brief["gate_ee"]) == ("0.001944", 4000.0)
     assert re.search(r"^5\. .*: (.+)$", page, re.M).group(1) == "0.252350%"
     monkeypatch.setattr(sys, "argv", ["build_round_state.py", "--check"])
     brs.main()
@@ -332,4 +342,4 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
     with pytest.raises(SystemExit, match="no export stamp"):
         brs.main()
-    assert "field5_percent" not in json.loads(brs.BRIEF.read_text())
+    assert "gate_percent" not in json.loads(brs.BRIEF.read_text())

@@ -50,6 +50,19 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_ee_by_year"].items()
 }
 
+# His 2002 to 2015 files of the same release, the extended baseline, measured the same way and
+# kept apart so every core figure keeps meaning 1996 to 2001. Zero when a release has none.
+EXTENDED_YEARS = range(2002, 2016)
+REVIEWER_EXTENDED_PAIRS = _CURRENT["reviewer_extended_pairs"]
+REVIEWER_EXTENDED_EE = Decimal(_CURRENT["reviewer_extended_ee"])
+REVIEWER_EXTENDED_EE_BY_YEAR = {
+    int(year): Decimal(value) for year, value in _CURRENT["reviewer_extended_ee_by_year"].items()
+}
+
+# The gate: core and extended additions together, against his 1996 to 2015 total.
+GATE_PCT = Decimal(5)
+GATE_BASELINE_EE = REVIEWER_BASELINE_EE + REVIEWER_EXTENDED_EE
+
 # The corpus before this project's FIRST submission, `merged260715-2`, shipped as
 # `legacy-data/`. **Not the cumulative denominator**: the cumulative contribution is
 # quoted against the CURRENT corpus, `REVIEWER_BASELINE_EE`. Kept as the

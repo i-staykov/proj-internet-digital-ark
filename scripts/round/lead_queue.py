@@ -275,13 +275,13 @@ def _cell(text: str, width: int) -> str:
 
 def send_line(path: Path = BRIEF) -> str:
     """The send, the one ask no lead carries: where the round stands against the 5% gate, read
-    from the brief the bank writes, the way `bank_hygiene.py gate` reads it: field 5."""
+    from the brief the bank writes, the way `bank_hygiene.py gate` reads it: the gate line."""
     brief = _json(path)
     try:
-        percent = float(brief["field5_percent"])
+        percent = float(brief["gate_percent"])
         target = float(brief.get("gate_pct", 5.0))
     except (KeyError, TypeError, ValueError):
-        return "Not known here: `data/brief.json` is missing or carries no field 5 figure."
+        return "Not known here: `data/brief.json` is missing or carries no gate figure."
     label = str(brief.get("round", "?"))
     name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))

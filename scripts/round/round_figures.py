@@ -2,7 +2,9 @@
 
 He set the reporting format on 6 August and it is not the same shape as our own
 report: lines 1 and 2 are the state of HIS merged database before our increment,
-lines 3 and 4 are what we add, and line 5 is 4 divided by 2. Keeping his
+lines 3 and 4 are what we add, and line 5 is 4 divided by 2. They are the core, 1996 to
+2001; the extended block beneath prices `output/extended_years/additions/` against his 2002
+to 2015 files, and the GATE line is both increments over his 1996 to 2015 total. Keeping his
 convention in code rather than in someone's head is the only way the growth rate
 stays comparable between rounds, because the obvious alternative, dividing by the
 post-increment total, is wrong by about 2% of itself and looks right.
@@ -43,9 +45,16 @@ import duckdb  # noqa: E402
 from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
+    EXTENDED_YEARS,
+    GATE_BASELINE_EE,
+    GATE_PCT,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
+    REVIEWER_EXTENDED_EE,
+    REVIEWER_EXTENDED_EE_BY_YEAR,
+    REVIEWER_EXTENDED_PAIRS,
+    baseline_dir,
     calculator_path,
 )
 from ark.db import DB_TEMP_DIR  # noqa: E402
@@ -54,6 +63,8 @@ from ark.english_share import english_weights  # noqa: E402
 STORE = Path("data/ark.duckdb")
 YEARS = range(1996, 2002)
 NETNEW = REPO / "output/netnew"
+# `scripts/round/extended_export.py` writes it; absent means no extended addition yet.
+EXTENDED = REPO / "output/extended_years"
 # `YYYY<TAB>registrable` for every pair of ours that his year file lacks, sorted as a whole
 # under LC_ALL=C. With his files and ours it is every name held in a year.
 ATTESTED = NETNEW / "attested_registrables.txt"
@@ -218,6 +229,12 @@ def verify_with_his_calculator() -> dict:
     totals["overlap"] = already_in_his_files()
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
+        for year in EXTENDED_YEARS:
+            path = EXTENDED / "additions" / f"{year}.txt"
+            if path.exists():
+                per_year[year] = [h.strip() for h in path.read_text().splitlines() if h.strip()]
+                his = baseline_dir() / f"{year}.txt"
+                totals["overlap"] += held.intersect(path, his, work / f"o{year}")
         for year, domains in sorted(per_year.items()):
             listing = work / f"increment_{year}.txt"
             listing.write_text("\n".join(domains) + "\n", encoding="utf-8")
@@ -237,7 +254,9 @@ def verify_with_his_calculator() -> dict:
     return totals
 
 
-def shipped_by_year(pattern: str) -> dict[int, tuple[int, Decimal]]:
+def shipped_by_year(
+    pattern: str, years=YEARS, base: Path | None = None
+) -> dict[int, tuple[int, Decimal]]:
     """Records and EE per year of a shipped annual file family, priced with his weight model.
 
     What he merges is the shipped files, so that is what the five fields count, both units,
@@ -246,9 +265,9 @@ def shipped_by_year(pattern: str) -> dict[int, tuple[int, Decimal]]:
     """
     weights = english_weights()
     by_year = {}
-    for year in YEARS:
+    for year in years:
         records, year_ee = 0, Decimal(0)
-        path = NETNEW / pattern.format(year=year)
+        path = (base or NETNEW) / pattern.format(year=year)
         if path.exists():
             with path.open() as fh:
                 for line in fh:
@@ -391,6 +410,10 @@ def main() -> None:
     h_pairs, h_ee = summed(h_years)
     all_pairs, all_ee = r_pairs + h_pairs, r_ee + h_ee
     growth = all_ee / BASELINE_EE * 100
+    x_years = shipped_by_year("additions/{year}.txt", EXTENDED_YEARS, EXTENDED)
+    x_pairs, x_ee = summed(x_years)
+    x_growth = x_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
+    gate_ee = all_ee + x_ee
 
     print("The five fields, in his order\n")
     print(f"1. Total number of original domains 1996-2001 : {BASELINE_PAIRS:,}")
@@ -398,6 +421,18 @@ def main() -> None:
     print(f"3. Increment                                  : {all_pairs:,} records")
     print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
+    print(
+        f"   extended baseline 2002-2015                 : {REVIEWER_EXTENDED_PAIRS:,} records  "
+        f"{REVIEWER_EXTENDED_EE:,.4f}"
+    )
+    print(
+        f"   extended increment (extended_years/)        : {x_pairs:,} records  {x_ee:,.4f}  "
+        f"growth {x_growth:.6f}%"
+    )
+    print(
+        f"GATE. Core plus extended, 1996-2015           : {gate_ee:,.4f} = "
+        f"{gate_ee / GATE_BASELINE_EE * 100:.6f}% of {GATE_BASELINE_EE:,.4f}, gate {GATE_PCT}%"
+    )
     print(f"\n  registrable domains (additions/)  : {r_pairs:,} records  {r_ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
     www = www_alias_share()
@@ -442,6 +477,10 @@ def main() -> None:
         year_ee = r_years[year][1] + h_years[year][1]
         share = year_ee / BASELINE_EE_BY_YEAR[year] * 100
         print(f"| {year} | {n:,} | {year_ee:,.4f} | {share:.4f}% |")
+    for year, (n, year_ee) in x_years.items():
+        if n:
+            share = year_ee / REVIEWER_EXTENDED_EE_BY_YEAR[year] * 100
+            print(f"| {year} | {n:,} | {year_ee:,.4f} | {share:.4f}% |")
 
     if args.full:
         conn = open_store()
@@ -479,8 +518,8 @@ def main() -> None:
     print(f"  rejected by his validator : {his['invalid']:,}")
     print(f"  already in his merged files: {his['overlap']:,}")
     print(f"  his equivalent-English    : {his['ee']:,.4f}")
-    print(f"  ours                      : {all_ee:,.4f}")
-    difference = his["ee"] - all_ee
+    print(f"  ours                      : {gate_ee:,.4f}")
+    difference = his["ee"] - gate_ee
     print(f"  difference                : {difference:,.4f}")
     if difference != 0 or his["invalid"] or his["overlap"]:
         raise SystemExit(
