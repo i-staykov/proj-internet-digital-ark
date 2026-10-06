@@ -14,7 +14,7 @@ days in between. One row per release he has named, oldest first.
   machine. `merged260715-2` is the task's original corpus and lives in `legacy-data/`.
 
 `pending` is a cell the script has not been able to measure yet; `none` is a cell nothing can
-ever fill. `scripts/round/releases.py` fills the table from `feedback/` and `data/archive/`,
+ever fill. `scripts/round/releases.py` fills the table from `ding/` and `data/archive/`,
 writes only the cells it can compute, and prints the `zstd` command for any tree that still has
 neither zip nor tarball (`--zstd` runs it). The table, not the script, is the record: an
 off-site copy is verified against these hashes.

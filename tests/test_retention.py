@@ -62,7 +62,7 @@ ZIP_FAULTS = {
     "stale": lambda tree, archive: archive.write_bytes(archive.read_bytes() + b"updated"),
 }
 OLD_STAGE, NEW_STAGE = (f"DomainDataCollectionTask_2026010{d}0000_IvayloStaykov" for d in (1, 2))
-CURRENT, OLD = "feedback/Current_Release/merged261231", "feedback/Old_Release/merged260101"
+CURRENT, OLD = "ding/Current_Release/merged261231", "ding/Old_Release/merged260101"
 CDX, ZIP, TARBALL = b"the node cdx", b"a usenet zip", b"the round as sent"
 HOST, SPENT = ("host_cdx_ia600702", "ia600702.hostcdx.gz"), "data/raw/host_cdx/ia600702.hostcdx.gz"
 UNLISTED = ("Current_Release", "Newer_Release", "merged270101", "Both.zip", "jsonl.gz")
@@ -291,7 +291,7 @@ def test_a_backup_goes_after_a_later_credited_round_and_a_clean_check(tmp_path, 
 @pytest.mark.parametrize("fault", ["ok", "dry-run", "second-release", *ZIP_FAULTS])
 def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, fault):
     """Receipted files under submissions/, output/ and data/raw are never in scope."""
-    tree, archive = disk_repo(tmp_path)["old"], tmp_path / "feedback/Old_Release.zip"
+    tree, archive = disk_repo(tmp_path)["old"], tmp_path / "ding/Old_Release.zip"
     if fault == "second-release":
         with zipfile.ZipFile(archive, "a") as zf:
             zf.writestr("another/merged250505/1996.txt", b"another.org")
@@ -301,7 +301,7 @@ def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, f
     before = {p.name: p.read_bytes() for p in tree.iterdir()}
     ZIP_FAULTS.get(fault, lambda *a: None)(tree, archive)
     lines = prune.round_cleanup(tmp_path, write=fault != "dry-run")[1]
-    assert ("removed: feedback/Old_Release.zip" in lines) is (fault == "ok")
+    assert ("removed: ding/Old_Release.zip" in lines) is (fault == "ok")
     assert archive.exists() is (fault != "ok") and all(p.exists() for p in scoped)
     assert fault != "ok" or {p.name: p.read_bytes() for p in tree.iterdir()} == before
 
@@ -325,21 +325,21 @@ def sums(folder: Path, files: list[str], kind: str = "SHA256SUMS") -> None:
 
 
 def disk_repo(root: Path) -> dict[str, Path]:
-    (root / "feedback").mkdir()
+    (root / "ding").mkdir()
     file(root, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
-    trees = {CURRENT: ["1996.txt"], "feedback/Newer_Release/merged270101": ["1996.txt"]}
+    trees = {CURRENT: ["1996.txt"], "ding/Newer_Release/merged270101": ["1996.txt"]}
     for tree, names in (trees | {OLD: ["1996.txt", "README.md"]}).items():
         with zipfile.ZipFile(root / f"{Path(tree).parent}.zip", "w") as zf:
             for name in names:
                 zf.write(file(root, f"{tree}/{name}", tree.encode()), f"{Path(tree).name}/{name}")
-    with zipfile.ZipFile(root / "feedback/Both.zip", "w") as zf:  # an old release and the current
+    with zipfile.ZipFile(root / "ding/Both.zip", "w") as zf:  # an old release and the current
         for tree in (OLD, CURRENT):
             zf.write(root / tree / "1996.txt", f"{Path(tree).name}/1996.txt")
     kept = [f"output/{OLD_STAGE}/{r}" for r in ("report.md", "journals/one.jsonl.gz", "SHA256SUMS")]
-    kept += [f"feedback/feedback-phase-9/{r}" for r in ("Round_9.docx", "round-9.md", "notes.txt")]
+    kept += [f"ding/feedback-phase-9/{r}" for r in ("Round_9.docx", "round-9.md", "notes.txt")]
     kept += [f"private/{r}" for r in ("notes.md", "v3/big.bin", *KEPT_PRIVATE)]
     kept += [f"data/archive/merged{m}.tar.zst" for m in (250101, 270101)]
-    kept += ["feedback/partial.zip", f"output/{NEW_STAGE}/report.md", "data/raw/host_cdx/bank.log"]
+    kept += ["ding/partial.zip", f"output/{NEW_STAGE}/report.md", "data/raw/host_cdx/bank.log"]
     for rel in [*kept, "data/ark.duckdb.pre-166.bak"]:
         file(root, rel)
     sidecar = f"{sha(TARBALL)}  {NEW_STAGE}.tar.gz\n".encode()
@@ -375,13 +375,13 @@ def test_disk_takes_exactly_what_is_proven(tmp_path, monkeypatch, capsys, fake_r
     code, lines = prune.disk_cleanup(tmp_path)
     text = "\n".join(lines)
     assert code == 1 and files_under(tmp_path) == before  # the store backups are always held
-    assert f"would remove: {SPENT}" in text and "HELD feedback/Old_Release.zip: no Drive" in text
+    assert f"would remove: {SPENT}" in text and "HELD ding/Old_Release.zip: no Drive" in text
     assert "HELD data/raw/usenet_bulk/alt.cut.mbox.zip: 7 B here, 999 B in the catalog" in text
     assert [never for never in UNLISTED if never in text] == []  # private/ only with --private
     out, err = capsys.readouterr()
-    assert "skip feedback/partial.zip: not a zip" in err
+    assert "skip ding/partial.zip: not a zip" in err
     assert str(tmp_path) not in text + out + err  # the list goes on a public issue
-    receipted = [parts["old"] / "1996.txt", tmp_path / "feedback/Old_Release.zip"]
+    receipted = [parts["old"] / "1996.txt", tmp_path / "ding/Old_Release.zip"]
     receipted += [tmp_path / "data/archive/merged250101.tar.zst"]
     proofs(tmp_path, [*receipted, tmp_path / "data/ark.duckdb.pre-166.bak"])
     file(tmp_path, f"remote/submissions/phase-9/{NEW_STAGE}.tar.gz", TARBALL)
@@ -521,7 +521,7 @@ def test_the_never_list(tmp_path, rel):
 @pytest.mark.parametrize("fault", ["edited", "duplicate-member", "no-marker"])
 def test_a_release_tree_is_held_without_a_crc_match_or_a_marker(tmp_path, monkeypatch, fault):
     parts = disk_repo(tmp_path)
-    tree_file, archive = parts["old"] / "1996.txt", tmp_path / "feedback/Old_Release.zip"
+    tree_file, archive = parts["old"] / "1996.txt", tmp_path / "ding/Old_Release.zip"
     if fault == "edited":
         tree_file.write_bytes(b"edited after zipping\n")
     elif fault == "no-marker":  # baseline.json names no marker, so every release is held

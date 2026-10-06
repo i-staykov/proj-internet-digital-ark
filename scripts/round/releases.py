@@ -1,14 +1,14 @@
 """Fill the release table in docs/registers/releases.md from what is on disk.
 
 One row per reviewer release. The per-year cells are `wc -l` over `1996.txt` to
-`2001.txt` of the extracted tree under `feedback/`; the checksum is of his zip where
+`2001.txt` of the extracted tree under `ding/`; the checksum is of his zip where
 one still exists, since his bytes are the artifact of record, and of our
 `data/archive/<marker>.tar.zst` where the zip was discarded after extraction.
 
 The script fills cells, it does not reset them: a cell is written when the file
 behind it is on disk, and kept when it is not, so the table keeps a hash after the
 zip has moved off-site. `--refresh` recomputes every cell that can be computed and
-reports the ones that changed. With `feedback/` absent it prints what it would do
+reports the ones that changed. With `ding/` absent it prints what it would do
 and leaves the page alone, which is what a checkout without data gets.
 
     uv run python scripts/round/releases.py
@@ -38,14 +38,14 @@ import zlib
 from pathlib import Path
 
 PAGE = Path("docs/registers/releases.md")
-FEEDBACK = Path("feedback")
+DING = Path("ding")
 ARCHIVE = Path("data/archive")
 YEARS = tuple(range(1996, 2002))
 
 # Every release the reviewer has named, oldest first. Three of them he scored against
 # but never sent: the mail names the marker, the zip that followed holds the next one.
 # `merged260715-2` is the task's original corpus and lives in `legacy-data/`, not under
-# `feedback/`.
+# `ding/`.
 RELEASES = (
     "merged260715-2",
     "merged260727",
@@ -119,14 +119,14 @@ def received_text(marker: str) -> str:
     return f"not received: totals from the reviewer's mail of {mailed}, superseded by `{successor}`"
 
 
-def find_trees(feedback: Path, aliases: dict[str, Path]) -> dict[str, list[Path]]:
+def find_trees(ding: Path, aliases: dict[str, Path]) -> dict[str, list[Path]]:
     """Extracted release trees by marker: a `merge*` directory holding a year file.
 
     Shallowest first, so a duplicate extraction deeper down is reported, not used.
     """
     trees: dict[str, list[Path]] = {}
-    if feedback.is_dir():
-        found = (p for p in feedback.rglob("merge*") if p.is_dir() and MARKER.fullmatch(p.name))
+    if ding.is_dir():
+        found = (p for p in ding.rglob("merge*") if p.is_dir() and MARKER.fullmatch(p.name))
         for p in sorted(found, key=lambda p: (len(p.parts), str(p))):
             if (p / "1996.txt").is_file():
                 trees.setdefault(p.name, []).append(p)
@@ -147,15 +147,15 @@ def zip_markers(zip_path: Path) -> set[str]:
     return found
 
 
-def find_zips(feedback: Path) -> dict[str, list[Path]]:
+def find_zips(ding: Path) -> dict[str, list[Path]]:
     zips: dict[str, list[Path]] = {}
-    if not feedback.is_dir():
+    if not ding.is_dir():
         return zips
-    for z in sorted(feedback.rglob("*.zip")):
+    for z in sorted(ding.rglob("*.zip")):
         try:
             markers = zip_markers(z)
         except zipfile.BadZipFile:
-            print(f"  skip {z.relative_to(feedback.parent)}: not a zip", file=sys.stderr)
+            print(f"  skip {z.relative_to(ding.parent)}: not a zip", file=sys.stderr)
             continue
         for marker in markers:
             zips.setdefault(marker, []).append(z)
@@ -413,7 +413,7 @@ def fill_row(
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--page", type=Path, default=PAGE)
-    ap.add_argument("--feedback", type=Path, default=FEEDBACK)
+    ap.add_argument("--ding", type=Path, default=DING)
     ap.add_argument("--archive", type=Path, default=ARCHIVE)
     ap.add_argument("--legacy", type=Path, default=TREE_ALIASES["merged260715-2"])
     ap.add_argument("--zstd", action="store_true", help="pack every zip-less tree into --archive")
@@ -427,12 +427,12 @@ def main() -> None:
 
     if args.verify_trees:
         aliases = {"merged260715-2": args.legacy}
-        if not verify_trees(find_trees(args.feedback, aliases), find_zips(args.feedback)):
+        if not verify_trees(find_trees(args.ding, aliases), find_zips(args.ding)):
             raise SystemExit(1)
         return
 
-    if not args.feedback.is_dir():
-        print(f"{args.feedback}/ not found: would scan it for merge*/ trees and *.zip files")
+    if not args.ding.is_dir():
+        print(f"{args.ding}/ not found: would scan it for merge*/ trees and *.zip files")
     if not args.archive.is_dir():
         print(f"{args.archive}/ not found: would look there for <marker>.tar.zst copies")
 
@@ -443,8 +443,8 @@ def main() -> None:
     markers = sorted(set(RELEASES) | set(by_marker), key=marker_key)
     rows = [by_marker.get(m) or blank_row(m) for m in markers]
 
-    trees = find_trees(args.feedback, {"merged260715-2": args.legacy})
-    zips = find_zips(args.feedback)
+    trees = find_trees(args.ding, {"merged260715-2": args.legacy})
+    zips = find_zips(args.ding)
     for stray in sorted(set(trees) | set(zips)):
         if stray not in markers:
             print(f"on disk but not in RELEASES: {stray}")

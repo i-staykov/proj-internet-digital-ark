@@ -136,7 +136,7 @@ def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
     """The first candidate directory that actually holds `must_contain`.
 
     Address a baseline file by WHAT it is, never by where it sits. The repository keeps
-    the baseline under git-ignored `feedback-phase-N/`, which `git archive` cannot carry;
+    the baseline under git-ignored `ding/`, which `git archive` cannot carry;
     the delivery puts the same files at `baseline/<marker>/`, one level up from the
     `source/` tree the code runs from. A hardcoded path breaks `just reproduce` for
     everyone but us, so the resolution lives here rather than in each caller.
@@ -173,8 +173,8 @@ def calculator_path() -> Path:
                 CURRENT_BASELINE_DIR.parent / "equivalent_english_domain_calculator",
                 Path("..") / "equivalent_english_domain_calculator",
                 Path("equivalent_english_domain_calculator"),
-                Path("feedback/feedback-phase-6/equivalent_english_domain_calculator"),
-                Path("feedback/feedback-phase-3/equivalent_english_domain_calculator"),
+                Path("ding/feedback-phase-6/equivalent_english_domain_calculator"),
+                Path("ding/feedback-phase-3/equivalent_english_domain_calculator"),
             ),
             "equivalent_english_domains.py",
         )

@@ -374,7 +374,7 @@ STAMP = (2026, 12, 31, 10, 31, 0)
 PHASE7 = "feedback-phase-7/Domain_Data_Collection_Task 3/merged260830"
 ZIP7 = "feedback-phase-7/Domain_Data_Collection_Task_0831_UpdateV2.zip"
 VERIFIED = "byte-verified against their zips, deletable once the off-site copy exists: "
-PATHS = {"page": "releases.md", "feedback": "feedback", "archive": "archive", "legacy": "legacy"}
+PATHS = {"page": "releases.md", "ding": "ding", "archive": "archive", "legacy": "legacy"}
 BENCH = {"baseline-json": "baseline.json", "rounds-page": "rounds.md", "calculator": "ee.py"}
 CALCULATOR = """import json, sys
 n = sum(1 for line in open(sys.argv[1]) if line.strip())
@@ -410,10 +410,10 @@ def _his_zip(tmp_path: Path, name: str = "Task_0903.zip", note: str | None = Non
 
 def _bench(tmp_path: Path) -> Path:
     """A release beside his zip, one without, a blank page, round 7 unwritten; his zip."""
-    feedback = tmp_path / "feedback"
-    _zip(_tree_on_disk(feedback / PHASE7), feedback / ZIP7, "Domain_Data_Collection_Task 3/")
-    (feedback / "feedback-phase-7/note.docx").write_bytes(b"not a release")
-    _tree_on_disk(feedback / "feedback-phase-4/merged260810")
+    ding = tmp_path / "ding"
+    _zip(_tree_on_disk(ding / PHASE7), ding / ZIP7, "Domain_Data_Collection_Task 3/")
+    (ding / "feedback-phase-7/note.docx").write_bytes(b"not a release")
+    _tree_on_disk(ding / "feedback-phase-4/merged260810")
     blank = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])
     (tmp_path / "releases.md").write_text(f"{releases.BEGIN}\n{blank}\n{releases.END}\n")
     for copy, tracked in (("baseline.json", "data"), ("rounds.md", "docs/registers")):
@@ -495,12 +495,12 @@ def test_verify_trees_refuses_an_unsafe_member_a_symlink_or_a_bad_payload(tmp_pa
 
 def test_verify_trees_claims_each_copy_that_matches_its_zip_and_writes_nothing(run, tmp_path):
     """A marker newer than RELEASES is verified too, and every copy of a tree, each by CRC-32."""
-    feedback = tmp_path / "feedback"
-    future, shallow = (_tree_on_disk(feedback / m) for m in ("merged270101", "merged260830"))
-    deep = _tree_on_disk(feedback / "duplicate/nested/merged260830")
-    _zip(future, feedback / "future.zip")
-    _zip(shallow, feedback / "release.zip")
-    assert releases.find_trees(feedback, {})[shallow.name] == [shallow, deep]
+    ding = tmp_path / "ding"
+    future, shallow = (_tree_on_disk(ding / m) for m in ("merged270101", "merged260830"))
+    deep = _tree_on_disk(ding / "duplicate/nested/merged260830")
+    _zip(future, ding / "future.zip")
+    _zip(shallow, ding / "release.zip")
+    assert releases.find_trees(ding, {})[shallow.name] == [shallow, deep]
     last = (out := run(releases, "--verify-trees")).splitlines()[-1]
     assert out.count("8 members, 8 matched, 0 mismatched, 0 missing on disk, 0 extra on disk") == 3
     assert all(str(tree) in last for tree in (future, shallow, deep))
@@ -544,8 +544,8 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     run(intake, str(his), "--dry-run")
     run(intake, str(his), "--sha256", "0" * 64, stops="sha256 is")
     assert _snapshot(tmp_path) == before
-    assert not list((tmp_path / "feedback").rglob(NEW))
-    assert not (tmp_path / "feedback" / his.name).exists()
+    assert not list((tmp_path / "ding").rglob(NEW))
+    assert not (tmp_path / "ding" / his.name).exists()
 
     mail = ["--mail", str(ROOT / "tests/fixtures/verdict_round7.txt"), "--round", "7"]
     run(intake, str(his), *mail, "--received=2026-09-02 05:50")
@@ -567,7 +567,7 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert rows[NEW]["2001"] == "1,234" and rows[NEW]["artifact"] == his.name
     assert rows[NEW]["sha256"] == digests(his.parent)[his.name]
     assert [rows["merged260830"][str(y)] for y in YEARS] == ["3", "0", "5", "1", "2", "1,234"]
-    assert rows["merged260830"]["sha256"] == digests(tmp_path / "feedback")[ZIP7]
+    assert rows["merged260830"]["sha256"] == digests(tmp_path / "ding")[ZIP7]
     assert rows["merged260810"]["sha256"] == "pending", "a zip-less tree has no artifact yet"
     assert rows["merged260810"]["2001"] == "1,234", "its year cells come from disk"
     assert rows["merged260902-3"]["released"] == "2026-09-02"
@@ -580,8 +580,8 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     before = _snapshot(tmp_path)
     run(intake, str(his))
     run(intake, str(_his_zip(tmp_path, "Task_0903_v2.zip", "repacked\n")), stops="already recorded")
-    (tmp_path / "feedback" / ZIP7).unlink()
-    _tree_on_disk(tmp_path / "feedback/feedback-phase-9/merged270101")  # not in RELEASES: no row
+    (tmp_path / "ding" / ZIP7).unlink()
+    _tree_on_disk(tmp_path / "ding/feedback-phase-9/merged270101")  # not in RELEASES: no row
     run(releases)
     assert _snapshot(tmp_path) == before
 

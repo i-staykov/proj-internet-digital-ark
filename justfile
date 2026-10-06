@@ -1296,7 +1296,7 @@ collect source="" *args:
 # --- retention ----------------------------------------------------------------
 
 # Fill docs/registers/releases.md from what is on disk: per-year line counts of every
-# extracted release tree under feedback/, and the sha256 of the reviewer's zip or of our
+# extracted release tree under ding/, and the sha256 of the reviewer's zip or of our
 # data/archive/<marker>.tar.zst where there is none. Writes only the cells it can compute, so
 # a hash outlives the zip leaving the machine. `--zstd` packs the zip-less trees first;
 # `--refresh` recounts and rehashes everything.

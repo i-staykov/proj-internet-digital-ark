@@ -115,7 +115,7 @@ def main() -> None:
     ap.add_argument("--stamp", required=True, help="Transcription date, YYYY-MM-DD")
     args = ap.parse_args()
 
-    # absolute(), not resolve(): a worktree's feedback/ links to the checkout's, and the header
+    # absolute(), not resolve(): a worktree's ding/ links to the checkout's, and the header
     # of a public page names a repository path, never a machine's.
     package = args.package.absolute()
     if not package.is_relative_to(REPO):

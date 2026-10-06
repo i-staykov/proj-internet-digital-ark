@@ -9,7 +9,7 @@ reproduced exactly: his three-domain worked example gives 1.2766 here.
 where `lang == 'eng'`, share as a fraction, and **zero when the model does not know the
 TLD**. Guessing a share for an unlisted TLD scores us on a number he cannot reproduce.
 
-Vendored rather than read from git-ignored `feedback-phase-3/`, or a fresh clone ranks
+Vendored rather than read from git-ignored `ding/`, or a fresh clone ranks
 everything at zero. Pinned like the public suffix list; sha256 begins 480d86bc287e.
 
 **A fractional total is not a claim about individual domains.** It is an expected count over

@@ -22,7 +22,7 @@ merged*/
 **/merged*/
 
 # Big data never reaches git; output/ ships in the delivery archive, regenerable by `ark export`.
-feedback/
+/ding
 legacy-data/
 # `/data/*`, not `/data/`: git never descends into an excluded directory to re-include a file.
 /data/*
@@ -57,11 +57,6 @@ docs/ROUND.md
 
 # Written by `build_report_docx.py --keep-markdown`; regenerable and addressed to the reviewer.
 docs/report-sendable.md
-
-# The reviewer's task packages, ~1.4 GB each: a new phase adds its line here first.
-feedback-phase-5/
-feedback-phase-6/
-Domain_Data_Collection_Task_update/
 
 # Word lock files, left behind when the .docx is open while it is rebuilt.
 ~$*

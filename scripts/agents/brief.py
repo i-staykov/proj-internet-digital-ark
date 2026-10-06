@@ -31,7 +31,7 @@ LAYOUT = {
         *("README.md", "data", "docs", "hooks", "justfile", "probes", "pyproject.toml"),
         *("scripts", "seeds", "src", "submissions", "tests", "uv.lock"),
         *(".git", ".venv", ".pytest_cache", ".ruff_cache", ".DS_Store", "local.env", "private"),
-        *("output", "feedback"),
+        *("output", "ding"),
     },
     "data": {
         *("baseline.json", "raw", "logs", "held", "seeds", "staging", "audit", "reports"),
