@@ -57,6 +57,7 @@ from ark.baseline import (  # noqa: E402
     baseline_dir,
     calculator_path,
 )
+from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DB_TEMP_DIR  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 
@@ -258,9 +259,10 @@ def verify_with_his_calculator() -> dict:
 
 
 def shipped_by_year(
-    pattern: str, years=YEARS, base: Path | None = None
+    pattern: str, years=YEARS, base: Path | None = None, keep=None
 ) -> dict[int, tuple[int, Decimal]]:
-    """Records and EE per year of a shipped annual file family, priced with his weight model.
+    """Records and EE per year of a shipped annual file family, priced with his weight model,
+    of the names `keep` passes when given.
 
     What he merges is the shipped files, so that is what the five fields count, both units,
     with no session window. A round's registrables since it opened is a store question,
@@ -275,7 +277,7 @@ def shipped_by_year(
             with path.open() as fh:
                 for line in fh:
                     name = line.strip()
-                    if name:
+                    if name and (keep is None or keep(name)):
                         records += 1
                         year_ee += weights.get(name.rsplit(".", 1)[-1], Decimal(0))
         by_year[year] = (records, year_ee)
@@ -294,6 +296,18 @@ def hostname_increment() -> tuple[int, Decimal]:
 def registrable_increment() -> tuple[int, Decimal]:
     """Records and EE of the shipped registrable additions."""
     return summed(shipped_by_year("{year}.txt"))
+
+
+def extended_split() -> tuple[tuple[int, Decimal], tuple[int, Decimal]]:
+    """The extended additions as (registrable domains, hostnames beneath them), records and EE.
+
+    Both score the same; he prefers registrable additions, so they are reported first, as in
+    the core.
+    """
+    rows = ("additions/{year}.txt", EXTENDED_YEARS, EXTENDED)
+    n, ee = summed(shipped_by_year(*rows))
+    r_n, r_ee = summed(shipped_by_year(*rows, keep=lambda h: to_registrable(h) == h))
+    return (r_n, r_ee), (n - r_n, ee - r_ee)
 
 
 def candidate_potential() -> tuple[int, Decimal]:
@@ -432,6 +446,9 @@ def main() -> None:
         f"   extended increment (extended_years/)        : {x_pairs:,} records  {x_ee:,.4f}  "
         f"growth {x_growth:.6f}%"
     )
+    (xr_pairs, xr_ee), (xh_pairs, xh_ee) = extended_split()
+    print(f"     registrable domains                       : {xr_pairs:,} records  {xr_ee:,.4f}")
+    print(f"     hostnames                                 : {xh_pairs:,} records  {xh_ee:,.4f}")
     print(
         f"GATE. Core plus extended, 1996-2015           : {gate_ee:,.4f} = "
         f"{gate_ee / GATE_BASELINE_EE * 100:.6f}% of {GATE_BASELINE_EE:,.4f}, gate {GATE_PCT}%"

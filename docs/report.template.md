@@ -2,7 +2,7 @@
 
 Additions to the 1996-2015 annual lists and to the candidate pool, against your release
 `[BASELINE]`. "The specification" is your
-`Internet_Digital_Ark_Project_0923_Update.docx` of 23 September, "the evidence rule" its section XIII
+`Internet_Digital_Ark_Project_1006_Update.docx` of 6 October, "the evidence rule" its section XIII
 (Mandatory Evidence Classification and Hostname Integrity Gate), "the two open questions" its
 section IV-A. EE is equivalent-English.
 
@@ -16,9 +16,9 @@ section IV-A. EE is equivalent-English.
 | 4. Equivalent-English increment | **[EE]** |
 | 5. Equivalent-English growth rate | **[EEGROWTH]** |
 
-2002-2015, in `extended_years/`: [EXTPAIRS] records, [EXTEE] EE, [EXTGROWTH] of your
-[EXTBASELINEEE] EE for those years. Both together: [GATEEE] EE, **[GATEPCT]** of your 1996-2015
-total of [GATEBASELINEEE] EE.
+2002-2015, in `extended_years/`: [EXTPAIRS] records, [EXTEE] EE, [EXTGROWTH] of your [EXTBASELINEEE]
+EE for those years, [EXTREGPAIRS] ([EXTREGEE] EE) registrable domains and [EXTHOSTPAIRS] ([EXTHOSTEE]
+EE) hostnames. Both together: [GATEEE] EE, **[GATEPCT]** of your 1996-2015 total of [GATEBASELINEEE] EE.
 
 [REGPAIRS] records ([REGEE] EE) are registrable domains, in `additions/`; [HOSTPAIRS] ([HOSTEE] EE)
 are hostnames, in `hostnames/`; every record carries its own exact-host capture in that year.

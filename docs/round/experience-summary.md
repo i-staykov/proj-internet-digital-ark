@@ -91,12 +91,10 @@ documented IANA list. Both are one filter over the database.
 
 ## 6. Recommended directions, and the measured pace
 
-Between the submission of 10 September and this one the 5% threshold moved from 1.74 million EE to
-2.80 million on `merged260917-2`. Over the same twelve days the autonomous loop ran continuously
-(647 scheduled research runs, 41,378 archive index files) and added 329,141 EE. The two best methods
-paid 37,300 and 33,500 EE an hour of work and are exhausted; the three archive clients together pay
-about 670 an hour. The remaining 2,474,589 EE is about 70 hours of the best method or 150 days of
-the clients.
+The 5% gate is 10.29 million EE, 5% of your 1996 to 2015 total on `merge261006-2`. Over the twelve
+days to this round's submission the autonomous loop ran continuously (647 scheduled research runs,
+41,378 archive index files) and added 329,141 EE. The two best methods paid 37,300 and 33,500 EE an
+hour of work and are exhausted; the three archive clients together pay about 670 an hour.
 
 1. **Bulk custodian capture indexes read whole at hostname grain** remain the best yield per
    megabyte, and archive.org now holds none we have not read (the research collection and the node

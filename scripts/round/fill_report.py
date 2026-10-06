@@ -640,7 +640,10 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["ISCHELD"] = f"{isc_registrables_he_holds():,}"
     # His XI: report annual and active-candidate EE separately. Generated, so the report and
     # `round_figures.py` cannot disagree about a figure that must never be added to the claim.
-    from round_figures import candidate_potential
+    from round_figures import candidate_potential, extended_split
+
+    for unit, (n, unit_ee) in zip(("EXTREG", "EXTHOST"), extended_split(), strict=True):
+        subs[unit + "PAIRS"], subs[unit + "EE"] = f"{n:,}", f"{unit_ee:,.4f}"
 
     subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
     # The candidate TRACK, which he scores separately and at the same rate as the annual
