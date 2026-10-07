@@ -20,8 +20,9 @@ long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is 
 its ten exact 1/10 subpages, last first, stopping at the subpage that holds the cut row. A page
 silent for 60 s answers 504; that is almost always a region captured only after 2015, so its
 100-block subpages 0 and 5 are probed and the other eight asked only if a probe has rows. A
-dropped connect is retried after 5 s (web.archive.org drops some SYNs from the VPS); 429 and
-503 back off, and six in a row stop the lane.
+dropped connect or a local outage is retried after 5 s, longer as it lasts, and never stops the
+lane (web.archive.org drops most SYNs from the VPS); 429 and 503 back off, and six in a row stop
+it.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -242,9 +243,12 @@ class Lane:
     def settle(self, task, key, status, complete, edge, after, row) -> None:
         with self.lock:
             self.log.write("\t".join(map(str, row)) + "\n")
-            if status in TRANSIENT and not row[7] and self.transient < 8:
+            if status in TRANSIENT and not row[7]:
+                # a dropped connect or a local network outage is not the archive's pace signal:
+                # retry, pausing longer the longer it lasts, and never stop the lane for it
                 self.transient += 1
-                self.pause_until = time.time() + 5
+                over = max(0, self.transient - self.a.max_transient)
+                self.pause_until = time.time() + min(60, 5 + 5 * over)
                 self.done.discard(key)
                 self.queue.insert(0, task)
                 return
@@ -320,6 +324,12 @@ def main() -> None:
     ap.add_argument("--last", type=int, default=2015)
     ap.add_argument("--delay", type=float, default=3.0)
     ap.add_argument("--connect-timeout", type=float, default=20)
+    ap.add_argument(
+        "--max-transient",
+        type=int,
+        default=8,
+        help="dropped connects in a row before pausing longer",
+    )
     ap.add_argument("--timeout", type=float, default=70, help="per read; the gateway 504s at 60 s")
     a = ap.parse_args()
     signal.signal(signal.SIGTERM, _sigterm)
