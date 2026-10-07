@@ -61,13 +61,14 @@ alone, never through a pipe, before believing a refusal.
 
 ## The loop
 
-**Validation.** One lane per archive client (`AGENTS.md`, Channel), two on the laptop under
-`caffeinate -s`, since idle sleep stops a lane with no error, and one on the VPS from its clone with
-`--max-local 1`, whose journals the tick pulls: `python3 scripts/engines/cdx_platform_walk.py
-<seeds> --lane N --lanes 3 --deadline <epoch>`. No job restarts a lane: start each detached, again
-after a reboot, its deadline or an edit to what it imports. It idles while the `pause-platform` flag
-is up (`just hold off pause-platform`) and refuses to start at its `--max-local` cap as
-`cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
+**Collection.** One lane per archive client (`AGENTS.md`, Channel), two on the laptop under
+`caffeinate -s`, since idle sleep stops a lane with no error, and one on the VPS with
+`--max-local 1 --connect-timeout 4`, since the archive drops most of its connects:
+`uv run python scripts/engines/cdx_extended_walk.py <suffixes> --lane N --lanes 3 --deadline
+<epoch> --workers 2`. Its journals land in `data/raw/extended/ia_cdx_hostnames/`, which only the
+extended exporter reads. No job restarts a lane: start each detached, again after a reboot, its
+deadline or an edit to what it imports. It idles while the `pause-extended` flag is up and refuses
+to start at its `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished

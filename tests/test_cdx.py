@@ -364,3 +364,16 @@ def test_corroboration_keeps_known_names_curated_and_routes_the_rest() -> None:
     assert unverified[0]["curated"] is False, "a candidate earns its own year"
     unseen = [{**page, "domains": ["never-seen.example"]}]
     assert expand.split_by_corroboration(unseen, set()) == ([], [{**unseen[0], "curated": False}])
+
+
+extended = script("engines/cdx_extended_walk.py")
+
+
+def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_one():
+    cut = extended.subpages(("co.uk", 1000, 7), cut=True)
+    assert cut == [("co.uk", 100, 70 + k) for k in range(9, -1, -1)]
+    assert extended.subpages(("co.uk", 1000, 7), cut=False) == [
+        ("co.uk", 100, 70),
+        ("co.uk", 100, 75),
+    ]
+    assert extended.subpages(("co.uk", 100, 70), cut=False) == []

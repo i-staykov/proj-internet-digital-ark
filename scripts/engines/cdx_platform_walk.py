@@ -146,7 +146,13 @@ def cdx_clients() -> int:
     loops = subprocess.run(
         ["pgrep", "-f", "platform_sweep(_loop)?[.]sh"], capture_output=True, text=True
     ).stdout.split()
-    clients = ("cdx_suffix_sweep", "cdx_thin_sweep", "cdx_yearfill", "cdx_platform_walk")
+    clients = (
+        "cdx_suffix_sweep",
+        "cdx_thin_sweep",
+        "cdx_yearfill",
+        "cdx_platform_walk",
+        "cdx_extended_walk",
+    )
     return len(loops) + sum(len(_python_pids(f"{c}[.]py")) for c in clients)
 
 
