@@ -16,7 +16,7 @@ the rule that is wrong.
 `--released` defaults to the stamp the round already carries in `ark.baseline`, and to
 the current baseline's release for a round that has none yet. The benchmark marker is
 read from the backticks in his mail and marked `not received` when no extracted tree of
-that name is under the feedback root, which is the state three of his markers are in:
+that name is under the ding root, which is the state three of his markers are in:
 he scored against an interim merge he never sent.
 
 Only the target row is rewritten. Every other line of the page, and every column this
@@ -32,7 +32,7 @@ from ark.baseline import CURRENT_BASELINE_RELEASED, SUBMITTED_ROUNDS
 from ark.figures import elapsed_days, score, t_days
 
 PAGE = Path("docs/registers/rounds.md")
-FEEDBACK = Path("feedback")
+DING = Path("ding")
 
 # A cell of a new row that nothing here can fill.
 BLANK = "pending"
@@ -114,11 +114,11 @@ def released_for(label: str) -> str:
     return CURRENT_BASELINE_RELEASED
 
 
-def marker_received(feedback: Path, marker: str) -> bool:
-    """Whether an extracted tree of that release is under the feedback root."""
-    if not feedback.is_dir():
+def marker_received(ding: Path, marker: str) -> bool:
+    """Whether an extracted tree of that release is under the ding root."""
+    if not ding.is_dir():
         return False
-    return any(p.is_dir() for p in feedback.rglob(marker))
+    return any(p.is_dir() for p in ding.rglob(marker))
 
 
 def cells_of(line: str) -> list[str]:
@@ -188,7 +188,7 @@ def main() -> None:
     # and not his, so the marker is stated when the two differ.
     ap.add_argument("--against", help="the benchmark HE scored against, when he rescored")
     ap.add_argument("--page", type=Path, default=PAGE)
-    ap.add_argument("--feedback", type=Path, default=FEEDBACK)
+    ap.add_argument("--ding", type=Path, default=DING)
     ap.add_argument("--sent-records", help="records sent, which the mail does not carry")
     ap.add_argument("--sent-ee", help="equivalent-English sent")
     ap.add_argument("--sent-pct", help="percentage claimed when sending")
@@ -217,8 +217,8 @@ def main() -> None:
         print(f"  WARNING: he quotes S = {quoted}, the rule gives {s}: the clocks disagree")
 
     against = args.against or mail.get("marker")
-    if against and not marker_received(args.feedback, against):
-        print(f"  {against}: {NOT_RECEIVED} under {args.feedback}/")
+    if against and not marker_received(args.ding, against):
+        print(f"  {against}: {NOT_RECEIVED} under {args.ding}/")
         against = f"{against} ({NOT_RECEIVED})"
 
     values = {

@@ -48,14 +48,14 @@ def _row(text: str, label: str) -> list[str]:
 
 @pytest.fixture
 def run(tmp_path, monkeypatch):
-    """Run `rounds.py` on a copy of the page, with no feedback tree unless one is given."""
+    """Run `rounds.py` on a copy of the page, with no ding tree unless one is given."""
     page = tmp_path / "rounds.md"
     page.write_text(PAGE, encoding="utf-8")
 
     def go(label: str, received: str, mail: str = "", **extra) -> str:
         mail = str(FIXTURES / (mail or f"verdict_round{label}.txt"))
         argv = ["rounds.py", "--mail", mail, "--round", label, "--received", received]
-        for flag, value in ({"page": page, "feedback": tmp_path / "feedback"} | extra).items():
+        for flag, value in ({"page": page, "ding": tmp_path / "ding"} | extra).items():
             argv += [f"--{flag}", str(value)]
         monkeypatch.setattr(sys, "argv", argv)
         rounds.main()
@@ -105,7 +105,7 @@ def test_a_new_round_goes_in_order_and_an_absent_marker_is_not_received(run, tmp
     assert labels == ["round", "---", "1", "6", "7", "8", "9"]
     assert (_row(after, "8")[1], _row(after, "8")[14]) == ("pending", "new")
     assert _row(run("6", "2026-08-26 15:51"), "6")[7] == "merged260826 (not received)"
-    (tmp_path / "feedback/phase-6/merged260826").mkdir(parents=True)
+    (tmp_path / "ding/phase-6/merged260826").mkdir(parents=True)
     assert _row(run("6", "2026-08-26 15:51"), "6")[7] == "merged260826"
 
 

@@ -255,8 +255,8 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
             held = True
             lines.append(f"HELD {backup.relative_to(root)}: {exc}")
 
-    trees = releases.find_trees(root / "feedback", {})
-    zips = releases.find_zips(root / "feedback")
+    trees = releases.find_trees(root / "ding", {})
+    zips = releases.find_zips(root / "ding")
     for archive in sorted({p for paths in zips.values() for p in paths}):
         try:
             archive_stamp = offsite.signature(root, archive)
@@ -479,12 +479,12 @@ def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
             return False
 
     paths: list[Path] = []
-    for found, trees in releases.find_trees(root / "feedback", {}).items():
+    for found, trees in releases.find_trees(root / "ding", {}).items():
         for tree in trees:
             if not kept(found) and str(tree.resolve()).casefold() != here:
                 paths += [f for f in _files(tree) if f.suffix.lower() not in DOCUMENTS]
     markers_of: dict[Path, set[str]] = {}
-    for found, zips in releases.find_zips(root / "feedback").items():
+    for found, zips in releases.find_zips(root / "ding").items():
         for z in zips:
             markers_of.setdefault(z, set()).add(found.casefold())
     paths += sorted(z for z, markers in markers_of.items() if not any(map(kept, markers)))
@@ -708,7 +708,7 @@ def remove_plain(root: Path, path: Path, *, under: str, write: bool) -> str:
 
 def remove_emptied(root: Path, removed: list[Path]) -> list[Path]:
     """The folders this run emptied, deepest first, and no other. A folder goes once nothing but
-    a `.DS_Store` is left in it; `private/`, `output/`, `feedback/` and `data/` down to each
+    a `.DS_Store` is left in it; `private/`, `output/`, `ding/` and `data/` down to each
     `data/raw` entry are where the selectors work, so they stay."""
     gone: list[Path] = []
     todo = {p.parent for p in removed}
@@ -734,8 +734,8 @@ def remove_emptied(root: Path, removed: list[Path]) -> list[Path]:
 def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
     """Release trees that fail the CRC check against a zip still here, by tree."""
     releases = sibling("releases")
-    trees = releases.find_trees(root / "feedback", {})
-    zips = releases.find_zips(root / "feedback")
+    trees = releases.find_trees(root / "ding", {})
+    zips = releases.find_zips(root / "ding")
     listed = {c.path for c in cands}
     failed = {}
     for marker, tree_paths in trees.items():

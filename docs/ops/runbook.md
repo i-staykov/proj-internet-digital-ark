@@ -27,7 +27,7 @@ Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
   from `ark export` or `ark check` there is no invariant red. A worktree shares the checkout's
   store: its `data/` stays a directory holding its own tracked `baseline.json`, and every other
-  entry of the checkout's `data/`, then `output`, `feedback` and `local.env`, is linked in, so an
+  entry of the checkout's `data/`, then `output`, `ding` and `local.env`, is linked in, so an
   intake commits `baseline.json` from the worktree and the checkout takes it on the pull.
 - Read the registers through `just find <term>` (`--detail`: one approved entry) or the
   `register-reader` agent; `.claude/settings.json` denies reading `sources*.md`: append by heredoc.

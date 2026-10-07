@@ -7,7 +7,7 @@ command, and the order is fixed:
     checksum -> extract -> count -> measure -> data/baseline.json -> docs/registers/releases.md
     -> docs/registers/rounds.md (only with --mail)
 
-    uv run python scripts/round/intake.py feedback/feedback-phase-8/his.zip
+    uv run python scripts/round/intake.py ding/his.zip
     uv run python scripts/round/intake.py his.zip --mail private/mail/verdict7.txt \\
         --round 7 --received "2026-09-02 05:50"
     uv run python scripts/round/intake.py his.zip --dry-run
@@ -149,9 +149,9 @@ def ensure_row(page: Path, marker: str) -> bool:
     return True
 
 
-def extracted_tree(feedback: Path, marker: str) -> Path | None:
-    """The shallowest extraction of this release already under the feedback root."""
-    trees = releases.find_trees(feedback, {}).get(marker)
+def extracted_tree(ding: Path, marker: str) -> Path | None:
+    """The shallowest extraction of this release already under the ding root."""
+    trees = releases.find_trees(ding, {}).get(marker)
     return trees[0] if trees else None
 
 
@@ -238,8 +238,8 @@ def main() -> None:
     ap.add_argument("--released-at", help="when this release was cut, in his clock")
     ap.add_argument("--marker", help="which release the zip holds, when it holds more than one")
     ap.add_argument("--sha256", help="the checksum the zip must have")
-    ap.add_argument("--feedback", type=Path, default=releases.FEEDBACK)
-    ap.add_argument("--into", type=Path, help="where to extract, default the feedback root")
+    ap.add_argument("--ding", type=Path, default=releases.DING)
+    ap.add_argument("--into", type=Path, help="where to extract, default the ding root")
     ap.add_argument("--archive", type=Path, default=releases.ARCHIVE)
     ap.add_argument("--legacy", type=Path, default=releases.TREE_ALIASES["merged260715-2"])
     ap.add_argument("--baseline-json", type=Path, default=BASELINE_JSON)
@@ -275,8 +275,8 @@ def main() -> None:
             print(f"  already recorded in {args.page}")
 
     with step("extract"):
-        tree = extracted_tree(args.feedback, marker)
-        target = (args.into or args.feedback) / args.zip.stem
+        tree = extracted_tree(args.ding, marker)
+        target = (args.into or args.ding) / args.zip.stem
         if tree is not None:
             print(f"  already extracted at {tree}")
         elif dry:
@@ -284,7 +284,7 @@ def main() -> None:
         else:
             with zipfile.ZipFile(args.zip) as zf:
                 zf.extractall(target)
-            tree = extracted_tree(args.feedback, marker)
+            tree = extracted_tree(args.ding, marker)
             if tree is None:
                 raise SystemExit(f"{target}: no {marker}/ tree after extracting")
             print(f"  extracted to {tree}")
@@ -293,10 +293,10 @@ def main() -> None:
     with step("artifact"):
         # His zip is the artifact of record and `releases.py` hashes it where it lies,
         # so a zip handed to us from elsewhere is kept beside the tree it produced.
-        under_feedback = args.feedback.resolve() in args.zip.resolve().parents
-        beside = args.feedback / args.zip.name
-        if under_feedback:
-            print(f"  {args.zip} is already under {args.feedback}/")
+        under_ding = args.ding.resolve() in args.zip.resolve().parents
+        beside = args.ding / args.zip.name
+        if under_ding:
+            print(f"  {args.zip} is already under {args.ding}/")
         elif beside.is_file():
             print(f"  already copied to {beside}")
         elif dry:
@@ -381,8 +381,8 @@ def main() -> None:
                     "releases.py",
                     "--page",
                     str(args.page),
-                    "--feedback",
-                    str(args.feedback),
+                    "--ding",
+                    str(args.ding),
                     "--archive",
                     str(args.archive),
                     "--legacy",
@@ -408,8 +408,8 @@ def main() -> None:
                     args.received,
                     "--page",
                     str(args.rounds_page),
-                    "--feedback",
-                    str(args.feedback),
+                    "--ding",
+                    str(args.ding),
                 ]
                 if args.released:
                     argv += ["--released", args.released]
