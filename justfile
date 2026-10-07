@@ -1430,7 +1430,8 @@ ship stage="all" *args:
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark export --provenance
         echo "== the 2002 to 2015 additions =="
-        nice -n 10 uv run python scripts/round/extended_export.py
+        uv run python scripts/round/extended_export.py --check 2>/dev/null \
+            || nice -n 10 uv run python scripts/round/extended_export.py
         echo "== the data invariants =="
         uv run ark check
         echo "== the round state, with the store sections =="
