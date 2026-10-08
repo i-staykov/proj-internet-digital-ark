@@ -1,0 +1,10 @@
+round        phase-11
+built        2026-10-08T01:43:35Z
+commit       c5014cd30d6bb632b1f7bd4a872c664d55d0b6e7
+baseline     merge261007-4
+archive      DomainDataCollectionTask_202610080032_IvayloStaykov.tar.gz
+sha256       553f01039fab03f15ff62c6f4b3d7841d782a82258fad5aa3727b3863cf7c8a9
+bytes        16218327460
+files        4058
+netnew_pairs 4633
+netnew_hostnames 330068
