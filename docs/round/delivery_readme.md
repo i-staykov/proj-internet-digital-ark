@@ -1,4 +1,4 @@
-# Internet Digital Ark: round 10
+# Internet Digital Ark delivery
 
 Evidence-backed annual domain lists for 1996-2015. **The annual files are a website-evidence
 product** under section XIII of your specification: a line qualifies only on
