@@ -99,7 +99,8 @@ LIVE_INPUT: dict[str, str | None] = {
 
 # Our own collectors' output, replayed by `just reproduce sources` or `journals` or read by a
 # later ingest, plus the item journals a Usenet pool leaves behind: the `{item, year, text}`
-# shards the bank ingests, while the pool's zips go back to archive.org.
+# shards the bank ingests, while the pool's zips go back to archive.org. `extended_spent`
+# holds round 11's bulk-index journals, kept as its evidence outside the exporter's glob.
 KEEP_JOURNAL = frozenset(
     {
         f"usenet_{h}_items"
@@ -112,6 +113,7 @@ KEEP_JOURNAL = frozenset(
         "enron",
         "expand",
         "extended",
+        "extended_spent",
         "rdap",
         "rdap_gen",
         "tradepress",
