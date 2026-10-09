@@ -5,15 +5,9 @@ project splits cleanly in two, and pretending otherwise is how autonomy turns in
 theatre:
 
 *Deterministic work*, which a program can do unattended and correctly: notice that
-a file on disk was never read, that a derived target list is older than the rows it
-should carry, and that the state document has gone stale. **That is this script**, and
-it is genuinely autonomous: every check has a right answer that needs no judgement.
-
-**It rebuilds, and it does not restart anything.** Regenerating a stale derived list
-is deterministic, so the cycle owns it. Stopping and starting collectors is not: an
-earlier version did, with a `pkill -f` pattern that matches the shell running it, and
-on 11 August it killed a healthy collector mid-batch. A supervisor re-reads its target
-list at every dispatch, so rewriting the file is the whole job.
+a file on disk was never read and that the state document has gone stale. **That is this
+script**, and it is genuinely autonomous: every check has a right answer that needs no
+judgement.
 
 *Judgement work*, which needs an LLM or a human: inventing a hypothesis worth
 testing, writing the fetcher that turns a source into dated items, and deciding
@@ -33,7 +27,6 @@ would simply block it. This reports.
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -49,27 +42,18 @@ from ark.yield_check import (  # noqa: E402
     Collector,
     active_cdx_collectors,
     measure_collectors,
-    rdap_verdict,
 )
 
 LOG = ROOT / "data/logs/discovery_cycle.log"
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
 JOURNAL_DIR = ROOT / "data/raw/cdx"
-RDAP_JOURNAL_DIR = ROOT / "data/raw/rdap"
 
 
 # **The CDX prefixes are discovered, not listed.** A supervisor's header states intent
 # and the directory holds the facts: a prefix no list names can spend 31 hours on an
 # exhausted shard for zero captures while every yield line here reads clean.
-#
-# RDAP stays named because it is a different journal format needing its own verdict: a
-# 404 is a real answer and a 429 is not, and a creation year outside 1996-2001 is an
-# answer that pays nothing. It is also this round's largest single contributor.
-def collectors() -> tuple[Collector, ...]:
-    return (
-        *active_cdx_collectors(JOURNAL_DIR),
-        Collector("rdap", RDAP_JOURNAL_DIR, rdap_verdict),
-    )
+def collectors() -> list[Collector]:
+    return active_cdx_collectors(JOURNAL_DIR)
 
 
 # Long enough to outlast a writer. The store takes one writer, and a 33-minute
@@ -125,7 +109,7 @@ def check_residual() -> tuple[list[str], list[str]]:
         ]
     for line in out.splitlines():
         stripped = line.strip()
-        for key in ("unread", "glob_too_narrow", "unreferenced", "usenet", "stale_derived"):
+        for key in ("unread", "glob_too_narrow", "unreferenced", "usenet"):
             if stripped.startswith(key):
                 parts = stripped.split()
                 if len(parts) >= 2:
@@ -137,146 +121,14 @@ def check_residual() -> tuple[list[str], list[str]]:
                             "ingest has read. This is the cheapest yield in the project: "
                             "496 such files were worth 14,956 equivalent-English"
                         )
-                    # `stale_derived` is deliberately NOT raised for attention here.
-                    # Candidates arrive continuously, so a pool queue is a few minutes
-                    # stale almost always, and an alarm on that condition fires every
-                    # cycle forever. `rebuild_derived` owns it instead: it rebuilds past
-                    # the threshold and asks for a human only when it cannot act, which
-                    # is a failed rebuild. An alarm nobody can clear is
-                    # noise that teaches the reader to skip the alarms.
     return findings, attention
 
-
-# Only act on a list this far behind, so the cycle cannot thrash: candidates arrive
-# continuously, and rebuilding on every one would restart the collector hourly for a
-# handful of new targets.
-REBUILD_AFTER_HOURS = 1.5
-
-# Two cycles can now run at once, an hourly loop and a 15-minute cron wake, and both
-# would rebuild the same list into the same path. Two writers to one target file is a
-# truncated queue, which a collector then reads as a short list rather than as an error.
-# A stale lock is ignored after this long, since a rebuild is minutes and a crashed
-# holder must not block rebuilds forever.
-REBUILD_LOCK = ROOT / "data/logs/derived_rebuild.lock"
-REBUILD_LOCK_STALE_S = 3600
 
 FLEET_REPO = "i-staykov/ark-fleet"
 # The fleet clone the justfile names, for its `policy.json`.
 DEFAULT_FLEET = Path.home() / "GitHub/ark-fleet"
 # The title `leg.yaml` gives a dispatched run; the watchdog's runs are `Leg watchdog`.
 LEG_TITLE = re.compile(r"Leg slot (0|[1-9][0-9]*)")
-
-
-def rebuild_lock_holder() -> str | None:
-    """The live holder's pid, or None if the lock is absent, stale or abandoned."""
-    if not REBUILD_LOCK.exists():
-        return None
-    age = time.time() - REBUILD_LOCK.stat().st_mtime
-    pid = REBUILD_LOCK.read_text(encoding="utf-8").strip()
-    if age > REBUILD_LOCK_STALE_S:
-        return None
-    if pid.isdigit():
-        try:
-            os.kill(int(pid), 0)
-        except ProcessLookupError:
-            return None
-        except PermissionError:
-            pass  # it exists and is not ours, which still counts as alive
-    return pid or "unknown"
-
-
-def rebuild_derived() -> tuple[list[str], list[str]]:
-    """Rebuild stale derived target lists.
-
-    **This is the cycle's one action rather than a report**, and the distinction is
-    deliberate. Writing evidence is a judgement and belongs to a human; regenerating a
-    derived list is neither, and a collector reading a list built before the rows it
-    should carry cannot see them at all.
-
-    **It rebuilds the file and stops there, deliberately.** An earlier version also
-    restarted the local collector to "re-point" it, which was both unnecessary and the
-    mechanism of a real failure: a supervisor re-reads its target list at every
-    dispatch, so rewriting the file is enough, and the restart used `pkill -f` with a
-    pattern that matches the shell running it. On 11 August that took down a healthy
-    collector mid-batch. **An unattended loop does not get to kill collectors.**
-    """
-    findings, attention = [], []
-    out, ran = run(
-        ["uv", "run", "python", "scripts/harness/audit_residual.py", "--check", "stale_derived"]
-    )
-    if not ran:
-        return ["derived: COULD NOT CHECK"], [
-            "the staleness check did not complete, so a collector may be working a stale list"
-        ]
-    stale = {}
-    for line in out.splitlines():
-        if "[STALE]" not in line:
-            continue
-        parts = line.split()
-        path = parts[1]
-        # The field is "0.9h", so the unit has to come off before the float. Getting
-        # this wrong crashed the whole cycle on 11 August, and it went unnoticed for
-        # an hour because the long-running loop had loaded this module before the
-        # function existed: the crash only appeared on the next fresh invocation.
-        hours = next((float(p[:-1]) for p in parts if re.fullmatch(r"[\d.]+h", p)), 0.0)
-        stale[path] = hours
-    if not stale:
-        return ["derived: every list postdates the rows it should carry"], []
-
-    # Only take the lock once something is actually going to be rebuilt, so a cycle
-    # that finds everything under the threshold never blocks another one.
-    if any(h >= REBUILD_AFTER_HOURS for h in stale.values()):
-        holder = rebuild_lock_holder()
-        if holder:
-            return [f"derived: another cycle (pid {holder}) is rebuilding, leaving it alone"], []
-        REBUILD_LOCK.parent.mkdir(parents=True, exist_ok=True)
-        REBUILD_LOCK.write_text(str(os.getpid()), encoding="utf-8")
-
-    try:
-        findings, attention = _rebuild_each(stale)
-    finally:
-        if REBUILD_LOCK.exists() and REBUILD_LOCK.read_text(encoding="utf-8").strip() == str(
-            os.getpid()
-        ):
-            REBUILD_LOCK.unlink()
-    return findings, attention
-
-
-def _rebuild_each(stale: dict[str, float]) -> tuple[list[str], list[str]]:
-    findings, attention = [], []
-    for path, hours in sorted(stale.items()):
-        if hours < REBUILD_AFTER_HOURS:
-            findings.append(f"derived: {Path(path).name} {hours:.1f}h behind, under the threshold")
-            continue
-        if "pool_targets_measured" in path:
-            # The TLD set is not a preference. Restricted to those with a real measured
-            # in-window rate, because the builder falls back to the pool-wide rate where
-            # it has no sample, and a high English share then floats namespaces nobody
-            # registered in to the head of the queue.
-            #
-            # **Twelve TLDs have a sample.** `.sg` is the pick at 28.6% in-window on weight
-            # 0.9476. The small ones are here not for their yield but because
-            # `rdap_pool_sweep.sh` STOPS when its list runs out, which ends RDAP's
-            # contribution while the sweep still has hours to run.
-            # `.uk` stays out: Nominet, not arithmetic.
-            _o, ok = run(
-                [
-                    "uv",
-                    "run",
-                    "python",
-                    "scripts/build_rdap_pool_list.py",
-                    "--tlds",
-                    "com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
-                    "--limit",
-                    "400000",
-                    "--out",
-                    path,
-                ]
-            )
-            findings.append(f"derived: rebuilt {Path(path).name} ({'ok' if ok else 'FAILED'})")
-        else:
-            findings.append(f"derived: {Path(path).name} stale, no rebuild rule")
-    return findings, attention
 
 
 def leg_slot_bound(fleet: Path) -> int:
@@ -389,7 +241,6 @@ def cycle(number: int, with_network: bool, fleet: Path = DEFAULT_FLEET) -> list[
     for name, fn in (
         ("yield", check_yield),
         ("residual", check_residual),
-        ("derived", rebuild_derived),
         ("slots", lambda: check_leg_slots(fleet)),
         ("approvals", check_approvals),
         ("state", check_state),

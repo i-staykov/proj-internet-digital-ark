@@ -1,17 +1,15 @@
 # Releases
 
-The reviewer reissues the merged 1996-2001 corpus after every round he accepts, and on most
-days in between. One row per release he has named, oldest first.
+One row per release the reviewer has named, oldest first.
 
 - `released` is the date the marker encodes, the only date every release carries.
-- `received` is `yes` when his zip or its extracted tree is on disk. Three markers he scored
-  rounds against were intermediate merges he never sent; their row names the mail that quoted
-  their totals and the received release that holds them.
+- `received` is `yes` for a release he sent. Five markers he scored rounds against were
+  intermediate merges he never sent; their row names the mail that quoted their totals and the
+  received release that holds them.
 - The year cells are `wc -l` over `1996.txt` to `2001.txt` of the extracted tree.
-- `sha256` is of his zip where one exists, because his bytes are the artifact of record, and
-  of our `zstd -19` tarball at `data/archive/<marker>.tar.zst` where none does: the five early
-  releases were extracted and the zip discarded, so the tarball is the copy that leaves the
-  machine. `merged260715-2` is the task's original corpus and lives in `legacy-data/`.
+- `sha256` is of his zip, the artifact of record, or of our `zstd -19` tarball
+  `<marker>.tar.zst` for the five early releases whose zip was not kept. `merged260715-2` is
+  the task's original corpus, read from `legacy-data/`.
 
 `pending` is a cell the script has not been able to measure yet; `none` is a cell nothing can
 ever fill. `scripts/round/releases.py` fills the table from `ding/` and `data/archive/`,
@@ -46,11 +44,13 @@ off-site copy is verified against these hashes.
 | `merged260906` | 2026-09-06 | yes | 1,242,496 | 2,647,211 | 4,451,485 | 8,569,884 | 13,894,328 | 30,531,282 | Domain_Data_Collection_Task_0906_Update.zip | 49aa163d18e8ec508c306b967eba4d7c7a4134378a3edc93ffeeade257425aca |
 | `merged260907-2` | 2026-09-07 | yes | 1,242,897 | 2,649,645 | 4,460,947 | 8,713,158 | 13,975,217 | 32,127,408 | Domain_Data_Collection_Task_0907_Update.zip | 668b2236f089cca2af80ee4713af9894d510b3e5276a8e7224494731dd17089b |
 | `merged260908` | 2026-09-08 | yes | 1,243,032 | 2,650,528 | 4,464,493 | 8,724,684 | 14,015,128 | 34,215,977 | Domain_Data_Collection_Task_0908_Update.zip | 89e4e19b115f3306f295b65165291c5c8549576fe8589ccf485837b26fb0e6ad |
+| `merged260911-2` | 2026-09-11 | not received: totals from the reviewer's mail of 2026-09-11, superseded by `merged260911-4` | none | none | none | none | none | none | none | none |
 | `merged260911-4` | 2026-09-11 | yes | 1,251,095 | 2,667,301 | 4,514,404 | 11,574,736 | 18,108,348 | 42,991,843 | Domain_Data_Collection_Task_0911_UpdateV4.zip | 1bb1795ad9b2b803162084dd33e1e21591dc3778eb22ff67d37a48c5dede5045 |
 | `merged260917-2` | 2026-09-17 | yes | 1,765,161 | 3,390,798 | 5,690,312 | 14,606,285 | 23,295,019 | 54,475,928 | Domain_Data_Collection_Task_0917_UpdateV2.zip | 0e3f055b9a4d4edddbe2bfe9e96596d68abd0b5177d5fd19b909d439141b36cd |
 | `merged260922` | 2026-09-22 | yes | 1,855,563 | 3,548,498 | 6,235,433 | 17,443,336 | 26,222,977 | 63,421,970 | Domain_Data_Collection_Task_0922_UpdateV2.zip | 08a8d90845bb044d5a7ec573631d908d4a69ee308a42ee9c8b52b3f807bf5c00 |
 | `merged260928` | 2026-09-28 | yes | 1,877,668 | 3,595,609 | 6,466,012 | 18,610,460 | 27,390,313 | 66,585,081 | Domain_Data_Collection_Task_0928_Update.zip | 2fa59189afd893e57af996a5f9137b19b0357817d4ec8a3c422c9c27b1846f3d |
 | `merge261006-2` | 2026-10-06 | yes | 2,032,621 | 3,951,334 | 6,502,734 | 18,819,609 | 27,857,880 | 67,288,185 | Domain_Data_Collection_Task_1006_Update.zip | 2cfb93baeac3f95c82400574d557bfd07657ef6428c938f1bcd246b1cad1066d |
 | `merge261007-4` | 2026-10-07 | yes | 2,108,690 | 4,276,643 | 6,832,849 | 19,951,090 | 29,714,816 | 72,902,709 | Domain_Data_Collection_Task_1007_UpdateV4.zip | 9cb87ddc6d9bac65056e71836088158d0ad040faaa54d1d7ae4da714d9957c15 |
+| `merge261008-2` | 2026-10-08 | not received: totals from the reviewer's mail of 2026-10-08, superseded by `merge261008-3` | none | none | none | none | none | none | none | none |
 | `merge261008-3` | 2026-10-08 | yes | 2,116,016 | 4,357,519 | 6,835,968 | 19,976,982 | 29,749,278 | 73,173,564 | Domain_Data_Collection_Task_1008_UpdateV3.zip | cbe54e02478b2ace846ad1bf0c5ba6ac0d18b349d979d5c81a993b5acb4cda17 |
 <!-- /releases:table -->

@@ -1,14 +1,7 @@
-# Round 4 seeds: WWW Virtual Library subject libraries not yet fetched.
-#
-# Drawn from the outbound links of the Level-2 captures already on disk, filtered
-# to those whose URL identifies them as Virtual Library sections (vlib, /vl/,
-# wwwvl). The wider frontier of 15,060 URLs is deliberately NOT seeded here: those
-# are the resources the catalogues list, not catalogues themselves, so the
+# Round 4 seeds: WWW Virtual Library subject libraries, from the outbound links of the
+# Level-2 captures, filtered to Virtual Library section URLs (vlib, /vl/, wwwvl). The
+# resources those catalogues list are not seeded: they are not catalogues, so the
 # `directory` assertion would be false for them.
-#
-# Same standard as rounds 2 and 3: the assertion makes a capture date master
-# evidence as a curated catalogue, and names no other source attests are split out afterwards
-# rather than asserted.
 http://alt.venus.co.uk/VL/AppLingBBK	directory
 http://alt.venus.co.uk/VL/AppLingBBK/welcome.html	directory
 http://arioch.gsfc.nasa.gov/wwwvl/ee.html	directory

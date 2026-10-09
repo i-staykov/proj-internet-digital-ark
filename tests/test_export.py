@@ -499,8 +499,8 @@ def test_the_arpa_export_filter_names_the_whole_tld_and_costs_nothing_outside_it
     assert weight_of("x.arpa") == 1 and weight_of("x.arpa") > weight_of("x.mil")
 
 
-# `nypw_firstcdx` was measured and rejected (sources.md), so no recipe ingests it.
-ALLOWED_UNDOCUMENTED = {"nypw_firstcdx"}
+# Rejected, so no recipe ingests them: `nypw_firstcdx` on measurement, `jpnic_register` by him.
+ALLOWED_UNDOCUMENTED = {"nypw_firstcdx", "jpnic_register"}
 
 
 def test_every_spec_that_dates_a_year_is_ingested_by_a_recipe_that_exists() -> None:

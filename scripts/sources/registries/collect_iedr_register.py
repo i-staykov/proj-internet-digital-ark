@@ -5,7 +5,7 @@ WHOLE `.ie` register as static pages at `/statistics/{0-9,a..z}-doms.html` and t
 Machine captured them. Each page carries its own machine-written date line, so the artifact
 dates itself and no corroboration split applies.
 
-**Three fetch details, each of which produced a false negative before it was fixed.**
+**Three fetch details, each a false negative when missed.**
 
 1. `https`, not `http`. Port 80 on `web.archive.org` refuses connections while 443 answers, and
    curl's message for that is "Couldn't connect to server", which reads like a dead archive.
@@ -13,7 +13,7 @@ dates itself and no corroboration split applies.
    redirects returns 302 and **zero bytes**, indistinguishable from a page that is not archived.
 3. Retry. The archive refuses roughly half our connections on a bad day, so a single failure is
    not a negative result. Never run two copies of this at once: the second overwrites the first's
-   pages with empty files, which is how three pages came back as 0 bytes mid-measurement.
+   pages with empty files.
 
 Pages are written to `data/raw/iedr/` and read by `parse_iedr_register`, which drops any page whose
 own date line falls outside 1996-2001. That is not a formality: `l-doms.html` resolves to a 28 March

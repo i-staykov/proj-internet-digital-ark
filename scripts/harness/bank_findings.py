@@ -59,9 +59,8 @@ _SCHEME = r"(?<![\w+.-])[a-z][a-z0-9+.-]*://"
 # artifacts as `<http://host/path>, the CMU data set`. A link with a bracket on the end is a
 # link that does not open.
 _URL = re.compile(_SCHEME + r"[^\s/`)>\"']+[^\s`)>\"']*")
-# `compact_registers.py` reads http(s) URLs with this pattern's http(s) form and copies every
-# one a row names into its link cell, less RFC 2606 example hosts, which name no source. A row
-# whose link cell already holds them all is one it leaves as written, an ftp link beside them.
+# The link cell: the artifact first, then every other URL a row's texts name, less RFC 2606
+# example hosts, which name no source.
 _LINKED = re.compile(_SCHEME + r"(?:[^\s`)>\]<\"'|,\\{]|\{[^}\s]*\})+")
 _EXAMPLE = re.compile(_SCHEME + r"(?:[^/:]*\.)?example\.(?:com|org|net)(?:[/:]|$)", re.I)
 _PIPE = re.compile(r"(?<!\\)\|")

@@ -1,7 +1,6 @@
 """Print the round's figures in the five fields the reviewer asked for.
 
-He set the reporting format on 6 August and it is not the same shape as our own
-report: lines 1 and 2 are the state of HIS merged database before our increment,
+Lines 1 and 2 are the state of HIS merged database before our increment,
 lines 3 and 4 are what we add, and line 5 is 4 divided by 2. They are the core, 1996 to
 2001; the extended block beneath prices `output/extended_years/additions/` against his 2002
 to 2013 files, and the two GATE lines score each part over his EE for its years, never summed.
@@ -88,16 +87,10 @@ SINCE = CURRENT_ROUND_SINCE
 # unique nonempty records of which 10,404,200 were valid, the other 11,568 being
 # embedded ports and underscore labels that score zero. His line 1 tracks the raw
 # count, so quoting the valid one reads to him as 11,568 records lost since his last
-# message. The equivalent split for `merged260810` has not been re-measured; the raw
-# count is `wc -l` and was verified, the valid subset was not.
+# message.
 BASELINE_PAIRS = REVIEWER_BASELINE_PAIRS
 BASELINE_EE = REVIEWER_BASELINE_EE
 BASELINE_EE_BY_YEAR = REVIEWER_BASELINE_EE_BY_YEAR
-
-# What he credited for the previous round, used only for the comparison line.
-# phase-4, merged into `merged260810` on 2026-08-10 and accepted in full.
-LAST_PAIRS = 946_266
-LAST_EE = Decimal("603401.7811")
 
 
 @functools.cache
@@ -337,8 +330,7 @@ def candidate_track() -> dict:
 
     His 0906 update scores candidates separately and at the same rate as annual records,
     so this is the second of the two numbers a round is judged on and it belongs beside
-    the first. The working pool in `candidates.txt` is not it: measured 2026-09-10 the
-    two were 2,279,755 and 29,327.
+    the first. The working pool in `candidates.txt` is not it.
     """
     path = NETNEW / "candidate_additions_summary.json"
     if not path.is_file():
@@ -520,13 +512,7 @@ def main() -> None:
         print(f"  distinct domains in the increment : {m['domains']:,}")
         print(f"  dated but held back, not counted  : {m['held']:,}")
         if pairs:
-            mean = ee / pairs
-            last_mean = LAST_EE / LAST_PAIRS
-            print(
-                f"  mean weight                       : {mean:.4f} "
-                f"against last round's {last_mean:.4f}, {(mean / last_mean - 1) * 100:+.1f}%"
-            )
-            print(f"  equivalent-English against last round: {(ee / LAST_EE - 1) * 100:+.1f}%")
+            print(f"  mean weight                       : {ee / pairs:.4f}")
         print("\n  by source")
         for name, (n, source_ee) in sorted(m["by_source"].items(), key=lambda kv: -kv[1][0]):
             print(f"    {name:<24} {n:>8,}  {source_ee:>13,.4f}  mean {source_ee / n:.4f}")

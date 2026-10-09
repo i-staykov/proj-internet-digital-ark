@@ -1,27 +1,22 @@
-# Findings, round 10
+# Findings
 
-Three results from this round that transfer to anyone doing this work; each says what it was
-measured on. Totals are in `report.md`; failures, yields and next steps in `experience-summary.md`.
-"The evidence rule" is section XIII of your specification of 6 October
+Three results that transfer to anyone doing this work; each says what it was measured on. Totals
+are in `report.md`; failures, yields and next steps in `experience-summary.md`. "The evidence rule"
+is section XIII of your specification of 6 October
 (`Internet_Digital_Ark_Project_1006_Update.docx`); EE is equivalent-English.
 
 ## 1. Price a collection at the grain that ships, and measure the shipped files, not the code
 
 The Dartmouth NBER ARCS collection on archive.org carries a public per-item aggregate CDX beside
-each ARC set. We had dismissed it in August as already covered: true at registrable grain, where
-every parent was held. Read again at hostname grain on 2026-09-21, a 256 KB head read of all 282
-items' indexes found 25 whose stamps fall in 1996-2001; those 4.09 GB read whole paid **134,564
-net-new hostname records and 83,868 EE**, 20.5 EE per MB of index, 82% of them `www.` forms, each
-carrying its own exact-host status-200 capture stamp. The collection is now exhausted: the WARCS
-siblings are 2009-2017, 54 items have no index, and 592 per-ARC parts of the remaining items hold
-no in-window row.
+each ARC set. At registrable grain every parent was held. At hostname grain, a 256 KB head read
+of all 282 items' indexes found 25 whose stamps fall in 1996-2001; those 4.09 GB read whole paid
+**134,564 net-new hostname records and 83,868 EE**, 20.5 EE per MB of index, 82% of them `www.`
+forms, each carrying its own exact-host status-200 capture stamp.
 
-The same habit found a gap in our own delivery build. A registry zone file, a dated list, had
-earned each name the list's year, which the evidence rule refuses for the annual files, so 189,251
-`.dk` names shipped in neither file: the candidate pool took only names with no year at all. The
-pool now takes every registrable domain with no web-evidence year that is absent from your
-release, and the candidate claim grew by 33,594 EE in one build, found by diffing the shipped files
-against our database rather than by reading the code.
+The candidate pool takes every registrable domain with no web-evidence year that is absent from
+your release. A pool of only undated names left 189,251 `.dk` names, dated by a registry zone list
+the evidence rule refuses, in neither file: 33,594 EE, found by diffing the shipped files against
+our database rather than by reading the code.
 
 ## 2. A whole-node Internet Archive CDX is a saturation measurement first and a source second
 
@@ -40,20 +35,15 @@ the benchmark's saturation as much as it adds to it.
 
 ## 3. Refuse a class when the lead is filed, not after it is fetched
 
-On the morning of 2026-09-21, 15 of the 18 open leads of our autonomous search were hostname-grain
-classes the evidence rule keeps out of the annual files (mail and news server headers, host logs
-and tables, DNS surveys), the server-header class admitted in round 9 among them. Eight had been
-fetched and priced, at 14 to 9,537 EE each, and shipped nowhere; the evening before, the uk Usenet
-hierarchy had cost 8.47 GB for 2,569,006 host-carrying posts, 39,999 hostname-year rows and 0
-shippable EE.
+15 of 18 open leads measured were hostname-grain classes the evidence rule keeps out of the
+annual files (mail and news server headers, host logs and tables, DNS surveys). Eight fetched and
+priced, at 14 to 9,537 EE each, shipped nowhere; the uk Usenet hierarchy cost 8.47 GB for
+2,569,006 host-carrying posts, 39,999 hostname-year rows and 0 shippable EE.
 
-The lead queue now refuses a hostname-grain lead whose class is not web evidence when it is filed,
-citing the evidence rule, and never sends it to be priced; every lead records grain and class; the
-search is weighted toward registries' own published lists and dated registrable-domain lists. Of
-the 37 leads closed since, 3 were refused at filing on class and the rest on access or absence of
-the artifact; none was a header class. The records already extracted ship as the candidate
-collection `server_header_hostnames/`, as the evidence rule directs and as the Internet Domain
-Survey hostnames already do, and promote only when an exact-host capture for that year arrives.
+The lead queue refuses a hostname-grain lead whose class is not web evidence when it is filed,
+citing the evidence rule, and never sends it to be priced; every lead records grain and class. Such
+records go to the candidate collection `server_header_hostnames/`, as the evidence rule directs,
+and promote only when an exact-host capture for that year arrives.
 
 **What such a record is worth, measured.** Re-derived from the collection's own journals against
 the web captures in our database by `scripts/round/header_promotion.py`: at least 0.40% of 749,068
@@ -63,7 +53,7 @@ lower bounds, since our database keeps one record per host and year and a header
 first holds its place, and the shifted years are not held down the same way, so no comparison with
 them is drawn.
 
-## Equivalent-English per hour of work, this round
+## Equivalent-English per hour of work
 
 | method | EE | hours | per hour |
 |---|---:|---:|---:|
@@ -71,5 +61,4 @@ them is drawn.
 | Dartmouth ARCS CDX at hostname grain | 83,868 | 2.5 | 33,500 |
 | whole-node Internet Archive CDX at hostname grain | 50,722 | 4.0 | 12,700 |
 | registrable-domain lists added to the candidate pool (the Finnish .fi registry, expired-domain drop lists, arXiv, Computer Shopper) | 4,634 | 1.5 | 3,100 |
-| three continuous Internet Archive index sweeps by domain, together | 193,733 in twelve days | continuous | 670 |
 | pricing eight header-class leads the evidence rule bars | 0 shippable | 2.5 | 0 |

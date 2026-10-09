@@ -16,10 +16,9 @@ and leaves the page alone, which is what a checkout without data gets.
     uv run python scripts/round/releases.py --refresh   # recount and rehash everything
     uv run python scripts/round/releases.py --verify-trees   # tree against its zip, writes nothing
 
-`--verify-trees` answers the question that has to be settled before an extracted tree is
-deleted: does the artifact beside it hold the same bytes? It compares every zip member
-under the marker against the file on disk by size and CRC-32, which the zip carries, so
-nothing is extracted. It writes nothing, not even the page.
+`--verify-trees` settles whether an extracted tree may be deleted: it compares every zip
+member under the marker with the file on disk by size and CRC-32, which the zip carries,
+so nothing is extracted.
 
 Zips are matched to markers by content, not by name: his zips are called
 `Domain_Data_Collection_Task_0831_UpdateV2.zip` and the marker inside is
@@ -42,10 +41,9 @@ DING = Path("ding")
 ARCHIVE = Path("data/archive")
 YEARS = tuple(range(1996, 2002))
 
-# Every release the reviewer has named, oldest first. Three of them he scored against
-# but never sent: the mail names the marker, the zip that followed holds the next one.
-# `merged260715-2` is the task's original corpus and lives in `legacy-data/`, not under
-# `ding/`.
+# Every release the reviewer has named, oldest first. Five he scored against but never
+# sent: the mail names the marker, the zip that followed holds the next one.
+# `merged260715-2` is the task's original corpus, read from `legacy-data/`, not `ding/`.
 RELEASES = (
     "merged260715-2",
     "merged260727",
@@ -71,10 +69,15 @@ RELEASES = (
     "merged260906",
     "merged260907-2",
     "merged260908",
+    "merged260911-2",
     "merged260911-4",
     "merged260917-2",
     "merged260922",
     "merged260928",
+    "merge261006-2",
+    "merge261007-4",
+    "merge261008-2",
+    "merge261008-3",
 )
 
 # marker -> (date of the mail that quoted its totals, the received release that holds them)
@@ -82,6 +85,8 @@ NOT_RECEIVED = {
     "merged260817": ("2026-08-18", "merged260817-2"),
     "merged260826": ("2026-08-27", "merged260827"),
     "merged260902-2": ("2026-09-02", "merged260902-3"),
+    "merged260911-2": ("2026-09-11", "merged260911-4"),
+    "merge261008-2": ("2026-10-08", "merge261008-3"),
 }
 
 TREE_ALIASES = {"merged260715-2": Path("legacy-data")}

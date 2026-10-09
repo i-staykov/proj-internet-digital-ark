@@ -12,8 +12,7 @@ A FIND that ships no items cannot be re-priced, and that says so in the register
 Four subcommands, in order: the tick runs drain and validate, `just bank` runs reprice and,
 once its commit has landed, outcome over this drain and every drain banked before it.
 
-    drain     the downloaded run directories become one directory per lead, and the old
-              TSV ledger becomes the fleet ledger's legacy lines, once
+    drain     the downloaded run directories become one directory per lead
     validate  every sidecar against the fleet's own schema, via the fleet's own validator
     reprice   every confirmed FIND against the live store and by the program
     outcome   one fleet ledger line per confirmed FIND: both figures, the decision, banked
@@ -69,9 +68,6 @@ FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
 PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
-# The old spend record, converted into legacy lines and then set aside. `ARK_FLEET_LEDGER`
-# moves it, so a drain under test never moves the real one.
-LEDGER = REPO / "data/logs/fleet_ledger.tsv"
 # The store whose ingested files say which sources are banked, read only, under the bank's lock.
 DB = REPO / "data/ark.duckdb"
 # The decisions that let a source's rows into the store at all.
@@ -83,11 +79,6 @@ _ITEMS_EE = re.compile(
     r"net-new(?: AFTER the split|, no split)\s*:\s*([\d,]+) pairs, ([\d,]+\.?\d*) EE"
 )
 _HOST_EE = re.compile(r"NET-NEW hostname years ([\d,]+)\s+([\d,]+\.?\d*) EE")
-# The old ledger's first field: the drain's minute, as the tick's run label writes it.
-_STAMP = re.compile(r"\d{8}T\d{4}Z")
-# A row a test drain wrote into the live TSV: 5 tokens and no window. #171 drops these by
-# this shape; converted first, they would stand in the fleet ledger for good.
-_TEST_ROW = re.compile(r"\d{8}T\d{4}Z\t5\t\?")
 
 
 def _number(text: str) -> float:
@@ -124,7 +115,7 @@ def freshness(lead: Path) -> tuple[int, int]:
     return (1 if settled else 0, int(run_id) if run_id.isdigit() else 0)
 
 
-def drain(incoming: Path, fleet: Path | None = None) -> int:
+def drain(incoming: Path) -> int:
     """One directory per lead at the top, whatever shape the artifact arrived in.
 
     An S3 artifact is `leads/<slug>.json` beside `leads/<slug>/{finding.json,finding.md,
@@ -141,7 +132,6 @@ def drain(incoming: Path, fleet: Path | None = None) -> int:
     finding, and a second scout copy of the same slug is dropped. What `.md` is left after
     that is loose prose with a name of its own, such as `_scout/`'s lead-less negatives.
     """
-    convert_ledger(fleet)
     moved = leads = 0
     for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
         for lead in sorted(p for p in run.rglob("*") if p.is_dir() and _lead_dir(p)):
@@ -201,63 +191,6 @@ def keep_leftovers(incoming: Path, run: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(path), str(target))
     print(f"drain: {len(left)} unrecognised files from {run.name} kept in {keep}")
-
-
-def convert_ledger(fleet: Path | None) -> None:
-    """The old TSV ledger as the fleet ledger's legacy lines, set aside once fleet main has them.
-
-    Each row becomes `{"row", "line", "at"}`: its 1-based line number, its text, and its own
-    stamp as the line's time. The fleet keys a legacy line on the row and the text together,
-    because the old ledger repeats identical rows, so each tick's rerun adds none. Anything
-    short of every row on the clone's `origin/main` keeps the file for the next tick, since
-    push_fleet.sh's replay can drop an unpushed line: a fleet clone that predates
-    `scripts/ledger.py`, a row with no stamp to date it, a test drain's row still waiting for
-    #171's drop, or a push not landed yet. None stops the tick. The file is renamed
-    `.converted`, beside any earlier one, never deleted.
-    """
-    tsv = Path(os.environ.get("ARK_FLEET_LEDGER") or LEDGER)
-    if not tsv.is_file():
-        return
-    if not fleet_ledger.available(fleet):
-        where = "no --fleet was given" if fleet is None else f"{fleet} has no scripts/ledger.py"
-        print(f"drain: {tsv.name} kept, {where} to convert it into")
-        return
-    body = tsv.read_text(encoding="utf-8")
-    lines = body.removesuffix("\n").split("\n") if body else []
-    tests = sum(1 for line in lines if _TEST_ROW.fullmatch(line))
-    if tests:
-        print(
-            f"drain: {tsv.name} kept, {tests} rows are a test drain's (5 tokens, no window):"
-            " #171's drop must run before the conversion"
-        )
-        return
-    rows = []
-    for number, line in enumerate(lines, 1):
-        stamp = line.split("\t", 1)[0]
-        try:
-            if not _STAMP.fullmatch(stamp):
-                raise ValueError(stamp)
-            at = datetime.strptime(stamp, "%Y%m%dT%H%MZ").strftime("%Y-%m-%dT%H:%M:00Z")
-        except ValueError:
-            print(f"drain: {tsv.name} kept, row {number} has no stamp to date it: {line[:60]!r}")
-            return
-        rows.append({"row": number, "line": line, "at": at})
-    ok, said = fleet_ledger.append(fleet, "legacy", rows)
-    if not ok:
-        print(f"drain: {tsv.name} kept, the fleet ledger refused it: {said}")
-        return
-    landed = fleet_ledger.lines(fleet, "legacy", ref="origin/main")
-    held = {(line.get("row"), line.get("line")) for line in landed}
-    found = sum((row["row"], row["line"]) in held for row in rows)
-    if found != len(rows):
-        print(f"drain: {tsv.name} kept, fleet main holds {found} of its {len(rows)} rows ({said})")
-        return
-    aside, n = tsv.with_name(f"{tsv.name}.converted"), 1
-    while aside.exists():
-        n += 1
-        aside = tsv.with_name(f"{tsv.name}.converted.{n}")
-    tsv.rename(aside)
-    print(f"drain: {tsv.name} converted, {len(rows)} legacy lines ({said}), now {aside.name}")
 
 
 # --- validate -----------------------------------------------------------------
@@ -750,7 +683,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--fleet",
         type=Path,
-        help="the fleet clone: its ledger for drain and outcome, its schema for validate",
+        help="the fleet clone: its ledger for outcome, its schema for validate",
     )
     ap.add_argument(
         "--register",
@@ -774,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     fleet = args.fleet.expanduser() if args.fleet is not None else None
     if args.command == "drain":
-        return drain(incoming, fleet)
+        return drain(incoming)
     if args.command == "reprice":
         return reprice(incoming)
     if fleet is None:
