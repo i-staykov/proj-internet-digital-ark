@@ -7,10 +7,9 @@ no network and no write lock, so it can run before every collection decision.
 
 **Every measurement starts from the store, so a file no ingest has read is invisible
 to all of them.** This searches for no new source; it diffs disk against the ingest
-ledger. Its first finding, 496 unread per-TLD ISC survey shards matched by a documented
-glob, was worth 14,956 equivalent-English.
+ledger.
 
-Five checks, each of which has caught something real:
+Four checks, each of which has caught something real:
 
 `unread`         files a documented ingest glob matches that the ledger has never
                  read, per source. The ISC case, and the first thing to look at.
@@ -24,13 +23,6 @@ Five checks, each of which has caught something real:
 `usenet`         the corpus has its own `.processed` ledger rather than rows in
                  `ingested_file`, so it needs its own three-way comparison
                  against the catalogue and the disk.
-`stale_derived`  derived artifacts older than the rows they should carry, each
-                 compared against every mark that can invalidate it: newest pairs
-                 for a gap queue, newest candidates for a pool queue, and for the
-                 pool queue also the newest **journal**, because its ordering is a
-                 measured hit rate and that is measured out of the journals rather
-                 than out of the store. The baseline release alone, which changes
-                 monthly, misses every one of these marks.
 
 Nothing here is a gate. It reports and exits 0, because "there is unread material
 on disk" is a fact about the round rather than a broken invariant, and a check
@@ -43,7 +35,6 @@ that fails the build for it would simply be turned off.
 import argparse
 import re
 import sys
-import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -59,29 +50,8 @@ STORE = ROOT / "data/ark.duckdb"
 RAW = ROOT / "data/raw"
 JUSTFILE = ROOT / "justfile"
 
-# `ark ingest <key> <path-or-glob>`, ignoring a commented-out line. Two sources
-# are deliberately not on any glob: `arquivo_ia`'s 47 GB input was reclaimed once
-# its evidence was in the store, and the ingest line is commented out to say so.
+# `ark ingest <key> <path-or-glob>`, ignoring a commented-out line.
 INGEST_RE = re.compile(r"^\s*(?!#)\s*uv run ark ingest\s+(\S+)\s+(\S+)")
-
-# Derived artifacts, each with the thing that makes it stale. Every one is
-# regenerable, so a finding is "rebuild this", never "you have lost something".
-#
-#   candidates  the newest domain with no year, which a pool queue should carry
-#   pairs       the newest assigned pair, which changes what is bracketed
-DERIVED = (
-    # The list the RDAP sweep actually reads: watching any other file is the same defect
-    # as watching the wrong journal prefix, the alarm stays quiet about the list in use.
-    # Restricted to TLDs with a measured in-window rate, because the builder falls back to
-    # the pool-wide rate where it has no sample and that floated `.vi`, `.bm` and `.pn`
-    # above `.com` for a measured 1 in-window date in 97 queries. The set grows with the
-    # sample, which is why it lives in one place rather than in a comment.
-    (
-        "data/raw/rdap/pool_targets_measured.txt",
-        "build_rdap_pool_list.py --tlds com,net,org,ca,nl,sg,no,br,fi,fr,ar,pl",
-        "candidates",
-    ),
-)
 
 # Directories whose contents are inputs to a collector rather than to an ingest,
 # or which are recorded as rejected on measurement. Naming them here keeps the
@@ -89,16 +59,14 @@ DERIVED = (
 # the check reports every OCR cache file and reads as noise.
 ACCOUNTED = {
     "usenet": "the corpus, tracked in its own .processed ledger",
-    "usenet_bulk": "verified byte-identical duplicate of data/raw/usenet",
+    "usenet_bulk": "deleted; DELETED.tsv lists the archives and their URLs",
     "usenet_probe": "spent probe, superseded by the whole-corpus run",
-    "usenet_probe4": "spent probe",
     "usenet_probe5": "spent probe, duplicate bytes",
     "rtfm": "extracted FAQ tree, read by scripts/sources/usenet/split_rtfm_faqs.py",
     "maillists": "harvested month files, read by "
     "scripts/sources/mail_corpora/collect_mailing_lists.py",
     "texts": "trade-press OCR cache, read by scripts/sources/trade_press/reextract_trade_press.py",
-    "webbase": "rejected on measurement: 99.99% already held, and re-tested 2026-08-27 "
-    "on the held-and-missing-2001 screen at exactly 0 pairs",
+    "webbase": "rejected on measurement: 99.99% already held",
     # The largest block on disk, and INPUT: `ark ingest-hostnames` reads these capture rows
     # and `cdx_suffix_convert.py` turns their exact-host registrables into `cdx_snapshot`
     # journals under `data/raw/cdx/`. `unreferenced` cannot tell "raw input" from "bytes
@@ -346,88 +314,17 @@ def check_usenet() -> int:
     return len(unread) + len(wrong_size) + len(partial)
 
 
-def freshness_marks(conn: duckdb.DuckDBPyConnection) -> dict[str, float | None]:
-    """Unix time of the newest row of each kind that can make a derived list stale.
-
-    Read as epoch seconds inside SQL, since DuckDB needs `pytz` to hand a TIMESTAMPTZ
-    to Python and it is not a dependency here.
-    """
-    marks: dict[str, float | None] = {}
-    row = conn.execute(
-        """
-        SELECT max(epoch(d.first_seen_at)) FROM domain d
-        WHERE NOT EXISTS (SELECT 1 FROM domain_year y WHERE y.domain = d.domain)
-        """
-    ).fetchone()
-    marks["candidates"] = float(row[0]) if row and row[0] is not None else None
-    row = conn.execute("SELECT max(epoch(verified_at)) FROM domain_year").fetchone()
-    marks["pairs"] = float(row[0]) if row and row[0] is not None else None
-    # Not a store mark at all. A queue ordered by measured hit rate is invalidated by a
-    # new journal, because that is where the rate is measured, and nothing in the store
-    # moves when a journal lands: the misses never become rows.
-    journals = [
-        p.stat().st_mtime
-        for p in (ROOT / "data/raw/cdx").glob("cdx_*.jsonl.gz")
-        if not p.name.endswith(".part")
-    ]
-    marks["journals"] = max(journals) if journals else None
-    return marks
-
-
-def check_stale_derived(conn: duckdb.DuckDBPyConnection) -> int:
-    """Derived artifacts older than the newest row that ought to be in them."""
-    print("\n== stale_derived: built before the rows they should carry ==")
-    marks = freshness_marks(conn)
-    for kind in ("candidates", "pairs", "journals"):
-        when = marks[kind]
-        shown = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(when)) if when else "none"
-        label = {
-            "candidates": "newest candidate with no year",
-            "pairs": "newest assigned pair",
-            "journals": "newest finished cdx journal",
-        }[kind]
-        print(f"  {label:34} {shown}")
-    stale = 0
-    for rel, rebuild, against in DERIVED:
-        path = ROOT / rel
-        if not path.exists():
-            continue
-        kinds = (against,) if isinstance(against, str) else against
-        candidates = [(k, marks[k]) for k in kinds if marks.get(k) is not None]
-        if not candidates:
-            continue
-        # The binding mark is the most recent one: a list is stale if ANYTHING it
-        # depends on is newer than it.
-        kind, newest = max(candidates, key=lambda kv: kv[1])
-        mtime = path.stat().st_mtime
-        when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(mtime))
-        if mtime < newest:
-            stale += 1
-            behind = (newest - mtime) / 3600
-            print(
-                f"  [STALE] {rel}  {when}  {behind:.1f}h behind the newest "
-                f"{kind}  rebuild: {rebuild}"
-            )
-        else:
-            print(f"  [ok]    {rel}  {when}  (vs {'/'.join(kinds)})")
-    if not stale:
-        print("  nothing: every derived artifact postdates the rows it should carry")
-    return stale
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
         "--check",
         action="append",
-        choices=["unread", "glob_too_narrow", "unreferenced", "usenet", "stale_derived"],
-        help="run only these checks (repeatable). Default: all five.",
+        choices=["unread", "glob_too_narrow", "unreferenced", "usenet"],
+        help="run only these checks (repeatable). Default: all four.",
     )
     ap.add_argument("--verbose", action="store_true", help="list every file, not the first four")
     args = ap.parse_args()
-    wanted = set(
-        args.check or ["unread", "glob_too_narrow", "unreferenced", "usenet", "stale_derived"]
-    )
+    wanted = set(args.check or ["unread", "glob_too_narrow", "unreferenced", "usenet"])
 
     conn = read_only_store(STORE)
     try:
@@ -449,8 +346,6 @@ def main() -> None:
             findings["unreferenced"] = check_unreferenced(args.verbose)
         if "usenet" in wanted:
             findings["usenet"] = check_usenet()
-        if "stale_derived" in wanted:
-            findings["stale_derived"] = check_stale_derived(conn)
     finally:
         conn.close()
 

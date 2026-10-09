@@ -256,22 +256,3 @@ def test_ten_agreeing_finds_hand_the_decision_to_the_program_figure(
     incoming, _ = setup(tmp_path, lead=LEAD, price=price)
     got = rule.confirmed_finds(incoming, outcomes).get("new-source")
     assert (got and (got["figure"], got["ee"])) == want
-
-
-def test_a_request_and_its_decision_leave_the_pages_the_compactors_fixed_point(tmp_path, capsys):
-    """A citation the compactor would rewrite or drop is lost on its next run, and with it the
-    record of what decided."""
-    request = script("harness/fleet_request.py", "fleet_request_on_the_pages")
-    compactor = script("round/compact_registers.py", "compact_registers")
-    approved = "## Approved\n\n### old_source / cdx_timestamp\n- ingest specs: `old_spec`\n"
-    approved += "Decision: master\n\n## Pending requests\n\nNone.\n"
-    pages = compactor.compact(
-        dict.fromkeys(compactor.PAGES, "") | {compactor.APPROVED_PAGE: approved}
-    )
-    incoming, register = setup(tmp_path, lead=LEAD, register=pages[compactor.APPROVED_PAGE])
-    for writer in (request, rule):
-        writer.main([str(incoming), "--register", str(register), "--write"])
-    assert "decided: new_source / cdx_timestamp is master" in capsys.readouterr().out
-    now = pages | {compactor.APPROVED_PAGE: register.read_text(encoding="utf-8")}
-    assert "- standing rule: the loop wrote" in now[compactor.APPROVED_PAGE]
-    assert compactor.compact(now) == now

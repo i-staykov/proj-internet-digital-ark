@@ -48,8 +48,7 @@ def _open_store(attempts: int = 60, pause: float = 15.0) -> duckdb.DuckDBPyConne
 
     The store query happens AFTER every archive has been parsed, which over the
     full corpus is hours of work, and a bank holds the write lock
-    whenever it is mid-ingest. Failing here throws all of that away, which has
-    already happened once tonight to a measurement script.
+    whenever it is mid-ingest. Failing here throws all of that away.
     """
     for attempt in range(attempts):
         try:

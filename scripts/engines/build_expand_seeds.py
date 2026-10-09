@@ -1,9 +1,7 @@
 """Turn the CDX engine's own hits into the next round of expansion seeds.
 
-**This is the edge that closes the discovery loop.** Page expansion has existed here
-since round 1, but every round of it was fed by a seed list a human chose: Yahoo
-categories, the WWW Virtual Library, a curated directory. That makes it a source, and
-sources run out. Feeding it from the engine's own output instead makes it a *cycle*:
+**This is the edge that closes the discovery loop.** A human-chosen seed list is a source,
+and sources run out; feeding expansion from the engine's own output makes it a *cycle*:
 
     pool candidate -> CDX says it was live in 1996-2001 -> fetch that capture
       -> read the domains its page names -> those become pool candidates -> repeat

@@ -1,7 +1,7 @@
 [project]
 name = "ark"
 version = "0.1.0"
-description = "Internet Digital Ark: historical domain collection (1996-2001) with per-year evidence"
+description = "Internet Digital Ark: historical hostnames 1996 to 2013 with per-year evidence"
 readme = "README.md"
 authors = [
     { name = "Ivaylo Staykov", email = "ivaylo.staykov@student.hpi.uni-potsdam.de" },
@@ -33,9 +33,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# Incoming material, not project code: ding/ holds what the reviewer supplied,
-# including his own scripts. Linting them would either fail the gate on someone
-# else's file or tempt a reformat that makes it no longer his.
+# ding/ and legacy-data/ hold the reviewer's material, his scripts included: never
+# linted or reformatted.
 extend-exclude = ["ding", "legacy-data"]
 
 [tool.ruff.lint]

@@ -99,9 +99,8 @@ def field_names(record: dict) -> set[str]:
     """The name an item carries in its own field, beside whatever its prose says.
 
     A fleet price leg writes `{host, year, text}`: the name in its own field and the stamp
-    in `text`. The snapshot pricer reads the field; this one read only the prose and priced
-    358,529 dated .dk names at 0 EE on 2026-09-15. A field is a name, not prose, so the
-    whitelist that guards against OCR punctuation does not apply to it.
+    in `text`. A field is a name, not prose, so the whitelist that guards against OCR
+    punctuation does not apply to it.
     """
     out: set[str] = set()
     for field in ("host", "domain"):

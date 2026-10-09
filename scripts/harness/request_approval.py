@@ -72,11 +72,8 @@ def records_of(journal: Path, source: str = "") -> list[dict]:
     """Records for the sample, from a JSONL journal or from the spec's own parser.
 
     Not every source arrives as a journal. A bulk file downloaded whole (a TSV
-    census, a survey name list) is read directly by its registered parser, and
-    this tool used to die on the first line of one with a JSON decode error,
-    which made the approval route quietly unavailable for exactly the sources
-    that are large enough to matter. Falling back to the parser means any
-    registered spec can be put to a human, whatever shape its input has.
+    census, a survey name list) is read by its registered parser, so any registered
+    spec can be put to a human, whatever shape its input has.
     """
     opener = gzip.open if journal.suffix == ".gz" else open
     out: list[dict] = []

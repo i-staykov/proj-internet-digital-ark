@@ -6,11 +6,9 @@ domain we already date in some year, or that his files name exactly, carries the
 post's date as `dated_directory`; a name appearing only here goes to the
 candidate pool and earns its year from a capture.
 
-The 120-archive sample measured on 8 August put 12,512 of 14,581 net-new pairs on
-domains never seen anywhere, so the split is not a formality here: it is most of
-the volume. Quoting the pre-split figure would overstate the source by about
-seven times, which is the error that sank three of four source verdicts the same
-morning.
+The 120-archive sample put 12,512 of 14,581 net-new pairs on domains never seen
+anywhere, so the split is not a formality here: it is most of the volume. Quoting the
+pre-split figure would overstate the source by about seven times.
 
 Read-only against the store.
 

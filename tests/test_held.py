@@ -247,7 +247,6 @@ ALLOWED = {
     "src/ark/db.py": "add_candidates registers a name; it cannot import held, which imports it",
     "src/ark/provenance.py": "writes and loads the store's tables whole",
     "src/ark/provenance_trace.py": "ships alone as trace.py, importing only the standard library",
-    "scripts/harness/audit_residual.py": "a freshness mark over the store's candidates",
 }
 # The lanes: each splits what it read into dated and candidate by whether a name is dated
 LANES = ["src/ark/bulk.py", "src/ark/hostnames.py", "scripts/engines/split_expansion_journal.py"]

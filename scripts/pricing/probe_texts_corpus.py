@@ -56,23 +56,16 @@ USER_AGENT = "internet-digital-ark research crawler (contact: ivaylo.staykov@tak
 # match becomes a fabricated domain. Restricting to the TLDs the metric actually
 # rewards costs recall on obscure ccTLDs that are worth 0.09 each anyway.
 #
-# The first version of this pattern required two labels *before* the TLD, so it
-# read `www.foo.com` and silently dropped `foo.com`, `http://foo.com/` and
-# `bob@foo.com`. In a scanned magazine or a FAQ a bare two-label name is an
-# address like any other, and printed copy drops the `www.` constantly, so that
-# cost a third of the corpus: re-reading the 855 cached issues found 12,788
-# (domain, year) rows the old pattern never saw, of which 791 survived the
-# corroboration split, worth 493.9 equivalent-English.
-#
-# Two labels is therefore the minimum, and the sentence-punctuation defence moves
-# into the lookbehind, which stops a match starting inside a longer dotted token
-# and so stops one OCR smear becoming several fabricated names. "...end.Company"
+# Two labels is the minimum: printed copy drops `www.`, and a bare `foo.com` is an
+# address like any other. The sentence-punctuation defence lives in the lookbehind,
+# which stops a match starting inside a longer dotted token and so stops one OCR smear
+# becoming several fabricated names. "...end.Company"
 # still cannot match, because `\b` after the TLD needs a non-word character and
 # finds `p`. Note `ark.usenet.domains_in_message` deliberately does NOT do this:
 # a bare name in conversational prose is a weaker claim than one in print.
 #
 # **And the whitelist has to refuse a PREFIX of a longer hostname, or it fabricates.**
-# Found 2026-08-18 while pricing a scholarly corpus. `uk` and `au` are on this list, so
+# `uk` and `au` are on this list, so
 # `www.nctu.edu.tw` matched `www.nctu.edu` and collapsed to `nctu.edu`, and
 # `tuvok.au.af.mil` matched `tuvok.au`. Both names are well formed, so no invariant could
 # see them, and the error runs in the flattering direction TWICE: the pair count drops

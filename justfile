@@ -126,16 +126,14 @@ brief:
     uv run python scripts/agents/brief.py
 
 # The reviewer's first priority in one command: unprocessed files, globs that match too
-# little, downloaded bytes with no parser, derived lists a newer baseline has invalidated.
-# Read-only and NOT a gate; run by hand it once found 496 unread ISC survey shards worth
-# 14,956 equivalent-English.
+# little, downloaded bytes with no parser. Read-only and NOT a gate.
 #
 # what is on disk that nothing has read, and what the documented path would miss
 residual *args:
     uv run python scripts/harness/audit_residual.py {{args}}
 
-# One pass of the harness: collector yield, unbanked journals, derived lists the store has
-# outgrown, pending approvals, docs/ROUND.md. It ends with the items
+# One pass of the harness: collector yield, unbanked journals, pending approvals,
+# docs/ROUND.md. It ends with the items
 # no program can decide, which is the part worth reading. `--until EPOCH --every SECS`
 # loops; `--no-network` skips the re-probe, the only step that leaves the machine.
 #
@@ -145,10 +143,6 @@ cycle *args:
     set -euo pipefail
     uv run python scripts/harness/bank_hygiene.py space
     uv run python scripts/harness/discover_cycle.py {{args}}
-    # The failure-state ledger his XI asks for, printed rather than logged: a lane that has
-    # started failing looks exactly like a lane with nothing left to find. Never fatal.
-    echo ""
-    uv run python scripts/harness/query_health.py --write --tail 3 || true
 
 # The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
 # VPS walker's finished journals home, and call `just bank` only when `bank_trigger.py`
@@ -212,10 +206,8 @@ sync fleet="~/GitHub/ark-fleet":
         done <<< "$RUNS"
     done
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    # One directory per lead at the top of the drain; the laptop's old ledger TSV goes, once,
-    # into the fleet's ledger as legacy lines.
-    uv run python scripts/harness/fleet_findings.py drain "$IN" --fleet "$FLEET"
-    uv run python scripts/harness/bank_hygiene.py prune --write
+    # One directory per lead at the top of the drain.
+    uv run python scripts/harness/fleet_findings.py drain "$IN"
     # 2. The fleet's schema: a sidecar nobody validated is prose with braces. The second
     #    price, on the live store, is the bank's.
     uv run python scripts/harness/fleet_findings.py validate "$IN" --fleet "$FLEET"
@@ -378,7 +370,6 @@ bank *args:
         C_RAN=""; C_FAIL=""
         if want journals; then
             uv run python scripts/harness/bank_hygiene.py space
-            bash scripts/sources/usenet/ingest_new_usenet.sh auto || C_FAIL="$C_FAIL usenet_auto"
             if compgen -G "data/raw/usenet/usenet_dated_*.jsonl.gz" >/dev/null; then
                 C_RAN="$C_RAN usenet_dated"
                 uv run python scripts/harness/bank_hygiene.py space
@@ -393,7 +384,7 @@ bank *args:
             fi
             # A partial nothing has written to for 90 minutes is a dead run's work, not a live
             # run's file, so it takes its final name before the ingest looks.
-            for part in data/raw/cdx/*.jsonl.gz.part data/raw/rdap/*.jsonl.gz.part; do
+            for part in data/raw/cdx/*.jsonl.gz.part; do
                 [ -e "$part" ] || continue
                 final="${part%.part}"
                 [ -e "$final" ] && continue
@@ -440,12 +431,6 @@ bank *args:
                 uv run python scripts/harness/bank_hygiene.py space
                 uv run ark ingest-enron-hostnames data/raw/enron_items | tail -1 \
                     || C_FAIL="$C_FAIL enron_items"
-            fi
-            if compgen -G "data/raw/rdap/rdap_*.jsonl.gz" >/dev/null; then
-                C_RAN="$C_RAN rdap_snapshot"
-                uv run python scripts/harness/bank_hygiene.py space
-                uv run ark ingest rdap_snapshot data/raw/rdap/rdap_*.jsonl.gz | tail -1 \
-                    || C_FAIL="$C_FAIL rdap_snapshot"
             fi
         fi
         uv run python scripts/harness/bank_hygiene.py space
@@ -641,9 +626,9 @@ price *args:
     uv run python scripts/pricing/price_items.py {{args}}
 
 # The same question at the second accepted unit. `price` collapses every name to its
-# registrable, which once priced 180 suffix journals at 0 that were worth 301,650 EE in
-# hostnames. This runs the ingest's own funnel and differences against hostname_year AND his
-# baseline files, read-only, so a corpus gets its number without the write lock.
+# registrable, so a hostname corpus prices near 0 there. This runs the ingest's own funnel and
+# differences against hostname_year AND his baseline files, read-only, so a corpus gets its
+# number without the write lock.
 #
 # price a corpus at hostname grain against the live store, writing nothing
 price-hosts *args:
@@ -692,11 +677,6 @@ reproduce stage="all":
         uv run ark audit
         ;;
     # stage 2: ingest every bulk source already downloaded into data/raw/
-    #
-    # `arquivo_ia` is deliberately absent: `data/raw/arquivo/IA.cdxj` is 47 GB and was deleted
-    # once its 28,247 evidence rows were in the store, so a live line would abort this whole
-    # stage on a missing file. Download it first from its link in docs/registers/sources.md
-    # and run the commented line by hand. Same reason checksums.sha256 verifies 234, not 235.
     sources)
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest early_web         data/raw/early_web/*.cdx.gz
@@ -721,9 +701,6 @@ reproduce stage="all":
         # ordering is what makes the store the control group for the relaxation.
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest nypw_timemaps_nonok data/raw/nypw_timemaps/*.cdx.gz
-        # `jpnic_register` was REJECTED by the reviewer, so `ark ingest` exits 2 and takes
-        # the whole recipe with it. Left commented because the artifact is on disk.
-        # uv run ark ingest jpnic_register   data/raw/jpnic_tomocha/domain-list.txt
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest iedr_register     data/raw/iedr/*-doms.html
         uv run python scripts/harness/bank_hygiene.py space
@@ -847,7 +824,8 @@ reproduce stage="all":
         uv run ark ingest early_bulk_whois_snapshot data/raw/edelman/*.html
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest arquivo_roteiro   data/raw/arquivo/Roteiro.cdxj
-        # uv run ark ingest arquivo_ia      data/raw/arquivo/IA.cdxj   # see above
+        uv run python scripts/harness/bank_hygiene.py space
+        uv run ark ingest arquivo_ia        data/raw/arquivo/IA.cdxj
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest afnic_fr          data/raw/afnic/*NomsDeDomaineEnPointFr.csv
         uv run python scripts/harness/bank_hygiene.py space
@@ -871,8 +849,6 @@ reproduce stage="all":
         uv run ark ingest ukwa_geoindex     data/raw/ukwa/*_inwindow.tsv.gz
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest ncsa_whats_new    data/raw/ncsa-whats-new/ncsa_1996_domain_date_pairs.tsv
-        # These three once reached 11.5% of all assignments while this recipe, which README.md
-        # calls "the authoritative list of what gets ingested", did not name them (D1).
         uv run python scripts/harness/bank_hygiene.py space
         uv run ark ingest udrp_proceedings       data/raw/udrp/udrp_proceedings.jsonl.gz
         uv run python scripts/harness/bank_hygiene.py space

@@ -24,11 +24,10 @@ sit at the root. Hard rules live in `AGENTS.md`. *Generated* pages name the scri
 | [report.template.md](report.template.md) | The round report with its stubs | when a five-figure source banks |
 | [report.md](report.md) | The filled report (*generated* by `scripts/round/fill_report.py`) | to read what shipped |
 | [report.docx](report.docx) | The Word rendering of the report (*generated* by `scripts/round/build_report_docx.py`) | before sending |
-| [round/reproduction.txt](round/reproduction.txt) | The verification-run paragraph `fill_report.py` quotes into the report | when that paragraph is in question |
 | [round/delivery_readme.md](round/delivery_readme.md) | The README at the archive root | before packaging |
 | [round/experience-summary.md](round/experience-summary.md) | What worked, what did not, the limits (D2) | when writing up a round |
 | [round/findings.md](round/findings.md) | The round's research findings and the measurement behind each | when writing up a round |
 | [round/assets/](round/assets/) | `report-reference.docx`, the Word style reference | when the report styling changes |
 | [orq/orq.template.md](orq/orq.template.md) | The two open research question answers with their tokens, filled by `scripts/round/orq.py` into both research-questions folders | when an answer to either open question changes |
 | [ops/runbook.md](ops/runbook.md) | The commands and procedures of the loop as built, in the order a session runs them | before running anything |
-| [ops/security-posture.md](ops/security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires or before a first request to a new host |
+| [ops/security-posture.md](ops/security-posture.md) | Threat model and incident handling for a public repository that parses dated mail corpora | when an AV alert fires |

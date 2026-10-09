@@ -1,10 +1,8 @@
-# Personal / private working context
-PersonalContext.md
-RecentContext.md
+# The owner's root notes.
 plan.md
-todo.md
-READFIRST.md
+goal.md
 handoff.md
+PersonalContext.md
 
 # macOS junk
 .DS_Store
@@ -17,9 +15,8 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 
-# The reviewer's merged baseline, by name wherever a copy lands: 1.3 GB, over GitHub's 100 MB limit.
-merged*/
-**/merged*/
+# His releases, by name wherever a copy lands: over GitHub's 100 MB limit.
+merge*/
 
 # Big data never reaches git; output/ ships in the delivery archive, regenerable by `ark export`.
 /ding
@@ -39,20 +36,11 @@ submissions/**/*.tar.gz
 # Manifests `just verify raw` writes at the root.
 submissions/SHA256SUMS
 submissions/SHA256SUMS.stat
-submissions/SHA1SUMS
 
 # Email drafts and personal correspondence: `git archive HEAD` ships every tracked file.
 private/
 
-# Working notes and agent prompts, never deliverables.
-legacy/notes/
-handoff-research.md
-handback-research.md
-prompt-research-agent.md
-handback-sources-A.md
-handback-sources-B.md
-
-# Written by `just state`; it embeds the VPS address and the open-decision list.
+# Written by `just state`, per machine.
 docs/ROUND.md
 
 # Written by `build_report_docx.py --keep-markdown`; regenerable and addressed to the reviewer.
@@ -74,6 +62,3 @@ local.env
 .claude/scheduled_tasks.json
 .claude/checkpoints/
 .claude/mailbox/
-
-# The working goal prompt: dates, cadence and a private target.
-goal.md

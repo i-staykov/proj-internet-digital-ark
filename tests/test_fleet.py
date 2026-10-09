@@ -27,7 +27,6 @@ HARNESS = ROOT / "scripts/harness"
 FLEET = Path(os.environ.get("ARK_FLEET") or "~/GitHub/ark-fleet").expanduser()
 # The fleet's own validator, schemas and ledger script, copied out or run over scratch files.
 CONTRACT = FLEET if (FLEET / "scripts/contract.py").is_file() else None
-LEDGER = FLEET if all((FLEET / f"scripts/{n}.py").is_file() for n in ("ledger", "pacer")) else None
 RECIPE = (ROOT / "justfile").read_text(encoding="utf-8")
 TICK = RECIPE[RECIPE.index("\nsync fleet=") : RECIPE.index("\nbank ")]
 BANK = RECIPE[RECIPE.index("\nbank ") :]
@@ -68,7 +67,6 @@ for number, text in enumerate(sys.stdin.read().splitlines(), 1):
 print(f"ledger: {added} appended, {kept} kept")
 """
 PENDING = {"status": "pending"}
-ROWS = "20260901T1037Z\t432\t68.0\n" * 2 + "20260923T0706Z\t0\t?\n" * 2  # identical rows too
 PRICER = ["uv", "run", "python"]
 
 
@@ -110,16 +108,6 @@ def stand_in(root: Path) -> Path:
     return root
 
 
-def clone(tmp_path: Path, real: bool = False) -> Path:
-    """A scratch fleet clone with the fleet's own `ledger.py` and `pacer.py`, or the stand-in."""
-    if not real:
-        return stand_in(tmp_path / "fleet")
-    (scripts := tmp_path / "fleet/scripts").mkdir(parents=True)
-    for name in ("ledger.py", "pacer.py"):
-        shutil.copy(LEDGER / "scripts" / name, scripts / name)
-    return scripts.parent
-
-
 def git(cwd: Path, *args: str) -> str:
     done = subprocess.run(
         ["git", *args], cwd=cwd, env=ENV, capture_output=True, text=True, check=True, timeout=60
@@ -138,63 +126,6 @@ def fake_bin(tmp_path: Path) -> str:
     for name in ("uv", "sleep"):
         (bin_dir / name).chmod(0o755)
     return f"{bin_dir}{os.pathsep}{os.environ['PATH']}"
-
-
-# --- the drain: the old TSV ledger, once ------------------------------------------------
-
-
-@pytest.mark.parametrize("real", [False, True], ids=["stand-in", "fleet-ledger-script"])
-def test_the_old_tsv_becomes_legacy_lines_set_aside_once_fleet_main_holds_them(
-    tmp_path, capsys, real
-):
-    if real and LEDGER is None:
-        pytest.skip("no fleet clone with scripts/ledger.py here")
-    root, tsv = clone(tmp_path, real), Path(os.environ["ARK_FLEET_LEDGER"])
-    tsv.write_text(ROWS, encoding="utf-8")
-    (incoming := tmp_path / "incoming").mkdir()
-    assert "fleet main holds 0 of its 4 rows" in ff(capsys, "drain", incoming, "--fleet", root)[1]
-    lines = fleet_ledger.lines(root, "legacy")
-    assert [(line["row"], line["line"]) for line in lines] == list(enumerate(ROWS.splitlines(), 1))
-    assert [line["at"] for line in lines[1:3]] == ["2026-09-01T10:37:00Z", "2026-09-23T07:06:00Z"]
-    assert tsv.read_text(encoding="utf-8") == ROWS, "kept until a push lands the lines"
-    env = ENV | {f"GIT_{who}_{k}": v for who in ("AUTHOR", "COMMITTER") for k, v in
-                 (("NAME", "ark"), ("EMAIL", "ark@localhost"))}  # fmt: skip
-    main = ["update-ref", "refs/remotes/origin/main", "HEAD"]
-    for args in (["init", "-q"], ["add", "ledger"], ["commit", "-q", "-m", "ledger"], main):
-        subprocess.run(["git", "-C", str(root), *args], check=True, env=env)
-    assert ff(capsys, "drain", incoming, "--fleet", root)[0] == 0
-    assert len(fleet_ledger.lines(root, "legacy")) == 4, "a rerun adds none"
-    assert not tsv.exists() and tsv.with_name(f"{tsv.name}.converted").read_text() == ROWS
-    tsv.write_text(ROWS, encoding="utf-8")
-    ff(capsys, "drain", incoming, "--fleet", root)
-    assert tsv.with_name(f"{tsv.name}.converted.2").is_file(), "an earlier aside stays"
-    confirmed(incoming, "a-find", {"ee": 1000.0, "fleet_program_ee": 995.0})
-    _, said, booked_lines = booked(capsys, tmp_path, ingested=("a_find",))
-    assert "1 appended" in said and list(booked_lines) == ["a-find:True"]
-
-
-@pytest.mark.parametrize(
-    "body, script, said",
-    [
-        (ROWS, None, "has no scripts/ledger.py"),
-        (ROWS, "raise SystemExit('ledger: refused')\n", "the fleet ledger refused it"),
-        (ROWS + "2026092T1000Z\t5\t?\n", STAND_IN, "row 5 has no stamp"),
-        (ROWS + "20260924T2058Z\t5\t?\n20260925T1254Z\t5\t?\n", STAND_IN, "2 rows are a test"),
-    ],
-    ids=["no-ledger-script", "refused", "no-stamp", "test-drain-rows"],
-)
-def test_the_tsv_stays_and_the_drain_goes_on_until_every_row_can_land(
-    tmp_path, capsys, body, script, said
-):
-    (tsv := Path(os.environ["ARK_FLEET_LEDGER"])).write_text(body, encoding="utf-8")
-    (fleet := tmp_path / "fleet").mkdir()
-    if script:
-        (fleet / "scripts").mkdir()
-        (fleet / "scripts/ledger.py").write_text(script, encoding="utf-8")
-    (tmp_path / "incoming").mkdir()
-    code, out = ff(capsys, "drain", tmp_path / "incoming", "--fleet", fleet)
-    assert (code, said in out, tsv.read_text(encoding="utf-8")) == (0, True, body)
-    assert fleet_ledger.lines(fleet, "legacy") == []
 
 
 # --- the re-price -----------------------------------------------------------------------
@@ -344,7 +275,9 @@ def test_an_outcome_line_is_banked_only_once_the_store_holds_the_sources_rows(tm
     """Under a decision that admits them, and only once landed; a line that did not exits 1."""
     code, out, lines = booked(capsys, tmp_path, fleet=tmp_path / "old-clone")
     assert (code, lines, "not booked" in out) == (1, {}, True)
-    code, out, lines = booked(capsys, tmp_path, fleet=clone(tmp_path), db=tmp_path / "no-store")
+    code, out, lines = booked(
+        capsys, tmp_path, fleet=stand_in(tmp_path / "fleet"), db=tmp_path / "no-store"
+    )
     assert (code, "could not be opened" in out) == (0, True)
     assert sorted(lines) == ["a-find:False", "b-find:False", "c-find:False"]
     a, b, c = lines["a-find:False"], lines["b-find:False"], lines["c-find:False"]
@@ -681,7 +614,7 @@ def test_every_fleet_step_names_the_fleet_and_outcomes_follow_the_commit_before_
     """No step reads a cached queue; the outcome lines follow the register commit onto `live`,
     on every bank, and no flag from the bank says banked: the store's ingested files do."""
     steps = {
-        TICK: ("fleet_findings.py drain", "discover_cycle.py"),
+        TICK: ("discover_cycle.py",),
         BANK: ("fleet_request.py", "standing_rule.py"),
     }
     for recipe, names in steps.items():

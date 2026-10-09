@@ -1,15 +1,7 @@
 """Re-emit the gap engine's own CDX answers at hostname grain.
 
-**Why this exists, and it is a lesson rather than a converter.** The gap engine asked the
-archive `fl=timestamp` and kept `{domain, status, years}`, so the hostname the archive had
-just named was discarded: 1,164 journals and 1,108,452 dated pairs of querying, none of it
-re-readable one level down. A `www.` host is its own record, so every one of those
-rows was a record we had paid a request for and thrown away. `ark.cdx` asks for
-`timestamp,original` and records a `hosts` map, and this turns that map into the
-`{url, timestamp}` journal `ark ingest-hostnames` already reads.
-
-Journals written before 2026-09-04 carry no `hosts` key and yield nothing here. That is not a
-bug to work around: the information is not in them, and no amount of parsing will recover it.
+`ark.cdx` records a `hosts` map per answer; this turns it into the `{url, timestamp}` journal
+`ark ingest-hostnames` reads. A journal with no `hosts` key yields nothing.
 
     uv run python scripts/engines/cdx_gap_hostgrain.py [--src DIR] [--out DIR]
 """

@@ -7,7 +7,7 @@ there is no more, and writes `.done` only then.
 
 **No `collapse`.** The server collapses adjacent index lines, and a domain walk is sorted by
 SURT across every host, so `collapse=timestamp:4` folds a host into its neighbour whenever
-both sit in the same year: on tonight's cjb.net probe that is at least 56.7% of host-years,
+both sit in the same year: on cjb.net that is at least 56.7% of host-years,
 dropped without an error. One row per `(host, year)` is kept here instead, and written as the
 captured `{url, timestamp, status}` to `suffix_<platform>_rk_<stamp>_<page>.jsonl.gz` in
 `--out` (`.part` until the walk ends or `--rotate` pages pass), the family the fold ingests as
@@ -141,19 +141,10 @@ def _python_pids(pattern: str) -> set[str]:
 
 
 def cdx_clients() -> int:
-    """CDX clients already on this machine: sweep loops and the python clients. A `uv run`
-    copy is a wrapper plus a python child, so only the python processes count."""
-    loops = subprocess.run(
-        ["pgrep", "-f", "platform_sweep(_loop)?[.]sh"], capture_output=True, text=True
-    ).stdout.split()
-    clients = (
-        "cdx_suffix_sweep",
-        "cdx_thin_sweep",
-        "cdx_yearfill",
-        "cdx_platform_walk",
-        "cdx_extended_walk",
-    )
-    return len(loops) + sum(len(_python_pids(f"{c}[.]py")) for c in clients)
+    """CDX clients already on this machine. A `uv run` copy is a wrapper plus a python child,
+    so only the python processes count."""
+    clients = ("cdx_platform_walk", "cdx_extended_walk")
+    return sum(len(_python_pids(f"{c}[.]py")) for c in clients)
 
 
 class Walk:

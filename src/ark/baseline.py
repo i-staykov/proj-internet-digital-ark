@@ -90,11 +90,6 @@ SUBMITTED_ROUNDS = tuple(
 )
 
 
-# Round 1's percentage was awarded on RECORDS, so it is not commensurable with the
-# equivalent-English percentages of later rounds. Summed with them anyway, and every
-# place that prints the sum says so.
-ROUND_ONE_IS_RECORD_BASED = _DATA["round_one_is_record_based"]
-
 # `k` in the RANKING score `S_i = k * (p_i / t_i)`, which is not the cumulative
 # percentage and is what decides positions. It makes speed worth as much as size;
 # `docs/registers/rounds.md` works the arithmetic of round length through.

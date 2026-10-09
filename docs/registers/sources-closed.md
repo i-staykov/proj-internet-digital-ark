@@ -2,7 +2,7 @@
 
 One row per source measured and closed, so nobody re-tests it. The reason opens with its verdict
 word; the link cell holds every URL the source's text gave, then the hosts it names. A new
-measurement replaces its row, and git holds every earlier one. Look one up with `just find <term>`.
+measurement replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
