@@ -104,7 +104,7 @@ ACCOUNTED = {
     # journals under `data/raw/cdx/`. `unreferenced` cannot tell "raw input" from "bytes
     # nothing reads", which is why this needs saying here rather than being rediscovered.
     "cdx_suffix": "raw sweep input; converted incrementally, state in "
-    "data/raw/cdx/cdx_suffix_convert.state.tsv",
+    "data/logs/cdx_suffix_convert.state.tsv",
     # Deliberately unreachable, and it must stay that way until the owner rules. Nominet's
     # RDAP terms prohibit "extracting, copying and/or using or re-using ... all or part
     # ... of the contents of the RDAP database", which reaches USE and not only
