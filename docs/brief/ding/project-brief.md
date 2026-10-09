@@ -7,10 +7,10 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `ding/Domain_Data_Collection_Task_1007_UpdateV4/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_1006_Update.docx` |
+| source file | `ding/Domain_Data_Collection_Task_1008_UpdateV3/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_1006_Update.docx` |
 | sha256 | `a6c077742ded741b9de5e3c37bdc303a64e1145c2fb616905bd93d62e1aecd94` |
-| delivered in | `ding/Domain_Data_Collection_Task_1007_UpdateV4/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_1007_UpdateV4.zip (2026-10-07) |
-| transcribed | 2026-10-07 by `scripts/round/extract_ding_docs.py` |
+| delivered in | `ding/Domain_Data_Collection_Task_1008_UpdateV3/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_1008_UpdateV3.zip (2026-10-08) |
+| transcribed | 2026-10-09 by `scripts/round/extract_ding_docs.py` |
 
 Word files are converted with pandoc; plain text is fenced. Only escaped backticks
 and curly quotation marks are normalised. Wording, order and section numbering

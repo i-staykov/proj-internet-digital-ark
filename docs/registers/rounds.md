@@ -1,11 +1,11 @@
 # Rounds
 
-Every shipped round (an interim report sits inside the next one), sent against credited, and the score
-S_i = 10 x p_i / t_i, p_i the percentage he awarded. **t counts whole days from the task assignment his
-scores show, 2 August 2026**: round 8's 5.687792 is 10 x 18.769714 / 33 and round 9's 0.944228 is
-10 x 3.682488 / 39. `t_i` is his divisor where he quoted one and the benchmark clock elsewhere; `days` and
-`S_i computed` are the benchmark clock, release to receipt rounded up, which his round 6 and 7 scores fit.
-Stamps are US Pacific, his clock. Round 1 is a percentage of records. `just rounds` writes a row from his mail.
+Every shipped round (an interim report sits inside the next one), sent against credited. The columns
+carry 1996 to 2001; a second part he scored apart sits in the note with its own figures. S_i = 10 x
+p_i / t_i per part, p_i the percentage he awarded and t_i his divisor ([brief amendments](../brief/brief_amendments.md));
+`days` and `S_i computed` run release to receipt, n/a where his divisor rules. `released` is his package
+stamp, `received` his mail clock. Round 1 is a percentage of records. `just rounds` writes a row's
+1996 to 2001 part from his mail.
 
 | round | sent records | sent EE | sent % | credited records | credited EE | awarded p_i | against | released | received | days | t_i | S_i computed | S_i quoted | note |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -18,3 +18,5 @@ Stamps are US Pacific, his clock. Round 1 is a percentage of records. `just roun
 | 7 | 2,541,429 | 1,458,263.2088 | 7.5794 | 2,538,900 | 1,456,458.1029 | 7.562846 | merged260902-2 | 2026-08-21 11:19 | 2026-09-02 05:50 | 11.77 | 12 | 6.302372 | 6.302372 | matches his figure |
 | 8 | 7,834,717 | 4,322,566.2232 | 18.7697 | 7,834,717 | 4,322,566.2232 | 18.769714 | merged260904 | 2026-09-04 14:14 | 2026-09-04 07:58 | n/a | 33 | n/a | 5.687792 | his divisor |
 | 9 | 3,399,258 | 1,874,979.2367 | 5.3744 | 2,702,431 | 1,456,513.4776 | 3.682488 | merged260911-2 (not received) | 2026-09-08 10:54 | 2026-09-10 09:20 | 1.93 | 39 | n/a | 0.944228 | his divisor; candidate pool scored separately: 13,139,161 names and 6,696,064.0603 EE sent, 33,529 credited at 0.010707% and S 0.002745, the rest already in his pool |
+| 10 | 591,027 | 329,140.5166 | 0.5870 | n/a | n/a | n/a | merged260917-2 | 2026-09-17 17:23 | 2026-09-22 02:29 | 4.38 | n/a | n/a | n/a | never scored: sent under the 5% gate, his reply asks to keep accumulating; candidate pool sent apart: 261,977 names, 77,497.7487 EE, 0.138205% |
+| 11 | 334,701 | 183,660.7777 | 0.2473 | 334,638 | 183,621.5457 | 0.2471072368 | merge261008-2 (not received) | 2026-10-07 19:55 | 2026-10-07 21:01 | 0.05 | 67 | n/a | 0.036881677 | his divisor; 2002 to 2015 scored apart: 108,817,300 records and 55,063,838.2586 EE sent, 105,953,608 and 53,473,372.1917 EE credited, 28.8813137522% of 185,148,683.5066 EE, S 4.310643844; 500 of 500 sample checks correct in each part |

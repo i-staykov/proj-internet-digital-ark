@@ -91,7 +91,8 @@ documented IANA list. Both are one filter over the database.
 
 ## 6. Recommended directions, and the measured pace
 
-The 5% gate is 12.70 million EE, 5% of your 1996 to 2015 total on `merge261007-4`. Over the twelve
+The 5% gate is 3.72 million EE in 1996 to 2001 or 9.80 million EE in 2002 to 2013, 5% of each part
+of your files on `merge261008-3`. Over the twelve
 days to this round's submission the autonomous loop ran continuously (647 scheduled research runs,
 41,378 archive index files) and added 329,141 EE. The two best methods paid 37,300 and 33,500 EE an
 hour of work and are exhausted; the three archive clients together pay about 670 an hour.
