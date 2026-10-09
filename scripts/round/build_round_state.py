@@ -138,13 +138,21 @@ def export_problem() -> str | None:
         found = f"was diffed against {stamp.get('baseline')}, not {CURRENT_BASELINE_MARKER}"
     else:
         try:
-            stale = extended.stale(ROOT / extended.OUT)
+            stale = [p for p in extended.stale(ROOT / extended.OUT) if p != extended.INPUTS_MOVED]
         except SystemExit as exc:
             stale = [str(exc)]
         if not stale:
             return None
         return f"{extended.OUT} is stale, {'; '.join(stale)}: the next bank re-exports it"
     return f"output/netnew {found}: the next bank re-exports it, or `just bank --force`"
+
+
+def export_as_of() -> str | None:
+    """The export's `written_at` when its inputs moved on since, else None."""
+    out = ROOT / extended.OUT
+    if extended.INPUTS_MOVED not in extended.stale(out):
+        return None
+    return json.loads((out / "manifest.json").read_text(encoding="utf-8"))["written_at"]
 
 
 def parse_fields(figures: str) -> dict[str, str] | None:
@@ -172,7 +180,7 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(fields: dict[str, str] | None, approvals: int) -> dict:
+def brief(fields: dict[str, str] | None, approvals: int, as_of: str | None = None) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
     `gate_part` is the part with the smaller EE gap to its 5%, so `gate_percent >= gate_pct`
@@ -199,6 +207,8 @@ def brief(fields: dict[str, str] | None, approvals: int) -> dict:
             "gate_percent": fields["core" if part == "1996-2001" else "ext"],
             "distance_to_gate_ee": round(float(gaps[part]), 4),
         }
+        if as_of:
+            snapshot["gate_as_of"] = as_of
     return snapshot | {
         "gate_pct": float(GATE_PCT),
         "waiting_on_human": {"approvals": approvals},
@@ -219,10 +229,14 @@ def build(full: bool = False) -> tuple[str, dict]:
             conn.close()
     # Producers run after the store connection is closed, because under --full they open it
     # themselves and DuckDB allows many readers only when no writer is waiting.
-    figures = export_problem() or run(
+    problem = export_problem()
+    figures = problem or run(
         ["uv", "run", "python", "scripts/round/round_figures.py", *(["--full"] if full else [])],
         timeout=900,
     )
+    as_of = None if problem else export_as_of()
+    if as_of:
+        figures = f"GATE lines as of the export at {as_of}; its inputs moved on since.\n{figures}"
     if full:
         residual = run(["uv", "run", "python", "scripts/harness/audit_residual.py"], timeout=900)
 
@@ -295,7 +309,7 @@ def build(full: bool = False) -> tuple[str, dict]:
         f"<!-- ark-round-state: {' '.join(f'{k}={v}' for k, v in state.items())} -->",
         "",
     ]
-    return "\n".join(parts), brief(parse_fields(figures), len(waiting))
+    return "\n".join(parts), brief(parse_fields(figures), len(waiting), as_of)
 
 
 def parse_state(text: str) -> dict[str, str] | None:

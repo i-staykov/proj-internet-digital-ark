@@ -316,6 +316,11 @@ def export(globs: dict[str, str], out: Path) -> dict:
     return manifest
 
 
+# Inputs that moved on leave the export pricing exactly what it read, so `just state` still
+# quotes its GATE lines, stamped with its `written_at`.
+INPUTS_MOVED = "an input was added, changed or removed since the export"
+
+
 def stale(out: Path) -> list[str]:
     """Why `out` no longer describes the release and the inputs it was written from."""
     path = out / "manifest.json"
@@ -331,7 +336,7 @@ def stale(out: Path) -> list[str]:
     recorded = [(i["path"], i["size"], i["mtime_ns"]) for i in manifest["inputs"]]
     now = [(rel(p), *stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])]
     if recorded != now:
-        problems.append("an input was added, changed or removed since the export")
+        problems.append(INPUTS_MOVED)
     return problems
 
 

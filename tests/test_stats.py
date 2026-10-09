@@ -343,6 +343,16 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     with pytest.raises(SystemExit, match="is stale"):
         brs.main()
     assert "netnew/2001.txt: changed" in capsys.readouterr().out
+    # inputs that moved on since the export leave its GATE lines quoted, stamped with its time
+    glob = str(tmp_path / "raw/*/*.jsonl*")
+    manifest = dict(baseline=brs.CURRENT_BASELINE_MARKER, written_at="2026-10-09T17:29:19Z")
+    manifest |= dict(inputs=[], globs={"*": glob}, years={})
+    _write(tmp_path / "output/extended_years", {"manifest.json": json.dumps(manifest)})
+    _write(tmp_path / "raw/ia_cdx_hostnames", {"a.jsonl.gz": ""})
+    monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
+    brs.main()
+    assert json.loads(brs.BRIEF.read_text())["gate_as_of"] == "2026-10-09T17:29:19Z"
+    assert "as of the export at 2026-10-09T17:29:19Z" in brs.OUT.read_text()
     (tmp_path / "output/netnew/export_stamp.json").unlink()  # an unstamped export is not quoted
     monkeypatch.setattr(sys, "argv", ["build_round_state.py"])
     with pytest.raises(SystemExit, match="no export stamp"):
