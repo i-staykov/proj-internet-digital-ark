@@ -24,7 +24,6 @@ import re
 import sys
 from decimal import Decimal
 from pathlib import Path
-from typing import NamedTuple
 
 from ark.db import connect_read_only_patiently
 
@@ -35,24 +34,13 @@ from report_figures import BASELINE, figures  # noqa: E402
 from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_LABEL,
-    GATE_BASELINE_EE,
-    REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
     REVIEWER_EXTENDED_EE,
-    SUBMITTED_ROUNDS,
-    awarded_score_of,
 )
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
-from ark.figures import cumulative as score_total  # noqa: E402
-from ark.figures import (  # noqa: E402
-    now_in_his_clock,
-    score,
-    scored_under_rule,
-    t_days,
-    t_days_assignment,
-)
+from ark.figures import now_in_his_clock, score_line, t_days_assignment  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -558,10 +546,9 @@ def substitutions(f: dict) -> dict[str, str]:
                 "Run `uv run python scripts/round/merge_against_baseline.py` and refill."
             )
 
-    # The growth rate has to come from the same place as the increment. It did not: the
-    # increment was the merge audit's and the rate the store's, which differ by the twelve
-    # pairs the export filter drops, so the cumulative sentence printed components summing
-    # to 32.6315 beside a total of 32.6316.
+    # The growth rate comes from the same place as the increment: the merge audit's and the
+    # store's differ by the pairs the export filter drops, so mixing them disagrees in the
+    # fourth place.
     growth = (
         Decimal(str(accepted["equivalent_english_growth_rate_pct"]))
         if accepted and accepted.get("equivalent_english_growth_rate_pct") is not None
@@ -599,7 +586,6 @@ def substitutions(f: dict) -> dict[str, str]:
         "PER_YEAR_TABLE": per_year_table(f),
         "DATASETS_SEARCHED": datasets_searched(),
         "POOL_RESTRICTED": pool_restricted(),
-        "CUMULATIVE_SENTENCE": cumulative_sentence(f, growth),
         "MERGE_RECONCILIATION": merge_reconciliation(),
         "REPRODUCTION_RESULT": reproduction_result(),
     }
@@ -609,20 +595,22 @@ def substitutions(f: dict) -> dict[str, str]:
     # would read as a shrinking baseline. Quote one counting unit or the other, never
     # one of each.
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
-    # The extended years as `extended_export.py` measured them, zero before any addition, and the
-    # gate: core plus extended over his 1996 to 2015 total.
+    # The 2002 to 2013 additions as `extended_export.py` measured them, zero before any. Each
+    # part is its growth over his EE for its years with his S beside it, never the two summed;
+    # t is whole days from the 2 August assignment, as he would count it today.
     manifest = Path("output/extended_years/manifest.json")
     ext = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
     ext_ee = Decimal(ext.get("increment_ee", "0"))
     ext_growth = ext_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
+    t_now = t_days_assignment(now_in_his_clock())
     subs |= {
         "EXTPAIRS": f"{ext.get('accepted_new', 0):,}",
         "EXTEE": f"{ext_ee:,.4f}",
         "EXTGROWTH": f"{ext_growth:.4f}%",
         "EXTBASELINEEE": f"{REVIEWER_EXTENDED_EE:,.4f}",
-        "GATEEE": f"{ee_total + ext_ee:,.4f}",
-        "GATEPCT": f"{(ee_total + ext_ee) / GATE_BASELINE_EE * 100:.4f}%",
-        "GATEBASELINEEE": f"{GATE_BASELINE_EE:,.4f}",
+        "TDAYS": str(t_now),
+        "SCORE_CORE": score_line(growth, t_now),
+        "SCORE_EXT": score_line(ext_growth, t_now),
     }
     from round_figures import extended_split
 
@@ -669,18 +657,6 @@ def substitutions(f: dict) -> dict[str, str]:
         n = json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else 0
         subs[token] = f"{n:,}"
 
-    # Both scores at the six places he awards in, and the divisor he would use today.
-    # The email states them as he states them, `S = 10 x (p / t)`, so he can check the
-    # arithmetic without opening the report. Bare numbers, because they sit inside his
-    # formula and a percent sign inside it would not be his notation.
-    t_now = t_days_assignment(now_in_his_clock())
-    cand_pct = candidate_growth()
-    subs["TDAYS"] = str(t_now)
-    subs["EEGROWTH6"] = f"{growth:.6f}"
-    subs["SCORE_ANNUAL"] = f"{score(growth, t_now):.6f}"
-    subs["CANDTRACKPCT6"] = f"{cand_pct:.6f}"
-    subs["SCORE_CANDIDATE"] = f"{score(cand_pct, t_now):.6f}"
-
     # The mail quotes the reconciliation count too, and it is read from the audit rather
     # than typed, because a mail claiming a pass count the audit does not hold is the one
     # error he would never have to look for.
@@ -719,39 +695,6 @@ def reproduction_result() -> str:
             "`bash verify.sh` inside the archive is the first check._"
         )
     return path.read_text(encoding="utf-8").strip()
-
-
-class ScoreRow(NamedTuple):
-    """One submitted round under `S_i = 10 p_i / t_i`; `scored` says whether his rule covered it."""
-
-    label: str
-    p: Decimal
-    s: Decimal
-    scored: bool
-
-
-def score_rows() -> list[ScoreRow]:
-    """Every submitted round, priced by `ark.figures`.
-
-    The awarded percentages and both timestamps are quoted in
-    `ark.baseline.SUBMITTED_ROUNDS`; the arithmetic is his rule as `ark.figures` states
-    it. Where he has stated the score himself, his figure wins over our model of the rule,
-    so the total is one he recognises.
-    """
-    rows = []
-    for r in SUBMITTED_ROUNDS:
-        his = awarded_score_of(r[0])
-        s = his.score if his is not None else score(r[5], t_days(r[6], r[7]))
-        rows.append(ScoreRow(r[0], r[5], s, scored_under_rule(r[7])))
-    return rows
-
-
-def _score_parts(growth: Decimal) -> tuple[Decimal, Decimal, list[ScoreRow]]:
-    """Cumulative percentage, this round and round 1 on records included, and his S_total."""
-    rows = score_rows()
-    pct = sum((r.p for r in rows), growth)
-    scored = [r for r in rows if r.scored]
-    return pct, score_total(r.s for r in scored), scored
 
 
 def merge_reconciliation() -> str:
@@ -799,45 +742,6 @@ def merge_reconciliation() -> str:
             "`audit/merge_audit_ark_*.json`; the per-year form, in your column names: "
             "`audit/merge_stats_ark_*.csv`.",
         ]
-    )
-
-
-def as_he_wrote_it(s: Decimal) -> str:
-    """A score with his own trailing digits: he wrote 6.88, not 6.880000."""
-    text = f"{s:f}"
-    return text.rstrip("0").rstrip(".") if "." in text else text
-
-
-def candidate_growth() -> Decimal:
-    """The candidate track's growth rate, which he scores separately at the same rate.
-
-    Over the ANNUAL equivalent-English denominator, because that is the denominator his
-    own candidate-pool score divides by, and the constant rather than the figures dict so
-    the sentence can be rendered without a store behind it.
-    """
-    return Decimal(candidate_additions()["equivalent_english"]) / REVIEWER_BASELINE_EE * 100
-
-
-def cumulative_sentence(f: dict, growth: Decimal) -> str:
-    """The two official records in one sentence, written the way he writes them.
-
-    **His figures, in his own arithmetic.** He states one score per round and sets each
-    track out as `S = 10 x (p / t)`, so the total is the sum of the scores he has quoted
-    rather than our model of them, and this round is given as the two lines he would write
-    himself, t whole days since the task assignment, 2 August 2026.
-    """
-    pct, total, scored = _score_parts(growth)
-    t_now = t_days_assignment(now_in_his_clock())
-    addends = " + ".join(as_he_wrote_it(r.s) for r in scored)
-    labels = ", ".join(r.label for r in scored[:-1]) + f" and {scored[-1].label}"
-    cand = candidate_growth()
-    return (
-        f"Cumulative credited percentage {pct:.4f}%: each scored round at the figure you credited, "
-        f"this round at its own unverified {growth:.4f}%. Time-weighted score {addends} = "
-        f"{as_he_wrote_it(total)}, your own scores for rounds {labels}. Under the specification's "
-        f"time-weighted score this round is t = {t_now}, whole days since the 2 August assignment. "
-        f"Domain-Year Score: S = 10 x ({growth:.6f} / {t_now}) = {score(growth, t_now):.6f}. "
-        f"Candidate-Pool Score: S = 10 x ({cand:.6f} / {t_now}) = {score(cand, t_now):.6f}."
     )
 
 

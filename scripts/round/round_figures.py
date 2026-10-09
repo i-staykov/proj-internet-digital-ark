@@ -4,8 +4,8 @@ He set the reporting format on 6 August and it is not the same shape as our own
 report: lines 1 and 2 are the state of HIS merged database before our increment,
 lines 3 and 4 are what we add, and line 5 is 4 divided by 2. They are the core, 1996 to
 2001; the extended block beneath prices `output/extended_years/additions/` against his 2002
-to 2015 files, and the GATE line is both increments over his 1996 to 2015 total. Keeping his
-convention in code rather than in someone's head is the only way the growth rate
+to 2013 files, and the two GATE lines score each part over his EE for its years, never summed.
+Keeping his convention in code rather than in someone's head is the only way the growth rate
 stays comparable between rounds, because the obvious alternative, dividing by the
 post-increment total, is wrong by about 2% of itself and looks right.
 
@@ -46,8 +46,6 @@ from ark import held  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_ROUND_SINCE,
     EXTENDED_YEARS,
-    GATE_BASELINE_EE,
-    GATE_PCT,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_EE_BY_YEAR,
     REVIEWER_BASELINE_PAIRS,
@@ -60,6 +58,7 @@ from ark.baseline import (  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import DB_TEMP_DIR  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
+from ark.figures import now_in_his_clock, score_line, t_days_assignment  # noqa: E402
 
 STORE = Path("data/ark.duckdb")
 YEARS = range(1996, 2002)
@@ -430,7 +429,7 @@ def main() -> None:
     x_years = shipped_by_year("additions/{year}.txt", EXTENDED_YEARS, EXTENDED)
     x_pairs, x_ee = summed(x_years)
     x_growth = x_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
-    gate_ee = all_ee + x_ee
+    t = t_days_assignment(now_in_his_clock())
 
     print("The five fields, in his order\n")
     print(f"1. Total number of original domains 1996-2001 : {BASELINE_PAIRS:,}")
@@ -439,7 +438,7 @@ def main() -> None:
     print(f"4. Equivalent-English increment               : {all_ee:,.4f}")
     print(f"5. Equivalent-English growth rate             : {growth:.6f}%")
     print(
-        f"   extended baseline 2002-2015                 : {REVIEWER_EXTENDED_PAIRS:,} records  "
+        f"   extended baseline 2002-2013                 : {REVIEWER_EXTENDED_PAIRS:,} records  "
         f"{REVIEWER_EXTENDED_EE:,.4f}"
     )
     print(
@@ -450,8 +449,12 @@ def main() -> None:
     print(f"     registrable domains                       : {xr_pairs:,} records  {xr_ee:,.4f}")
     print(f"     hostnames                                 : {xh_pairs:,} records  {xh_ee:,.4f}")
     print(
-        f"GATE. Core plus extended, 1996-2015           : {gate_ee:,.4f} = "
-        f"{gate_ee / GATE_BASELINE_EE * 100:.6f}% of {GATE_BASELINE_EE:,.4f}, gate {GATE_PCT}%"
+        f"GATE. 1996-2001                               : {all_ee:,.4f} = {growth:.6f}% of "
+        f"{BASELINE_EE:,.4f}, {score_line(growth, t)}"
+    )
+    print(
+        f"GATE. 2002-2013                               : {x_ee:,.4f} = {x_growth:.6f}% of "
+        f"{REVIEWER_EXTENDED_EE:,.4f}, {score_line(x_growth, t)}"
     )
     print(f"\n  registrable domains (additions/)  : {r_pairs:,} records  {r_ee:,.4f}")
     print(f"  hostnames (hostnames/)            : {h_pairs:,} records  {h_ee:,.4f}")
@@ -538,8 +541,8 @@ def main() -> None:
     print(f"  rejected by his validator : {his['invalid']:,}")
     print(f"  already in his merged files: {his['overlap']:,}")
     print(f"  his equivalent-English    : {his['ee']:,.4f}")
-    print(f"  ours                      : {gate_ee:,.4f}")
-    difference = his["ee"] - gate_ee
+    print(f"  ours                      : {all_ee + x_ee:,.4f}")
+    difference = his["ee"] - all_ee - x_ee
     print(f"  difference                : {difference:,.4f}")
     if difference != 0 or his["invalid"] or his["overlap"]:
         raise SystemExit(

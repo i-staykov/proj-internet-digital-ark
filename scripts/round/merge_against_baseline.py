@@ -332,8 +332,9 @@ def main() -> None:
         "baseline_equivalent_english_total": f"{baseline_ee:.4f}",
         "post_merge_equivalent_english_total": f"{post_ee:.4f}",
         "equivalent_english_increment": f"{(post_ee - baseline_ee):.4f}",
+        # Ten places, as he quotes it, so the S computed from it is his to the ninth.
         "equivalent_english_growth_rate_pct": (
-            f"{((post_ee - baseline_ee) / baseline_ee * 100):.6f}"
+            f"{((post_ee - baseline_ee) / baseline_ee * 100):.10f}"
         ),
         "calculator": str(CALCULATOR),
     }

@@ -1,9 +1,9 @@
 # Internet Digital Ark
 
-A reproducible pipeline that collects historical **domain names for 1996-2015**, each record backed
-by **item-level, per-year evidence**, and ships them as verifiable additions to a baseline the
-reviewer supplies. Built for the Internet Digital Ark research project (Prof. Xiaowei Ding), it
-ships two units, registrable domains and the valid hostnames beneath them, scored in
+A reproducible pipeline that collects historical **domain names for 1996-2013**, 1996-2001 first,
+each record backed by **item-level, per-year evidence**, and ships them as verifiable additions to a
+baseline the reviewer supplies. Built for the Internet Digital Ark research project (Prof. Xiaowei
+Ding), it ships two units, registrable domains and the valid hostnames beneath them, scored in
 **equivalent-English domains**, where each `(domain, year)` record counts the English page-language
 share of its right-most TLD (`foo.uk` 0.9813, `foo.de` 0.1324).
 

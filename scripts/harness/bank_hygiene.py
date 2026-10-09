@@ -351,9 +351,9 @@ def gate(
 ) -> list[str]:
     """Open the gate issue on a crossing, once, and say what it did.
 
-    The figure is the gate line of `data/brief.json`, core plus extended over his 1996 to 2015
-    total, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md prints
-    it rather than measured a second time.
+    The figure is the gate line of `data/brief.json`, the part nearest its 5%, 1996 to 2001 or
+    2002 to 2013, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md
+    prints it rather than measured a second time.
     """
     now = now or datetime.now(UTC)
     # The gate counts against his release, so a shipped round reads over it until the next
@@ -365,8 +365,9 @@ def gate(
     # query keys on the title, so the word belongs here and only here.
     round_name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))
+    part = brief.get("gate_part", "one part")
     if float(percent) < target:
-        return [f"at {percent}%, gate at {target:g}%: not crossed"]
+        return [f"at {percent}% of {part}, gate at {target:g}%: not crossed"]
     if marker in {m for _, m in latched(latch_path)}:
         return [f"gate already notified against {marker}: nothing to do"]
 
@@ -396,12 +397,14 @@ def gate(
 
     stamp = now.strftime("%H:%M UTC")
     since = f" (released {released})" if released else ""
-    title = f"{round_name} at {percent}% against {marker}{since} at {stamp}"
+    title = f"{round_name} at {percent}% of {part} against {marker}{since} at {stamp}"
     body = "\n".join(
         [
-            f"{round_name} crossed the {target:g}% gate: {percent}% of his 1996 to 2015 total "
-            f"(core field 5 {brief.get('field5_percent', '?')}%, the rest extended) against "
-            f"`{marker}`{since}, read off the last bank at {now.isoformat(timespec='seconds')}.",
+            f"{round_name} crossed the {target:g}% gate on {part}: "
+            f"{brief.get('field5_percent', '?')}% in 1996 to 2001 and "
+            f"{brief.get('extended_percent', '?')}% in 2002 to 2013, each over his EE for those "
+            f"years, against `{marker}`{since}, read off the last bank at "
+            f"{now.isoformat(timespec='seconds')}.",
             "",
             "Next: merge any open approval PR, then run `just ship` where the store is.",
             "Opened once per crossing, and closed on a verified package.",

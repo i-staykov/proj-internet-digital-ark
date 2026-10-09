@@ -285,18 +285,19 @@ def send_line(path: Path = BRIEF) -> str:
     label = str(brief.get("round", "?"))
     name = label if label.lower().startswith("round") else f"Round {label}"
     marker = str(brief.get("baseline", "?"))
+    part = brief.get("gate_part", "one part")
     if percent >= target:
         return (
-            f"**{name} crossed the {target:g}% gate** at {percent:.4f}% against `{marker}`, and "
-            "the send is yours: merge any open approval PR, then run `just ship` where the "
-            "store is."
+            f"**{name} crossed the {target:g}% gate** at {percent:.4f}% of {part} against "
+            f"`{marker}`, and the send is yours: merge any open approval PR, then run "
+            "`just ship` where the store is."
         )
     gap = brief.get("distance_to_gate_ee")
     number = isinstance(gap, int | float) and not isinstance(gap, bool)
     short = f", {gap:,.0f} EE short" if number else ""
     return (
-        f"Nothing to send: {name} stands at {percent:.4f}% against `{marker}`, under the "
-        f"{target:g}% gate{short}."
+        f"Nothing to send: {name} stands at {percent:.4f}% of {part} against `{marker}`, "
+        f"under the {target:g}% gate{short}."
     )
 
 

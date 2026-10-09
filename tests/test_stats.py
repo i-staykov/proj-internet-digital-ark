@@ -18,7 +18,7 @@ from his_release import HIS_YEARS, MARKER, WEB_METHOD, capture, stage, text
 
 from ark import db, held
 from ark import figures as fig
-from ark.baseline import SUBMITTED_ROUNDS, awarded_score_of
+from ark.baseline import SUBMITTED_ROUNDS
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.english_share import weight_of
 from ark.export import export_all
@@ -190,27 +190,19 @@ def test_his_scores_reproduce_under_the_benchmark_rule_and_the_assignment_rule()
     assert fig.score(ROWS["7"][5], 31) == D("2.439628")
     assert fig.t_days_assignment("2026-09-02 23:59") == fig.t_days_assignment("2026-09-02 00:01")
     assert fig.t_days_assignment("2026-08-17 03:03") == 15  # the origin never moves
-    his = awarded_score_of("8")
-    assert fig.t_days_assignment(ROWS["8"][7]) == his.divisor
-    assert fig.score(his.percent, his.divisor) == his.score
-    scored = [r[0] for r in SUBMITTED_ROUNDS if fig.scored_under_rule(r[7])]
-    assert scored == ["6", "7", "8", "9", "11"]
-    assert fig.cumulative([D("6.884530"), D("6.302372")]) == D("13.186902")
+    assert fig.t_days_assignment(ROWS["8"][7]) == 33
+    assert fig.score(ROWS["8"][5], 33) == D("5.687792")
+    assert fig.score_line(D("28.8813137522"), 67) == "S = 10 x (28.8813137522 / 67) = 4.310643844"
 
 
-def test_fill_report_quotes_his_sum_and_holds_no_day_arithmetic(scored, tmp_path, monkeypatch):
-    """Its sum is of his own scores; its pool counts read the files that shipped and `held`."""
+def test_fill_report_holds_no_day_arithmetic(scored, tmp_path, monkeypatch):
+    """Its day count is `ark.figures`'; its pool counts read the files that shipped and `held`."""
     monkeypatch.setattr(held, "HELD_ROOT", scored.root / "held")
     monkeypatch.setattr(held, "his_dir", lambda: scored.his)
     _write(tmp_path, {POOL: "a.edu\nb.com\nc.gov\nd.mil\ne.edu.au\n"})
-    now = {"now_in_his_clock": lambda: "2026-09-03 10:00", "CANDIDATES_PATH": tmp_path / POOL}
-    report = _script("fill_report", monkeypatch, **now)
+    report = _script("fill_report", monkeypatch, CANDIDATES_PATH=tmp_path / POOL)
     source = Path(report.__file__).read_text(encoding="utf-8")
     assert [t for t in ("date.today", "fromisoformat", "timedelta", ".days") if t in source] == []
-    sentence = report.cumulative_sentence({}, D("1.5"))
-    assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 + 0.036881677 = 19.851273677" in sentence
-    assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
-    assert "Candidate-Pool Score: S = 10 x (" in sentence and "?" not in sentence, sentence
     assert report.pool_restricted() == "3"
     init_db(conn := connect(tmp_path / "store.duckdb"))
     isc = ensure_source(conn, "isc_survey", "timestamped")
@@ -239,20 +231,24 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     monkeypatch.setattr(rf, "ATTESTED", netnew / "attested_registrables.txt")
     monkeypatch.setattr(rf, "EXTENDED", tmp_path / "missing")
     rf.main()
-    assert "GATE. Core plus extended, 1996-2015           : 1.7500 = " in capsys.readouterr().out
-    _write(tmp_path / "x/additions", {"2002.txt": "www.x.com\nx.com\n"})
+    assert "GATE. 1996-2001                               : 1.7500 = " in capsys.readouterr().out
+    _write(tmp_path / "x/additions", {"2002.txt": "www.x.com\nx.com\n", "2014.txt": "late.com\n"})
     monkeypatch.setattr(rf, "EXTENDED", tmp_path / "x")
     rf.main()
     out = capsys.readouterr().out
     field = dict(re.findall(r"^([345])\. .*: (.+)$", out, re.M))
     assert field == {"3": "4 records", "4": "1.7500", "5": f"{D('1.75') / rf.BASELINE_EE:.6%}"}
     assert "| 2001 | 4 | 1.7500 |" in out and "| 2002 | 2 | 1.0000 |" in out
+    assert "| 2014 |" not in out, "2014 on is not hunted"
     # registrable domains first, then the hostnames beneath them, as in the core
     units = re.findall(r"^     (\w+) .*: 1 records  0\.5000$", out, re.M)
     assert units == ["registrable", "hostnames"]
-    # The gate is core plus extended over his 1996 to 2015 total, the core alone never.
-    gate = re.search(r"^GATE\. .*: 2\.7500 = ([0-9.]+)% of", out, re.M).group(1)
-    assert gate == f"{D('2.75') / (rf.BASELINE_EE + rf.REVIEWER_EXTENDED_EE) * 100:.6f}"
+    # Each part over his EE for its years with its S, never the two summed.
+    gate = dict(re.findall(r"^GATE\. (\S+) .*: [0-9.]+ = ([0-9.]+)% of .*, S = 10 x \(", out, re.M))
+    assert gate == {
+        "1996-2001": f"{D('1.75') / rf.BASELINE_EE * 100:.6f}",
+        "2002-2013": f"{D('1') / rf.REVIEWER_EXTENDED_EE * 100:.6f}",
+    }
     # a.com is his 2001 and c.net is attested 2001; b.com is held only in 2000
     assert ": 2 records  0.7500  (60.0% of the hostname half)" in out
     (netnew / "1996.txt").unlink()
@@ -318,7 +314,8 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     tmp_path, monkeypatch, capsys
 ) -> None:
     figures = "3. Increment : 1,234 records\n4. EE : 3,456.7800\n5. EE growth : 0.252350%\n"
-    figures += "GATE. Core plus extended : 4,000.0000 = 0.001944% of 205,789,506.8739, gate 5%\n"
+    figures += "GATE. 1996-2001 : 3,456.7800 = 0.252350% of 1,369,820.3417, S = 0.28\n"
+    figures += "GATE. 2002-2013 : 9,000,000.0000 = 4.590366% of 196,062,811.5051, S = 5.1\n"
     calls = []
     paths = dict(ROOT=tmp_path, OUT=tmp_path / "ROUND.md", BRIEF=tmp_path / "brief.json")
     run = lambda cmd, timeout: calls.append(cmd) or figures  # noqa: E731
@@ -334,7 +331,10 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     page, brief = brs.OUT.read_text(), json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
     assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", {"approvals": 0})
-    assert (brief["gate_percent"], brief["gate_ee"]) == ("0.001944", 4000.0)
+    # the part nearer its 5% in EE, so `gate_percent >= gate_pct` still means crossed
+    assert (brief["extended_percent"], brief["gate_part"]) == ("4.590366", "2002-2013")
+    assert (brief["gate_percent"], "gate_ee" in brief) == ("4.590366", False)
+    assert brief["distance_to_gate_ee"] == round(float(brs.GATE_EE["2002-2013"]) - 9e6, 4)
     assert re.search(r"^5\. .*: (.+)$", page, re.M).group(1) == "0.252350%"
     monkeypatch.setattr(sys, "argv", ["build_round_state.py", "--check"])
     brs.main()

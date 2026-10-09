@@ -13,7 +13,7 @@ command, and the order is fixed:
     uv run python scripts/round/intake.py his.zip --dry-run
 
 **Every figure is read from the extracted files, never from his mail.** The pairs are
-`wc -l` over the six core year files and the 2002 to 2015 files present (the extended
+`wc -l` over the six core year files and the 2002 to 2013 files present (the extended
 baseline, kept apart), and the equivalent-English is his own calculator run over each,
 because the mail quotes a merge we cannot check and the files are what every diff against
 him reads.
@@ -205,7 +205,7 @@ def update_baseline(
     ext_ee: dict,
 ) -> bool:
     """Point `data/baseline.json` at the new release, leaving the round fields alone. The
-    extended keys are always written, zero when the release has no 2002 to 2015 file."""
+    extended keys are always written, zero when the release has no 2002 to 2013 file."""
     data = json.loads(path.read_text(encoding="utf-8"))
     before = json.dumps(data, indent=2, ensure_ascii=False)
     data["current"].update(

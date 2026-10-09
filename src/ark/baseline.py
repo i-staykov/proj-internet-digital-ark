@@ -11,7 +11,6 @@ reviewer already holds as net-new.
 import json
 from decimal import Decimal
 from pathlib import Path
-from typing import NamedTuple
 
 # Resolved from this file, never from the working directory: the delivery unpacks the
 # repository tree into `source/`, so the JSON sits beside `src/` there exactly as here.
@@ -50,18 +49,18 @@ REVIEWER_BASELINE_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_ee_by_year"].items()
 }
 
-# His 2002 to 2015 files of the same release, the extended baseline, measured the same way and
+# His 2002 to 2013 files of the same release, the extended baseline, measured the same way and
 # kept apart so every core figure keeps meaning 1996 to 2001. Zero when a release has none.
-EXTENDED_YEARS = range(2002, 2016)
+EXTENDED_YEARS = range(2002, 2014)
 REVIEWER_EXTENDED_PAIRS = _CURRENT["reviewer_extended_pairs"]
 REVIEWER_EXTENDED_EE = Decimal(_CURRENT["reviewer_extended_ee"])
 REVIEWER_EXTENDED_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_extended_ee_by_year"].items()
 }
 
-# The gate: core and extended additions together, against his 1996 to 2015 total.
+# The gate: this much EE growth in one part, 1996 to 2001 over REVIEWER_BASELINE_EE or 2002 to
+# 2013 over REVIEWER_EXTENDED_EE. The parts are never summed.
 GATE_PCT = Decimal(5)
-GATE_BASELINE_EE = REVIEWER_BASELINE_EE + REVIEWER_EXTENDED_EE
 
 # The corpus before this project's FIRST submission, `merged260715-2`, shipped as
 # `legacy-data/`. **Not the cumulative denominator**: the cumulative contribution is
@@ -89,32 +88,6 @@ SUBMITTED_ROUNDS = tuple(
     )
     for row in _DATA["rounds"]
 )
-
-
-class AwardedScore(NamedTuple):
-    """A ranking score the reviewer stated himself, with the divisor he used."""
-
-    percent: Decimal
-    divisor: int
-    score: Decimal
-
-
-def awarded_score_of(label: str) -> AwardedScore | None:
-    """His own `S_i` for a round, where he has quoted one, else None.
-
-    **Recorded because it does not reproduce.** Round 8 he wrote as
-    `S = 10 x (18.769714 / 33) = 5.687792`, and 33 matches neither reading of `t_i`. His
-    figures are stored as quoted facts, like the awarded percentages, and
-    `figures.score` stays the model of the rule we can defend.
-    """
-    for row in _DATA["rounds"]:
-        if row["label"] == label and "awarded_score" in row:
-            return AwardedScore(
-                Decimal(row["awarded_percent"]),
-                int(row["awarded_score_divisor"]),
-                Decimal(row["awarded_score"]),
-            )
-    return None
 
 
 # Round 1's percentage was awarded on RECORDS, so it is not commensurable with the

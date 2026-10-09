@@ -15,8 +15,8 @@ the rule that is wrong.
 
 `--released` defaults to the stamp the round already carries in `ark.baseline`, and to
 the current baseline's release for a round that has none yet. The benchmark marker is
-read from the backticks in his mail and marked `not received` when no extracted tree of
-that name is under the ding root, which is the state three of his markers are in:
+read from his mail, the first it names, and marked `not received` when no extracted tree
+of that name is under the ding root, which is the state three of his markers are in:
 he scored against an interim merge he never sent.
 
 Only the target row is rewritten. Every other line of the page, and every column this
@@ -51,7 +51,8 @@ FIGURES = (
 )
 
 NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
-MARKER = re.compile(r"`(merged\d{6}(?:-\d+)?)`")
+# His marker, `merged260902-2` in backticks or bare `merge261008-2`, as he spells it.
+MARKER = re.compile(r"\b(merged?\d{6}(?:-\d+)?)\b")
 LETTERS = re.compile(r"[^a-z]")
 # The trailing `= 6.302372` of his score line, which is read only to be compared.
 # The tail is optional backticks and whitespace because he writes the whole expression
