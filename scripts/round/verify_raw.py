@@ -71,6 +71,7 @@ KEEP_UNTIL_PRICED: dict[str, str | None] = {
 # and this table does not carry it yet.
 LIVE_INPUT: dict[str, str | None] = {
     "afnic": None,
+    "arquivo": "https://arquivo.pt/datasets/cdxj/",
     "cctld": None,
     "cctld_capture": None,
     "chastity": None,
@@ -134,7 +135,6 @@ KEEP_JOURNAL = frozenset(
 REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
-    "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
     # read and banked; archive.org serves every zip again by name, its sha1 listed in
     # usenet_catalog.json or, for usenet_new, the `.meta-<hierarchy>.json` saved beside them
     "usenet_bulk": "https://archive.org/details/usenet-alt",
