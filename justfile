@@ -273,11 +273,17 @@ sync fleet="~/GitHub/ark-fleet":
             fi
         fi
     fi
-    # 8. The VPS walker's finished journals, home. One still open is a `.part`, which the glob
-    #    skips. The call is bounded, so an unreachable VPS costs seconds rather than the hour.
+    # 8. The VPS walk lane's journals and request log home (a journal still open has a dot name,
+    #    which the glob skips), then the queue re-ranked from every lane and sent back. The calls
+    #    are bounded, so an unreachable VPS costs seconds rather than the hour.
     : "${ARK_VPS:?set ARK_VPS}"
-    rsync -a --ignore-existing --timeout=120 -e "ssh -o ConnectTimeout=15 -o BatchMode=yes" \
-        "$ARK_VPS":/projects/proj-internet-digital-ark/data/raw/cdx_suffix/suffix_*.jsonl.gz data/raw/cdx_suffix/ || true
+    SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes"
+    for d in cdx_suffix extended/ia_cdx_hostnames; do
+        rsync -a --ignore-existing --timeout=120 -e "$SSH" "$ARK_VPS:ark-walk-data/raw/$d/walk_*.jsonl.gz" data/raw/$d/ || true
+    done
+    mkdir -p data/raw/cdx_walk/lane2 && rsync -a --timeout=60 -e "$SSH" "$ARK_VPS:ark-walk-data/raw/cdx_walk/lane2/log.tsv" data/raw/cdx_walk/lane2/ || true
+    uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
+    rsync -a --timeout=60 -e "$SSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VPS:ark-walk-data/queue/" || true
     # 9. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
     #    runs under this lock; a red bank exits 1 and so does this tick.
     BANK_RC=0
@@ -1580,6 +1586,10 @@ ship stage="all" *args:
 # stop the hourly job, pause-platform and the fleet workflows until lifted: on off status
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
+
+# the CDX walk's lanes, unattended: install status remove
+walk what="status":
+    uv run python scripts/engines/cdx_walk_jobs.py {{what}}
 
 # The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
 # arrived without a session open, and reads the `ship-now` label (the header of

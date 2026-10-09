@@ -367,13 +367,63 @@ def test_corroboration_keeps_known_names_curated_and_routes_the_rest() -> None:
 
 
 extended = script("engines/cdx_extended_walk.py")
+order = script("engines/cdx_walk_order.py")
 
 
 def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_one():
-    cut = extended.subpages(("co.uk", 1000, 7), cut=True)
-    assert cut == [("co.uk", 100, 70 + k) for k in range(9, -1, -1)]
-    assert extended.subpages(("co.uk", 1000, 7), cut=False) == [
-        ("co.uk", 100, 70),
-        ("co.uk", 100, 75),
-    ]
-    assert extended.subpages(("co.uk", 100, 70), cut=False) == []
+    task = ("co.uk", 1000, 7, 1996, 2013, "all")
+    cut = extended.subpages(task, cut=True)
+    assert cut == [("co.uk", 100, 70 + k, 1996, 2013, "all") for k in range(9, -1, -1)]
+    assert [t[2] for t in extended.subpages(task, cut=False)] == [70, 75]
+    assert extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False) == []
+
+
+def test_extended_walk_asks_1996_to_2001_first_wherever_it_prices():
+    prices = {
+        "co.nz all": {"p1": 1.0, "p2": 2000.0},
+        "co.uk all": {"p1": 0.0, "p2": 900.0},
+        "co.uk p1": {"p1": 3.0, "p2": 0.0},
+        "com.au all": {"p1": 40.0, "p2": 500.0},
+        "gov.au all": {"p1": 0.0, "p2": 0.0, "n": 6},
+        "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
+    }
+    units = [tuple(u.split()) for u in prices]
+    priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, explore=2)
+    assert priced == [("co.nz", "all"), ("com.au", "all"), ("co.uk", "p1"), ("co.uk", "all")]
+    assert exploring == [("on.ca", "all")] and waiting == []
+
+
+def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(tmp_path):
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "order.json", max_transient=0)
+    page = ("co.uk", 1000, 7, 1996, 2013, "all")
+
+    def lane_with(page):
+        lane = extended.Lane(a)
+        lane.pages, lane.asked = {("co.uk", "all"): [page]}, {("co.uk", "all"): 0}
+        lane.rerank(force=True)
+        return lane
+
+    lane = lane_with(page)
+    assert lane.take() == page
+    lane.settle(page, "SSLZeroReturnError", False, 0, [], None, ["row"])
+    assert "co.uk 1000 7 1996 2013" not in lane.done, "an unknown failure is no answer"
+    assert lane.take() == page
+    lane.settle(page, "200", False, 5, ["k1", "k5"], None, ["row"])  # cut at k5
+    p9 = lane.take()
+    assert p9[1:3] == (100, 79)
+    lane.settle(p9, "HTTP503", False, 0, [], None, ["row"])  # backed off, still owed
+    restarted = lane_with(page)
+    assert restarted.subq[0] == p9 and restarted.meta[p9] == ("cut", "co.uk 1000 7 1996 2013", "k5")
+    p9 = restarted.take()
+    restarted.settle(p9, "200", True, 3, ["k8", "k9"], None, ["row"])
+    p8 = restarted.take()
+    restarted.settle(p8, "200", True, 3, ["k4", "k6"], None, ["row"])  # holds the cut row
+    assert restarted.subq == [], "the subpages below the cut row were received before it"
+
+
+def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
+    f = tmp_path / "2001.txt"
+    f.write_bytes(b"a.co.uk\nb-c.co.uk\nb.co.uk\nzz.com.au\n")
+    release = order.Release(tmp_path)
+    assert all(release.holds(2001, h) for h in ("a.co.uk", "b-c.co.uk", "b.co.uk", "zz.com.au"))
+    assert not any(release.holds(2001, h) for h in ("a.co", "b.co.ukx", "c.co.uk", "zzz"))

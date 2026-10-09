@@ -61,14 +61,12 @@ alone, never through a pipe, before believing a refusal.
 
 ## The loop
 
-**Collection.** One lane per archive client (`AGENTS.md`, Channel), two on the laptop under
-`caffeinate -s`, since idle sleep stops a lane with no error, and one on the VPS with
-`--max-local 1 --connect-timeout 4`, since the archive drops most of its connects:
-`uv run python scripts/engines/cdx_extended_walk.py <suffixes> --lane N --lanes 3 --deadline
-<epoch> --workers 2`. Its journals land in `data/raw/extended/ia_cdx_hostnames/`, which only the
-extended exporter reads. No job restarts a lane: start each detached, again after a reboot, its
-deadline or an edit to what it imports. It idles while the `pause-extended` flag is up and refuses
-to start at its `--max-local` cap as `cdx_clients()` counts clients (`docs/lore/laws.md`, Channel).
+**Collection.** `just walk install` keeps one lane per archive client running (`AGENTS.md`,
+Channel): launchd runs lanes 0 and 1 here under `caffeinate -i -s`, cron lane 2 on the VPS
+(`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows land in `data/raw/cdx_suffix/`
+and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`; the tick pulls the VPS lane's
+home and re-ranks the queue by measured EE per request, and `local.env` exports
+`ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished
