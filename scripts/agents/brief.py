@@ -70,7 +70,8 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
         f"field 3 {snapshot['netnew_pairs']:,} records, field 4 {snapshot['netnew_ee']:,.4f} EE, "
         f"1996-2001 {snapshot['field5_percent']}%, "
         f"2002-2013 {snapshot.get('extended_percent', '?')}%, "
-        f"{standing} on {snapshot.get('gate_part', 'one part')}",
+        f"{standing} on {snapshot.get('gate_part', 'one part')}"
+        + (f", as of the export at {snapshot['gate_as_of']}" if "gate_as_of" in snapshot else ""),
         f"waiting on a human: {snapshot['waiting_on_human']['approvals']} approvals pending",
     ]
     pending = snapshot["pending_amendments"]
