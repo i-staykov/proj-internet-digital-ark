@@ -8,8 +8,9 @@ if a program puts
 it in front of whoever sends the mail; the row's `remind-on` decides when, and a remind-on that
 names an event rather than a date is due at the next mail, since a ship IS that event. The
 CUMULATIVE record is read from the `awarded p_i` and `S_i quoted` columns of
-`docs/registers/rounds.md`
-by column name, so the numbers are the ones he quoted and not ours.
+`docs/registers/rounds.md` by column name, so the numbers are the ones he quoted and not ours.
+Those columns carry 1996 to 2001 only; a second part sits in the row's note and is never
+summed with them.
 
 Without `--write` the whole draft goes to stdout and nothing is written, which is what a ship
 rehearsal runs: `just ship draft`.
@@ -87,7 +88,7 @@ def reminders(text: str, today: date) -> list[str]:
 
 
 def cumulative(text: str) -> list[str]:
-    """His accepted record: the percentages he awarded, and the scores he has quoted."""
+    """His accepted 1996 to 2001 record: the percentages he awarded, the scores he quoted."""
     table = rows(text, "round")
     awarded = [(r["round"], number(r.get("awarded p_i", ""))) for r in table]
     awarded = [(label, value) for label, value in awarded if value is not None]
@@ -98,7 +99,8 @@ def cumulative(text: str) -> list[str]:
     total = sum(value for _, value in awarded)
     labels = ", ".join(label for label, _ in awarded)
     out = [
-        f"- Awarded across {len(awarded)} scored rounds ({labels}): {total}% in total.",
+        f"- Awarded in 1996 to 2001 across {len(awarded)} scored rounds ({labels}): "
+        f"{total}% in total.",
     ]
     if any(label == "1" for label, _ in awarded):
         out.append(
@@ -109,7 +111,7 @@ def cumulative(text: str) -> list[str]:
         scores = " + ".join(str(value) for _, value in quoted)
         rounds = ", ".join(label for label, _ in quoted)
         out.append(
-            f"- Ranking scores he has quoted (rounds {rounds}): "
+            f"- 1996 to 2001 ranking scores he has quoted (rounds {rounds}): "
             f"{scores} = {sum(value for _, value in quoted)}."
         )
     return out

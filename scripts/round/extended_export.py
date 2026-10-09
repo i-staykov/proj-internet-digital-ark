@@ -1,4 +1,4 @@
-"""Write `output/extended_years/`: our 2002 to 2015 additions to his same-year files.
+"""Write `output/extended_years/`: our 2002 to 2013 additions to his same-year files.
 
 A host-year ships only by its own capture, as an addition to his file for that year
 (`AGENTS.md`, The window). The input is the capture journal every converter already writes,
@@ -10,7 +10,7 @@ of its decision: an unknown or unapproved folder refuses the run before a row is
 
 As the core's hostname ingest does, an error lane (`hostnames.error_lane`) dates nothing, and a
 journal whose family must carry a status (`hostnames.status_required`) is refused whole at a
-row without one. A row is kept when its stamp's year is 2002 to 2015, its status is not 4xx or
+row without one. A row is kept when its stamp's year is 2002 to 2013, its status is not 4xx or
 5xx, its host passes his `HOST_RE` (`hostnames.host_of`) and has a registrable, and its TLD
 existed that year (`ark.delegation.existed`). Each kept host-year carries its earliest
 capture; whatever his same-year file holds, by exact name, is dropped by `comm`.
@@ -182,7 +182,7 @@ def screen(line: bytes, strict: bool) -> tuple[str | None, tuple | None]:
         return "bad_timestamp", None
     year = int(ts[:4])
     if year not in EXTENDED_YEARS:
-        return "outside_2002_2015", None
+        return "outside_window", None
     url = " ".join(str(row.get("url", "")).split())
     host = hn.host_of(url)
     if host is None:
@@ -320,12 +320,14 @@ def stale(out: Path) -> list[str]:
     """Why `out` no longer describes the release and the inputs it was written from."""
     path = out / "manifest.json"
     if not path.is_file():
-        # Nothing to export and nothing written is current: the GATE line prices no addition.
+        # Nothing to export and nothing written is current: the GATE lines price no addition.
         return [f"{path} is missing"] if out.exists() or resolve_inputs(INPUTS) else []
     manifest = json.loads(path.read_text(encoding="utf-8"))
     problems = []
     if manifest["baseline"] != CURRENT_BASELINE_MARKER:
         problems.append(f"written against {manifest['baseline']}, not {CURRENT_BASELINE_MARKER}")
+    if any(int(year) not in EXTENDED_YEARS for year in manifest.get("years", {})):
+        problems.append("holds a year outside 2002 to 2013")
     recorded = [(i["path"], i["size"], i["mtime_ns"]) for i in manifest["inputs"]]
     now = [(rel(p), *stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])]
     if recorded != now:

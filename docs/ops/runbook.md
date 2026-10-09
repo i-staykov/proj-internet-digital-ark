@@ -114,11 +114,11 @@ takes about an hour.
 ## Figures
 
 `docs/ROUND.md` field 4 is the headline: the equivalent-English of the registrables and hostnames
-that ship net-new against his 1996 to 2001 files, field 5 its percent of them. The gate's figure is
-the GATE line beneath: field 4 plus `output/extended_years/` over his 1996 to 2015 total. The bank
-re-runs `scripts/round/extended_export.py` when `data/raw/extended/<source>/` or his release moves,
-and a stale export withholds the GATE line. `just price --items <f.jsonl>` prices on the store
-after the corroboration split, at registrable grain;
+that ship net-new against his 1996 to 2001 files, field 5 its percent of them. The gate's figures
+are the two GATE lines beneath, each over his EE for its years: 1996 to 2001 (field 4) and 2002 to
+2013 (`output/extended_years/`). The bank re-runs `scripts/round/extended_export.py` when
+`data/raw/extended/<source>/` or his release moves, and a stale export withholds both. `just price
+--items <f.jsonl>` prices on the store after the corroboration split, at registrable grain;
 `just price-hosts <dir>` at hostname grain through the ingest's own funnel. The fleet's figure, `uv
 run ark price-snapshot --snapshot output/fleet_snapshot --items <f.jsonl>` (`--track candidate` for
 the other), reads no store, so it runs while the lock is held; the bank re-prices a FIND on the

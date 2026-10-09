@@ -7,7 +7,6 @@ round 6 and 7 scores fit; `rounds.py` fills `S_i computed` with it. Stamps are i
 US Pacific. Pure arithmetic over timestamp strings; the rounds live in `ark.baseline`.
 """
 
-from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
 from math import ceil
@@ -19,11 +18,7 @@ from ark.baseline import SUBMISSION_SPEED_K
 HIS_ZONE = ZoneInfo("America/Los_Angeles")
 STAMP = "%Y-%m-%d %H:%M"
 
-# The brief update that introduced the score, in his clock. Rounds received before it
-# were never scored by him, so their S is a would-be figure and the report says so.
-SCORE_RULE_SINCE = "2026-08-20 03:37"
-
-# He quotes S_7 to six places.
+# He quotes S_7 to six places; from round 11 on, growth to ten and S to nine.
 PLACES = Decimal("0.000001")
 
 # The origin of the assignment rule, read out of his own arithmetic, not our receipts:
@@ -66,16 +61,12 @@ def t_days_assignment(receipt_ts: str, assigned: str = TASK_ASSIGNED_DATE) -> in
     return max(1, days)
 
 
-def score(p: Decimal, t: int) -> Decimal:
-    """`S_i = k * p_i / t_i`, to the six places he quotes."""
-    return (SUBMISSION_SPEED_K * p / Decimal(t)).quantize(PLACES)
+def score(p: Decimal, t: int, places: Decimal = PLACES) -> Decimal:
+    """`S_i = k * p_i / t_i`, to the six places he quotes unless told otherwise."""
+    return (SUBMISSION_SPEED_K * p / Decimal(t)).quantize(places)
 
 
-def cumulative(scores: Iterable[Decimal]) -> Decimal:
-    """`S_total`, the sum of per-round scores."""
-    return sum(scores, Decimal(0))
-
-
-def scored_under_rule(receipt_ts: str) -> bool:
-    """Whether a round received at `receipt_ts` fell under his score rule at all."""
-    return parse_stamp(receipt_ts) >= parse_stamp(SCORE_RULE_SINCE)
+def score_line(p: Decimal, t: int) -> str:
+    """One part's S at his round 11 digits, `S = 10 x (28.8813137522 / 67) = 4.310643844`."""
+    growth = p.quantize(Decimal("1E-10"))
+    return f"S = {SUBMISSION_SPEED_K} x ({growth:f} / {t}) = {score(growth, t, Decimal('1E-9')):f}"

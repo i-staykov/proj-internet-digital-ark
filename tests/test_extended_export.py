@@ -1,4 +1,4 @@
-"""The 2002 to 2015 additions: only his same-year file's complement, only by a capture stamped
+"""The 2002 to 2013 additions: only his same-year file's complement, only by a capture stamped
 in that year, and a package whose merged files are his plus ours and nothing else."""
 
 import csv
@@ -26,7 +26,7 @@ ROWS = [
     {"url": "http://new.com/a", "timestamp": "20020301000000", "status": "200"},
     {"url": "http://new.com/", "timestamp": "20020101000000"},  # the earliest: the one quoted
     {"url": "http://old.com/", "timestamp": "20010601000000"},  # the core window, not ours here
-    {"url": "http://late.com/", "timestamp": "20160601000000"},
+    {"url": "http://late.com/", "timestamp": "20140601000000"},  # 2014 on is not hunted
     {"url": "http://err.com/", "timestamp": "20020601000000", "status": "404"},
     {"url": "http://under_score.com/", "timestamp": "20020601000000"},
     {"url": "http://early.eu/", "timestamp": "20030601000000"},  # .eu was delegated in 2005
@@ -92,7 +92,7 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert manifest["increment_ee"] == "0.7500"
     assert manifest["years"]["2003"]["growth_pct"] == "12.500000"
     drop = manifest["dropped"]
-    assert (drop["outside_2002_2015"], drop["error_status"], drop["duplicate"]) == (2, 1, 1)
+    assert (drop["outside_window"], drop["error_status"], drop["duplicate"]) == (2, 1, 1)
     assert (drop["invalid_host"], drop["tld_did_not_exist"], drop["journal_refused"]) == (1, 2, 2)
     with (out / "evidence_ledger.csv").open() as fh:
         row = next(r for r in csv.DictReader(fh) if r["host"] == "new.com")

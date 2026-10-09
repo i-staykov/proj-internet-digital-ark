@@ -55,7 +55,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A screen left off one query ships what it refuses: 251,178 rows in `masters/2001.txt` (`src/ark/evidence_types.py`).
 - Export, stats and contribution share one web-evidence screen, `web_evidence_sql` (`src/ark/evidence_types.py`).
 - What ships is counted with `ark.delegation.shipping_filter`: a store count without it read 17,638 pairs against 16,772 shipped (866 pairs, 479.4256 EE) (`src/ark/stats.py`).
-- t counts whole days from the task assignment and never resets, so a week's delay costs 7/(t+7) of the score: round 8 scores 10 x 18.769714 / 33 = 5.687792 (`src/ark/figures.py` `t_days_assignment`).
+- Each part scores S = 10 x growth / t, t whole days from the 2 August assignment, so a week's delay costs 7/(t+7): round 11 is 10 x 0.2471072368 / 67 = 0.036881677 and, on 2002 to 2015, 10 x 28.8813137522 / 67 = 4.310643844 (`src/ark/figures.py` `score_line`).
 - The benchmark clock, release stamp to receipt rounded up to whole days, reproduces rounds 6 and 7 at 6.884530 and 6.302372; from midnight it misses (`src/ark/figures.py` `t_days`, `docs/registers/rounds.md`).
 - A (name, year) scores its TLD's English share, e.g. .uk 0.9813, .edu 0.9717, .com 0.6321, .net 0.4530, .de 0.1324; a TLD absent from the table scores 0 (`src/ark/english_share.py`).
 - Hostnames are annual records at full TLD weight, shipped in `NNNN_hostnames.txt`: the 180 suffix journals priced 0 at registrable grain and 338,865 net-new hostname records, 301,650 EE, at hostname grain (`src/ark/export.py`).

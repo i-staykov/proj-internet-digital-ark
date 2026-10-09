@@ -12,9 +12,9 @@ assembles the answer from the programs that own each piece rather than restating
 By default it reads files and never the store, so the bank writes it while it holds the writer,
 and `just state` runs the same. `--full` adds the two store sections, read-only.
 
-The brief takes fields 3 to 5 and the GATE line as the very strings ROUND.md prints, so every
-reader quotes one gate figure: core plus extended over his 1996 to 2015 total. `just brief`
-prints it from a session-start hook, so it stays small.
+The brief takes fields 3 to 5 and the two GATE lines as the very strings ROUND.md prints, so
+every reader quotes one gate figure: the part, 1996 to 2001 or 2002 to 2013, with the smaller
+EE gap to its 5%. `just brief` prints it from a session-start hook, so it stays small.
 
 **Staleness is detectable rather than prevented.** The footer holds his release's marker and
 the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
@@ -47,7 +47,6 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
     CURRENT_ROUND_LABEL,
     CURRENT_ROUND_SINCE,
-    GATE_BASELINE_EE,
     GATE_PCT,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
@@ -67,13 +66,20 @@ BRIEF = ROOT / "data/brief.json"
 AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 EXTENDED_MANIFEST = extended.OUT / "manifest.json"
-# Fields 3 to 5 and the gate line exactly as round_figures prints them.
+# Fields 3 to 5 and the two gate lines exactly as round_figures prints them.
 FIELD_RE = {
     "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
     "4": re.compile(r"^4\. .*: ([0-9,.]+)$", re.M),
     "5": re.compile(r"^5\. .*: ([0-9.]+)%$", re.M),
-    "gate_ee": re.compile(r"^GATE\. .*: ([0-9,.]+) = ", re.M),
-    "gate": re.compile(r"^GATE\. .*= ([0-9.]+)% of ", re.M),
+    "core_ee": re.compile(r"^GATE\. 1996-2001 .*: ([0-9,.]+) = ", re.M),
+    "core": re.compile(r"^GATE\. 1996-2001 .*= ([0-9.]+)% of ", re.M),
+    "ext_ee": re.compile(r"^GATE\. 2002-2013 .*: ([0-9,.]+) = ", re.M),
+    "ext": re.compile(r"^GATE\. 2002-2013 .*= ([0-9.]+)% of ", re.M),
+}
+# Each part's gate in EE, 5% of his EE for its years.
+GATE_EE = {
+    "1996-2001": REVIEWER_BASELINE_EE * GATE_PCT / 100,
+    "2002-2013": REVIEWER_EXTENDED_EE * GATE_PCT / 100,
 }
 STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 
@@ -107,9 +113,9 @@ def run(cmd: list[str], timeout: int) -> str:
 
 
 def claim_state() -> dict[str, str]:
-    """His release's marker and gate denominator, then each claim file's sha256 by its path
+    """His release's marker and the two parts' gates, then each claim file's sha256 by its path
     under `output/`, the extended export's manifest among them."""
-    state = {"baseline": CURRENT_BASELINE_MARKER, "gate_ee": str(GATE_BASELINE_EE)}
+    state = {"baseline": CURRENT_BASELINE_MARKER, "gate_ee": ",".join(map(str, GATE_EE.values()))}
     claim = export.claim_files(ROOT / export.NETNEW_DIR, ROOT / export.CANDIDATES_PATH)
     for path in [*claim, ROOT / EXTENDED_MANIFEST]:
         rel = path.relative_to(ROOT / "output").as_posix()
@@ -142,7 +148,8 @@ def export_problem() -> str | None:
 
 
 def parse_fields(figures: str) -> dict[str, str] | None:
-    """Fields 3 to 5 as printed, or None when round_figures did not print all three."""
+    """Fields 3 to 5 and the gate lines as printed, or None when round_figures did not print
+    them all."""
     found = {key: rx.search(figures) for key, rx in FIELD_RE.items()}
     if not all(found.values()):
         return None
@@ -166,9 +173,10 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
 
 
 def brief(fields: dict[str, str] | None, approvals: int) -> dict:
-    """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate line
+    """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
-    `field5_percent` stays as the core component, for information."""
+    `gate_part` is the part with the smaller EE gap to its 5%, so `gate_percent >= gate_pct`
+    still means crossed; `field5_percent` and `extended_percent` are the two parts."""
     snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
@@ -176,15 +184,20 @@ def brief(fields: dict[str, str] | None, approvals: int) -> dict:
     }
     if fields:
         ee = Decimal(fields["4"].replace(",", ""))
-        gate_ee = Decimal(fields["gate_ee"].replace(",", ""))
+        gaps = {
+            part: GATE_EE[part] - Decimal(fields[f"{key}_ee"].replace(",", ""))
+            for part, key in (("1996-2001", "core"), ("2002-2013", "ext"))
+        }
+        part = min(gaps, key=gaps.get)
         snapshot |= {
             "netnew_pairs": int(fields["3"].replace(",", "")),
             "netnew_ee": float(ee),
             # strings, so the trailing zeros ROUND.md prints survive `jq -r`
             "field5_percent": fields["5"],
-            "gate_ee": float(gate_ee),
-            "gate_percent": fields["gate"],
-            "distance_to_gate_ee": round(float(GATE_BASELINE_EE * GATE_PCT / 100 - gate_ee), 4),
+            "extended_percent": fields["ext"],
+            "gate_part": part,
+            "gate_percent": fields["core" if part == "1996-2001" else "ext"],
+            "distance_to_gate_ee": round(float(gaps[part]), 4),
         }
     return snapshot | {
         "gate_pct": float(GATE_PCT),
@@ -224,7 +237,8 @@ def build(full: bool = False) -> tuple[str, dict]:
         f"Measured against **{CURRENT_BASELINE_MARKER}**, the reviewer's current release:",
         f"{REVIEWER_BASELINE_PAIRS:,} pairs and {REVIEWER_BASELINE_EE:,.4f} equivalent-English",
         f"in 1996 to 2001, {REVIEWER_EXTENDED_PAIRS:,} and {REVIEWER_EXTENDED_EE:,.4f} in 2002",
-        f"to 2015; the {GATE_PCT}% gate is of their {GATE_BASELINE_EE:,.4f} together.",
+        f"to 2013; the gate is {GATE_PCT}% of either, {GATE_EE['1996-2001']:,.4f} or",
+        f"{GATE_EE['2002-2013']:,.4f} EE.",
     ]
     if full:
         parts += [
@@ -320,7 +334,7 @@ def main() -> None:
             for key in drift:
                 print(f"  {key}: changed")
             raise SystemExit(STALE)
-        print(f"docs/ROUND.md is current: its footer matches the {len(now) - 1} claim files")
+        print(f"docs/ROUND.md is current: its footer matches the {len(now) - 2} claim files")
         return
 
     body, snapshot = build(args.full)
@@ -330,14 +344,15 @@ def main() -> None:
     if "gate_percent" not in snapshot:
         why = export_problem() or "round_figures.py failed"
         raise SystemExit(
-            f"wrote {OUT.relative_to(ROOT)} without the five fields and the gate line, so "
+            f"wrote {OUT.relative_to(ROOT)} without the five fields and the gate lines, so "
             f"data/brief.json carries no gate figure: {why}"
         )
+    gap = snapshot["distance_to_gate_ee"]
     print(
         f"wrote {OUT.relative_to(ROOT)}: field 3 {snapshot['netnew_pairs']:,} records, "
-        f"field 4 {snapshot['netnew_ee']:,.4f} EE, field 5 {snapshot['field5_percent']}%, "
-        f"gate {snapshot['gate_percent']}% of 1996 to 2015, "
-        f"{snapshot['distance_to_gate_ee']:,.4f} EE short of {GATE_PCT}%"
+        f"field 4 {snapshot['netnew_ee']:,.4f} EE, 1996-2001 {snapshot['field5_percent']}%, "
+        f"2002-2013 {snapshot['extended_percent']}%, {abs(gap):,.4f} EE "
+        f"{'short of' if gap > 0 else 'past'} {GATE_PCT}% on {snapshot['gate_part']}"
     )
 
 

@@ -72,10 +72,11 @@ def test_every_constant_loads_its_own_key_with_his_digits() -> None:
     rounds = json.loads(json.dumps(baseline.SUBMITTED_ROUNDS, default=str))
     assert rounds == [[row[key] for key in keys] for row in data["rounds"]]
     assert str(baseline.ORIGINAL_BASELINE_EE) == data["original"]["ee"]
-    # The gate's denominator is his 1996 to 2015 total, never the core alone.
+    # The 2002 to 2013 part's denominator is his EE for those years, 2014 on never in it.
     extended = sum(baseline.REVIEWER_EXTENDED_EE_BY_YEAR.values(), Decimal(0))
     assert baseline.REVIEWER_EXTENDED_EE == extended
-    assert baseline.GATE_BASELINE_EE == baseline.REVIEWER_BASELINE_EE + extended
+    years = sorted(baseline.REVIEWER_EXTENDED_EE_BY_YEAR)
+    assert years == list(baseline.EXTENDED_YEARS) == list(range(2002, 2014))
 
 
 def test_the_vendored_table_is_pinned_by_content() -> None:

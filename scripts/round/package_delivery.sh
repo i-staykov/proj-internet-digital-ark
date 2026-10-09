@@ -304,7 +304,7 @@ mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
 # extended_years/: the additions, their ledger, dedup report and manifest as extended_export.py
-# wrote them, and for each year we add to his 2002 to 2015 file merged with ours, as masters/.
+# wrote them, and for each year we add to his 2002 to 2013 file merged with ours, as masters/.
 EXT=output/extended_years
 if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     uv run python scripts/round/extended_export.py --check \

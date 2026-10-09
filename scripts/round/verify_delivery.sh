@@ -9,7 +9,7 @@
 # an evidence row for every addition; the hostname files, disjoint from the registrable files,
 # and an evidence row for each; the ISC candidate collection reconciled against the reference
 # release; the header candidate collection complete and inside the claim; the evidence wall
-# (every provenance assignment cites an evidence row shipped here); the 2002 to 2015 extended
+# (every provenance assignment cites an evidence row shipped here); the 2002 to 2013 extended
 # years, each merged file his own plus additions he lacks; then the four deliverables
 # D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
 # asked, every merge reconciliation check passed and agrees with the shipped files, and the
@@ -214,7 +214,7 @@ else
     say "evidence wall intact" "SKIP  no provenance export here"
 fi
 
-# --- the extended years: his 2002 to 2015 file plus additions he lacks ---------
+# --- the extended years: his 2002 to 2013 file plus additions he lacks ---------
 # His files are not shipped, so the proof is that the merged file minus our additions hashes
 # to the sha256 the manifest records for his, and that no addition was already in it.
 python3 - <<'PY' || fail=1
@@ -239,8 +239,8 @@ with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
 problems, shipped = [], 0
 for year, entry in sorted(manifest["years"].items()):
     adds, merged = root / "additions" / f"{year}.txt", root / f"{year}.txt"
-    if not 2002 <= int(year) <= 2015:
-        problems.append(f"{year} is outside 2002 to 2015")
+    if not 2002 <= int(year) <= 2013:
+        problems.append(f"{year} is outside 2002 to 2013")
     if not entry["accepted_new"]:
         continue
     for path in (adds, merged):
