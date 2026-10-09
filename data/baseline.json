@@ -3,8 +3,8 @@
     "marker": "merge261008-3",
     "directory": "ding/Domain_Data_Collection_Task_1008_UpdateV3/Domain_Data_Collection_Task/merge261008-3",
     "released_at": "2026-10-08 19:36",
-    "round_since": "2026-09-22 02:50:00+00",
-    "round_label": "11",
+    "round_since": "2026-10-08 00:32:00+00",
+    "round_label": "12",
     "reviewer_pairs": 136209327,
     "reviewer_ee": "74492066.7780",
     "reviewer_ee_by_year": {
@@ -126,6 +126,18 @@
       "submission_received": "2026-09-10 09:20",
       "awarded_score": "0.944228",
       "awarded_score_divisor": 39
+    },
+    {
+      "label": "11",
+      "date": "2026-10-08",
+      "records": 334638,
+      "equivalent_english": "183621.5457",
+      "baseline": "merge261008-2",
+      "awarded_percent": "0.2471072368",
+      "benchmark_released": "2026-10-07 19:55",
+      "submission_received": "2026-10-07 21:01",
+      "awarded_score": "0.036881677",
+      "awarded_score_divisor": 67
     }
   ],
   "round_one_is_record_based": "1",

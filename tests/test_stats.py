@@ -193,7 +193,8 @@ def test_his_scores_reproduce_under_the_benchmark_rule_and_the_assignment_rule()
     his = awarded_score_of("8")
     assert fig.t_days_assignment(ROWS["8"][7]) == his.divisor
     assert fig.score(his.percent, his.divisor) == his.score
-    assert [r[0] for r in SUBMITTED_ROUNDS if fig.scored_under_rule(r[7])] == ["6", "7", "8", "9"]
+    scored = [r[0] for r in SUBMITTED_ROUNDS if fig.scored_under_rule(r[7])]
+    assert scored == ["6", "7", "8", "9", "11"]
     assert fig.cumulative([D("6.884530"), D("6.302372")]) == D("13.186902")
 
 
@@ -207,7 +208,7 @@ def test_fill_report_quotes_his_sum_and_holds_no_day_arithmetic(scored, tmp_path
     source = Path(report.__file__).read_text(encoding="utf-8")
     assert [t for t in ("date.today", "fromisoformat", "timedelta", ".days") if t in source] == []
     sentence = report.cumulative_sentence({}, D("1.5"))
-    assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 = 19.814392" in sentence
+    assert "score 6.88 + 6.302372 + 5.687792 + 0.944228 + 0.036881677 = 19.851273677" in sentence
     assert "Domain-Year Score: S = 10 x (1.500000 / 32) = 0.468750" in sentence
     assert "Candidate-Pool Score: S = 10 x (" in sentence and "?" not in sentence, sentence
     assert report.pool_restricted() == "3"
