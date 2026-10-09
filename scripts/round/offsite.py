@@ -10,9 +10,7 @@ are neither regenerable by a recipe nor refetchable from somebody else:
     every frozen `submissions/phase-*`;
   * `live_input` whose refetch cell is `unknown`, so a `just reproduce` stage reads
     bytes we could not fetch twice;
-  * `keep_until_priced`, held until somebody prices it, EXCEPT `usenet_bulk` and
-    `usenet_new`: archive.org serves those two again and lists each zip's sha1 in
-    `data/raw/usenet_catalog.json` or in usenet_new's `.meta-<hierarchy>.json`.
+  * `keep_until_priced`, held until somebody prices it.
 
 Everything else stays local only: a recipe rebuilds it, or a URL in its row fetches
 it. `private/` has no row and so can never appear.
@@ -23,22 +21,24 @@ it. `private/` has no row and so can never appear.
     uv run python scripts/round/offsite.py --verify          # remote against manifest
 
 `--entry PATH`, repeatable, narrows `--upload` and `--verify` to those manifest rows, so a
-round can go to Drive without the whole payload going first. A narrowed `--verify` writes a
-receipt for exactly the rows it checked.
+round can go to Drive without the whole payload going first. A narrowed `--verify` replaces
+only its own rows' pins and keeps the receipt's time, so only a full `--verify` restarts its
+24 hours.
 
 `--manifest` writes `data/offsite-manifest.tsv` (untracked, like the `SHA256SUMS`
 files it reads) and refuses any entry whose row carries no checksum record: an
 uploaded copy nobody can check is not a backup.
 
-`--verify` downloads nothing. Google Drive returns md5, sha1 AND sha256 per object,
-measured 2026-09-03 with `rclone lsjson --hash` over a .jsonl, a .gz and a .zip
-uploaded for the purpose: all three hashes came back populated and the sha256
-matched the local file, so each file is compared with the hash its own local
-manifest holds (sha256, or IA's sha1 for the Usenet zips in `SHA1SUMS`).
+`--verify` downloads nothing: Google Drive gives `rclone lsjson --hash` the sha1 and
+sha256 of every object, so each file is compared with the hash its own local manifest
+holds (sha256, or IA's sha1 for the Usenet zips in `SHA1SUMS`).
 
 Verification records per-file receipts under data/logs/, valid for 24 hours and bound
 to local file identity and timestamps. Unchanged files reuse their local hash; remote
-hashes are checked on every run. This script never deletes local or remote data.
+hashes are checked on every run. An entry verifies on the files its manifest names: a
+closed file a collector added since is listed as newer and stays out of the receipt
+until `just verify raw`, `--manifest` and `--upload` take it in. This script never
+deletes local or remote data.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import shlex
 import stat
 import subprocess
 import sys
@@ -63,10 +64,6 @@ LOGS = "data/logs"
 RECEIPT = "data/logs/offsite-verified.json"
 MAX_AGE = 24 * 3600
 COLUMNS = ("entry", "class", "bytes", "files", "digest", "reason")
-
-# The two corpora archive.org can serve again, by name, so the rule that holds every
-# other `keep_until_priced` entry does not drag 110 GB of refetchable zips off-site.
-REFETCHABLE = {"data/raw/usenet_bulk", "data/raw/usenet_new"}
 
 # Written beside the data by verify_raw.py, so not part of any entry's own manifest.
 SIDECARS = ("SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", "DELETED.tsv")
@@ -102,7 +99,7 @@ def reason(entry) -> str | None:
             return "kept for the record, no refetch route"
     if entry.cls == "live_input" and entry.route == "none":
         return "a reproduce stage reads it, no refetch route"
-    if entry.cls == "keep_until_priced" and entry.key not in REFETCHABLE:
+    if entry.cls == "keep_until_priced":
         return "unpriced corpus, off-site until somebody prices it"
     return None
 
@@ -111,8 +108,6 @@ def held_because(entry) -> str:
     """Why an entry stays local only. Read only for the summary under the payload."""
     if Path(entry.key).name == ".DS_Store":
         return "Finder metadata, not data"
-    if entry.key in REFETCHABLE:
-        return "archive.org refetch, IA's sha1 per zip on disk"
     if entry.cls == "regenerable":
         return "a recipe rebuilds it"
     return f"{entry.cls}, refetch recorded"
@@ -213,9 +208,10 @@ def copy_command(row: Row, root: Path, remote: str, log: Path) -> list[str]:
     """The exact `rclone copy` for one entry. Resumable, and it never deletes."""
     cmd = ["rclone", "copy", "--checksum", "--transfers", "4"]
     if not row.is_file(root):
-        # verify_raw.py writes these beside the data and no entry's manifest lists
-        # itself, so leaving them behind keeps the remote exactly the manifest.
+        # verify_raw.py writes these beside the data and lists neither them nor a `*.part`
+        # still being written, so leaving them behind keeps the remote exactly the manifest.
         cmd += [flag for name in SIDECARS for flag in ("--exclude", f"/{name}")]
+        cmd += ["--exclude", "*.part"]
     cmd += ["--log-level", "INFO", "--log-file", str(log)]
     return cmd + [str(row.local(root)), row.dest(root, remote)]
 
@@ -236,7 +232,7 @@ def upload(rows: list[Row], root: Path, remote: str, run: bool) -> list[str]:
     for r in rows:
         log = logs / f"offsite-{r.entry.replace('/', '_')}-{stamp}.log"
         cmd = copy_command(r, root, remote, log)
-        out.append(" ".join(cmd))
+        out.append(shlex.join(cmd))
         if not run:
             continue
         if not r.local(root).exists():
@@ -267,6 +263,8 @@ class Check:
     missing: list[str] = field(default_factory=list)
     extra: list[str] = field(default_factory=list)
     nohash: list[str] = field(default_factory=list)
+    # closed local files the entry gained after its manifest: neither checked nor pinned
+    newer: list[str] = field(default_factory=list)
     remote_bytes: int = 0
     note: str = ""
 
@@ -308,7 +306,9 @@ def check_entry(row: Row, root: Path, remote: str) -> Check:
     if not expect:
         notes.append("no local checksum lines to compare")
     elif len(expect) != row.files:
-        # The entry grew or shrank since the manifest was priced, so the row is stale.
+        # Only `just verify raw` rewrites the manifests beside the data, and the tick runs it
+        # only inside `just ship`, which reruns --manifest right after: a hand run, or a ship
+        # beside this one, came between --manifest and --verify, so the row is stale.
         notes.append(
             f"the manifest beside the data names {len(expect)} files, the row says "
             f"{row.files}: rerun `just verify raw` and --manifest"
@@ -347,8 +347,9 @@ def signature(root: Path, path: Path) -> list[int]:
     return [st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns, st.st_ctime_ns]
 
 
-def local_files(root: Path, path: Path) -> dict[str, list[int]]:
-    """Inventory without following links or omitting unmanifested payload files."""
+def local_files(root: Path, path: Path, skip_links: bool = False) -> dict[str, list[int]]:
+    """Every file under `path` but its sidecars, never following a link: a link inside is
+    refused, or with `skip_links` passed over, as verify_raw.py and rclone pass it over."""
     if path.is_file():
         return {path.name: signature(root, path)}
     if not path.is_dir() or path.is_symlink():
@@ -356,6 +357,8 @@ def local_files(root: Path, path: Path) -> dict[str, list[int]]:
     out = {}
     for child in sorted(path.rglob("*")):
         if child.is_symlink():
+            if skip_links:
+                continue
             raise ValueError(f"symlink refused: {child}")
         if child.is_dir():
             continue
@@ -365,7 +368,8 @@ def local_files(root: Path, path: Path) -> dict[str, list[int]]:
     return out
 
 
-def read_receipt(root: Path, remote: str = REMOTE) -> dict:
+def fresh_receipt(root: Path, remote: str = REMOTE) -> tuple[dict, float]:
+    """The pins of a receipt inside MAX_AGE for this root and remote, and when it was taken."""
     try:
         saved = json.loads((root / RECEIPT).read_text())
         age = time.time() - saved["verified_at"]
@@ -376,20 +380,24 @@ def read_receipt(root: Path, remote: str = REMOTE) -> dict:
             and 0 <= age <= MAX_AGE
             and isinstance(saved["files"], dict)
         ):
-            return saved["files"]
+            return saved["files"], saved["verified_at"]
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    return {}
+    return {}, time.time()
 
 
-def write_receipt(root: Path, remote: str, files: dict) -> None:
+def read_receipt(root: Path, remote: str = REMOTE) -> dict:
+    return fresh_receipt(root, remote)[0]
+
+
+def write_receipt(root: Path, remote: str, files: dict, at: float | None = None) -> None:
     target = root / RECEIPT
     target.parent.mkdir(parents=True, exist_ok=True)
     saved = {
         "version": 1,
         "root": str(root.resolve()),
         "remote": remote,
-        "verified_at": time.time(),
+        "verified_at": time.time() if at is None else at,
         "files": files,
     }
     temporary = target.with_suffix(".tmp")
@@ -398,27 +406,36 @@ def write_receipt(root: Path, remote: str, files: dict) -> None:
 
 
 def pin_local(check: Check, root: Path, previous: dict) -> dict:
-    """Bind a remote match to the current local bytes, not just a checksum sidecar."""
+    """Bind a remote match to the current local bytes, not just a checksum sidecar.
+
+    Every file the manifest names must be here, together the size the row was priced on,
+    hash to its digest and hold still while it is hashed. A closed file the entry gained
+    since goes to `check.newer`, never into the receipt, so nothing can delete it on this
+    proof; a `*.part`, still being written, is not listed.
+    """
     if not check.verified:
         return {}
     local = check.row.local(root)
     expected = expected_files(root, check.row.entry)
-    before = local_files(root, local)
-    if set(before) != set(expected) or sum(s[2] for s in before.values()) != check.row.size:
+    before = local_files(root, local, skip_links=True)
+    named = {rel: before.get(rel) for rel in expected}
+    if None in named.values() or sum(s[2] for s in named.values()) != check.row.size:
         raise ValueError(
-            "local inventory differs from manifest; run just verify raw and --manifest"
+            "a file the manifest names is gone or resized; run just verify raw and --manifest"
         )
+    check.newer = sorted(r for r in before.keys() - expected.keys() if not r.endswith(".part"))
     pinned = {}
     for rel, (kind, digest) in expected.items():
         path = local if local.is_file() else local / rel
         key = path.relative_to(root).as_posix()
-        record = {"stat": before[rel], "kind": kind, "digest": digest.lower()}
+        record = {"stat": named[rel], "kind": kind, "digest": digest.lower()}
         if previous.get(key) != record:
             with path.open("rb") as stream:
                 if hashlib.file_digest(stream, kind).hexdigest() != digest.lower():
                     raise ValueError(f"local checksum differs: {key}")
         pinned[key] = record
-    if local_files(root, local) != before:
+    after = local_files(root, local, skip_links=True)
+    if any(after.get(rel) != stat for rel, stat in named.items()):
         raise ValueError("local files changed during verification")
     return pinned
 
@@ -476,6 +493,9 @@ def verify_report(checks: list[Check], remote: str) -> list[str]:
         f"verified off-site, safe for the deletion ticket: {len(good)} of {len(checks)} entries, "
         f"{size:,} B ({prune.human(size)}): {', '.join(c.row.entry for c in good) or 'none'}",
     ]
+    newer = [f"{c.row.entry} ({len(c.newer)} files)" for c in good if c.newer]
+    if newer:
+        out.append(f"newer than the manifest, not yet off-site: {', '.join(newer)}")
     if bad:
         out.append(f"NOT verified, do not delete: {', '.join(c.row.entry for c in bad)}")
     return out
@@ -552,8 +572,8 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(manifest_report(rows, refused, empty, held, manifest)))
         return 1 if refused else 0
 
-    previous = read_receipt(root, args.remote) if args.verify else {}
-    if args.verify:
+    previous, taken = fresh_receipt(root, args.remote)
+    if args.verify and not args.entry:
         write_receipt(root, args.remote, {})
     if not manifest.is_file():
         print(f"{manifest} is missing: run --manifest first.", file=sys.stderr)
@@ -570,6 +590,16 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(upload(rows, root, args.remote, args.yes)))
         return 0
 
+    # A narrowed run revokes only its own rows, once they resolve, and keeps the receipt's
+    # time, so no pin outlives MAX_AGE since its remote was checked.
+    kept, at = {}, None
+    if args.entry:
+        mine = {row.entry for row in rows}
+        kept = {
+            k: v for k, v in previous.items() if mine.isdisjoint({k, *map(str, Path(k).parents)})
+        }
+        at = taken
+        write_receipt(root, args.remote, kept, at)
     checks, pinned = [], {}
     for row in rows:
         check = Check(row)
@@ -579,7 +609,7 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
             check.note = str(exc)
         checks.append(check)
-    write_receipt(root, args.remote, pinned)
+    write_receipt(root, args.remote, kept | pinned, at)
     print("\n".join(verify_report(checks, args.remote)))
     return 0 if all(c.verified for c in checks) else 1
 

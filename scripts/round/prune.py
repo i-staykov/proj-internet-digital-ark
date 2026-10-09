@@ -41,14 +41,14 @@ lists, and with `--write` deletes:
     its bytes, that sha1 and the URL;
   * `output/DomainDataCollectionTask_*` but the newest, once the newest's tarball is on
     Drive with the checksum git keeps;
-  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code or an agent's
-    handoff reads. Nothing there has a copy anywhere, so `--private --write` deletes only with
-    `--owner-go`, which no recipe passes: #188's last step passes it on the owner's go.
-    Without it, it lists `private/` and deletes nothing at all.
+  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code, an agent's
+    handoff or a working agent reads. Nothing there has a copy anywhere, so `--private --write`
+    deletes only with `--owner-go`, the owner's go, which no recipe passes. Without it, it
+    lists `private/` and deletes nothing at all.
 
 It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
 sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
-`keep_until_*`. A write removes each folder it empties, and no other. Store backups are
+`keep_until_priced`. A write removes each folder it empties, and no other. Store backups are
 listed and never deleted here: their delete is for the agents that own the store. The dry
 run makes no network call.
 """
@@ -296,8 +296,9 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
 
 DELETED = "DELETED.tsv"
 SIDECARS = frozenset({"SHA256SUMS", "SHA1SUMS", "SHA256SUMS.stat", DELETED})
-HELD_CLASSES = ("live_input", "keep_journal", "keep_until_priced", "keep_until_decided")
-# Read by code: the brief, the mail and the round's own drafts.
+HELD_CLASSES = ("live_input", "keep_journal", "keep_until_priced")
+# Read by code or a working agent: the brief, the mail, the round's own drafts, and the run
+# directories the Fleet and Collectors agents write and hard-link `data/raw/extended` from.
 PRIVATE_KEEP = frozenset(
     {
         "personal-context.md",
@@ -307,6 +308,7 @@ PRIVATE_KEEP = frozenset(
         "email.template.md",
         "handoff.md",
         "handoffs",
+        "research-throughput-20260927",
     }
 )
 STAGES = "DomainDataCollectionTask_*_IvayloStaykov"

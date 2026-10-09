@@ -108,7 +108,7 @@ takes about an hour.
 | re-ask leads closed on reach | `just reprobe` |
 | re-price a parked source | `just price` or `just price-hosts` before reopening it: its net-new falls as the store grows |
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
-| prove what is on disk | `just verify raw`, `just verify offsite --verify`; `just schedule status` for the hourly job |
+| prove what is on disk | `just verify raw`, `just verify offsite --verify`; in a worktree, whose `data/` entries are links offsite refuses and whose `submissions/` has no tarballs, `scripts/round/verify_raw.py` and `offsite.py` take `--root <checkout> --table docs/registers/retention.md`; `just schedule status` for the hourly job |
 | a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
 | retention | `just prune`; `just prune --round --write` removes only what has its proofs, a `data/ark.duckdb.pre-*.bak` once a later credited round is in `data/baseline.json`; a backup needs no Drive copy |
 | triage a VPS scanner alert | its File and Malware panes first: a corpus path with `JS/Obfuscator`, `HTML/` or an era worm is expected; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer, check `auth.log` for non-publickey logins, `ss -tulpn`, crontabs and recently modified units. A laptop alert: `docs/ops/security-posture.md` |
