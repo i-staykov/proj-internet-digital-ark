@@ -5,7 +5,7 @@
 # sha256. `ark price-snapshot` refuses a snapshot whose files disagree with the manifest,
 # so the manifest goes as soon as its files are there, ahead of the ack and the prune, and
 # a torn push fails a wave instead of mispricing it. The prune removes superseded baselines
-# on the VPS once the new one holds all six year files.
+# on the VPS once the new one holds at least its six 1996 to 2001 year files.
 # Runs at the end of `just bank`, from the tick with --no-ack while data/logs/.push_pending
 # exists, and after every non-dry `just intake`. Exit 3: the VPS did not answer, nothing pushed.
 set -euo pipefail
@@ -63,6 +63,6 @@ else
     echo "ack skipped: store locked. The snapshot is pushed; the box keeps its journals."
 fi
 ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" \
-    "cd /projects/ark-data && [ \$(ls '$MARKER' | grep -c '\\.txt\$') -eq 6 ] \
+    "cd /projects/ark-data && [ \$(ls '$MARKER' | grep -c '\\.txt\$') -ge 6 ] \
     && for d in merge[d0-9]*; do [ \"\$d\" = '$MARKER' ] || rm -rf -- \"\$d\"; done; ls -d merge[d0-9]*"
 echo "fleet prices against $MARKER"

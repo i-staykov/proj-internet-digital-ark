@@ -194,7 +194,7 @@ def _write(path: Path, names: list[str]) -> Path:
     return path
 
 
-def _snapshot(root: Path, held=None, netnew=None, candidates=None, calculator=None) -> Path:
+def _snapshot(root: Path, held=None, netnew=None, candidates=None, calculator=None, last=2001):
     """A snapshot as `sync_fleet.sh` pushes it, with his calculator from `calculator` or ours."""
     snapshot = root / "ark-data"
     files = {f"calculator/{name}": snapshot / "calculator" / name for name in ps.CALCULATOR_FILES}
@@ -203,7 +203,7 @@ def _snapshot(root: Path, held=None, netnew=None, candidates=None, calculator=No
         shutil.copy(calculator / path.name if calculator else english_share.SHARE_PATH, path)
     if not calculator:
         files["calculator/equivalent_english_domains.py"].write_text(STAND_IN)
-    for year in range(1996, 2002):
+    for year in range(1996, last + 1):
         rel = f"{MARKER}/{year}.txt"
         files[rel] = _write(snapshot / rel, (held or {}).get(year) or [f"filler{year}.example"])
     for family, lists in (("netnew", netnew), ("candidates", candidates)):
@@ -268,6 +268,41 @@ def test_a_year_is_a_year_and_an_error_capture_prices_on_the_candidate_track_onl
     assert priced["by_year"] == {"1998": one, "1999": two}
     candidate = ps.price(snapshot, items, track="candidate")
     _check(candidate, netnew_pairs=6, out_of_window=1, already_held=1)  # moved.com, held in 1997
+
+
+def test_the_annual_track_prices_1996_to_2013_in_two_parts(tmp_path) -> None:
+    """A 2002 to 2013 pair is a 2xx or 3xx capture's url, nets against his file and our
+    additions and ships by `existed`; 2014 is out of window, and a year's files are hashed when
+    an item first asks for it. A host row, a text token, or a pair without his 2002 to 2013 files
+    is unpriced; hostname years stay the store's 1996 to 2001."""
+    late = ["his.com:2005", "ours.com:2005", "new.com:2005", "a.new.com:2005", "new.info:2005"]
+    late += ["www.new.com:2005"]
+    late = [
+        {"url": f"http://{h}/", "timestamp": f"{y}0101000000", "status": "301"}
+        for h, y in (row.split(":") for row in [*late, "new.eu:2004"])
+    ]
+    late += [{"url": "http://bare.com/", "timestamp": "20050101000000"}]
+    late += [{**late[2], "text": "text.com"}]
+    rows = ["new.com:1998", "a.new.com:1998", "late.com:2005", "x.com:2014"]
+    items = _items(tmp_path, *rows, *late)
+    ours = {"2005.txt": ["ours.com"]}
+    snapshot = _snapshot(tmp_path / "a", held={2005: ["his.com"]}, netnew=ours, last=2013)
+    _write(snapshot / MARKER / "2010.txt", ["changed.com"])  # no item asks for 2010: never hashed
+    priced = ps.price(snapshot, items)
+    one, two = priced["parts"]["1996-2001"], priced["parts"]["2002-2013"]
+    assert (one["pairs"], two["pairs"]) == (2, 4)
+    assert priced["ee"] == one["ee"] and Decimal(two["ee"]) > 0, "the parts are never summed"
+    assert max(map(int, priced["by_year"])) <= 2001, "by_year is 1996 to 2001 only"
+    _check(priced, records_priced=2, already_held=0, out_of_window=1, netnew_hostname_years=1)
+    assert priced["counts"]["unpriced_extended"] == 3, "a host row, a statusless capture, text"
+    _check(two, records_priced=7, already_held=2, not_shippable=1, www_of_parent=1)
+    assert priced["counts"].get("www_of_parent", 0) == priced["www_alias_share"] == 0, "in two"
+    older = ps.price(_snapshot(tmp_path / "b"), items)
+    assert older["parts"]["2002-2013"] is None and older["ee"] == older["parts"]["1996-2001"]["ee"]
+    _check(older, netnew_pairs=2, unpriced_extended=10, out_of_window=1)
+    _write(snapshot / MARKER / "2005.txt", ["his.com", "late.com"])
+    with pytest.raises(ps.SnapshotError, match="2005.txt does not match the manifest"):
+        ps.price(snapshot, items)
 
 
 def test_text_is_read_junk_is_dropped_and_a_pair_that_could_never_ship_is_not_priced(tmp_path):
@@ -344,7 +379,7 @@ def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, mo
     baseline, netnew = tmp_path / "baseline", tmp_path / "netnew"
     calculator = _write(tmp_path / "calculator" / "equivalent_english_domains.py", ["pass"])
     _write(calculator.with_name("q2_tld_top_langs.json"), ["{}"])
-    for year in range(1996, 2002):
+    for year in range(1996, 2014):
         _write(baseline / f"{year}.txt", ["his.com"])
         _write(netnew / f"{year}.txt", ["ours.com"])
         _write(netnew / f"{year}_hostnames.txt", ["a.ours.com"])
@@ -352,8 +387,13 @@ def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, mo
     monkeypatch.setattr(sm, "EXPORT_NETNEW", netnew)
     monkeypatch.setattr(sm, "EXPORT_CANDIDATES", tmp_path / "unverified.txt")
     monkeypatch.setattr(sm, "CALCULATOR", calculator)
-    # the six `-ISC` files and all five candidate exports are absent and allowed to be
-    assert sm.must_be_present(absent := sm.sources(baseline, MARKER)[2]) == [] and len(absent) == 11
+    _write(tmp_path / "extended/additions/2005.txt", ["more.com"])
+    monkeypatch.setattr(sm, "EXPORT_EXTENDED", tmp_path / "extended")
+    staged = sm.sources(baseline, MARKER)[0]
+    assert f"{MARKER}/2005.txt" in staged and "netnew/2005.txt" not in staged, "his, never ours"
+    _write(tmp_path / "extended/manifest.json", ["{}"])
+    # the six `-ISC` files, all five candidate exports and 11 additions are absent and may be
+    assert sm.must_be_present(absent := sm.sources(baseline, MARKER)[2]) == [] and len(absent) == 22
     # his ISC collection and unparsed names are candidates he holds, as the export diffs them
     his = ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
     his += ["isc_survey_hostnames/1996-ISC.txt"]
@@ -376,6 +416,7 @@ def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, mo
     assert shipped | {f"calculator/{n}" for n in ps.CALCULATOR_FILES} <= landed
     assert json.loads((out / "manifest.json").read_text()) == manifest
     assert (out / MARKER / "1996.txt").read_text() == "his.com\n"
+    assert (out / "netnew/2005.txt").read_text() == "more.com\n", "ours for 2005 are the additions"
     assert manifest["files"][ps.ATTESTED]["sorted"] is True
     assert sm.publish_expected(out, tmp_path) == 0, "the fleet is told the claim"
     want = {"marker": MARKER, "claim_sha256": manifest["claim_sha256"]}
