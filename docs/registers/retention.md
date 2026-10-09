@@ -16,7 +16,7 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/apache_header_items_b3` | reference | 8 | 213370 | `fdba0a65d6a8150f3a3fac8aef8d2b2a5ce4405f2c989eb78669371b5a5f3b26` | unknown | SHA256SUMS |
 | `data/raw/apache_header_items_bigband` | reference | 8 | 491640 | `899e0b1b41ca5a71146c0e068352d90c1544c79fa7d79138cab54d8857bf0947` | unknown | SHA256SUMS |
 | `data/raw/apache_lists` | reference | 1729 | 540186553 | `859c4bab341d08040c6327db03afc29dc0bc0cc940e17279b54ca848778b5a67` | unknown | SHA256SUMS |
-| `data/raw/arquivo` | reference | 2 | 50943699853 | `c246f956890911da260a8fb62a152df17f156633aa000f5d169ccf1a08fe946e` | https://arquivo.pt/datasets/cdxj/Roteiro.cdxj | SHA256SUMS |
+| `data/raw/arquivo` | live_input | 2 | 50943699853 | `c246f956890911da260a8fb62a152df17f156633aa000f5d169ccf1a08fe946e` | https://arquivo.pt/datasets/cdxj/ | SHA256SUMS |
 | `data/raw/arquivo_hostgrain` | reference | 4 | 106647356 | `166d24592b6fe330b7d3dc1e061cb0f848698087c4c5941e27b4a658c6fc1f21` | unknown | SHA256SUMS |
 | `data/raw/arquivo_hostgrain_3xx` | reference | 1 | 9067832 | `9e85a6c095263c5291be63329cd5134124ece8d03aaf2644e543ae4eb4cd40dd` | unknown | SHA256SUMS |
 | `data/raw/arxiv_src` | reference | 13 | 90041455 | `88e013dda653d403b8359e0b010163036c37b6bf74c398159576c9961839668f` | unknown | SHA256SUMS |
@@ -31,13 +31,13 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/ccgraph` | reference | 2 | 1178894229 | `6583e8ce4b54783a0cf631594d5abaff466021c59b11361bb6b4458666240f10` | unknown | SHA256SUMS |
 | `data/raw/cctld` | live_input | 2 | 876488 | `a2e5c2eb1e655e34b79230756b56f600fe966ac955649f7b20379905f38a4237` | unknown | SHA256SUMS |
 | `data/raw/cctld_capture` | live_input | 10 | 3087636 | `0724472f672f6c627045fde2c0649c4711c0303c9488de9243553271cadaa846` | unknown | SHA256SUMS |
-| `data/raw/cdx` | keep_journal | 1303 | 749102651 | `5720d51e4e3ea9699cac990e000ef02e0444809865395a24c8acff5209efc2d3` | own_journal | SHA256SUMS |
+| `data/raw/cdx` | keep_journal | 1305 | 749173604 | `3969a4789ce15eb2ed0e4c2e25f082aff7a2d7b67f5230566054eefa8d80a020` | own_journal | SHA256SUMS |
 | `data/raw/cdx_gap_hostgrain` | reference | 27 | 78566 | `6dea0661607fa0681abe1961ff1b90ffd69c9165a543b5e8b1f33b1966a0945e` | unknown | SHA256SUMS |
 | `data/raw/cdx_hostq` | reference | 178 | 13541763 | `648dab1c64e3e1c5322d17c3dba3459dedb2c1b419a7768718f13f54effbbd09` | unknown | SHA256SUMS |
 | `data/raw/cdx_platform` | reference | 847 | 76951 | `4dc74ec61452ec688e67d53dcf556809c3076ef076884ee89ab5100f4ecd03c8` | unknown | SHA256SUMS |
 | `data/raw/cdx_queue` | reference | 5 | 8592535 | `f6420b621e1791fabf9ca38007a932c246bff2c6726105013f9e0d3016db86b3` | unknown | SHA256SUMS |
-| `data/raw/cdx_suffix` | keep_journal | 152505 | 23429049281 | `522c9418dbcd4746f3f2c98801b94b918386ff9e5af11bcdce5fd18bb8cc9d66` | own_journal | SHA256SUMS |
-| `data/raw/cdx_walk` | regenerable | 10 | 41483 | `7adbfd938910b8a2460cc21a05fbf84c44bcba7a70046b9225a06ed49ab3aa98` | the CDX walk lanes rewrite it | SHA256SUMS |
+| `data/raw/cdx_suffix` | keep_journal | 152769 | 23429326722 | `a495ab9d948c5d39d3f8ff1da8be8326e27a48c1a45e262d4df05ef133ed7b76` | own_journal | SHA256SUMS |
+| `data/raw/cdx_walk` | regenerable | 10 | 136282 | `1fd6322fd651fea54d07ffd12165de7e1db81c44a50f5d5f7ce24589b5cc6eeb` | the CDX walk lanes rewrite it | SHA256SUMS |
 | `data/raw/chastity` | live_input | 246 | 4990082 | `fa3f83bd525bda8ab6a358f9101b4666566ca311591fed36b7599f764fb2c20f` | unknown | SHA256SUMS |
 | `data/raw/checksums.sha256` | reference | 1 | 27421 | `1a54567a620da9307c647a7d02780783f31d31a95dae6c592e284caf51170b2f` | unknown | line in data/raw/SHA256SUMS |
 | `data/raw/computer_shopper` | reference | 62 | 20820509 | `0d21c4c3243a10569238ba84efd03f8e917a36af141af3c9e866b7d0bde7f1da` | unknown | SHA256SUMS |
@@ -57,7 +57,8 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/enron` | keep_journal | 2 | 738975 | `aa37443e38ebc64619c00ead350ec0c48105e9718a00e1223d2da3f50c22dc92` | own_journal | SHA256SUMS |
 | `data/raw/enron_v2` | reference | 9 | 142135556 | `a5021418fa3314905c016c4b423d434aaa156fee4593b8e1cbec903acc46d9bb` | unknown | SHA256SUMS |
 | `data/raw/expand` | keep_journal | 18 | 162415 | `036ed8f40579c67aaa48dc757faeedb8562e7aaa8f29f5410bb8f4115066344a` | own_journal | SHA256SUMS |
-| `data/raw/extended` | keep_journal | 4315 | 4082120221 | `9c89e2764d6a0cb46780dadb5199628bd875b93f92070b9de06b7cbce438d3a9` | own_journal | SHA256SUMS |
+| `data/raw/extended` | keep_journal | 4255 | 197337459 | `1dae0f549a5756d409009456e2d242ddacb57bc26fd6c49cc323469a856bf585` | own_journal | SHA256SUMS |
+| `data/raw/extended_spent` | keep_journal | 372 | 3889728374 | `d163f8b6530020eaf884608e23a943f8611a4d8054acb5f6d2eafd407ac52c12` | own_journal | SHA256SUMS |
 | `data/raw/fac` | live_input | 20 | 150797062 | `6c7d11c756bbf7b0e74b1925a77f8f003d2d6aeb83848f8cb5d95408153cf347` | https://www.fac.gov/data/download/historic/ | SHA256SUMS |
 | `data/raw/ffiec` | reference | 27 | 160140670 | `fa1ec790c0418276053afb1ce8fbb4ee0184f84bcc4d6a30ced5c8a9c7aad11c` | unknown | SHA256SUMS |
 | `data/raw/freebsd_ports` | reference | 3 | 28627361 | `49570a5b32329de14f6f3d6179d4cdd8abfb27ddd286cf7cbd94557517d887fa` | ftp://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/i386/ | SHA256SUMS |
@@ -173,12 +174,12 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/webbase` | live_input | 3 | 734190407 | `974d468754605add7ff0c687f1839ef991d15a5226cd58c20241d09a9cb28e04` | unknown | SHA256SUMS |
 | `data/raw/wwwvl` | reference | 2724 | 30007896 | `6e9ae23657651f0252e60028b1185134b1fe42dc7d0d34f1d07009e5ce8b4b7c` | http://vlib.org/ | SHA256SUMS |
 | `data/raw/yahoo96` | keep_journal | 6 | 12860 | `8f63f83a54ae3b63146e1aafbc9d774f51a0c266ad053d50a247f5699ead69a1` | own_journal | SHA256SUMS |
-| `output/candidate_unverified.txt` | regenerable | 1 | 85650 | `72465f367b7c95577065dad8bd7e7c9ba92448ca0c3a351a8e8af298b39e7bac` | just ship, or ark export | line in output/SHA256SUMS |
-| `output/extended_years` | regenerable | 2 | 5292781279 | `e7ca5922e35e7275df585029dbb4170bdec9fa8c0b2db641b77d561dba392613` | just ship, or ark export | SHA256SUMS |
-| `output/fleet_snapshot` | regenerable | 28 | 5241904146 | `8452cca4f66f6920773b47aecad58753bed5971e60f957cdf684235e24106aa0` | just ship, or ark export | SHA256SUMS |
-| `output/journal_acks.tsv` | regenerable | 1 | 6505019 | `a74976cac997ecdb3e961e46d9bf452eb0d0ef69da6af51296b90f6fb6b66cde` | just ship, or ark export | line in output/SHA256SUMS |
+| `output/candidate_unverified.txt` | regenerable | 1 | 91177 | `bd32e46c0d0b5421041d55b9d8929b4eabc26f54270581a02609257a73fbd7f7` | just ship, or ark export | line in output/SHA256SUMS |
+| `output/extended_years` | regenerable | 15 | 2233517829 | `0fb8d811c879385c53442afb50510dbceba8c627cf537e598b727c3df6ea9b41` | just ship, or ark export | SHA256SUMS |
+| `output/fleet_snapshot` | regenerable | 23 | 5226327806 | `34cbffadd31ddeb7a2ce4be41a28aa2bcf48ed5b8c24291854ed4fe237235d71` | just ship, or ark export | SHA256SUMS |
+| `output/journal_acks.tsv` | regenerable | 1 | 6518816 | `92b8a11c6dfa63e2190d48d17feba2b8c9a8b98d2440dcb5aec4b65a7b4e0c61` | just ship, or ark export | line in output/SHA256SUMS |
 | `output/merge` | regenerable | 25 | 100934 | `089169c60cd9ada6a2059c881a835dcb54d9ada545c85356a3459ed529a3070b` | just ship, or ark export | SHA256SUMS |
-| `output/netnew` | regenerable | 32 | 85128916 | `ddaeea23bacd91d1eaa5b5e45f4d5a7d42e6a2c7d935d369e78d2b99ba092bda` | just ship, or ark export | SHA256SUMS |
+| `output/netnew` | regenerable | 32 | 85150815 | `c49997d6ae637ce138207def629c21ff0347cbf4b2188642a16ed103b1f89208` | just ship, or ark export | SHA256SUMS |
 | `output/provenance` | keep_authority | 9 | 2818639611 | `0eec3d3196aae88a5940e06b664b10aed128821d65b5dd86bc3237b69957ec59` | own_journal | SHA256SUMS |
 | `output/seeds` | regenerable | 2 | 319638134 | `4153c95b06d96735aa41b438864b08b4d02c22b53bb6cc25d52c87f88a1809bf` | just ship, or ark export | SHA256SUMS |
 | `ding/.DS_Store` | reference | 1 | 14340 | `042df6c6d9f3189b4070292fb6325c70cfaf0135a56e2725d74079f4954cf1e8` | reviewer_release | line in ding/SHA256SUMS |
