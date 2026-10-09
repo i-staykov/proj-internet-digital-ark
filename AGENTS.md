@@ -9,7 +9,7 @@ edit that adds a rule deletes the rule it replaces. No restating, no preamble, n
 
 **No posterity.** A decision is written as the fact it makes true, never as who made it or when.
 
-Rebuild 1996 to 2015's hostnames for Prof. Ding, scored in **equivalent-English (EE)**. **EE and speed are the PROXY; the deliverable is demonstrated research capability**: the harness is that research, a measured negative with a reason is a result, the METHOD outranks the source.
+Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in **equivalent-English (EE)**. **EE and speed are the PROXY; the deliverable is demonstrated research capability**: the harness is that research, a measured negative with a reason is a result, the METHOD outranks the source.
 
 ## Hard rules
 
@@ -21,8 +21,9 @@ Rebuild 1996 to 2015's hostnames for Prof. Ding, scored in **equivalent-English 
 - **The owner decides** a new evidence class and packages and sends every round. Asks are
   `needs-owner` issues.
 - **The window.** A host-year ships only by its own evidence, as an addition to his file for that
-  year, 1996 to 2015: 2002 on in `extended_years/YYYY.txt`. All of it counts toward the gate, 5% of
-  his 1996 to 2015 EE; nothing ships under it, and the goal is to reach it fast.
+  year, 1996 to 2013 (2002 on in `extended_years/YYYY.txt`; 2014 on is not hunted). The gate: 5%
+  EE growth in 1996 to 2001 or in 2002 to 2013, each over his EE for those years; nothing ships under
+  it, and the goal is to reach it fast.
 - **Channel.** At most three clients (two laptop, one VPS) query `web.archive.org/cdx`, agents only
   under an owner's contract. Read a host's terms and whole robots.txt first; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
