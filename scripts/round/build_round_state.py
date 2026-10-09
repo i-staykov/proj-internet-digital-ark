@@ -47,6 +47,7 @@ from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
     CURRENT_ROUND_LABEL,
     CURRENT_ROUND_SINCE,
+    GATE_EE,
     GATE_PCT,
     REVIEWER_BASELINE_EE,
     REVIEWER_BASELINE_PAIRS,
@@ -75,11 +76,6 @@ FIELD_RE = {
     "core": re.compile(r"^GATE\. 1996-2001 .*= ([0-9.]+)% of ", re.M),
     "ext_ee": re.compile(r"^GATE\. 2002-2013 .*: ([0-9,.]+) = ", re.M),
     "ext": re.compile(r"^GATE\. 2002-2013 .*= ([0-9.]+)% of ", re.M),
-}
-# Each part's gate in EE, 5% of his EE for its years.
-GATE_EE = {
-    "1996-2001": REVIEWER_BASELINE_EE * GATE_PCT / 100,
-    "2002-2013": REVIEWER_EXTENDED_EE * GATE_PCT / 100,
 }
 STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 

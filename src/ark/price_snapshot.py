@@ -5,15 +5,20 @@ builds and pushes (`scripts/harness/sync_fleet.sh`).
 
 **The snapshot is name lists, his calculator and a manifest, nothing else.**
 
-    <marker>/{1996..2001}.txt   the reviewer's current baseline, his files
+    <marker>/{1996..2013}.txt   the reviewer's current baseline, his files
     netnew/{year}*.txt          our last export for that year, and attested_registrables.txt
     candidates/*.txt            his candidate pool and ours, the second scored track
     calculator/                 his equivalent_english_domains.py and the table it loads
     manifest.json               {marker, built_at, claim_sha256, files: {path: {lines, sha256}}}
 
-Every named file is hashed before anything is priced, and a disagreeing digest, line count
+Every named file is hashed before it is read, and a disagreeing digest, line count
 or presence refuses the whole run. So does a zero-line file: an empty held-set makes
 everything look net-new, the most flattering way this can be wrong.
+
+**The annual track prices 1996 to 2013 in two parts**, each beside the EE its gate asks. A
+2002 to 2013 pair is a 2xx or 3xx capture's url and ships by `existed`, as `extended_years/`
+does; a `{host, year}` row, a text token, or any pair on a snapshot without his files for
+those years is `unpriced_extended`, never EE.
 
 **Membership is tested on the EXACT name, and neither form infers the other.** A name that
 is its registrable is a `domain_year` record, a name beneath one a `hostname_year` record,
@@ -42,8 +47,9 @@ from typing import TextIO
 
 import duckdb
 
+from ark.baseline import EXTENDED_YEARS, GATE_EE
 from ark.canonical import to_registrable
-from ark.delegation import existed_predicate, shipping_filter_for
+from ark.delegation import existed, existed_predicate, shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import REDIRECT_METHOD, WEB_METHODS
 from ark.hostnames import _CAPTURE_STATUS, YEARS, host_of
@@ -75,6 +81,8 @@ SPLIT_CANDIDATE = "none: the candidate track claims no year"
 EE_TOLERANCE = Decimal("0.0001")
 # sort and comm compare bytes only under the C locale, and his files are sorted that way.
 _C_LOCALE = {**os.environ, "LC_ALL": "C"}
+# His 2002 to 2013 files and ours, too big to hash up front: hashed when an item asks a year.
+_LAZY = frozenset(f"{year}.txt" for year in EXTENDED_YEARS)
 # Bytes that make a line other than the name it holds. The attested file's lines are
 # `YYYY<TAB>registrable`, so a tab is refused everywhere else.
 _NOT_A_NAME = (b"\r", b" ")
@@ -204,15 +212,8 @@ def verify_snapshot(snapshot: Path, manifest: dict) -> None:
         path = snapshot / rel
         if not path.is_file():
             raise SnapshotError(f"the manifest lists {rel}, which is not in the snapshot")
-        lines, sha256 = file_stats(path)
-        if lines == 0:
-            raise SnapshotError(f"{rel} has no lines; an empty held-set prices everything as new")
-        if lines != expected.get("lines") or sha256 != expected.get("sha256"):
-            raise SnapshotError(
-                f"{rel} does not match the manifest: {lines} lines, sha256 {sha256[:12]}, "
-                f"manifest says {expected.get('lines')} lines, "
-                f"sha256 {str(expected.get('sha256'))[:12]}"
-            )
+        if path.name not in _LAZY:
+            _check_file(path, rel, expected)
     listed = set(manifest["files"])
     for directory in (manifest["marker"], NETNEW_DIR, CANDIDATES_DIR, CALCULATOR_DIR):
         root = snapshot / directory
@@ -222,6 +223,18 @@ def verify_snapshot(snapshot: Path, manifest: dict) -> None:
             rel = path.relative_to(snapshot).as_posix()
             if rel not in listed:
                 raise SnapshotError(f"{rel} is in the snapshot and not in the manifest")
+
+
+def _check_file(path: Path, rel: str, expected: dict) -> None:
+    lines, sha256 = file_stats(path)
+    if lines == 0:
+        raise SnapshotError(f"{rel} has no lines; an empty held-set prices everything as new")
+    if lines != expected.get("lines") or sha256 != expected.get("sha256"):
+        raise SnapshotError(
+            f"{rel} does not match the manifest: {lines} lines, sha256 {sha256[:12]}, "
+            f"manifest says {expected.get('lines')} lines, "
+            f"sha256 {str(expected.get('sha256'))[:12]}"
+        )
 
 
 def class_head(evidence_class: str | None) -> str:
@@ -255,8 +268,11 @@ def _year_of(record: dict) -> int | None:
     return None if value is None else int(value)
 
 
-def _records(items: Path, track: str, counts: Counter[str], out: TextIO) -> None:
-    """One `year, name, parent, free` row per name the funnel accepts, streamed to `out`.
+def _records(
+    items: Path, track: str, counts: Counter[str], late: Counter[str], out: TextIO, window: set[int]
+) -> None:
+    """One `year, name, parent, free` row per name the funnel accepts, streamed to `out`; a
+    record 2002 to 2013 prices is tallied in `late`, from its item on.
 
     `host` and a capture's `url` are fields. `text` is split on whitespace, the shape
     `price_hostnames.py --items` reads, and a name found only there is free. The year is
@@ -296,35 +312,47 @@ def _records(items: Path, track: str, counts: Counter[str], out: TextIO) -> None
                 except ValueError:
                     counts["bad_year"] += 1
                     continue
-            if year is not None and year not in YEARS:
-                counts["out_of_window"] += 1
+            if year is not None and year not in window:
+                unpriced = track == "annual" and year in EXTENDED_YEARS
+                counts["unpriced_extended" if unpriced else "out_of_window"] += 1
                 continue
+            tally = counts
             if track == "candidate":
                 year = None
             elif year is None:
                 counts["undated"] += 1
                 continue
-            elif status is not None and status[0] in "45":
+            elif year > YEARS[-1]:
+                # 2002 to 2013 prices from a 2xx or 3xx capture's url alone; else it is unpriced
+                if field != "url" or status is None:
+                    counts["unpriced_extended"] += 1
+                    continue
+                counts["items"] -= 1
+                tally = late
+                tally["items"] += 1
+            if year is not None and status is not None and status[0] in "45":
                 # an error capture dates no master year, and is still a candidate
-                counts["error_status"] += 1
+                tally["error_status"] += 1
                 continue
             names = [(str(record[field]), 0)] if record.get(field) else []
-            if record.get("text"):
+            if record.get("text") and tally is late:
+                counts["unpriced_extended"] += 1
+            elif record.get("text"):
                 names += [(token, 1) for token in str(record["text"]).split()]
             if not names:
-                counts["no_host"] += 1
+                tally["no_host"] += 1
                 continue
             for raw, free in names:
                 host = host_of(raw)
                 if host is None:
-                    counts["no_host"] += 1
+                    tally["no_host"] += 1
                     continue
                 registrable = to_registrable(host)
                 if registrable is None:
-                    counts["rejected_host"] += 1
+                    tally["rejected_host"] += 1
                     continue
                 if host == f"www.{registrable}":
-                    counts["www_of_parent"] += 1
+                    tally["www_of_parent"] += 1
                 parent = "" if host == registrable else registrable
                 out.write(f"{'' if year is None else year}\t{host}\t{parent}\t{free}\n")
 
@@ -404,6 +432,9 @@ class _Run:
     def his(self, year: int) -> str:
         return f"{self.manifest['marker']}/{year}.txt"
 
+    def extended(self) -> list[int]:
+        return [year for year in EXTENDED_YEARS if self.his(year) in self.manifest["files"]]
+
     def ours(self, year: int) -> list[str]:
         """Our export for that year. The attested file dates names; it holds none."""
         return self._listed(f"{NETNEW_DIR}/{year}")
@@ -421,6 +452,8 @@ class _Run:
         sorted copy, the way the export reads his lines. His unparsed names are one today."""
         if rel not in self._ready:
             path = self.snapshot / rel
+            if path.name in _LAZY:
+                _check_file(path, rel, self.manifest["files"][rel])
             if self.manifest["files"][rel].get("sorted") is not True:
                 raw = self.tmp / f"ready_{len(self._ready)}.raw"
                 with path.open("rb") as source, raw.open("wb") as copy:
@@ -441,13 +474,13 @@ class _Run:
         return _union(parts, self.tmp / f"{tag}.txt", self.tmp)
 
 
-def _distinct(rows: Path, tmp: Path) -> tuple[dict[str, tuple[Path, Path]], int]:
-    """Per year ('' on the candidate track), the records sorted by name and the raw list of
-    names and parents to ask about; and how many records there are. A (year, name) given
+def _distinct(rows: Path, tmp: Path) -> dict[str, tuple[Path, Path, int]]:
+    """Per year ('' on the candidate track), the records sorted by name, the raw list of
+    names and parents to ask about, and how many records there are. A (year, name) given
     twice is one record, free only when every copy came from free text: sorted, a field's
     `0` copy comes first and is the one kept."""
     groups: dict[str, tuple[Path, Path]] = {}
-    records = 0
+    records: Counter[str] = Counter()
     last = None
     handles: list[TextIO] = []
     try:
@@ -466,11 +499,11 @@ def _distinct(rows: Path, tmp: Path) -> tuple[dict[str, tuple[Path, Path]], int]
                 rec, asked = handles
                 rec.write(f"{name}\t{parent}\t{free}\n")
                 asked.write(f"{name}\n{parent}\n" if parent else f"{name}\n")
-                records += 1
+                records[year] += 1
     finally:
         for handle in handles:
             handle.close()
-    return groups, records
+    return {year: (*paths, records[year]) for year, paths in groups.items()}
 
 
 def _leftovers(
@@ -479,28 +512,31 @@ def _leftovers(
     track: str,
     split: bool,
     counts: Counter[str],
+    late: Counter[str],
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     """Every record held nowhere, into DuckDB as `rec`, flagged when its parent is held in
-    its year and, under the split, when its registrable is dated in its year.
+    its year and, under the split, when its registrable is dated in its year. A 2002 to
+    2013 record is tallied in `late`.
 
     Only these leftovers and the rows about them are ever in memory: each held file is read
     once, by comm, against the sorted names this run asks about.
     """
     tmp = run.tmp
     rows = tmp / "rows.raw"
+    window = {*YEARS, *(run.extended() if track == "annual" else ())}
     with rows.open("w", encoding="utf-8") as out:
-        _records(items, track, counts, out)
-    groups, records = _distinct(_sort(rows, tmp), tmp)
-    counts["records_priced"] = records
-    counts["already_held"] = 0
+        _records(items, track, counts, late, out, window)
+    groups = _distinct(_sort(rows, tmp), tmp)
+    for tally in (counts, late):
+        tally.update(dict.fromkeys(("records_priced", "already_held", "not_shippable"), 0))
     if track == "candidate":
         counts["already_in_candidate_pool"] = 0
     conn.execute("CREATE TABLE held_parent (name TEXT, year INTEGER)")
     conn.execute("CREATE TABLE dated (name TEXT, year INTEGER)")
     left, wanted = tmp / "left.tsv", tmp / "wanted.raw"
     with left.open("w", encoding="utf-8") as out, wanted.open("w", encoding="utf-8") as want:
-        for year, (named, asked_raw) in groups.items():
+        for year, (named, asked_raw, records) in groups.items():
             tag = year or "undated"
             asked = _sort(asked_raw, tmp)
             his = pool = None
@@ -514,6 +550,8 @@ def _leftovers(
                 held = run.hits(asked, every, "held")
                 pool = run.hits(asked, run.pools(), "pool")
             parents_raw = tmp / f"parents_{tag}.raw"
+            tally = late if track == "annual" and int(year) > YEARS[-1] else counts
+            tally["records_priced"] += records
             in_held = _Sorted(held)
             in_pool = _Sorted(pool) if pool is not None else None
             try:
@@ -527,7 +565,9 @@ def _leftovers(
                         if pooled:
                             counts["already_in_candidate_pool"] += 1
                         if in_held.has(name):
-                            counts["already_held"] += 1
+                            tally["already_held"] += 1
+                        elif tally is late and not existed(name.rsplit(".", 1)[-1], int(year)):
+                            tally["not_shippable"] += 1
                         elif not pooled:
                             out.write(f"{name}\t{year}\t{parent}\t{free}\n")
                             if parent:
@@ -707,6 +747,23 @@ def _grouped(conn: duckdb.DuckDBPyConnection, where: str) -> list[tuple]:
     ).fetchall()
 
 
+def _parts(rows: list[tuple], calculated: dict, extended: list[int], late: Counter[str]) -> dict:
+    """1996 to 2001's tally as the top level, and each part beside its gate. The parts are
+    never summed, so 2002 to 2013, its funnel `counts` too, lives only in `parts`."""
+    one, two = (
+        _tally(
+            [r for r in rows if r[0] in years], {y: calculated[y] for y in years if y in calculated}
+        )
+        for years in (YEARS, EXTENDED_YEARS)
+    )
+    parts = {
+        part: {"pairs": t["netnew_pairs"], "ee": t["ee"], "gate_ee": f"{gate:.4f}"}
+        for t, (part, gate) in zip((one, two), GATE_EE.items(), strict=True)
+    }
+    parts["2002-2013"]["counts"] = dict(sorted(late.items()))
+    return one | {"parts": parts if extended else parts | {"2002-2013": None}}
+
+
 def price(
     snapshot: Path,
     items: Path,
@@ -736,12 +793,13 @@ def price(
     with tempfile.TemporaryDirectory(prefix="price_snapshot_") as scratch:
         run = _Run(snapshot, manifest, Path(scratch))
         counts: Counter[str] = Counter()
+        late: Counter[str] = Counter()
         # In memory, spilling only into the scratch directory: a price writes nothing else.
         conn = duckdb.connect(":memory:", config={"temp_directory": scratch, "threads": 2})
         try:
-            _leftovers(run, items, track, applies, counts, conn)
+            _leftovers(run, items, track, applies, counts, late, conn)
             if track == "annual":
-                shipped = shipping_filter_for("r.name", "r.year")
+                shipped = f"(r.year > {YEARS[-1]} OR ({shipping_filter_for('r.name', 'r.year')}))"
             else:
                 shipped = f"r.name NOT LIKE '%.arpa' AND {existed_predicate('r.name')}"
             where = shipped
@@ -751,10 +809,14 @@ def price(
                 ).fetchone()[0]
                 where = f"{where} AND (NOT r.free OR r.dated)"
             # of the names held nowhere, those no shipped file can carry
-            counts["not_shippable"] = conn.execute(
+            counts["not_shippable"] += conn.execute(
                 f"SELECT count(*) FROM rec r WHERE NOT ({shipped})"
             ).fetchone()[0]
-            priced = _tally(_grouped(conn, where), _calculate(conn, where, run))
+            rows, calculated = _grouped(conn, where), _calculate(conn, where, run)
+            if track == "annual":
+                priced = _parts(rows, calculated, run.extended(), late)
+            else:
+                priced = _tally(rows, calculated)
         finally:
             conn.close()
     return {

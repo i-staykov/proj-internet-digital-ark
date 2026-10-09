@@ -535,9 +535,9 @@ def _program(
 
 def program_price(lead: Path, finding: dict, items: Path) -> dict:
     """The items priced again by the command a leg runs, against the snapshot the last push
-    staged, with the program's own split. `fleet_program_ee` is the annual track in the unit
-    the store's figure measures, on hostname grain its hostname years; a finding that claims
-    the candidate track gets that figure too, under its own key."""
+    staged, with the program's own split. `fleet_program_ee` is the annual track's 1996 to 2001
+    in the unit the store's figure measures, on hostname grain its hostname years; a finding
+    that claims the candidate track gets that figure too, under its own key."""
     evidence_class = load(lead / LEAD).get("evidence_class")
     grain = grain_of(lead.name, finding, lead)
     tracks = ["annual"]

@@ -6,8 +6,10 @@ time, and the bytes the manifest hashes are the bytes that get pushed.
 
 What lands, and why each piece is there:
 
-    <marker>/{1996..2001}.txt   the reviewer's current baseline, required, from data/baseline.json
+    <marker>/{1996..2013}.txt   the reviewer's current baseline, from data/baseline.json,
+                                required to 2001 and staged after whenever the release has it
     netnew/{year}{,_hostnames,-ISC}.txt   our last export, optional per family
+    netnew/{2002..2013}.txt     our extended_years additions, once that export wrote its manifest
     candidates/candidate_pool.txt         his candidate pool
     candidates/<the rest he holds>        his ISC collection and unparsed names, outside the
                                           pool (`held.candidate_files`)
@@ -43,7 +45,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from ark.baseline import calculator_path  # noqa: E402
+from ark.baseline import EXTENDED_YEARS, calculator_path  # noqa: E402
 from ark.export import ATTESTED_NAME, claim_files  # noqa: E402
 from ark.held import candidate_files  # noqa: E402
 from ark.ingest import YEARS  # noqa: E402
@@ -61,6 +63,8 @@ from ark.price_snapshot import (  # noqa: E402
 BASELINE_JSON = REPO / "data/baseline.json"
 EXPORT_NETNEW = REPO / "output/netnew"
 EXPORT_CANDIDATES = REPO / "output/candidate_unverified.txt"
+# Its manifest is written last: without one our additions are torn, and would price as net-new.
+EXPORT_EXTENDED = REPO / "output/extended_years"
 # calculator_path() is relative to the working directory; anchored like every path here.
 CALCULATOR = REPO / calculator_path()
 # The fleet's record of the claim the pushed snapshot carries, which every leg checks.
@@ -87,12 +91,19 @@ def sources(baseline: Path, marker: str) -> tuple[dict[str, Path], set[str], lis
     files: dict[str, Path] = {}
     optional: set[str] = set()
     absent: list[str] = []
-    for year in YEARS:
+    # His 2002 to 2013 files land whenever the release has them, so a failed export never
+    # drops them from the VPS; only our additions wait for the export's manifest.
+    exported = (EXPORT_EXTENDED / "manifest.json").is_file()
+    extended = [year for year in EXTENDED_YEARS if (baseline / f"{year}.txt").is_file()]
+    for year in (*YEARS, *extended):
         files[f"{marker}/{year}.txt"] = baseline / f"{year}.txt"
-        for family in NETNEW_REQUIRED + NETNEW_OPTIONAL:
+        core = year in YEARS
+        if not (core or exported):
+            continue
+        for family in NETNEW_REQUIRED + NETNEW_OPTIONAL if core else ("{year}.txt",):
             name = family.format(year=year)
             rel = f"{NETNEW_DIR}/{name}"
-            path = EXPORT_NETNEW / name
+            path = (EXPORT_NETNEW if core else EXPORT_EXTENDED / "additions") / name
             if not path.is_file():
                 absent.append(rel)
                 continue
