@@ -3,16 +3,14 @@
 Nothing under `data/raw/` may be deleted until every file has a checksum line and
 the entry has a tracked row saying what it is. This script writes both.
 
-`SHA256SUMS` sits beside the data, one per entry (`data/raw/<entry>/SHA256SUMS`, the
-shape `wwwvl` and `ncsa-whats-new` already used), `sha256sum -c` compatible. A
-`SHA256SUMS.stat` sidecar records size and mtime, so the next run hashes only what
-moved. A Usenet zip that `data/raw/usenet_catalog.json` names at the same size takes
-IA's sha1 into `SHA1SUMS` instead of a rehash; that covers the 9,266 zips of
-`usenet_bulk`. Loose files at a root (`data/raw/checksums.sha256`, `data/*.bak`)
-share the root's manifest, and so does every match of a glob root, which is how a
-frozen `submissions/phase-N` gets a row without a file written inside it. The
-manifests stay untracked: 89k lines that move with every collector run do not belong
-in a public repo.
+`SHA256SUMS` sits beside the data, one per entry (`data/raw/<entry>/SHA256SUMS`),
+`sha256sum -c` compatible. A `SHA256SUMS.stat` sidecar records size and mtime, so the
+next run hashes only what moved. A Usenet zip that `data/raw/usenet_catalog.json` names
+at the same size takes IA's sha1 into `SHA1SUMS` instead of a rehash. Loose files at a
+root (`data/raw/checksums.sha256`, `data/*.bak`) share the root's manifest, and so does
+every match of a glob root, which is how a frozen `submissions/phase-N` gets a row
+without a file written inside it. The manifests stay untracked: lines that move with
+every collector run do not belong in a public repo.
 
 `docs/registers/retention.md` is tracked, one row per entry: the children of `data/raw/`,
 `output/` and `ding/`, every `data/*.bak`, the archived releases under
@@ -61,11 +59,8 @@ IA_USENET = "https://archive.org/download/usenet-<hierarchy>/<group>.mbox.zip"
 # The evidence authority: `ark rebuild` makes the store from it, so it goes off-site each round.
 PROVENANCE = "output/provenance"
 
-# What the retention audit of 2026-09-02 left unpriced at hostname grain. It listed 26;
-# the E9.5 batch priced 24 of them on 2026-09-03 and they moved to `reference` (a measured
-# negative, verdict and figure in `sources.md`) or were read and banked. These two
-# are left because their terms, not their value, are unsettled, and that is Ivo's word.
-# `None` is honest: nobody has found where the bytes came from.
+# Unpriced at hostname grain because their terms, not their value, are unsettled. `None`
+# means nobody has found where the bytes came from.
 KEEP_UNTIL_PRICED: dict[str, str | None] = {
     "antispam_media": None,
     "internic_zones": "https://web.archive.org/web/19970420113748id_/http://nic.mil/oroot.html/",
@@ -76,6 +71,7 @@ KEEP_UNTIL_PRICED: dict[str, str | None] = {
 # and this table does not carry it yet.
 LIVE_INPUT: dict[str, str | None] = {
     "afnic": None,
+    "arquivo": "https://arquivo.pt/datasets/cdxj/",
     "cctld": None,
     "cctld_capture": None,
     "chastity": None,
@@ -102,10 +98,10 @@ LIVE_INPUT: dict[str, str | None] = {
     "webbase": None,
 }
 
-# Our own collectors' journals, replayed by `just reproduce sources` or `journals`, or
-# a hostname-grain journal a later ingest reads.
-# Our own collectors' output, plus the item journals a Usenet pool leaves behind: the
-# `{item, year, text}` shards the bank ingests, while the pool's zips go back to archive.org.
+# Our own collectors' output, replayed by `just reproduce sources` or `journals` or read by a
+# later ingest, plus the item journals a Usenet pool leaves behind: the `{item, year, text}`
+# shards the bank ingests, while the pool's zips go back to archive.org. `extended_spent`
+# holds round 11's bulk-index journals, kept as its evidence outside the exporter's glob.
 KEEP_JOURNAL = frozenset(
     {
         f"usenet_{h}_items"
@@ -117,6 +113,8 @@ KEEP_JOURNAL = frozenset(
         "early_web_hostgrain",
         "enron",
         "expand",
+        "extended",
+        "extended_spent",
         "rdap",
         "rdap_gen",
         "tradepress",
@@ -133,13 +131,10 @@ KEEP_JOURNAL = frozenset(
 )
 
 # Kept for the record: measured negatives whose verdict is in docs/registers/sources.md, spent
-# probes, quarantined journals, and the older checksum records. The 2026-09-03 block is
-# the E9.5 batch, each priced at hostname grain and each under the bar, with its row in
-# the register's `Evaluated and rejected` table.
+# probes, quarantined journals, and the older checksum records.
 REFERENCE: dict[str, str] = {
     "100hot": UNKNOWN,
     "alexa": UNKNOWN,
-    "arquivo": "https://arquivo.pt/datasets/cdxj/Roteiro.cdxj",
     # read and banked; archive.org serves every zip again by name, its sha1 listed in
     # usenet_catalog.json or, for usenet_new, the `.meta-<hierarchy>.json` saved beside them
     "usenet_bulk": "https://archive.org/details/usenet-alt",
@@ -152,7 +147,6 @@ REFERENCE: dict[str, str] = {
     "ccgraph": UNKNOWN,
     "checksums.sha256": UNKNOWN,
     "dartmouth_bfs": "https://archive.org/details/Dartmouth_10KwebURLs_GWB-20180911224740_BFS_4-lvls",
-    "dedup_pool": UNKNOWN,
     "edgar": UNKNOWN,
     "ffiec": UNKNOWN,
     "freebsd_ports": "ftp://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/i386/",
@@ -178,9 +172,6 @@ REFERENCE: dict[str, str] = {
     "usenet_catalog.json": "https://archive.org/metadata/usenet-<hierarchy>",
     "usenet_msft": "https://archive.org/details/usenet-alt",
     "usenet_probe": "https://archive.org/download/usenet-comp/comp.infosystems.www.misc.mbox.zip",
-    "usenet_probe2": UNKNOWN,
-    "usenet_probe3": UNKNOWN,
-    "usenet_probe4": UNKNOWN,
     "usenet_probe5": IA_USENET,
     "wwwvl": "http://vlib.org/",
     "usfedgov": "https://archive.org/download/USFEDGOV-EXTRACT-<year>/USFEDGOV-EXTRACT-<year>.cdx.gz",
@@ -188,9 +179,9 @@ REFERENCE: dict[str, str] = {
 
 # Rebuilt by a script or recipe, so the bytes are the cheapest thing on the disk.
 REGENERABLE: dict[str, str] = {
-    "early_web_hostgrain.log": "scripts/sources/early_web/early_web_hostgrain.py",
-    "gapfill_candidates.txt": "derived list, no reader",
-    "gapfill_sample.txt": "derived list, no reader",
+    # the walk lanes' pending, done and log files, rewritten every page; what they find is
+    # journalled in `extended`
+    "cdx_walk": "the CDX walk lanes rewrite it",
     "isc_survey_hostgrain.log": "just reproduce sources",
     "early_web_3xx_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
     "early_web_nonok_hostgrain": "scripts/sources/early_web/early_web_nonok_hostgrain.py",
@@ -329,7 +320,7 @@ def load_catalog(root: Path) -> dict[str, tuple[str, int]]:
 def list_files(entry: Path, where: Path) -> list[tuple[str, os.stat_result]]:
     """`(./rel, stat)` for every regular file of the entry, `rel` from the manifest at `where`.
 
-    The manifests themselves, which sit at `where`, are never listed.
+    Never the manifests, which sit at `where`, nor a `*.part` a collector is still writing.
     """
     if entry.is_file():
         return [("./" + entry.relative_to(where).as_posix(), entry.stat())]
@@ -338,7 +329,7 @@ def list_files(entry: Path, where: Path) -> list[tuple[str, os.stat_result]]:
         dirnames.sort()
         for name in filenames:
             path = Path(dirpath) / name
-            if path.is_symlink() or not path.is_file():
+            if path.is_symlink() or not path.is_file() or name.endswith(".part"):
                 continue
             if path.parent == where and name in MANIFESTS:
                 continue
@@ -433,7 +424,7 @@ def write_if_changed(path: Path, text: str, dry_run: bool, report: Report) -> No
     if dry_run:
         return
     if text:
-        # docs/ grew subdirectories on 2026-09-06, so the page's parent may not exist yet
+        # the table's parent may not exist yet under a fresh `--root` or `--table`
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
     else:

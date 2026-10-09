@@ -31,12 +31,13 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/ccgraph` | reference | 2 | 1178894229 | `6583e8ce4b54783a0cf631594d5abaff466021c59b11361bb6b4458666240f10` | unknown | SHA256SUMS |
 | `data/raw/cctld` | live_input | 2 | 876488 | `a2e5c2eb1e655e34b79230756b56f600fe966ac955649f7b20379905f38a4237` | unknown | SHA256SUMS |
 | `data/raw/cctld_capture` | live_input | 10 | 3087636 | `0724472f672f6c627045fde2c0649c4711c0303c9488de9243553271cadaa846` | unknown | SHA256SUMS |
-| `data/raw/cdx` | keep_journal | 1302 | 749092765 | `18917d1f33958bfbb5f53da307be35bb495a3d7527c6dafc6bba4dfdcd59103c` | own_journal | SHA256SUMS |
+| `data/raw/cdx` | keep_journal | 1303 | 749102651 | `5720d51e4e3ea9699cac990e000ef02e0444809865395a24c8acff5209efc2d3` | own_journal | SHA256SUMS |
 | `data/raw/cdx_gap_hostgrain` | reference | 27 | 78566 | `6dea0661607fa0681abe1961ff1b90ffd69c9165a543b5e8b1f33b1966a0945e` | unknown | SHA256SUMS |
 | `data/raw/cdx_hostq` | reference | 178 | 13541763 | `648dab1c64e3e1c5322d17c3dba3459dedb2c1b419a7768718f13f54effbbd09` | unknown | SHA256SUMS |
 | `data/raw/cdx_platform` | reference | 847 | 76951 | `4dc74ec61452ec688e67d53dcf556809c3076ef076884ee89ab5100f4ecd03c8` | unknown | SHA256SUMS |
 | `data/raw/cdx_queue` | reference | 5 | 8592535 | `f6420b621e1791fabf9ca38007a932c246bff2c6726105013f9e0d3016db86b3` | unknown | SHA256SUMS |
-| `data/raw/cdx_suffix` | keep_journal | 152478 | 23428985889 | `6502312b4fc033b74a1f891ec2b3f4e386430ba1470299d4abdb853c9be1388c` | own_journal | SHA256SUMS |
+| `data/raw/cdx_suffix` | keep_journal | 152505 | 23429049281 | `522c9418dbcd4746f3f2c98801b94b918386ff9e5af11bcdce5fd18bb8cc9d66` | own_journal | SHA256SUMS |
+| `data/raw/cdx_walk` | regenerable | 10 | 41483 | `7adbfd938910b8a2460cc21a05fbf84c44bcba7a70046b9225a06ed49ab3aa98` | the CDX walk lanes rewrite it | SHA256SUMS |
 | `data/raw/chastity` | live_input | 246 | 4990082 | `fa3f83bd525bda8ab6a358f9101b4666566ca311591fed36b7599f764fb2c20f` | unknown | SHA256SUMS |
 | `data/raw/checksums.sha256` | reference | 1 | 27421 | `1a54567a620da9307c647a7d02780783f31d31a95dae6c592e284caf51170b2f` | unknown | line in data/raw/SHA256SUMS |
 | `data/raw/computer_shopper` | reference | 62 | 20820509 | `0d21c4c3243a10569238ba84efd03f8e917a36af141af3c9e866b7d0bde7f1da` | unknown | SHA256SUMS |
@@ -53,10 +54,10 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/early_web_nonok_hostgrain` | regenerable | 224 | 2011753 | `f43dd8871dba1dd6cdccccea583b53b8e88aa00bf98dca1be61a005eebab6b91` | scripts/sources/early_web/early_web_nonok_hostgrain.py | SHA256SUMS |
 | `data/raw/edelman` | live_input | 82 | 13728841 | `28c60a647d9c338947ee4e72f8348e1f7228d5e357a7514e6cca23104aba2105` | unknown | SHA256SUMS |
 | `data/raw/edgar` | reference | 2 | 28180445 | `da7335a4bbf60b589439057cd96097bdc7f9150fda139d7bd52182ed55949da6` | unknown | SHA256SUMS |
-| `data/raw/enron` | keep_journal | 3 | 443993762 | `bc241aa10bb0bfacecf1a367ce09827d76a97418edaa401456744d5b21d398c1` | own_journal | SHA256SUMS |
+| `data/raw/enron` | keep_journal | 2 | 738975 | `aa37443e38ebc64619c00ead350ec0c48105e9718a00e1223d2da3f50c22dc92` | own_journal | SHA256SUMS |
 | `data/raw/enron_v2` | reference | 9 | 142135556 | `a5021418fa3314905c016c4b423d434aaa156fee4593b8e1cbec903acc46d9bb` | unknown | SHA256SUMS |
 | `data/raw/expand` | keep_journal | 18 | 162415 | `036ed8f40579c67aaa48dc757faeedb8562e7aaa8f29f5410bb8f4115066344a` | own_journal | SHA256SUMS |
-| `data/raw/extended` | reference | 372 | 3889728374 | `d163f8b6530020eaf884608e23a943f8611a4d8054acb5f6d2eafd407ac52c12` | unknown | SHA256SUMS |
+| `data/raw/extended` | keep_journal | 4315 | 4082120221 | `9c89e2764d6a0cb46780dadb5199628bd875b93f92070b9de06b7cbce438d3a9` | own_journal | SHA256SUMS |
 | `data/raw/fac` | live_input | 20 | 150797062 | `6c7d11c756bbf7b0e74b1925a77f8f003d2d6aeb83848f8cb5d95408153cf347` | https://www.fac.gov/data/download/historic/ | SHA256SUMS |
 | `data/raw/ffiec` | reference | 27 | 160140670 | `fa1ec790c0418276053afb1ce8fbb4ee0184f84bcc4d6a30ced5c8a9c7aad11c` | unknown | SHA256SUMS |
 | `data/raw/freebsd_ports` | reference | 3 | 28627361 | `49570a5b32329de14f6f3d6179d4cdd8abfb27ddd286cf7cbd94557517d887fa` | ftp://ftp-archive.freebsd.org/pub/FreeBSD-Archive/old-releases/i386/ | SHA256SUMS |
@@ -95,10 +96,10 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/poland_hostgrain` | reference | 19 | 5653083 | `ca657f68448833ad1bb1d19e9ab307a6120744602d256614de8621855205d972` | unknown | SHA256SUMS |
 | `data/raw/poland_hostgrain_3xx` | reference | 19 | 1834189 | `35b433a9ac1c01e2c145ba9e6b784ad0be8706414356c44f152d5c650b070a49` | unknown | SHA256SUMS |
 | `data/raw/probes` | reference | 6295 | 2704236380 | `21640e7714e86ca48ab02796f79283e4ac22766bfb78dd4abce1368a8196e0e3` | unknown | SHA256SUMS |
-| `data/raw/rdap` | keep_journal | 457 | 7021407487 | `9777aa9d28202e966045cc2d42984e5491bdcc437169802bcc5889360dabcf6d` | own_journal | SHA256SUMS |
+| `data/raw/rdap` | keep_journal | 455 | 7021052389 | `3bd7d18255a92998c050c1bb80a12deb58ec4d5bfa7c267be0efb4a1db45d580` | own_journal | SHA256SUMS |
 | `data/raw/rdap_gen` | keep_journal | 2 | 401332 | `424ac1a4d7b1247c9c6b08d3402274ffafd91da104f680295f29015c121dc4ea` | own_journal | SHA256SUMS |
 | `data/raw/rdap_hold_uk` | reference | 4 | 458451 | `6242e9c051eefd193cc47b693f8fe3f329ef8a681fa8f40f290cea9afc1b1e72` | own_journal | SHA256SUMS |
-| `data/raw/rdap_probe_gen` | reference | 22 | 1248228 | `b576dcf8c0cdab68cedd722cf0970604e16b27356eea940433045dd6c9aeb82c` | own_journal | SHA256SUMS |
+| `data/raw/rdap_probe_gen` | reference | 21 | 1223091 | `81ea9c6b3a2c0f8bbc25f99e8fa5876b1614a7abc69fcb846e4ad6fbc25eaa7e` | own_journal | SHA256SUMS |
 | `data/raw/registry_lists` | reference | 10 | 31469600 | `b11b8e207d9107c7e6d3d9efdccac86d5b60bf5fc43fdd0bf3643e30ca7bc0d4` | unknown | SHA256SUMS |
 | `data/raw/ripe_funet` | live_input | 1 | 71919736 | `5514d43315b107f607d6507b68c1d4e26e1ebc579850d15eefebc4c587d4c8e3` | unknown | SHA256SUMS |
 | `data/raw/ripe_funet_split` | live_input | 1 | 5452546 | `8cbe11eb7515478da11d09306dbe195195e6e4356b5e64651d04ead25256afa5` | unknown | SHA256SUMS |
@@ -172,29 +173,17 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `data/raw/webbase` | live_input | 3 | 734190407 | `974d468754605add7ff0c687f1839ef991d15a5226cd58c20241d09a9cb28e04` | unknown | SHA256SUMS |
 | `data/raw/wwwvl` | reference | 2724 | 30007896 | `6e9ae23657651f0252e60028b1185134b1fe42dc7d0d34f1d07009e5ce8b4b7c` | http://vlib.org/ | SHA256SUMS |
 | `data/raw/yahoo96` | keep_journal | 6 | 12860 | `8f63f83a54ae3b63146e1aafbc9d774f51a0c266ad053d50a247f5699ead69a1` | own_journal | SHA256SUMS |
-| `output/.export-ex3cwdnf` | regenerable | 32 | 1913574575 | `8f2b924c090d8993ac991400c9529b3a0050ee69ffaef816c35b1343b70b7f65` | just ship, or ark export | SHA256SUMS |
-| `output/DomainDataCollectionTask_202609220146_IvayloStaykov` | regenerable | 2043 | 965548111 | `8cc746d6d7a829f7087d0e59b6c49406902505415d6cef1f6790c4b6d7f09502` | just ship, or ark export | SHA256SUMS |
-| `output/DomainDataCollectionTask_202609220250_IvayloStaykov` | regenerable | 2875 | 9193204332 | `22811576bd0e63ad221c6d2ac89df5a078b76da3b4722fb24a52696e46f21937` | just ship, or ark export | SHA256SUMS |
-| `output/DomainDataCollectionTask_202610080032_IvayloStaykov` | regenerable | 4057 | 59183019357 | `592c8f81537243314fe064605f20a2c0423714a65997166ed59a4f1d1768efeb` | just ship, or ark export | SHA256SUMS |
-| `output/candidate_unverified.txt` | regenerable | 1 | 827707 | `8165e99591de36e4747674826ba4e6e99e69fea0a6427fe487e6e7544ea6a987` | just ship, or ark export | line in output/SHA256SUMS |
-| `output/extended_years` | regenerable | 17 | 32480270499 | `8f629df69f461b44e798dae993befd6aae14f9796a6d7877a7a7efee29bcf2cf` | just ship, or ark export | SHA256SUMS |
-| `output/fleet_snapshot` | regenerable | 28 | 5317710808 | `99a7722db031a912710c286cd07d4c5c39eebb2346d209be066fd8b6ef5dadc3` | just ship, or ark export | SHA256SUMS |
+| `output/candidate_unverified.txt` | regenerable | 1 | 85650 | `72465f367b7c95577065dad8bd7e7c9ba92448ca0c3a351a8e8af298b39e7bac` | just ship, or ark export | line in output/SHA256SUMS |
+| `output/extended_years` | regenerable | 2 | 5292781279 | `e7ca5922e35e7275df585029dbb4170bdec9fa8c0b2db641b77d561dba392613` | just ship, or ark export | SHA256SUMS |
+| `output/fleet_snapshot` | regenerable | 28 | 5241904146 | `8452cca4f66f6920773b47aecad58753bed5971e60f957cdf684235e24106aa0` | just ship, or ark export | SHA256SUMS |
 | `output/journal_acks.tsv` | regenerable | 1 | 6505019 | `a74976cac997ecdb3e961e46d9bf452eb0d0ef69da6af51296b90f6fb6b66cde` | just ship, or ark export | line in output/SHA256SUMS |
 | `output/merge` | regenerable | 25 | 100934 | `089169c60cd9ada6a2059c881a835dcb54d9ada545c85356a3459ed529a3070b` | just ship, or ark export | SHA256SUMS |
-| `output/netnew` | regenerable | 32 | 110416516 | `c0fccb01e8dd0509eb772c87148c2189b6017cf75568d8356a8cc8ea3423824c` | just ship, or ark export | SHA256SUMS |
+| `output/netnew` | regenerable | 32 | 85128916 | `ddaeea23bacd91d1eaa5b5e45f4d5a7d42e6a2c7d935d369e78d2b99ba092bda` | just ship, or ark export | SHA256SUMS |
 | `output/provenance` | keep_authority | 9 | 2818639611 | `0eec3d3196aae88a5940e06b664b10aed128821d65b5dd86bc3237b69957ec59` | own_journal | SHA256SUMS |
 | `output/seeds` | regenerable | 2 | 319638134 | `4153c95b06d96735aa41b438864b08b4d02c22b53bb6cc25d52c87f88a1809bf` | just ship, or ark export | SHA256SUMS |
 | `ding/.DS_Store` | reference | 1 | 14340 | `042df6c6d9f3189b4070292fb6325c70cfaf0135a56e2725d74079f4954cf1e8` | reviewer_release | line in ding/SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0906_Update` | reference | 16 | 466403 | `69ce01c58dc7e9b072a0b13e128cd9b3c161eeb913080c88296fa7730cca4d3a` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0907_Update` | reference | 16 | 463062 | `c82ba7460b4e3503143d06432c1c11fe34415b180b45a690d60b0975e132541c` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0908_Update` | reference | 21 | 489616 | `54e61d13cfb3e986d3bfd7e6cd19eab8b7a2253adb8bf0ee0580ce964dddc3a3` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0911_UpdateV4` | reference | 19 | 494848 | `f7c99cef1725191e040268d7056cff59afa56a6392449355460adfe47b7da63c` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0917_UpdateV2` | reference | 21 | 497033 | `3eccc876ea53587f6a69d3f9eaee4f252bd21b8910a7292f586cc4fc2b6cd4cf` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0922_UpdateV2` | reference | 23 | 522645 | `96b080c5537d2c5ec00686ee9869e427ce84ab751d99c84303413718395fbce8` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_0928_Update` | reference | 21 | 504518 | `da9ea952a72a57d5c6dd11506c0565e68d5208d4b3ca43883c34b220b035b137` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_1006_Update` | reference | 49 | 10973065057 | `775b7b6db5bc6af9103fe90f2e547ff8d87e1c617f3b703ffbec676c619b9aa9` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_1007_UpdateV4` | reference | 52 | 13181694220 | `438dec08cf8ffd2d23a4b49e1e79f44ab4f381b92259e54969330319eff0ad02` | reviewer_release | SHA256SUMS |
-| `ding/Domain_Data_Collection_Task_1007_UpdateV4.zip` | reference | 1 | 2920613892 | `373b0fe886f653dcb16eb40d4c6589b1f8d7a59b06fb77e9c7e97020d75106d7` | reviewer_release | line in ding/SHA256SUMS |
+| `ding/Domain_Data_Collection_Task_1008_UpdateV3` | reference | 58 | 15430668546 | `2449ac77377af89908b510edd0ab90d9c57ad87b277a4392acaaeb39d506380d` | reviewer_release | SHA256SUMS |
+| `ding/Domain_Data_Collection_Task_1008_UpdateV3.zip` | reference | 1 | 3455918613 | `da50ceac841ed5016ad66ae62d1ee37a203c75e745a89d9f6714b131b2dff507` | reviewer_release | line in ding/SHA256SUMS |
 | `ding/feedback-external-phase-2` | reference | 2 | 52547 | `8ab6fd3026ed7ac08fdeeedb252ffd68211aed166c30a4e6fa14c5b81af0fe11` | reviewer_release | SHA256SUMS |
 | `ding/feedback-phase-1` | reference | 2 | 43921 | `f6320f0b76a822e0713893f3ee34001eff31f7d623ba288b42374c417b041318` | reviewer_release | SHA256SUMS |
 | `ding/feedback-phase-3` | reference | 8 | 375971 | `fd390258c8af11d3ec76555bb5e484eebadfae7dca69da69ce5bd13c159b186e` | reviewer_release | SHA256SUMS |
@@ -204,9 +193,8 @@ Classes: `live_input` is third-party bytes read by a `just reproduce` stage or b
 | `ding/feedback-phase-7` | reference | 84 | 1972847763 | `6ae7d2f58a86f886e9e137ec2d735eb521151b40814964c416c01acc394795cb` | reviewer_release | SHA256SUMS |
 | `ding/feedback-phase-8` | reference | 44 | 1366309 | `3a0ee9102fe58e61f2603be05ad699fc6b5169dab6d9e90216c8121777565278` | reviewer_release | SHA256SUMS |
 | `ding/feedback-phase-9` | reference | 15 | 454958 | `01876c04cba4ae37592162206feded50571d68b42ffeae1b5f534d3dfe6ec7d5` | reviewer_release | SHA256SUMS |
-| `data/ark.duckdb.pre-stage-b.bak` | regenerable | 1 | 36901498880 | `6335ebdb155217f9f859719b3a2a7e313673a3e0a28e4109f430b8d75d009af6` | just reproduce | line in data/SHA256SUMS |
 | `submissions/phase-10` | reference | 4 | 4692021066 | `173495960b57954111a29cbdaafe5ce5b902ff1aba330ed75e2fbe9b782cedbf` | none | lines in submissions/SHA256SUMS |
 | `submissions/phase-11` | reference | 3 | 16218327957 | `9d74cae12e0c2bb5fc872129a4e00c46bd71afb60e130a4c2fb16f937815b2f0` | none | lines in submissions/SHA256SUMS |
 | `submissions/phase-9` | reference | 2 | 490 | `776bcd5328cc189dc1e6ce2ec0ff45b074a84670ec49b7dc5dad697fa1c8f99e` | none | lines in submissions/SHA256SUMS |
 
-Not in the classification tables, so defaulted to `reference` until someone adds them to the script: `data/raw/apache_header_items_b1`, `data/raw/apache_header_items_b2`, `data/raw/apache_header_items_b3`, `data/raw/apache_header_items_bigband`, `data/raw/apache_lists`, `data/raw/arquivo_hostgrain`, `data/raw/arquivo_hostgrain_3xx`, `data/raw/arxiv_src`, `data/raw/availability`, `data/raw/availability_hostgrain`, `data/raw/availability_queue.done`, `data/raw/availability_queue.txt`, `data/raw/availability_vps`, `data/raw/cdx_gap_hostgrain`, `data/raw/cdx_hostq`, `data/raw/cdx_platform`, `data/raw/cdx_queue`, `data/raw/computer_shopper`, `data/raw/crossref_refs`, `data/raw/cyber_directory`, `data/raw/dartmouth_arcs`, `data/raw/dartmouth_arcs_hostgrain`, `data/raw/enron_v2`, `data/raw/extended`, `data/raw/host_cdx`, `data/raw/hostcdx_hostgrain`, `data/raw/hostcdx_hostgrain_3xx`, `data/raw/hostcdx_status`, `data/raw/ietf_header_items`, `data/raw/ietf_mail_archive`, `data/raw/isc_control_sample`, `data/raw/maillists_items`, `data/raw/maillists_items_zope`, `data/raw/maillists_zopeonly`, `data/raw/netabuse`, `data/raw/poland_cdx`, `data/raw/poland_hostgrain`, `data/raw/poland_hostgrain_3xx`, `data/raw/registry_lists`, `data/raw/rpm_sample`, `data/raw/untroubled`, `data/raw/usenet_alt2_items`, `data/raw/usenet_alt_done.txt`, `data/raw/usenet_alt_items`, `data/raw/usenet_alt_plan_0.3_2.txt`, `data/raw/usenet_alt_plan_0_0.3.txt`, `data/raw/usenet_alt_plan_2_150.txt`, `data/raw/usenet_alt_work`, `data/raw/usenet_aus`, `data/raw/usenet_biz`, `data/raw/usenet_bulk_items`, `data/raw/usenet_can`, `data/raw/usenet_comp`, `data/raw/usenet_hdr2`, `data/raw/usenet_hdr_sample`, `data/raw/usenet_header_items`, `data/raw/usenet_misc`, `data/raw/usenet_new_items`, `data/raw/usenet_news`, `data/raw/usenet_rec`, `data/raw/usenet_sci`, `data/raw/usenet_soc`, `data/raw/usenet_talk`, `data/raw/usenet_uk`, `data/raw/usenet_uk_hdr`.
+Not in the classification tables, so defaulted to `reference` until someone adds them to the script: `data/raw/apache_header_items_b1`, `data/raw/apache_header_items_b2`, `data/raw/apache_header_items_b3`, `data/raw/apache_header_items_bigband`, `data/raw/apache_lists`, `data/raw/arquivo_hostgrain`, `data/raw/arquivo_hostgrain_3xx`, `data/raw/arxiv_src`, `data/raw/availability`, `data/raw/availability_hostgrain`, `data/raw/availability_queue.done`, `data/raw/availability_queue.txt`, `data/raw/availability_vps`, `data/raw/cdx_gap_hostgrain`, `data/raw/cdx_hostq`, `data/raw/cdx_platform`, `data/raw/cdx_queue`, `data/raw/computer_shopper`, `data/raw/crossref_refs`, `data/raw/cyber_directory`, `data/raw/dartmouth_arcs`, `data/raw/dartmouth_arcs_hostgrain`, `data/raw/enron_v2`, `data/raw/host_cdx`, `data/raw/hostcdx_hostgrain`, `data/raw/hostcdx_hostgrain_3xx`, `data/raw/hostcdx_status`, `data/raw/ietf_header_items`, `data/raw/ietf_mail_archive`, `data/raw/isc_control_sample`, `data/raw/maillists_items`, `data/raw/maillists_items_zope`, `data/raw/maillists_zopeonly`, `data/raw/netabuse`, `data/raw/poland_cdx`, `data/raw/poland_hostgrain`, `data/raw/poland_hostgrain_3xx`, `data/raw/registry_lists`, `data/raw/rpm_sample`, `data/raw/untroubled`, `data/raw/usenet_alt2_items`, `data/raw/usenet_alt_done.txt`, `data/raw/usenet_alt_items`, `data/raw/usenet_alt_plan_0.3_2.txt`, `data/raw/usenet_alt_plan_0_0.3.txt`, `data/raw/usenet_alt_plan_2_150.txt`, `data/raw/usenet_alt_work`, `data/raw/usenet_aus`, `data/raw/usenet_biz`, `data/raw/usenet_bulk_items`, `data/raw/usenet_can`, `data/raw/usenet_comp`, `data/raw/usenet_hdr2`, `data/raw/usenet_hdr_sample`, `data/raw/usenet_header_items`, `data/raw/usenet_misc`, `data/raw/usenet_new_items`, `data/raw/usenet_news`, `data/raw/usenet_rec`, `data/raw/usenet_sci`, `data/raw/usenet_soc`, `data/raw/usenet_talk`, `data/raw/usenet_uk`, `data/raw/usenet_uk_hdr`.

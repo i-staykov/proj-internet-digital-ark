@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 prune = sys.modules.get("prune") or script("round/prune.py", "prune")
 offsite, vr = prune.sibling("offsite"), prune.sibling("verify_raw")
 RETENTION, JOURNAL = "docs/registers/retention.md", "data/raw/journal/a"
+UNDECLARED = "data/raw/journal/undeclared.jsonl"
 HASHES = ("sha256", "sha1")
 ROWS = {  # entry: class, refetch; the two output/ rows are verify_raw's own
     "data/raw/journal": ("keep_journal", "own_journal"),
@@ -31,7 +32,7 @@ ROWS = {  # entry: class, refetch; the two output/ rows are verify_raw's own
     "data/raw/live": ("live_input", "unknown"),
     "data/raw/checksums.sha256": ("reference", "none"),  # `none` is no route: off-site
     "data/raw/regen": ("regenerable", "just reproduce"),
-    "data/raw/usenet_bulk": ("keep_until_priced", "https://y"),
+    "data/raw/usenet_bulk": ("reference", "https://y"),  # a URL route: local only, and held
     "output/provenance": vr.classify("output/provenance"),
     "output/netnew": vr.classify("output/netnew"),
     "data/raw/nosum": ("keep_until_priced", "unknown"),  # and no checksum record at all
@@ -164,7 +165,7 @@ def test_the_payload_is_what_nothing_else_brings_back_and_no_report_deletes(tmp_
     backup = prune.Entry("data/ark.duckdb.pre-stage-a.bak", "regenerable", 1, 8, "d", "x", "row")
     assert offsite.payload([backup]) == ([], [], [])  # a store backup never goes off-site
     entries = {e.key: e for e in prune.read_table(tmp_path / RETENTION)}
-    freed = ["data/raw/priced", "data/raw/regen", "data/raw/usenet_bulk", "output/netnew"]
+    freed = ["data/raw/priced", "data/raw/regen", "output/netnew"]
     assert sorted(k for k, e in entries.items() if e.deletable) == freed
     assert entries["data/raw/nosum"].missing == ["no refetch route", "no checksum record"]
     before = {p: p.read_bytes() for p in files_under(tmp_path)}
@@ -179,8 +180,10 @@ def test_the_payload_is_what_nothing_else_brings_back_and_no_report_deletes(tmp_
 
 
 @pytest.mark.parametrize("fault", [*REMOTE_FAULTS, *STALE, *OTHER])
-def test_a_verify_that_cannot_vouch_for_the_bytes_revokes_them(verified, fake_rclone, fault):
-    rows = offsite.read_manifest(manifest := verified / offsite.MANIFEST)
+def test_a_verify_that_cannot_vouch_for_the_bytes_revokes_them(
+    verified, fake_rclone, capsys, fault
+):
+    rows, narrowed, taken = offsite.read_manifest(manifest := verified / offsite.MANIFEST), [], 0
     row = next(r for r in rows if r.entry == "data/raw/journal")
     objects = list(offsite.remote_listing(row, verified, offsite.REMOTE)[0].values())
     fake_rclone.reset_mock()
@@ -192,8 +195,11 @@ def test_a_verify_that_cannot_vouch_for_the_bytes_revokes_them(verified, fake_rc
         stale = replace(row, **{fault[:-2]: getattr(row, fault[:-2]) + int(fault[-2:])})
         manifest.write_text(offsite.render([stale if r == row else r for r in rows]))
         assert len(offsite.check_entry(stale, verified, offsite.REMOTE).matched) == row.files
-    elif fault == "undeclared":
-        file(verified, "data/raw/journal/undeclared.jsonl")
+    elif fault == "undeclared":  # closed since the manifest, beside an open .part and a link
+        file(verified, UNDECLARED), file(verified, "data/raw/journal/open.part")
+        (verified / "data/raw/journal/link").symlink_to(verified / JOURNAL)
+        taken, narrowed = offsite.fresh_receipt(verified)[1], ["--entry", "data/raw/journal"]
+        assert run(verified, "--verify", "--entry", "nowhere") == 2  # and revokes nothing
     elif fault == "same-size-edit":  # the same size, and the old mtime put back
         before = (verified / JOURNAL).stat()
         file(verified, JOURNAL, b"x" * before.st_size)
@@ -211,11 +217,17 @@ def test_a_verify_that_cannot_vouch_for_the_bytes_revokes_them(verified, fake_rc
     if raised := {"interrupt-after-one": KeyboardInterrupt, "bad-manifest": ValueError}.get(fault):
         pytest.raises(raised, run, verified, "--verify")
     else:
-        assert run(verified, "--verify") == (2 if fault == "no-manifest" else 1)
-    receipt = offsite.read_receipt(verified)
-    assert JOURNAL not in receipt and (not receipt or fault in STALE)
+        code = {"no-manifest": 2, "undeclared": 0}.get(fault, 1)
+        assert run(verified, "--verify", *narrowed) == code
+    # Undeclared: the named files verify, the new one gets no proof, the other rows' pins stand.
+    (receipt, at), flipped = offsite.fresh_receipt(verified), fault == "undeclared"
+    assert (JOURNAL in receipt) is flipped and (not receipt or fault in STALE)
+    assert not flipped or ("output/provenance/a" in receipt and at == taken)
+    newer = "newer than the manifest, not yet off-site: data/raw/journal (1 files)"
+    assert (newer in capsys.readouterr().out) is flipped
     assert fake_rclone.called is ("manifest" not in fault)
-    pytest.raises(ValueError, offsite.deletion_proof, verified, verified / JOURNAL)
+    proofless = verified / (UNDECLARED if flipped else JOURNAL)
+    pytest.raises(ValueError, offsite.deletion_proof, verified, proofless)
 
 
 @pytest.mark.parametrize("fault", [*RECEIPT_FAULTS, *OBJECT_FAULTS])
