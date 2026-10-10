@@ -1,11 +1,11 @@
 # Rounds
 
-Every shipped round (an interim report sits inside the next one), sent against credited. The columns
-carry 1996 to 2001; a second part he scored apart sits in the note with its own figures. S_i = 10 x
-p_i / t_i per part, p_i the percentage he awarded and t_i his divisor ([brief amendments](../brief/brief_amendments.md));
-`days` and `S_i computed` run release to receipt, n/a where his divisor rules. `released` is his package
-stamp, `received` his mail clock. Round 1 is a percentage of records. `just rounds` writes a row's
-1996 to 2001 part from his mail.
+Every shipped round, sent against credited. The columns carry 1996 to 2001; a part he scored apart
+sits in the note with its own figures. S_i = 10 x p_i / t_i per part, p_i the percentage he
+awarded, t_i his divisor ([brief amendments](../brief/brief_amendments.md)) where he quoted one,
+else `days`, release to receipt, rounded up. `released` is his package stamp, `received` his mail
+clock. Round 1 is a percentage of records. `just rounds` writes a row's 1996 to 2001 part from his
+mail.
 
 | round | sent records | sent EE | sent % | credited records | credited EE | awarded p_i | against | released | received | days | t_i | S_i computed | S_i quoted | note |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

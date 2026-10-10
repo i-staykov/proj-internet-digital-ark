@@ -445,7 +445,7 @@ def test_e1_passes_both_folders_and_fails_on_any_one_gap(tmp_path):
 
 
 def test_a_stale_or_dirty_fleet_is_refused(tmp_path):
-    guard = block("package_delivery.sh", "# The fleet checkout ships", "# The reproduction note")
+    guard = block("package_delivery.sh", "# The fleet checkout ships", "# The README ships")
     repo, fleet, linked = tmp_path / "repo", tmp_path / "fleet", tmp_path / "linked"
     (repo / "data/fleet_findings/banked/20260923T1006Z").mkdir(parents=True)
     (repo / "data/fleet_findings/banked/20260904T1544Z_dups").mkdir()
@@ -494,7 +494,7 @@ def test_packaging_refuses_a_note_naming_another_verdict_count_than_verify_decla
     assert "verify_isc_candidates.py" in text  # it prints the ISC verdict itself
     declared = int(re.search(r"^VERDICTS=(\d+)$", text, re.M)[1])
     assert len(labels | {"ISC candidates"}) == declared, sorted(labels)
-    check = block("package_delivery.sh", "# The reproduction note is quoted", "# The export stamp")
+    check = block("package_delivery.sh", "# The README ships", "# The export stamp")
     (tmp_path / "scripts/round").mkdir(parents=True)
     (tmp_path / "docs/round").mkdir(parents=True)
     (tmp_path / "scripts/round/verify_delivery.sh").write_text("fail=0\nVERDICTS=14\n")
@@ -503,9 +503,7 @@ def test_packaging_refuses_a_note_naming_another_verdict_count_than_verify_decla
         ("all fourteen `verify.sh` verdicts pass", 0),
         ("every `verify.sh` verdict passes", 0),
     ):
-        (tmp_path / "docs/round/reproduction.txt").write_text(f"Before sending, {said}.\n")
+        (tmp_path / "docs/round/delivery_readme.md").write_text(f"Before sending, {said}.\n")
         assert bash(check, tmp_path).returncode == code, said
     (tmp_path / "docs/round/delivery_readme.md").write_text("prints **thirteen labelled verdicts**")
-    assert bash(check, tmp_path).returncode == 1, "the shipped README's count is checked too"
-    # the shipped note names no count, so a new verdict can never leave it stale
-    assert "`verify.sh` verdicts" not in (REPO / "docs/round/reproduction.txt").read_text()
+    assert bash(check, tmp_path).returncode == 1, "a labelled count is checked too"

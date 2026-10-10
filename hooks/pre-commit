@@ -1,19 +1,7 @@
 #!/usr/bin/env bash
-# Refuse a commit that fails the hook gate in `AGENTS.md`: ruff, format, the security
-# scan and pytest. A gate that depends on someone noticing a red run is not a gate, so the
-# commit itself runs it.
-#
-# Deliberately the CODE gate only. `ark check` validates the DATA over a store that
-# takes one writer, so putting it here would make committing wait on a bank and the
-# hook would be disabled within a day. Data
-# invariants belong in `just ship` and in the cron checklist, where they already are.
-#
-# The security scan runs here for the opposite reason: the repository is public and every
-# branch but `main` may now be pushed, so the commit is the last point at which a secret,
-# a machine address or a local path can still be kept out of world-readable bytes.
-#
-# Install with `just hooks`. Bypass with `git commit --no-verify`, which is honest: it
-# leaves a visible choice in the shell history rather than a silent failure.
+# The hook gate (AGENTS.md, Done): ruff, format, the security scan and pytest. Code only:
+# `ark check` needs the store's one writer, so it runs in `just bank` and `just ship`.
+# Install with `just hooks`.
 
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
@@ -21,7 +9,7 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 fail() {
     echo "" >&2
     echo "pre-commit: REFUSED. $1" >&2
-    echo "Fix it, or commit with --no-verify if you mean to." >&2
+    echo "Fix it and commit again." >&2
     exit 1
 }
 

@@ -31,15 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_figures import BASELINE, figures  # noqa: E402
 
-from ark import held  # noqa: E402
-from ark.baseline import (  # noqa: E402
-    CURRENT_ROUND_LABEL,
-    REVIEWER_BASELINE_PAIRS,
-    REVIEWER_EXTENDED_EE,
-)
+from ark.baseline import CURRENT_ROUND_LABEL, REVIEWER_EXTENDED_EE  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
-from ark.evidence_types import MASTER_TYPES  # noqa: E402
-from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 from ark.figures import now_in_his_clock, score_line, t_days_assignment  # noqa: E402
 
 DB = Path("data/ark.duckdb")
@@ -47,10 +40,7 @@ DB = Path("data/ark.duckdb")
 # and the numbers have to be refilled every time the archive is re-cut, so the
 # template is the thing that lives in git and the filled copy is a build product.
 #
-# One report, not one per round. Dated filenames meant the packaging script had
-# to be repointed every round and once shipped the previous round's report beside
-# this round's data. The round is identified by its content and its git tag, not
-# by its filename.
+# One report, not one per round: the round is identified by its content and its git tag.
 #
 # The email is filled too, but ONLY out of `private/`, which is git-ignored.
 # `package_delivery.sh` ships `git archive HEAD`, so every tracked file reaches the
@@ -67,47 +57,6 @@ DOCUMENTS = (
     (Path("docs/report.template.md"), Path("docs/report.md"), True),
     (Path("private/email.template.md"), Path("private/email-draft.md"), False),
 )
-
-
-def per_year_table(f: dict) -> str:
-    """Volume and equivalent-English per year, read from the shipped merge audit.
-
-    **Read from the audit rather than from the store, because the two disagree by a few
-    records and a report printing both contradicts itself.** The store counts a canonicalised
-    (domain, year); the audit counts what survives export into the annual files and is
-    then scored by the reviewer's own calculator, so a name his validator refuses is in
-    the first and not the second. His figure is the one that matters and it is the one
-    the headline quotes, so the table comes from the same file: per year,
-    `baseline_unique + registrables + hostnames == merged_unique`, which he can check
-    against `audit/merge_stats_ark_*.csv` line by line.
-    """
-    merge_dir = Path(__file__).resolve().parents[2] / "output/merge"
-    newest = newest_audit(merge_dir)
-    if newest is None:
-        return "_No merge audit in this build; `merge_against_baseline.py` produces it._"
-    audit = json.loads(newest.read_text(encoding="utf-8"))
-    # Four columns, not six: the baseline and post-merge columns are one subtraction
-    # apart and each was wrapping to three lines in his Word rendering, which cost more
-    # of his attention than it bought. Both remain in `audit/merge_stats_ark_*.csv`.
-    lines = [
-        "| Year | Registrables | Hostnames | Equivalent-English added |",
-        "|------|-----------:|-----------:|--------------:|",
-    ]
-    for row in audit["years"]:
-        reg = row.get("submitted_registrable", row["accepted_new"])
-        host = row.get("submitted_hostnames", 0)
-        lines.append(
-            f"| {row['year']} | {reg:,} | {host:,} | "
-            f"{Decimal(row['equivalent_english_increment']):,.4f} |"
-        )
-    t = audit["totals"]
-    reg = int(t.get("submitted_registrable_records", t["accepted_new_records"]))
-    host = int(t.get("submitted_hostname_records", 0))
-    lines.append(
-        f"| **Total** | **{reg:,}** | **{host:,}** | "
-        f"**{Decimal(t['equivalent_english_increment']):,.4f}** |"
-    )
-    return "\n".join(lines)
 
 
 # One line per source saying what dates a record and how the artifact was obtained, for
@@ -287,15 +236,9 @@ CLASS_GROUNDS = {
     "link_source": "the crawl date on the link record",
 }
 
-# Rows below this share of the increment collapse into one line; the full per-source
-# figures ship in `audit/source_contribution.csv` and the collapsed line says so.
-ATTRIBUTION_FLOOR_EE = Decimal("1000")
 
-
-def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
-    """(records, EE) per acquisition method over the SHIPPED hostname files, and the
-    share of them that are `www.` forms below a registrable (`www.<parent>` itself is
-    refused at ingest, so what remains is `www.sub.parent`).
+def hostname_breakdown() -> dict[str, tuple[int, Decimal]]:
+    """(records, EE) per acquisition method over the SHIPPED hostname files.
 
     Joined against the shipped manifest rather than the store, so the table describes
     the files in the archive: the store holds hostname rows the export filters out.
@@ -307,7 +250,7 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
     manifest = netnew / "hostnames_evidence_manifest.csv"
     files = sorted(netnew.glob("*_hostnames.txt"))
     if not manifest.is_file() or not files:
-        return {}, Decimal(0)
+        return {}
     weights = [(tld, float(share)) for tld, share in english_weights().items()]
     conn = duckdb.connect()
     conn.execute("CREATE TABLE w(tld VARCHAR, weight DOUBLE)")
@@ -330,53 +273,8 @@ def hostname_breakdown() -> tuple[dict[str, tuple[int, Decimal]], Decimal]:
         """,
         [str(manifest)],
     ).fetchall()
-    www = conn.execute(
-        # coalesce: the files exist but are empty at the start of a round
-        "SELECT coalesce(sum(CASE WHEN hostname LIKE 'www.%' THEN 1 ELSE 0 END) / count(*), 0) "
-        "FROM h"
-    ).fetchone()[0]
     conn.close()
-    return (
-        {m: (int(n), Decimal(str(round(ee, 4)))) for m, n, ee in rows},
-        Decimal(str(www)),
-    )
-
-
-def attribution_table(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
-    """Section 2's table over BOTH units, ranked by equivalent-English."""
-    rows = []
-    for r in f["by_source"]:
-        what, dates = GROUNDS.get(
-            r["source"],
-            ("see `sources.md`", CLASS_GROUNDS.get(r["evidence_type"], r["evidence_type"])),
-        )
-        rows.append((r["source"], "registrable", what, dates, r["pairs"], Decimal(str(r["ee"]))))
-    for method, (n, ee) in hosts.items():
-        what, dates = GROUNDS.get(method, ("see `sources.md`", "a Wayback capture timestamp"))
-        rows.append((method, "hostname", what, dates, n, ee))
-    rows.sort(key=lambda r: r[5], reverse=True)
-    shown = [r for r in rows if r[5] >= ATTRIBUTION_FLOOR_EE]
-    rest = [r for r in rows if r[5] < ATTRIBUTION_FLOOR_EE]
-    # Separator dash counts set the docx column widths when a line exceeds pandoc's
-    # width, which every row here does; the two prose columns get the room.
-    lines = [
-        "| Source, unit | Artifact, and how it was obtained | What dates one record "
-        "| Records | EE |",
-        "|--------------|--------------------------|----------------------|--------:|-------:|",
-    ]
-    for name, unit, what, dates, n, ee in shown:
-        lines.append(f"| `{name}`, {unit} | {what} | {dates} | {n:,} | {ee:,.0f} |")
-    if rest:
-        n = sum(r[4] for r in rest)
-        ee = sum((r[5] for r in rest), Decimal(0))
-        lines.append(
-            f"| {len(rest)} further sources | each under {ATTRIBUTION_FLOOR_EE:,.0f} EE, "
-            f"listed in `audit/source_contribution.csv` | | {n:,} | {ee:,.0f} |"
-        )
-    total_n = sum(r[4] for r in rows)
-    total_ee = sum((r[5] for r in rows), Decimal(0))
-    lines.append(f"| **Total** | | | **{total_n:,}** | **{total_ee:,.0f}** |")
-    return "\n".join(lines)
+    return {m: (int(n), Decimal(str(round(ee, 4)))) for m, n, ee in rows}
 
 
 def newest_audit(merge_dir: Path) -> Path | None:
@@ -460,60 +358,9 @@ def attribution_top(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> str:
     return "\n".join(lines)
 
 
-def grouped_ee(f: dict, hosts: dict[str, tuple[int, Decimal]]) -> dict[str, str]:
-    """Section 3's per-lane figures, summed from the same rows as the table so the
-    prose cannot drift from it."""
-    by = {r["source"]: (r["pairs"], Decimal(str(r["ee"]))) for r in f["by_source"]}
-
-    def total(names: list[str]) -> tuple[int, Decimal]:
-        n = sum(by.get(x, (0, Decimal(0)))[0] for x in names)
-        ee = sum((by.get(x, (0, Decimal(0)))[1] for x in names), Decimal(0))
-        return n, ee
-
-    nypw = ["nypw_timemaps", "nypw_timemaps_nonok"]
-    cdx = ["ia_cdx_bulk"]
-    usenet = ["usenet_address", "usenet_announce", "usenet_bare"]
-    other = [x for x in by if x not in nypw + cdx + usenet]
-    h_nypw = hosts.get("nypw_timemap_hostgrain", (0, Decimal(0)))
-    h_sweep = hosts.get("ia_cdx_domain_sweep", (0, Decimal(0)))
-    h_ew = hosts.get("early_web_hostgrain", (0, Decimal(0)))
-    h_fg = hosts.get("usfedgov_extract_hostgrain", (0, Decimal(0)))
-    list_methods = ("robot_compiled_blocklist", "dated_blocklist_release")
-    lists = [hosts.get(m, (0, Decimal(0))) for m in list_methods]
-    h_list = (sum(r[0] for r in lists), sum((r[1] for r in lists), Decimal(0)))
-    # The server-written-header class, split the way the report argues it: the Usenet
-    # reading on one side, the two mailing-list archives it generalised from on the
-    # other. Summed here rather than typed, so the prose cannot drift from the table.
-    h_usenet_hdr = hosts.get("usenet_server_written_header", (0, Decimal(0)))
-    mail_methods = ("ietf_list_received_by", "apache_list_received_by")
-    mail_hdr = [hosts.get(m, (0, Decimal(0))) for m in mail_methods]
-    h_mail_hdr = (sum(r[0] for r in mail_hdr), sum((r[1] for r in mail_hdr), Decimal(0)))
-    return {
-        "HOST_NYPW_EE": f"{h_nypw[1]:,.0f}",
-        "HOST_NYPW_N": f"{h_nypw[0]:,}",
-        "HOST_EARLYWEB_EE": f"{h_ew[1]:,.0f}",
-        "HOST_EARLYWEB_N": f"{h_ew[0]:,}",
-        "HOST_USFEDGOV_EE": f"{h_fg[1]:,.0f}",
-        "HOST_USFEDGOV_N": f"{h_fg[0]:,}",
-        "HOST_BLOCKLIST_EE": f"{h_list[1]:,.0f}",
-        "HOST_BLOCKLIST_N": f"{h_list[0]:,}",
-        "HOST_SWEEP_EE": f"{h_sweep[1]:,.0f}",
-        "HOST_SWEEP_N": f"{h_sweep[0]:,}",
-        "HOST_USENETHDR_EE": f"{h_usenet_hdr[1]:,.0f}",
-        "HOST_USENETHDR_N": f"{h_usenet_hdr[0]:,}",
-        "HOST_MAILHDR_EE": f"{h_mail_hdr[1]:,.0f}",
-        "HOST_MAILHDR_N": f"{h_mail_hdr[0]:,}",
-        "REG_NYPW_EE": f"{total(nypw)[1]:,.0f}",
-        "REG_CDX_EE": f"{total(cdx)[1]:,.0f}",
-        "REG_USENET_EE": f"{total(usenet)[1]:,.0f}",
-        "REG_OTHER_EE": f"{total(other)[1]:,.0f}",
-        "REG_OTHER_N": f"{len(other)}",
-    }
-
-
 def substitutions(f: dict) -> dict[str, str]:
     accepted = accepted_totals()
-    hosts, www_share = hostname_breakdown()
+    hosts = hostname_breakdown()
     h_pairs = sum(n for n, _ in hosts.values())
     h_ee = sum((ee for _, ee in hosts.values()), Decimal(0))
     # Fall back to the store only when no merge has been run, so a missing audit
@@ -524,7 +371,6 @@ def substitutions(f: dict) -> dict[str, str]:
         if accepted
         else Decimal(f["ee_netnew"]) + h_ee
     )
-    reg_pairs = int(accepted["submitted_registrable_records"]) if accepted else f["netnew_pairs"]
     # **The headline increment comes from the MERGE AUDIT and the growth rate from the
     # LIVE STORE, so a stale audit makes lines 3 and 4 contradict line 5**, each number
     # right on its own and the table nonsense. Re-run `merge_against_baseline.py` after the
@@ -554,10 +400,6 @@ def substitutions(f: dict) -> dict[str, str]:
         if accepted and accepted.get("equivalent_english_growth_rate_pct") is not None
         else Decimal(str(f["ee_netnew_growth_pct"]))
     )
-    baseline_ee = Decimal(str(f["ee_baseline"]))
-    reg_ee = ee_total - h_ee
-    by_source = {r["source"]: r for r in f["by_source"]}
-    cdx_bulk = by_source.get("ia_cdx_bulk", {}).get("pairs", 0)
     subs: dict[str, str] = {
         "TOTAL": f"{total:,}",
         # Four decimals, because that is the precision the reviewer reports back in
@@ -565,36 +407,12 @@ def substitutions(f: dict) -> dict[str, str]:
         # computed with his own calculator.
         "EE": f"{ee_total:,.4f}",
         "EEGROWTH": f"{growth:.4f}%",
-        "REGPAIRS": f"{reg_pairs:,}",
-        "REGEE": f"{reg_ee:,.4f}",
-        "REGGROWTH": f"{reg_ee / baseline_ee * 100:.4f}%",
-        "HOSTPAIRS": f"{h_pairs:,}",
-        "HOSTEE": f"{h_ee:,.4f}",
-        "HOSTGROWTH": f"{h_ee / baseline_ee * 100:.4f}%",
-        "WWWSHARE": f"{www_share * 100:.1f}%",
-        "CDXBULK": f"{cdx_bulk:,}",
-        "UNIQUE": f"{f['netnew_unique_domains']:,}",
-        "NEWDOMAINS": f"{f['netnew_domains_absent_from_baseline']:,}",
-        "CANDIDATES": f"{f['candidate_pool']:,}",
         "BASELINE": BASELINE,
         "ROUND": CURRENT_ROUND_LABEL,
         "EEBASELINE": f"{f['ee_baseline']:,.4f}",
-        "ATTRIBUTION_TABLE": attribution_table(f, hosts),
         "ATTRIBUTION_TOP": attribution_top(f, hosts),
-        **grouped_ee(f, hosts),
-        "MASTERTYPES": ", ".join(f"`{t}`" for t in sorted(MASTER_TYPES)),
-        "PER_YEAR_TABLE": per_year_table(f),
-        "DATASETS_SEARCHED": datasets_searched(),
-        "POOL_RESTRICTED": pool_restricted(),
         "MERGE_RECONCILIATION": merge_reconciliation(),
-        "REPRODUCTION_RESULT": reproduction_result(),
     }
-    # The REVIEWER'S raw record count, not the store's. These differ by 1.6 million,
-    # because the store canonicalises to registrable domains and he counts lines, and
-    # a sentence that set his count for one release beside our count for the next
-    # would read as a shrinking baseline. Quote one counting unit or the other, never
-    # one of each.
-    subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
     # The 2002 to 2013 additions as `extended_export.py` measured them, zero before any. Each
     # part is its growth over his EE for its years with his S beside it, never the two summed;
     # t is whole days from the 2 August assignment, as he would count it today.
@@ -612,93 +430,11 @@ def substitutions(f: dict) -> dict[str, str]:
         "SCORE_CORE": score_line(growth, t_now),
         "SCORE_EXT": score_line(ext_growth, t_now),
     }
-    from round_figures import extended_split
-
-    for unit, (n, unit_ee) in zip(("EXTREG", "EXTHOST"), extended_split(), strict=True):
-        subs[unit + "PAIRS"], subs[unit + "EE"] = f"{n:,}", f"{unit_ee:,.4f}"
-    # The ISC folder ships beside the claim as a question, never inside it, so its size is
-    # counted from the files that actually ship rather than typed into the prose.
-    isc = 0
-    for year in range(1996, 2002):
-        path = NETNEW_DIR / f"{year}-ISC.txt"
-        if path.is_file():
-            with path.open(encoding="utf-8", errors="replace") as fh:
-                isc += sum(1 for line in fh if line.strip())
-    subs["ISCPAIRS"] = f"{isc:,}"
-    # The case FOR asking about the survey, generated rather than typed: every registrable
-    # domain the artifact names is already in his files, so the artifact's NAMES are not what
-    # is in question, only the host below them. A hardcoded figure here would drift the moment
-    # a release moved.
-    subs["ISCHELD"] = f"{isc_registrables_he_holds():,}"
-    # His XI: report annual and active-candidate EE separately. Generated, so the report and
-    # `round_figures.py` cannot disagree about a figure that must never be added to the claim.
-    from round_figures import candidate_potential
-
-    subs["CANDIDATEEE"] = f"{candidate_potential()[1]:,.4f}"
-    # The candidate TRACK, which he scores separately and at the same rate as the annual
-    # one. Two collections, both counted the way the annual claim is: net-new against his
-    # files. The whole pool is not the claim, and the gap is 78x.
-    pool = candidate_additions()
-    subs["CANDADD"] = f"{pool['candidates']:,}"
-    subs["CANDTRACKEE"] = f"{Decimal(pool['equivalent_english']):,.4f}"
-    subs["CANDTRACKPCT"] = f"{Decimal(pool['equivalent_english']) / f['ee_baseline'] * 100:.4f}%"
-    subs["CANDHELD"] = f"{pool.get('held_by_him', {}).get('names', 0):,}"
-    by_unit = pool.get("by_unit", {})
-    for unit, token in (("registrable", "CANDREG"), ("hostname", "CANDHOST")):
-        row = by_unit.get(unit, {"names": 0, "equivalent_english": "0"})
-        subs[token] = f"{row['names']:,}"
-        subs[token + "EE"] = f"{Decimal(row['equivalent_english']):,.4f}"
-    # The two provenance-linked hostname collections inside that hostname half.
-    for token, name in (
-        ("CANDISC", "isc_candidates_summary.json"),
-        ("CANDHDR", "header_candidates_summary.json"),
-    ):
-        path = NETNEW_DIR / name
-        n = json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else 0
-        subs[token] = f"{n:,}"
-
-    # The mail quotes the reconciliation count too, and it is read from the audit rather
-    # than typed, because a mail claiming a pass count the audit does not hold is the one
-    # error he would never have to look for.
-    audit = newest_audit(Path(__file__).resolve().parents[2] / "output/merge")
-    checks = []
-    if audit is not None:
-        checks = json.loads(audit.read_text(encoding="utf-8")).get("reconciliation", [])
-    subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
-
     return subs
 
 
-def candidate_additions() -> dict:
-    """The candidate-track claim as the export measured it, from its own summary.
-
-    Read rather than re-derived: the pool is one file and one number, and a second
-    derivation here would be a second thing to keep in step with the first.
-    """
-    path = NETNEW_DIR / "candidate_additions_summary.json"
-    if not path.is_file():
-        return {"candidates": 0, "equivalent_english": "0", "by_unit": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def reproduction_result() -> str:
-    """What the archive's own reproduction actually did, when it was last run.
-
-    Read from a file rather than asserted in prose, because a report that claims
-    "verified" is worth nothing next to one that names the run. `just ship` writes
-    it; if it is absent the report says so instead of implying a pass.
-    """
-    path = Path(__file__).resolve().parents[2] / "docs/round/reproduction.txt"
-    if not path.is_file():
-        return (
-            "_The reproduction has not been run against this build. "
-            "`bash verify.sh` inside the archive is the first check._"
-        )
-    return path.read_text(encoding="utf-8").strip()
-
-
 def merge_reconciliation() -> str:
-    """The D3 merge audit, read from the file the packaging step produced.
+    """The merge audit, read from the file the packaging step produced.
 
     Read rather than recomputed. `merge_against_baseline.py` scores every annual file
     with the reviewer's own calculator, which takes minutes, and a second derivation
@@ -745,122 +481,12 @@ def merge_reconciliation() -> str:
     )
 
 
-def isc_registrables_he_holds() -> int:
-    """Distinct registrables the ISC survey names that his current files already carry.
-
-    Measured 2026-09-04 at 1,414,080 of 1,414,080, which is the whole argument for asking
-    about the host grain: he treats this artifact as naming real 1996-1997 domains, and the
-    only open question is whether the machine below the name is a record too.
-    """
-    from ark.db import connect_read_only_patiently
-
-    conn = connect_read_only_patiently()
-    try:
-        names = {
-            d
-            for (d,) in conn.execute(
-                "SELECT DISTINCT e.domain FROM evidence e JOIN source s USING (source_id) "
-                "WHERE s.name IN ('isc_survey', 'isc_survey_hostnames')"
-            ).fetchall()
-        }
-    finally:
-        conn.close()
-    return len(held.names_in(names, held.load().all))
-
-
-def pool_restricted() -> str:
-    """Candidate-pool names under namespaces nobody could register in freely.
-
-    Was typed as 575,417 and had drifted, in the one sentence of the report that argues
-    the gate is worth something. Generated so it cannot drift again, and the namespaces
-    are now named in the prose so a reviewer can reproduce the count. Counted in the pool
-    the export shipped, the one `[CANDIDATES]` counts, so it holds no name of his.
-    """
-    with CANDIDATES_PATH.open(encoding="utf-8") as fh:
-        n = sum(1 for line in fh if line.rstrip("\n").endswith((".edu", ".gov", ".mil")))
-    return f"{n:,}"
-
-
-def _table_rows(path: Path) -> int:
-    """Data rows of a register page's source table, which holds one row per source."""
-    if not path.is_file():
-        return 0
-    rows, inside = 0, False
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("|"):
-            inside = False
-        elif line.lower().startswith("| source |"):
-            inside = True
-        elif inside and set(line) - set("|-: "):
-            rows += 1
-    return rows
-
-
-def datasets_searched(docs: Path | None = None) -> str:
-    """The register of families searched, read from the register rather than retyped.
-
-    The reviewer asks for every external dataset and repository searched, and that list
-    only stays true if it is derived from the register itself: a hand-written copy omits
-    whatever was added after it was written, and the omission is invisible. Each page is
-    one table with one row per source, `sources.md` for the developed ones and
-    `sources-closed.md` for the ones measured and closed, so the count is their rows.
-    """
-    docs = docs or Path(__file__).resolve().parents[2] / "docs/registers"
-    if not (docs / "sources.md").is_file():
-        return "_`sources.md` not found beside this report._"
-
-    developed = _table_rows(docs / "sources.md")
-    closed = _table_rows(docs / "sources-closed.md")
-    if not developed and not closed:
-        return "_No families recorded._"
-
-    # Counts only: the register ships beside the report and is the place to read the names.
-    return (
-        f"**{developed + closed:,} source families searched and recorded** in "
-        f"`sources.md` and `sources-closed.md`: {developed:,} developed, {closed:,} evaluated "
-        "and closed with the measurement that closed them, so the same ground is not broken twice."
-    )
-
-
 # The template marks each section whose prose a human must write for this round as
 # `<!-- ROUND [ROUND]: ... -->`. An unwritten one is exactly the failure the token
 # mechanism exists to prevent: without this `--check` says "would fill cleanly" over a
 # report with empty sections, and sections 5 and 6 are the ones the template itself
 # says he reads most closely.
 UNWRITTEN_SECTION = re.compile(r"<!--\s*ROUND\b", re.I)
-
-# A stub can also be satisfied from a tracked file rather than by hand, which is why
-# this exists: `private/email-draft.md` is REGENERATED from its template, so prose typed
-# straight into the draft is destroyed by the next fill. That happened, and the round's
-# email had to be rewritten from a copy kept elsewhere. `docs/round/email-sections.md` is
-# tracked (and export-ignored, so it never reaches the reviewer), holding one `## name`
-# heading per section. The first stub in the template takes the first section, the second
-# the second, in order, so the template keeps owning what sections exist.
-EMAIL_SECTIONS = Path("docs/round/email-sections.md")
-_STUB_RE = re.compile(r"<!--\s*ROUND\b.*?-->", re.S | re.I)
-
-
-def written_sections(path: Path | None = None) -> list[str]:
-    """Prose blocks under each `## ` heading, in file order. Empty if absent.
-
-    `path=None` resolves `EMAIL_SECTIONS` at call time rather than binding it as a
-    default at import, so a test can point this at a fixture. `ark.approvals` carries the
-    same note for the same reason, and writing it the other way here cost two red tests.
-    """
-    path = Path(path) if path is not None else EMAIL_SECTIONS
-    if not path.is_file():
-        return []
-    blocks, current = [], None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("## "):
-            if current is not None:
-                blocks.append("\n".join(current).strip())
-            current = []
-        elif current is not None:
-            current.append(line)
-    if current is not None:
-        blocks.append("\n".join(current).strip())
-    return [b for b in blocks if b]
 
 
 def fill(
@@ -869,13 +495,6 @@ def fill(
     text = template.read_text()
     for token, value in subs.items():
         text = text.replace(f"[{token}]", value)
-    # Satisfy stubs from the tracked sections file, in order, before counting them.
-    sections = written_sections()
-    if sections:
-        for block in sections:
-            text, n = _STUB_RE.subn(lambda _m, b=block: b, text, count=1)
-            if not n:
-                break
     remaining = sorted(set(re.findall(r"\[([A-Z_0-9]{2,})\]", text)))
     # Reported as a pseudo-token so it travels the same path as a real one: `--check`
     # lists it, `main` refuses, and the packaging script stops. One mechanism, not two,

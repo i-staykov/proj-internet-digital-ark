@@ -7,8 +7,8 @@ from a crawl. That property is what reaches 1996-1998, where the Internet
 Archive's own coverage is thinnest and every capture-based route necessarily
 struggles.
 
-`scripts/pricing/probe_texts_corpus.py` measured the idea on 5 August rather than arguing
-it, and the measurement is the reason this collector is scoped the way it is:
+`scripts/pricing/probe_texts_corpus.py` measured the idea rather than arguing it, and the
+measurement is the reason this collector is scoped the way it is:
 
     query                          items  reachable  net-new pairs  per item
     boardwatch                        34         27            216       8.0
@@ -77,14 +77,13 @@ OUT_DIR = ROOT / "data/raw/tradepress"
 CACHE = ROOT / "data/raw/texts/cache"
 YEARS = range(1996, 2002)
 
-# The first corpus, worked in full on 8 August. Kept because a rerun has to be
-# able to reproduce it, not because it is worth running again.
+# The first corpus, worked in full. Kept because a rerun has to be able to reproduce
+# it, not because it is worth running again.
 #
-# Measured with `--discover` on 8 August rather than assumed, which corrected the
-# first version of this list: `boardwatch`, `pcmag`, `wired-magazine` and
-# `internet-magazines` are NOT collections and return zero as `collection:` terms.
-# Boardwatch is reachable as a free-text term, which is how the 5 August probe
-# found its 34 items and 8.0 net-new pairs each, so it appears here unprefixed.
+# Measured with `--discover` rather than assumed: `boardwatch`, `pcmag`, `wired-magazine`
+# and `internet-magazines` are NOT collections and return zero as `collection:` terms.
+# Boardwatch is reachable as a free-text term, which is how the probe found its 34 items
+# and 8.0 net-new pairs each, so it appears here unprefixed.
 # In-window counts: computermagazines 4,030, byte-magazine 49.
 #
 # Deliberately excluded: `magazine_rack` (34,287 items, measured 0.4 net-new pairs
@@ -93,7 +92,7 @@ YEARS = range(1996, 2002)
 # and adding item count is not the same as adding yield.
 HOBBYIST_QUERY = "collection:computermagazines OR collection:byte-magazine OR boardwatch"
 
-# The second corpus, added 8 August: the American computer trade press.
+# The second corpus: the American computer trade press.
 #
 # `collection:computermagazines` turned out to be dominated by European hobbyist
 # titles, `EnigmaAmiga` and `Elettronica2000` and `Electronique_et_Loisirs`, whose
@@ -103,7 +102,7 @@ HOBBYIST_QUERY = "collection:computermagazines OR collection:byte-magazine OR bo
 # of which 86 are `.com`. That is the TLD mix the metric rewards, and checking it
 # before committing is the step the first corpus skipped.
 #
-# Each term verified against `advancedsearch.php` on 8 August, not assumed. The
+# Each term verified against `advancedsearch.php`, not assumed. The
 # four terms are disjoint and total 1,288 in-window items:
 #
 #   collection:computerworld       632   the IDG weekly, scanned, English

@@ -51,12 +51,6 @@ def test_nothing_private_or_addressed_to_a_person_ships() -> None:
     assert not offenders, "mark them export-ignore in .gitattributes: " + "; ".join(offenders)
 
 
-@needs_git
-def test_every_round_plan_is_withheld_by_pattern() -> None:
-    """A new round must not have to remember to add a line."""
-    assert not sorted(n for n in shipped() if n.startswith("docs/") and "-plan.md" in n)
-
-
 def test_the_shipped_report_carries_no_unwritten_section() -> None:
     """A `<!-- ROUND` marker is for a human to write; the template carries them by design."""
     report = ROOT / "docs/report.md"

@@ -73,11 +73,10 @@ its edition's header, and an HTTP log dates every request.
 The EE column is the figure the price leg printed on the track it names, not a claim. Under
 the fleet's own price rule a record dated outside [FIRST_YEAR] to [LAST_YEAR] is an item on
 neither track, and the dated column counts the extracted records inside that window: a figure
-over none of them counts nowhere. The candidate claim takes registrable names and the ISC
-survey's hostnames, so the hostname part of any other candidate figure ships nothing, and a
-figure on the annual track enters an annual file only beside a web capture of its year. The register line each test names in
-`sources.csv` records what it ships. The fleet has closed the lens, and the tests above are its
-whole record.
+over none of them counts nowhere. The candidate claim takes registrable names and every hostname
+with no web capture in any year; a figure on the annual track enters an annual file only beside a
+web capture of its year. The register line each test names in `sources.csv` records what it
+ships. The fleet has closed the lens, and the tests above are its whole record.
 
 ### Limitations
 
@@ -155,9 +154,8 @@ shares [POOL_OURS_COUNT].
 
 Of [STATUS_SHARE_ROWS] raw CDX rows behind our hostname records, [STATUS_SHARE_FOURXX_PCT]%
 answered `4xx` and [STATUS_SHARE_FIVEXX_PCT]% `5xx` (`4xx` by family: [STATUS_SHARE_FAMILIES]).
-Of [STATUS_SHARE_SHIPPED] shipped records the audit checked, [STATUS_SHARE_REPOINT] rest on an
-error capture and are to be repointed to the earliest `2xx` or `3xx` capture of their host and
-year, and [STATUS_SHARE_RETRACT], which have none, are to be retracted.
+No shipped record rests on a capture the audit lists as `4xx` or `5xx`: `ark check` refuses one
+(`no_master_record_points_to_an_error_capture`).
 
 ### Preliminary practical-operability findings
 
@@ -167,7 +165,7 @@ per query, from [YEARFILL_KILL_LANES] clients, for the hosts of names he holds i
 [YEARFILL_KILL_HOSTS] hosts with a capture in [LAST_YEAR], and his file already held
 [YEARFILL_KILL_HELD] of them. The other [YEARFILL_KILL_NOT_HIS] were worth [YEARFILL_KILL_EE] EE,
 at most [YEARFILL_KILL_RATE] EE per client-hour, against the floor of [YEARFILL_KILL_FLOOR] below
-which a lane is stopped after two hours. The lane was stopped.
+which a lane is stopped after two hours.
 
 ### Limitations
 

@@ -2,8 +2,7 @@
 
 One row per source that is banked, seeded, admitted, parked, held out or a priced FIND; its link
 and what dates one item are written before it is ingested. Closed sources are one row each on
-[sources-closed.md](sources-closed.md). A new measurement replaces its row, and git holds every
-earlier one. Look a source up with `just find <term>`.
+[sources-closed.md](sources-closed.md). A new measurement replaces its row.
 
 | source | version or date | coverage period | retrieval method | what dates one item | baseline overlap | net-new EE (date) | quality issues | effort | verdict | link |
 |---|---|---|---|---|---|---|---|---|---|---|

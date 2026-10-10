@@ -195,24 +195,11 @@ def test_his_scores_reproduce_under_the_benchmark_rule_and_the_assignment_rule()
     assert fig.score_line(D("28.8813137522"), 67) == "S = 10 x (28.8813137522 / 67) = 4.310643844"
 
 
-def test_fill_report_holds_no_day_arithmetic(scored, tmp_path, monkeypatch):
-    """Its day count is `ark.figures`'; its pool counts read the files that shipped and `held`."""
-    monkeypatch.setattr(held, "HELD_ROOT", scored.root / "held")
-    monkeypatch.setattr(held, "his_dir", lambda: scored.his)
-    _write(tmp_path, {POOL: "a.edu\nb.com\nc.gov\nd.mil\ne.edu.au\n"})
-    report = _script("fill_report", monkeypatch, CANDIDATES_PATH=tmp_path / POOL)
+def test_fill_report_holds_no_day_arithmetic(monkeypatch):
+    """Its day count is `ark.figures`'."""
+    report = _script("fill_report", monkeypatch)
     source = Path(report.__file__).read_text(encoding="utf-8")
     assert [t for t in ("date.today", "fromisoformat", "timedelta", ".days") if t in source] == []
-    assert report.pool_restricted() == "3"
-    init_db(conn := connect(tmp_path / "store.duckdb"))
-    isc = ensure_source(conn, "isc_survey", "timestamped")
-    for name in ("already-his.com", "new.com"):
-        add_candidate(conn, name, isc)
-        record_evidence(conn, name, isc, 1997, "artifact_listing", f"isc {name}")
-    conn.close()
-    reopen = lambda *_a, **_k: duckdb.connect(str(tmp_path / "store.duckdb"), read_only=True)  # noqa: E731
-    monkeypatch.setattr("ark.db.connect_read_only_patiently", reopen)
-    assert report.isc_registrables_he_holds() == 1  # already-his.com, by exact name
 
 
 def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatch, capsys) -> None:

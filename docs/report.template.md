@@ -13,7 +13,7 @@ equivalent-English, by your calculator and weights, copied unmodified in
 
 t = [TDAYS], whole days from the 2 August assignment.
 
-No record is in your file for its year. Candidate files ship as before and are not counted above.
+No record is in your file for its year. Candidate files are not counted above.
 
 ## 2. The evidence rule
 
@@ -43,8 +43,8 @@ inputs with their sha256 and the counts and EE per year.
 
 [ATTRIBUTION_TOP]
 
-The same rule, from the capture-index collectors of the previous rounds. `additions/` and
-`hostnames/` hold the records with their evidence manifests, and `provenance/` rebuilds every one.
+The same rule. `additions/` and `hostnames/` hold the records with their evidence manifests, and
+`provenance/` rebuilds every one.
 
 ## 5. Checks and reproduction
 

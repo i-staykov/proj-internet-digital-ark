@@ -3,10 +3,9 @@
 The tick runs hourly and the bank on change, both push `live`, and nobody watches
 them. So their failures are the quiet kind:
 
-1. **A dirty clone.** The tick and the bank stage the registers by path, and a
-   wholesale `git add docs/` is how a 1.3 GB baseline copy once reached git history.
-   A clone with uncommitted tracked edits, or with untracked files under the paths
-   the bank stages, is refused BEFORE anything is written or fetched.
+1. **A dirty clone.** The tick and the bank stage the registers by path, never a
+   wholesale `git add docs/`. A clone with uncommitted tracked edits, or with untracked
+   files under the paths the bank stages, is refused BEFORE anything is written or fetched.
 2. **A diverged clone.** Approvals now arrive as pull requests merged from a phone,
    so `live` moves without this machine. A fast-forward-only pull is the whole fix:
    it takes the merge and refuses to invent one.
@@ -16,26 +15,21 @@ them. So their failures are the quiet kind:
    query, because either alone has a hole: the ledger cannot see an issue somebody
    closed by hand, and the query cannot see one that has been closed after shipping.
 
-Banked staging files require verified remote copies before removal. Empty incoming
-directories and unverified files remain local. Preflight also enforces the free-space
-floor and write budget before the bank starts.
+Preflight also enforces the free-space floor and write budget before the bank starts.
 
     uv run python scripts/harness/bank_hygiene.py preflight   # before the bank works
-    uv run python scripts/harness/bank_hygiene.py prune --write
     uv run python scripts/harness/bank_hygiene.py gate --write # after the gate ran
 """
 
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import math
 import os
 import shutil
 import subprocess
 import sys
-import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -68,20 +62,7 @@ GENERATED = (
     "docs/registers/queue.md",
 )
 
-# Where the bank downloads and parks fleet artifacts.
-INCOMING = "data/fleet_findings/incoming"
-BANKED = "data/fleet_findings/banked"
 GIB = 1024**3
-
-
-def round_prune():
-    if "prune" in sys.modules:
-        return sys.modules["prune"]
-    spec = importlib.util.spec_from_file_location("prune", ROOT / "scripts/round/prune.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["prune"] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 # Headroom above the guard under which every recipe says so before it refuses.
@@ -154,8 +135,8 @@ def clean_env() -> dict[str, str]:
 def git(args: list[str], cwd: Path = ROOT) -> tuple[int, str]:
     """One git command against the clone at `cwd`, returning its status and its output.
 
-    A hung remote is an answer, not a crash: measured 2026-09-28 on a hotspot, a pull that
-    timed out raised out of the preflight and the tick died on a traceback. It comes back
+    A hung remote is an answer, not a crash: a pull that timed out raised out of the
+    preflight and killed the tick. It comes back
     as 124, the status `timeout(1)` uses, so the preflight can say the remote did not answer.
     """
     try:
@@ -269,51 +250,6 @@ def preflight(
         return 2, lines
     lines.append(f"fast-forwarded from {remote}/{branch}")
     return 0, lines
-
-
-def prune(
-    *, root: Path = ROOT, days: int = 14, now: float | None = None, write: bool = False
-) -> list[str]:
-    """Prune old banked files only with per-file verified remote copies."""
-    root = root.resolve()
-    now = time.time() if now is None else now
-    lines, removed = [], 0
-    cutoff = now - days * 86400
-    for path in sorted((root / BANKED).glob("*")):
-        if path.is_dir() and path.stat().st_mtime < cutoff:
-            age = int((now - path.stat().st_mtime) / 86400)
-            lines.append(f"banked findings {age} days old: {path.relative_to(root)}")
-            try:
-                _rmtree(path, root=root, write=write)
-                removed += 1
-            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
-                lines.append(f"HELD: {exc}")
-    if not lines:
-        return ["staging directories: nothing to prune"]
-    lines.append(f"{'pruned' if write else 'would prune'} {removed} directory(ies)")
-    return lines
-
-
-def _rmtree(path: Path, *, root: Path = ROOT, write: bool = False) -> None:
-    """Require proofs for every file before removing any; retain unverified metadata."""
-    cleaner = round_prune()
-    offsite = cleaner.sibling("offsite")
-    inventory = offsite.local_files(root, path)
-    if not inventory:
-        raise ValueError("no verified payload; directory retained")
-    files = [path / rel for rel in inventory]
-    for child in files:
-        offsite.deletion_proof(root, child)
-    if offsite.local_files(root, path) != inventory:
-        raise ValueError("staging changed during verification")
-    for child in files:
-        cleaner.remove_verified(root, child, write=write)
-    if write:
-        for directory in sorted(path.rglob("*"), reverse=True):
-            if directory.is_dir() and not directory.is_symlink() and not any(directory.iterdir()):
-                directory.rmdir()
-        if not any(path.iterdir()):
-            path.rmdir()
 
 
 def latched(path: Path = LATCH) -> set[tuple[str, str]]:
@@ -454,10 +390,6 @@ def main() -> None:
     pre.add_argument("--remote", default="origin")
     pre.add_argument("--no-pull", action="store_true", help="check only, stay offline")
 
-    pr = sub.add_parser("prune", help="delete the bank's spent staging directories")
-    pr.add_argument("--days", type=int, default=14)
-    pr.add_argument("--write", action="store_true", help="delete rather than list")
-
     ga = sub.add_parser("gate", help="open the gate issue once when the round crosses 5%%")
     ga.add_argument("--repo", default=FLEET_REPO)
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
@@ -474,11 +406,6 @@ def main() -> None:
         for line in lines:
             print(f"  {line}")
         raise SystemExit(code)
-
-    if args.what == "prune":
-        for line in prune(days=args.days, write=args.write):
-            print(f"  {line}")
-        return
 
     brief = _brief()
     if brief is None:

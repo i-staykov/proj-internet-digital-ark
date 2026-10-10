@@ -1,7 +1,5 @@
-# A self-test, not a source: the UDRP dockets are already ingested by a bespoke
-# collector, so the right answer is known. The probe should land near 8,800 pairs
-# over 8,769 domains. Anything far off means the declarative path is lying about
-# yield, which is the one failure that would make its prices useless.
+# A self-test, not a source: it must reproduce the UDRP collector's records exactly
+# (docs/lore/laws.md); anything off means the declarative path misprices.
 name = "udrp_selftest"
 url = "https://www.icann.org/udrp/proceedings-list.htm"
 kind = "html_table"

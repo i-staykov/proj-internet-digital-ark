@@ -14,8 +14,8 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - ISC hosts ship in `<year>-ISC.txt` and `candidate_additions.txt` (`src/ark/export.py` `export_isc_provenance`).
 - Export fails unless each ISC host has an `isc_survey_provenance.csv` row naming edition, file, URL, location, method and a target year matching the edition (`export_isc_provenance`).
 - 1.419% of the ISC survey's 13,347,250 hosts are in his files; `just find isc_survey_hostnames`.
-- Hosts with only non-web evidence ship in `server_header_hostnames/` with provenance and exclusion ledger: 39,812 names, 30,384 EE (`src/ark/export.py` `export_header_candidates`).
-- A registrable we found with no capture of its own name in any year, and not in his files by exact name, enters the candidate claim: 207,680 registrables ship there (`src/ark/export.py` `_candidate_pool`).
+- Hosts with only non-web evidence ship in `server_header_hostnames/` with provenance and exclusion ledger, counted in `header_candidates_summary.json` (`src/ark/export.py` `export_header_candidates`).
+- A registrable we found with no capture of its own name in any year, and not in his files by exact name, enters the candidate claim (`src/ark/export.py` `_candidate_pool`).
 - A self-dating record (capture stamp, registry creation date, dated listing) takes no corroboration split: `just price --no-split`.
 - Only a name recovered from free text takes the corroboration split, counting once another source dates that domain; on a delimited field it costs 1.3x to 5.5x, 255,254 to 56,707 DK zone list pairs (`scripts/pricing/price_items.py`, `src/ark/sources.py`).
 - The split, not the regex, is the wall on a human-typed corpus; a self-dating corpus takes no split, so its regex is its only screen (`scripts/harness/screen_hypothesis.py` `DATING`).
@@ -46,7 +46,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 
 ## Scoring
 
-- Both tracks score S = 10 x (p / t) on the same annual EE denominator, so a candidate point costs an annual point: 1,702,122.4578 / 27,740,079.6441 = 6.135968% (`scripts/round/round_figures.py`).
+- Both tracks score S = 10 x (p / t) on the same annual EE denominator, so a candidate point costs an annual point: his candidate score of 6.135968% is 1,702,122.4578 / 27,740,079.6441, the 1996 to 2001 EE of merged260905-3 (`scripts/round/round_figures.py`).
 - A candidate is a name with no web-evidence year; malformed but recoverable strings go to normalization review (`scripts/round/unparsed_pool.py`).
 - The candidate claim is our pool minus his `candidate_pool.txt` and annual files: 2,279,755 registrables left 29,327, 78x fewer (`src/ark/export.py`).
 - Export diffs every shipped list against his six annual files as released, since an ingested copy lags: 303 held names in one 2001 file (`src/ark/held.py`).
@@ -59,13 +59,11 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - The benchmark clock, release stamp to receipt rounded up to whole days, reproduces rounds 6 and 7 at 6.884530 and 6.302372; from midnight it misses (`src/ark/figures.py` `t_days`, `docs/registers/rounds.md`).
 - A (name, year) scores its TLD's English share, e.g. .uk 0.9813, .edu 0.9717, .com 0.6321, .net 0.4530, .de 0.1324; a TLD absent from the table scores 0 (`src/ark/english_share.py`).
 - Hostnames are annual records at full TLD weight, shipped in `NNNN_hostnames.txt`: the 180 suffix journals priced 0 at registrable grain and 338,865 net-new hostname records, 301,650 EE, at hostname grain (`src/ark/export.py`).
-- Round figures sum both units, registrables and hostnames at full weight; `ee_netnew` alone is the registrable half (`scripts/round/build_round_state.py`, `scripts/round/fill_report.py`).
-- `www.<parent>` records are accepted at hostname grain: round 8, its hostname half 95.0% that alias, is credited 18.769714% (`data/baseline.json`).
+- Round figures sum both units, registrables and hostnames at full weight; `ee_netnew` alone is the registrable half (`src/ark/stats.py`, `scripts/round/fill_report.py`).
 - A round records his accepted figures, never what was sent (`data/baseline.json`, read by `ark.baseline` `SUBMITTED_ROUNDS`).
 
 ## Pricing
 
-- Several unverified numbers, a subagent's among them, were fabricated or out by 1000x.
 - A verifier re-running the same code reproduced to the digit a Usenet figure whose `^From` boundary missed 50.019% of posts (`scripts/sources/usenet/build_usenet_pool.py` `BOUNDARY`).
 - A worse reimplementation of an existing tool overstated a source 20x (`scripts/engines/build_promotion_journals.py`).
 - Net-new post-split EE and gross differ by more than 10x (`scripts/pricing/price_items.py` prints both).
@@ -123,7 +121,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - Whether a corpus re-serves IA data shows in its description before any fetch; `just find WebBase`.
 - A bulk IA holdings projection (`dartmouth_nber_captures`) is the exception that adds registrables; `just find dartmouth_nber_captures`.
 - TREC web, Stanford WebBase and Early Web CDX descend from the baseline's 1996 to 1997 crawls; the two measured gave 0.01% net-new each; `just find trec`.
-- The public IA bulk indexes we know are read (Dartmouth ARCS, the node CDX, UKWA); the 2,223 in-window Alexa and Inktomi deposits' CDX files are `private=true` and answer 401; `just find archiveorg_in_window_web_items_alexa_inktomi`.
+- The public IA bulk indexes we know are read (Dartmouth ARCS, the node CDX, UKWA, Early Web CDX, Arquivo.pt `IA.cdxj`); the 2,223 in-window Alexa and Inktomi deposits' CDX files are `private=true` and answer 401; `just find archiveorg_in_window_web_items_alexa_inktomi`.
 - Our IA coverage is bound by our query rate, not IA's holdings: 239,631 domains ever asked at CDX against 2.5M in the pool, at about 713 requests an hour (`src/ark/cdx.py`).
 - The UK Web Archive host link graph is IA data and ran 90.4% net-new against 46.0% pool-wide: a link graph names hosts CDX does not return as captures; `just find ukwa`.
 - Listing a name proves the artifact's date, not liveness (Netcraft, JANET); `just find Netcraft`.
@@ -211,7 +209,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A name key freezes a growing file: the IETF collector appends to one shard per list, so the ingest keys name plus sha256 and re-reads a changed digest (`src/ark/hostnames.py`).
 - A collector's output name carries a run id, never a resetting counter: a restarted sweep overwrote six `batch1_shard_*` files (`scripts/sources/usenet/sweep_alt_hierarchy.sh` `RUN_ID`).
 - The ingest ledger keys (source_name, file_name) with sha256, so a recycled name fails with `ledgered with different content (sha256 mismatch)` (`src/ark/bulk.py`).
-- `data/raw` has 129,101,381,838 bytes unledgered, of which journal-shaped `*.jsonl.gz` is 599,459,118, 215x less: raw containers are never ledgered (`just residual`).
+- Raw containers are never ledgered (`just residual`).
 - An unledgered journal is usually a superseded intermediate: banked `usenet_addr` and `usenet_bare` `*_candidates_cmp*` files hold the older per-run journals' pairs (`just residual`).
 - A journal of answers without the response cannot be re-read: 1,163 gap journals hold 2,984,321 answers with no host, unreadable at hostname grain (`scripts/engines/cdx_gap_hostgrain.py`).
 - 7,578,321 domain-years rest on CDX evidence with a timestamp and no host, so no host can be named; every CDX query asks `fl=timestamp,original` (`src/ark/cdx.py`).

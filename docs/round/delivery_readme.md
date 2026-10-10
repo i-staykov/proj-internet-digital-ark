@@ -46,7 +46,7 @@ The standard is at the end. **The counts are in `report.md` and printed by `bash
 | `source/` | The code that produced everything here, plus the commit it was built from; `fleet.tar.gz` is the code of the unattended research agents (workflows, prompts, policy), at the commit named in `FLEET_COMMIT.txt` |
 | `sources.md` | One row per source not closed: what dates one item and **a link to its download address**. Each ingest spec is on `docs/registers/approved-sources-list.md` inside `source/` |
 | `sources-closed.md` | The other half of the source list: one row per family closed on a measurement, with the figure and the reason |
-| `findings.md` | The round's research findings in full, with the measurement behind each. The report cites them rather than carrying them |
+| `findings.md` | The round's research findings in full, with the measurement behind each |
 | `experience-summary.md` | What worked, what did not, measured yields, limits, lessons, reusable techniques, and where to go next, distilled from `sources.md` and `sources-closed.md` |
 | `Open Research Questions/` | **The two open research questions of section IV-A**: `Open Research Questions.docx`, with `tests.csv` (every test, its label and its cost), `sources.csv`, and the evidence, code, logs and samples it names |
 | `开放性研究问题/` | The same answers as plain text, one file per question under the six headings of section X |
