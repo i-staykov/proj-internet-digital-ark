@@ -12,7 +12,8 @@ one row per domain with a year list. So the right move is a converter, not a new
 its earliest 2xx or 3xx stamp under `stamps`, so the ingested row names that capture and its
 host (`cdx capture <ts> x.com`) and passes the exact-host test a shipped record needs.
 
-**Only new or grown journals are read**, per the state file beside the output. gzip cannot
+**Only new or grown journals are read**, per a state file in `data/logs/`, outside the raw
+folder it would change every bank. gzip cannot
 resume, so a grown journal is read whole again; the ingest keeps one row per (domain, year,
 class), so its repeated rows add nothing. A run that finds nothing writes nothing.
 
@@ -42,6 +43,7 @@ from ark.hostnames import YEARS, host_of  # noqa: E402
 from ark.journal import open_journal_for_write  # noqa: E402
 
 STATE_NAME = "cdx_suffix_convert.state.tsv"
+OUT, STATE = Path("data/raw/cdx"), Path("data/logs") / STATE_NAME
 AUTHORITY_END = re.compile(r"[/?#]")
 
 
@@ -111,10 +113,12 @@ def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--tag", default=time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
     ap.add_argument("--glob", default="data/raw/cdx_suffix/*.jsonl.gz")
-    ap.add_argument("--out", type=Path, default=Path("data/raw/cdx"))
-    ap.add_argument("--state", type=Path, help=f"default <out>/{STATE_NAME}")
+    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--state", type=Path, help=f"default {STATE}, or <out>/{STATE_NAME}")
     args = ap.parse_args(argv)
-    state_path = args.state or args.out / STATE_NAME
+    state_path = args.state or (STATE if args.out == OUT else args.out / STATE_NAME)
+    if state_path == STATE and not STATE.exists() and (OUT / STATE_NAME).exists():
+        os.replace(OUT / STATE_NAME, STATE)  # its home before
     dest = args.out / f"cdx_suffix_{args.tag}.jsonl.gz"
     if dest.exists():
         # the ingest ledger keys on the name, so new bytes under it would be refused
