@@ -368,6 +368,7 @@ class Lane:
         self.log.write("\t".join(map(str, row)) + "\n")
         tries = self.fails.get(key, 0)
         silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
+        silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
