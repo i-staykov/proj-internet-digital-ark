@@ -9,7 +9,7 @@ everything under its heading.
 
 ## The send
 
-Nothing to send: Round 12 stands at 4.8672% of 2002-2013 against `merge261008-3`, under the 5% gate, 260,460 EE short.
+Nothing to send: Round 12 stands at 4.8996% of 2002-2013 against `merge261008-3`, under the 5% gate, 196,918 EE short.
 
 ## New evidence classes, biggest first
 
