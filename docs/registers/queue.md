@@ -9,7 +9,7 @@ everything under its heading.
 
 ## The send
 
-**Round 12 crossed the 5% gate** at 5.1104% of 2002-2013 against `merge261008-3`, and the send is yours: merge any open approval PR, then run `just ship` where the store is.
+**Round 12 crossed the 5% gate** at 5.2099% of 2002-2013 against `merge261008-3`, and the send is yours: merge any open approval PR, then run `just ship` where the store is.
 
 ## New evidence classes, biggest first
 
