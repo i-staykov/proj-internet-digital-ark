@@ -66,6 +66,9 @@ GENERATED = (
     # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
     # pulled, so a run that stops before its commit leaves it changed.
     "docs/registers/queue.md",
+    # `verify_raw.py` regenerates this inside `just ship`, so a ship that stops before its
+    # commit leaves it changed.
+    "docs/registers/retention.md",
 )
 
 # Where the bank downloads and parks fleet artifacts.

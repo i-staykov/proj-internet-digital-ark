@@ -1382,6 +1382,7 @@ ship stage="all" *args:
     stage_retention() {
         just verify raw
         just verify offsite --manifest
+        just verify offsite --upload --yes
         just verify offsite --verify
         just prune --round --write
     }
