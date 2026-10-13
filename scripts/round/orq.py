@@ -1,17 +1,14 @@
 """Build the two Open Research Questions folders every submission ships.
 
-His brief asks for them in two places. Section IV-A puts the two open questions and asks
-for a folder `Open Research Questions` holding `Open Research Questions.docx`, with code,
-source links, execution logs, result samples and screenshots beside it, and every
-untested idea labelled "Pending validation". Section X asks for a second folder,
-`开放性研究问题`, of plain-text answers covering the proposed approaches, completed
-related work or tests, preliminary technical-feasibility findings, preliminary
-practical-operability findings, limitations and next steps. Both are built here from
-one template, `docs/orq/orq.template.md`, so they cannot say different things.
+Section IV-A of his brief asks for `Open Research Questions/Open Research Questions.docx`
+with code, source links, logs, samples and screenshots beside it, and every untested idea
+labelled "Pending validation". Section X asks for `开放性研究问题/`, plain-text answers
+under its six headings. Both are built from one template, `docs/orq/orq.template.md`, so
+they cannot say different things.
 
-    uv run python scripts/round/orq.py --preview DIR [--fleet DIR] [--inputs-from-env]
-    uv run python scripts/round/orq.py --stage DIR [--fleet DIR] [--inputs-from-env]
-    uv run python scripts/round/orq.py --measure ID [--inputs-from-env]
+    uv run python scripts/round/orq.py --preview DIR [--fleet DIR]
+    uv run python scripts/round/orq.py --stage DIR [--fleet DIR]
+    uv run python scripts/round/orq.py --measure ID
 
 `--stage` writes into a package stage and refuses one under `submissions/`. `--preview`
 writes anywhere else, and refuses `output/` too, so a look at the document never lands
@@ -24,23 +21,34 @@ so is a token the build cannot fill, so a stale number cannot hide in the prose.
 **Q1 is the fleet's pre-1996 lens**: every `leads/*.json` whose `lens` is `pre-1996`. A lead
 leaves Q1 only when all its dated records postdate 1995: its extraction years (the keys
 with a count in `finding.json` and `verify.json`) are non-empty and all 1996 or later, and
-neither `what_dates_one_item` nor `sample_record` names a year before 1996. Those two
-texts date records as four-digit years (`[01/Jul/1995:` included), as `YYYYMMDD` and CDX
-stamps, and as `dd-Mon-yy` (`17-May-95`). An empty `years` is no evidence of lateness: the
-DDN host table has none, and its editions are stamped only as `17-May-95` and the like.
+either their counts cover every extracted item or neither `what_dates_one_item` nor
+`sample_record` names a year before 1996. Those two texts date only the items the
+extraction left undated, as Virginia Tech's 1995 report rows are, in four-digit years
+(`[01/Jul/1995:` included), `YYYYMMDD` and CDX stamps, and `dd-Mon-yy` (`17-May-95`). An
+empty `years` is no evidence of lateness: the DDN host table has none.
 
 **The labels are his words, computed from the fleet's files.** "Validated": the finding
 records its artifact's sha256, `extract.py` compiles, the finding records the command that
 priced it, and an independent verify leg confirmed it with the same bytes. "Tested, not
 independently verified": a finding exists and one of those fails, and `tests.csv` says
-which. "Pending validation": no finding, or a proposed approach nothing has run. A Q2
-command re-run by this build is "Tested, not independently verified": it ran, and nothing
-independent has run it again. A fleet experiment keeps the label its re-run gave it.
+which. "Pending validation": no finding. A Q2 command re-run by this build is "Tested, not
+independently verified": nothing independent has run it again. A fleet experiment keeps the
+label its re-run gave it, and a frozen result the label its file gives.
 
-**Q2 is the template's Q2 table.** Each row's command is exactly what runs, concurrently,
-at every build, with `$HIS`, `$NETNEW`, `$CDX` and `$AUDIT` naming its inputs, which are the
-repository's own files unless `--inputs-from-env`. `--measure` is the part of a command too
-long for a table cell.
+**Q2's build-time tests are `COMMANDS`.** Each command is exactly what runs, concurrently,
+at every build, with `$HIS`, `$NETNEW`, `$EXTENDED`, `$CDX` and `$AUDIT` naming its inputs,
+the repository's own files. `--measure` is the part of a command too long for one line; it
+takes those variables from the environment, where the build hands them over.
+
+**Frozen results are the scripts' own.** Each `docs/orq/results/<id>/result.json`, written
+by `scripts/orq/<id>.py` from its counts, is a test of its question; a folder without one is
+still running and is left out. Its sentences reach the document only as `[<ID>_RESULT]`,
+`[<ID>_FINDING]` and `[<ID>_LIMITS]`, which a preview fills with "Pending validation" while
+the result has not landed, and a stage refuses.
+
+**Each question's table** holds the fleet's Q1 leads priced above zero, the Q2 commands and
+the frozen results, by a short name (a result's `title`, else `NAMES`): strongest label
+first, then `ORDER`, then the larger figure. `tests.csv` holds every test.
 
 **Cost is the fleet ledger's.** A test's run_ids (the price leg's in `finding.json`, the
 verify leg's in `verify.json`, an experiment's own) are looked up among the `leg` and
@@ -49,9 +57,9 @@ verify leg's in `verify.json`, an experiment's own) are looked up among the `leg
 ledger began.
 
 **It never reads `private/` or the store**: every file it opens from this repository or
-the fleet goes through `read_bytes`, which refuses both, and a Q2 command reads only what
-`$HIS`, `$NETNEW`, `$CDX` and `$AUDIT` name. Fleet evidence is copied into the folders,
-never linked, and a copy that names `private/` or a home directory stops the build.
+the fleet goes through `opened`, which refuses both, and a Q2 command reads only what its
+variables name. Evidence is copied into the folders, never linked, and a copy that names
+`private/` or a home directory stops the build.
 """
 
 from __future__ import annotations
@@ -75,6 +83,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import urlsplit
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -87,9 +96,16 @@ BRIEF = REPO / "docs/brief/ding/project-brief.md"
 OWNER = (REPO / "data").resolve().parent
 FORBIDDEN = tuple(dict.fromkeys((REPO / "private", OWNER / "private")))
 NETNEW = REPO / "output/netnew"
+EXTENDED = REPO / "output/extended_years/additions"
 CDX = REPO / "data/raw/cdx"
 AUDIT = REPO / "data/audit/status_audit.json"
 SCREENSHOTS = REPO / "data/orq/screenshots"
+RESULTS, SCRIPTS = REPO / "docs/orq/results", REPO / "scripts/orq"
+FROZEN_KEYS = ("id", "question", "label", "command", "sources", "sample", "result")
+FROZEN_FIELDS = ("result", "finding", "limits")
+FROZEN_TOKEN_RE = re.compile(r"(Q[12]_[A-Z0-9_]+)_(RESULT|FINDING|LIMITS)")
+# The export's candidate collections: discovery-only evidence, no year.
+DISCOVERY = ("candidate_additions.txt", "isc_candidates.txt", "header_candidates.txt")
 DEFAULT_FLEET = Path.home() / "GitHub/ark-fleet"
 
 EN = "Open Research Questions"
@@ -131,22 +147,13 @@ _STAMP = re.compile(
 _DMY = re.compile(rf"(?<!\d)\d{{1,2}}-(?:{_MONTHS})-(\d\d)(?!\d)", re.I)
 _JOURNAL = re.compile(r"^cdx_yearfill_([a-z0-9]+)_(\d{8}T\d{6}Z)_\d+\.jsonl\.gz$")
 
-TESTS_FIELDS = (
-    "question",
-    "id",
-    "label",
-    "label_reason",
-    "leg",
-    "run_id",
-    "tokens_in_plus_out",
-    "duration_s",
-    "seven_day_delta",
-    "evidence",
-    "code",
-    "logs",
-    "sample",
+TESTS_FIELDS = tuple(
+    "question id name label label_reason leg run_id tokens_in_plus_out duration_s seven_day_delta"
+    " snapshot manifest evidence code logs sample".split()
 )
 SOURCES_FIELDS = ("question", "id", "kind", "name", "url", "sha256", "bytes", "anchor")
+# The tables' columns, as shares of the page: test, sample, result, label.
+WIDTHS = (24, 25, 35, 16)
 
 
 class Refusal(Exception):
@@ -167,12 +174,17 @@ def _forbidden(path: Path) -> str:
     return ""
 
 
-def read_bytes(path: Path) -> bytes:
-    """Every read of a file goes through here, and none reaches private/ or the store."""
+def opened(path: Path):
+    """Every read of a file opens it here, and none reaches private/ or the store."""
     why = _forbidden(path)
     if why:
         raise Refusal(f"{path} is {why}, which the research questions never read")
-    return Path(path).read_bytes()
+    return open(path, "rb")
+
+
+def read_bytes(path: Path) -> bytes:
+    with opened(path) as handle:
+        return handle.read()
 
 
 def read_text(path: Path) -> str:
@@ -245,6 +257,10 @@ def postdates(lead: dict, finding: dict | None, verify: dict | None) -> bool:
     years = extraction_years(finding, verify)
     if not years or min(years) < FIRST_YEAR:
         return False
+    counts = _dig(finding, "extraction", "years")
+    dated = sum(_number(n) or 0 for n in counts.values()) if isinstance(counts, dict) else 0
+    if dated >= (_number(_dig(finding, "extraction", "items")) or float("inf")):
+        return True
     text = " ".join(str(lead.get(k) or "") for k in ("what_dates_one_item", "sample_record"))
     return not any(y < FIRST_YEAR for y in text_years(text))
 
@@ -264,8 +280,11 @@ def label_of(
 ) -> tuple[str, list[str]]:
     """A fleet test's label and, when it is not Validated, what it lacks."""
     if finding is None:
-        why = lead.get("closed_reason") or lead.get("blocked_on") or lead.get("status")
-        return PENDING, [f"closed at the scout leg, before any extractor ran: {why}"]
+        why = lead.get("closed_reason") or lead.get("blocked_on")
+        guess, floor = _dig(lead, "size_estimate", "ee_high"), lead.get("floor")
+        if not why and _number(guess) is not None and _number(floor):
+            why = f"estimated at most {_figure(guess)} EE, under the {_figure(floor)} EE floor"
+        return PENDING, [f"not extracted: {why or lead.get('status')}"]
     gaps = []
     sha = _dig(finding, "artifact", "sha256")
     if not (isinstance(sha, str) and SHA256.fullmatch(sha)):
@@ -311,20 +330,23 @@ class Test:
     finding: dict | None = None
     verify: dict | None = None
     command: str = ""
-    result: str = ""
     anchor: str = ""
-    seconds: float | None = None
     run: Run | None = None
     record: Path | None = None
+    frozen: dict | None = None
+    # Its row in the question's table between its name and its label: sample, result. A
+    # test without a result there is in tests.csv only.
+    name: str = ""
+    cells: tuple[str, str] = ("", "")
     evidence: str = ""
     code: str = ""
     logs: str = ""
     sample: str = ""
 
 
-def q1(fleet: Path) -> tuple[list[Test], list[str], int]:
-    """The Q1 tests, the pre-1996 leads left out as postdating 1995, and the lens's size."""
-    tests, excluded, seen = [], [], 0
+def q1(fleet: Path) -> tuple[list[Test], list[str]]:
+    """The Q1 tests, and the pre-1996 leads left out as postdating 1995."""
+    tests, excluded = [], []
     for path in sorted((fleet / "leads").glob("*.json")):
         slug = path.stem
         if slug.startswith("_"):
@@ -332,7 +354,6 @@ def q1(fleet: Path) -> tuple[list[Test], list[str], int]:
         lead = _json(path)
         if not lead or lead.get("lens") != LENS:
             continue
-        seen += 1
         folder = fleet / "leads" / slug
         finding, verify = _json(folder / "finding.json"), _json(folder / "verify.json")
         if postdates(lead, finding, verify):
@@ -344,8 +365,44 @@ def q1(fleet: Path) -> tuple[list[Test], list[str], int]:
             for leg, doc in (("price", finding), ("verify", verify))
             if doc and doc.get("run_id") not in (None, "")
         ]
-        tests.append(Test("Q1", slug, label, gaps, runs, lead, finding, verify))
-    return tests, excluded, seen
+        test = Test("Q1", slug, label, gaps, runs, lead, finding, verify, name=NAMES.get(slug, ""))
+        pricing = _dig(finding, "pricing") or {}
+        if _number(pricing.get("ee")):
+            host = urlsplit(str(_dig(finding, "artifact", "url") or "")).netloc
+            hosts = _figure(_dig(finding, "extraction", "hosts"))
+            annual = pricing.get("track") == "annual"
+            into = "in annual files" if annual else "as candidates (no year)"
+            test.cells = (
+                f"{host}, {hosts} hosts" if hosts else host,
+                f"{_number(pricing['ee']):,.1f} EE {into}",
+            )
+        tests.append(test)
+    return tests, excluded
+
+
+def frozen(results: Path) -> tuple[list[Test], list[str]]:
+    """The scripts' frozen results, and the folders without one yet, still running."""
+    tests, running = [], []
+    for folder in sorted(p for p in results.glob("*") if p.is_dir()):
+        path = folder / "result.json"
+        if not path.is_file():
+            running.append(folder.name)
+            continue
+        doc = _json(path)
+        if doc is None:
+            continue  # BROKEN names it
+        gone = [key for key in FROZEN_KEYS if key not in doc]
+        if gone or doc["id"] != folder.name or doc["question"] not in ("Q1", "Q2"):
+            raise Refusal(f"{path}: missing {gone}, or an id or question off")
+        if doc["label"] not in LABELS or not isinstance(doc["sources"], list):
+            raise Refusal(f"{path}: a label outside the three, or sources not a list")
+        gaps = {TESTED: ["one run of its script, never re-run independently"], PENDING: ["not run"]}
+        test = Test(doc["question"], doc["id"], doc["label"], gaps.get(doc["label"], []), [])
+        test.record, test.frozen, test.command = path, doc, str(doc["command"])
+        test.name = str(doc.get("title") or "")
+        test.cells = (str(doc["sample"]), str(doc["result"]))
+        tests.append(test)
+    return tests, running
 
 
 # --- cost: the fleet ledger ------------------------------------------------------------
@@ -437,40 +494,7 @@ def cost(lines: dict[str, list[dict]], run_id: str, slug: str) -> tuple[str, str
     )
 
 
-# --- Q2: the template's table, run at every build ---------------------------------------
-
-
-@dataclass
-class Row:
-    id: str
-    command: str
-    anchor: str
-    result: str
-
-
-def q2_rows(template: str) -> list[Row]:
-    """The Q2 table: `id` | `command` or none | `file#phrase` | [TOKEN] or text."""
-    rows = []
-    for line in template.splitlines():
-        if not line.startswith("| `q2-"):
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) != 4 or not re.fullmatch(r"`q2-[a-z0-9-]+`", cells[0]):
-            raise Refusal(f"a Q2 row needs four cells and no | inside one: {line[:60]}")
-        command = cells[1]
-        if command == "none":
-            command = ""
-        elif re.fullmatch(r"`[^`]+`", command):
-            command = command[1:-1]
-        else:
-            raise Refusal(f"Q2 row {cells[0]}: the command is one code span or none")
-        if not re.fullmatch(r"`[^`#]+#[^`]+`", cells[2]):
-            raise Refusal(f"Q2 row {cells[0]}: the anchor is one `file#phrase` code span")
-        rows.append(Row(cells[0][1:-1], command, cells[2][1:-1], cells[3]))
-    ids = [row.id for row in rows]
-    if len(set(ids)) != len(ids):
-        raise Refusal("the Q2 table repeats an id")
-    return rows
+# --- Q2: the commands every build runs ------------------------------------------------
 
 
 def resolve_anchor(anchor: str) -> str:
@@ -488,7 +512,7 @@ def resolve_anchor(anchor: str) -> str:
 def inputs(from_env: bool = False) -> dict[str, str]:
     """What the Q2 commands read, as the variables they name it by. The repository's own
     files unless `from_env`, when a variable that is set wins: a build hands its inputs to
-    the `--measure` commands that way, and a stray one in a shell never moves a build."""
+    a `--measure` that way, and a stray one in a shell never moves a build."""
     from ark.baseline import baseline_dir
 
     cwd = os.getcwd()
@@ -497,7 +521,7 @@ def inputs(from_env: bool = False) -> dict[str, str]:
         his = baseline_dir().resolve()
     finally:
         os.chdir(cwd)
-    names = {"HIS": his, "NETNEW": NETNEW, "CDX": CDX, "AUDIT": AUDIT}
+    names = {"HIS": his, "NETNEW": NETNEW, "EXTENDED": EXTENDED, "CDX": CDX, "AUDIT": AUDIT}
     env = os.environ if from_env else {}
     return {name: env.get(name) or str(path) for name, path in names.items()}
 
@@ -511,7 +535,7 @@ class Run:
     seconds: float
 
 
-_NAMED = re.compile(r"\$(HIS|NETNEW|CDX|AUDIT)\"?((?:/[^\s\"'()]+)?)")
+_NAMED = re.compile(r"\$(HIS|NETNEW|EXTENDED|CDX|AUDIT)\"?((?:/[^\s\"'()]+)?)")
 
 
 def missing_inputs(command: str, variables: dict[str, str]) -> list[str]:
@@ -531,22 +555,17 @@ def missing_inputs(command: str, variables: dict[str, str]) -> list[str]:
 
 def _run(command: str, env: dict[str, str]) -> Run:
     start = time.monotonic()
-    done = subprocess.run(
-        ["bash", "-o", "pipefail", "-c", command],
-        cwd=REPO,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    bash = ["bash", "-o", "pipefail", "-c", command]
+    done = subprocess.run(bash, cwd=REPO, env=env, capture_output=True, text=True)
     return Run(command, done.returncode, done.stdout, done.stderr, time.monotonic() - start)
 
 
-def start_measures(rows: list[Row], variables: dict[str, str]) -> dict[str, Future]:
+def start_measures(variables: dict[str, str]) -> dict[str, Future]:
     """Every Q2 command at once: the whole build has two minutes, and the slowest command
     alone takes about half of that."""
     env = {**os.environ, **variables, "LC_ALL": "C"}
-    pool = ThreadPoolExecutor(max_workers=max(1, sum(1 for row in rows if row.command)))
-    futures = {row.id: pool.submit(_run, row.command, env) for row in rows if row.command}
+    pool = ThreadPoolExecutor(max_workers=len(COMMANDS))
+    futures = {name: pool.submit(_run, spec[0], env) for name, spec in COMMANDS.items()}
     pool.shutdown(wait=False)
     return futures
 
@@ -563,12 +582,12 @@ def _continuity(out: str) -> tuple[dict[str, str], str]:
     shared, base = _numbers(out)
     pct = _pct(shared, base, 1)
     values = {"SHARED": f"{shared:,}", "BASE": f"{base:,}", "PCT": pct}
-    return values, f"{shared:,} of {base:,} names ({pct}%)"
+    return values, f"{pct}% of {base:,} names are in the next year's file"
 
 
 def _overlap(out: str) -> tuple[dict[str, str], str]:
     (count,) = _numbers(out)
-    return {"COUNT": f"{count:,}"}, f"{count:,} names"
+    return {"COUNT": f"{count:,}"}, f"{count:,} names also in your annual files"
 
 
 def _rows_of(out: str, kind: str) -> list[list[str]]:
@@ -577,26 +596,11 @@ def _rows_of(out: str, kind: str) -> list[list[str]]:
 
 def _status_share(out: str) -> tuple[dict[str, str], str]:
     families = {name: [int(x) for x in rest] for name, *rest in _rows_of(out, "family")}
-    rows, c4, c5 = families.pop("all")
-    shipped = [[int(x) for x in rest] for _, *rest in _rows_of(out, "shipped")]
-    by_family = ", ".join(
-        f"{name} {_pct(f4, total)}%" for name, (total, f4, _) in sorted(families.items())
-    )
-    values = {
-        "ROWS": f"{rows:,}",
-        "FOURXX_PCT": _pct(c4, rows),
-        "FIVEXX_PCT": _pct(c5, rows),
-        "ERROR_PCT": _pct(c4 + c5, rows),
-        "FAMILIES": by_family,
-        "SHIPPED": f"{sum(s[0] for s in shipped):,}",
-        "RETRACT": f"{sum(s[1] for s in shipped):,}",
-        "REPOINT": f"{sum(s[2] for s in shipped):,}",
-    }
-    result = (
-        f"{values['FOURXX_PCT']}% of {rows:,} raw CDX rows answered 4xx and "
-        f"{values['FIVEXX_PCT']}% 5xx ({by_family} 4xx)"
-    )
-    return values, result
+    rows, c4, c5 = families["all"]
+    four, five = _pct(c4, rows), _pct(c5, rows)
+    values = {"ROWS": f"{rows:,}", "FOURXX_PCT": four, "FIVEXX_PCT": five}
+    values["ERROR_PCT"] = _pct(c4 + c5, rows)
+    return values, f"{four}% of {rows:,} rows answered 4xx, {five}% 5xx"
 
 
 def kill_floor() -> int:
@@ -618,46 +622,119 @@ def _yearfill(out: str) -> tuple[dict[str, str], str]:
     fresh = sum(int(lane[4]) for lane in lanes)
     ee = sum((Decimal(lane[5]) for lane in lanes), Decimal(0))
     rate = max((Decimal(lane[5]) / Decimal(lane[6]) for lane in lanes), default=Decimal(0))
-    values = {
-        "NAMES": f"{names:,}",
-        "HOSTS": f"{hosts:,}",
-        "HELD": f"{held:,}",
-        "NOT_HIS": f"{fresh:,}",
-        "EE": f"{ee:,.4f}",
-        "RATE": f"{rate:.2f}",
-        "FLOOR": f"{floor:,}",
-        "LANES": str(len(lanes)),
-    }
+    values = {"NAMES": f"{names:,}", "HOSTS": f"{hosts:,}", "HELD": f"{held:,}"}
+    values |= {"NOT_HIS": f"{fresh:,}", "EE": f"{ee:,.4f}", "RATE": f"{rate:.2f}"}
+    values |= {"FLOOR": f"{floor:,}", "LANES": str(len(lanes))}
     result = (
-        f"{names:,} names queried in {len(lanes)} lanes, {hosts:,} hosts with a {LAST_YEAR} "
-        f"capture, {held:,} already his, {fresh:,} not his, {ee:,.4f} EE, at most {rate:.2f} "
-        f"EE a client-hour against a floor of {floor:,}"
+        f"{fresh:,} of {hosts:,} hosts new to your {LAST_YEAR} file; at most {rate:.2f} EE an "
+        f"hour; we stop a source below {floor:,}"
     )
     return values, result
 
 
-# How each Q2 command's output becomes figures. A row with a command and no entry here,
-# or an entry with no row, is refused: the table and this file must agree.
-PARSERS = {
-    "q2-continuity-1999-2000": _continuity,
-    "q2-continuity-2000-2001": _continuity,
-    "q2-pool-his": _overlap,
-    "q2-pool-ours": _overlap,
-    "q2-status-share": _status_share,
-    "q2-yearfill-kill": _yearfill,
+def _levels(out: str) -> tuple[dict[str, str], str]:
+    """A level belongs to a host-year. The candidate collections are the 1996 to 2001 pool,
+    so a name at two levels there is a fault; a candidate with a direct record of a later
+    year is not, and is counted as information only."""
+    rows = {(level, year): int(n) for level, year, n in _rows_of(out, "level")}
+    direct = [n for (level, _), n in rows.items() if level == "direct"]
+    found, unread = rows[("discovery", "all")], rows[("unresolved", "all")]
+    hosts = _rows_of(out, "host")
+    # "candidate": a discovery name also unresolved, two levels with no year at all
+    same = sum(1 for year, _ in hosts if year == "candidate" or int(year) <= LAST_YEAR)
+    later = len({name for year, name in hosts if year != "candidate" and int(year) > LAST_YEAR})
+    values = {"DIRECT": f"{sum(direct):,}", "YEARS": str(len(direct))}
+    values |= {"DISCOVERY": f"{found:,}", "UNRESOLVED": f"{unread:,}"}
+    values |= {"SAME": f"{same:,}", "LATER": f"{later:,}"}
+    result = (
+        f"{same:,} names at two levels in {FIRST_YEAR} to {LAST_YEAR}; {later:,} candidates "
+        f"hold a direct record after {LAST_YEAR}"
+    )
+    return values, result
+
+
+# The Q2 tests every build runs, in table order: the exact command, what it reads (its
+# sample cell), the `file#phrase` its claim rests on, and the parser that turns its output
+# into figures. The command itself is in its logs.
+_MEASURE = "uv run python scripts/round/orq.py --measure {}"
+_PAIR = 'LC_ALL=C comm -12 "$HIS/{0}.txt" "$HIS/{1}.txt" | wc -l; wc -l < "$HIS/{0}.txt"'
+_POOL = 'LC_ALL=C comm -12 "{}" <(LC_ALL=C sort -mu "$HIS"/199[6-9].txt "$HIS"/200[01].txt) | wc -l'
+_BRIEF = "docs/brief/ding/project-brief.md#"
+_HELD = "docs/lore/laws.md#Headroom is held Y-1, missing Y"
+COMMANDS = {
+    "q2-evidence-level": (
+        _MEASURE.format("q2-evidence-level"),
+        "our export, every record",
+        _BRIEF + "distinguish direct year-specific website evidence",
+        _levels,
+    ),
+    "q2-continuity-2000-2001": (
+        _PAIR.format(2000, 2001),
+        "your 2000 and 2001 files, whole",
+        _HELD,
+        _continuity,
+    ),
+    "q2-pool-his": (
+        _POOL.format("$HIS/candidate_pool.txt"),
+        "your candidate_pool.txt, 1996 to 2001 files",
+        _BRIEF + "candidate_pool.txt should be reconciled",
+        _overlap,
+    ),
+    "q2-pool-ours": (
+        _POOL.format("$NETNEW/candidate_additions.txt"),
+        "our candidate_additions.txt, your 1996 to 2001",
+        _BRIEF + "candidate_pool.txt should be reconciled",
+        _overlap,
+    ),
+    "q2-status-share": (
+        _MEASURE.format("q2-status-share"),
+        "our audit of every raw CDX row",
+        _BRIEF + "Mandatory Evidence Classification and Hostname Integrity Gate",
+        _status_share,
+    ),
+    "q2-yearfill-kill": (
+        _MEASURE.format("q2-yearfill-kill"),
+        "our CDX query logs for 2001",
+        "docs/registers/sources-closed.md#CDX exact-host year fill",
+        _yearfill,
+    ),
 }
+# Short names for the tests whose record carries no title: the Q2 commands and the Q1
+# leads priced above zero. Any other test is named by its id.
+NAMES = {
+    "q2-evidence-level": "One evidence level per host-year",
+    "q2-continuity-2000-2001": "Continuity between your years",
+    "q2-pool-his": "Your candidate pool against your years",
+    "q2-pool-ours": "Our candidates against your years",
+    "q2-status-share": "Error statuses in CDX rows",
+    "q2-yearfill-kill": "Cost of year-specific CDX checks",
+    "http-fetch-logs-1995-ita-reverse-resolved-client-and-fetched-web-hosts": (
+        "NASA server log, 1995"
+    ),
+    "ddn-hosts-txt-1992-1995-editions-military-hostgrain": "DDN host tables, 1992 to 1995",
+    "wwwstat-live-server-report-reversed-subdomain-client-hosts-1995-vt-scholar": "Virginia "
+    "Tech server statistics, 1995",
+}
+# Within a label, strongest evidence first: the script tests, then the commands in their
+# order, then the leads by their figure.
+ORDER = (
+    "q1-ia-pre1996",
+    "q1-usenet-www-announce",
+    "q1-archive-scale",
+    "q2-recheck",
+    "q2-capture-content",
+    "q2-isc-promotion",
+    "q2-rdap-bounds",
+    *COMMANDS,
+)
 
 
-def token_prefix(row_id: str) -> str:
-    return row_id.removeprefix("q2-").replace("-", "_").upper()
-
-
-# --- the parts of a command too long for a table cell ----------------------------------
+# --- the parts of a command too long for one line -------------------------------------
 
 
 def measure_status_share(env: dict[str, str]) -> str:
-    """Raw CDX rows by status per family, and the shipped records a 4xx or 5xx moved, from
-    the status audit's summary: re-reading the raw CDX takes hours."""
+    """Raw CDX rows by status per family, from the status audit's summary: re-reading the
+    raw CDX takes hours."""
     audit = json.loads(read_text(Path(env["AUDIT"])))
     lines, total = [], [0, 0, 0]
     for name, family in sorted((audit.get("families") or {}).items()):
@@ -667,9 +744,6 @@ def measure_status_share(env: dict[str, str]) -> str:
         total = [a + b for a, b in zip(total, row, strict=True)]
         lines.append("\t".join(["family", name, *map(str, row)]))
     lines.append("\t".join(["family", "all", *map(str, total)]))
-    for name, shipped in sorted((audit.get("shipped") or {}).items()):
-        row = [int(shipped.get(k, 0)) for k in ("rows", "retract", "repoint")]
-        lines.append("\t".join(["shipped", name, *map(str, row)]))
     return "\n".join(lines) + "\n"
 
 
@@ -723,7 +797,49 @@ def measure_yearfill_kill(env: dict[str, str]) -> str:
     return "\n".join(lines + fresh_lines) + "\n"
 
 
-MEASURES = {"q2-status-share": measure_status_share, "q2-yearfill-kill": measure_yearfill_kill}
+def _names(path: Path):
+    """A text file's first column, streamed: an extended year is too large to read whole."""
+    with io.TextIOWrapper(opened(path), encoding="utf-8", errors="surrogateescape") as handle:
+        for line in handle:
+            name = line.split("\t", 1)[0].strip()
+            if name and not name.startswith("#"):
+                yield name
+
+
+def measure_evidence_level(env: dict[str, str]) -> str:
+    """Exported records per evidence level, then every candidate or unresolved name that
+    also has a direct record, with that record's year. Direct: the annual and extended
+    additions, one file a year. Discovery-only: the candidate collections, which carry no
+    year. Unresolved: the values no parser read."""
+    netnew, extended = Path(env["NETNEW"]), Path(env["EXTENDED"])
+    found = {n for file in DISCOVERY for n in _names(netnew / file)}
+    unread = set(_names(netnew / "candidates_unparsed.txt"))
+    lines = [f"level\tdiscovery\tall\t{len(found)}", f"level\tunresolved\tall\t{len(unread)}"]
+    hosts = [f"host\tcandidate\t{name}" for name in sorted(found & unread)]
+    years: dict[str, list[Path]] = {}
+    year = "[12][0-9][0-9][0-9]"
+    for folder, pattern in (
+        (netnew, f"{year}.txt"),
+        (netnew, f"{year}_*"),
+        (extended, f"{year}.txt"),
+    ):
+        for path in folder.glob(pattern):
+            years.setdefault(path.name[:4], []).append(path)
+    for year, paths in sorted(years.items()):
+        count = 0
+        for name in (name for path in sorted(paths) for name in _names(path)):
+            count += 1
+            if name in found or name in unread:
+                hosts.append(f"host\t{year}\t{name}")
+        lines.append(f"level\tdirect\t{year}\t{count}")
+    return "\n".join(lines + hosts) + "\n"
+
+
+MEASURES = {
+    "q2-evidence-level": measure_evidence_level,
+    "q2-status-share": measure_status_share,
+    "q2-yearfill-kill": measure_yearfill_kill,
+}
 
 
 # --- the template ----------------------------------------------------------------------
@@ -782,15 +898,6 @@ def fill(template: str, values: dict[str, str]) -> str:
 # --- building ---------------------------------------------------------------------------
 
 
-def _table(header: list[str], rows: list[list[str]]) -> str:
-    """A pipe table whose separator dashes follow each column's longest cell: pandoc sizes
-    the .docx columns from them."""
-    widths = [max(len(cell) for cell in column) for column in zip(header, *rows, strict=True)]
-    lines = ["| " + " | ".join(header) + " |", "|" + "|".join(":" + "-" * w for w in widths) + "|"]
-    lines += ["| " + " | ".join(row) + " |" for row in rows]
-    return "\n".join(lines)
-
-
 def _figure(value) -> str:
     number = _number(value)
     if number is None:
@@ -798,35 +905,24 @@ def _figure(value) -> str:
     return f"{number:,.4f}".rstrip("0").rstrip(".") if number % 1 else f"{int(number):,}"
 
 
-def q1_table(tests: list[Test]) -> str:
-    rows = []
-    for test in tests:
-        if test.finding is None:
-            continue
-        pricing = test.finding.get("pricing") or {}
-        manifest = str(pricing.get("manifest_sha") or "")[:12]
-        years = _dig(test.finding, "extraction", "years") or {}
-        dated = sum(
-            count
-            for year, count in years.items()
-            if str(year).isdigit() and FIRST_YEAR <= int(year) <= LAST_YEAR and _number(count)
-        )
-        rows.append(
-            [
-                f"`{test.id}`",
-                test.label,
-                str(test.finding.get("verdict") or ""),
-                _figure(_dig(test.finding, "extraction", "items")),
-                _figure(dated),
-                _figure(pricing.get("ee")),
-                str(pricing.get("track") or ""),
-                str(pricing.get("snapshot_marker") or ""),
-                f"`{manifest}`" if manifest else "",
-            ]
-        )
-    window = f"dated {FIRST_YEAR} to {LAST_YEAR}"
-    header = ["test", "label", "verdict", "items", window, "EE", "track", "snapshot", "manifest"]
-    return _table(header, rows) if rows else "No pre-1996 lead has been tested yet."
+def _rank(test: Test) -> tuple:
+    place = ORDER.index(test.id) if test.id in ORDER else len(ORDER)
+    return LABELS.index(test.label), place, -(_number(_dig(test.finding, "pricing", "ee")) or 0)
+
+
+def table(tests: list[Test], widths: tuple[int, ...]) -> str:
+    """One question's tests that have a result, strongest first (`_rank`), as a pipe table
+    whose separator dashes are its columns' shares of the page: pandoc sizes the .docx
+    columns from them."""
+    shown = sorted((t for t in tests if t.cells[1]), key=_rank)
+    if not shown:
+        return "No test has run yet."
+    lines = ["| test | sample | result | label |"]
+    lines.append("|" + "|".join(":" + "-" * w for w in widths) + "|")
+    for t in shown:
+        cells = [" ".join(c.split()).replace("|", "\\|") for c in (t.name or t.id, *t.cells)]
+        lines.append("| " + " | ".join([*cells, t.label]) + " |")
+    return "\n".join(lines)
 
 
 def _write(path: Path, text: str, origin: str) -> None:
@@ -897,6 +993,22 @@ def copy_q2(test: Test, run: Run, root: Path, variables: dict[str, str]) -> None
         test.evidence = f"evidence/{test.id}/"
 
 
+def copy_frozen(test: Test, root: Path) -> None:
+    """A script test's own files: its result, request log, sample and code."""
+    folder = test.record.parent
+    files = {
+        f"evidence/{test.id}/result.json": folder / "result.json",
+        f"logs/{test.id}.txt": folder / "log.txt",
+        f"samples/{test.id}.csv": folder / "sample.csv",
+        f"code/{test.id}.py": SCRIPTS / f"{test.id}.py",
+    }
+    for name, path in files.items():
+        if path.is_file():
+            _write(root / name, read_text(path), name)
+    found = [name if (root / name).is_file() else "" for name in files]
+    test.evidence, test.logs, test.sample, test.code = found
+
+
 def experiments(fleet: Path) -> list[Test]:
     """The fleet's Q2 experiments, one test per record, each keeping the label its clean
     re-run gave it: Validated only when that re-run printed the bytes its scout recorded."""
@@ -910,9 +1022,9 @@ def experiments(fleet: Path) -> list[Test]:
         test = Test("Q2", path.parent.name, label, [], runs)
         if label == PENDING:
             test.gaps = ["no clean re-run printed the recorded bytes"]
-        test.command = str(record.get("command") or "")
-        test.result = str(record.get("result") or "")
-        test.record = path
+        test.command, test.record = str(record.get("command") or ""), path
+        if "$SNAPSHOT/" in test.command:
+            test.gaps.append("reads a release this package does not ship ($SNAPSHOT)")
         tests.append(test)
     return tests
 
@@ -960,67 +1072,61 @@ def _csv(rows: list[dict], fields: tuple[str, ...]) -> str:
     return out.getvalue()
 
 
+def _span(doc: dict) -> str:
+    try:
+        end, start = (datetime.fromisoformat(str(doc[k])) for k in ("finished_at", "started_at"))
+        return f"{(end - start).total_seconds():.1f}"
+    except (KeyError, TypeError, ValueError):
+        return NOT_RECORDED
+
+
 def tests_rows(tests: list[Test], lines: dict[str, list[dict]]) -> list[dict]:
     rows = []
     for test in tests:
         base = {
             "question": test.question,
             "id": test.id,
+            "name": test.name,
             "label": test.label,
             "label_reason": "; ".join(test.gaps),
+            "snapshot": str(_dig(test.finding, "pricing", "snapshot_marker") or ""),
+            "manifest": str(_dig(test.finding, "pricing", "manifest_sha") or ""),
             "evidence": test.evidence,
             "code": test.code,
             "logs": test.logs,
             "sample": test.sample,
         }
-        if test.seconds is not None:
-            rows.append(
-                base
-                | {
-                    "leg": "rerun",
-                    "tokens_in_plus_out": "0",
-                    "duration_s": f"{test.seconds:.1f}",
-                    "seven_day_delta": "0",
-                }
-            )
+        if test.run is not None or test.frozen is not None:
+            seconds = f"{test.run.seconds:.1f}" if test.run else _span(test.frozen)
+            leg = "rerun" if test.frozen is None else "script"
+            free = {"tokens_in_plus_out": "0", "seven_day_delta": "0"}
+            rows.append(base | free | {"leg": leg, "duration_s": seconds})
         elif not test.runs:
             rows.append(base)
         for leg, run_id in test.runs:
             tokens, seconds, points = cost(lines, run_id, test.id)
-            rows.append(
-                base
-                | {
-                    "leg": leg,
-                    "run_id": run_id,
-                    "tokens_in_plus_out": tokens,
-                    "duration_s": seconds,
-                    "seven_day_delta": points,
-                }
-            )
+            spent = {"tokens_in_plus_out": tokens, "duration_s": seconds, "seven_day_delta": points}
+            rows.append(base | spent | {"leg": leg, "run_id": run_id})
     return rows
 
 
-def sources_rows(
-    q1_tests: list[Test], q2_tests: list[Test], variables: dict[str, str]
-) -> list[dict]:
+def sources_rows(tests: list[Test], variables: dict[str, str]) -> list[dict]:
     rows = []
-    for test in q1_tests:
-        artifact = _dig(test.finding, "artifact") or test.lead.get("artifact") or {}
-        rows.append(
-            {
-                "question": "Q1",
-                "id": test.id,
-                "kind": "artifact",
-                "name": str(artifact.get("host") or ""),
-                "url": str(artifact.get("url") or ""),
-                "sha256": str(_dig(test.finding, "artifact", "sha256") or ""),
-                "bytes": str(artifact.get("bytes") or ""),
-                "anchor": register_line(test.id),
-            }
-        )
     his = Path(variables["HIS"])
-    for test in q2_tests:
-        row = {"question": "Q2", "id": test.id, "kind": "rerun" if test.command else "proposal"}
+    for test in tests:
+        row = {"question": test.question, "id": test.id}
+        if test.frozen is not None:
+            urls = [str(url) for url in test.frozen["sources"]]
+            rows += [row | {"kind": "access", "name": urlsplit(u).netloc, "url": u} for u in urls]
+            continue
+        if test.question == "Q1":
+            got = _dig(test.finding, "artifact") or test.lead.get("artifact") or {}
+            got = {"name": got.get("host"), "url": got.get("url"), "bytes": got.get("bytes")}
+            got["sha256"] = _dig(test.finding, "artifact", "sha256")
+            got = {key: str(value or "") for key, value in got.items()}
+            rows.append(row | got | {"kind": "artifact", "anchor": register_line(test.id)})
+            continue
+        row["kind"] = "rerun" if test.run else "experiment"
         rows.append(row | {"name": test.command, "anchor": test.anchor})
         for var, rest in _NAMED.findall(test.command):
             if var != "HIS" or not rest:
@@ -1029,115 +1135,78 @@ def sources_rows(
                 name = f"{his.name}/{path.name}"
                 if not any(r["name"] == name and r["id"] == test.id for r in rows):
                     rows.append(row | {"kind": "his release", "name": name})
-        if test.id == "q2-pool-ours":
-            path = Path(variables["NETNEW"]) / "candidate_additions.txt"
-            if path.is_file():
-                rows.append(
-                    row
-                    | {
-                        "kind": "our file",
-                        "name": "output/netnew/candidate_additions.txt",
-                        "sha256": _sha(path),
-                        "bytes": str(path.stat().st_size),
-                    }
-                )
+        path = Path(variables["NETNEW"]) / "candidate_additions.txt"
+        if test.id == "q2-pool-ours" and path.is_file():
+            ours = {"name": "output/netnew/candidate_additions.txt", "sha256": _sha(path)}
+            rows.append(row | ours | {"kind": "our file", "bytes": str(path.stat().st_size)})
     return rows
 
 
-def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> dict:
-    """Write both folders under `root`, replacing any earlier build of them there."""
+def build(root: Path, fleet: Path, variables: dict[str, str] | None = None, strict=False) -> dict:
+    """Write both folders under `root`, replacing any earlier build of them there. `strict`
+    (a stage) refuses a frozen-result token whose result has not landed."""
     started = time.monotonic()
     BROKEN.clear()
     if not (fleet / "leads").is_dir():
         raise Refusal(f"{fleet} holds no leads/: not a fleet checkout")
     template = read_text(TEMPLATE)
     check_template(template, read_text(BRIEF))
-    rows = q2_rows(template)
-    commanded = {row.id for row in rows if row.command}
-    if commanded != set(PARSERS):
-        raise Refusal(f"the Q2 table and PARSERS disagree: {sorted(commanded ^ set(PARSERS))}")
+    tokens = [t for t in PLACEHOLDER.findall(template) if FROZEN_TOKEN_RE.fullmatch(t)]
     variables = variables or inputs()
-    for row in rows:
-        gone = missing_inputs(row.command, variables)
+    for name, (command, *_) in COMMANDS.items():
+        gone = missing_inputs(command, variables)
         if gone:
-            raise Refusal(f"{row.id} reads what is not there: {', '.join(gone)}")
-    futures = start_measures(rows, variables)
+            raise Refusal(f"{name} reads what is not there: {', '.join(gone)}")
+    futures = start_measures(variables)
 
     head = fleet_head(fleet)
-    q1_tests, excluded, lens_size = q1(fleet)
+    q1_tests, excluded = q1(fleet)
     lines = ledger(fleet)
-    q2_tests = []
-    values: dict[str, str] = {}
-    for row in rows:
-        test = Test("Q2", row.id, PENDING, [], [], anchor=resolve_anchor(row.anchor))
-        test.command = row.command
-        if row.command:
-            run = futures[row.id].result()
-            if run.code != 0:
-                tail = (run.stderr.strip().splitlines() or ["no output"])[-1]
-                raise Refusal(f"{row.id} exited {run.code}: {tail}")
-            if run.stderr.strip() and "--measure" not in row.command:
-                raise Refusal(f"{row.id} wrote to stderr: {run.stderr.strip().splitlines()[-1]}")
-            try:
-                figures, result = PARSERS[row.id](run.stdout)
-            except (ValueError, KeyError, ZeroDivisionError) as exc:
-                raise Refusal(f"{row.id} printed what it should not: {exc}") from exc
-            prefix = token_prefix(row.id)
-            values |= {f"{prefix}_{key}": value for key, value in figures.items()}
-            years = re.findall(r"\d{4}", row.id)
-            if len(years) == 2:
-                values |= {f"{prefix}_FROM": years[0], f"{prefix}_TO": years[1]}
-            test.label, test.seconds, test.result, test.run = TESTED, run.seconds, result, run
-            test.gaps = ["re-run by this build, never by an independent leg"]
-        else:
-            test.gaps = ["proposed, never run"]
-            test.result = PENDING
-        if PLACEHOLDER.fullmatch(row.result):
-            values[PLACEHOLDER.fullmatch(row.result)[1]] = test.result
+    scripts, running = frozen(RESULTS)
+    q2_tests, values = [], {}
+    for name, (command, source, anchor, parse) in COMMANDS.items():
+        run = futures[name].result()
+        if run.code != 0:
+            tail = (run.stderr.strip().splitlines() or ["no output"])[-1]
+            raise Refusal(f"{name} exited {run.code}: {tail}")
+        if run.stderr.strip() and "--measure" not in command:
+            raise Refusal(f"{name} wrote to stderr: {run.stderr.strip().splitlines()[-1]}")
+        try:
+            figures, result = parse(run.stdout)
+        except (ValueError, KeyError, ZeroDivisionError) as exc:
+            raise Refusal(f"{name} printed what it should not: {exc}") from exc
+        prefix = name.removeprefix("q2-").replace("-", "_").upper()
+        values |= {f"{prefix}_{key}": value for key, value in figures.items()}
+        gaps = ["re-run by this build, never by an independent leg"]
+        test = Test("Q2", name, TESTED, gaps, [], command=command, anchor=resolve_anchor(anchor))
+        test.run, test.name, test.cells = run, NAMES.get(name, ""), (source, result)
         q2_tests.append(test)
-    q2_tests += experiments(fleet)
+    fleet_q2 = experiments(fleet)
     if BROKEN:
         names = ", ".join(os.path.relpath(item, fleet) for item in BROKEN)
         raise Refusal(f"{len(BROKEN)} fleet file(s) or line(s) are not one JSON object: {names}")
 
-    every = q1_tests + q2_tests
+    every = q1_tests + q2_tests + fleet_q2 + scripts
+    for test in scripts:
+        prefix = test.id.replace("-", "_").upper()
+        values |= {f"{prefix}_{k.upper()}": str(test.frozen.get(k) or "") for k in FROZEN_FIELDS}
+    wanted = {m[0]: m[1].lower().replace("_", "-") for m in map(FROZEN_TOKEN_RE.fullmatch, tokens)}
+    pending = sorted(t for t, ref in wanted.items() if ref not in {x.id for x in scripts})
+    pending = [] if strict else pending
+    values |= {t: f"Pending validation: `{wanted[t]}` has no frozen result yet." for t in pending}
     counts = {label: sum(1 for t in every if t.label == label) for label in LABELS}
-    tested = [t for t in q1_tests if t.finding is not None]
-    validated = [t for t in q1_tests if t.label == VALIDATED]
     shots = sorted(p for p in SCREENSHOTS.glob("*.png")) if SCREENSHOTS.is_dir() else []
-    exp = [t for t in q2_tests if t.record]
     values |= {
         "BUILT_AT": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
         "FLEET_COMMIT": head[:12] or "not a git checkout",
         "RELEASE": Path(variables["HIS"]).name,
         "FIRST_YEAR": str(FIRST_YEAR),
         "LAST_YEAR": str(LAST_YEAR),
-        "YEAR_BEFORE_LAST": str(LAST_YEAR - 1),
-        "LABEL_COUNTS": "; ".join(f"{counts[label]} {label}" for label in LABELS),
-        "Q1_LENS_LEADS": str(lens_size),
-        "Q1_EXCLUDED_COUNT": str(len(excluded)),
-        "Q1_EXCLUDED": ", ".join(f"`{s}`" for s in excluded) or "none",
-        "Q1_MEMBERS": str(len(q1_tests)),
-        "Q1_TESTED": str(len(tested)),
-        "Q1_VALIDATED": str(len(validated)),
-        "Q1_VALIDATED_LIST": ", ".join(f"`{t.id}`" for t in validated) or "none",
-        "Q1_TESTED_ONLY": str(sum(1 for t in q1_tests if t.label == TESTED)),
-        "Q1_PENDING": str(sum(1 for t in q1_tests if t.label == PENDING)),
-        "Q1_TESTS_TABLE": q1_table(q1_tests),
-        "Q2_EXPERIMENTS": (
-            "\n".join(
-                f"- `{t.id}` run `{t.runs[0][1] if t.runs else 'none'}`, {t.label}: {t.result} "
-                f"Command: `{t.command}`"
-                for t in exp
-            )
-            if exp
-            else "No fleet experiment has landed yet."
-        ),
-        "SCREENSHOTS": (
-            f"{len(shots)} screenshots of the tested sources' pages"
-            if shots
-            else "none cached for this build"
-        ),
+        "Q1_TABLE": table([t for t in every if t.question == "Q1"], WIDTHS),
+        "Q1_MORE": str(sum(1 for t in q1_tests if not t.cells[1])),
+        "Q2_TABLE": table([t for t in every if t.question == "Q2"], WIDTHS),
+        "Q2_MORE": str(len(fleet_q2)),
+        "SCREENSHOTS": f"{len(shots)} source page images" if shots else "none cached",
     }
     markdown = fill(template, values)
 
@@ -1146,32 +1215,32 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> d
         en, zh = work / EN, work / ZH
         en.mkdir()
         zh.mkdir()
-        for test in q1_tests:
-            copy_q1(test, fleet, en)
-        for test in q2_tests:
-            if test.run is not None:
+        for test in every:
+            if test.frozen is not None:
+                copy_frozen(test, en)
+            elif test.run is not None:
                 copy_q2(test, test.run, en, variables)
             elif test.record is not None:
                 name = test.record.name
                 _write(en / "evidence" / test.id / name, read_text(test.record), name)
                 test.evidence = f"evidence/{test.id}/"
+            else:
+                copy_q1(test, fleet, en)
         if shots:
             (en / "screenshots").mkdir()
             for path in shots:
                 (en / "screenshots" / path.name).write_bytes(read_bytes(path))
         _write(en / "tests.csv", _csv(tests_rows(every, lines), TESTS_FIELDS), "tests.csv")
-        _write(
-            en / "sources.csv",
-            _csv(sources_rows(q1_tests, q2_tests, variables), SOURCES_FIELDS),
-            "sources.csv",
-        )
+        _write(en / "sources.csv", _csv(sources_rows(every, variables), SOURCES_FIELDS), "sources")
         to_docx(clean(markdown, DOCX), en / DOCX)
         parts = split(markdown)
         title = parts["head"].splitlines()[0]
+        # The files the text names sit beside the .docx, in the sibling folder.
+        where = f"File paths are relative to `../{EN}/`.\n\n"
         texts = {
-            TXT["Q1"]: f"{title}\n\n{parts['Q1']}",
-            TXT["Q2"]: f"{title}\n\n{parts['Q2']}",
-            README: parts["head"] + parts["tail"],
+            TXT["Q1"]: f"{title}\n\n{where}{parts['Q1']}",
+            TXT["Q2"]: f"{title}\n\n{where}{parts['Q2']}",
+            README: parts["head"] + where + parts["tail"],
         }
         for name, text in texts.items():
             plain(clean(text, name), zh / name)
@@ -1185,35 +1254,15 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None) -> d
             (work / name).rename(final)
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    return {
-        "seconds": round(time.monotonic() - started, 1),
-        "fleet_commit": head,
-        "counts": counts,
-        "excluded": excluded,
-        "screenshots": len(shots),
-    }
+    seconds = round(time.monotonic() - started, 1)
+    found = {"counts": counts, "excluded": excluded, "running": running, "pending": pending}
+    return found | {"seconds": seconds, "fleet_commit": head, "screenshots": len(shots)}
 
 
 def plain(markdown: str, out: Path) -> None:
     """Markdown to plain text through pandoc, unwrapped so a heading stays on one line."""
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as handle:
-        handle.write(markdown)
-        staged = Path(handle.name)
-    try:
-        subprocess.run(
-            [
-                "pandoc",
-                "--from=markdown-smart",
-                "--to=plain",
-                "--wrap=none",
-                "-o",
-                str(out),
-                str(staged),
-            ],
-            check=True,
-        )
-    finally:
-        staged.unlink(missing_ok=True)
+    command = ["pandoc", "--from=markdown-smart", "--to=plain", "--wrap=none", "-o", str(out)]
+    subprocess.run(command, input=markdown.encode("utf-8"), check=True)
 
 
 def target(stage: Path | None, preview: Path | None) -> Path:
@@ -1240,11 +1289,6 @@ def main(argv: list[str] | None = None) -> int:
     where.add_argument("--preview", type=Path, help="a scratch directory, never output/")
     where.add_argument("--measure", choices=sorted(MEASURES), help="print one Q2 measure")
     parser.add_argument(
-        "--inputs-from-env",
-        action="store_true",
-        help="take $HIS, $NETNEW, $CDX and $AUDIT from the environment where set",
-    )
-    parser.add_argument(
         "--fleet",
         type=Path,
         default=Path(os.environ.get("ARK_FLEET") or DEFAULT_FLEET).expanduser(),
@@ -1253,10 +1297,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.measure:
-            sys.stdout.write(MEASURES[args.measure](inputs(args.inputs_from_env)))
+            sys.stdout.write(MEASURES[args.measure](inputs(True)))
             return 0
         root = target(args.stage, args.preview)
-        done = build(root, args.fleet.resolve(), inputs(args.inputs_from_env))
+        strict = args.stage is not None
+        done = build(root, args.fleet.resolve(), inputs(), strict)
     except Refusal as exc:
         print(f"orq: refusing: {exc}", file=sys.stderr)
         return 1
@@ -1268,6 +1313,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  fleet {done['fleet_commit'] or 'not a git checkout'}: {counts}")
     if done["excluded"]:
         print(f"  left out of Q1 as postdating 1995: {', '.join(done['excluded'])}")
+    for name in done["running"]:
+        print(f"  {name}: no result.json yet, left out")
+    if done["pending"]:
+        print(f"  filled as Pending validation: {', '.join(done['pending'])}")
     if not done["screenshots"]:
         print(f"  no screenshots cached in {SCREENSHOTS.relative_to(REPO)}: verify warns")
     return 0

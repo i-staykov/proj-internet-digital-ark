@@ -1,0 +1,200 @@
+2026-10-12T21:51:00Z	https://rdap.verisign.com/com/v1/domain/askafriend.com	200	0.12	registered on or before the record's year
+2026-10-12T21:51:01Z	https://rdap.verisign.com/com/v1/domain/autodyn.com	200	0.24	registered on or before the record's year
+2026-10-12T21:51:03Z	https://rdap.verisign.com/com/v1/domain/excels.com	200	0.15	registered on or before the record's year
+2026-10-12T21:51:04Z	https://rdap.verisign.com/com/v1/domain/ik2.com	200	0.09	registered after the record's year
+2026-10-12T21:51:05Z	https://rdap.verisign.com/com/v1/domain/intercard.com	200	0.32	registered on or before the record's year
+2026-10-12T21:51:07Z	https://rdap.verisign.com/com/v1/domain/petshotel.com	200	0.10	registered on or before the record's year
+2026-10-12T21:51:08Z	https://rdap.verisign.com/com/v1/domain/tcanet.com	200	0.09	registered after the record's year
+2026-10-12T21:51:09Z	https://rdap.verisign.com/com/v1/domain/thecigarroom.com	200	0.08	registered after the record's year
+2026-10-12T21:51:10Z	https://rdap.verisign.com/com/v1/domain/afbg2000.com	404	0.09	not registered now
+2026-10-12T21:51:12Z	https://rdap.verisign.com/com/v1/domain/britanniaarms.com	200	0.49	registered on or before the record's year
+2026-10-12T21:51:13Z	https://rdap.verisign.com/com/v1/domain/currentelectric.com	200	0.10	registered on or before the record's year
+2026-10-12T21:51:14Z	https://rdap.verisign.com/com/v1/domain/fasttax.com	200	0.34	registered on or before the record's year
+2026-10-12T21:51:16Z	https://rdap.verisign.com/com/v1/domain/gulfengineering.com	200	0.31	registered on or before the record's year
+2026-10-12T21:51:17Z	https://rdap.verisign.com/com/v1/domain/ipossio.com	404	0.10	not registered now
+2026-10-12T21:51:19Z	https://rdap.verisign.com/net/v1/domain/mailbag.net	200	0.64	registered on or before the record's year
+2026-10-12T21:51:20Z	https://rdap.verisign.com/com/v1/domain/matise.com	200	0.13	registered on or before the record's year
+2026-10-12T21:51:21Z	https://rdap.verisign.com/com/v1/domain/neo-neon.com	200	0.09	registered on or before the record's year
+2026-10-12T21:51:22Z	https://rdap.verisign.com/com/v1/domain/serenitygroup.com	200	0.09	registered on or before the record's year
+2026-10-12T21:51:24Z	https://rdap.verisign.com/com/v1/domain/sharespace.com	200	0.08	registered after the record's year
+2026-10-12T21:51:25Z	https://rdap.verisign.com/com/v1/domain/yourbizness.com	200	0.11	registered after the record's year
+2026-10-12T21:51:27Z	https://rdap.verisign.com/com/v1/domain/airfareseek.com	200	0.73	registered on or before the record's year
+2026-10-12T21:51:28Z	https://rdap.verisign.com/com/v1/domain/arp-hansenhotelgroup.com	200	0.11	registered on or before the record's year
+2026-10-12T21:51:29Z	https://rdap.verisign.com/com/v1/domain/chinese-weapon.com	404	0.14	not registered now
+2026-10-12T21:51:30Z	https://rdap.verisign.com/com/v1/domain/databurst.com	200	0.10	registered after the record's year
+2026-10-12T21:51:32Z	https://rdap.verisign.com/com/v1/domain/ebmasterteenbody.com	404	0.08	not registered now
+2026-10-12T21:51:33Z	https://rdap.verisign.com/com/v1/domain/eford.com	200	0.09	registered on or before the record's year
+2026-10-12T21:51:34Z	https://rdap.verisign.com/com/v1/domain/gateip.com	200	0.10	registered after the record's year
+2026-10-12T21:51:35Z	https://rdap.verisign.com/com/v1/domain/hockeybookies.com	200	0.08	registered after the record's year
+2026-10-12T21:51:36Z	https://rdap.verisign.com/com/v1/domain/instant-copy.com	404	0.10	not registered now
+2026-10-12T21:51:38Z	https://rdap.verisign.com/com/v1/domain/lemirefollowme.com	404	0.09	not registered now
+2026-10-12T21:51:39Z	https://rdap.verisign.com/com/v1/domain/lumbersales.com	200	0.10	registered on or before the record's year
+2026-10-12T21:51:40Z	https://rdap.verisign.com/com/v1/domain/mountaintop-marketing.com	200	0.08	registered after the record's year
+2026-10-12T21:51:42Z	https://rdap.verisign.com/com/v1/domain/parktech.com	200	0.52	registered after the record's year
+2026-10-12T21:51:43Z	https://rdap.verisign.com/com/v1/domain/pss-inc.com	200	0.10	registered after the record's year
+2026-10-12T21:51:44Z	https://rdap.verisign.com/net/v1/domain/retailweb.net	200	0.08	registered on or before the record's year
+2026-10-12T21:51:45Z	https://rdap.verisign.com/com/v1/domain/tobaccomkt.com	200	0.10	registered on or before the record's year
+2026-10-12T21:51:46Z	https://rdap.verisign.com/com/v1/domain/aasexpe.com	404	0.24	not registered now
+2026-10-12T21:51:48Z	https://rdap.verisign.com/com/v1/domain/ableyteleck.com	404	0.11	not registered now
+2026-10-12T21:51:49Z	https://rdap.verisign.com/com/v1/domain/adult-cafe.com	404	0.10	not registered now
+2026-10-12T21:51:50Z	https://rdap.verisign.com/com/v1/domain/bankruptcyloans.com	200	0.09	registered on or before the record's year
+2026-10-12T21:51:51Z	https://rdap.verisign.com/com/v1/domain/beauxvisages.com	200	0.17	registered after the record's year
+2026-10-12T21:51:53Z	https://rdap.verisign.com/net/v1/domain/bina19.net	404	0.24	not registered now
+2026-10-12T21:51:54Z	https://rdap.verisign.com/com/v1/domain/cashregistry.com	200	0.11	registered on or before the record's year
+2026-10-12T21:51:55Z	https://rdap.verisign.com/com/v1/domain/cmglists.com	404	0.09	not registered now
+2026-10-12T21:51:56Z	https://rdap.verisign.com/com/v1/domain/deeptohrq.com	404	0.08	not registered now
+2026-10-12T21:51:58Z	https://rdap.verisign.com/com/v1/domain/dreamacres.com	200	0.08	registered on or before the record's year
+2026-10-12T21:51:59Z	https://rdap.verisign.com/com/v1/domain/e-aviation.com	200	0.09	registered after the record's year
+2026-10-12T21:52:00Z	https://rdap.verisign.com/com/v1/domain/farund-whom.com	404	0.11	not registered now
+2026-10-12T21:52:01Z	https://rdap.verisign.com/com/v1/domain/fratcluct.com	404	0.10	not registered now
+2026-10-12T21:52:02Z	https://rdap.verisign.com/com/v1/domain/galeriadorock-sp.com	404	0.18	not registered now
+2026-10-12T21:52:04Z	https://rdap.verisign.com/com/v1/domain/girol.com	200	0.09	registered on or before the record's year
+2026-10-12T21:52:05Z	https://rdap.verisign.com/com/v1/domain/graersc.com	404	0.09	not registered now
+2026-10-12T21:52:06Z	https://rdap.verisign.com/net/v1/domain/grefastringolubc.net	404	0.08	not registered now
+2026-10-12T21:52:07Z	https://rdap.verisign.com/com/v1/domain/hatsny.com	200	0.08	registered after the record's year
+2026-10-12T21:52:08Z	https://rdap.verisign.com/com/v1/domain/imgrengs.com	404	0.14	not registered now
+2026-10-12T21:52:10Z	https://rdap.verisign.com/com/v1/domain/jcrd.com	200	0.09	registered after the record's year
+2026-10-12T21:52:11Z	https://rdap.verisign.com/com/v1/domain/ladomplumildgips.com	404	0.22	not registered now
+2026-10-12T21:52:12Z	https://rdap.verisign.com/net/v1/domain/lifelmageide200.net	404	0.08	not registered now
+2026-10-12T21:52:13Z	https://rdap.verisign.com/com/v1/domain/mbessic.com	404	0.10	not registered now
+2026-10-12T21:52:15Z	https://rdap.verisign.com/com/v1/domain/mc2consulting.com	200	0.09	registered after the record's year
+2026-10-12T21:52:16Z	https://rdap.verisign.com/net/v1/domain/mediashare.net	200	0.12	registered on or before the record's year
+2026-10-12T21:52:17Z	https://rdap.verisign.com/com/v1/domain/nickmontano.com	200	0.08	registered on or before the record's year
+2026-10-12T21:52:18Z	https://rdap.verisign.com/com/v1/domain/prova.com	200	0.08	registered after the record's year
+2026-10-12T21:52:20Z	https://rdap.verisign.com/com/v1/domain/psychogames.com	200	0.56	registered after the record's year
+2026-10-12T21:52:21Z	https://rdap.verisign.com/com/v1/domain/reactoronline.com	200	0.15	registered after the record's year
+2026-10-12T21:52:22Z	https://rdap.verisign.com/com/v1/domain/restest.com	200	0.08	registered after the record's year
+2026-10-12T21:52:23Z	https://rdap.verisign.com/com/v1/domain/rwbruner.com	404	0.09	not registered now
+2026-10-12T21:52:25Z	https://rdap.verisign.com/com/v1/domain/salbolco.com	404	0.08	not registered now
+2026-10-12T21:52:26Z	https://rdap.verisign.com/com/v1/domain/san-kopering.com	404	0.11	not registered now
+2026-10-12T21:52:27Z	https://rdap.verisign.com/com/v1/domain/scunudinz.com	404	0.08	not registered now
+2026-10-12T21:52:29Z	https://rdap.verisign.com/com/v1/domain/selectmutualfund.com	200	0.73	registered after the record's year
+2026-10-12T21:52:30Z	https://rdap.verisign.com/com/v1/domain/uciusikeronotor.com	404	0.08	not registered now
+2026-10-12T21:52:31Z	https://rdap.verisign.com/com/v1/domain/valleyagency.com	200	0.08	registered after the record's year
+2026-10-12T21:52:33Z	https://rdap.verisign.com/com/v1/domain/venusimaging.com	200	0.73	registered on or before the record's year
+2026-10-12T21:52:34Z	https://rdap.verisign.com/com/v1/domain/yboss.com	200	0.09	registered after the record's year
+2026-10-12T21:52:36Z	https://rdap.verisign.com/com/v1/domain/agustinashhamparo.com	200	0.09	registered on or before the record's year
+2026-10-12T21:52:37Z	https://rdap.verisign.com/com/v1/domain/b2bverse.com	200	0.09	registered on or before the record's year
+2026-10-12T21:52:38Z	https://rdap.verisign.com/com/v1/domain/bank52.com	404	0.08	not registered now
+2026-10-12T21:52:39Z	https://rdap.verisign.com/com/v1/domain/bankruptcybooks.com	200	0.10	registered on or before the record's year
+2026-10-12T21:52:40Z	https://rdap.verisign.com/com/v1/domain/bcahckfy.com	404	0.09	not registered now
+2026-10-12T21:52:41Z	https://rdap.verisign.com/com/v1/domain/cdkfeyhumes.com	404	0.09	not registered now
+2026-10-12T21:52:43Z	https://rdap.verisign.com/com/v1/domain/cjwhjhhqj.com	404	0.08	not registered now
+2026-10-12T21:52:44Z	https://rdap.verisign.com/net/v1/domain/clickforgraphics.net	404	0.09	not registered now
+2026-10-12T21:52:45Z	https://rdap.verisign.com/com/v1/domain/cloudkicker.com	200	0.09	registered after the record's year
+2026-10-12T21:52:46Z	https://rdap.verisign.com/com/v1/domain/coproprietequebec.com	200	0.10	registered after the record's year
+2026-10-12T21:52:47Z	https://rdap.verisign.com/com/v1/domain/corefcoping.com	404	0.08	not registered now
+2026-10-12T21:52:49Z	https://rdap.verisign.com/com/v1/domain/cum-city.com	404	0.10	not registered now
+2026-10-12T21:52:50Z	https://rdap.verisign.com/com/v1/domain/dtbtqiwlarm.com	404	0.10	not registered now
+2026-10-12T21:52:51Z	https://rdap.verisign.com/com/v1/domain/elkbase.com	200	0.12	registered after the record's year
+2026-10-12T21:52:52Z	https://rdap.verisign.com/com/v1/domain/emivalleybluegrass.com	404	0.10	not registered now
+2026-10-12T21:52:53Z	https://rdap.verisign.com/com/v1/domain/emoulth-sift.com	404	0.08	not registered now
+2026-10-12T21:52:55Z	https://rdap.verisign.com/com/v1/domain/empeallin-ner.com	404	0.10	not registered now
+2026-10-12T21:52:56Z	https://rdap.verisign.com/com/v1/domain/getimporting.com	200	0.10	registered on or before the record's year
+2026-10-12T21:52:57Z	https://rdap.verisign.com/com/v1/domain/gregandbryna.com	404	0.09	not registered now
+2026-10-12T21:52:58Z	https://rdap.verisign.com/com/v1/domain/inettgi.com	404	0.09	not registered now
+2026-10-12T21:53:00Z	https://rdap.verisign.com/com/v1/domain/jazzmaker.com	200	0.13	registered after the record's year
+2026-10-12T21:53:01Z	https://rdap.verisign.com/com/v1/domain/jossscholten.com	200	0.09	registered on or before the record's year
+2026-10-12T21:53:02Z	https://rdap.verisign.com/com/v1/domain/koehlerconsult.com	200	0.06	registered on or before the record's year
+2026-10-12T21:53:03Z	https://rdap.verisign.com/com/v1/domain/ktioncebuzapikas.com	404	0.09	not registered now
+2026-10-12T21:53:04Z	https://rdap.verisign.com/com/v1/domain/lfreaks.com	404	0.08	not registered now
+2026-10-12T21:53:06Z	https://rdap.verisign.com/com/v1/domain/linscreave.com	404	0.08	not registered now
+2026-10-12T21:53:07Z	https://rdap.verisign.com/com/v1/domain/live-pc.com	200	0.07	registered after the record's year
+2026-10-12T21:53:08Z	https://rdap.verisign.com/com/v1/domain/lownatec.com	404	0.08	not registered now
+2026-10-12T21:53:09Z	https://rdap.verisign.com/com/v1/domain/lynchandassociates.com	200	0.12	registered after the record's year
+2026-10-12T21:53:10Z	https://rdap.verisign.com/com/v1/domain/makinametal.com	200	0.08	registered on or before the record's year
+2026-10-12T21:53:12Z	https://rdap.verisign.com/com/v1/domain/mumegamauck.com	404	0.11	not registered now
+2026-10-12T21:53:13Z	https://rdap.verisign.com/com/v1/domain/nachi.com	200	0.23	registered on or before the record's year
+2026-10-12T21:53:14Z	https://rdap.verisign.com/com/v1/domain/nichons.com	200	0.08	registered on or before the record's year
+2026-10-12T21:53:15Z	https://rdap.verisign.com/com/v1/domain/nodgiogra.com	404	0.07	not registered now
+2026-10-12T21:53:16Z	https://rdap.verisign.com/com/v1/domain/officiallist.com	200	0.09	registered on or before the record's year
+2026-10-12T21:53:18Z	https://rdap.verisign.com/com/v1/domain/okinclub.com	404	0.09	not registered now
+2026-10-12T21:53:19Z	https://rdap.verisign.com/com/v1/domain/pissingbondages.com	404	0.09	not registered now
+2026-10-12T21:53:20Z	https://rdap.verisign.com/com/v1/domain/poitzsandavetab.com	404	0.07	not registered now
+2026-10-12T21:53:21Z	https://rdap.verisign.com/com/v1/domain/polaraccord.com	404	0.07	not registered now
+2026-10-12T21:53:22Z	https://rdap.verisign.com/com/v1/domain/porngold.com	200	0.07	registered after the record's year
+2026-10-12T21:53:24Z	https://rdap.verisign.com/com/v1/domain/promomobile.com	200	0.07	registered after the record's year
+2026-10-12T21:53:25Z	https://rdap.verisign.com/com/v1/domain/raindizn.com	200	0.07	registered after the record's year
+2026-10-12T21:53:26Z	https://rdap.verisign.com/com/v1/domain/rdz.com	200	0.07	registered on or before the record's year
+2026-10-12T21:53:27Z	https://rdap.verisign.com/com/v1/domain/rformersclub.com	404	0.07	not registered now
+2026-10-12T21:53:28Z	https://rdap.verisign.com/com/v1/domain/saddles-a-to-z.com	404	0.10	not registered now
+2026-10-12T21:53:29Z	https://rdap.verisign.com/com/v1/domain/saloncemone.com	200	0.10	registered on or before the record's year
+2026-10-12T21:53:31Z	https://rdap.verisign.com/com/v1/domain/sd-huatai.com	404	0.08	not registered now
+2026-10-12T21:53:32Z	https://rdap.verisign.com/com/v1/domain/sleepinnorlando.com	200	0.07	registered after the record's year
+2026-10-12T21:53:33Z	https://rdap.verisign.com/com/v1/domain/ssingssing.com	200	0.08	registered after the record's year
+2026-10-12T21:53:34Z	https://rdap.verisign.com/net/v1/domain/stellarcity.net	200	0.09	registered after the record's year
+2026-10-12T21:53:35Z	https://rdap.verisign.com/com/v1/domain/ticienne.com	200	0.07	registered on or before the record's year
+2026-10-12T21:53:37Z	https://rdap.verisign.com/com/v1/domain/triple-eye.com	200	0.47	registered on or before the record's year
+2026-10-12T21:53:38Z	https://rdap.verisign.com/com/v1/domain/venturetravelnetwork.com	404	0.08	not registered now
+2026-10-12T21:53:39Z	https://rdap.verisign.com/com/v1/domain/wocpfyemper.com	404	0.11	not registered now
+2026-10-12T21:53:41Z	https://rdap.verisign.com/com/v1/domain/ycoppn.com	404	0.09	not registered now
+2026-10-12T21:53:42Z	https://rdap.verisign.com/net/v1/domain/0--------------------0.net	404	0.07	not registered now
+2026-10-12T21:53:43Z	https://rdap.verisign.com/com/v1/domain/1bbgunblowout.com	404	0.53	not registered now
+2026-10-12T21:53:45Z	https://rdap.verisign.com/net/v1/domain/3telusplanet.net	404	0.07	not registered now
+2026-10-12T21:53:46Z	https://rdap.verisign.com/com/v1/domain/ainao.com	200	0.09	registered after the record's year
+2026-10-12T21:53:47Z	https://rdap.verisign.com/com/v1/domain/ambou-yachting.com	404	0.09	not registered now
+2026-10-12T21:53:48Z	https://rdap.verisign.com/net/v1/domain/anioly.net	200	0.09	registered after the record's year
+2026-10-12T21:53:49Z	https://rdap.verisign.com/com/v1/domain/aquinshasta.com	404	0.09	not registered now
+2026-10-12T21:53:51Z	https://rdap.verisign.com/com/v1/domain/ark9.com	200	0.08	registered on or before the record's year
+2026-10-12T21:53:52Z	https://rdap.verisign.com/com/v1/domain/aweb-ge.com	404	0.09	not registered now
+2026-10-12T21:53:53Z	https://rdap.verisign.com/com/v1/domain/bathtalk.com	200	0.08	registered on or before the record's year
+2026-10-12T21:53:54Z	https://rdap.verisign.com/com/v1/domain/bearpawlanding.com	200	0.12	registered after the record's year
+2026-10-12T21:53:55Z	https://rdap.verisign.com/com/v1/domain/benbal.com	404	0.07	not registered now
+2026-10-12T21:53:57Z	https://rdap.verisign.com/com/v1/domain/borldf.com	404	0.07	not registered now
+2026-10-12T21:53:58Z	https://rdap.verisign.com/com/v1/domain/brynmawrstereo.com	200	0.09	registered after the record's year
+2026-10-12T21:53:59Z	https://rdap.verisign.com/com/v1/domain/cal-mic.com	404	0.07	not registered now
+2026-10-12T21:54:00Z	https://rdap.verisign.com/com/v1/domain/casilicon.com	200	0.10	registered on or before the record's year
+2026-10-12T21:54:01Z	https://rdap.verisign.com/com/v1/domain/catoubikarcho.com	404	0.10	not registered now
+2026-10-12T21:54:03Z	https://rdap.verisign.com/com/v1/domain/catshecorkeesti.com	404	0.46	not registered now
+2026-10-12T21:54:04Z	https://rdap.verisign.com/com/v1/domain/ccaworks.com	200	0.08	registered after the record's year
+2026-10-12T21:54:05Z	https://rdap.verisign.com/com/v1/domain/corner-ah.com	404	0.08	not registered now
+2026-10-12T21:54:06Z	https://rdap.verisign.com/com/v1/domain/cristaleriamarrero.com	200	0.08	registered on or before the record's year
+2026-10-12T21:54:08Z	https://rdap.verisign.com/com/v1/domain/dianduct.com	404	0.06	not registered now
+2026-10-12T21:54:09Z	https://rdap.verisign.com/com/v1/domain/ditrunner.com	404	0.08	not registered now
+2026-10-12T21:54:10Z	https://rdap.verisign.com/com/v1/domain/dnaincers.com	404	0.09	not registered now
+2026-10-12T21:54:11Z	https://rdap.verisign.com/com/v1/domain/eaccong.com	404	0.08	not registered now
+2026-10-12T21:54:13Z	https://rdap.verisign.com/com/v1/domain/egyptclubfriends.com	404	0.25	not registered now
+2026-10-12T21:54:14Z	https://rdap.verisign.com/com/v1/domain/enerpal.com	200	0.29	registered on or before the record's year
+2026-10-12T21:54:15Z	https://rdap.verisign.com/com/v1/domain/henano.com	200	0.07	registered after the record's year
+2026-10-12T21:54:16Z	https://rdap.verisign.com/com/v1/domain/ho-stce.com	404	0.07	not registered now
+2026-10-12T21:54:18Z	https://rdap.verisign.com/com/v1/domain/ificsunglasses.com	404	0.09	not registered now
+2026-10-12T21:54:19Z	https://rdap.verisign.com/com/v1/domain/inguntaksg.com	404	0.08	not registered now
+2026-10-12T21:54:20Z	https://rdap.verisign.com/net/v1/domain/isd2184.net	200	0.07	registered on or before the record's year
+2026-10-12T21:54:21Z	https://rdap.verisign.com/com/v1/domain/jmaauctions.com	200	0.09	registered after the record's year
+2026-10-12T21:54:22Z	https://rdap.verisign.com/com/v1/domain/kejtkljde.com	404	0.07	not registered now
+2026-10-12T21:54:23Z	https://rdap.verisign.com/net/v1/domain/litgbaromacivica.net	404	0.10	not registered now
+2026-10-12T21:54:25Z	https://rdap.verisign.com/com/v1/domain/marcusfast.com	404	0.10	not registered now
+2026-10-12T21:54:26Z	https://rdap.verisign.com/com/v1/domain/masterstechron.com	404	0.08	not registered now
+2026-10-12T21:54:27Z	https://rdap.verisign.com/com/v1/domain/mesadrive.com	200	0.08	registered after the record's year
+2026-10-12T21:54:28Z	https://rdap.verisign.com/com/v1/domain/mhabc.com	200	0.08	registered on or before the record's year
+2026-10-12T21:54:29Z	https://rdap.verisign.com/com/v1/domain/moosehillock.com	200	0.09	registered on or before the record's year
+2026-10-12T21:54:31Z	https://rdap.verisign.com/com/v1/domain/niaobers.com	404	0.08	not registered now
+2026-10-12T21:54:32Z	https://rdap.verisign.com/com/v1/domain/oasolutions.com	200	0.07	registered on or before the record's year
+2026-10-12T21:54:33Z	https://rdap.verisign.com/net/v1/domain/olubbycore.net	404	0.07	not registered now
+2026-10-12T21:54:34Z	https://rdap.verisign.com/com/v1/domain/oplanpaindindwas.com	404	0.07	not registered now
+2026-10-12T21:54:36Z	https://rdap.verisign.com/com/v1/domain/oriabestwestern.com	404	0.46	not registered now
+2026-10-12T21:54:37Z	https://rdap.verisign.com/com/v1/domain/p3sitelist.com	404	0.07	not registered now
+2026-10-12T21:54:38Z	https://rdap.verisign.com/com/v1/domain/pfmj-pacitemsy.com	404	0.08	not registered now
+2026-10-12T21:54:39Z	https://rdap.verisign.com/com/v1/domain/plateaucarpentry.com	404	0.09	not registered now
+2026-10-12T21:54:40Z	https://rdap.verisign.com/com/v1/domain/polymerase.com	200	0.07	registered on or before the record's year
+2026-10-12T21:54:42Z	https://rdap.verisign.com/net/v1/domain/qad.net	200	0.09	registered on or before the record's year
+2026-10-12T21:54:43Z	https://rdap.verisign.com/com/v1/domain/qmoonpro.com	404	0.07	not registered now
+2026-10-12T21:54:44Z	https://rdap.verisign.com/net/v1/domain/reros.net	200	0.08	registered after the record's year
+2026-10-12T21:54:45Z	https://rdap.verisign.com/com/v1/domain/s-hokuriku.com	200	0.13	registered on or before the record's year
+2026-10-12T21:54:47Z	https://rdap.verisign.com/net/v1/domain/scdd.net	200	0.75	registered after the record's year
+2026-10-12T21:54:48Z	https://rdap.verisign.com/com/v1/domain/smartspaceonline.com	404	0.09	not registered now
+2026-10-12T21:54:49Z	https://rdap.verisign.com/com/v1/domain/stophealthcarefraud.com	200	0.10	registered after the record's year
+2026-10-12T21:54:51Z	https://rdap.verisign.com/com/v1/domain/striseses.com	404	0.10	not registered now
+2026-10-12T21:54:52Z	https://rdap.verisign.com/com/v1/domain/surf28.com	404	0.10	not registered now
+2026-10-12T21:54:53Z	https://rdap.verisign.com/com/v1/domain/texarado.com	200	0.09	registered on or before the record's year
+2026-10-12T21:54:54Z	https://rdap.verisign.com/com/v1/domain/thcylier.com	404	0.08	not registered now
+2026-10-12T21:54:55Z	https://rdap.verisign.com/com/v1/domain/uchty4y.com	404	0.09	not registered now
+2026-10-12T21:54:57Z	https://rdap.verisign.com/com/v1/domain/unlianges.com	404	0.13	not registered now
+2026-10-12T21:54:58Z	https://rdap.verisign.com/com/v1/domain/us-partyland.com	404	0.11	not registered now
+2026-10-12T21:54:59Z	https://rdap.verisign.com/com/v1/domain/valleyhost.com	200	0.09	registered on or before the record's year
+2026-10-12T21:55:00Z	https://rdap.verisign.com/com/v1/domain/vanu.com	200	0.09	registered on or before the record's year
+2026-10-12T21:55:02Z	https://rdap.verisign.com/com/v1/domain/walldorftech.com	200	0.09	registered after the record's year
+2026-10-12T21:55:03Z	https://rdap.verisign.com/com/v1/domain/wim.com	200	0.09	registered on or before the record's year
+2026-10-12T21:55:04Z	https://rdap.verisign.com/com/v1/domain/wisatanusantara.com	200	0.09	registered after the record's year
+2026-10-12T21:55:05Z	https://rdap.verisign.com/com/v1/domain/wmaltialeah.com	404	0.08	not registered now
+2026-10-12T21:55:06Z	https://rdap.verisign.com/com/v1/domain/yelldra.com	404	0.08	not registered now

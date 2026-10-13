@@ -1,0 +1,26 @@
+{
+ "id": "q2-rdap-bounds",
+ "question": "Q2",
+ "title": "Can a registration date bound a year?",
+ "label": "Tested, not independently verified",
+ "command": "uv run python scripts/orq/q2-rdap-bounds.py",
+ "sources": [
+  "https://rdap.verisign.com/com/v1/domain/<name>",
+  "https://www.verisign.com/domain-names/registration-data-access-protocol/terms-service/index.xhtml"
+ ],
+ "population": "Your merge261008-3 1996.txt to 2001.txt .com and .net registrables: 28,215,098 record-years (our export of 2026-10-11 holds none for 1996 to 2001).",
+ "sample": "200 .com and .net record-years, seeded",
+ "query": "GET https://rdap.verisign.com/<tld>/v1/domain/<name>; compare the year of its registration event with the record year; 404 is not registered now.",
+ "outcomes": {
+  "registered on or before the record's year": 56,
+  "registered after the record's year": 48,
+  "not registered now": 96
+ },
+ "result": "48 of 200 (24%) registered after the record's year; 96 not registered now",
+ "finding": "Today's registration date can neither assign nor bound a past year: for 24% of sampled record-years it falls after the year your files prove, by a median 15.5 years.",
+ "limits": "Historical WHOIS, which could show earlier registrations, is Pending validation. Verisign's terms bar high-volume automated queries, so this suits samples, not bulk.",
+ "started_at": "2026-10-12T21:50:22Z",
+ "finished_at": "2026-10-12T21:55:06Z",
+ "requests": 200,
+ "unresolved": 0
+}

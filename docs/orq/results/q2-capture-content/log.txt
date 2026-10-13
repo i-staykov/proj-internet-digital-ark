@@ -1,0 +1,176 @@
+2026-10-12T21:57:11Z	https://web.archive.org/web/19981212020959id_/http://server.nieuwenhuis-realestate.on.ca/	200	2.73	site content
+2026-10-12T21:57:17Z	https://web.archive.org/web/19981212030157id_/http://www.joc.net.my/	200	2.84	site content
+2026-10-12T21:57:25Z	https://web.archive.org/web/19981202152510id_/http://www.reedspecialist.co.uk/	200	4.75	site content
+2026-10-12T21:57:31Z	https://web.archive.org/web/20001004005525id_/http://www.acacia.on.ca/	ERR:URLError	3.46	retry
+2026-10-12T21:58:33Z	https://web.archive.org/web/20001004005525id_/http://www.acacia.on.ca/	200	1.56	redirect
+2026-10-12T21:58:37Z	https://web.archive.org/web/20000823120626id_/http://www.aussino.com.sg/	302	1.37	redirect
+2026-10-12T21:58:41Z	https://web.archive.org/web/20001018180756id_/http://www.beautyand.co.uk/	200	1.27	site content
+2026-10-12T21:58:45Z	https://web.archive.org/web/20000818165853id_/http://www.c-o-h.co.uk/	200	0.93	site content
+2026-10-12T21:58:49Z	https://web.archive.org/web/20000417021544id_/http://www.cadscape.ab.ca/	200	1.02	site content
+2026-10-12T21:58:53Z	https://web.archive.org/web/20001027200140id_/http://www.crealypark.co.uk/	302	0.79	redirect
+2026-10-12T21:58:58Z	https://web.archive.org/web/20000408141453id_/http://www.cyberclips.co.za/	200	1.81	site content
+2026-10-12T21:59:11Z	https://web.archive.org/web/20000619021702id_/http://www.drthemes.com.bi/	200	9.91	site content
+2026-10-12T21:59:14Z	https://web.archive.org/web/20000122022657id_/http://www.eibfs.gov.ae/	200	0.76	site content
+2026-10-12T21:59:20Z	https://web.archive.org/web/20000419093826id_/http://www.environ.com.sg/	301	2.25	redirect
+2026-10-12T21:59:24Z	https://web.archive.org/web/20000525061743id_/http://www.eroper.bc.ca/	200	0.94	site content
+2026-10-12T21:59:27Z	https://web.archive.org/web/20001206202700id_/http://www.fleet-cars.co.uk/	200	0.76	site content
+2026-10-12T21:59:31Z	https://web.archive.org/web/20000407112559id_/http://www.gellatly.co.uk/	200	1.03	placeholder
+2026-10-12T21:59:35Z	https://web.archive.org/web/20000520011740id_/http://www.health-n-wellness.on.ca/	302	0.96	redirect
+2026-10-12T21:59:48Z	https://web.archive.org/web/20001018074503id_/http://www.jean-pax.com.bi/	200	9.54	site content
+2026-10-12T21:59:57Z	https://web.archive.org/web/20000422203313id_/http://www.orcaheli.bc.ca/	200	5.85	site content
+2026-10-12T22:00:01Z	https://web.archive.org/web/20001028015238id_/http://www.rockchurch.ns.ca/	200	1.45	site content
+2026-10-12T22:00:05Z	https://web.archive.org/web/20001206211400id_/http://www.safariclassics.co.za/	200	0.89	site content
+2026-10-12T22:00:12Z	https://web.archive.org/web/20001206212800id_/http://www.woozy.co.uk/	200	3.64	site content
+2026-10-12T22:00:17Z	https://web.archive.org/web/20011130170924id_/http://bnc.com.bh/	200	2.00	site content
+2026-10-12T22:00:25Z	https://web.archive.org/web/20010929005405id_/http://groovy.co.za/	200	4.77	site content
+2026-10-12T22:00:33Z	https://web.archive.org/web/20010306051337id_/http://teen-pregnacy.co.uk/	200	5.04	error text in a 2xx
+2026-10-12T22:00:37Z	https://web.archive.org/web/20011128012446id_/http://unitedbirds.asn.au/	200	0.97	redirect
+2026-10-12T22:00:41Z	https://web.archive.org/web/20010331101908id_/http://wizardsweb.co.uk/	200	1.47	placeholder
+2026-10-12T22:00:49Z	https://web.archive.org/web/20010201053600id_/http://agora.fabiovalencia.nom.co/	200	4.70	site content
+2026-10-12T22:00:57Z	https://web.archive.org/web/20010521001656id_/http://members.school.net.ph/	301	5.39	redirect
+2026-10-12T22:01:01Z	https://web.archive.org/web/20010113074800id_/http://www.aamd.gov.ae/	200	1.20	site content
+2026-10-12T22:01:08Z	https://web.archive.org/web/20011217105829id_/http://www.ampcodirect.com.au/	200	3.29	site content
+2026-10-12T22:01:16Z	https://web.archive.org/web/20010304171851id_/http://www.anglialaser.co.uk/	302	5.43	redirect
+2026-10-12T22:01:24Z	https://web.archive.org/web/20011120072008id_/http://www.anglianewspapers.co.uk/	200	5.10	site content
+2026-10-12T22:01:28Z	https://web.archive.org/web/20010429161522id_/http://www.apm.org.sg/	200	0.95	site content
+2026-10-12T22:01:39Z	https://web.archive.org/web/20010201051000id_/http://www.bendoranguesthouse.co.uk/	200	7.44	site content
+2026-10-12T22:01:43Z	https://web.archive.org/web/20011121034541id_/http://www.beyondtheboundary.co.uk/	200	1.83	site content
+2026-10-12T22:01:47Z	https://web.archive.org/web/20010302104843id_/http://www.blueboxmarketing.co.uk/	302	0.76	redirect
+2026-10-12T22:01:52Z	https://web.archive.org/web/20010304231821id_/http://www.c4free-suckcam365.co.uk/	200	1.53	site content
+2026-10-12T22:02:00Z	https://web.archive.org/web/20010224150008id_/http://www.carteraviation.co.uk/	200	4.98	site content
+2026-10-12T22:02:04Z	https://web.archive.org/web/20010406225510id_/http://www.delmonte.co.uk/	200	0.81	site content
+2026-10-12T22:02:07Z	https://web.archive.org/web/20011022221107id_/http://www.dfsweb.bc.ca/	200	0.83	placeholder
+2026-10-12T22:02:12Z	https://web.archive.org/web/20010918212341id_/http://www.dragontattoo.co.uk/	200	1.40	site content
+2026-10-12T22:02:16Z	https://web.archive.org/web/20010503125036id_/http://www.e-meal.com.sg/	301	1.19	redirect
+2026-10-12T22:02:20Z	https://web.archive.org/web/20010210192858id_/http://www.eagles.on.ca/	200	1.31	site content
+2026-10-12T22:02:24Z	https://web.archive.org/web/20011013132241id_/http://www.eciba.warp9webhosting.co.uk/	200	0.81	site content
+2026-10-12T22:02:29Z	https://web.archive.org/web/20010511050843id_/http://www.eyefodder.co.uk/	200	2.25	empty HTML
+2026-10-12T22:02:33Z	https://web.archive.org/web/20010302043213id_/http://www.fotofx.co.nz/	200	0.90	placeholder
+2026-10-12T22:02:37Z	https://web.archive.org/web/20010628143216id_/http://www.fsindependent.co.uk/	200	0.76	site content
+2026-10-12T22:02:45Z	https://web.archive.org/web/20010406222955id_/http://www.geoffmartintransport.co.uk/	200	4.80	site content
+2026-10-12T22:02:51Z	https://web.archive.org/web/20010923121907id_/http://www.ibnduraid.sch.ae/	200	2.77	site content
+2026-10-12T22:03:02Z	https://web.archive.org/web/20010307221733id_/http://www.kanyawegichildren.co.uk/	200	8.75	site content
+2026-10-12T22:03:11Z	https://web.archive.org/web/20010219033856id_/http://www.konect-cafe.co.uk/	200	5.65	site content
+2026-10-12T22:03:15Z	https://web.archive.org/web/20010312005013id_/http://www.larastur.co.uk/	200	1.27	site content
+2026-10-12T22:03:21Z	https://web.archive.org/web/20010930231928id_/http://www.lordpineapple.co.uk/	200	2.16	redirect
+2026-10-12T22:03:24Z	https://web.archive.org/web/20010402112245id_/http://www.market-leaders.co.uk/	200	0.77	site content
+2026-10-12T22:03:37Z	https://web.archive.org/web/20011213210407id_/http://www.matrixhosting.co.za/	200	9.20	redirect
+2026-10-12T22:03:45Z	https://web.archive.org/web/20010407003349id_/http://www.mooncs.co.ae/	200	5.21	site content
+2026-10-12T22:03:49Z	https://web.archive.org/web/20010124025400id_/http://www.murdocks.on.ca/	200	0.88	site content
+2026-10-12T22:03:53Z	https://web.archive.org/web/20010401163241id_/http://www.mysticwoodsnursery.bc.ca/	200	0.88	site content
+2026-10-12T22:03:57Z	https://web.archive.org/web/20010302114912id_/http://www.neutel.net.co/	200	1.11	site content
+2026-10-12T22:04:00Z	https://web.archive.org/web/20010404001616id_/http://www.northenlights.co.uk/	200	0.80	site content
+2026-10-12T22:04:05Z	https://web.archive.org/web/20010419141015id_/http://www.performx.nb.ca/	200	1.05	redirect
+2026-10-12T22:04:08Z	https://web.archive.org/web/20011207071503id_/http://www.profile-engineering.co.za/	200	0.88	site content
+2026-10-12T22:04:13Z	https://web.archive.org/web/20010331070233id_/http://www.quios.co.uk/	200	1.20	site content
+2026-10-12T22:04:24Z	https://web.archive.org/web/20010724052826id_/http://www.reallist.com.au/	ERR:URLError	8.87	retry
+2026-10-12T22:05:30Z	https://web.archive.org/web/20010724052826id_/http://www.reallist.com.au/	302	5.23	redirect
+2026-10-12T22:05:34Z	https://web.archive.org/web/20010723125513id_/http://www.sniffer-dog.co.uk/	200	0.88	site content
+2026-10-12T22:05:38Z	https://web.archive.org/web/20010218023202id_/http://www.southcoastsounds.co.uk/	200	0.96	site content
+2026-10-12T22:05:42Z	https://web.archive.org/web/20010223184248id_/http://www.swazitv.co.sz/	200	1.38	site content
+2026-10-12T22:05:46Z	https://web.archive.org/web/20010309182157id_/http://www.unisea.com.au/	200	0.94	site content
+2026-10-12T22:05:50Z	https://web.archive.org/web/20010124023600id_/http://www.virtual-console.com.bi/	200	0.93	site content
+2026-10-12T22:05:54Z	https://web.archive.org/web/20011031102246id_/http://www.voicetrack.co.uk/	200	1.10	site content
+2026-10-12T22:05:58Z	https://web.archive.org/web/20011129161019id_/http://www.votedave.co.uk/	200	1.06	site content
+2026-10-12T22:06:02Z	https://web.archive.org/web/20010304005526id_/http://www.wolcott.k12.ct.us/	200	0.97	site content
+2026-10-12T22:06:06Z	https://web.archive.org/web/20010429151930id_/http://www.wsc.org.sg/	200	0.85	empty HTML
+2026-10-12T22:06:14Z	https://web.archive.org/web/20010813224049id_/http://www.x-box.com.mt/	200	5.08	placeholder
+2026-10-12T22:06:19Z	https://web.archive.org/web/20021201084537id_/http://dr-danciu.on.ca:80/	200	1.97	site content
+2026-10-12T22:06:23Z	https://web.archive.org/web/20020327023537id_/http://www.adeptstore.co.uk:80/	302	0.86	redirect
+2026-10-12T22:06:27Z	https://web.archive.org/web/20020329082042id_/http://www.cspb.co.za:80/	200	1.02	placeholder
+2026-10-12T22:06:31Z	https://web.archive.org/web/20030122094512id_/http://www.ramaa.co.uk:80/	200	1.16	site content
+2026-10-12T22:06:36Z	https://web.archive.org/web/20041211022852id_/http://cheap-fridge.searchpro.co.uk:80/	200	1.69	site content
+2026-10-12T22:06:39Z	https://web.archive.org/web/20040928100136id_/http://industry.gov.sd:80/	200	0.84	site content
+2026-10-12T22:06:43Z	https://web.archive.org/web/20040225150953id_/http://www.anagram-text-solutions.co.uk:80/	200	0.83	redirect
+2026-10-12T22:06:47Z	https://web.archive.org/web/20040324182858id_/http://www.application.file-server.tmc.high-availability.ultrapromote.co.uk:80/	200	1.15	site content
+2026-10-12T22:06:52Z	https://web.archive.org/web/20040609123839id_/http://www.london-se5.london.recruitment.jobs.whinging.co.uk:80/	200	1.06	site content
+2026-10-12T22:06:55Z	https://web.archive.org/web/20040905235936id_/http://www.skeletalembrace.co.uk:80/	200	0.79	redirect
+2026-10-12T22:07:03Z	https://web.archive.org/web/20040205010110id_/http://www.web-synergy.co.uk:80/	200	4.20	site content
+2026-10-12T22:07:07Z	https://web.archive.org/web/20050125212308id_/http://angel-print.offersearch.co.uk:80/	200	1.03	site content
+2026-10-12T22:07:10Z	https://web.archive.org/web/20050124122235id_/http://area-code-search.offersearch.co.uk:80/	200	0.80	site content
+2026-10-12T22:07:14Z	https://web.archive.org/web/20050122220415id_/http://fetiche.offersearch.co.uk:80/	200	0.84	site content
+2026-10-12T22:07:19Z	https://web.archive.org/web/20050308212416id_/http://midnight-liason.underwear-finder.co.uk:80/	302	1.98	redirect
+2026-10-12T22:07:23Z	https://web.archive.org/web/20050203032545id_/http://www.angkahhoe.com.sg:80/	200	0.92	site content
+2026-10-12T22:07:27Z	https://web.archive.org/web/20060629071107id_/http://1014.dating2love.co.uk:80/	200	1.11	site content
+2026-10-12T22:07:32Z	https://web.archive.org/web/20060313155656id_/http://western-international-university-online.i-love-klikko.co.uk:80/	200	1.64	site content
+2026-10-12T22:07:37Z	https://web.archive.org/web/20060116205553id_/http://www.arisaig.com.sg:80/	200	1.71	site content
+2026-10-12T22:07:45Z	https://web.archive.org/web/20070704092410id_/http://www.aloeridge.org.za:80/	302	5.76	timestamp hop
+2026-10-12T22:07:49Z	https://web.archive.org/web/20070825085336id_/http://www.aloeridge.org.za/	200	0.81	site content
+2026-10-12T22:07:56Z	https://web.archive.org/web/20070216225046id_/http://www.withinthecircle.com.au:80/	200	4.06	site content
+2026-10-12T22:08:00Z	https://web.archive.org/web/20090321050436id_/http://walnutcards.co.uk:80/	200	1.23	placeholder
+2026-10-12T22:08:09Z	https://web.archive.org/web/20090102051448id_/http://www.dentalanimations.com.au:80/	200	5.49	site content
+2026-10-12T22:08:13Z	https://web.archive.org/web/20090605112453id_/http://www.galanz.co.za:80/	200	1.12	site content
+2026-10-12T22:08:17Z	https://web.archive.org/web/20100304033332id_/http://dliw.co.uk:80/	200	1.10	redirect
+2026-10-12T22:08:29Z	https://web.archive.org/web/20100131052607id_/http://www.helpusell.com.na:80/	200	8.34	site content
+2026-10-12T22:08:33Z	https://web.archive.org/web/20100111053852id_/http://www.yourmentalhealthcoach.co.za:80/	200	1.99	site content
+2026-10-12T22:08:38Z	https://web.archive.org/web/20110718011605id_/http://amesband.co.uk:80/	200	1.61	empty HTML
+2026-10-12T22:08:42Z	https://web.archive.org/web/20110202112722id_/http://angelbabieshaven.co.uk/	200	0.82	site content
+2026-10-12T22:08:46Z	https://web.archive.org/web/20110703025659id_/http://blog.doublage.qc.ca:80/	200	1.28	site content
+2026-10-12T22:08:51Z	https://web.archive.org/web/20110214171743id_/http://woodstock75it.wordpress.com:80/	200	1.34	site content
+2026-10-12T22:08:55Z	https://web.archive.org/web/20110716111504id_/http://www.baxter.com.pr/	200	0.97	site content
+2026-10-12T22:08:58Z	https://web.archive.org/web/20110507113505id_/http://www.foxwoodceramics.co.uk:80/	200	0.94	empty HTML
+2026-10-12T22:09:03Z	https://web.archive.org/web/20110202154326id_/http://www.infocentrality.co.uk/	200	1.48	site content
+2026-10-12T22:09:07Z	https://web.archive.org/web/20120212034139id_/http://gartmoreevents.co.uk/	200	1.27	empty HTML
+2026-10-12T22:09:15Z	https://web.archive.org/web/20121205062318id_/http://ilovetocreateblog.blogspot.co.uk:80/	200	4.55	site content
+2026-10-12T22:09:20Z	https://web.archive.org/web/20120921063859id_/http://missfridaysfeast.blogspot.co.uk:80/	200	2.49	site content
+2026-10-12T22:09:24Z	https://web.archive.org/web/20120112140051id_/http://propertymanagement.blog.co.in/	302	1.21	redirect
+2026-10-12T22:09:29Z	https://web.archive.org/web/20120318151018id_/http://rm.6572641.olas-hammers.co.uk/	200	1.44	empty HTML
+2026-10-12T22:09:33Z	https://web.archive.org/web/20120331211816id_/http://switchstudios.co.uk:80/	200	0.89	site content
+2026-10-12T22:09:38Z	https://web.archive.org/web/20120913025018id_/http://www.designpacks.blogspot.co.uk:80/	200	2.42	site content
+2026-10-12T22:09:45Z	https://web.archive.org/web/20120107190733id_/http://www.holidayrentalsspain.co.uk:80/	ERR:URLError	3.49	retry
+2026-10-12T22:10:48Z	https://web.archive.org/web/20120107190733id_/http://www.holidayrentalsspain.co.uk:80/	200	2.98	site content
+2026-10-12T22:10:52Z	https://web.archive.org/web/20120225051343id_/http://www.krimson.co.uk:80/	200	0.91	placeholder
+2026-10-12T22:10:56Z	https://web.archive.org/web/20120205030533id_/http://www.nicholas-corder.co.uk:80/	200	0.97	site content
+2026-10-12T22:10:59Z	https://web.archive.org/web/20130718022811id_/http://941.kut1yry.co.za	302	0.76	timestamp hop
+2026-10-12T22:11:05Z	https://web.archive.org/web/20130718022811id_/http://941.kut1yry.co.za/	200	2.36	site content
+2026-10-12T22:11:10Z	https://web.archive.org/web/20130430202435id_/http://best-uk-van-insurance.co.uk/	301	2.35	redirect
+2026-10-12T22:11:14Z	https://web.archive.org/web/20130628124138id_/http://buckhurst-hill.able-plumbing.co.uk	302	0.73	timestamp hop
+2026-10-12T22:11:18Z	https://web.archive.org/web/20130628124138id_/http://buckhurst-hill.able-plumbing.co.uk/	200	0.85	site content
+2026-10-12T22:11:21Z	https://web.archive.org/web/20130703112717id_/http://caesuracredit.co.uk	302	0.72	timestamp hop
+2026-10-12T22:11:28Z	https://web.archive.org/web/20130703112717id_/http://caesuracredit.co.uk/	ERR:URLError	3.28	retry
+2026-10-12T22:12:29Z	https://web.archive.org/web/20130703112717id_/http://caesuracredit.co.uk/	302	1.50	timestamp hop
+2026-10-12T22:12:33Z	https://web.archive.org/web/20130703112723id_/http://www.caesuracredit.co.uk/	200	1.03	site content
+2026-10-12T22:12:37Z	https://web.archive.org/web/20130521093105id_/http://circusskills.co.uk/	301	1.04	redirect
+2026-10-12T22:12:41Z	https://web.archive.org/web/20130711133429id_/http://curtains-fabrics-other-homewares.shoppingvariety.co.uk	302	0.96	timestamp hop
+2026-10-12T22:12:45Z	https://web.archive.org/web/20130711133429id_/http://curtains-fabrics-other-homewares.shoppingvariety.co.uk/	200	0.88	site content
+2026-10-12T22:12:50Z	https://web.archive.org/web/20130521111420id_/http://davidvincent.co.uk/	302	1.37	timestamp hop
+2026-10-12T22:12:54Z	https://web.archive.org/web/20161001175511id_/http://davidvincent.co.uk/	302	1.61	timestamp hop
+2026-10-12T22:12:58Z	https://web.archive.org/web/20161012153125id_/http://www.davidvincent.co.uk/	200	1.09	replay year mismatch
+2026-10-12T22:13:04Z	https://web.archive.org/web/20130403194557id_/http://dulapulbunicii.blogspot.co.uk:80/	200	2.33	site content
+2026-10-12T22:13:08Z	https://web.archive.org/web/20131001054427id_/http://electronic-setup.blogspot.co.uk:80/	200	1.48	site content
+2026-10-12T22:13:12Z	https://web.archive.org/web/20130523162154id_/http://equineagents.co.uk/	200	0.96	site content
+2026-10-12T22:13:16Z	https://web.archive.org/web/20130722062351id_/http://flowmaster17429catbacksystemamericaned7.wordpress.com	302	0.84	timestamp hop
+2026-10-12T22:13:20Z	https://web.archive.org/web/20130722062351id_/http://flowmaster17429catbacksystemamericaned7.wordpress.com/	200	1.60	site content
+2026-10-12T22:13:24Z	https://web.archive.org/web/20130704215456id_/http://gillespiesgiftideas.co.uk	302	0.93	timestamp hop
+2026-10-12T22:13:31Z	https://web.archive.org/web/20130704215457id_/http://www.gillespiesgiftideas.co.uk/	ERR:URLError	3.48	retry
+2026-10-12T22:14:33Z	https://web.archive.org/web/20130704215457id_/http://www.gillespiesgiftideas.co.uk/	200	2.06	site content
+2026-10-12T22:14:37Z	https://web.archive.org/web/20130509133021id_/http://jaea.co.uk	302	0.90	timestamp hop
+2026-10-12T22:14:41Z	https://web.archive.org/web/20130509133021id_/http://jaea.co.uk/	200	1.59	site content
+2026-10-12T22:14:45Z	https://web.archive.org/web/20130923132931id_/http://letthemhavepolishpr.blogspot.co.uk	302	0.74	timestamp hop
+2026-10-12T22:14:50Z	https://web.archive.org/web/20130923132931id_/http://letthemhavepolishpr.blogspot.co.uk/	200	1.37	site content
+2026-10-12T22:14:54Z	https://web.archive.org/web/20130324124141id_/http://lus.dacnet.nic.in:80/	200	1.11	site content
+2026-10-12T22:14:58Z	https://web.archive.org/web/20130518043534id_/http://midland-signs.co.uk/	302	1.24	timestamp hop
+2026-10-12T22:15:02Z	https://web.archive.org/web/20130531225827id_/http://www.midland-signs.co.uk/	200	1.19	site content
+2026-10-12T22:15:07Z	https://web.archive.org/web/20130523032937id_/http://recreation.co.nz/	200	1.96	site content
+2026-10-12T22:15:15Z	https://web.archive.org/web/20130208015454id_/http://revolucion.co.nz/	200	5.23	site content
+2026-10-12T22:15:20Z	https://web.archive.org/web/20130516192750id_/http://shirazshic.co.uk	302	1.35	timestamp hop
+2026-10-12T22:15:24Z	https://web.archive.org/web/20130516192751id_/http://www.shirazshic.co.uk/	200	1.16	empty HTML
+2026-10-12T22:15:28Z	https://web.archive.org/web/20130815151731id_/http://themojos.co.uk	302	0.74	timestamp hop
+2026-10-12T22:15:32Z	https://web.archive.org/web/20130815151731id_/http://themojos.co.uk/	200	0.91	site content
+2026-10-12T22:15:36Z	https://web.archive.org/web/20130705105741id_/http://tragamonedasytragaperras.blogspot.co.uk	302	1.07	timestamp hop
+2026-10-12T22:15:40Z	https://web.archive.org/web/20130705105741id_/http://tragamonedasytragaperras.blogspot.co.uk/	200	1.31	site content
+2026-10-12T22:15:44Z	https://web.archive.org/web/20130423011034id_/http://umbdev01.lawscot.org.uk	302	0.95	timestamp hop
+2026-10-12T22:15:48Z	https://web.archive.org/web/20130423011034id_/http://umbdev01.lawscot.org.uk/	200	1.09	site content
+2026-10-12T22:15:52Z	https://web.archive.org/web/20130520131825id_/http://unsecuredloansforfaircredit.co.uk/	302	0.94	timestamp hop
+2026-10-12T22:15:56Z	https://web.archive.org/web/20130312042511id_/http://www.unsecuredloansforfaircredit.co.uk/	200	1.46	site content
+2026-10-12T22:16:00Z	https://web.archive.org/web/20130808162740id_/http://www.areacarsuk.co.uk	302	0.72	timestamp hop
+2026-10-12T22:16:05Z	https://web.archive.org/web/20130808162740id_/http://www.areacarsuk.co.uk/	200	1.58	site content
+2026-10-12T22:16:09Z	https://web.archive.org/web/20130704064611id_/http://www.beadazzledparties.co.uk/	200	0.87	site content
+2026-10-12T22:16:13Z	https://web.archive.org/web/20130616113427id_/http://www.bmj.co.in/	200	1.46	site content
+2026-10-12T22:16:17Z	https://web.archive.org/web/20130127203010id_/http://www.everittdesign.co.uk:80/	200	1.08	site content
+2026-10-12T22:16:21Z	https://web.archive.org/web/20130801095825id_/http://www.martinwagner.co.uk/	200	0.85	error text in a 2xx
+2026-10-12T22:16:25Z	https://web.archive.org/web/20130223025136id_/http://www.smarty-bt.com.sg:80/	200	1.21	site content
+2026-10-12T22:16:29Z	https://web.archive.org/web/20130807143301id_/http://www.txdrivertraining.co.uk	302	0.72	timestamp hop
+2026-10-12T22:16:33Z	https://web.archive.org/web/20130807143301id_/http://www.txdrivertraining.co.uk/	200	1.02	site content
+2026-10-12T22:16:37Z	https://web.archive.org/web/20130722192201id_/http://www.unleasheds.co.nz	302	0.78	timestamp hop
+2026-10-12T22:16:41Z	https://web.archive.org/web/20130722192201id_/http://www.unleasheds.co.nz/	200	1.04	site content

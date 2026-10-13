@@ -1,0 +1,10 @@
+2026-10-12T21:56:54Z	https://archive.org/robots.txt	read	0.6	robots
+2026-10-12T21:57:00Z	https://archive.org/metadata/usenet-comp	200	5.1	ok 294120 bytes
+2026-10-12T21:57:00Z	https://archive.org/download/usenet-comp/comp.infosystems.www.announce.mbox.zip	302	0.7	redirect
+2026-10-12T21:57:01Z	https://dn711107.ca.archive.org/robots.txt	read	0.5	robots
+2026-10-12T21:58:24Z	https://dn711107.ca.archive.org/0/items/usenet-comp/comp.infosystems.www.announce.mbox.zip	200	83.5	ok 13546238 bytes
+2026-10-12T21:58:25Z	https://archive.org/download/usenet-comp/comp.infosystems.www.mbox.zip	302	0.8	redirect
+2026-10-12T22:00:10Z	https://dn711107.ca.archive.org/0/items/usenet-comp/comp.infosystems.www.mbox.zip	200	104.2	ok 17641780 bytes
+2026-10-12T22:00:11Z	https://archive.org/download/usenet-comp/comp.infosystems.www.providers.mbox.zip	302	0.8	redirect
+2026-10-12T22:00:12Z	https://ia601009.us.archive.org/robots.txt	read	0.7	robots
+2026-10-12T22:03:31Z	https://ia601009.us.archive.org/10/items/usenet-comp/comp.infosystems.www.providers.mbox.zip	200	198.8	ok 21790415 bytes
