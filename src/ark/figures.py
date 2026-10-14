@@ -61,6 +61,13 @@ def t_days_assignment(receipt_ts: str, assigned: str = TASK_ASSIGNED_DATE) -> in
     return max(1, days)
 
 
+def t_span(receipt_ts: str, assigned: str = TASK_ASSIGNED_DATE) -> str:
+    """The two dates `t_days_assignment` counts between, as the report prints them:
+    `2 August to 12 October 2026`."""
+    start, end = date.fromisoformat(assigned), date.fromisoformat(receipt_ts[:10])
+    return f"{start.day} {start:%B} to {end.day} {end:%B %Y}"
+
+
 def score(p: Decimal, t: int, places: Decimal = PLACES) -> Decimal:
     """`S_i = k * p_i / t_i`, to the six places he quotes unless told otherwise."""
     return (SUBMISSION_SPEED_K * p / Decimal(t)).quantize(places)

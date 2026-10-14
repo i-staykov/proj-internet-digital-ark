@@ -40,7 +40,7 @@ from ark.baseline import (  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
-from ark.figures import now_in_his_clock, score_line, t_days_assignment  # noqa: E402
+from ark.figures import now_in_his_clock, score_line, t_days_assignment, t_span  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 # Template in, filled document out. Filling in place would consume the template,
@@ -597,18 +597,27 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["BASELINEPAIRS"] = f"{REVIEWER_BASELINE_PAIRS:,}"
     # The 2002 to 2013 additions as `extended_export.py` measured them, zero before any. Each
     # part is its growth over his EE for its years with his S beside it, never the two summed;
-    # t is whole days from the 2 August assignment, as he would count it today.
+    # only the EE increments add, into the combined increment his brief asks for. t is whole
+    # days from the 2 August assignment, as he would count it today. Post-merge totals add the
+    # rounded figures the table prints, so its "2 + 4" check holds to the last place.
     manifest = Path("output/extended_years/manifest.json")
     ext = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
     ext_ee = Decimal(ext.get("increment_ee", "0"))
     ext_growth = ext_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
-    t_now = t_days_assignment(now_in_his_clock())
+    now = now_in_his_clock()
+    t_now = t_days_assignment(now)
+    four = Decimal("0.0001")
     subs |= {
         "EXTPAIRS": f"{ext.get('accepted_new', 0):,}",
         "EXTEE": f"{ext_ee:,.4f}",
         "EXTGROWTH": f"{ext_growth:.4f}%",
         "EXTBASELINEEE": f"{REVIEWER_EXTENDED_EE:,.4f}",
+        "EEPOSTMERGE": f"{baseline_ee.quantize(four) + ee_total.quantize(four):,.4f}",
+        "EXTPOSTMERGE": f"{REVIEWER_EXTENDED_EE.quantize(four) + ext_ee.quantize(four):,.4f}",
+        "COMBINEDEE": f"{ee_total.quantize(four) + ext_ee.quantize(four):,.4f}",
+        "DISTINCTNEW": f"{distinct_added():,}",
         "TDAYS": str(t_now),
+        "TSPAN": t_span(now),
         "SCORE_CORE": score_line(growth, t_now),
         "SCORE_EXT": score_line(ext_growth, t_now),
     }
@@ -667,6 +676,31 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
 
     return subs
+
+
+def distinct_added() -> int:
+    """Distinct names across every shipped addition, 1996 to 2013: `additions/`, `hostnames/` and
+    `extended_years/additions/`, counted as the report's `LC_ALL=C sort -u | wc -l` counts them.
+    The brief's supporting statistic beside the record counts; it never enters the EE."""
+    import duckdb
+
+    years = range(1996, 2002)
+    files = [NETNEW_DIR / f"{y}.txt" for y in years] + [
+        NETNEW_DIR / f"{y}_hostnames.txt" for y in years
+    ]
+    files += sorted(Path("output/extended_years/additions").glob("*.txt"))
+    files = [str(p) for p in files if p.is_file()]
+    if not files:
+        return 0
+    conn = duckdb.connect()
+    try:
+        return conn.execute(
+            "SELECT count(DISTINCT name) FROM read_csv(?, header=false, delim='\x01', quote='', "
+            "escape='', columns={'name': 'VARCHAR'})",
+            [files],
+        ).fetchone()[0]
+    finally:
+        conn.close()
 
 
 def candidate_additions() -> dict:

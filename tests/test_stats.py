@@ -190,6 +190,7 @@ def test_his_scores_reproduce_under_the_benchmark_rule_and_the_assignment_rule()
     assert fig.score(ROWS["7"][5], 31) == D("2.439628")
     assert fig.t_days_assignment("2026-09-02 23:59") == fig.t_days_assignment("2026-09-02 00:01")
     assert fig.t_days_assignment("2026-08-17 03:03") == 15  # the origin never moves
+    assert fig.t_span("2026-10-12 23:59") == "2 August to 12 October 2026"
     assert fig.t_days_assignment(ROWS["8"][7]) == 33
     assert fig.score(ROWS["8"][5], 33) == D("5.687792")
     assert fig.score_line(D("28.8813137522"), 67) == "S = 10 x (28.8813137522 / 67) = 4.310643844"
