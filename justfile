@@ -1385,15 +1385,23 @@ ship stage="all" *args:
         hold_lock
         # A bank handed the lock skips its preflight, so ship runs it, as a bank by hand does.
         uv run python scripts/harness/bank_hygiene.py preflight
-        BEFORE=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
-        ARK_LOCK_HELD=$$ just bank --force
-        AFTER=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
-        if [ "$AFTER" = "$BEFORE" ] || ! grep -q '"mode": "claim"' <<<"$AFTER"; then
-            echo "ship prep: the bank wrote no claim export" >&2
+        # A bank runs only when something arrived since the last one; otherwise its claim
+        # export stands, and build's full export is the ship's only export.
+        if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
+            echo "$WHY"
+            BEFORE=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+            ARK_LOCK_HELD=$$ just bank --force
+            AFTER=$(cat output/netnew/export_stamp.json 2>/dev/null || true)
+            if [ "$AFTER" = "$BEFORE" ] || ! grep -q '"mode": "claim"' <<<"$AFTER"; then
+                echo "ship prep: the bank wrote no claim export" >&2
+                exit 1
+            fi
+        elif ! grep -q '"mode": "claim"' output/netnew/export_stamp.json 2>/dev/null; then
+            echo "ship prep: $WHY, but the last export is not a claim" >&2
             exit 1
+        else
+            echo "ship prep: $WHY, so the last bank's claim export stands"
         fi
-        # The promotion tranche, measured and never banked: without --write it writes nothing.
-        uv run python scripts/engines/build_promotion_journals.py --tag "dryrun$(date -u +%Y%m%d)"
         uv run python scripts/round/merge_against_baseline.py | tail -3
         uv run python scripts/round/round_figures.py | sed -n '1,17p'
     }
@@ -1460,8 +1468,8 @@ ship stage="all" *args:
         echo "just ship <stage> [args]"
         echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
         echo "                   draft, and closing the gate issue"
-        echo "  prep             take the sync lock, bank --force, promotion dry run, merge"
-        echo "                   audit, figures"
+        echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
+        echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
         echo "                   report and .docx, package, verify"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
