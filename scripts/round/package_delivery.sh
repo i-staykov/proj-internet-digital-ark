@@ -288,7 +288,7 @@ mkdir -p "$STAGE/hostnames"
 cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
 cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
 # extended_years/: the additions, their ledger, dedup report and manifest as extended_export.py
-# wrote them, and for each year we add to his 2002 to 2013 file merged with ours, as masters/.
+# wrote them. His 2002 to 2013 files do not ship back to him; manifest.json names their sha256.
 EXT=output/extended_years
 if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     uv run python scripts/round/extended_export.py --check \
@@ -296,11 +296,8 @@ if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     mkdir -p "$STAGE/extended_years"
     cp -R "$EXT/additions" "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" \
         "$EXT/manifest.json" "$STAGE/extended_years/"
-    HIS_EXT=$(uv run python -c 'from ark.baseline import baseline_dir; print(baseline_dir())')
-    for adds in "$EXT"/additions/20[01][0-9].txt; do
-        LC_ALL=C sort -m -u "$HIS_EXT/$(basename "$adds")" "$adds" \
-            > "$STAGE/extended_years/$(basename "$adds")"
-    done
+    # The brief names extended_years/YYYY.txt for these records: ours, the same lines.
+    cp "$EXT"/additions/*.txt "$STAGE/extended_years/"
 else
     echo "no extended additions: packaging without extended_years/"
 fi
@@ -459,48 +456,51 @@ fi
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
 
-# BOTH baselines, in separate folders, because conflating them made the shipped
-# archive wrong about its own scoring reference.
-#
+# His release does not ship back to him: baseline/README.txt names it and gives the sha256 and
+# line count of each file of his the checks read, and verify.sh reads his copy from HIS.
 eval "$(uv run python -c "
 import shlex
 from ark.baseline import CURRENT_BASELINE_DIR, CURRENT_BASELINE_MARKER
 print(f'MERGED={shlex.quote(str(CURRENT_BASELINE_DIR))}')
 print(f'MARKER={shlex.quote(CURRENT_BASELINE_MARKER)}')
 ")"
-mkdir -p "$STAGE/baseline/$MARKER"
-
-if [ -d "$MERGED" ]; then
-    cp "$MERGED"/199[6-9].txt "$MERGED"/200[01].txt "$STAGE/baseline/$MARKER/"
-    cp "$MERGED/candidate_pool.txt" "$STAGE/baseline/$MARKER/"
-    # the rest of what the candidate claim is diffed against (`held.candidate_files`),
-    # or a reproduce from this archive hands his ISC names back to him
-    cp "$MERGED/candidate_pool_unparsed_format.txt" "$STAGE/baseline/$MARKER/"
-    mkdir -p "$STAGE/baseline/$MARKER/isc_survey_hostnames"
-    cp "$MERGED"/isc_survey_hostnames/*.txt "$STAGE/baseline/$MARKER/isc_survey_hostnames/"
-    cp "$MERGED/merge_stats_new0714.csv" "$STAGE/baseline/$MARKER/" 2>/dev/null || true
-else
-    echo "refusing to package: $MARKER not found at $MERGED, so the archive could not" >&2
-    echo "ship the baseline its own figures are measured against." >&2
+if [ ! -f "$MERGED/1996.txt" ]; then
+    echo "refusing to package: $MARKER not found at $MERGED, the release the figures count against" >&2
     exit 1
 fi
 
 uv run python scripts/round/verify_isc_candidates.py \
-    --collection "$STAGE/isc_survey_hostnames" --baseline "$STAGE/baseline/$MARKER" \
+    --collection "$STAGE/isc_survey_hostnames" --baseline "$MERGED" \
     --annual-dirs "$STAGE/masters" "$STAGE/additions" "$STAGE/hostnames" \
     --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
 
-MERGED_LINES=$(cat "$STAGE/baseline/$MARKER"/199[6-9].txt "$STAGE/baseline/$MARKER"/200[01].txt \
-    | wc -l | tr -d ' ')
-cat > "$STAGE/baseline/README.txt" <<BASELINES
-$MARKER/
-    The reference THIS ROUND'S ADDITIONS ARE COUNTED AGAINST, as reissued by the
-    reviewer: the six annual files, candidate_pool.txt, candidate_pool_unparsed_format.txt
-    and isc_survey_hostnames/*.txt, $MERGED_LINES raw annual lines, copied unchanged.
-    Compare by exact name. Every "net-new" figure in report.md means "not present in
-    these files". Additions scored against any earlier release give a larger number
-    than the report claims.
-BASELINES
+python3 - "$MERGED" "$MARKER" > "$STAGE/baseline/README.txt" <<'PY'
+import hashlib
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+root, marker = Path(sys.argv[1]), sys.argv[2]
+names = [f"{y}.txt" for y in range(1996, 2014)]
+names += ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
+names += sorted(f"isc_survey_hostnames/{p.name}" for p in (root / "isc_survey_hostnames").glob("*.txt"))
+
+
+def measure(name):
+    digest, lines = hashlib.sha256(), 0
+    with (root / name).open("rb") as fh:
+        while chunk := fh.read(1 << 22):
+            digest.update(chunk)
+            lines += chunk.count(b"\n")
+    return f"{digest.hexdigest()}  {lines:>11}  {name}"
+
+
+print(f"{marker}: your release, which every net-new figure counts against, not shipped back.")
+print(f"The checks read it from HIS: HIS=/path/to/{marker} bash verify.sh")
+print("sha256, lines and name of each file of it the checks read:")
+with ThreadPoolExecutor(8) as pool:
+    print("\n".join(pool.map(measure, names)))
+PY
 
 # the provenance graph as Parquet: which source saw which domain in which year,
 # so any shipped line can be traced without the source data or the database.
@@ -518,9 +518,8 @@ cp -R output/provenance/. "$STAGE/provenance/"
 # archive failed with "calculator not found": it lived only in the repository. Found
 # by running the report's own instructions in a fresh extraction, 2026-08-17.
 #
-# It is his file coming back to him, which is the same argument as `baseline/`: a
-# reviewer should be able to check the arithmetic without fetching anything, and the
-# whole thing is a few tens of kilobytes.
+# It is his file coming back to him: a reviewer should be able to check the arithmetic
+# without fetching anything, and the whole thing is a few tens of kilobytes.
 mkdir -p "$STAGE/equivalent_english_domain_calculator"
 CALC_SRC="$(dirname "$MERGED")/equivalent_english_domain_calculator"
 if [ -d "$CALC_SRC" ]; then

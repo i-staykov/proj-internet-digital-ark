@@ -10,7 +10,7 @@
 # and an evidence row for each; the ISC candidate collection reconciled against the reference
 # release; the header candidate collection complete and inside the claim; the evidence wall
 # (every provenance assignment cites an evidence row shipped here); the 2002 to 2013 extended
-# years, each merged file his own plus additions he lacks; then the four deliverables
+# years, additions none of his files for that year holds; then the four deliverables
 # D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
 # asked, every merge reconciliation check passed and agrees with the shipped files, and the
 # reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
@@ -19,6 +19,9 @@
 # Checks 5 to 8 police the four deliverables he added, called D1 to D4 throughout
 # this project. They are checks rather than a checklist because a requirement that
 # lives only in prose breaks in a shipped archive.
+#
+# His release does not ship back to him. The checks that read it (ISC, extended years, D4) take
+# its folder from HIS and SKIP without it: HIS=/path/to/merge261008-3 bash verify.sh
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
@@ -130,10 +133,11 @@ PY
 
 # ISC candidates require complete provenance and exact-name reconciliation across all years.
 if [ -d isc_survey_hostnames ]; then
-    if command -v uv >/dev/null 2>&1; then
-        marker=$(python3 -c 'import json; print(json.load(open("isc_survey_hostnames/isc_candidates_summary.json"))["baseline"])') && \
+    if [ -z "${HIS:-}" ]; then
+        say "ISC candidates" "SKIP  set HIS to the release folder to diff against its pool"
+    elif command -v uv >/dev/null 2>&1; then
         uv run --with duckdb --no-project python verify_isc_candidates.py \
-            --collection isc_survey_hostnames --baseline "baseline/$marker" \
+            --collection isc_survey_hostnames --baseline "$HIS" \
             --annual-dirs masters additions hostnames \
             --weights isc_survey_hostnames/tld_english_share.json || fail=1
     else
@@ -214,9 +218,9 @@ else
     say "evidence wall intact" "SKIP  no provenance export here"
 fi
 
-# --- the extended years: his 2002 to 2013 file plus additions he lacks ---------
-# His files are not shipped, so the proof is that the merged file minus our additions hashes
-# to the sha256 the manifest records for his, and that no addition was already in it.
+# --- the extended years: additions none of his 2002 to 2013 files holds ----------
+# With HIS, each of his year files must hash to the sha256 manifest.json records and share no
+# line with our additions for that year; without it, only our side is checked.
 python3 - <<'PY' || fail=1
 import csv
 import hashlib
@@ -230,6 +234,7 @@ root = Path("extended_years")
 if not (root / "manifest.json").is_file():
     print(f"{'extended years':<46} SKIP  no extended_years/ in this archive")
     sys.exit(0)
+his_dir = os.environ.get("HIS")
 env = {**os.environ, "LC_ALL": "C"}
 manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
 ledger = {}
@@ -238,36 +243,49 @@ with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
         ledger.setdefault(row["year"], []).append(row["host"])
 problems, shipped = [], 0
 for year, entry in sorted(manifest["years"].items()):
-    adds, merged = root / "additions" / f"{year}.txt", root / f"{year}.txt"
+    adds = root / "additions" / f"{year}.txt"
     if not 2002 <= int(year) <= 2013:
         problems.append(f"{year} is outside 2002 to 2013")
     if not entry["accepted_new"]:
         continue
-    for path in (adds, merged):
-        if subprocess.run(["sort", "-c", "-u", str(path)], env=env, capture_output=True).returncode:
-            problems.append(f"{path} is not sorted and unique")
-    if subprocess.run(["comm", "-13", str(merged), str(adds)], env=env, capture_output=True).stdout:
-        problems.append(f"{adds} has a line {merged} lacks")
-    his = subprocess.Popen(["comm", "-23", str(merged), str(adds)], env=env, stdout=subprocess.PIPE)
-    digest = hashlib.sha256()
-    for chunk in iter(lambda: his.stdout.read(1 << 20), b""):
-        digest.update(chunk)
-    if digest.hexdigest() != entry["baseline_sha256"]:
-        problems.append(f"{merged} minus additions is not his {year}.txt")
-    his.wait()
+    if subprocess.run(["sort", "-c", "-u", str(adds)], env=env, capture_output=True).returncode:
+        problems.append(f"{adds} is not sorted and unique")
     names = adds.read_text(encoding="utf-8").splitlines()
     if names != ledger.get(year, []) or len(names) != entry["accepted_new"]:
         problems.append(f"{adds}, its ledger rows and the manifest disagree")
     shipped += len(names)
+    if not his_dir:
+        continue
+    his = Path(his_dir) / f"{year}.txt"
+    if not his.is_file():
+        problems.append(f"{his} is missing")
+        continue
+    ours = {n.encode() for n in names}
+    digest, repeats, carry = hashlib.sha256(), set(), b""
+    with his.open("rb") as fh:
+        while chunk := fh.read(1 << 22):
+            digest.update(chunk)
+            lines = (carry + chunk).replace(b"\r", b"").split(b"\n")
+            carry = lines.pop()
+            repeats |= ours.intersection(lines)
+    repeats |= ours.intersection([carry])
+    if digest.hexdigest() != entry["baseline_sha256"]:
+        problems.append(f"{his} is not the file manifest.json names")
+    if repeats:
+        problems.append(f"{adds} repeats {len(repeats)} lines of {his}")
 if problems:
     print(f"{'extended years':<46} FAIL  {'; '.join(problems[:5])}")
     sys.exit(1)
-print(f"{'extended years':<46} PASS  {shipped:,} additions, none his, merged files his plus ours")
+if not his_dir:
+    print(f"{'extended years':<46} SKIP  {shipped:,} additions ledgered; set HIS to check them against his files")
+    sys.exit(0)
+print(f"{'extended years':<46} PASS  {shipped:,} additions, none in his file for its year")
 PY
 
 # --- 5 to 8. the four added deliverables -------------------------------------
 python3 - <<'PY' || fail=1
 import json
+import os
 import subprocess
 import sys
 import tarfile
@@ -400,23 +418,19 @@ if not calc.is_file():
 elif audit is None:
     say("D4 metric reproduces from his calculator", "SKIP  no merge audit to compare against")
 else:
-    # `original/` is the FIRST baseline, not the one the figures mean, so it must not
-    # be the file this check picks up.
-    baselines = [
-        b for b in sorted(Path("baseline").glob("*/1996.txt")) if b.parent.name != "original"
-    ]
+    his = os.environ.get("HIS")
     expected = next(
         (r["baseline_equivalent_english"] for r in audit["years"] if int(r["year"]) == 1996), None
     )
-    if not baselines:
-        say("D4 metric reproduces from his calculator", "SKIP  no current baseline shipped")
+    if not his:
+        say("D4 metric reproduces from his calculator", "SKIP  set HIS to rerun it on his 1996.txt")
     elif expected is None:
         say("D4 metric reproduces from his calculator", "SKIP  the audit has no 1996 figure")
     else:
         out = Path("audit/_verify_1996")
         try:
             subprocess.run(
-                [sys.executable, str(calc), str(baselines[0]), "--output-dir", str(out)],
+                [sys.executable, str(calc), str(Path(his) / "1996.txt"), "--output-dir", str(out)],
                 check=True,
                 capture_output=True,
             )

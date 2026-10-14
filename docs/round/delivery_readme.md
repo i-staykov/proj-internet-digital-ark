@@ -12,30 +12,31 @@ Beside the download, then inside the extracted folder, with Python 3.10 or newer
 ```
 shasum -a 256 [ARCHIVE].tar.gz
 tar -xzf [ARCHIVE].tar.gz && cd [ARCHIVE]
-bash verify.sh
+B=/path/to/merge261008-3  # your release, not shipped back; baseline/README.txt gives its sha256
+HIS=$B bash verify.sh
 ```
 
 `verify.sh` prints PASS, FAIL or SKIP per check and exits non-zero on a FAIL; SKIP means the
-checked thing is not in the archive. It checks the checksums, one evidence row per record, the 2002
-to 2013 files against your sha256, the candidate files against your pool, and reruns your
-calculator on your 1996 file.
+checked thing is not in the archive, or `HIS` is unset. It checks the checksums, one evidence row
+per record, the 2002 to 2013 additions against your files and their sha256, the candidate files
+against your pool, and reruns your calculator on your 1996 file.
 
 Each figure of the report's table, by its check number, in `bash` with `bc`. Paste the first
 block once; check 2 takes about 7 minutes and up to 11 GB of memory.
 
 ```
 ee() { for f; do python3 equivalent_english_domain_calculator/equivalent_english_domains.py "$f" --output-dir "${TMPDIR:-/tmp}/ee"; done | awk '/^Equivalent-English/ {s += $NF} END {printf "%.4f\n", s}'; }
-B=$(dirname baseline/*/1996.txt); X=extended_years
+X=extended_years
 T=$(python3 -c 'import datetime as d; print((d.date.today() - d.date(2026, 8, 2)).days)')
 ```
 
 ```
 # 1, your records: 1996 to 2001, then 2002 to 2013
-cat $B/????.txt | wc -l
-echo $(( $(cat $X/????.txt | wc -l) - $(cat $X/additions/*.txt | wc -l) ))
+cat $B/199?.txt $B/200[01].txt | wc -l
+cat $B/200[2-9].txt $B/201[0-3].txt | wc -l
 # 2, your equivalent-English
-E1=$(ee $B/????.txt); echo $E1
-E2=$(echo "$(ee $X/????.txt) - $(ee $X/additions/*.txt)" | bc); echo $E2
+E1=$(ee $B/199?.txt $B/200[01].txt); echo $E1
+E2=$(ee $B/200[2-9].txt $B/201[0-3].txt); echo $E2
 # 3, our records
 cat additions/*.txt hostnames/*.txt | wc -l
 cat $X/additions/*.txt | wc -l
@@ -56,10 +57,11 @@ uv run --with duckdb --no-project python provenance/trace.py "$(head -1 addition
 ```
 
 Rebuild every 1996 to 2001 list from the evidence, with no archive queries and no source data.
-`ark intake` checks your files in `baseline/` and writes 4.5 GB under `source/data/held/`:
+`ark intake` checks your release, linked in as `baseline/merge261008-3`, and writes 4.5 GB under
+`source/data/held/`:
 
 ```
-tar -xzf source/source.tar.gz -C source/ && cd source
+ln -s "$B" baseline/ && tar -xzf source/source.tar.gz -C source/ && cd source
 uv sync && uv run ark intake && uv run ark rebuild ../provenance && uv run ark check
 for y in 1996 1997 1998 1999 2000 2001; do
     cmp output/netnew/$y.txt ../additions/$y.txt
@@ -86,8 +88,8 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `additions/` | 1996 to 2001 registrable additions per year; `evidence_manifest.csv`, one evidence row each |
 | `hostnames/` | 1996 to 2001 new hostnames per year, each below a registrable domain and never one itself, so none is also in `additions/`; `hostnames_evidence_manifest.csv`, one capture each |
 | `masters/` | your 1996 to 2001 file merged with both by exact name, `LC_ALL=C sort -m -u` |
-| `extended_years/` | 2002 to 2013: `additions/<year>.txt` ours alone, `<year>.txt` your file merged with ours, `evidence_ledger.csv` one capture per addition, `dedup_report.csv` in your merge columns, `manifest.json` the inputs and your files' sha256 |
-| `baseline/` | your release the additions count against, named in `baseline/README.txt`: the six 1996 to 2001 files, `candidate_pool.txt`, `candidate_pool_unparsed_format.txt` and `isc_survey_hostnames/` |
+| `extended_years/` | 2002 to 2013: `<year>.txt` ours (the same as `additions/<year>.txt`), none in your file for that year, `evidence_ledger.csv` one capture per addition, `dedup_report.csv` in your merge columns, `manifest.json` the inputs and your files' sha256 |
+| `baseline/README.txt` | your release the additions count against: the sha256 and line count of each file of it the checks read |
 | `candidate_additions.txt`, `candidate_additions_summary.json` | every candidate name we hold that is in neither your pool nor your annual files, with their count and equivalent-English |
 | `candidates.txt`, `isc_survey_hostnames/`, `server_header_hostnames/` | the candidate collections, each with provenance: names without year-specific web evidence, ISC Domain Survey hosts, and hosts named only in mail or Usenet server headers |
 | `candidates_unparsed.txt` | values the parser refused, each with its reason |

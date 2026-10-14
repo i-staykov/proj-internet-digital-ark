@@ -1,5 +1,5 @@
 """The 2002 to 2013 additions: only his same-year file's complement, only by a capture stamped
-in that year, and a package whose merged files are his plus ours and nothing else."""
+in that year, and a package of ours alone that verify proves disjoint from his files."""
 
 import csv
 import gzip
@@ -81,7 +81,7 @@ def exported(tmp_path, monkeypatch):
 def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     ext, _, out, manifest, journal, _ = exported
     assert sorted(manifest["years"]) == ["2002", "2003"]
-    assert not list(out.glob("*.txt")), "packaging merges his file with ours, not the export"
+    assert not list(out.glob("*.txt")), "the export writes additions only"
     for year, added in ((2002, "new.com"), (2003, "fine.info")):
         adds = (out / f"additions/{year}.txt").read_text().split()
         assert adds == [added] and not set(adds) & set(HIS[year])
@@ -109,30 +109,33 @@ def _cut(script_name: str, start: str, end: str) -> str:
     return "set -euo pipefail\n" + start + body.split(start, 1)[1].split(end, 1)[0]
 
 
-def test_the_package_ships_his_file_plus_ours_and_verify_proves_it(exported, tmp_path):
+def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported, tmp_path):
     his, out = exported[1], exported[2]
     pack = _cut("package_delivery.sh", "# extended_years/: the", "# ISC candidates must stay")
     check = _cut("verify_delivery.sh", "# --- the extended years", "# --- 5 to 8")
     (tmp_path / "output").mkdir()
     out.rename(tmp_path / "output/extended_years")
     (tmp_path / "bin").mkdir()
-    # `--check` is the test above's; `baseline_dir()` names his staged release
-    (tmp_path / "bin/uv").write_text(
-        f'#!/bin/sh\ncase "$*" in *baseline_dir*) echo "{his}";; esac\n'
-    )
+    (tmp_path / "bin/uv").write_text("#!/bin/sh\n")  # `--check` is the test above's
     (tmp_path / "bin/uv").chmod(0o755)
     env = {"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", "STAGE": "stage"}
-    run = lambda body, cwd: subprocess.run(  # noqa: E731
-        ["bash", "-c", body], cwd=cwd, env=env, capture_output=True, text=True
+    run = lambda body, cwd, **more: subprocess.run(  # noqa: E731
+        ["bash", "-c", body], cwd=cwd, env=env | more, capture_output=True, text=True
     )
     done = run(pack, tmp_path)
     assert done.returncode == 0, done.stderr
     shipped = tmp_path / "stage/extended_years"
-    for year, added in ((2002, "new.com"), (2003, "fine.info")):
-        assert (shipped / f"{year}.txt").read_bytes() == text(sorted(HIS[year] + [added]))
+    for f in shipped.glob("*.txt"):  # ours under the brief's name; his never ship back
+        assert f.read_bytes() == (shipped / "additions" / f.name).read_bytes()
+    assert list(shipped.glob("*.txt")), "extended_years/YYYY.txt ships"
     done = run(check, tmp_path / "stage")
+    assert "SKIP  2 additions" in done.stdout and "HIS" in done.stdout, done.stdout + done.stderr
+    done = run(check, tmp_path / "stage", HIS=str(his))
     assert "PASS  2 additions" in done.stdout, done.stdout + done.stderr
-    # one line of his slipped into the additions: merged minus additions is no longer his file
+    # one line of his slipped into the additions
     (shipped / "additions/2003.txt").write_bytes(text(["fine.info", "his.org"]))
-    done = run(check, tmp_path / "stage")
-    assert "FAIL" in done.stdout and "is not his 2003.txt" in done.stdout, done.stdout
+    done = run(check, tmp_path / "stage", HIS=str(his))
+    assert "FAIL" in done.stdout and "repeats 1 lines of" in done.stdout, done.stdout
+    (his / "2002.txt").write_bytes(text(HIS[2002] + ["zzz.com"]))
+    done = run(check, tmp_path / "stage", HIS=str(his))
+    assert "is not the file manifest.json names" in done.stdout, done.stdout
