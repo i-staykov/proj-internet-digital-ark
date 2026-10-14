@@ -125,7 +125,9 @@ def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported,
     done = run(pack, tmp_path)
     assert done.returncode == 0, done.stderr
     shipped = tmp_path / "stage/extended_years"
-    assert not list(shipped.glob("*.txt")), "his files do not ship back to him"
+    for f in shipped.glob("*.txt"):  # ours under the brief's name; his never ship back
+        assert f.read_bytes() == (shipped / "additions" / f.name).read_bytes()
+    assert list(shipped.glob("*.txt")), "extended_years/YYYY.txt ships"
     done = run(check, tmp_path / "stage")
     assert "SKIP  2 additions" in done.stdout and "HIS" in done.stdout, done.stdout + done.stderr
     done = run(check, tmp_path / "stage", HIS=str(his))

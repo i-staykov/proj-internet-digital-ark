@@ -1353,6 +1353,8 @@ ship stage="all" *args:
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
     newest_stage() { ls -d output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
+    # His release on disk, so verify runs the checks against his files that the archive leaves out.
+    his_release() { uv run python -c "from ark.baseline import baseline_dir; print(baseline_dir().resolve())" 2>/dev/null; }
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {
@@ -1437,7 +1439,7 @@ ship stage="all" *args:
         # hardcoded. `verify_delivery.sh` defaults to its own location, which is right when
         # it ships INSIDE a delivery and wrong from this repository; a hardcoded path once
         # verified the PREVIOUS round's stage and reported its figures as this round's.
-        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        HIS="$(his_release)" bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
     }
 
@@ -1482,13 +1484,13 @@ ship stage="all" *args:
         set -e
         hold_lock
         bash scripts/round/package_delivery.sh "${1:-}"
-        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        HIS="$(his_release)" bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
     verify)
         set -e
         hold_lock
-        bash scripts/round/verify_delivery.sh "$(newest_stage)"
+        HIS="$(his_release)" bash scripts/round/verify_delivery.sh "$(newest_stage)"
         stage_retention
         ;;
     calculator) uv run python scripts/round/round_figures.py --verify ;;

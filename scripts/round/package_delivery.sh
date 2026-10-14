@@ -296,6 +296,8 @@ if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     mkdir -p "$STAGE/extended_years"
     cp -R "$EXT/additions" "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" \
         "$EXT/manifest.json" "$STAGE/extended_years/"
+    # The brief names extended_years/YYYY.txt for these records: ours, the same lines.
+    cp "$EXT"/additions/*.txt "$STAGE/extended_years/"
 else
     echo "no extended additions: packaging without extended_years/"
 fi
