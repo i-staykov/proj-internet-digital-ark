@@ -1,0 +1,465 @@
+2026-10-12T21:59:24Z	https://archive.org/robots.txt	read	0.6	robots
+2026-10-12T21:59:26Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 220 bytes
+2026-10-12T21:59:27Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 220 bytes
+2026-10-12T21:59:29Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 257 bytes
+2026-10-12T21:59:31Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 257 bytes
+2026-10-12T21:59:32Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 318 bytes
+2026-10-12T21:59:34Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 318 bytes
+2026-10-12T21:59:36Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 892 bytes
+2026-10-12T21:59:37Z	https://archive.org/advancedsearch.php?q=collection%3Acdromimages+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 892 bytes
+2026-10-12T21:59:39Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 222 bytes
+2026-10-12T21:59:41Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 222 bytes
+2026-10-12T21:59:42Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 257 bytes
+2026-10-12T21:59:44Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 257 bytes
+2026-10-12T21:59:46Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 320 bytes
+2026-10-12T21:59:47Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 320 bytes
+2026-10-12T21:59:49Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 894 bytes
+2026-10-12T21:59:51Z	https://archive.org/advancedsearch.php?q=collection%3Acdbbsarchive+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 894 bytes
+2026-10-12T21:59:52Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 224 bytes
+2026-10-12T21:59:54Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 224 bytes
+2026-10-12T21:59:56Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 261 bytes
+2026-10-12T21:59:57Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 261 bytes
+2026-10-12T21:59:59Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 323 bytes
+2026-10-12T22:00:01Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 323 bytes
+2026-10-12T22:00:03Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	1.0	ok 897 bytes
+2026-10-12T22:00:04Z	https://archive.org/advancedsearch.php?q=collection%3Acdromsoftware+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 897 bytes
+2026-10-12T22:00:06Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 228 bytes
+2026-10-12T22:00:08Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 228 bytes
+2026-10-12T22:00:10Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	1.2	ok 265 bytes
+2026-10-12T22:00:12Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 265 bytes
+2026-10-12T22:00:14Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 327 bytes
+2026-10-12T22:00:15Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 327 bytes
+2026-10-12T22:00:18Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	1.3	ok 901 bytes
+2026-10-12T22:00:19Z	https://archive.org/advancedsearch.php?q=collection%3Awalnutcreekcdrom+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 901 bytes
+2026-10-12T22:00:21Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 229 bytes
+2026-10-12T22:00:23Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 229 bytes
+2026-10-12T22:00:24Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 262 bytes
+2026-10-12T22:00:26Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 262 bytes
+2026-10-12T22:00:27Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 326 bytes
+2026-10-12T22:00:29Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.5	ok 326 bytes
+2026-10-12T22:00:31Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	1.0	ok 901 bytes
+2026-10-12T22:00:33Z	https://archive.org/advancedsearch.php?q=collection%3Ausenethistorical+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 901 bytes
+2026-10-12T22:00:34Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 214 bytes
+2026-10-12T22:00:36Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 214 bytes
+2026-10-12T22:00:37Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 246 bytes
+2026-10-12T22:00:39Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 246 bytes
+2026-10-12T22:00:41Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 311 bytes
+2026-10-12T22:00:43Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 311 bytes
+2026-10-12T22:00:44Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 884 bytes
+2026-10-12T22:00:46Z	https://archive.org/advancedsearch.php?q=collection%3Agiganews+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 884 bytes
+2026-10-12T22:00:48Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 210 bytes
+2026-10-12T22:00:49Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet&fl%5B%5D=identifier&rows=0&output=json	200	0.5	ok 210 bytes
+2026-10-12T22:00:51Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.9	ok 243 bytes
+2026-10-12T22:00:53Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	1.1	ok 243 bytes
+2026-10-12T22:00:55Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 306 bytes
+2026-10-12T22:00:56Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 306 bytes
+2026-10-12T22:00:59Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	2.0	ok 882 bytes
+2026-10-12T22:01:01Z	https://archive.org/advancedsearch.php?q=collection%3Ausenet+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 882 bytes
+2026-10-12T22:01:03Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 212 bytes
+2026-10-12T22:01:04Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 212 bytes
+2026-10-12T22:01:06Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 248 bytes
+2026-10-12T22:01:07Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 248 bytes
+2026-10-12T22:01:09Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 310 bytes
+2026-10-12T22:01:11Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 310 bytes
+2026-10-12T22:01:13Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	1.1	ok 884 bytes
+2026-10-12T22:01:15Z	https://archive.org/advancedsearch.php?q=collection%3Aftpsites+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 884 bytes
+2026-10-12T22:01:16Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp&fl%5B%5D=identifier&rows=0&output=json	200	0.8	ok 228 bytes
+2026-10-12T22:01:19Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp&fl%5B%5D=identifier&rows=0&output=json	200	1.3	ok 228 bytes
+2026-10-12T22:01:21Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	1.1	ok 263 bytes
+2026-10-12T22:01:22Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 263 bytes
+2026-10-12T22:01:25Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	1.5	ok 325 bytes
+2026-10-12T22:01:27Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 325 bytes
+2026-10-12T22:01:29Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.9	ok 899 bytes
+2026-10-12T22:01:30Z	https://archive.org/advancedsearch.php?q=collection%3Aarchiveteam_ftp+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 899 bytes
+2026-10-12T22:01:32Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 229 bytes
+2026-10-12T22:01:33Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 229 bytes
+2026-10-12T22:01:35Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.9	ok 264 bytes
+2026-10-12T22:01:37Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B%2A+TO+%2A%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.7	ok 264 bytes
+2026-10-12T22:01:39Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 328 bytes
+2026-10-12T22:01:40Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 328 bytes
+2026-10-12T22:01:42Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	1.3	ok 901 bytes
+2026-10-12T22:01:44Z	https://archive.org/advancedsearch.php?q=collection%3Asoftwarelibrary+AND+date%3A%5B1990-01-01+TO+1995-12-31%5D+AND+%28title%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+subject%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29+OR+description%3A%28internet+OR+www+OR+%22world+wide+web%22+OR+gopher+OR+usenet+OR+ftp+OR+html%29%29&fl%5B%5D=identifier&rows=0&output=json	200	0.6	ok 901 bytes
+2026-10-12T22:01:46Z	https://archive.org/metadata/wointernet	200	0.9	ok 41488 bytes
+2026-10-12T22:01:48Z	https://archive.org/download/wointernet/internet.zip/	302	0.8	redirect
+2026-10-12T22:01:48Z	https://ia800906.us.archive.org/robots.txt	read	0.5	robots
+2026-10-12T22:02:16Z	https://ia800906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	26.8	ok 2880262 bytes
+2026-10-12T22:02:18Z	https://archive.org/download/wointernet/internet.zip	302	0.8	redirect
+2026-10-12T22:02:18Z	https://dn721807.ca.archive.org/robots.txt	read	0.5	robots
+2026-10-12T22:12:54Z	https://archive.org/robots.txt	read	0.9	robots
+2026-10-12T22:12:56Z	https://archive.org/metadata/wointernet	200	0.8	ok 41487 bytes
+2026-10-12T22:12:58Z	https://archive.org/download/wointernet/internet.zip/	302	0.6	redirect
+2026-10-12T22:12:59Z	https://ia600906.us.archive.org/robots.txt	read	0.8	robots
+2026-10-12T22:13:19Z	https://ia600906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	19.4	ok 2880264 bytes
+2026-10-12T22:13:22Z	https://archive.org/download/wointernet/internet.zip	302	1.8	redirect
+2026-10-12T22:13:22Z	https://dn721807.ca.archive.org/robots.txt	read	0.7	robots
+2026-10-12T22:13:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.5	error try 1
+2026-10-12T22:14:27Z	https://archive.org/download/wointernet/internet.zip	302	1.2	redirect
+2026-10-12T22:26:50Z	https://archive.org/robots.txt	200	1.0	robots
+2026-10-12T22:26:52Z	https://archive.org/metadata/wointernet	200	1.0	ok 41487 bytes
+2026-10-12T22:26:54Z	https://archive.org/download/wointernet/internet.zip/	302	0.8	redirect
+2026-10-12T22:26:55Z	https://ia800906.us.archive.org/robots.txt	404	0.6	robots
+2026-10-12T22:28:35Z	https://ia800906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	99.4	ok 2880263 bytes
+2026-10-12T22:28:37Z	https://archive.org/download/wointernet/internet.zip	302	0.8	redirect
+2026-10-12T22:28:38Z	https://dn721807.ca.archive.org/robots.txt	404	0.7	robots
+2026-10-12T22:37:36Z	https://archive.org/robots.txt	200	0.6	robots
+2026-10-12T22:37:38Z	https://archive.org/metadata/wointernet	200	0.8	ok 41487 bytes
+2026-10-12T22:37:40Z	https://archive.org/download/wointernet/internet.zip/	302	0.6	redirect
+2026-10-12T22:37:40Z	https://ia600906.us.archive.org/robots.txt	404	0.6	robots
+2026-10-12T22:38:15Z	https://ia600906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	34.0	ok 2880264 bytes
+2026-10-12T22:38:17Z	https://archive.org/download/wointernet/internet.zip	302	0.9	redirect
+2026-10-12T22:38:18Z	https://dn721807.ca.archive.org/robots.txt	404	0.5	robots
+2026-10-12T22:38:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 545413 bytes range 229638144-230183556
+2026-10-12T22:38:24Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 228589568-229638143
+2026-10-12T22:38:27Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 9437184-10485759
+2026-10-12T22:38:27Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 10485760-11534335
+2026-10-12T22:38:27Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 8388608-9437183
+2026-10-12T22:38:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 11534336-12582911
+2026-10-12T22:38:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 12582912-13631487
+2026-10-12T22:38:31Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 13631488-14680063
+2026-10-12T22:38:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 14680064-15728639
+2026-10-12T22:38:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 15728640-16777215
+2026-10-12T22:38:34Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 16777216-17825791
+2026-10-12T22:38:37Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 17825792-18874367
+2026-10-12T22:38:38Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 19922944-20971519
+2026-10-12T22:38:39Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.6	ok 1048576 bytes range 18874368-19922943
+2026-10-12T22:38:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 20971520-22020095
+2026-10-12T22:38:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 22020096-23068671
+2026-10-12T22:38:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 23068672-24117247
+2026-10-12T22:38:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 24117248-25165823
+2026-10-12T22:38:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 25165824-26214399
+2026-10-12T22:38:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 26214400-27262975
+2026-10-12T22:38:46Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 27262976-28311551
+2026-10-12T22:38:48Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 29360128-30408703
+2026-10-12T22:38:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 28311552-29360127
+2026-10-12T22:38:50Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 30408704-31457279
+2026-10-12T22:38:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 33554432-34603007
+2026-10-12T22:38:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.8	ok 1048576 bytes range 31457280-32505855
+2026-10-12T22:38:56Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 34603008-35651583
+2026-10-12T22:38:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 35651584-36700159
+2026-10-12T22:38:59Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 36700160-37748735
+2026-10-12T22:39:01Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 37748736-38797311
+2026-10-12T22:39:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 38797312-39845887
+2026-10-12T22:39:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	13.5	ok 1048576 bytes range 32505856-33554431
+2026-10-12T22:39:04Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 39845888-40894463
+2026-10-12T22:39:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 40894464-41943039
+2026-10-12T22:39:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 41943040-42991615
+2026-10-12T22:39:09Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 42991616-44040191
+2026-10-12T22:39:09Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 44040192-45088767
+2026-10-12T22:39:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 45088768-46137343
+2026-10-12T22:39:12Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 49283072-50331647
+2026-10-12T22:39:12Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.3	error try 1
+2026-10-12T22:39:14Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.5	ok 1048576 bytes range 50331648-51380223
+2026-10-12T22:39:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 52428800-53477375
+2026-10-12T22:39:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.1	error try 1
+2026-10-12T22:39:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.0	ok 1048576 bytes range 54525952-55574527
+2026-10-12T22:39:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.0	ok 1048576 bytes range 55574528-56623103
+2026-10-12T22:39:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.2	ok 1048576 bytes range 56623104-57671679
+2026-10-12T22:39:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 57671680-58720255
+2026-10-12T22:39:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	6.6	ok 1048576 bytes range 58720256-59768831
+2026-10-12T22:39:44Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 59768832-60817407
+2026-10-12T22:39:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 60817408-61865983
+2026-10-12T22:39:50Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 61865984-62914559
+2026-10-12T22:39:55Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 62914560-63963135
+2026-10-12T22:39:58Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 63963136-65011711
+2026-10-12T22:40:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.6	ok 1048576 bytes range 65011712-66060287
+2026-10-12T22:40:09Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.6	ok 1048576 bytes range 66060288-67108863
+2026-10-12T22:40:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 67108864-68157439
+2026-10-12T22:40:14Z	https://archive.org/download/wointernet/internet.zip	302	0.7	redirect
+2026-10-12T22:40:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 68157440-69206015
+2026-10-12T22:40:18Z	https://archive.org/download/wointernet/internet.zip	302	0.7	redirect
+2026-10-12T22:40:19Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 69206016-70254591
+2026-10-12T22:40:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 53477376-54525951
+2026-10-12T22:40:22Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	7.6	ok 1048576 bytes range 51380224-52428799
+2026-10-12T22:40:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 70254592-71303167
+2026-10-12T22:40:24Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 71303168-72351743
+2026-10-12T22:40:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 72351744-73400319
+2026-10-12T22:40:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 73400320-74448895
+2026-10-12T22:40:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 74448896-75497471
+2026-10-12T22:40:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 76546048-77594623
+2026-10-12T22:40:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 75497472-76546047
+2026-10-12T22:40:32Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 77594624-78643199
+2026-10-12T22:40:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 79691776-80740351
+2026-10-12T22:40:35Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 80740352-81788927
+2026-10-12T22:40:38Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 178257920-179306495
+2026-10-12T22:40:38Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.4	ok 1048576 bytes range 174063616-175112191
+2026-10-12T22:40:39Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	8.8	ok 1048576 bytes range 78643200-79691775
+2026-10-12T22:40:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 180355072-181403647
+2026-10-12T22:40:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 179306496-180355071
+2026-10-12T22:40:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 181403648-182452223
+2026-10-12T22:40:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 188743680-189792255
+2026-10-12T22:40:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 191889408-192937983
+2026-10-12T22:40:48Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 193986560-195035135
+2026-10-12T22:40:48Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 192937984-193986559
+2026-10-12T22:40:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	7.0	ok 1048576 bytes range 187695104-188743679
+2026-10-12T22:40:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 195035136-196083711
+2026-10-12T22:40:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 198180864-199229439
+2026-10-12T22:40:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.9	ok 1048576 bytes range 196083712-197132287
+2026-10-12T22:40:55Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 199229440-200278015
+2026-10-12T22:40:56Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 200278016-201326591
+2026-10-12T22:40:59Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.7	ok 1048576 bytes range 201326592-202375167
+2026-10-12T22:41:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.8	ok 1048576 bytes range 202375168-203423743
+2026-10-12T22:41:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.2	ok 1048576 bytes range 204472320-205520895
+2026-10-12T22:41:04Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 206569472-207618047
+2026-10-12T22:41:05Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.8	ok 1048576 bytes range 205520896-206569471
+2026-10-12T22:41:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.7	ok 1048576 bytes range 207618048-208666623
+2026-10-12T22:41:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 208666624-209715199
+2026-10-12T22:41:08Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 209715200-210763775
+2026-10-12T22:41:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 210763776-211812351
+2026-10-12T22:41:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 211812352-212860927
+2026-10-12T22:41:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 212860928-213909503
+2026-10-12T22:41:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 214958080-216006655
+2026-10-12T22:41:15Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.3	ok 1048576 bytes range 213909504-214958079
+2026-10-12T22:41:15Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 216006656-217055231
+2026-10-12T22:41:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 217055232-218103807
+2026-10-12T22:41:18Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 218103808-219152383
+2026-10-12T22:41:18Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 219152384-220200959
+2026-10-12T22:41:19Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 220200960-221249535
+2026-10-12T22:41:22Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 221249536-222298111
+2026-10-12T22:41:22Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 222298112-223346687
+2026-10-12T22:41:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.3	ok 1048576 bytes range 223346688-224395263
+2026-10-12T22:41:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 225443840-226492415
+2026-10-12T22:41:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 224395264-225443839
+2026-10-12T22:41:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 226492416-227540991
+2026-10-12T22:41:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 227540992-228589567
+2026-10-12T22:43:22Z	https://archive.org/robots.txt	200	0.6	robots
+2026-10-12T22:43:24Z	https://archive.org/metadata/wointernet	200	1.1	ok 41487 bytes
+2026-10-12T22:43:27Z	https://archive.org/download/wointernet/internet.zip/	302	1.3	redirect
+2026-10-12T22:43:27Z	https://ia800906.us.archive.org/robots.txt	404	0.6	robots
+2026-10-12T22:44:01Z	https://ia800906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	33.0	ok 2880262 bytes
+2026-10-12T22:44:03Z	https://archive.org/download/wointernet/internet.zip	302	0.8	redirect
+2026-10-12T22:44:04Z	https://dn721807.ca.archive.org/robots.txt	404	0.5	robots
+2026-10-12T22:44:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 545413 bytes range 229638144-230183556
+2026-10-12T22:44:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 228589568-229638143
+2026-10-12T22:44:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 8388608-9437183
+2026-10-12T22:44:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 9437184-10485759
+2026-10-12T22:44:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 10485760-11534335
+2026-10-12T22:44:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 13631488-14680063
+2026-10-12T22:44:16Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 12582912-13631487
+2026-10-12T22:44:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 11534336-12582911
+2026-10-12T22:44:19Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 14680064-15728639
+2026-10-12T22:44:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 16777216-17825791
+2026-10-12T22:44:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 15728640-16777215
+2026-10-12T22:44:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 17825792-18874367
+2026-10-12T22:44:24Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 18874368-19922943
+2026-10-12T22:44:24Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.3	ok 1048576 bytes range 19922944-20971519
+2026-10-12T22:44:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 20971520-22020095
+2026-10-12T22:44:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 23068672-24117247
+2026-10-12T22:44:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 24117248-25165823
+2026-10-12T22:44:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	5.3	ok 1048576 bytes range 22020096-23068671
+2026-10-12T22:44:31Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 25165824-26214399
+2026-10-12T22:44:32Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 26214400-27262975
+2026-10-12T22:44:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 27262976-28311551
+2026-10-12T22:44:35Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 28311552-29360127
+2026-10-12T22:44:36Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 30408704-31457279
+2026-10-12T22:44:37Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.5	ok 1048576 bytes range 29360128-30408703
+2026-10-12T22:44:38Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 31457280-32505855
+2026-10-12T22:44:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 33554432-34603007
+2026-10-12T22:44:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 32505856-33554431
+2026-10-12T22:44:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 34603008-35651583
+2026-10-12T22:44:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 35651584-36700159
+2026-10-12T22:44:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 36700160-37748735
+2026-10-12T22:44:44Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 37748736-38797311
+2026-10-12T22:44:46Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 38797312-39845887
+2026-10-12T22:44:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 39845888-40894463
+2026-10-12T22:44:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.2	ok 1048576 bytes range 40894464-41943039
+2026-10-12T22:44:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 41943040-42991615
+2026-10-12T22:44:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.3	ok 1048576 bytes range 42991616-44040191
+2026-10-12T22:44:52Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 45088768-46137343
+2026-10-12T22:44:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 44040192-45088767
+2026-10-12T22:44:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 49283072-50331647
+2026-10-12T22:44:55Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 50331648-51380223
+2026-10-12T22:44:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 51380224-52428799
+2026-10-12T22:44:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 52428800-53477375
+2026-10-12T22:44:58Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 53477376-54525951
+2026-10-12T22:45:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 54525952-55574527
+2026-10-12T22:45:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 55574528-56623103
+2026-10-12T22:45:01Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 56623104-57671679
+2026-10-12T22:45:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 57671680-58720255
+2026-10-12T22:45:04Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 58720256-59768831
+2026-10-12T22:45:05Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 59768832-60817407
+2026-10-12T22:45:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 60817408-61865983
+2026-10-12T22:45:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 61865984-62914559
+2026-10-12T22:45:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 65011712-66060287
+2026-10-12T22:45:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.7	ok 1048576 bytes range 63963136-65011711
+2026-10-12T22:45:14Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 66060288-67108863
+2026-10-12T22:45:14Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 67108864-68157439
+2026-10-12T22:45:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 68157440-69206015
+2026-10-12T22:45:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	10.6	ok 1048576 bytes range 62914560-63963135
+2026-10-12T22:45:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 69206016-70254591
+2026-10-12T22:45:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 70254592-71303167
+2026-10-12T22:45:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 71303168-72351743
+2026-10-12T22:45:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 72351744-73400319
+2026-10-12T22:45:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 73400320-74448895
+2026-10-12T22:45:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 74448896-75497471
+2026-10-12T22:45:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 75497472-76546047
+2026-10-12T22:45:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 76546048-77594623
+2026-10-12T22:45:27Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 77594624-78643199
+2026-10-12T22:45:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 78643200-79691775
+2026-10-12T22:45:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 80740352-81788927
+2026-10-12T22:45:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 79691776-80740351
+2026-10-12T22:45:33Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 174063616-175112191
+2026-10-12T22:45:34Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 179306496-180355071
+2026-10-12T22:45:34Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 178257920-179306495
+2026-10-12T22:45:36Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 180355072-181403647
+2026-10-12T22:45:37Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 187695104-188743679
+2026-10-12T22:45:39Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.9	ok 1048576 bytes range 181403648-182452223
+2026-10-12T22:45:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 188743680-189792255
+2026-10-12T22:45:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 191889408-192937983
+2026-10-12T22:45:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 192937984-193986559
+2026-10-12T22:45:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 195035136-196083711
+2026-10-12T22:45:44Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 193986560-195035135
+2026-10-12T22:45:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 196083712-197132287
+2026-10-12T22:45:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 198180864-199229439
+2026-10-12T22:45:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 199229440-200278015
+2026-10-12T22:45:48Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 200278016-201326591
+2026-10-12T22:45:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 202375168-203423743
+2026-10-12T22:45:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.5	ok 1048576 bytes range 201326592-202375167
+2026-10-12T22:45:52Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 204472320-205520895
+2026-10-12T22:45:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 205520896-206569471
+2026-10-12T22:45:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.2	error try 1
+2026-10-12T22:45:55Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 206569472-207618047
+2026-10-12T22:45:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 208666624-209715199
+2026-10-12T22:45:58Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 209715200-210763775
+2026-10-12T22:46:01Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 210763776-211812351
+2026-10-12T22:46:02Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 211812352-212860927
+2026-10-12T22:46:05Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 212860928-213909503
+2026-10-12T22:46:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 213909504-214958079
+2026-10-12T22:46:08Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 214958080-216006655
+2026-10-12T22:46:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 217055232-218103807
+2026-10-12T22:46:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.1	ok 1048576 bytes range 216006656-217055231
+2026-10-12T22:46:14Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 218103808-219152383
+2026-10-12T22:46:15Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 219152384-220200959
+2026-10-12T22:46:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 220200960-221249535
+2026-10-12T22:46:18Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 221249536-222298111
+2026-10-12T22:46:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 222298112-223346687
+2026-10-12T22:46:22Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.8	ok 1048576 bytes range 223346688-224395263
+2026-10-12T22:46:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 224395264-225443839
+2026-10-12T22:46:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 225443840-226492415
+2026-10-12T22:46:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 226492416-227540991
+2026-10-12T22:46:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 227540992-228589567
+2026-10-12T22:46:57Z	https://archive.org/download/wointernet/internet.zip	302	1.8	redirect
+2026-10-12T22:47:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 207618048-208666623
+2026-10-12T22:47:44Z	https://archive.org/robots.txt	200	0.6	robots
+2026-10-12T22:47:46Z	https://archive.org/metadata/wointernet	200	1.0	ok 41487 bytes
+2026-10-12T22:47:48Z	https://archive.org/download/wointernet/internet.zip/	302	0.6	redirect
+2026-10-12T22:47:48Z	https://ia600906.us.archive.org/robots.txt	404	0.6	robots
+2026-10-12T22:48:25Z	https://ia600906.us.archive.org/view_archive.php?archive=/33/items/wointernet/internet.zip	200	35.8	ok 2880263 bytes
+2026-10-12T22:48:27Z	https://archive.org/download/wointernet/internet.zip	302	0.6	redirect
+2026-10-12T22:48:27Z	https://dn721807.ca.archive.org/robots.txt	404	0.5	robots
+2026-10-12T22:48:35Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	6.6	ok 545413 bytes range 229638144-230183556
+2026-10-12T22:48:39Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 228589568-229638143
+2026-10-12T22:48:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 9437184-10485759
+2026-10-12T22:48:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 8388608-9437183
+2026-10-12T22:48:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 10485760-11534335
+2026-10-12T22:48:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 11534336-12582911
+2026-10-12T22:48:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 12582912-13631487
+2026-10-12T22:48:48Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.2	ok 1048576 bytes range 13631488-14680063
+2026-10-12T22:48:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 14680064-15728639
+2026-10-12T22:48:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 15728640-16777215
+2026-10-12T22:48:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 16777216-17825791
+2026-10-12T22:48:52Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 18874368-19922943
+2026-10-12T22:48:52Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 17825792-18874367
+2026-10-12T22:48:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 19922944-20971519
+2026-10-12T22:48:55Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 20971520-22020095
+2026-10-12T22:48:56Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 22020096-23068671
+2026-10-12T22:48:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.3	error try 1
+2026-10-12T22:48:58Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 24117248-25165823
+2026-10-12T22:48:59Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 25165824-26214399
+2026-10-12T22:49:01Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.0	error try 1
+2026-10-12T22:49:02Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 26214400-27262975
+2026-10-12T22:49:05Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 28311552-29360127
+2026-10-12T22:49:08Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 29360128-30408703
+2026-10-12T22:49:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 30408704-31457279
+2026-10-12T22:49:15Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 31457280-32505855
+2026-10-12T22:49:18Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 32505856-33554431
+2026-10-12T22:49:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 33554432-34603007
+2026-10-12T22:49:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 34603008-35651583
+2026-10-12T22:49:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 35651584-36700159
+2026-10-12T22:49:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.3	error try 1
+2026-10-12T22:49:59Z	https://archive.org/download/wointernet/internet.zip	302	1.1	redirect
+2026-10-12T22:50:02Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 23068672-24117247
+2026-10-12T22:50:04Z	https://archive.org/download/wointernet/internet.zip	302	1.0	redirect
+2026-10-12T22:50:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 27262976-28311551
+2026-10-12T22:50:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 38797312-39845887
+2026-10-12T22:50:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	8.4	ok 1048576 bytes range 37748736-38797311
+2026-10-12T22:50:13Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 39845888-40894463
+2026-10-12T22:50:14Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 40894464-41943039
+2026-10-12T22:50:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 41943040-42991615
+2026-10-12T22:50:19Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	4.4	ok 1048576 bytes range 42991616-44040191
+2026-10-12T22:50:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 44040192-45088767
+2026-10-12T22:50:22Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 45088768-46137343
+2026-10-12T22:50:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 49283072-50331647
+2026-10-12T22:50:25Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 50331648-51380223
+2026-10-12T22:50:28Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.5	ok 1048576 bytes range 51380224-52428799
+2026-10-12T22:50:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 52428800-53477375
+2026-10-12T22:50:31Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 53477376-54525951
+2026-10-12T22:50:32Z	https://archive.org/download/wointernet/internet.zip	302	0.6	redirect
+2026-10-12T22:50:32Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 54525952-55574527
+2026-10-12T22:50:34Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 55574528-56623103
+2026-10-12T22:50:35Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 36700160-37748735
+2026-10-12T22:50:36Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 56623104-57671679
+2026-10-12T22:50:37Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 57671680-58720255
+2026-10-12T22:50:39Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 58720256-59768831
+2026-10-12T22:50:40Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.1	ok 1048576 bytes range 59768832-60817407
+2026-10-12T22:50:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 60817408-61865983
+2026-10-12T22:50:42Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 61865984-62914559
+2026-10-12T22:50:43Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 62914560-63963135
+2026-10-12T22:50:44Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 63963136-65011711
+2026-10-12T22:50:45Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 65011712-66060287
+2026-10-12T22:50:46Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 66060288-67108863
+2026-10-12T22:50:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 67108864-68157439
+2026-10-12T22:50:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	500	1.0	error try 1
+2026-10-12T22:50:49Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 69206016-70254591
+2026-10-12T22:50:50Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 70254592-71303167
+2026-10-12T22:50:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 71303168-72351743
+2026-10-12T22:50:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 72351744-73400319
+2026-10-12T22:50:56Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.7	ok 1048576 bytes range 73400320-74448895
+2026-10-12T22:50:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 74448896-75497471
+2026-10-12T22:50:59Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 75497472-76546047
+2026-10-12T22:51:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 76546048-77594623
+2026-10-12T22:51:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 77594624-78643199
+2026-10-12T22:51:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 78643200-79691775
+2026-10-12T22:51:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 79691776-80740351
+2026-10-12T22:51:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 80740352-81788927
+2026-10-12T22:51:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.4	ok 1048576 bytes range 174063616-175112191
+2026-10-12T22:51:15Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.3	ok 1048576 bytes range 179306496-180355071
+2026-10-12T22:51:17Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	9.5	ok 1048576 bytes range 178257920-179306495
+2026-10-12T22:51:18Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 180355072-181403647
+2026-10-12T22:51:20Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 181403648-182452223
+2026-10-12T22:51:21Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 187695104-188743679
+2026-10-12T22:51:23Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 188743680-189792255
+2026-10-12T22:51:24Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 191889408-192937983
+2026-10-12T22:51:26Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 192937984-193986559
+2026-10-12T22:51:27Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 193986560-195035135
+2026-10-12T22:51:29Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 195035136-196083711
+2026-10-12T22:51:30Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 196083712-197132287
+2026-10-12T22:51:32Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.4	ok 1048576 bytes range 198180864-199229439
+2026-10-12T22:51:34Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.8	ok 1048576 bytes range 199229440-200278015
+2026-10-12T22:51:35Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 200278016-201326591
+2026-10-12T22:51:38Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 201326592-202375167
+2026-10-12T22:51:41Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 204472320-205520895
+2026-10-12T22:51:44Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 205520896-206569471
+2026-10-12T22:51:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	10.5	ok 1048576 bytes range 202375168-203423743
+2026-10-12T22:51:47Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 206569472-207618047
+2026-10-12T22:51:49Z	https://archive.org/download/wointernet/internet.zip	302	0.7	redirect
+2026-10-12T22:51:50Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 208666624-209715199
+2026-10-12T22:51:51Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 207618048-208666623
+2026-10-12T22:51:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 68157440-69206015
+2026-10-12T22:51:53Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 209715200-210763775
+2026-10-12T22:51:54Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.6	ok 1048576 bytes range 210763776-211812351
+2026-10-12T22:51:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 212860928-213909503
+2026-10-12T22:51:57Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.5	ok 1048576 bytes range 211812352-212860927
+2026-10-12T22:51:58Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.5	ok 1048576 bytes range 213909504-214958079
+2026-10-12T22:52:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 214958080-216006655
+2026-10-12T22:52:00Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 216006656-217055231
+2026-10-12T22:52:02Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.9	ok 1048576 bytes range 217055232-218103807
+2026-10-12T22:52:03Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 218103808-219152383
+2026-10-12T22:52:04Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.3	ok 1048576 bytes range 219152384-220200959
+2026-10-12T22:52:04Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	1.9	ok 1048576 bytes range 220200960-221249535
+2026-10-12T22:52:06Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 221249536-222298111
+2026-10-12T22:52:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 222298112-223346687
+2026-10-12T22:52:07Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 223346688-224395263
+2026-10-12T22:52:09Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.0	ok 1048576 bytes range 224395264-225443839
+2026-10-12T22:52:10Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.1	ok 1048576 bytes range 225443840-226492415
+2026-10-12T22:52:11Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	3.0	ok 1048576 bytes range 226492416-227540991
+2026-10-12T22:52:12Z	https://dn721807.ca.archive.org/0/items/wointernet/internet.zip	206	2.2	ok 1048576 bytes range 227540992-228589567

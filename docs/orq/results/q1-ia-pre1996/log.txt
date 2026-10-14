@@ -1,0 +1,49 @@
+# run 2026-10-12T22:09:45Z: 36 hosts to do
+2026-10-12T22:09:49Z https://web.archive.org/cdx/search/cdx?url=fnth02.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 OSError:[Errno_50]_Network_is_down 3.50 transient, retry in 60 s
+2026-10-12T22:10:54Z https://web.archive.org/cdx/search/cdx?url=fnth02.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 5.49 none rows=0
+2026-10-12T22:10:58Z https://web.archive.org/cdx/search/cdx?url=otax.tky.hut.fi/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 3.89 none rows=0
+2026-10-12T22:11:11Z https://web.archive.org/cdx/search/cdx?url=isis.cshl.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 12.98 none rows=0
+2026-10-12T22:11:21Z https://web.archive.org/cdx/search/cdx?url=next2.cis.uni-muenchen.de/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 9.99 none rows=0
+2026-10-12T22:11:23Z https://web.archive.org/cdx/search/cdx?url=eies2.njit.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 2.23 none rows=0
+2026-10-12T22:11:26Z https://web.archive.org/cdx/search/cdx?url=fnala.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 1.90 none rows=0
+2026-10-12T22:11:34Z https://web.archive.org/cdx/search/cdx?url=cdsun3.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 7.00 none rows=0
+2026-10-12T22:11:51Z https://web.archive.org/cdx/search/cdx?url=fatty.law.cornell.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 17.17 none rows=0
+2026-10-12T22:12:14Z https://web.archive.org/cdx/search/cdx?url=info.cern.ch/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 23.03 none rows=0
+2026-10-12T22:12:22Z https://web.archive.org/cdx/search/cdx?url=lanka.ccit.arizona.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 7.21 none rows=0
+2026-10-12T22:12:42Z https://web.archive.org/cdx/search/cdx?url=dxsting.cern.ch/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 20.44 none rows=0
+2026-10-12T22:13:05Z https://web.archive.org/cdx/search/cdx?url=granit.dtb.dk/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 23.16 none rows=0
+2026-10-12T22:13:13Z https://web.archive.org/cdx/search/cdx?url=slacvx.slac.stanford.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 8.07 none rows=0
+2026-10-12T22:13:19Z https://web.archive.org/cdx/search/cdx?url=noa.huji.ac.il/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 5.60 none rows=0
+2026-10-12T22:13:26Z https://web.archive.org/cdx/search/cdx?url=kekux.kek.jp/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 7.34 none rows=0
+2026-10-12T22:13:32Z https://web.archive.org/cdx/search/cdx?url=slacvm.slac.stanford.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 503 5.63 transient, retry in 60 s
+2026-10-12T22:14:37Z https://web.archive.org/cdx/search/cdx?url=slacvm.slac.stanford.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 503 5.61 transient, retry in 120 s
+2026-10-12T22:16:43Z https://web.archive.org/cdx/search/cdx?url=slacvm.slac.stanford.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 5.27 none rows=0
+2026-10-12T22:16:46Z https://web.archive.org/cdx/search/cdx?url=info.funet.fi/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 3.44 none rows=0
+2026-10-12T22:17:05Z https://web.archive.org/cdx/search/cdx?url=crnvmc.cern.ch/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 19.12 none rows=0
+2026-10-12T22:17:06Z https://web.archive.org/cdx/search/cdx?url=asis01.cern.ch/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 0.93 none rows=0
+2026-10-12T22:18:09Z https://web.archive.org/cdx/search/cdx?url=sunsite.unc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.78 transient, retry in 60 s
+2026-10-12T22:19:12Z https://web.archive.org/cdx/search/cdx?url=sunsite.unc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 OSError:[Errno_50]_Network_is_down 3.42 transient, retry in 120 s
+2026-10-12T22:21:49Z https://web.archive.org/cdx/search/cdx?url=sunsite.unc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 36.32 none rows=0
+2026-10-12T22:22:28Z https://web.archive.org/cdx/search/cdx?url=vxcrna.cern.ch/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 38.94 none rows=0
+2026-10-12T22:23:15Z https://web.archive.org/cdx/search/cdx?url=zws009.desy.de/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 46.92 none rows=0
+2026-10-12T22:23:18Z https://web.archive.org/cdx/search/cdx?url=info.in2p3.fr/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 3.88 none rows=0
+2026-10-12T22:23:23Z https://web.archive.org/cdx/search/cdx?url=iicm.tu-graz.ac.at/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 4.35 none rows=0
+2026-10-12T22:23:36Z https://web.archive.org/cdx/search/cdx?url=apollo3.desy.de/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 13.30 none rows=0
+2026-10-12T22:23:39Z https://web.archive.org/cdx/search/cdx?url=airplane.parc.xerox.com/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 2.88 none rows=0
+2026-10-12T22:23:45Z https://web.archive.org/cdx/search/cdx?url=vms.huji.ac.il/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 5.98 none rows=0
+2026-10-12T22:23:57Z https://web.archive.org/cdx/search/cdx?url=d0sgi5.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 12.10 none rows=0
+2026-10-12T22:24:05Z https://web.archive.org/cdx/search/cdx?url=dec3100b.ictp.trieste.it/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 7.36 none rows=0
+2026-10-12T22:24:10Z https://web.archive.org/cdx/search/cdx?url=www.ncsa.uiuc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 503 5.59 transient, retry in 60 s
+2026-10-12T22:26:11Z https://web.archive.org/cdx/search/cdx?url=www.ncsa.uiuc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.41 transient, retry in 120 s
+2026-10-12T22:28:43Z https://web.archive.org/cdx/search/cdx?url=www.ncsa.uiuc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 31.98 none rows=0
+2026-10-12T22:29:00Z https://web.archive.org/cdx/search/cdx?url=nhmxw0.fnal.gov/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 17.90 none rows=0
+2026-10-12T22:29:20Z https://web.archive.org/cdx/search/cdx?url=kviexp.kvi.nl/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 19.56 none rows=0
+2026-10-12T22:30:20Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.40 transient, retry in 60 s
+2026-10-12T22:32:21Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.41 transient, retry in 120 s
+2026-10-12T22:35:21Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.56 transient, retry in 240 s
+2026-10-12T22:40:22Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.40 transient, retry in 480 s
+2026-10-12T22:49:22Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.40 transient, retry in 960 s
+2026-10-12T23:14:08Z https://web.archive.org/cdx/search/cdx?url=www.w3.org/*&to=1995&fl=timestamp,original,statuscode&limit=50 TimeoutError:The_read_operation_timed_out 60.39 unresolved
+2026-10-12T23:14:14Z https://web.archive.org/cdx/search/cdx?url=ftp.cwi.nl/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 6.21 none rows=0
+2026-10-12T23:14:25Z https://web.archive.org/cdx/search/cdx?url=hoohoo.ncsa.uiuc.edu/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 11.03 none rows=0
+2026-10-12T23:14:49Z https://web.archive.org/cdx/search/cdx?url=nic.nikhef.nl/*&to=1995&fl=timestamp,original,statuscode&limit=50 200 23.61 none rows=0

@@ -1,0 +1,30 @@
+{
+  "id": "q1-ia-pre1996",
+  "question": "Q1",
+  "title": "IA captures before 1996",
+  "label": "Tested, not independently verified",
+  "command": "uv run python scripts/orq/q1-ia-pre1996.py",
+  "sources": [
+    "https://www.w3.org/History/19921103-hypertext/hypertext/DataSources/WWW/Servers.html",
+    "https://www.w3.org/History/19921103-hypertext/hypertext/DataSources/WWW/UnstableServers.html",
+    "https://web.archive.org/cdx/search/cdx"
+  ],
+  "population": "36 hosts: the web servers named in CERN's November 1992 server list, plus info.cern.ch, www.w3.org and www.ncsa.uiuc.edu.",
+  "sample": "36 early servers, 34 from CERN's 1992 list",
+  "query": "url=<host>/*&to=1995&fl=timestamp,original,statuscode&limit=50; exact host parsed from original; a full answer without a match is asked again with filter=original:^https?://<host>(:[0-9]+)?(/|$).",
+  "outcomes": {
+    "pre1996_capture": 0,
+    "neighbour_only": 0,
+    "none": 35,
+    "blocked": 0,
+    "unresolved": 1,
+    "other": 0
+  },
+  "result": "0 of 35 have a capture before 1996 (1 unresolved)",
+  "finding": "The Internet Archive holds no capture before 1996 even for the web's first servers: none of 35 early servers, 34 of them on CERN's 1992 list, has one.",
+  "limits": "The list is small and CERN-centred, a census of one dated source, not a sample of the pre-1996 web. A stamp dates the capture, not the content.",
+  "started_at": "2026-10-12T22:09:49Z",
+  "finished_at": "2026-10-12T23:14:49Z",
+  "requests": 48,
+  "unresolved": 1
+}

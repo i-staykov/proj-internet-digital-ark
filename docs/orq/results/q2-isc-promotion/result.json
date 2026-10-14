@@ -1,0 +1,75 @@
+{
+  "id": "q2-isc-promotion",
+  "question": "Q2",
+  "title": "ISC survey names to year evidence",
+  "label": "Tested, not independently verified",
+  "command": "uv run python scripts/orq/q2-isc-promotion.py --stop-at 2026-10-13T00:45:00Z",
+  "sources": [
+    "https://web.archive.org/cdx/search/cdx",
+    "https://web.archive.org/web/19961112172542id_/http://nw.com/zone/9607.hosts/uk.gz"
+  ],
+  "population": "Your 1996-ISC.txt (7,574,715) and 1997-ISC.txt (10,551,477): 18,126,192 hostname-year records, year from the file.",
+  "sample": "423 of 1,200 records done, seeded",
+  "query": "https://web.archive.org/cdx/search/cdx?url=<host>/*&from=1996&to=2013&fl=timestamp,original,statuscode&limit=2000&output=json; at 2000 rows, anchored original and status filters for the survey year settle open levels.",
+  "outcomes": {
+    "promotable_l4": 0,
+    "same_year_not_2xx_3xx": 0,
+    "other_years_only": 5,
+    "folded_host_only": 1,
+    "no_capture": 417,
+    "unresolved": 0
+  },
+  "levels": {
+    "L1": {
+      "count": 6,
+      "share_pct": 1.4184,
+      "wilson95_pct": [
+        0.6517,
+        3.0597
+      ]
+    },
+    "L2": {
+      "count": 5,
+      "share_pct": 1.182,
+      "wilson95_pct": [
+        0.5059,
+        2.7368
+      ]
+    },
+    "L3": {
+      "count": 0,
+      "share_pct": 0.0,
+      "wilson95_pct": [
+        0.0,
+        0.9
+      ]
+    },
+    "L4": {
+      "count": 0,
+      "share_pct": 0.0,
+      "wilson95_pct": [
+        0.0,
+        0.9
+      ]
+    }
+  },
+  "n_resolved": 423,
+  "ding_l1": {
+    "count": 48,
+    "n": 1800,
+    "share_pct": 2.6667,
+    "two_sided_p": 0.1335
+  },
+  "result": "0 of 423 with a 2xx/3xx capture in their year; any capture 1.42% (yours 2.67%)",
+  "finding": "Repeating your ISC experiment reproduces your any-capture rate within error (p = 0.13), yet none of 423 records has a 2xx or 3xx capture of its host in its survey year: discovery-only evidence rarely becomes direct.",
+  "limits": "423 of 1,200 records finished by the stop time, CDX averaging 14.0 s an answer with 43 transient errors; a finished prefix is uniform. No CDX row does not prove no website, and L4 checks status, not content.",
+  "per_year": {
+    "1996": 7574715,
+    "1997": 10551477
+  },
+  "started_at": "2026-10-12T21:45:47Z",
+  "finished_at": "2026-10-13T00:45:35Z",
+  "requests": 466,
+  "transient_errors": 43,
+  "unresolved": 0
+}

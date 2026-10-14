@@ -1,0 +1,41 @@
+collection,count,query,value
+cdromimages,items,collection:cdromimages,38690
+cdromimages,dated,collection:cdromimages AND date:[* TO *],15505
+cdromimages,dated_1990_1995,collection:cdromimages AND date:[1990-01-01 TO 1995-12-31],830
+cdromimages,dated_1990_1995_internet,"collection:cdromimages AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",26
+cdbbsarchive,items,collection:cdbbsarchive,3581
+cdbbsarchive,dated,collection:cdbbsarchive AND date:[* TO *],1994
+cdbbsarchive,dated_1990_1995,collection:cdbbsarchive AND date:[1990-01-01 TO 1995-12-31],901
+cdbbsarchive,dated_1990_1995_internet,"collection:cdbbsarchive AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",48
+cdromsoftware,items,collection:cdromsoftware,41222
+cdromsoftware,dated,collection:cdromsoftware AND date:[* TO *],26597
+cdromsoftware,dated_1990_1995,collection:cdromsoftware AND date:[1990-01-01 TO 1995-12-31],4266
+cdromsoftware,dated_1990_1995_internet,"collection:cdromsoftware AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",108
+walnutcreekcdrom,items,collection:walnutcreekcdrom,421
+walnutcreekcdrom,dated,collection:walnutcreekcdrom AND date:[* TO *],183
+walnutcreekcdrom,dated_1990_1995,collection:walnutcreekcdrom AND date:[1990-01-01 TO 1995-12-31],49
+walnutcreekcdrom,dated_1990_1995_internet,"collection:walnutcreekcdrom AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",6
+usenethistorical,items,collection:usenethistorical,1019
+usenethistorical,dated,collection:usenethistorical AND date:[* TO *],0
+usenethistorical,dated_1990_1995,collection:usenethistorical AND date:[1990-01-01 TO 1995-12-31],0
+usenethistorical,dated_1990_1995_internet,"collection:usenethistorical AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",0
+giganews,items,collection:giganews,25327
+giganews,dated,collection:giganews AND date:[* TO *],0
+giganews,dated_1990_1995,collection:giganews AND date:[1990-01-01 TO 1995-12-31],0
+giganews,dated_1990_1995_internet,"collection:giganews AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",0
+usenet,items,collection:usenet,79448
+usenet,dated,collection:usenet AND date:[* TO *],6
+usenet,dated_1990_1995,collection:usenet AND date:[1990-01-01 TO 1995-12-31],3
+usenet,dated_1990_1995_internet,"collection:usenet AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",3
+ftpsites,items,collection:ftpsites,974
+ftpsites,dated,collection:ftpsites AND date:[* TO *],181
+ftpsites,dated_1990_1995,collection:ftpsites AND date:[1990-01-01 TO 1995-12-31],1
+ftpsites,dated_1990_1995_internet,"collection:ftpsites AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",1
+archiveteam_ftp,items,collection:archiveteam_ftp,1414
+archiveteam_ftp,dated,collection:archiveteam_ftp AND date:[* TO *],1147
+archiveteam_ftp,dated_1990_1995,collection:archiveteam_ftp AND date:[1990-01-01 TO 1995-12-31],1
+archiveteam_ftp,dated_1990_1995_internet,"collection:archiveteam_ftp AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",1
+softwarelibrary,items,collection:softwarelibrary,275700
+softwarelibrary,dated,collection:softwarelibrary AND date:[* TO *],93431
+softwarelibrary,dated_1990_1995,collection:softwarelibrary AND date:[1990-01-01 TO 1995-12-31],24636
+softwarelibrary,dated_1990_1995_internet,"collection:softwarelibrary AND date:[1990-01-01 TO 1995-12-31] AND (title:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR subject:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html) OR description:(internet OR www OR ""world wide web"" OR gopher OR usenet OR ftp OR html))",260

@@ -1,0 +1,45 @@
+{
+ "id": "q2-capture-content",
+ "question": "Q2",
+ "title": "Is a cited capture a website?",
+ "label": "Tested, not independently verified",
+ "command": "uv run python scripts/orq/q2-capture-content.py --evidence-dir data/orq/netnew_evidence",
+ "sources": [
+  "https://web.archive.org/web/<timestamp>id_/<original>"
+ ],
+ "population": "Our export of 2026-10-11: 24,679 records 1996 to 2001 (registrable and hostname), 14,140,106 records 2002 to 2013, each with its cited capture.",
+ "sample": "150 of our records, seeded",
+ "query": "GET /web/<ts>id_/<original>, Wayback timestamp hops followed; the Memento-Datetime year must equal the record year.",
+ "outcomes": {
+  "site content": 110,
+  "placeholder": 8,
+  "redirect": 22,
+  "error text in a 2xx": 2,
+  "empty HTML": 7,
+  "replay year mismatch": 1
+ },
+ "outcomes_by_part": {
+  "1996-2001": {
+   "site content": 53,
+   "placeholder": 5,
+   "redirect": 14,
+   "error text in a 2xx": 1,
+   "empty HTML": 2
+  },
+  "2002-2013": {
+   "site content": 57,
+   "placeholder": 3,
+   "redirect": 8,
+   "error text in a 2xx": 1,
+   "empty HTML": 5,
+   "replay year mismatch": 1
+  }
+ },
+ "result": "110 of 150 (73%) show site content; 1 from another year",
+ "finding": "A 2xx or 3xx status alone does not make a capture a website: 39 of 150 cited captures are redirects, placeholders, empty pages or error text.",
+ "limits": "Markers are simple string tests on the first 1 MB, so keyword pages of wildcard hosts pass as site content. Redirect targets are not fetched or judged.",
+ "started_at": "2026-10-12T21:57:05Z",
+ "finished_at": "2026-10-12T22:16:41Z",
+ "requests": 176,
+ "unresolved": 0
+}

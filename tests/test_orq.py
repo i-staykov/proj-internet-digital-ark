@@ -43,7 +43,7 @@ sys.addaudithook(_record)
 def finding(run_id="11", years=None, sha=SHA, cmd="uv run ark price-snapshot", status="confirmed"):
     doc = {"run_id": run_id, "verdict": "FIND", "verify": {"status": status} if status else None}
     doc["artifact"] = {"url": "https://example.org/a.txt", "host": "example.org", "sha256": sha}
-    doc["extraction"] = {"script": "extract.py", "items": 3, "years": years or {}}
+    doc["extraction"] = {"script": "extract.py", "items": 3, "hosts": 2, "years": years or {}}
     doc["pricing"] = {"manifest_sha": "b" * 64, "cmd": cmd, "ee": 1.5, "track": "candidate"}
     return doc
 
@@ -86,8 +86,9 @@ def commit(where: Path, message: str = "fixture", **env: str) -> None:
 
 def test_q1_drops_only_a_lead_whose_every_dated_record_postdates_1995(tmp_path):
     """DDN's years are empty and its editions are stamped `17-May-95`: a literal reading of
-    "all postdate 1995" drops it. Only non-empty years all after 1995, with no earlier year
-    in the lead's own date texts, leave Q1. A file that does not parse is named."""
+    "all postdate 1995" drops it. Non-empty years all after 1995 leave Q1 when they date
+    every item, else only when the lead's own date texts name no earlier year for the rest.
+    A file that does not parse is named."""
     for text, years in (
         ("[01/Jul/1995:00:00:01 -0400] pub/hosts/19930517/HOSTS.TXT", {1995, 1993}),
         ("; 17-May-95 and 23-Jul-92, computer.html 20010124010300", {1995, 1992, 2001}),
@@ -102,28 +103,36 @@ def test_q1_drops_only_a_lead_whose_every_dated_record_postdates_1995(tmp_path):
     lead(fleet, "rscott-like", wdoi="DOMAIN SUMMARY 13-Aug-95", found=finding(years={"1996": 4}))
     later = finding(years={"1996": 1, "2001": 9})
     lead(fleet, "usenet-like", wdoi="a Date: header of 1995 or later", found=later)
+    lead(fleet, "vt-like", wdoi="Feb 16 1995 to Jan 19 1996", found=finding(years={"1997": 1}))
     lead(fleet, "scout-only")
+    zero = finding(years={"1995": 2})
+    zero["pricing"]["ee"] = 0
+    lead(fleet, "zero-like", wdoi="1995", found=zero)
     lead(fleet, "another-lens", lens="custodian-capture-indexes")
     (fleet / "leads/_dealer").mkdir()
     (fleet / "leads/torn.json").write_text('{"slug": "torn", "lens": "pre-')
     orq.BROKEN.clear()
-    tests, excluded, seen = orq.q1(fleet)
-    assert (excluded, seen) == (["ia-like"], 5)
-    assert [t.id for t in tests] == ["ddn-like", "rscott-like", "scout-only", "usenet-like"]
+    tests, excluded = orq.q1(fleet)
+    assert excluded == ["ia-like", "rscott-like", "usenet-like"]
+    ids = ["ddn-like", "scout-only", "vt-like", "zero-like"]
+    assert [t.id for t in tests] == ids
     assert tests[0].runs == [("price", "11"), ("verify", "22")]
     assert orq.BROKEN == [str(fleet / "leads/torn.json")]
-    # The table counts only the records dated inside the window.
-    early = orq.Test("Q1", "early", orq.VALIDATED, [], [], finding=finding(years={"1995": 5}))
-    late = orq.Test("Q1", "late", orq.TESTED, [], [], finding=finding(years={"1996": 3, "2002": 1}))
-    _, _, first, second = orq.q1_table([early, late]).splitlines()
-    assert first.startswith("| `early` | Validated | FIND | 3 | 0 | 1.5 | candidate |")
-    assert second.startswith("| `late` | Tested, not independently verified | FIND | 3 | 3 |")
+    # Only a lead priced above zero has a row, and the stronger label leads.
+    _, _, *rows = orq.table(tests, (25,) * 4).splitlines()
+    assert [row.split(" | ")[0] for row in rows] == ["| ddn-like", "| vt-like"]
+    cells = "example.org, 2 hosts | 1.5 EE as candidates (no year) | Validated"
+    assert rows[0] == f"| ddn-like | {cells} |"
 
 
 def test_labels_are_computed_from_the_record(tmp_path):
     fleet = tmp_path / "fleet"
     lead(fleet, "validated", found=finding(), checked=verify())
     lead(fleet, "scouted")
+    lead(fleet, "estimated")
+    guessed = json.loads((fleet / "leads/estimated.json").read_text())
+    guessed |= {"size_estimate": {"ee_high": 94.8}, "floor": 5000}
+    (fleet / "leads/estimated.json").write_text(json.dumps(guessed))
     tested = (
         ("broken-code", finding(), verify(), "def f(:\n", "extract.py does not compile"),
         ("kept-as-txt", finding(), verify(), None, "kept as extract.py.txt"),
@@ -141,8 +150,9 @@ def test_labels_are_computed_from_the_record(tmp_path):
     (fleet / "leads/kept-as-txt/extract.py.txt").write_text("def f(:\n")
     got = {t.id: (t.label, t.gaps) for t in orq.q1(fleet)[0]}
     assert got["validated"] == (orq.VALIDATED, [])
-    scouted = ["closed at the scout leg, before any extractor ran: closed"]
-    assert got["scouted"] == (orq.PENDING, scouted)
+    assert got["scouted"] == (orq.PENDING, ["not extracted: closed"])
+    under = "not extracted: estimated at most 94.8 EE, under the 5,000 EE floor"
+    assert got["estimated"] == (orq.PENDING, [under])
     for slug, *_, gap in tested:
         label, gaps = got[slug]
         assert label == orq.TESTED and any(gap in g for g in gaps), (slug, gaps)
@@ -189,9 +199,9 @@ def test_cost_is_the_ledgers_and_a_run_it_does_not_hold_is_not_recorded(tmp_path
     for run_id, label in (("41", orq.PENDING), ("42", orq.VALIDATED)):
         record = {"run_id": run_id, "command": f"echo {run_id}", "result": run_id, "label": label}
         (folder / f"{run_id}.json").write_text(json.dumps(base | record))
-    assert [(t.runs, t.label, t.command, t.result) for t in orq.experiments(fleet)] == [
-        ([("experiment", "41")], orq.PENDING, "echo 41", "41"),
-        ([("experiment", "42")], orq.VALIDATED, "echo 42", "42"),
+    assert [(t.runs, t.label, t.command) for t in orq.experiments(fleet)] == [
+        ([("experiment", "41")], orq.PENDING, "echo 41"),
+        ([("experiment", "42")], orq.VALIDATED, "echo 42"),
     ]
 
 
@@ -265,15 +275,15 @@ def fixture_cdx(cdx: Path, his: Path) -> None:
     (his / "2001.txt").write_text("held.com\nwww.held.com\n")
 
 
-def test_every_q2_command_has_a_parser_and_is_read_again_from_its_files(tmp_path):
-    rows = orq.q2_rows(orq.TEMPLATE.read_text())
-    assert {row.id for row in rows if row.command} == set(orq.PARSERS)
-    for row in rows:
-        assert re.fullmatch(r"\S+:\d+", orq.resolve_anchor(row.anchor)), row.anchor
+def test_every_q2_command_rests_on_a_line_and_is_read_again_from_its_files(tmp_path):
+    for name, (command, _, anchor, _) in orq.COMMANDS.items():
+        assert re.fullmatch(r"\S+:\d+", orq.resolve_anchor(anchor)), anchor
+        assert "--measure" not in command or command.endswith(f"--measure {name}"), name
+    assert {name for name, spec in orq.COMMANDS.items() if "--measure" in spec[0]} == set(
+        orq.MEASURES
+    )
     with pytest.raises(orq.Refusal):
         orq.resolve_anchor("docs/lore/laws.md#a phrase no law holds")
-    with pytest.raises(orq.Refusal):
-        orq.q2_rows("| `q2-x` | `a | b` | `f#p` | [T] |\n")
     # A process substitution hides a missing input, so it is caught first.
     (his := tmp_path / "his").mkdir()
     (his / "1999.txt").write_text("a\n")
@@ -287,8 +297,7 @@ def test_every_q2_command_has_a_parser_and_is_read_again_from_its_files(tmp_path
     audit = fixture_audit(tmp_path / "audit.json")
     values, result = orq._status_share(orq.measure_status_share({"AUDIT": str(audit)}))
     assert (values["FOURXX_PCT"], values["FIVEXX_PCT"]) == ("4.00", "1.00")
-    assert (values["SHIPPED"], values["RETRACT"], values["REPOINT"]) == ("10", "1", "2")
-    assert "a 8.00%, b 0.00%" in result
+    assert result == "4.00% of 200 rows answered 4xx, 1.00% 5xx"
     fixture_cdx(tmp_path / "cdx", his)
     out = orq.measure_yearfill_kill({"CDX": str(tmp_path / "cdx"), "HIS": str(his)})
     values, _ = orq._yearfill(out)
@@ -300,19 +309,58 @@ def test_every_q2_command_has_a_parser_and_is_read_again_from_its_files(tmp_path
     (tmp_path / "cdx/cdx_yearfill_a_20260923T080000Z_0002.jsonl.gz").unlink()
     with pytest.raises(orq.Refusal, match="one shard"):
         orq.measure_yearfill_kill({"CDX": str(tmp_path / "cdx"), "HIS": str(his)})
+    # A candidate in a 1996 to 2001 direct year is at two levels; one in a later year is not.
+    env = fixture_export(tmp_path / "export")
+    out = orq.measure_evidence_level(env)
+    values, _ = orq._levels(out)
+    counts = (values["DIRECT"], values["YEARS"], values["DISCOVERY"], values["UNRESOLVED"])
+    assert counts == ("5", "2", "2", "1") and (values["SAME"], values["LATER"]) == ("1", "1")
+    assert "host\t1999\tboth.org\n" in out and "host\t2002\tz.com\n" in out
+
+
+def fixture_export(root: Path) -> dict[str, str]:
+    """Our export as the evidence-level measure reads it: direct, candidate, unresolved."""
+    (netnew := root / "netnew").mkdir(parents=True)
+    (extended := root / "extended").mkdir()
+    (netnew / "1999.txt").write_text("a.com\n")
+    (netnew / "1999_hostnames.txt").write_text("both.org\nwww.a.com\n")
+    (netnew / "1999-ISC.txt").write_text("not.a.year.file\n")
+    (netnew / "candidate_additions.txt").write_text("both.org\nz.com\n")
+    for name in ("isc_candidates.txt", "header_candidates.txt"):
+        (netnew / name).write_text("")
+    (netnew / "candidates_unparsed.txt").write_text("# value\treason\n-bad\tnot_rfc1123\n")
+    (extended / "2002.txt").write_text("x.net\nz.com\n")
+    return {"NETNEW": str(netnew), "EXTENDED": str(extended)}
 
 
 def fixture_release(root: Path) -> dict[str, str]:
     (his := root / "his").mkdir()
-    (netnew := root / "netnew").mkdir()
-    annual = {1996: "a.com", 1997: "a.com", 1998: "b.com", 1999: "b.com\nc.com", 2000: "b.com"}
+    annual = {1996: "a.com", 1997: "a.com", 1998: "b.com", 1999: "b.com", 2000: "b.com\nc.com"}
     for year, names in annual.items():
         (his / f"{year}.txt").write_text(names + "\n")
     (his / "candidate_pool.txt").write_text("z.com\n")
-    (netnew / "candidate_additions.txt").write_text("y.com\n")
     fixture_cdx(root / "cdx", his)
+    (his / "2001.txt").write_text("b.com\nheld.com\nwww.held.com\n")
+    export = fixture_export(root / "export")
+    (Path(export["NETNEW"]) / "candidate_additions.txt").write_text("y.com\n")
     audit = fixture_audit(root / "audit.json")
-    return {"HIS": str(his), "NETNEW": str(netnew), "CDX": str(root / "cdx"), "AUDIT": str(audit)}
+    return export | {"HIS": str(his), "CDX": str(root / "cdx"), "AUDIT": str(audit)}
+
+
+def fixture_results(root: Path) -> tuple[Path, Path]:
+    """One frozen script test, one still running, and the script's code."""
+    (done := root / "results/q2-fixture").mkdir(parents=True)
+    (root / "results/q1-running").mkdir()
+    (code := root / "code").mkdir()
+    doc = {"id": "q2-fixture", "question": "Q2", "label": orq.TESTED, "requests": 2}
+    doc |= {"command": "uv run python scripts/orq/q2-fixture.py", "sample": "2 of 9, seed 1"}
+    doc |= {"sources": ["https://example.org/cdx"], "result": "1 of 2 hosts had a capture."}
+    doc |= {"finding": "Captures reproduce.", "limits": "Small.", "outcomes": {"capture": 1}}
+    (done / "result.json").write_text(json.dumps(doc))
+    (done / "log.txt").write_text("2026-10-12T00:00:00Z https://example.org/cdx 200 0.1 capture\n")
+    (done / "sample.csv").write_text("host,outcome\na.com,capture\n")
+    (code / "q2-fixture.py").write_text("print(1)\n")
+    return root / "results", code
 
 
 @pytest.mark.skipif(shutil.which("pandoc") is None, reason="pandoc writes the docx and the .txt")
@@ -338,6 +386,10 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
         return real_run(command, env)
 
     monkeypatch.setattr(orq, "_run", run)
+    results, code = fixture_results(tmp_path / "orq")
+    monkeypatch.setattr(orq, "RESULTS", results)
+    monkeypatch.setattr(orq, "SCRIPTS", code)
+    monkeypatch.setattr(orq, "SCREENSHOTS", tmp_path / "no-screenshots")
     (out := tmp_path / "out").mkdir()
     OPENED.clear()
     WATCH[0] = True
@@ -345,7 +397,8 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
         done = orq.build(out, fleet, variables)
     finally:
         WATCH[0] = False
-    assert done["excluded"] == ["ia-like"]
+    assert (done["excluded"], done["running"]) == (["ia-like"], ["q1-running"])
+    assert done["pending"] and all(orq.FROZEN_TOKEN_RE.fullmatch(t) for t in done["pending"])
     en = out / orq.EN
     assert sorted(p.name for p in out.iterdir()) == sorted([orq.EN, orq.ZH])
     with (en / "tests.csv").open(newline="") as handle:
@@ -359,13 +412,25 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
         for column in ("evidence", "code", "logs", "sample"):
             assert not row[column] or (en / row[column]).exists(), (row["id"], column)
     assert (en / "code/ddn-like/extract.py").read_text() == "x=1"
+    frozen = next(row for row in rows if row["id"] == "q2-fixture")
+    assert (frozen["leg"], frozen["code"]) == ("script", "code/q2-fixture.py")
+    assert (en / frozen["logs"]).read_text().endswith("capture\n")
+    assert "https://example.org/cdx" in (en / "sources.csv").read_text()
     for name in (orq.TXT["Q1"], orq.TXT["Q2"]):
         lines = {line.strip() for line in (out / orq.ZH / name).read_text().splitlines()}
         assert set(orq.HEADINGS) <= lines, name
     assert (out / orq.ZH / orq.README).read_text().strip()
     with zipfile.ZipFile(en / orq.DOCX) as docx:
         text = re.sub(r"<[^>]+>", "", docx.read("word/document.xml").decode("utf-8"))
-    assert "1 of 2 names (50.0%)" in text  # his 1999 against his 2000, from the fixture
+    assert "50.0% of 2 names are in the next" in text  # his 2000 against his 2001
+    assert "1 of 2 hosts had a capture." in text and "Pending validation: " in text
+    with pytest.raises(orq.Refusal, match="unfilled token"):
+        orq.build(out, fleet, variables, strict=True)  # a stage ships no unlanded result
+    (results / "q2-torn").mkdir()
+    (results / "q2-torn/result.json").write_text(json.dumps({"id": "q2-torn", "label": "Fine"}))
+    with pytest.raises(orq.Refusal, match="q2-torn/result.json: missing"):
+        orq.build(out, fleet, variables)
+    shutil.rmtree(results / "q2-torn")
     opened = [Path(p).resolve() for p in OPENED]
     assert (fleet / "leads/ddn-like/finding.json").resolve() in opened  # the hook sees reads
     assert (tmp_path / "audit.json").resolve() in opened  # and the measures' reads
