@@ -2,7 +2,7 @@
 
 Additions to your annual domain files, 1996 to 2013. A record is one exact hostname in one year,
 kept on its own 2xx or 3xx web capture of that host in that year, and never one your file for that
-year holds. `report.docx` gives the figures with one check each; `report.md` is the same text.
+year holds. `report.docx` gives the figures; each check below prints one of them.
 
 ## Check
 
@@ -19,6 +19,35 @@ bash verify.sh
 checked thing is not in the archive. It checks the checksums, one evidence row per record, the 2002
 to 2013 files against your sha256, the candidate files against your pool, and reruns your
 calculator on your 1996 file.
+
+Each figure of the report's table, by its check number, in `bash` with `bc`. Paste the first
+block once; check 2 takes about 7 minutes and up to 11 GB of memory.
+
+```
+ee() { for f; do python3 equivalent_english_domain_calculator/equivalent_english_domains.py "$f" --output-dir "${TMPDIR:-/tmp}/ee"; done | awk '/^Equivalent-English/ {s += $NF} END {printf "%.4f\n", s}'; }
+B=$(dirname baseline/*/1996.txt); X=extended_years
+T=$(python3 -c 'import datetime as d; print((d.date.today() - d.date(2026, 8, 2)).days)')
+```
+
+```
+# 1, your records: 1996 to 2001, then 2002 to 2013
+cat $B/????.txt | wc -l
+echo $(( $(cat $X/????.txt | wc -l) - $(cat $X/additions/*.txt | wc -l) ))
+# 2, your equivalent-English
+E1=$(ee $B/????.txt); echo $E1
+E2=$(echo "$(ee $X/????.txt) - $(ee $X/additions/*.txt)" | bc); echo $E2
+# 3, our records
+cat additions/*.txt hostnames/*.txt | wc -l
+cat $X/additions/*.txt | wc -l
+# 4, our equivalent-English
+A1=$(ee additions/*.txt hostnames/*.txt); echo $A1
+A2=$(ee $X/additions/*.txt); echo $A2
+# 5, growth in percent, then S = 10 x growth / t, with t in whole days since 2 August 2026
+echo "g = 100 * $A1 / $E1; g; 10 * g / $T" | bc -l
+echo "g = 100 * $A2 / $E2; g; 10 * g / $T" | bc -l
+# 6, distinct new names
+cat additions/*.txt hostnames/*.txt $X/additions/*.txt | LC_ALL=C sort -u | wc -l
+```
 
 To see the captures behind one name in one year:
 

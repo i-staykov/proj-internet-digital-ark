@@ -15,41 +15,12 @@ record is in your file for its year.
 | Growth rate | [EEGROWTH] | [EXTGROWTH] | 5 |
 | Score, t = [TDAYS] days ([TSPAN]) | [SCORE_CORE] | [SCORE_EXT] | 5 |
 
-Combined increment: [COMBINEDEE] equivalent-English ([EE] + [EXTEE]).
+Combined increment: [COMBINEDEE] equivalent-English ([EE] + [EXTEE]). Each numbered check is a
+pasted command in `README.md`, section Check.
 The additions hold [DISTINCTNEW] distinct names (check 6). Per year: `audit/merge_stats_ark_*.csv`
 and `extended_years/dedup_report.csv`.
 
-## 2. Checks
-
-Inside the extracted archive, in `bash` with Python 3.10 or newer and `bc`, pasting from
-`report.md`. Paste the first two lines once; each numbered check then prints its row's figures.
-Check 2 takes about 7 minutes and up to 11 GB of memory.
-
-    ee() { for f; do python3 equivalent_english_domain_calculator/equivalent_english_domains.py "$f" --output-dir "${TMPDIR:-/tmp}/ee"; done | awk '/^Equivalent-English/ {s += $NF} END {printf "%.4f\n", s}'; }
-    B=baseline/[BASELINE]; X=extended_years
-    # 1
-    cat $B/????.txt | wc -l
-    echo $(( $(cat $X/????.txt | wc -l) - $(cat $X/additions/*.txt | wc -l) ))
-    # 2
-    ee $B/????.txt
-    echo "$(ee $X/????.txt) - $(ee $X/additions/*.txt)" | bc
-    # 3
-    cat additions/*.txt hostnames/*.txt | wc -l
-    cat $X/additions/*.txt | wc -l
-    # 4
-    ee additions/*.txt hostnames/*.txt
-    ee $X/additions/*.txt
-    # 5, growth then S
-    echo "g = 100 * [EE] / [EEBASELINE]; g; 10 * g / [TDAYS]" | tr -d , | bc -l
-    echo "g = 100 * [EXTEE] / [EXTBASELINEEE]; g; 10 * g / [TDAYS]" | tr -d , | bc -l
-    # 6
-    cat additions/*.txt hostnames/*.txt $X/additions/*.txt | LC_ALL=C sort -u | wc -l
-
-`bash verify.sh` confirms that each `extended_years/YYYY.txt`, minus our additions, is
-byte-identical to your file (sha256 in `extended_years/manifest.json`), and re-checks the rest of
-the archive.
-
-## 3. Source and rule
+## 2. Source and rule
 
 **One source**: the Internet Archive CDX API, `web.archive.org/cdx/search/cdx`. For 2002 to 2013
 we query each public suffix, such as `co.uk`, with `matchType=domain` and read every result page.
@@ -61,7 +32,7 @@ host stamped in that year answered 2xx or 3xx, the host passes your `HOST_RE` an
 that year; it is dropped when your file for that year holds the name. Nothing is inferred from
 another year, no `www.` or bare variant is generated, and each record cites its capture.
 
-## 4. Files
+## 3. Files
 
 - `additions/`, `hostnames/`: 1996 to 2001 registrable domains and hostnames, one evidence row per
   record.
