@@ -55,6 +55,10 @@ FIELDS = [
     "outcome", "query", "rows", "timestamp", "original", "statuscode", "wayback_url",
     "attempts",
 ]  # fmt: skip
+URLS = ("our_evidence_url", "original", "wayback_url")
+SHIPPED = [f for f in FIELDS if f not in URLS]
+FULL = OUT / "cache" / "sample.csv"
+EXPORT = "2026-10-11"
 
 
 def utc(t: datetime | None = None) -> str:
@@ -81,10 +85,8 @@ def hosts(path: Path):
 
 
 def population() -> dict:
-    return {
-        EARLY: sum(1 for _, p in early_files() for _ in hosts(p)),
-        LATE: sum(1 for _, p in late_files() for _ in hosts(p)),
-    }
+    """The export the sample was drawn from; the files have grown since."""
+    return {EARLY: 24_679, LATE: 14_140_106}
 
 
 def our_evidence(sample: list[dict]) -> None:
@@ -140,12 +142,17 @@ def draw() -> list[dict]:
 
 
 def save(sample: list[dict]) -> None:
-    tmp = OUT / "sample.csv.tmp"
-    with open(tmp, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=FIELDS)
-        w.writeheader()
-        w.writerows(sample)
-    tmp.replace(OUT / "sample.csv")
+    """The whole record to the git-ignored cache, which a rerun resumes from; the shipped
+    sample.csv without the capture URLs, which a rerun of each logged query returns."""
+    FULL.parent.mkdir(parents=True, exist_ok=True)
+    (FULL.parent / ".gitignore").write_text("*\n", encoding="utf-8")
+    for path, fields in ((FULL, FIELDS), (OUT / "sample.csv", SHIPPED)):
+        tmp = path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(sample)
+        tmp.replace(path)
 
 
 def exact_host(original: str) -> str | None:
@@ -322,12 +329,9 @@ def report(sample: list[dict], pop: dict, command: str) -> dict:
         "sources": [CDX],
         "population": (
             f"{pop[EARLY]:,} hostname-year additions for {EARLY} "
-            f"and {pop[LATE]:,} for {LATE} in this export."
+            f"and {pop[LATE]:,} for {LATE} in our export of {EXPORT}."
         ),
-        "sample": (
-            f"{len(sample)} drawn, {PER_PART} per part, seed {SEED}, uniform (random.sample; "
-            f"reservoir for {LATE}), interleaved at random; {n} completed."
-        ),
+        "sample": (f"{n} of {len(sample)} of our records done, seeded"),
         "query": (
             "url=<host>/*&from=<Y>&to=<Y>&filter=statuscode:[23][0-9][0-9]"
             "&fl=timestamp,original,statuscode&limit=500; exact host parsed from original; "
@@ -336,10 +340,8 @@ def report(sample: list[dict], pop: dict, command: str) -> dict:
         ),
         "outcomes": outcomes,
         "result": (
-            f"The live CDX confirms {c['confirmed']} of {n} sampled year assignments "
-            f"({pct(c['confirmed'], n)}): "
-            f"{ca['confirmed']}/{na} for {EARLY}, {cb['confirmed']}/{nb} for {LATE}; "
-            f"{c['not_found']} not found, {c['unresolved']} unresolved."
+            f"{c['confirmed']} of {n} years confirmed ({ca['confirmed']} of {na} for {EARLY}, "
+            f"{cb['confirmed']} of {nb} for {LATE}); {c['unresolved']} unresolved"
         ),
         "finding": (
             f"{pct(c['confirmed'], resolved)} of resolved records (95% CI {lo:.1f} to {hi:.1f}%) "
@@ -377,8 +379,8 @@ def main() -> int:
     command = "uv run python scripts/orq/q2-recheck.py"
     OUT.mkdir(parents=True, exist_ok=True)
     pop = population()
-    if (OUT / "sample.csv").exists():
-        with open(OUT / "sample.csv", encoding="utf-8", newline="") as f:
+    if FULL.exists() or (OUT / "sample.csv").exists():
+        with open(FULL if FULL.exists() else OUT / "sample.csv", encoding="utf-8", newline="") as f:
             sample = list(csv.DictReader(f))
     else:
         sample = draw()

@@ -3,12 +3,9 @@
 Our answers to the two open research questions of section IV-A, tested against your release
 [RELEASE] (built [BUILT_AT]).
 
-Every finding names the test behind it, and every test carries one label:
-
-- **Validated**: a second, independent run reproduced it.
-- **Tested** (not independently verified): we ran it once; its code, log and sample are in
-  this folder, so it can be re-run.
-- **Pending validation**: proposed, not yet tested.
+Every finding names the test behind it, and every test carries one label: **Validated** (a
+second, independent run reproduced it), **Tested** (we ran it once, not independently verified;
+its code, log and sample are here to re-run) or **Pending validation** (proposed, not yet tested).
 
 Each test's code, log, sample and source record are in this folder by id (`tests.csv`,
 `sources.csv`); `screenshots/` holds [SCREENSHOTS].
@@ -86,8 +83,8 @@ Every record is one host in one year, and its evidence has one of three levels:
 | Discovery-only | DNS surveys, registries and WHOIS, mail and news headers, error captures | rank names to check, never assign a year |
 | Unresolved | values no parser can read | stay apart, in their own file |
 
-- A level belongs to a host and year: a name can be a candidate for one year, direct for another.
-- No year is inferred from another year.
+- A level belongs to a host and year: a name can be a candidate for one year, direct for another,
+  and no year is inferred from another.
 - A candidate enters an annual file only once its direct evidence is retained, and then leaves
   `candidate_pool.txt`; reconciling the two is a merge of sorted files.
 

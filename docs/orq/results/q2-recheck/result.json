@@ -1,0 +1,37 @@
+{
+  "id": "q2-recheck",
+  "question": "Q2",
+  "title": "Live CDX recheck of our year assignments",
+  "label": "Tested, not independently verified",
+  "command": "uv run python scripts/orq/q2-recheck.py",
+  "sources": [
+    "https://web.archive.org/cdx/search/cdx"
+  ],
+  "population": "24,679 hostname-year additions for 1996 to 2001 and 14,140,106 for 2002 to 2013 in our export of 2026-10-11.",
+  "sample": "283 of 600 of our records done, seeded",
+  "query": "url=<host>/*&from=<Y>&to=<Y>&filter=statuscode:[23][0-9][0-9]&fl=timestamp,original,statuscode&limit=500; exact host parsed from original; a full answer without a match is asked again with filter=original:^https?://<host>(:[0-9]+)?(/|$).",
+  "outcomes": {
+    "confirmed_1996_2001": 146,
+    "not_found_1996_2001": 0,
+    "blocked_1996_2001": 0,
+    "unresolved_1996_2001": 0,
+    "other_1996_2001": 0,
+    "confirmed_2002_2013": 137,
+    "not_found_2002_2013": 0,
+    "blocked_2002_2013": 0,
+    "unresolved_2002_2013": 0,
+    "other_2002_2013": 0,
+    "confirmed_all": 283,
+    "not_found_all": 0,
+    "blocked_all": 0,
+    "unresolved_all": 0,
+    "other_all": 0
+  },
+  "result": "283 of 283 years confirmed (146 of 146 for 1996 to 2001, 137 of 137 for 2002 to 2013); 0 unresolved",
+  "finding": "100.0% of resolved records (95% CI 98.7 to 100.0%) carry a same-year exact-host 2xx or 3xx capture that anyone can re-query today. A year assigned this way reproduces from the public index alone.",
+  "limits": "A capture proves an archived response from that host in that year, not page content. 283 of 600 drawn records completed before the stop time; the order is random, so they are a uniform sample.",
+  "started_at": "2026-10-12T21:46:11Z",
+  "finished_at": "2026-10-13T00:44:07Z",
+  "requests": 324,
+  "unresolved": 0
+}
