@@ -342,7 +342,9 @@ cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_su
 # every packaging run, repeated in full whenever a report line changed. The journals only grow,
 # so a copy younger than every journal is the same file the scan would write.
 UNPARSED="output/netnew/candidates_unparsed.txt"
-if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit)" ]; then
+# Only the three directories the scan reads (unparsed_pool.py DEFAULT_DIRS) can stale it.
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw/cdx_suffix data/raw/cdx_gap_hostgrain data/raw/nypw_hostgrain \
+        -name '*.jsonl.gz' -newer "$UNPARSED" -print -quit 2>/dev/null)" ]; then
     uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
 fi
 cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
@@ -426,7 +428,7 @@ journal_paths() {
         -not -path 'data/raw/usenet_new_items/*' -not -path 'data/raw/usenet_news_items/*' \
         -not -path 'data/raw/usenet_rec_items/*' -not -path 'data/raw/usenet_sci_items/*' \
         -not -path 'data/raw/usenet_soc_items/*' -not -path 'data/raw/usenet_talk_items/*' \
-        -not -path 'data/raw/usenet_uk_items/*' "$@"
+        -not -path 'data/raw/usenet_uk_items/*' -not -path 'data/raw/extended_spent/*' "$@"
 }
 if [ -z "${ARK_SLIM:-}" ]; then
     journal_paths -print0 \
@@ -439,8 +441,9 @@ Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on
 123 MB), the raw platform-sweep capture journals (cdx_suffix/, 21.6 GB), the NYPW hostname-grain
 conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web Archive geoindex
 conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
-and the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB).
-Together about 39 GB against under 1 GB for everything here.
+the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB)
+and the bulk capture-index journals an earlier round shipped, which back no record here
+(extended_spent/, 3.9 GB). Together about 43 GB against about 1.3 GB for everything here.
 
 Every assignment they back still ships and is still checkable: each (domain, year) and
 (hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
@@ -576,7 +579,12 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
-tar -czf "$ARCHIVE" -C output "$RELEASE"
+# pigz writes the same gzip format on every core; bsdtar's own -z uses one.
+if command -v pigz >/dev/null 2>&1; then
+    tar -cf - -C output "$RELEASE" | pigz -6 > "$ARCHIVE"
+else
+    tar -czf "$ARCHIVE" -C output "$RELEASE"
+fi
 # A mail transfer service refuses an archive over 5 GB, and the masters carry his six year
 # files as released, so a round can reach that. Such an archive goes as a Drive link.
 TRANSFER_BYTES=5000000000
@@ -589,6 +597,7 @@ fi
 # who downloads only the archive runs `shasum -c` beside it, and a stored path
 # of `submissions/...` makes that fail before they have checked anything.
 ( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
+ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.tar.gz.sha256")
 
 # What stays in git after the tarball is git-ignored: the checksum, and a manifest
 # naming the commit and the baseline. The report and registers as sent are at that
@@ -601,7 +610,7 @@ fi
     echo "commit       $(git rev-parse HEAD)"
     echo "baseline     $MARKER"
     echo "archive      $RELEASE.tar.gz"
-    echo "sha256       $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)"
+    echo "sha256       $ARCHIVE_SHA"
     echo "bytes        $(wc -c < "$ARCHIVE" | tr -d ' ')"
     echo "files        $(find "$STAGE" -type f | wc -l | tr -d ' ')"
     echo "netnew_pairs $STORED"
@@ -618,7 +627,7 @@ Delivery archive ready, in $ROUND_DIR/
   filename   $(basename "$ARCHIVE")
   size       $(du -h "$ARCHIVE" | cut -f1) ($(wc -c < "$ARCHIVE" | tr -d ' ') bytes)
   format     tar + gzip (extract: tar -xzf $(basename "$ARCHIVE"))
-  sha256     $(shasum -a 256 "$ARCHIVE" | cut -d' ' -f1)
+  sha256     $ARCHIVE_SHA
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
 Tracked beside it: MANIFEST.txt and the .sha256.
