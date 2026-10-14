@@ -135,7 +135,7 @@ labelled `needs-owner`, opens.
 
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.
    Nothing else uploads.
-2. `just ship all` takes the sync lock, banks, exports in full, runs `ark check`, commits the
+2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`, commits the
    regenerated report and `.docx`, packages (`masters/` and `extended_years/` are his year file and
    ours by `LC_ALL=C sort -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would, prunes verified
    round copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent
