@@ -921,7 +921,7 @@ def table(tests: list[Test], widths: tuple[int, ...]) -> str:
     lines.append("|" + "|".join(":" + "-" * w for w in widths) + "|")
     for t in shown:
         cells = [" ".join(c.split()).replace("|", "\\|") for c in (t.name or t.id, *t.cells)]
-        lines.append("| " + " | ".join([*cells, t.label]) + " |")
+        lines.append("| " + " | ".join([*cells, "Tested" if t.label == TESTED else t.label]) + " |")
     return "\n".join(lines)
 
 
