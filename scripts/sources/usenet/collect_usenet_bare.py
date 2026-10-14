@@ -14,7 +14,7 @@ wall, not the pattern**. Every row here passes `split_by_corroboration`, so a
 already places that domain in `domain_year`. A string that is not a registered
 domain cannot clear that, so it lands in the candidate pool and asserts nothing.
 
-The same fix on the trade-press corpus on 8 August returned 816 net-new pairs and
+The same fix on the trade-press corpus returned 816 net-new pairs and
 509.84 equivalent-English from bytes already on disk, and the gained names were
 654 `.com`, 72 `.net` and 57 `.org`.
 

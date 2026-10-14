@@ -10,9 +10,8 @@
 # that exception requires before a page's capture date may evidence the domains listed on
 # it without further validation.
 #
-# Round 1 established why this route is needed: directory HOME pages yielded 92
-# domains and zero new candidates, because they link to their own categories and
-# to sites the baseline already holds. The catalogued resources live one level in.
+# Sections, not home pages: a directory's home page links to its own categories and to
+# sites the baseline already holds.
 http://www.vlib.org/	directory
 http://ipmwww.ncsu.edu/cernag/cern.html	directory
 http://www.beerinfo.com/vlib/index.html	directory

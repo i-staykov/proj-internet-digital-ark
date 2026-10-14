@@ -42,11 +42,9 @@ RETRY = "data/logs/bank_approvals_retry"
 # What the bank's journal step reads, as its readers glob it. A new ingest line in the bank
 # adds its glob here in the same commit, or its journals wait for an unrelated trigger.
 FOLD = (
-    "data/raw/usenet/*.mbox.zip",
     "data/raw/usenet/usenet_dated_*.jsonl.gz",
     "data/raw/usenet/usenet_candidates_*.jsonl.gz",
     "data/raw/cdx/*.jsonl.gz.part",
-    "data/raw/rdap/*.jsonl.gz.part",
     "data/raw/cdx/cdx_*.jsonl.gz",
     "data/raw/cdx_gap_hostgrain/*.jsonl.gz",
     "data/raw/cdx_suffix/*.jsonl.gz",
@@ -56,7 +54,6 @@ FOLD = (
     "data/raw/maillists_items/*.jsonl",
     "data/raw/enron_items/*.jsonl.gz",
     "data/raw/enron_items/*.jsonl",
-    "data/raw/rdap/rdap_*.jsonl.gz",
     # read by `scripts/round/extended_export.py` in the bank's last step
     "data/raw/extended/*/*.jsonl*",
 )

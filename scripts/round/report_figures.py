@@ -33,10 +33,7 @@ from ark.export import CANDIDATES_PATH, NETNEW_DIR  # noqa: E402
 
 DB = Path("data/ark.duckdb")
 
-# Read the marker rather than typing it. This file said `merged260730` for two
-# rounds after the store moved to `merged260802`, so the report told the reviewer
-# his additions were measured against a baseline he had already superseded. The
-# figures were right and the label was wrong, which is the harder kind to catch.
+# Read the marker rather than typing it.
 BASELINE = CURRENT_BASELINE_MARKER
 
 # **The net-new pairs are the export's own.** Our assignments, each on a capture of exactly

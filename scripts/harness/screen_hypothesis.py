@@ -223,9 +223,8 @@ AVAILABILITY_SIGNS = (
 # the same family: the printed-directory entry closes archive.org's text files on
 # HTTP 401 and, in the same paragraph, closes the HathiTrust route on a measurement of
 # 69 volumes. `closed_on` returns one value and stays biased toward `availability`,
-# which is right, but reporting only that told a reader to re-probe an entry whose
-# measurement was already done, and on 11 August it cost a re-measurement that
-# reproduced a verdict from three days earlier. So both are now reported.
+# which is right, but reporting only that sends a reader to re-probe an entry already
+# measured, so both are reported.
 MEASUREMENT_SIGNS = (
     "net-new",
     "already held",

@@ -117,9 +117,6 @@ class Yield:
         )
 
 
-YEARS = range(1996, 2002)
-
-
 def cdx_verdict(record: dict) -> tuple[bool, bool]:
     """(answered, held a capture) for a CDX journal record.
 
@@ -130,23 +127,6 @@ def cdx_verdict(record: dict) -> tuple[bool, bool]:
     if record.get("status") != 200:
         return False, False
     return True, bool(record.get("years"))
-
-
-def rdap_verdict(record: dict) -> tuple[bool, bool]:
-    """(answered, in-window creation year) for an RDAP journal record.
-
-    **A 404 counts as answered here, where its CDX equivalent would not**: the registry
-    saying "no such domain" is information, and 1,107,164 of 1,656,921 RDAP queries returned
-    one. A throttle (429), refusal (403, 426) or transport failure (0) is not an answer and
-    must stay out of the denominator, or rate-limiting reads as a vanished population.
-
-    The year must be **in window**: 28.4% of queries return some year against 10.1%
-    returning one that counts, so any-year counting reports a modern sweep as productive.
-    """
-    if record.get("status") not in (200, 404):
-        return False, False
-    year = record.get("creation_year")
-    return True, isinstance(year, int) and year in YEARS
 
 
 @dataclass(frozen=True)
@@ -162,7 +142,7 @@ def _count(path: Path, verdict: Callable[[dict], tuple[bool, bool]]) -> tuple[in
     """(answered, hits, truncated) in one journal.
 
     **A journal still being written raises `EOFError`, not `OSError`**, so catch both or a
-    live RDAP journal takes the whole cycle down. Collectors write `<name>.part` and rename
+    live journal takes the whole cycle down. Collectors write `<name>.part` and rename
     on exit, but a killed batch can publish a partial under the final name, so the read
     stays truncation-tolerant rather than trusting the suffix. A truncated read keeps what
     parsed and **says it was truncated**; trusting a prefix quietly reported one batch at
@@ -206,9 +186,9 @@ def measure(
     produced 19%, 9.5%, 14.0% and 27.9% off a batch that finished at 8.2%.
 
     **Files are selected and ordered on the timestamp in the name, never on the raw
-    filename**: `data/raw/rdap/` also holds hand-named probe files, and `rdap_probe_...`
-    sorts ahead of every `rdap_pool_<stamp>...`, which reports a static probe as the newest
-    finished batch. **A yield check reading the wrong file cannot fail loudly.**
+    filename**: a hand-named probe file sorts ahead of every stamped batch, which reports a
+    static probe as the newest finished batch. **A yield check reading the wrong file cannot
+    fail loudly.**
     """
     stamped = []
     for path in directory.glob(f"{prefix}_*.jsonl*"):

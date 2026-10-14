@@ -6,12 +6,8 @@
 #
 # Usage: bash scripts/round/package_delivery.sh [round-label]
 #
-# The finished archive lands in `submissions/<round>/`, one folder per round, so
-# a new round no longer destroys the one before it. This staging directory is
-# rebuilt from scratch every run (`rm -rf` below), which for three rounds meant
-# the only copy of a submission was whatever had been emailed out. The round
-# label defaults to the current git branch, since a round and a branch have been
-# the same thing on this project since phase 1.
+# The archive lands in `submissions/<round>/`; the staging directory is rebuilt every
+# run. The round label defaults to the git branch.
 set -euo pipefail
 PROJ="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$PROJ"
@@ -37,15 +33,14 @@ if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
     exit 1
 fi
 
-# The reproduction note is quoted into the report and the README ships, so a verdict count
-# either names must be the one verify.sh prints, or the archive ships a stale claim about itself.
+# The README ships, so a verdict count it names must be the one verify.sh prints.
 VERDICTS=$(sed -n 's/^VERDICTS=\([0-9][0-9]*\)$/\1/p' scripts/round/verify_delivery.sh)
 COUNTS=(zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
 if [ -z "$VERDICTS" ]; then
     echo "refusing to package: scripts/round/verify_delivery.sh declares no VERDICTS" >&2
     exit 1
 fi
-for NOTE in docs/round/reproduction.txt docs/round/delivery_readme.md; do
+for NOTE in docs/round/delivery_readme.md; do
     SAID=$(grep -oE '[a-z]+ (`verify\.sh` |labelled )verdicts' "$NOTE" 2>/dev/null | head -1 | cut -d' ' -f1) || true
     if [ -n "$SAID" ] && [ "$SAID" != "${COUNTS[$VERDICTS]:-}" ]; then
         echo "refusing to package: $NOTE says $SAID verify.sh verdicts, verify.sh prints $VERDICTS" >&2
@@ -70,10 +65,7 @@ if [ "$ROUND" = "HEAD" ] || [ -z "$ROUND" ]; then
     echo "  bash scripts/round/package_delivery.sh phase-4" >&2
     exit 1
 fi
-# The fleet's own branch is called `live` and is never a round name: every build of
-# every round landed in one `submissions/live/` folder, which by the end of a night
-# held three superseded tarballs beside the one that mattered. On that branch the
-# label comes from the round the store is working on instead.
+# On `live`, never a round name, the label is the store's round.
 if [ "$ROUND" = live ]; then
     ROUND="phase-$(uv run python -c 'from ark.baseline import CURRENT_ROUND_LABEL
 print(CURRENT_ROUND_LABEL)')"
@@ -81,9 +73,7 @@ fi
 ROUND_DIR="submissions/$ROUND"
 
 # The source snapshot below comes from `git archive HEAD`, so an uncommitted or
-# stale tree ships code that does not match the shipped data and report. This
-# has happened: an archive once paired post-narrowing data with pre-narrowing
-# code, and a reviewer running it would have regenerated the withdrawn rows.
+# stale tree ships code that does not match the shipped data and report.
 #
 # `submissions/` is excluded because it is this script's own OUTPUT, not an input
 # to the source snapshot. Every run rewrites the round's MANIFEST and checksum, so
@@ -134,11 +124,9 @@ fi
 # Regenerating is cheap and idempotent, so this rebuilds the report and refuses
 # if that changed anything. A report that is already current is a no-op here.
 # The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while a bank holds the write lock,
-# and this guard went in without one and refused to package for that reason
-# alone. Swallowing the error made it look like the report was broken when the
-# store was merely busy, so the failure is printed now rather than hidden.
-# D3: the merge, the overlap counts, the accepted increment and the reconciliation
+# read-only connection still fails while a bank holds the write lock. A busy store
+# prints its failure rather than hiding it.
+# The merge, the overlap counts, the accepted increment and the reconciliation
 # checks, produced here rather than described. It scores every baseline and merged
 # annual file with the reviewer's own calculator, so this is his arithmetic on our
 # data, and it emits HIS column names so his audit and ours can be diffed directly.
@@ -146,9 +134,7 @@ fi
 # **A failure here stops the packaging.** The reconciliation includes two checks that
 # compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
 # measured against a release he has already replaced fails loudly instead of shipping.
-# That exact drift went unnoticed for five days in August 2026 and overstated net-new
-# by 151,949 records he had already credited.
-echo "merging against the baseline and reconciling (D3)"
+echo "merging against the baseline and reconciling"
 if ! uv run python scripts/round/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
         --out output/merge > output/merge/merge_run.log 2>&1; then
     echo "refusing to package: the merge reconciliation failed. Its log:" >&2
@@ -160,8 +146,7 @@ cat output/merge/merge_run.log
 # **Before the report is filled, not after.** `fill_report.py` reads the newest
 # `output/merge/merge_audit_ark*.json` for section 8, so running the merge afterwards
 # shipped a report whose merge figures were one packaging run behind the audit beside
-# it. Found on 2026-08-18 by auditing the delivery, hours after the ordering was
-# introduced. The fill guard below now sees this run's audit.
+# it. The fill guard below sees this run's audit.
 REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
 FILL_OUT=""
 for _ in $(seq 1 60); do
@@ -255,7 +240,7 @@ for folder in "Open Research Questions" "开放性研究问题"; do
     fi
 done
 
-# The D3 audit, produced before the report was filled so the two agree. Copied by
+# The merge audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
 MERGE_STAMP="$(date -u +%Y%m%d)"
@@ -265,8 +250,7 @@ cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
 
 # Nothing ships that his baseline already holds. The export diffs every list against his
 # own annual files, so a non-zero overlap here means that diff did not run or ran against
-# a stale baseline directory, and the round would claim records he already has. It was
-# 304 on 2026-09-10, from a store whose ingested baseline predated his current release.
+# a stale baseline directory, and the round would claim records he already has.
 OVERLAP=$(python3 -c "import json,sys; print(int(json.load(open(sys.argv[1]))['totals']['already_in_baseline_records']))" \
     "output/merge/merge_audit_ark_${MERGE_STAMP}.json")
 if [ "$OVERLAP" != 0 ]; then
@@ -468,13 +452,6 @@ terms and will be sent on request.
 EXCL
 fi
 
-# The retired English engine's superseded verdict journals are no longer shipped.
-# They were kept beside the current ones under `journals/lang_superseded/` so a
-# discarded verdict stayed auditable, which mattered while the standard was live.
-# The standard is retired and its engine is deleted, so an
-# archive carrying them would document a rule nobody applies. The journals stay on
-# disk under `data/raw/lang/` and are no longer read.
-
 # the seed lists those page fetches ran against, so page expansion is repeatable
 mkdir -p "$STAGE/seeds/expansion"
 cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
@@ -523,12 +500,8 @@ $MARKER/
 BASELINES
 
 # the provenance graph as Parquet: which source saw which domain in which year,
-# so any shipped line can be traced without the source data or the database
-# everything the export wrote, not a hand-listed subset: naming the files here
-# once shipped the data without trace.py, the tool the README tells them to run
-# `ark export` no longer writes this: it was 52% of that command and only ever read
-# here and by `just rebuild`. So it is asked for, and its absence refuses the package
-# rather than shipping an empty folder the way `|| true` used to.
+# so any shipped line can be traced without the source data or the database.
+# Everything the export wrote ships; an empty output/provenance refuses the package.
 if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
     echo "refusing to package: output/provenance is empty" >&2
     echo "run 'uv run ark export --provenance' first, then re-run." >&2
@@ -560,16 +533,9 @@ fi
 
 # audit CSVs + execution logs
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
-# The engine review, so the process behind the report's audit section can be
-# inspected rather than credited. A report that says "two adversarial reviews
-# were run" and ships no record of them is asking to be believed.
-# The English-engine review is no longer shipped: it documents the page-level
-# verification standard the reviewer has retired, and an audit of a rule nobody
-# applies reads as a rule still in force. It stays in the repo under docs/.
-# Tailed, not copied whole. `maintain.log` alone was 123 MB of one line per ingest
-# pass, repeated every 150 seconds for a fortnight. What a reader wants from a log
-# is the shape of the run and its most recent state, and the last 20,000 lines give
-# both; the full files stay in the repo under `data/logs/`.
+# Logs tailed, not copied whole: what a reader wants from a log is the shape of the run
+# and its most recent state, and the last 20,000 lines give both; the full files stay
+# under `data/logs/`.
 for log in data/logs/*; do
     [ -f "$log" ] || continue
     tail -n 20000 "$log" > "$STAGE/logs/$(basename "$log")" 2>/dev/null || true
@@ -579,12 +545,7 @@ done
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
-# Every journal on disk must be in the archive. Naming source directories by hand
-# has now failed twice: once a ledgered CDX journal sat one directory down and
-# matched neither the packaging glob nor the ingest glob, and once Usenet, Tucows
-# and the language verdicts were simply never added, which silently removed the
-# evidence behind most of a round's additions from the tier-3 replay the README
-# documents. Counting is cheap and catches the next one.
+# Every journal on disk must be in the archive; the count catches a directory no glob names.
 ON_DISK=$(journal_paths | wc -l | tr -d ' ')
 SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
 if [ -n "${ARK_SLIM:-}" ]; then
@@ -631,8 +592,8 @@ fi
 
 # What stays in git after the tarball is git-ignored: the checksum, and a manifest
 # naming the commit and the baseline. The report and registers as sent are at that
-# commit (phase-9's at 37e331cc, since its manifest names one no branch holds), and the
-# checksum proves a recovered tarball is the one that was sent, so no copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
+# commit, and the checksum proves a recovered tarball is the one that was sent, so no
+# copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
 {
     echo "round        $ROUND"

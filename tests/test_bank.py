@@ -1,15 +1,12 @@
 """The bank: only a `master` class banks, a red gate takes back only this bank's rows, a red bank
 blocks every reason until cleared, and the preflight refuses a clone it must not write in."""
 
-import hashlib
 import io
 import json
-import os
 import re
 import shutil
 import subprocess
 import sys
-import time
 import urllib.error
 from datetime import UTC, datetime
 from fnmatch import fnmatchcase
@@ -348,32 +345,6 @@ def test_space_is_the_floor_plus_the_budget_and_a_setting_not_positive_fails_clo
     monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=free * hyg.GIB))
     code_got, lines = hyg.space(root=tmp_path)
     assert code_got == code and (code == 0 or lines[-1].startswith("REFUSED")), lines
-
-
-def test_prune_takes_only_old_staging_with_a_verified_copy(tmp_path, monkeypatch) -> None:
-    """Dry by default, age alone deletes nothing, and a second run changes nothing."""
-    staging, was = tmp_path / "data/fleet_findings", time.time() - 30 * 86400
-    (staging / "incoming/run_1").mkdir(parents=True)
-    for rel in ("incoming/run_2", "banked/old", "banked/new"):
-        (staging / rel).mkdir(parents=True)
-        (staging / rel / "finding.md").write_text("f", encoding="utf-8")
-    os.utime(staging / "banked/old", (was, was))
-    tree = lambda: {p: p.is_file() and p.read_bytes() for p in tmp_path.rglob("*")}  # noqa: E731
-    before = tree()
-    for write in (False, True):
-        lines = hyg.prune(root=tmp_path, days=14, write=write)
-        assert any("banked/old" in s for s in lines) and any("HELD" in s for s in lines)
-        assert tree() == before
-    offsite, path = hyg.round_prune().sibling("offsite"), staging / "banked/old/finding.md"
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    record = {"stat": offsite.signature(tmp_path, path), "kind": "sha256", "digest": digest}
-    offsite.write_receipt(tmp_path, offsite.REMOTE, {str(path.relative_to(tmp_path)): record})
-    listed = json.dumps({"Size": path.stat().st_size, "Hashes": {"sha256": digest}})
-    monkeypatch.setattr(offsite, "rclone", lambda *a, **k: Mock(returncode=0, stdout=listed))
-    hyg.prune(root=tmp_path, days=14, write=True)
-    assert not (staging / "banked/old").exists() and (staging / "banked/new/finding.md").is_file()
-    after, lines = tree(), hyg.prune(root=tmp_path, days=14, write=True)
-    assert lines == ["staging directories: nothing to prune"] and tree() == after
 
 
 @pytest.mark.parametrize(

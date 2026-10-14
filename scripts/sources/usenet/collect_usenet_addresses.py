@@ -17,7 +17,7 @@ evidence on the argument that a mail system validated it; a body address is the
 same string in the same message, typed by the same person.
 
 Measured on a random 120-archive sample (2.17 GB, 3,263,224 messages, 1,377,441
-in window) on 8 August: the current extractor found 109,299 pairs of which 21,574
+in window): the current extractor found 109,299 pairs of which 21,574
 net-new, and these patterns found **54,154 more pairs of which 14,581 net-new,
 worth 10,188.6 equivalent-English**. 12,512 of those net-new pairs sit on domains
 never seen anywhere, so they are candidate-only under the corroboration split and
@@ -126,8 +126,7 @@ def pairs_in_archive(job: tuple[Path, str]) -> tuple[str, set[tuple[str, int]], 
             for domain in wider - current:
                 extra.add((domain, year))
     except Exception as exc:  # noqa: BLE001
-        # One unreadable archive must not void the batch around it, which is the
-        # lesson from the six hours a `Header` object cost on 6 August.
+        # One unreadable archive must not void the batch around it.
         stats[f"failed_{type(exc).__name__}"] += 1
         print(f"  skip {path.name}: {type(exc).__name__}: {exc}", flush=True)
     return path.stem.replace(".mbox", ""), extra, dict(stats)

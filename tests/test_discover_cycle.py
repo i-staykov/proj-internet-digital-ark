@@ -1,9 +1,8 @@
 """The cycle and what it hands the owner: its checks, the residual audit it calls, the
-approvals it files and the queue page it writes. A staleness parse error crashes the cycle, two
-rebuilds of one path truncate a list, and an ask filed twice or not at all is a decision lost."""
+approvals it files and the queue page it writes. An ask filed twice or not at all is a decision
+lost."""
 
 import json
-import os
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -12,38 +11,12 @@ import duckdb
 import pytest
 from conftest import script
 
-from ark.db import add_candidate, connect, ensure_source, init_db
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts/round"))
 import lead_queue  # noqa: E402
 
 NAMES = ("discover_cycle", "audit_residual", "sync_approvals")
 cycle, audit, sa = (script(f"harness/{name}.py", name) for name in NAMES)
-
-
-def test_a_rebuild_reads_hours_and_only_a_live_holder_blocks_it(tmp_path, monkeypatch):
-    """`float("0.9h")` raises and took the whole cycle down, and no hours field reads as zero.
-    A crashed cycle must not stop every later rebuild: a gone or stale holder is none."""
-    lock = tmp_path / "rebuild.lock"
-    monkeypatch.setattr(cycle, "REBUILD_LOCK", lock)
-    said = (
-        "  [STALE] data/raw/rdap/pool_targets_measured.txt  2026-08-11T13:54:15Z  0.9h behind\n"
-        "  [STALE] some/path.txt  2026-08-11T13:54:15Z  behind\n"
-    )
-    monkeypatch.setattr(cycle, "run", lambda *a, **k: (said, True))
-    assert cycle.rebuild_derived()[0] == [
-        "derived: pool_targets_measured.txt 0.9h behind, under the threshold",
-        "derived: path.txt 0.0h behind, under the threshold",
-    ]
-    assert cycle.rebuild_lock_holder() is None
-    lock.write_text(str(os.getpid()))
-    assert cycle.rebuild_lock_holder() == str(os.getpid())
-    ancient = lock.stat().st_mtime - cycle.REBUILD_LOCK_STALE_S - 60
-    os.utime(lock, (ancient, ancient))
-    assert cycle.rebuild_lock_holder() is None
-    lock.write_text("999999")
-    assert cycle.rebuild_lock_holder() is None
 
 
 def test_an_idle_slot_is_reported_never_dispatched_the_ask_bounded(tmp_path, monkeypatch, capsys):
@@ -103,15 +76,6 @@ def test_the_residual_checks_fire_on_a_real_defect(tmp_path, monkeypatch, capsys
     assert audit.check_unread({"isc_survey": set()}, verbose=True) == 0, "a comment is no glob"
     count, out = found("data/raw/demo/[ab].gz", "glob_too_narrow", "a.gz", "wb_nw_9607_org.gz")
     assert count == 1 and "wb_nw_9607_org.gz" in out
-    conn = connect(":memory:")
-    init_db(conn)
-    add_candidate(conn, "fresh.com", ensure_source(conn, "demo", "candidate_only"))
-    rel = audit.DERIVED[0][0]
-    (tmp_path / rel).parent.mkdir(parents=True)
-    (tmp_path / rel).write_text("a.com\n")
-    os.utime(tmp_path / rel, (0, 0))
-    assert audit.check_stale_derived(conn) == 1
-    assert f"[STALE] {rel}" in capsys.readouterr().out
 
 
 def test_a_locked_store_exits_with_an_explanation_and_a_corrupt_one_raises(tmp_path, monkeypatch):

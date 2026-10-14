@@ -1,8 +1,8 @@
-# Questions put to the reviewer, with his answers when they come. `just ship` copies every open row past its remind-on into the mail draft, one line each.
+# Questions
 
-Status is `open` or `answered`; an answered row states its answer, a withdrawn question is deleted.
-An asked-on of `draft` means the row has not been sent: approve the wording or delete it before the ship.
-Export-ignored: the page does not travel in the delivery.
+`just ship` copies every open row past its remind-on into the mail draft. Status is `open` or
+`answered`; an answered row states its answer, a withdrawn question is deleted. An asked-on of
+`draft` means the row has not been sent: approve the wording or delete it before the ship.
 
 | asked-on | question | status | remind-on |
 |---|---|---|---|

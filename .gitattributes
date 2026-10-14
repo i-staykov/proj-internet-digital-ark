@@ -1,27 +1,7 @@
-# Files that stay in the repository but must not travel in the delivery.
-# `git archive` builds the shipped source snapshot, so anything tracked ends up
-# in front of the reader unless it is marked here.
+# Tracked, never shipped: `git archive` builds the delivery's source snapshot.
 .gitattributes export-ignore
-# Every round's plan, by pattern, so a new round needs no line.
-docs/phase*-plan.md export-ignore
-# The handoff documents, by pattern rather than one line each. Same class as the plans:
-# working documents about how to approach the round, and corrections owed. Neither is a
-# deliverable and neither is his business.
-handoff-*.md export-ignore
-# Questions put to the reviewer, written to him in the second person. Same class as the
-# email prose: read by the ship step, never delivered.
+# Addressed to or about the reviewer: read by the ship step, never delivered.
 docs/registers/questions.md export-ignore
-# The rounds ledger: sent against credited figures and the ranking arithmetic, with the
-# reviewer's mail stamps. Bookkeeping about him, not a deliverable.
 docs/registers/rounds.md export-ignore
-# The agent harness: it configures the fleet from a clone of this branch and says nothing
-# about the domains, so it is working apparatus not delivery.
-.claude/settings.json export-ignore
-# The compaction handoff: what the next context needs, written from a transcript. Working
-# note about a session, not a deliverable.
-private/handoff.md export-ignore
-# The harness's skills, subagents and path-scoped rules: they configure a session, say
-# nothing about the domains, and belong with settings.json above.
-.claude/skills/ export-ignore
-.claude/agents/ export-ignore
-.claude/rules/ export-ignore
+# The agent harness: working apparatus, nothing about the domains.
+.claude/ export-ignore
