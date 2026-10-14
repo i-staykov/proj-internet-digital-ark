@@ -109,7 +109,7 @@ def _first_holding(candidates: tuple[Path, ...], must_contain: str) -> Path:
 
     Address a baseline file by WHAT it is, never by where it sits. The repository keeps
     the baseline under git-ignored `ding/`, which `git archive` cannot carry;
-    the delivery puts the same files at `baseline/<marker>/`, one level up from the
+    a delivery's reader links the same files at `baseline/<marker>/`, one level up from the
     `source/` tree the code runs from. A hardcoded path breaks `just reproduce` for
     everyone but us, so the resolution lives here rather than in each caller.
     """

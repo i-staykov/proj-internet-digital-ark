@@ -36,8 +36,8 @@ another year, no `www.` or bare variant is generated, and each record cites its 
 
 - `additions/`, `hostnames/`: 1996 to 2001 registrable domains and hostnames, one evidence row per
   record.
-- `extended_years/`: per year, `additions/YYYY.txt` (ours) and `YYYY.txt` (yours merged with ours);
-  `evidence_ledger.csv`, one capture URL per record.
+- `extended_years/`: per year, `additions/YYYY.txt`, ours, none in your file for that year;
+  `evidence_ledger.csv`, one capture URL per record. Your release is not shipped back.
 - `audit/merge_audit_ark_*.json`: the merge against your release, in your column names;
   [RECONCILIATION] reconciliation checks passed (`bash verify.sh` prints the count).
 - `Open Research Questions/`: section IV-A, with each test's code, log, sample and screenshots.
