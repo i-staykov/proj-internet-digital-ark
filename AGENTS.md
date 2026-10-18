@@ -26,8 +26,8 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
   year, 1996 to 2013 (2002 on in `extended_years/YYYY.txt`; 2014 on is not hunted). The gate: 3%
   EE growth in 1996 to 2001 or in 2002 to 2013, each over his EE for those years; nothing ships under
   it, and the goal is to reach it fast.
-- **Channel.** At most three clients query `web.archive.org/cdx`, agents only
-  under an owner's contract. Read a host's terms and whole robots.txt first; back off when it asks.
+- **Channel.** At most three clients query `web.archive.org/cdx`, agents only under an owner's
+  contract. Read a host's terms and whole robots.txt first; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
   changes ark-fleet `policy.json` `token`.
 - **Frozen.** His files are append-only; `submissions/` and generated pages (`docs/index.md` marks

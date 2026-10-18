@@ -151,7 +151,7 @@ lift() {
         echo "$name: enabled, bootstrapped"
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
-        rc=0
+        local rc=0
         for h in ${ARK_HOSTS:-}; do
             host_flags "$h" remove "$name" && continue
             echo "$name: removed here, unconfirmed on the lane ${h##*:} host"
