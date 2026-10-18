@@ -47,7 +47,7 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
 
-- The owner: `gh auth login` on the VM (repo, workflow), then `just vm install`.
+- #369: the VM's GitHub login, then `just vm install`.
 - #292 End of Term; #286 re-priced against merge261016 for the owner's ruling.
 - Cutover: copy the store, run both for one bank, switch, retire the VPS (`sync_fleet.sh` and
   the fleet_findings reprice still read `ARK_VPS`).

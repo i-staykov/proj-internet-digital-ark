@@ -1358,9 +1358,12 @@ vm what="status":
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes $ARK_VM"
     case "{{what}}" in
     install)
-        # Its local.env is this one with its own lane local and no ARK_VM; the install
-        # script moves it into the clone.
-        sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" local.env | $SSH 'cat > ark-local.env'
+        # Its local.env is this one with its own lane local, no ARK_VM and the 15 GB VM's
+        # own store limit; the install script moves it into the clone.
+        env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
+            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=11GB/' local.env)
+        grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
+        printf '%s\n' "$env" | $SSH 'cat > ark-local.env'
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;

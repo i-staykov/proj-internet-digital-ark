@@ -87,9 +87,11 @@ ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and on
 above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
 
 **The VM** (`ARK_VM` in `local.env`, over the VPN) runs the tick as the `ark-sync.timer` user
-service from `~/ark`, its own lane as the `local` entry of its `ARK_HOSTS`, the fleet staying on
-GitHub Actions. `just vm install` sets it up from the laptop, root only for the package line;
-`gh auth login` there (repo, workflow) is the owner's, once. `just vm status|log` read it.
+service from `~/ark`, firing only once `data/ark.duckdb` is there, its own lane the `local`
+entry of its `ARK_HOSTS`, installed there and never from here; the fleet stays on GitHub
+Actions. `just vm install` sets it up from the laptop, `sudo -n` for the packages and linger,
+printing the two root commands when refused; `gh auth login` there (repo, workflow) is the
+owner's, once. `just vm status|log` read it.
 
 **The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows

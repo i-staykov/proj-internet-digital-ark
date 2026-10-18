@@ -26,9 +26,13 @@ WALK = "$HOME/ark-walk"
 STATE = ("done.txt", "pages.json", "pending.txt", "log.tsv")
 
 
+def setting(name: str) -> str:
+    env = ["bash", "-c", f". ./local.env; echo ${name}"]
+    return subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.strip()
+
+
 def hosts() -> list[tuple[str, int]]:
-    env = ["bash", "-c", ". ./local.env; echo $ARK_HOSTS"]
-    out = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.split()
+    out = setting("ARK_HOSTS").split()
     if not out:
         raise SystemExit("set ARK_HOSTS in local.env, target:lane each")
     found = [(t.rpartition(":")[0], int(t.rpartition(":")[2])) for t in out]
@@ -62,6 +66,9 @@ def install() -> None:
         code, data = WALK, "$HOME/ark-walk-data"
         if target == "local":
             code, data = str(CODE), str(DATA)
+        elif target == setting("ARK_VM"):
+            print(f"lane {lane}: the VM installs its own lane, `just vm install`")
+            continue
         else:
             state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
             if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
