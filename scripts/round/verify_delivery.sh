@@ -243,7 +243,7 @@ with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
         ledger.setdefault(row["year"], []).append(row["host"])
 problems, shipped = [], 0
 for year, entry in sorted(manifest["years"].items()):
-    adds = root / "additions" / f"{year}.txt"
+    adds = root / f"{year}.txt"
     if not 2002 <= int(year) <= 2013:
         problems.append(f"{year} is outside 2002 to 2013")
     if not entry["accepted_new"]:

@@ -1,5 +1,8 @@
 """Q2 test q2-capture-content: is a cited 2xx or 3xx capture really a website?
 
+It reads an `evidence_url` column the extended ledger does not carry: it stands as run,
+beside its frozen result.
+
     uv run python scripts/orq/q2-capture-content.py [--evidence-dir DIR]
 
 Draws 75 records from the 1996 to 2001 additions (registrable and hostname) and 75 from the

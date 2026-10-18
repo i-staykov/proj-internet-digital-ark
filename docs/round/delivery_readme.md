@@ -39,15 +39,15 @@ E1=$(ee $B/199?.txt $B/200[01].txt); echo $E1
 E2=$(ee $B/200[2-9].txt $B/201[0-3].txt); echo $E2
 # 3, our records
 cat additions/*.txt hostnames/*.txt | wc -l
-cat $X/additions/*.txt | wc -l
+cat $X/20*.txt | wc -l
 # 4, our equivalent-English
 A1=$(ee additions/*.txt hostnames/*.txt); echo $A1
-A2=$(ee $X/additions/*.txt); echo $A2
+A2=$(ee $X/20*.txt); echo $A2
 # 5, growth in percent, then S = 10 x growth / t, with t in whole days since 2 August 2026
 echo "g = 100 * $A1 / $E1; g; 10 * g / $T" | bc -l
 echo "g = 100 * $A2 / $E2; g; 10 * g / $T" | bc -l
 # 6, distinct new names
-cat additions/*.txt hostnames/*.txt $X/additions/*.txt | LC_ALL=C sort -u | wc -l
+cat additions/*.txt hostnames/*.txt $X/20*.txt | LC_ALL=C sort -u | wc -l
 ```
 
 To see the captures behind one name in one year:
@@ -88,7 +88,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `additions/` | 1996 to 2001 registrable additions per year; `evidence_manifest.csv`, one evidence row each |
 | `hostnames/` | 1996 to 2001 new hostnames per year, each below a registrable domain and never one itself, so none is also in `additions/`; `hostnames_evidence_manifest.csv`, one capture each |
 | `masters/` | your 1996 to 2001 file merged with both by exact name, `LC_ALL=C sort -m -u` |
-| `extended_years/` | 2002 to 2013: `<year>.txt` ours (the same as `additions/<year>.txt`), none in your file for that year, `evidence_ledger.csv` one capture per addition, `dedup_report.csv` in your merge columns, `manifest.json` the inputs and your files' sha256 |
+| `extended_years/` | 2002 to 2013: `<year>.txt` ours, none in your file for that year, `evidence_ledger.csv` the journal line of one capture per addition (line `line` of `journals/` plus `source_file` without `data/raw/` holds its `url`; that input's `replay` in `manifest.json`, filled with the row's `timestamp` and that `url`, is its replay link), `dedup_report.csv` in your merge columns, `manifest.json` the inputs and your files' sha256 |
 | `baseline/README.txt` | your release the additions count against: the sha256 and line count of each file of it the checks read |
 | `candidate_additions.txt`, `candidate_additions_summary.json` | every candidate name we hold that is in neither your pool nor your annual files, with their count and equivalent-English |
 | `candidates.txt`, `isc_survey_hostnames/`, `server_header_hostnames/` | the candidate collections, each with provenance: names without year-specific web evidence, ISC Domain Survey hosts, and hosts named only in mail or Usenet server headers |

@@ -19,9 +19,10 @@ Written, all sorted and unique under LC_ALL=C, nothing loaded whole into memory;
 merges each additions file with his (`package_delivery.sh`):
 
     additions/YYYY.txt  ours alone, for years with an addition
-    evidence_ledger.csv one row per addition: its capture, file, line and the file's sha256
+    evidence_ledger.csv one row per addition: its journal file, line and capture stamp
     dedup_report.csv    his merge_stats columns, one row per year we submitted to
-    manifest.json       the release, the inputs, and per year the counts, EE and sha256s
+    manifest.json       the release, the inputs with their sha256 and replay, per year the
+                        counts, EE and sha256s
 
     uv run python scripts/round/extended_export.py [--in SOURCE=GLOB ...] [--out DIR]
     uv run python scripts/round/extended_export.py --check   # exit 1 if the output is stale
@@ -82,7 +83,9 @@ SOURCES = {
     hn.HOSTCDX_SOURCE: (hn.HOSTCDX_METHOD, _WAYBACK),
     hn.ARQUIVO_SOURCE: (hn.ARQUIVO_METHOD, "https://arquivo.pt/wayback/{ts}/{url}"),
 }
-LEDGER = ("year", "host", "method", "source_file", "line", "source_sha256", "evidence_url")
+# The capture's URL is on its journal line and the journal's sha256 in the manifest, so neither
+# repeats per row: the ledger is a third of the size.
+LEDGER = ("year", "host", "method", "source_file", "line", "timestamp")
 RULE = (
     "a 2xx or 3xx capture of the exact host, stamped in the year, from an approved capture "
     "source (status-less only outside the families that must carry one, never an error lane); "
@@ -153,7 +156,7 @@ def read_rows(inputs: list[tuple[str, Path]], rows_out: Path, drops: Counter) ->
             drops.update(seen)
             described.append(
                 {"source": source, "method": SOURCES[source][0], "path": rel(path)}
-                | {"sha256": file_sha(path), "kept": kept}
+                | {"replay": SOURCES[source][1], "sha256": file_sha(path), "kept": kept}
                 | ({"refused": refused} if refused else {})
                 | stat_of(path)
             )
@@ -261,15 +264,12 @@ def export(globs: dict[str, str], out: Path) -> dict:
                 for host in (h.rstrip("\n") for h in a):
                     tlds[host.rsplit(".", 1)[-1]] += 1
                     for row in ev:  # both sorted by host: a merge-join
-                        h, ts, index, lineno, url = row.rstrip("\n").split("\t", 4)
+                        h, ts, index, lineno, _ = row.rstrip("\n").split("\t", 4)
                         if h == host:
                             break
                     source = described[int(index)]
                     by_method[source["method"]] += 1
-                    ledger.writerow(
-                        (year, host, source["method"], source["path"], lineno, source["sha256"],
-                         SOURCES[source["source"]][1].format(ts=ts, url=url))
-                    )  # fmt: skip
+                    ledger.writerow((year, host, source["method"], source["path"], lineno, ts))
             ee = sum((weights.get(t, Decimal(0)) * n for t, n in tlds.items()), Decimal(0))
             his_ee = REVIEWER_EXTENDED_EE_BY_YEAR[year]
             growth = ee / his_ee * 100 if his_ee else Decimal(0)
@@ -337,6 +337,11 @@ def stale(out: Path) -> list[str]:
     now = [(rel(p), *stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])]
     if recorded != now:
         problems.append(INPUTS_MOVED)
+    ledger = out / "evidence_ledger.csv"
+    if ledger.is_file():
+        with ledger.open(encoding="utf-8") as fh:
+            if fh.readline() != ",".join(LEDGER) + "\n":
+                problems.append("its ledger's columns are not LEDGER's")
     return problems
 
 
