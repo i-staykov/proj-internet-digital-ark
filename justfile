@@ -1349,7 +1349,7 @@ hold what="on" name="":
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}
 
-# the bank host ARK_VM, over the VPN: install status log
+# the bank host ARK_VM, over the VPN: install copy status log
 vm what="status":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -1357,7 +1357,27 @@ vm what="status":
     : "${ARK_VM:?set ARK_VM in local.env}"
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes $ARK_VM"
     case "{{what}}" in
+    copy)
+        # The store and the outputs, whole, while no tick here can write them; the lock the
+        # tick takes refuses a second copy. Re-runnable: rsync moves only what changed.
+        if ! bash scripts/harness/hold.sh holds com.ark.sync; then
+            echo "vm copy: hold the tick first, 'just hold on'" >&2; exit 1
+        fi
+        if ! bash scripts/harness/sync_lock.sh take $$; then exit 1; fi
+        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+        # Not the VM's own lane state, which its walker owns, nor git's baseline.json, nor this
+        # machine's lock, logs, marker, red and DuckDB spill; a cut store stays a partial, never
+        # the file the timer's condition looks for.
+        rsync -a --partial-dir=.rsync-partial --info=progress2 --timeout=300 -e "${SSH% $ARK_VM}" \
+            --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
+            --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
+            --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
+            data output "$ARK_VM:ark/"
+        ;;
     install)
+        if bash scripts/harness/hold.sh holds com.ark.sync; then
+            echo "vm install: the tick is held; the VM's timer would lift it, 'just hold off' first" >&2; exit 1
+        fi
         # Its local.env is this one with its own lane local, no ARK_VM and the 15 GB VM's
         # own store limit; the install script moves it into the clone.
         env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
@@ -1376,7 +1396,7 @@ vm what="status":
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
         grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
-    *) echo "vm: install status log" >&2; exit 2 ;;
+    *) echo "vm: install copy status log" >&2; exit 2 ;;
     esac
 
 # The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
