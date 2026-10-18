@@ -117,11 +117,9 @@ that ship net-new against his 1996 to 2001 files, field 5 its percent of them. T
 are the two GATE lines beneath, each over his EE for its years: 1996 to 2001 (field 4) and 2002 to
 2013 (`output/extended_years/`). The bank re-runs `scripts/round/extended_export.py` when
 `data/raw/extended/<source>/` or his release moves, and a stale export withholds both. `just price
---items <f.jsonl>` prices on the store after the corroboration split, at registrable grain;
-`just price-hosts <dir>` at hostname grain through the ingest's own funnel. The fleet's figure, `uv
-run ark price-snapshot --snapshot output/fleet_snapshot --items <f.jsonl>` (`--track candidate` for
-the other), reads no store, so it runs while the lock is held; the bank re-prices a FIND on the
-store. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
+--items <f.jsonl>` is the fleet's figure on both parts, from `output/fleet_snapshot`, which `just
+sync` rebuilds; it reads no store, so the bank re-prices a FIND on the store, where
+`scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
 names with no database, where `grep -Fxf` over his year files pins the CPU.
 
 Draft findings into `docs/report.template.md` as they land; `scripts/round/fill_report.py` turns
