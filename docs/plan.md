@@ -34,17 +34,9 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- Lean: the fable demotion path, the 1,518 `legacy` ledger rows and that fixture kind (also
-  tests/test_fleet.py), the slug list at leg.yaml:266 (scout.md:4 asks for `ls leads/`), the
-  thrice repeated "edit nothing" paragraph, vps/README's history, downloads.md's restatement.
-- A dry lens stops itself: #213's rule in the dealer; leg's next job dispatches the improver.
-- Pricing sees both parts: `just price`, the pricer agent and price-source use `ark price-snapshot`.
-- #221: a read's 2002 to 2013 rows bank (fleetread input to extended_export; deciding figure
-  p1 + w x p2, w the ratio of the two gates, in standing_rule, dealer, ledger, improve_gate,
-  prompts, schema; with #223's `_sidecar` pop).
-- Lenses follow his priorities: at most two, aimed at new year-resolved 1996 to 2001 sources,
-  replacing the two spent ones; one supervised read.yaml run; then Leg at pace_days 7; then the
-  509 October closed leads go.
+- On the owner's word: the 1,518 `legacy` rows of ark-fleet `ledger/2026-09.jsonl` go; one
+  supervised read.yaml run, then Leg at pace_days 7 (or every lens at weight 0); then the 509
+  October closed leads go, the 106 without a register row after #356.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
