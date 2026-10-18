@@ -150,9 +150,15 @@ lift() {
     local name=$1
     if in_list "$name" "$JOBS"; then
         launchctl enable "$DOMAIN/$name" || { echo "$name: FAILED to enable"; return 1; }
+        # The VM's timer first: with no plist here, as after the cutover, the lift ends early.
+        local rc=0
+        if [ -n "${ARK_VM:-}" ] && ! vm_timer "enable --now"; then
+            echo "VM: $TIMER unconfirmed, it did not answer"
+            rc=1
+        fi
         if [ ! -f "$AGENTS/$name.plist" ]; then
             echo "$name: enabled, no plist to load"
-            return 0
+            return $rc
         fi
         launchctl bootstrap "$DOMAIN" "$AGENTS/$name.plist" 2>/dev/null
         if ! loaded "$name"; then
@@ -162,10 +168,7 @@ lift() {
             return 1
         fi
         echo "$name: enabled, bootstrapped"
-        if [ -n "${ARK_VM:-}" ] && ! vm_timer "enable --now"; then
-            echo "VM: $TIMER unconfirmed, it did not answer"
-            return 1
-        fi
+        return $rc
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
         local rc=0
