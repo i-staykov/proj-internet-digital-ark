@@ -43,7 +43,8 @@ from ark.hostnames import _VALID_HOST, host_of  # noqa: E402
 OUT = REPO / "output/netnew/candidates_unparsed.txt"
 DEFAULT_DIRS = ("data/raw/cdx_suffix", "data/raw/cdx_gap_hostgrain", "data/raw/nypw_hostgrain")
 # The walker lanes add a journal every few minutes, a fraction of a percent of the bytes, so
-# reading them would make every ship rescan all 23 GB for them.
+# reading them would make every ship rescan all 23 GB for them. The walk keeps a row whose host
+# passes RFC 1123, so its `no_public_suffix` values are the ones this pool lacks.
 WALK = "walk_"
 
 

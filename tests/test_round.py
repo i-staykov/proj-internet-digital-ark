@@ -227,3 +227,19 @@ def test_a_missing_column_is_named_and_a_closed_rows_verdict_is_its_reasons_clos
     _, rejected, retired = ledger.rows_from_register(text, "docs/registers/sources-closed.md")
     assert rejected["status"] == "rejected" and not rejected["decision"].startswith("retain")
     assert (retired["status"], retired["decision"]) == ("retired", "retired unmeasured")
+
+
+def test_the_unparsed_pool_reads_no_walk_journal(tmp_path, monkeypatch):
+    import gzip
+
+    pool = script("round/unparsed_pool.py", "unparsed_pool")
+    for name, url in (
+        ("sweep_a.jsonl.gz", "http://bad_one.com/"),
+        ("walk_a.jsonl.gz", "http://bad_two.com/"),
+    ):
+        (tmp_path / name).write_bytes(gzip.compress(f'{{"url": "{url}"}}\n'.encode()))
+    out = tmp_path / "pool.txt"
+    monkeypatch.setattr(
+        sys, "argv", ["unparsed_pool.py", "--dirs", str(tmp_path), "--out", str(out)]
+    )
+    assert pool.main() == 0 and out.read_text().splitlines()[1:] == ["bad_one.com\tnot_rfc1123"]
