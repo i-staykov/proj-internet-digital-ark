@@ -12,7 +12,7 @@ Beside the download, then inside the extracted folder, with Python 3.10 or newer
 ```
 shasum -a 256 [ARCHIVE].7z
 7z x [ARCHIVE].7z && cd [ARCHIVE]
-B=/path/to/merge261008-3  # your release, not shipped back; baseline/README.txt gives its sha256
+B=/path/to/merge261016  # your release, not shipped back; baseline/README.txt gives its sha256
 HIS=$B bash verify.sh
 ```
 
@@ -57,7 +57,7 @@ uv run --with duckdb --no-project python provenance/trace.py "$(head -1 addition
 ```
 
 Rebuild every 1996 to 2001 list from the evidence, with no archive queries and no source data.
-`ark intake` checks your release, linked in as `baseline/merge261008-3`, and writes 4.5 GB under
+`ark intake` checks your release, linked in as `baseline/merge261016`, and writes 4.5 GB under
 `source/data/held/`:
 
 ```

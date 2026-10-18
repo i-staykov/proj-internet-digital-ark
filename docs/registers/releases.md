@@ -53,4 +53,5 @@ off-site copy is verified against these hashes.
 | `merge261007-4` | 2026-10-07 | yes | 2,108,690 | 4,276,643 | 6,832,849 | 19,951,090 | 29,714,816 | 72,902,709 | Domain_Data_Collection_Task_1007_UpdateV4.zip | 9cb87ddc6d9bac65056e71836088158d0ad040faaa54d1d7ae4da714d9957c15 |
 | `merge261008-2` | 2026-10-08 | not received: totals from the reviewer's mail of 2026-10-08, superseded by `merge261008-3` | none | none | none | none | none | none | none | none |
 | `merge261008-3` | 2026-10-08 | yes | 2,116,016 | 4,357,519 | 6,835,968 | 19,976,982 | 29,749,278 | 73,173,564 | Domain_Data_Collection_Task_1008_UpdateV3.zip | cbe54e02478b2ace846ad1bf0c5ba6ac0d18b349d979d5c81a993b5acb4cda17 |
+| `merge261016` | 2026-10-16 | yes | 2,129,183 | 4,107,840 | 6,635,088 | 19,340,638 | 28,924,193 | 71,726,428 | KnowledgeDiscoveryCompetition.7z | 0af8a98e6b0f182eccc53a99d529a29d9785c7a61e041fdbb37ad22fd0fb56c2 |
 <!-- /releases:table -->
