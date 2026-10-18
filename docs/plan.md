@@ -15,7 +15,9 @@ the way; every PR net negative unless it adds a capability the round needs.
 - The master assigns lines by `SendMessage` (peers found with `ListAgents`), reviews each PR with
   one skeptic subagent, gives the owner one batch a day, and writes no feature code. A peer
   replies with the PR link, its +/- lines and what is left.
-- A peer edits only its workstream's files and its own section here; one theme per PR.
+- A peer edits only its workstream's files and its own section here; one theme per PR. A peer whose
+  section is empty ends; new work always starts in a fresh session. Every open issue on both repos
+  is a line here or waits on one.
 - At most three test-running sessions at once; none heavy during the :05 bank or an intake.
 
 ## First (master)
@@ -67,7 +69,7 @@ the way; every PR net negative unless it adds a capability the round needs.
   only; claimed-only provenance only if verify.sh and README step 2 still pass.
 - The bank: incremental extended export; one fold transaction per source (hostnames.py:644).
 
-## D. Collectors and the VM (when a peer frees up; owns collector deployment, sync scripts)
+## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
 
 - Collection and banking run with the laptop off: the VM, reached over the VPN, runs the walker
   lanes, the hourly bank and store, export and packaging as user services; the fleet stays on
