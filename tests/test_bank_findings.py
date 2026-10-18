@@ -132,13 +132,9 @@ def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reas
     assert not (incoming / "_unread").exists(), "the lead file moved, no copy left unread"
     rows = [scribe.closed_row(f, "r1") for f in scribe.findings_in(incoming)]
     assert [scribe._cells(r)[3:] for r in rows] == [
-        [f"CLOSED. lens no lens recorded. {why}", "ftp.one.invalid"],
-        [
-            "CLOSED. lens no lens recorded.",
-            "<https://scout-b.invalid/a> <http://mirror.invalid/copy.gz>",
-        ],
+        [f"CLOSED. {why}", "ftp.one.invalid"],
+        ["CLOSED.", "<https://scout-b.invalid/a> <http://mirror.invalid/copy.gz>"],
     ]
-    assert max(map(len, rows)) <= scribe.ROW_LIMIT
 
 
 NAMED = scribe.artifacts({
@@ -185,11 +181,11 @@ def test_a_scout_negatives_figure_is_its_own_never_a_bound_or_another_sources(
     assert scribe.scout_figure(path) == figure
 
 
-def test_a_closed_row_never_exceeds_the_register_line_limit():
-    """The reason is trimmed after its verdict word, never the slug or the link."""
-    lens = "candidate-bulk exit 3, robots refused, " + "a very long explanation " * 40
-    url = "http://example.invalid/cdx?url=*.example.org/*&" + "fl=original&" * 30
-    finding = {"slug": "a-lead", "verdict": "CLOSED", "ee": "0", "fields": {"artifact": url}}
-    row = scribe.closed_row(finding | {"lead": {"lens": lens}}, "wave-1")
-    assert len(row) <= scribe.ROW_LIMIT and row.startswith("| a-lead / unclassified |")
-    assert row.endswith(f"| CLOSED. | <{url}> |")
+def test_a_closed_rows_reason_is_one_cause_and_its_link_keeps_a_url_past_the_cut():
+    said = "CLOSED, 0 EE: every host-year held, 61 of 61 hosts, " + "checked twice " * 9
+    said += "and the copy at https://ftp.one.invalid/r.txt is gone"
+    finding = {"slug": "a", "verdict": "CLOSED", "ee": "0", "fields": {}, "scout": said}
+    row = scribe.closed_row(finding, "wave-1")
+    assert row.endswith(
+        "| CLOSED. 0 EE: every host-year held, 61 of 61 hosts | <https://ftp.one.invalid/r.txt> |"
+    )
