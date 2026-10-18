@@ -86,7 +86,12 @@ and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
 above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
 
-**The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on each host,
+**The VM** (`ARK_VM` in `local.env`, over the VPN) runs the tick as the `ark-sync.timer` user
+service from `~/ark`, its own lane as the `local` entry of its `ARK_HOSTS`, the fleet staying on
+GitHub Actions. `just vm install` sets it up from the laptop, root only for the package line;
+`gh auth login` there (repo, workflow) is the owner's, once. `just vm status|log` read it.
+
+**The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
 each name and `just hold off <name>` lifts one, or drops a name it does not know. It survives a
 reboot; while it lists `com.ark.sync` the tick and the bank exit `held` and `just schedule

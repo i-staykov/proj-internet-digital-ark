@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The hold: the hourly job, the walkers' `pause-platform` flag and the fleet's Leg, Read and
-# Improver workflows stop, stay stopped across a reboot, and start again only when a human lifts
+# The hold: the hourly job here and on the bank host, the walkers' `pause-platform` flag and
+# the fleet's Leg, Read and Improver workflows stop, stay stopped across a reboot, and start again only when a human lifts
 # them. `just hold` is the interface.
 #
 # A reboot undoes a bootout, because launchd loads every plist in ~/Library/LaunchAgents at
@@ -22,8 +22,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-# ARK_HOSTS lives in local.env, `target:lane` each, assigned without export, so it reaches no
-# child environment.
+# ARK_HOSTS (`target:lane` each) and ARK_VM, the bank host when there is one, live in
+# local.env, assigned without export, so they reach no child environment.
 [ -f local.env ] && . ./local.env
 STATE_DIR="${ARK_STATE_DIR:-$HOME/ark/state}"
 HOLD="$STATE_DIR/hold"
@@ -31,6 +31,7 @@ AGENTS="$HOME/Library/LaunchAgents"
 DOMAIN="gui/$(id -u)"
 JOBS="com.ark.sync"
 FLAGS="pause-platform"
+TIMER="ark-sync.timer"
 WORKFLOWS="leg.yaml read.yaml improver.yaml"
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
@@ -49,8 +50,13 @@ loaded() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j { f = 1 } END { e
 
 running() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j && $1 ~ /^[0-9]+$/ { print $1 }'; }
 
-# A host by its lane in what is printed: its target is never echoed.
+# A host by its lane in what is printed: its target is never echoed. A `local` lane walks here.
 on_host() { ssh -o ConnectTimeout=15 -o BatchMode=yes "${1%:*}" "$2" < /dev/null 2>/dev/null; }
+remote_hosts() { for h in ${ARK_HOSTS:-}; do [ "${h%:*}" = local ] || echo "$h"; done; }
+
+# The bank host's tick is its timer; 0 only once it has said it did what was asked.
+vm() { ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VM" "$1" < /dev/null 2>/dev/null; }
+vm_timer() { [ "$(vm "systemctl --user $1 $TIMER >/dev/null 2>&1 && echo done")" = done ]; }
 
 # Write or remove flags on one host; 0 only once it has said it did.
 host_flags() {
@@ -108,8 +114,15 @@ cmd_on() {
             echo "$job: disabled, $was"
         fi
     done
+    if [ -n "${ARK_VM:-}" ]; then
+        if vm_timer "disable --now"; then
+            echo "VM: $TIMER disabled"
+        else
+            echo "VM: unconfirmed, it did not answer; the tick there may still run"
+        fi
+    fi
     [ -n "${ARK_HOSTS:-}" ] || echo "hosts: unconfirmed, ARK_HOSTS is not set"
-    for h in ${ARK_HOSTS:-}; do
+    for h in $(remote_hosts); do
         if host_flags "$h" write $FLAGS; then
             echo "lane ${h##*:} host: $FLAGS written"
         else
@@ -149,10 +162,14 @@ lift() {
             return 1
         fi
         echo "$name: enabled, bootstrapped"
+        if [ -n "${ARK_VM:-}" ] && ! vm_timer "enable --now"; then
+            echo "VM: $TIMER unconfirmed, it did not answer"
+            return 1
+        fi
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
         local rc=0
-        for h in ${ARK_HOSTS:-}; do
+        for h in $(remote_hosts); do
             host_flags "$h" remove "$name" && continue
             echo "$name: removed here, unconfirmed on the lane ${h##*:} host"
             rc=1
@@ -209,7 +226,7 @@ cmd_status() {
     disabled=$(launchctl print-disabled "$DOMAIN" 2>/dev/null)
     # One block per host, `lane N` to `end`: the flags it holds, then `answered`; a silent
     # host's block is empty and borrows nothing from the next.
-    for h in ${ARK_HOSTS:-}; do
+    for h in $(remote_hosts); do
         remote+="lane ${h##*:}"$'\n'$(on_host "$h" 'd="${ARK_STATE_DIR:-$HOME/ark/state}"
             for f in '"$FLAGS"'; do [ "$(head -1 "$d/$f" 2>/dev/null)" = human ] && echo "$f"
             done; echo answered')$'\nend\n'
@@ -221,10 +238,17 @@ cmd_status() {
         elif in_list "$name" "$JOBS"; then
             printf '%s\n' "$disabled" | grep -qE "\"$name\" => (disabled|true)" || why="not disabled"
             loaded "$name" && why="${why:+$why, }loaded"
+            if [ -n "${ARK_VM:-}" ]; then
+                case "$(vm "systemctl --user is-enabled $TIMER 2>/dev/null; echo answered")" in
+                enabled*) why="${why:+$why, }the VM timer is enabled" ;;
+                *answered*) ;;
+                *) why="${why:+$why, }the VM did not answer" ;;
+                esac
+            fi
         elif in_list "$name" "$FLAGS"; then
             [ "$(head -1 "$STATE_DIR/$name" 2>/dev/null)" = human ] || why="no flag here"
             [ -n "${ARK_HOSTS:-}" ] || why="${why:+$why, }ARK_HOSTS is not set"
-            for h in ${ARK_HOSTS:-}; do
+            for h in $(remote_hosts); do
                 block=$(printf '%s\n' "$remote" | sed -n "/^lane ${h##*:}\$/,/^end\$/p")
                 if ! printf '%s\n' "$block" | grep -qx answered; then
                     why="${why:+$why, }the lane ${h##*:} host did not answer"

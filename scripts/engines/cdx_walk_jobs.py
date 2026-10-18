@@ -1,12 +1,13 @@
 """Keep the extended walk running with nobody at the keyboard: `just walk install|status|remove`.
 
-`ARK_HOSTS` in local.env lists the collector hosts, `target:lane` each, the target an ssh alias
-or `login@host`. On each, cron starts its lane at boot and every 10 minutes under `flock`, from
-a shallow clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits
-by hash the same way everywhere. `install` first seeds a lane's state (done set, page counts,
+`ARK_HOSTS` in local.env lists the collector hosts, `target:lane` each, the target an ssh alias,
+`login@host`, or `local` for this machine, whose lane walks straight into `data/` here. On each,
+cron starts its lane at boot and every 10 minutes under `flock`, a remote one from a shallow
+clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits by hash
+the same way everywhere. `install` first seeds a remote lane's state (done set, page counts,
 request log) from `data/` here, so a lane that once ran elsewhere walks on rather than over.
-The tick pulls each lane's journals home and re-ranks the queue (`just sync`, step 7). The
-laptop runs no lane (AGENTS.md, Channel).
+The tick pulls each remote lane's journals home and re-ranks the queue (`just sync`, step 7).
+The laptop runs no lane (AGENTS.md, Channel).
 """
 
 from __future__ import annotations
@@ -41,39 +42,46 @@ SSH = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes"]
 
 
 def run(target: str, cmd: str) -> str:
-    argv = [*SSH, target, cmd]
+    argv = ["bash", "-c", cmd] if target == "local" else [*SSH, target, cmd]
     p = subprocess.run(argv, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return (p.stdout + p.stderr).strip()
 
 
-def cron(lane: int, lanes: int) -> str:
+def cron(lane: int, lanes: int, code: str, data: str) -> str:
     return (
-        f"cd {WALK} && flock -n $HOME/ark-walk-data/lane.lock /usr/bin/python3 "
+        f"cd {code} && flock -n {data}/lane.lock /usr/bin/python3 "
         f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {lanes} "
-        "--data $HOME/ark-walk-data --workers 3 --max-local 1 --connect-timeout 4 "
-        f"--max-transient 30 >> $HOME/ark-walk-data/lane{lane}.log 2>&1"
+        f"--data {data} --workers 3 --max-local 1 --connect-timeout 4 "
+        f"--max-transient 30 >> {data}/logs/lane{lane}.log 2>&1"
     )
 
 
 def install() -> None:
     lanes = len(hosts())
     for target, lane in hosts():
-        state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
-        if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
-            print(f"lane {lane}: its host did not answer, nothing installed")
-            continue
-        rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
-        seed = [DATA / "raw/cdx_walk" / f"lane{lane}" / f for f in STATE]
-        if seed := [str(f) for f in seed if f.is_file()]:
-            subprocess.run([*rsync, *seed, f"{target}:{state}"])
-        queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
-        subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
-        line = shlex.quote(cron(lane, lanes))
+        code, data = WALK, "$HOME/ark-walk-data"
+        if target == "local":
+            code, data = str(CODE), str(DATA)
+        else:
+            state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
+            if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
+                print(f"lane {lane}: its host did not answer, nothing installed")
+                continue
+            rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
+            seed = [DATA / "raw/cdx_walk" / f"lane{lane}" / f for f in STATE]
+            if seed := [str(f) for f in seed if f.is_file()]:
+                subprocess.run([*rsync, *seed, f"{target}:{state}"])
+            queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
+            subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
+            run(target, (
+                f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
+                f"git -C {WALK} pull -q --ff-only"
+            ))  # fmt: skip
+        line = shlex.quote(cron(lane, lanes, code, data))
         print(f"lane {lane}:", run(target, (
-            f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
-            f"git -C {WALK} pull -q --ff-only; "
-            f"(crontab -l 2>/dev/null | grep -v '{TAG}'; echo @reboot {line} '{TAG}'; "
-            f"echo '*/10 * * * *' {line} '{TAG}') | crontab -; git -C {WALK} log --oneline -1"
+            f"mkdir -p {data}/logs; (crontab -l 2>/dev/null | grep -v '{TAG}'; "
+            f"echo @reboot {line} '{TAG}'; echo '*/10 * * * *' {line} '{TAG}') | crontab -; "
+            f"git -C {code} log --oneline -1"
         )))  # fmt: skip
 
 

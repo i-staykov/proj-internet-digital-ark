@@ -27,6 +27,7 @@ HELD = {
     "state/hold": FLAG + "".join(f"{n}\n" for n in NAMES),
     "state/pause-platform": FLAG,
     "shim/host/ark/state/pause-platform": FLAG,
+    "shim/vm/disabled": "",
     "shim/launchd/disabled/com.ark.sync": "",
     **{f"shim/workflows/{wf}": "disabled_manually\n" for wf in WORKFLOWS},
 }
@@ -70,6 +71,14 @@ uv)
         rm "$S/arrived" 2>/dev/null || { echo "bank: nothing arrived"; exit 1; } ;;
     *--slots-only*) exit 1 ;; esac ;;
 just) [ "$1" = bank ] && exec bash "$RECIPES/bank"; exit 99 ;;
+systemctl)
+    # The VM's timer, reached through the ssh shim above.
+    mkdir -p "$S/vm"
+    case $2 in
+    disable) : > "$S/vm/disabled" ;;
+    enable) rm -f "$S/vm/disabled" ;;
+    is-enabled) [ -e "$S/vm/disabled" ] && { echo disabled; exit 1; }; echo enabled ;;
+    esac ;;
 esac
 """
 
@@ -97,7 +106,7 @@ class Box:
         (bin_dir := tmp / "bin").mkdir()
         (bin_dir / "shim").write_text(SHIM)
         (bin_dir / "shim").chmod(0o755)
-        for name in ("launchctl", "gh", "ssh", "rsync", "uv", "just"):
+        for name in ("launchctl", "gh", "ssh", "rsync", "uv", "just", "systemctl"):
             (bin_dir / name).symlink_to("shim")
         (recipes := tmp / "recipes").mkdir()
         for name, argv in RECIPES.items():
@@ -109,7 +118,11 @@ class Box:
         paths = {"ARK_STATE_DIR": self.state, "ARK_SYNC_LOCK": self.lock, "RECIPES": recipes}
         paths |= {"HOME": tmp / "home", "SHIM_LOG": self.log, "SHIM_STATE": self.shim}
         self.base = {k: str(v) for k, v in paths.items()}
-        self.base |= {"PATH": f"{bin_dir}:/usr/bin:/bin", "ARK_HOSTS": "host.test:2"}
+        self.base |= {
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "ARK_HOSTS": "host.test:2",
+            "ARK_VM": "vm.test",
+        }
 
     def reset(self) -> None:
         for path in (self.state, self.shim, self.lock, self.agents, self.repo / "data"):
@@ -187,6 +200,7 @@ def test_on_disables_before_bootout_writes_the_flag_here_and_on_the_host_and_sta
     assert (status.returncode, status.stdout.splitlines()) == (0, [f"HELD      {n}" for n in NAMES])
     # Status reads the machine, not the file, and names what the file lists but it does not know.
     (box.shim / "launchd/disabled/com.ark.sync").rename(box.shim / "launchd/loaded/com.ark.sync")
+    (box.shim / "vm/disabled").unlink()
     (box.shim / "host/ark/state/pause-platform").unlink()
     (box.shim / "workflows/leg.yaml").write_text("active\n")
     with (box.state / "hold").open("a") as hold:
@@ -194,7 +208,7 @@ def test_on_disables_before_bootout_writes_the_flag_here_and_on_the_host_and_sta
     status = box.hold("status")
     assert status.returncode == 1
     assert status.stdout.splitlines() == [
-        "NOT HELD  com.ark.sync: not disabled, loaded",
+        "NOT HELD  com.ark.sync: not disabled, loaded, the VM timer is enabled",
         "NOT HELD  pause-platform: no flag on the lane 2 host",
         "NOT HELD  leg.yaml: active",
         "HELD      read.yaml",
@@ -334,14 +348,14 @@ def test_an_unreachable_host_and_gh_leave_the_local_hold_whole(box):
     (box.shim / "offline").touch()
     out = box.hold("on")
     assert out.returncode == 0, out.stdout + out.stderr
-    # The host, and each workflow gh could not be asked about.
-    assert out.stdout.count("unconfirmed") == 1 + len(WORKFLOWS)
+    # The VM, the host, and each workflow gh could not be asked about.
+    assert out.stdout.count("unconfirmed") == 2 + len(WORKFLOWS)
     local = {k: v for k, v in HELD.items() if k.startswith(("state/", "shim/launchd/"))}
     assert box.files() == local | {"shim/offline": ""}
     status = box.hold("status")
     assert status.returncode == 1
     assert "NOT HELD  pause-platform: the lane 2 host did not answer" in status.stdout.splitlines()
-    assert "HELD      com.ark.sync" in status.stdout.splitlines()
+    assert "NOT HELD  com.ark.sync: the VM did not answer" in status.stdout.splitlines()
     # With no plist, as after `just schedule remove`, the lift only enables the job.
     (box.agents / "com.ark.sync.plist").unlink()
     lift = box.hold("off", "com.ark.sync")
