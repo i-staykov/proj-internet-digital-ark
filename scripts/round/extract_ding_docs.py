@@ -35,10 +35,10 @@ ours, and it outranks everything in this repository except a later message from 
 | delivered in | {archive} |
 | transcribed | {stamp} by `scripts/round/extract_ding_docs.py` |
 
-Word files are converted with pandoc; plain text is fenced. Only escaped backticks
-and curly quotation marks are normalised. Wording, order and section numbering
-are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
-provenance values above to check it.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks,
+curly quotation marks and dashes are normalised: {dashes} en or em dashes are written
+as hyphens. Wording, order and section numbering are unchanged. Regenerate with
+`scripts/round/extract_ding_docs.py` and the provenance values above to check it.
 
 ---
 
@@ -82,7 +82,7 @@ def _pick(package: Path, pattern: str) -> Path:
     return matches[0]
 
 
-def body(src: Path) -> str:
+def body(src: Path) -> tuple[str, int]:
     if src.suffix == ".docx":
         text = subprocess.run(
             ["pandoc", "-f", "docx", "-t", "gfm", "--wrap=none", str(src)],
@@ -97,12 +97,8 @@ def body(src: Path) -> str:
     text = text.replace("\\`", "`")
     text = text.replace("’", "'").replace("‘", "'")
     text = text.replace("“", '"').replace("”", '"')
-    # The brief is written with hyphens. Assert rather than rewrite: silently
-    # changing his punctuation is what "verbatim" forbids, and a dash appearing
-    # here means the source changed and wants reading. Spelled as escapes because
-    # the house rule bans the literal characters from every file including this one.
-    assert not re.search("[\u2013\u2014]", text), f"{src.name} carries a dash we do not allow"
-    return text.strip() + "\n"
+    text, dashes = re.subn("[\u2013\u2014]", "-", text)
+    return text.strip() + "\n", dashes
 
 
 def main() -> None:
@@ -125,14 +121,16 @@ def main() -> None:
     for name, out_name, title in DOCS:
         src = _pick(package, name)
         sha = hashlib.sha256(src.read_bytes()).hexdigest()
+        content, dashes = body(src)
         text = HEADER.format(
             title=title,
             src=f"{rel}/{src.name}",
             sha=sha,
             archive=f"`{rel}/`, from {args.archive}",
             stamp=args.stamp,
-        ) + body(src)
-        rendered.append((out_name, text, sha))
+            dashes=dashes,
+        )
+        rendered.append((out_name, text + content, sha))
     # Validate every source before replacing any of the authoritative documents.
     args.out.mkdir(parents=True, exist_ok=True)
     for out_name, text, sha in rendered:

@@ -150,7 +150,7 @@ def write_shipped(full: Path, netnew: Path, candidates: Path, dest: Path) -> dic
             "quote='', escape='', auto_detect=false, columns={'column0': 'VARCHAR'})",
             [str(path)],
         )
-    # the hostnames the XIII gate quarantined ship as a ledger, so their rows ship too
+    # the hostnames the XIV gate quarantined ship as a ledger, so their rows ship too
     quarantined = netnew / "header_candidates_exclusions.csv"
     conn.execute(
         "INSERT INTO listed SELECT hostname FROM read_csv(?, all_varchar=true)", [str(quarantined)]

@@ -23,7 +23,7 @@ CANDIDATE_ONLY_TYPES = frozenset({"link_target"})
 ALL_TYPES = MASTER_TYPES | CANDIDATE_ONLY_TYPES
 CANDIDATE_ONLY_SQL = ", ".join(f"'{t}'" for t in sorted(CANDIDATE_ONLY_TYPES))
 
-# **Spec XIII, and the unit is the METHOD, not the type.** The annual masters are a
+# **Spec XIV, and the unit is the METHOD, not the type.** The annual masters are a
 # website-evidence product: a row may enter the CLAIM only when the retained evidence
 # shows the exact host serving the web in the target year. `artifact_listing` and
 # `dated_directory` each land on both sides of that line, so the type cannot decide it.
@@ -41,7 +41,7 @@ WEB_METHODS = frozenset(
         "bulk_cdx_file",
         "wayback_availability",
         # TimeMap, the same index read through Memento. `nypw_timemap_non_200` is NOT
-        # here: XIII asks for a non-error capture and that method is defined by not
+        # here: XIV asks for a non-error capture and that method is defined by not
         # being one.
         "nypw_timemap",
         "nypw_timemap_hostgrain",
@@ -67,7 +67,7 @@ WEB_METHODS = frozenset(
 )
 
 
-# **The one method admitted by its STATUS rather than by its name.** XIII's "non-error"
+# **The one method admitted by its STATUS rather than by its name.** XIV's "non-error"
 # qualifier attaches to the custodian-extract pattern, not to the IA CDX pattern beside it,
 # and a NYPW TimeMap row IS the IA index read through Memento. So the status alone does not
 # disqualify it, and the binding test is the section's opening sentence: web presence in the
@@ -82,7 +82,7 @@ ERROR_STATUS = r"(^| )status [45][0-9][0-9]( |$)"
 
 
 def web_evidence_sql(alias: str = "e") -> str:
-    """The XIII predicate, for a query that has `evidence` joined as `alias`."""
+    """The XIV predicate, for a query that has `evidence` joined as `alias`."""
     allowed = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
     return (
         f"({alias}.acquisition_method IN ({allowed})"
@@ -131,7 +131,7 @@ def exact_host_sql(alias: str, name: str) -> str:
 
 
 def qualifies_sql(alias: str, name: str) -> str:
-    """The test a shipped record's row passes: the XIII method screen, and a capture of exactly
+    """The test a shipped record's row passes: the XIV method screen, and a capture of exactly
     `name`. A capture of `www.` or any other host beneath it never dates the registrable."""
     return f"coalesce(({web_evidence_sql(alias)}) AND {exact_host_sql(alias, name)}, false)"
 

@@ -7,15 +7,15 @@ ours, and it outranks everything in this repository except a later message from 
 
 | | |
 |---|---|
-| source file | `ding/Domain_Data_Collection_Task_1008_UpdateV3/Domain_Data_Collection_Task/Internet_Digital_Ark_Project_1006_Update.docx` |
-| sha256 | `a6c077742ded741b9de5e3c37bdc303a64e1145c2fb616905bd93d62e1aecd94` |
-| delivered in | `ding/Domain_Data_Collection_Task_1008_UpdateV3/Domain_Data_Collection_Task/`, from Domain_Data_Collection_Task_1008_UpdateV3.zip (2026-10-08) |
-| transcribed | 2026-10-09 by `scripts/round/extract_ding_docs.py` |
+| source file | `ding/KnowledgeDiscoveryCompetition_1016/Internet_Digital_Ark_Project_1016_Update.docx` |
+| sha256 | `a695f9794f2fa536d55a6bb832331f173fd44d64afa1258434c5761293bc1885` |
+| delivered in | `ding/KnowledgeDiscoveryCompetition_1016/`, from KnowledgeDiscoveryCompetition.7z (2026-10-16) |
+| transcribed | 2026-10-18 by `scripts/round/extract_ding_docs.py` |
 
-Word files are converted with pandoc; plain text is fenced. Only escaped backticks
-and curly quotation marks are normalised. Wording, order and section numbering
-are unchanged. Regenerate with `scripts/round/extract_ding_docs.py` and the
-provenance values above to check it.
+Word files are converted with pandoc; plain text is fenced. Only escaped backticks,
+curly quotation marks and dashes are normalised: 2 en or em dashes are written
+as hyphens. Wording, order and section numbering are unchanged. Regenerate with
+`scripts/round/extract_ding_docs.py` and the provenance values above to check it.
 
 ---
 
@@ -23,7 +23,7 @@ provenance values above to check it.
 
 Autonomous Intelligent Scientific Knowledge Discovery
 
-Update time: 2026-10-06 19:17:04 (UTC+8)
+Update time: 2026-10-16 13:38:15 (UTC+8)
 
 **I. Task Background**
 
@@ -34,6 +34,8 @@ This task is not merely a conventional downloading or list-collection task. It i
 **II. Task Objectives**
 
 This task focuses on collecting and organizing historical domains from 1996 through 2001 while designing a reusable Automated/Autonomous/Intelligent Scientific Knowledge Discovery and Deep Research System. The system should autonomously generate discovery hypotheses, search and mine multiple sources, infer associations, validate year-specific evidence, learn from yield and failure patterns, and feed newly discovered domains back into subsequent discovery cycles. Priority must be given to domain names for English websites or websites where English is the major language.
+
+Priority boundary: The current priority is still 1996-2001. The other years are just being recorded along the way since some students may have submitted them already. In particular, the years after 2014 are very low priority. This priority statement does not remove eligibility for clearly evidenced extended-year records: such records remain separately stored, audited, and eligible for official contribution and scoring under the Extended-Year Records rule, but they must not displace work focused on 1996-2001.
 
 **Objective 1:** Continue expanding the coverage of historical domains from 1996 to 2001, especially domains for English websites or websites where English is the major language, and maximize Equivalent-English Domain growth while also reporting raw volume and breadth of coverage.
 
@@ -65,11 +67,11 @@ Equivalent-English Domain growth rate (%) = Equivalent-English Domain increment 
 
   **Consistency requirement:** The same fixed Common Crawl-derived TLD English-share weight table must be used for the baseline and every submission being compared. This weighting standard must not be changed between submissions unless a revised standard is formally issued for all comparisons.
 
-  Internal competition - continuation and source-exhaustion requirement: Participants must continue submitting verified results through successive rounds until they have maximized their individual accepted increment and have systematically searched, tested, and reasonably exhausted all discoverable sources, related datasets, expansion routes, and innovative methods available to them. A large result or attainment of the 5% submission threshold does not by itself end participation. Each submission should state what additional sources and methods were tested and what promising avenues remain or have been exhausted.
+  Internal competition - continuation and source-exhaustion requirement: Participants must continue submitting verified results through successive rounds until they have maximized their individual accepted increment and have systematically searched, tested, and reasonably exhausted all discoverable sources, related datasets, expansion routes, and innovative methods available to them. A large result or attainment of the 3% submission threshold does not by itself end participation. Each submission should state what additional sources and methods were tested and what promising avenues remain or have been exhausted.
 
   Verified individual submission performance: After each submission is reviewed, the organizers will provide the accepted core domain-year increment, any accepted extended-year increment, the separately calculated Equivalent-English contributions, the combined official Equivalent-English increment, and the verified percentage increase relative to the applicable benchmark. The organizer-verified figures, rather than a participant's preliminary estimate, are the authoritative results for the competition.
 
-  Individual cumulative verified percentage record: Each participant must maintain a running record of every organizer-verified submission, including the benchmark version, accepted Equivalent-English Domain increment, and official percentage increase for that submission. The participant's cumulative verified percentage record is calculated by directly adding the official percentage increases awarded by the organizers for all accepted submissions. Example: if the organizer-verified increases for three submissions are 5%, 15%, and 25%, the cumulative verified percentage record is 5% + 15% + 25% = 45%. This cumulative percentage remains an official performance record, while competition ranking also applies the time-weighted score defined below.
+  Individual cumulative verified percentage record: Each participant must maintain a running record of every organizer-verified submission, including the benchmark version, accepted Equivalent-English Domain increment, and official percentage increase for that submission. The participant's cumulative verified percentage record is calculated by directly adding the official percentage increases awarded by the organizers for all accepted submissions. Example: if the organizer-verified increases for three submissions are 5%, 15%, and 25%, the cumulative verified percentage record is 5% + 15% + 25% = 45%. These illustrative contribution values are not the submission threshold. This cumulative percentage remains an official performance record, while competition ranking also applies the time-weighted score defined below.
 
   Chronological benchmark update rule: When submissions from multiple participants are received, they are reviewed and scored strictly in the order in which they were received. After an accepted submission is merged and deduplicated, the benchmark database is updated immediately. The next submission in the queue is then compared with this newly updated benchmark database, and its official percentage increase is calculated only from the accepted Equivalent-English Domain increment that remains after deduplication against that benchmark. The submission timestamp therefore determines the benchmark version used for scoring.
 
@@ -121,7 +123,7 @@ The following questions require practical, reproducible proposals or technically
 
 **V. Priority Workstreams**
 
-Treat the work as an intelligent discovery system rather than a sequence of isolated downloads. Do not repeatedly focus on a single source. The system should combine automated search engines, automated Deep Research engines, association inference, multi-source clue mining, historical-corpus analysis, and feedback from previous yields. First, fully develop known high-value sources that contain time evidence. Then discover new directory pages, navigation sites, yellow-page sites, historical indexes, webpage collections, mirrors, datasets, and relationships among domains, organizations, email addresses, hostnames, links, registrations, and archived captures. Convert sources without year labels into candidate seed pools; validate candidates using CDX, historical snapshots, or other dated evidence; extract outbound and reciprocal links from downloaded material; and feed newly discovered domains and failed-query clues back into the next autonomous discovery and validation queues. Do not use domains already present in the benchmark primarily as seeds for IA CDX domain-wide queries whose purpose is to enumerate their subdomains: this repeats work that will occur during downstream CDX acquisition and contributes little to the discovery of previously unknown registrable domains.
+Treat the work as an intelligent discovery system rather than a sequence of isolated downloads. Do not repeatedly focus on a single source. The system should combine automated search engines, automated Deep Research engines, association inference, multi-source clue mining, historical-corpus analysis, and feedback from previous yields. First, fully develop known high-value sources that contain time evidence for the current priority range of 1996-2001. Then discover new directory pages, navigation sites, yellow-page sites, historical indexes, webpage collections, mirrors, datasets, and relationships among domains, organizations, email addresses, hostnames, links, registrations, and archived captures. Convert sources without year labels into candidate seed pools; validate candidates using CDX, historical snapshots, or other dated evidence; extract outbound and reciprocal links from downloaded material; and feed newly discovered domains and failed-query clues back into the next autonomous discovery and validation queues. Clearly dated records outside 1996-2001 may be recorded in the separate extended-year layer, but they are secondary to the core 1996-2001 objective. Do not use domains already present in the benchmark primarily as seeds for IA CDX domain-wide queries whose purpose is to enumerate their subdomains: this repeats work that will occur during downstream CDX acquisition and contributes little to the discovery of previously unknown registrable domains.
 
 ISC / Network Wizards Internet Domain Survey records are dated DNS-observation evidence. A raw ISC hostname observation establishes that the hostname was observed in DNS during the survey edition, but it does not by itself establish web service or webpage content. Raw ISC hostname lists must therefore be preserved as a separate, provenance-linked candidate collection, alongside but distinct from candidate_pool.txt and the annual master files. This candidate collection is an equally important discovery asset. A hostname-year may move into an annual master only when additional website-level evidence for that year is retained, such as an exact-host CDX record, a webpage snapshot, a web link-graph record, or equivalent item-level material.
 
@@ -205,7 +207,7 @@ The final delivery must include more than several TXT files. It must document ho
 
   **Explanatory materials:** In addition to the merged and deduplicated annual domain files, provide a Word document explaining the methods used, newly identified methods, every external dataset and repository searched, dataset identifiers or DOI values where available, yield from each source, year-evidence fields and validation rules, limitations, whether further expansion is worthwhile, the Equivalent-English Domain calculation and growth results, and how the work contributes to Automated/Autonomous/Intelligent Scientific Knowledge Discovery and Deep Research System capabilities.
 
-- Open Research Questions package: Include a separate folder named `开放性研究问题` inside the submission archive. Submit the answers as plain-text `.txt` files and document the proposed approaches, completed related work or tests, preliminary technical-feasibility findings, preliminary practical-operability findings, limitations, and next steps. Markdown-only placement outside the required folder does not satisfy this packaging requirement.
+- Open Research Questions package: Include a separate folder named `Open Research Questions` inside the submission archive. The folder must contain a Word document named `Open Research Questions.docx`. The document must describe the proposed methods, the relevant work or tests already performed, the data sources and access paths used, test procedures or commands, sample scope, observed results, failures, limitations, and preliminary verification of both technical feasibility and practical operability. It must also include or reference supporting code, source links, execution logs, result samples, and screenshots where available. Ideas that have not yet been tested must be labelled `Pending validation`; a conceptual proposal must not be presented as validated evidence.
 
   **Source contribution statistics: Newly added domain-year records must be counted by source, with separate figures for core annual additions, extended-year additions, and additions eligible only for the candidate pool. For accepted core and extended-year additions, report the raw record increase and the corresponding Equivalent-English increase separately, then state the combined verified contribution.**
 
@@ -213,7 +215,7 @@ The final delivery must include more than several TXT files. It must document ho
 
   **Code package and experience summary:** Every submission must include the complete runnable code, scripts, configurations, dependency or environment instructions, and execution commands used for discovery, acquisition, extraction, normalization, validation, evidence generation, and result export. It must also include a concise experience summary describing successful and unsuccessful approaches, measured source yield, important limitations, lessons learned, reusable techniques, and recommended directions for continued expansion.
 
-- Submission archive filename: Every complete submission must be supplied in one compressed archive named **<span class="mark">DomainDataCollectionTask\_{SubmissionTime}\_{Name}</span>**. {SubmissionTime} denotes the complete submission time, and {Name} denotes the submitting contributor.
+- Submission archive format and filename: Every complete submission must be supplied as exactly one 7z archive. The filename must start exactly with **<span class="mark">`KnowledgeDiscoveryCompetition_Submission\_`</span>** and follow the pattern **<span class="mark">`KnowledgeDiscoveryCompetition_Submission\_{SubmissionTime}\_{Name}.7z`</span>**. `{SubmissionTime}` denotes the timestamp when the complete submission is received, and `{Name}` denotes the submitting contributor. ZIP, RAR, or another archive format, and multiple top-level submission archives, do not satisfy this requirement.
 
   **Baseline merge and deduplication method:** Every submission must include both the code and a clear explanation for comparing the submitted annual files with the latest supplied baseline, normalizing the counting unit, removing duplicates within each year, identifying the true baseline-external increment, and producing or verifying the merged annual result. The baseline version, exact comparison rules, overlap counts, accepted increment, and reconciliation checks must be stated explicitly so that an independent reviewer can reproduce the result.
 
@@ -231,11 +233,11 @@ The final delivery must include more than several TXT files. It must document ho
 
 5.  The submission includes complete runnable code and a concise experience summary covering methods, yields, failures, limitations, lessons learned, and recommended next steps. It also includes reproducible code and documentation for merging and deduplicating the contributor's annual results against the latest supplied baseline and for calculating Equivalent-English Domain totals, increments, and growth rates. These materials must enable subsequent personnel or automated agents to reproduce the workflow, audit evidence, verify the reported increment, identify unexplored gaps, and determine which intelligent discovery directions merit further expansion.
 
-6.  Submission growth and the 5% threshold have been calculated from the Equivalent-English Domain total after merging the complete accumulated submission with the latest supplied baseline and deduplicating within each year. Equivalent-English Domain increment = merged submission Equivalent-English Domain total - latest baseline Equivalent-English Domain total. Cumulative growth rate = Equivalent-English Domain increment / latest baseline Equivalent-English Domain total x 100%. Submit when this cumulative growth rate is at least 5%. The unfiltered domain-year record increase must be reported separately and is not the acceptance or submission-threshold metric. Meeting this threshold authorizes a submission batch but does not indicate completion; participants must continue contributing until their discoverable sources and methods have been systematically tested and reasonably exhausted under the internal competition requirements. Competition scoring additionally incorporates submission speed: for each accepted submission, S_i = 10 x (p_i / t_i), where p_i is its organizer-verified Equivalent-English Domain percentage increase and t_i = max(1, receipt_date_i - task_assignment_date_member) is the absolute interval in whole calendar days from that participant's first task assignment to receipt of the complete submission. The interval does not reset after a new benchmark release or later submission. Overall ranking uses the sum of these time-weighted submission scores, while official percentage increases continue to be accumulated and reported separately.
+6.  Submission growth and the 3% threshold have been calculated from the Equivalent-English Domain total after merging the complete accumulated submission with the latest supplied baseline and deduplicating within each year. Equivalent-English Domain increment = merged submission Equivalent-English Domain total - latest baseline Equivalent-English Domain total. Cumulative growth rate = Equivalent-English Domain increment / latest baseline Equivalent-English Domain total x 100%. Submit when this cumulative growth rate is at least 3%. The unfiltered domain-year record increase must be reported separately and is not the acceptance or submission-threshold metric. Meeting this threshold authorizes a submission batch but does not indicate completion; participants must continue contributing until their discoverable sources and methods have been systematically tested and reasonably exhausted under the internal competition requirements. Competition scoring additionally incorporates submission speed: for each accepted submission, S_i = 10 x (p_i / t_i), where p_i is its organizer-verified Equivalent-English Domain percentage increase and t_i = max(1, receipt_date_i - task_assignment_date_member) is the absolute interval in whole calendar days from that participant's first task assignment to receipt of the complete submission. The interval does not reset after a new benchmark release or later submission. Overall ranking uses the sum of these time-weighted submission scores, while official percentage increases continue to be accumulated and reported separately.
 
 7.  The submission demonstrates progress toward an Automated/Autonomous/Intelligent Scientific Knowledge Discovery and Deep Research System: it uses creative intelligent methods, preserves reproducible evidence, evaluates source yield and failures, and supports an iterative or autonomous feedback loop for continued domain discovery.
 
-**VIII. Efficient Unknown-Domain Discovery and Source-Saturation Learning**
+**XI. Efficient Unknown-Domain Discovery and Source-Saturation Learning**
 
 Primary discovery target: prioritize registrable domains that are absent from the current benchmark and validate the active candidate pool. Systematically querying existing benchmark domains through IA CDX solely to enumerate subordinate hostnames is not a priority method. It mainly expands namespaces that are already known, duplicates a function of the later CDX-download stage, and consumes proxy, query, storage, and review capacity without materially improving unknown registrable-domain coverage.
 
@@ -261,7 +263,7 @@ UK Web Archive host-link graph records, UMN DRUM link-list records, and Arquivo.
 
 Every final annual record must be traceable through an item-level evidence ledger containing the target year, source file, original or recovery URL, record location, evidence type, and extraction method. A source-level description alone is not a substitute for this ledger.
 
-**XI. Robust Hostname Processing and Candidate-Pool Reconciliation**
+**XII. Robust Hostname Processing and Candidate-Pool Reconciliation**
 
 Use hostname-level identity throughout discovery, evidence storage, benchmark comparison, and annual export. Retain the registrable domain only as secondary metadata. A valid base hostname and distinct valid subdomain hostnames may each be annual records when each has year-specific evidence.
 
@@ -281,7 +283,7 @@ For RDAP or registry evidence, use a registration event only for the hostname or
 
 These controls support a continuous autonomous discovery loop while preserving auditable, year-specific annual results and an expandable candidate asset pool.
 
-**XII. Evidence-First Acquisition and Reproducible Provenance**
+**XIII. Evidence-First Acquisition and Reproducible Provenance**
 
 For archive-based validation of externally discovered hostnames and new source families, execute separate, resumable queries for the required target years. Preserve the exact hostname, retained capture timestamp, complete request template or query URL, source-response location, and pagination or resume state. Broad enumeration beneath existing benchmark domains is not a discovery priority and must not replace unknown registrable-domain discovery or candidate-pool validation. A query must be paginated to completion before its validation yield is treated as measured; a row cap, incomplete page sequence, or timeout is a work-state, not negative evidence.
 
@@ -291,7 +293,7 @@ Do not infer a hostname variant from another form. For example, a capture of `ex
 
 Treat undated or incompletely dated discoveries as durable research assets, not as dead ends. Record their evidence level, source provenance, normalization status, verification route, and unresolved reason in the candidate system. Reconcile that system after every annual merge: promote only records with the required direct evidence, remove candidates already accepted annually, and retain unresolved records for future automated checking. The shared source-feedback ledger must record coverage, yield, overlap, noise, cost or effort, failures, and the next investigation decision so that both positive and negative findings improve subsequent autonomous discovery.
 
-# XIII. Mandatory Evidence Classification and Hostname Integrity Gate
+# XIV. Mandatory Evidence Classification and Hostname Integrity Gate
 
 ## Annual-master evidence rule
 

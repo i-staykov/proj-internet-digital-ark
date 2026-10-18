@@ -116,7 +116,7 @@ def _store(reverse: bool) -> duckdb.DuckDBPyConnection:
         partial(web, "sub.com", 1999, "a.sub.com"),
         partial(web, "both.com", 1999, "www.both.com", dates=False),
         partial(web, "both.com", 1999),
-        # a registry list earns a year by its type that XIII refuses by its method
+        # a registry list earns a year by its type that XIV refuses by its method
         partial(web, "zone-only.dk", 2001, kind="artifact_listing", value="20011217: DK Zonen",
                 source="dk_zone_list", method="registry_zone_list_wayback_capture"),
         # `www.<a name held that year>` is a record of its own; `.site` was delegated in 2015
@@ -195,7 +195,7 @@ def test_the_annual_files_ship_net_of_his_and_the_guard_counts_what_they_write(r
 
 def test_a_record_ships_only_on_a_capture_of_exactly_its_name(run) -> None:
     """A capture of `www.` or any host beneath a registrable dates that host, never the
-    registrable, and a name whose every year fails XIII ships as a candidate, never in neither."""
+    registrable, and a name whose every year fails XIV ships as a candidate, never in neither."""
     rows = _rows(run, "netnew/evidence_manifest.csv")
     cited = {r["domain"]: (r["source"], r["evidence_value"]) for r in rows}
     assert cited["both.com"] == ("ia_cdx", capture("both.com", 1999))

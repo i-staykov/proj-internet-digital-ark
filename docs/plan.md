@@ -31,7 +31,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
 
-- After #343: the brief's section citations, XI to XII and XIII to XIV.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 

@@ -286,7 +286,7 @@ def test_the_page_asks_a_measured_class_and_the_send_never_the_store(tmp_path, m
     assert lead_queue.send_line(tmp_path / "brief.json") in page
     assert "### Admit `cdx_x`" in page and "[`t-class`](https://e.org/t-class)" in page
     assert "`t-download`" not in page and "80,000" not in page
-    outlet, _, foot = page.partition("### Give the XIII-excluded")[2].partition("estimate alone")
+    outlet, _, foot = page.partition("### Give the XIV-excluded")[2].partition("estimate alone")
     assert "**445 EE**" in outlet and "| 445.1 | [`stranded`](https://e.org/stranded)" in outlet
     assert "guessed" not in outlet and "`guessed`" in foot, "an estimate is not a row"
     assert lead_queue.main(["--fleet", str(tmp_path / "absent")]) == 0
