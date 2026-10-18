@@ -3,7 +3,7 @@
 launchd keeps laptop lanes 0 and 1 alive (`RunAtLoad`, `KeepAlive`, restarted at most every
 10 minutes) under `caffeinate -i -s`, since idle sleep stops a lane with no error; cron starts
 VPS lane 2 at boot and every 10 minutes under `flock`, from a shallow clone of `live`. The tick
-pulls the VPS lane's journals home and re-ranks the queue (`just sync`, step 8).
+pulls the VPS lane's journals home and re-ranks the queue (`just sync`, step 7).
 """
 
 from __future__ import annotations
