@@ -100,7 +100,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `metric-explained.md`, `equivalent_english_domain_calculator/` | the metric, and your calculator, unmodified |
 | `sources.md`, `sources-closed.md` | every source tried: those used, with their download link, and those dropped, with the measurement that ruled each out |
 | `Open Research Questions/` | section IV-A: `Open Research Questions.docx` with each test's code, log, sample and screenshots |
-| `journals/`, `logs/`, `seeds/` | the raw response of every query (`journals/README.txt` names the sets left out on size), run logs, seed lists |
+| `journals/`, `logs/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), run logs, seed lists |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | the checks above |
 
 Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Every `.csv` is
