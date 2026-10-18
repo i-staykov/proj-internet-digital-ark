@@ -179,7 +179,8 @@ if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
 fi
 
 # His name for the one archive, KnowledgeDiscoveryCompetition_Submission_{SubmissionTime}_{Name}.7z,
-# also names the folder it unpacks to. SubmissionTime is stamped at packaging, UTC to the minute.
+# also names the folder it unpacks to. His SubmissionTime is when he receives it; the packaging
+# minute, UTC, stands in for it.
 RELEASE="KnowledgeDiscoveryCompetition_Submission_$(date -u +%Y%m%d%H%M)_IvayloStaykov"
 STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.7z"
