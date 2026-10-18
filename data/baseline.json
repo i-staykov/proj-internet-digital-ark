@@ -136,6 +136,18 @@
       "submission_received": "2026-10-07 21:01",
       "awarded_score": "0.036881677",
       "awarded_score_divisor": 67
+    },
+    {
+      "label": "12",
+      "date": "2026-10-15",
+      "records": 26534,
+      "equivalent_english": "24709.7270",
+      "baseline": "merge261014-2",
+      "awarded_percent": "0.034315905",
+      "benchmark_released": "2026-10-08 19:36",
+      "submission_received": "2026-10-15 06:04",
+      "awarded_score": "0.004637284",
+      "awarded_score_divisor": 74
     }
   ],
   "speed_k": 10
