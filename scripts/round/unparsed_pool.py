@@ -42,6 +42,10 @@ from ark.hostnames import _VALID_HOST, host_of  # noqa: E402
 
 OUT = REPO / "output/netnew/candidates_unparsed.txt"
 DEFAULT_DIRS = ("data/raw/cdx_suffix", "data/raw/cdx_gap_hostgrain", "data/raw/nypw_hostgrain")
+# The walker lanes add a journal every few minutes, a fraction of a percent of the bytes, so
+# reading them would make every ship rescan all 23 GB for them. The walk keeps a row whose host
+# passes RFC 1123, so its `no_public_suffix` values are the ones this pool lacks.
+WALK = "walk_"
 
 
 def reason_for(raw: str) -> str | None:
@@ -92,7 +96,7 @@ def main() -> int:
         root = REPO / name
         if not root.is_dir():
             continue
-        for path in sorted(root.glob("*.jsonl.gz")):
+        for path in sorted(p for p in root.glob("*.jsonl.gz") if not p.name.startswith(WALK)):
             if args.limit and read >= args.limit:
                 break
             read += 1
