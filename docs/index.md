@@ -8,6 +8,7 @@ sit at the root. Hard rules live in `AGENTS.md`. *Generated* pages name the scri
 
 | Page | What it is | Read it when |
 |---|---|---|
+| [plan.md](plan.md) | The one list of open work, stateless; the PR that finishes a line deletes it (*not shipped*) | before picking up work |
 | [lore/laws.md](lore/laws.md) | Every measured fact in force, one line each with its figure and pointer | before pricing a source or trusting a number |
 | [brief/ding/project-brief.md](brief/ding/project-brief.md) | His task brief, verbatim (*generated*: after each package, `uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<delivery date>)' --stamp <date>`) | when checking a requirement or citing a clause |
 | [brief/brief_amendments.md](brief/brief_amendments.md) | What his later messages make true that the brief does not say, the D1 to D4 names, and the ledger of changes | when a message from him changes the brief |

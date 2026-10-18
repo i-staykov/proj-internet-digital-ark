@@ -3,5 +3,7 @@
 # Addressed to or about the reviewer: read by the ship step, never delivered.
 docs/registers/questions.md export-ignore
 docs/registers/rounds.md export-ignore
+# Internal work list.
+docs/plan.md export-ignore
 # The agent harness: working apparatus, nothing about the domains.
 .claude/ export-ignore
