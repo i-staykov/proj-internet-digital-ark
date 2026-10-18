@@ -1,7 +1,7 @@
 """q2-recheck: does the live CDX confirm a uniform sample of our own hostname-year additions?
 
-It reads the extended ledger as it was when this ran, with an `evidence_url` column; the
-ledger now names the journal line instead, so it is kept as run, not rerun.
+It reads an `evidence_url` column the extended ledger does not carry: it stands as run,
+beside its frozen result.
 
     uv run python scripts/orq/q2-recheck.py [--stop-at 2026-10-13T00:45:00Z]
 
