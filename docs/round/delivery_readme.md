@@ -93,7 +93,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `candidate_additions.txt`, `candidate_additions_summary.json` | every candidate name we hold that is in neither your pool nor your annual files, with their count and equivalent-English |
 | `candidates.txt`, `isc_survey_hostnames/`, `server_header_hostnames/` | the candidate collections, each with provenance: names without year-specific web evidence, ISC Domain Survey hosts, and hosts named only in mail or Usenet server headers |
 | `candidates_unparsed.txt` | values the parser refused, each with its reason |
-| `provenance/` | the evidence graph as Parquet, with `trace.py` and `LOAD.sql` |
+| `provenance/` | the evidence graph of every name the lists hold, as Parquet, with `trace.py` and `LOAD.sql` |
 | `audit/` | the merge against your release in your column names, `merge_stats_ark_*.csv` and `merge_audit_ark_*.json`; per-source contribution, source saturation, `year_growth.csv` and the ingest audits |
 | `source/` | `source.tar.gz`, the code at `COMMIT.txt` with `pyproject.toml` and `uv.lock`; `fleet.tar.gz`, the research agents at `FLEET_COMMIT.txt` |
 | `experience-summary.md`, `findings.md` | what worked and what did not; the findings with their measurements |

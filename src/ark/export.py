@@ -28,7 +28,7 @@ from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
 from ark.ingest import YEARS
-from ark.provenance import PROVENANCE_DIR, write_provenance
+from ark.provenance import ISC_SOURCE, PROVENANCE_DIR, write_provenance
 
 NETNEW_DIR = Path("output/netnew")
 CANDIDATES_PATH = Path("output/candidate_unverified.txt")
@@ -56,7 +56,6 @@ HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year
 
 # DNS observations are candidates only. Annual promotion requires exact-host web evidence
 # for the target year. Candidate counts deduplicate names across survey years.
-ISC_SOURCE = "isc_survey_hostnames"
 # His structural rule as SQL: dot-separated labels, letters, digits and interior hyphens only,
 # ending in an alphabetic TLD label. The same pattern as `hostnames._VALID_HOST`, spelled here
 # because these rows never pass through that funnel: they are read straight out of evidence.

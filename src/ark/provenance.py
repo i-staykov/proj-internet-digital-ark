@@ -24,9 +24,10 @@ from pathlib import Path
 import duckdb
 from loguru import logger
 
-from ark.db import init_db
+from ark.db import connect, init_db
 
 PROVENANCE_DIR = Path("output/provenance")
+ISC_SOURCE = "isc_survey_hostnames"
 CORE_TABLES = ("source", "domain", "evidence", "domain_year", "ingested_file")
 
 # Page-language verdicts, from the standard the reviewer retired in August 2026. Still
@@ -125,6 +126,78 @@ def write_provenance(
     megabytes = sum(p.stat().st_size for p in out_dir.glob("*.parquet")) / 1024 / 1024
     counts["megabytes"] = round(megabytes)
     logger.info(f"provenance export: {counts}")
+    return counts
+
+
+def write_shipped(full: Path, netnew: Path, candidates: Path, dest: Path) -> dict[str, int]:
+    """The provenance a delivery ships, cut from the whole export `full`: every row of each
+    name a shipped list names, with its hostnames' parents and the domain each kept row names.
+    `ark rebuild` over it writes every list and manifest README step 2 compares and `ark check`
+    passes; only `candidate_additions_summary.json`'s count of our names his files hold is the
+    whole store's. The whole export stays the store's authority, off-site.
+
+    An ISC row is kept by the hostname its value names, since `reduce_isc` reads every one."""
+    conn = connect(":memory:")
+    conn.execute("CREATE TABLE listed (name VARCHAR)")
+    names = ["candidate_additions.txt", "isc_candidates.txt", "header_candidates.txt"]
+    names += [
+        f"{year}{kind}.txt" for year in range(1996, 2002) for kind in ("", "_hostnames", "-ISC")
+    ]
+    lists = [candidates, *(netnew / name for name in names)]
+    for path in (p for p in lists if p.is_file() and p.stat().st_size):
+        conn.execute(
+            "INSERT INTO listed SELECT column0 FROM read_csv(?, header=false, delim='\t', "
+            "quote='', escape='', auto_detect=false, columns={'column0': 'VARCHAR'})",
+            [str(path)],
+        )
+    # the hostnames the XIII gate quarantined ship as a ledger, so their rows ship too
+    quarantined = netnew / "header_candidates_exclusions.csv"
+    conn.execute(
+        "INSERT INTO listed SELECT hostname FROM read_csv(?, all_varchar=true)", [str(quarantined)]
+    )
+
+    def full_table(name: str) -> str:
+        return f"read_parquet('{full / name}.parquet')"
+
+    def cut(name: str) -> str:
+        return f"read_parquet('{dest / name}.parquet')"
+
+    conn.execute(f"""
+        CREATE TABLE shipped_name AS
+        SELECT name FROM listed
+        UNION SELECT parent_domain FROM {full_table("hostname_year")}
+              WHERE hostname IN (SELECT name FROM listed)
+    """)
+    named = "IN (SELECT name FROM shipped_name)"
+    isc = f"(SELECT source_id FROM {full_table('source')} WHERE name = '{ISC_SOURCE}')"
+    queries = {
+        "domain_year": f"FROM {full_table('domain_year')} WHERE domain {named}",
+        "hostname_year": f"FROM {full_table('hostname_year')} WHERE hostname {named}",
+        "domain_language": f"FROM {full_table('domain_language')} WHERE domain {named}",
+        "evidence": f"""
+            FROM {full_table("evidence")} e
+            WHERE e.evidence_id IN (SELECT evidence_id FROM {cut("domain_year")}
+                                    UNION SELECT evidence_id FROM {cut("hostname_year")})
+               OR (e.source_id IS DISTINCT FROM {isc} AND e.domain {named})
+               OR (e.source_id = {isc}
+                   AND lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) {named})
+        """,
+        "domain": f"""
+            FROM {full_table("domain")} WHERE domain {named}
+               OR domain IN (SELECT domain FROM {cut("evidence")})
+               OR domain IN (SELECT parent_domain FROM {cut("hostname_year")})
+        """,
+        "source": f"FROM {full_table('source')}",
+        "ingested_file": f"FROM {full_table('ingested_file')}",
+    }
+    dest.mkdir(parents=True, exist_ok=True)
+    counts = {}
+    for table, query in queries.items():
+        counts[table] = conn.execute(
+            f"COPY ({query}) TO '{dest / table}.parquet' (FORMAT PARQUET, COMPRESSION ZSTD)"
+        ).fetchone()[0]
+    for name in ("LOAD.sql", "trace.py"):
+        shutil.copyfile(full / name, dest / name)
     return counts
 
 

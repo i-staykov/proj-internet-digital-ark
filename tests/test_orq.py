@@ -171,15 +171,20 @@ def test_cost_is_the_ledgers_and_a_run_it_does_not_hold_is_not_recorded(tmp_path
         {"kind": "leg", "run_id": "13", "slug": "b", "tokens_in_plus_out": 7},
         {"kind": "legacy", "row": 1, "line": "x", "run_id": "14"},
     ]
-    lines[0] |= {"duration_s": 300, "seven_day_delta": 0.5}
+    lines[0] |= {"duration_s": 300, "seven_day_delta": 0.5}  # the stored move, never read
     lines[1] |= {"started": "2026-09-25T10:00:00Z", "ended": "2026-09-25T10:02:30Z"}
     body = "".join(json.dumps(line) + "\n" for line in lines) + "not json\n"
     (fleet / "ledger/2026-09.jsonl").write_text(body)
+    (fleet / "scripts").mkdir()
+    (fleet / "scripts/ledger.py").write_text(
+        "def read(root):\n    return ['every line']\n\n\n"
+        "def points(lines):\n    assert lines == ['every line']\n    return {'11': 3.0}\n"
+    )
     orq.BROKEN.clear()
     held = orq.ledger(fleet)
     assert orq.BROKEN == [f"{fleet / 'ledger/2026-09.jsonl'}:5"]  # named, never skipped
     gone = (orq.NOT_RECORDED,) * 3
-    assert orq.cost(held, "11", "a") == ("1200", "300", "0.5")
+    assert orq.cost(held, "11", "a") == ("1200", "300", "3")
     assert orq.cost(held, "12", "a") == ("0", "150", "none")
     for run_id in ("13", "14", "99"):  # another lead's line, a legacy line, no line
         assert orq.cost(held, run_id, "a") == gone, run_id
@@ -187,12 +192,6 @@ def test_cost_is_the_ledgers_and_a_run_it_does_not_hold_is_not_recorded(tmp_path
     test = orq.Test("Q1", "a", orq.VALIDATED, [], [("price", "11"), ("verify", "99")])
     rows = [(r["run_id"], r["tokens_in_plus_out"]) for r in orq.tests_rows([test], held)]
     assert rows == [("11", "1200"), ("99", orq.NOT_RECORDED)]
-    (fleet / "scripts").mkdir()
-    (fleet / "scripts/ledger.py").write_text(
-        "def read(root):\n    return ['every line']\n\n\n"
-        "def points(lines):\n    assert lines == ['every line']\n    return {'11': 3.0}\n"
-    )
-    assert orq.cost(orq.ledger(fleet), "11", "a")[2] == "3"
     folder = fleet / "experiments/year-pair-continuity"
     folder.mkdir(parents=True)
     base = {"method": "year-pair-continuity", "question": "q", "output_sha256": SHA}
@@ -374,6 +373,10 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
     (fleet / "ledger").mkdir()
     line = {"kind": "leg", "run_id": "11", "slug": "ddn-like", "tokens_in_plus_out": 1200}
     (fleet / "ledger/2026-09.jsonl").write_text(json.dumps(line) + "\n")
+    (fleet / "scripts").mkdir()
+    (fleet / "scripts/ledger.py").write_text(
+        "def read(root):\n    return []\n\n\ndef points(lines):\n    return {}\n"
+    )
     variables = fixture_release(tmp_path)
     monkeypatch.setattr(duckdb, "connect", lambda *a, **k: pytest.fail("the build opened a store"))
     real_run = orq._run
