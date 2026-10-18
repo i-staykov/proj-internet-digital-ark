@@ -1365,8 +1365,11 @@ vm what="status":
         fi
         if ! bash scripts/harness/sync_lock.sh take $$; then exit 1; fi
         trap 'bash scripts/harness/sync_lock.sh drop' EXIT
+        # Not the VM's own lane state, which its walker owns, nor this machine's lock, logs,
+        # push marker and red.
         rsync -a --partial --info=progress2 --timeout=300 -e "${SSH% $ARK_VM}" \
-            --exclude 'data/logs/.sync.lock' --exclude '*.log' --exclude 'data/logs/.push_pending' \
+            --exclude 'data/raw/cdx_walk/' --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
+            --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
             data output "$ARK_VM:ark/"
         ;;
     install)
