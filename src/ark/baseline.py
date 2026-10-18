@@ -60,7 +60,7 @@ REVIEWER_EXTENDED_EE_BY_YEAR = {
 
 # The gate: this much EE growth in one part, 1996 to 2001 over REVIEWER_BASELINE_EE or 2002 to
 # 2013 over REVIEWER_EXTENDED_EE. The parts are never summed.
-GATE_PCT = Decimal(5)
+GATE_PCT = Decimal(3)
 GATE_EE = {
     "1996-2001": REVIEWER_BASELINE_EE * GATE_PCT / 100,
     "2002-2013": REVIEWER_EXTENDED_EE * GATE_PCT / 100,

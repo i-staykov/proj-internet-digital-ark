@@ -14,7 +14,7 @@ and `just state` runs the same. `--full` adds the two store sections, read-only.
 
 The brief takes fields 3 to 5 and the two GATE lines as the very strings ROUND.md prints, so
 every reader quotes one gate figure: the part, 1996 to 2001 or 2002 to 2013, with the smaller
-EE gap to its 5%. `just brief` prints it from a session-start hook, so it stays small.
+EE gap to its 3%. `just brief` prints it from a session-start hook, so it stays small.
 
 **Staleness is detectable rather than prevented.** The footer holds his release's marker and
 the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
@@ -179,7 +179,7 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
 def brief(fields: dict[str, str] | None, approvals: int, as_of: str | None = None) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
-    `gate_part` is the part with the smaller EE gap to its 5%, so `gate_percent >= gate_pct`
+    `gate_part` is the part with the smaller EE gap to its 3%, so `gate_percent >= gate_pct`
     still means crossed; `field5_percent` and `extended_percent` are the two parts."""
     snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),

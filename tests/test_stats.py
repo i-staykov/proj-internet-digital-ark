@@ -319,7 +319,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     page, brief = brs.OUT.read_text(), json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
     assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", {"approvals": 0})
-    # the part nearer its 5% in EE, so `gate_percent >= gate_pct` still means crossed
+    # the part nearer its 3% in EE, so `gate_percent >= gate_pct` still means crossed
     assert (brief["extended_percent"], brief["gate_part"]) == ("4.590366", "2002-2013")
     assert (brief["gate_percent"], "gate_ee" in brief) == ("4.590366", False)
     assert brief["distance_to_gate_ee"] == round(float(brs.GATE_EE["2002-2013"]) - 9e6, 4)

@@ -6,4 +6,3 @@
 
 | asked-on | question | status | remind-on |
 |---|---|---|---|
-| draft | Of the 9.3M hosts `merge261007-4` adds to 1996 to 2001, 6.5M are the tail of a longer host already in that year's file, cut mid-label (`ookwire.com` from `bookwire.com`), and some are mail addresses without their `@` (`jedialgonet.se`). Should they stay in the baseline? | open | next mail |
