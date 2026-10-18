@@ -457,10 +457,10 @@ else:
 
 sys.exit(1 if fail else 0)
 PY
-# --- 9 (E1): the two open research questions folders -------------------------
+# --- 9 (E1): the open research questions folder -------------------------------
 # Section IV-A asks for `Open Research Questions/` holding `Open Research Questions.docx`
-# with its code, logs, samples and screenshots beside it, and section X for `开放性研究问题/`
-# of plain-text answers under six headings. A missing folder fails; no screenshots warns.
+# with its code, logs, samples and screenshots beside it. A missing folder fails; no
+# screenshots warns.
 python3 - <<'PY' || fail=1
 import csv
 import gzip
@@ -471,21 +471,13 @@ import zipfile
 from pathlib import Path
 
 LABEL = "E1 open research questions"
-EN, ZH = Path("Open Research Questions"), Path("开放性研究问题")
+EN = Path("Open Research Questions")
 QUESTIONS = (
     "How can historical web data from before 1996 be discovered and acquired at scale?",
     "How can the year in which a website existed be determined more accurately?",
 )
-HEADINGS = (
-    "Proposed approaches",
-    "Completed related work or tests",
-    "Preliminary technical-feasibility findings",
-    "Preliminary practical-operability findings",
-    "Limitations",
-    "Next steps",
-)
 LABELS = {"Validated", "Tested, not independently verified", "Pending validation"}
-problems = [f"{folder}/ is missing" for folder in (EN, ZH) if not folder.is_dir()]
+problems = [] if EN.is_dir() else [f"{EN}/ is missing"]
 
 
 def contents(path):
@@ -514,17 +506,6 @@ if not problems:
     for question in QUESTIONS:
         if xml and not any(question in p for p in paragraphs):
             problems.append(f"the docx does not ask: {question}")
-    answered = 0
-    for path in sorted(ZH.glob("*.txt")):
-        try:
-            text = path.read_bytes().decode("utf-8")
-        except UnicodeDecodeError:
-            problems.append(f"{path} is not UTF-8")
-            continue
-        lines = {line.strip() for line in text.splitlines()}
-        answered += bool(text.strip()) and set(HEADINGS) <= lines
-    if answered < 2:
-        problems.append(f"{answered} .txt answers carry the six headings, not 2")
     tests = EN / "tests.csv"
     if not tests.is_file():
         problems.append("tests.csv is missing")
@@ -538,7 +519,7 @@ if not problems:
             for column in ("evidence", "code", "logs", "sample"):
                 if row.get(column) and not (EN / row[column]).exists():
                     problems.append(f"tests.csv names a missing {row[column]}")
-    for path in sorted(p for folder in (EN, ZH) for p in folder.rglob("*")):
+    for path in sorted(EN.rglob("*")):
         if path.is_symlink():
             problems.append(f"{path} is a link, not a copy")
         elif path.is_file():
@@ -552,7 +533,7 @@ if problems:
     print(f"{LABEL:<46} FAIL  {'; '.join(problems[:5])}")
     sys.exit(1)
 shots = [p for p in (EN / "screenshots").glob("*") if p.is_file()] if (EN / "screenshots").is_dir() else []
-print(f"{LABEL:<46} PASS  both folders, both questions, the six headings, three labels")
+print(f"{LABEL:<46} PASS  the folder, both questions, three labels")
 if not shots:
     print(f"{'':<46}       WARN  no screenshots/ beside the document")
 PY

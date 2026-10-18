@@ -60,9 +60,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
-- One archive `KnowledgeDiscoveryCompetition_Submission_{time}_{name}.7z`, multithreaded, holding
-  only `Open Research Questions/Open Research Questions.docx` for the answers; names in README,
-  report and mail; lands the 2026-10-16 row of brief_amendments.md.
 - #315: the evidence ledger without source_sha256 and evidence_url; additions shipped once
   (package_delivery.sh:297,300); the unparsed-pool rescan ignores walk journals; cited journals
   only; claimed-only provenance only if verify.sh and README step 2 still pass.

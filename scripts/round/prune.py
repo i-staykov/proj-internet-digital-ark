@@ -39,7 +39,7 @@ lists, and with `--write` deletes:
     refuses a ranged GET, stays) at the same size, and the sha1 of our own bytes, hashed
     at `--write`, equals archive.org's; `DELETED.tsv` beside them then records the file,
     its bytes, that sha1 and the URL;
-  * `output/DomainDataCollectionTask_*` but the newest, once the newest's tarball is on
+  * every package stage in `output/` but the newest, once the newest's archive is on
     Drive with the checksum git keeps;
   * with `--private`, everything in `private/` but PRIVATE_KEEP, which code, an agent's
     handoff or a working agent reads. Nothing there has a copy anywhere, so `--private --write`
@@ -311,7 +311,7 @@ PRIVATE_KEEP = frozenset(
         "research-throughput-20260927",
     }
 )
-STAGES = "DomainDataCollectionTask_*_IvayloStaykov"
+STAGES = "*_IvayloStaykov"  # `{prefix}_{packaging minute}_IvayloStaykov`, under either name
 IA = "https://archive.org"
 # The reviewer's own words, kept wherever they sit, even inside a superseded release tree.
 DOCUMENTS = {".md", ".docx", ".doc", ".pdf", ".rtf", ".odt"}
@@ -553,10 +553,15 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
     return out, notes
 
 
+def stages_of(root: Path) -> list[Path]:
+    """Package stages, oldest first by their packaging minute."""
+    found = (p for p in (root / "output").glob(STAGES) if p.is_dir() and not p.is_symlink())
+    return sorted(found, key=lambda p: p.name.split("_")[-2])
+
+
 def stages_selected(root: Path) -> list[Candidate]:
-    stages = sorted(p for p in (root / "output").glob(STAGES) if p.is_dir() and not p.is_symlink())
     out = []
-    for stage in stages[:-1]:
+    for stage in stages_of(root)[:-1]:
         for path in _files(stage):
             if path.name == ".DS_Store" or never(root, path):
                 continue
@@ -671,17 +676,17 @@ def remove_refetchable(root: Path, cand: Candidate, cache: dict, *, write: bool)
 
 
 def newest_on_drive(root: Path) -> str:
-    """ "" when the newest stage's tarball is on Drive with the checksum git keeps."""
+    """ "" when the newest stage's archive is on Drive with the checksum git keeps."""
     offsite = sibling("offsite")
-    stages = sorted(p for p in (root / "output").glob(STAGES) if p.is_dir())
+    stages = stages_of(root)
     if not stages:
         return "no stage"
-    tarball = f"{stages[-1].name}.tar.gz"
-    kept = sorted((root / "submissions").glob(f"*/{tarball}.sha256"))
+    kept = sorted((root / "submissions").glob(f"*/{stages[-1].name}.*.sha256"))
     if not kept:
-        return f"git keeps no checksum for {tarball}"
+        return f"git keeps no checksum for {stages[-1].name}"
+    archive = kept[0].name.removesuffix(".sha256")
     digest = kept[0].read_text().split()[0]
-    remote = f"{offsite.REMOTE}/{kept[0].parent.relative_to(root).as_posix()}/{tarball}"
+    remote = f"{offsite.REMOTE}/{kept[0].parent.relative_to(root).as_posix()}/{archive}"
     try:
         done = offsite.rclone(
             ["lsjson", "--stat", "--hash", "--hash-type", "sha256", remote], check=False
@@ -692,7 +697,7 @@ def newest_on_drive(root: Path) -> str:
     if there is None:
         return f"Drive did not list {remote} (rclone exit {done.returncode})"
     if (there.get("Hashes") or {}).get("sha256") != digest:
-        return f"Drive's {tarball} does not match its checksum"
+        return f"Drive's {archive} does not match its checksum"
     return ""
 
 
@@ -789,7 +794,7 @@ def disk_cleanup(
     removed: list[Path] = []
     stage_held = newest_on_drive(root) if write and groups[2][1] else ""
     if groups[2][1] and not write:
-        notes.append("output stages go at --write only once the newest's tarball is on Drive")
+        notes.append("output stages go at --write only once the newest's archive is on Drive")
     crc_held = crc_failures(root, groups[0][1]) if write else {}
     cache: dict = {}
     for label, cands in groups:

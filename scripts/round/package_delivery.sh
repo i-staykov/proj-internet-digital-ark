@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble the delivery archive: one compressed file plus its checksum, holding
+# Assemble the delivery archive: one 7z plus its checksum, holding
 # the results, the evidence behind them, the code that produced them, and the
 # documentation. Run from anywhere; paths resolve relative to the repo root.
 # Regenerate the data first with `ark export --provenance`.
@@ -30,6 +30,11 @@ NEWEST=$(ls data/fleet_findings/banked 2>/dev/null | grep -E '^[0-9]{8}T[0-9]{4}
 HEAD_AT=$(TZ=UTC git -C "$FLEET" log -1 --format=%cd --date=format-local:%Y%m%dT%H%MZ HEAD)
 if [ -n "$NEWEST" ] && [[ "$HEAD_AT" < "$NEWEST" ]]; then
     echo "refusing to package: the fleet at $FLEET was committed $HEAD_AT, before the newest banked drain $NEWEST; pull it" >&2
+    exit 1
+fi
+
+if ! command -v 7z >/dev/null; then
+    echo "refusing to package: no 7z command, and a submission is one 7z archive" >&2
     exit 1
 fi
 
@@ -173,14 +178,11 @@ if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
     exit 1
 fi
 
-# The unpacked folder is named for what it holds, so a reviewer who extracts it
-# among other downloads can still tell what it is.
-# The reviewer's 0901 update makes the archive name mandatory:
-# DomainDataCollectionTask_{SubmissionTime}_{Name}. SubmissionTime is stamped at
-# packaging (UTC, to the minute); the contributor name is fixed.
-RELEASE="DomainDataCollectionTask_$(date -u +%Y%m%d%H%M)_IvayloStaykov"
+# His name for the one archive, KnowledgeDiscoveryCompetition_Submission_{SubmissionTime}_{Name}.7z,
+# also names the folder it unpacks to. SubmissionTime is stamped at packaging, UTC to the minute.
+RELEASE="KnowledgeDiscoveryCompetition_Submission_$(date -u +%Y%m%d%H%M)_IvayloStaykov"
 STAGE="output/$RELEASE"
-ARCHIVE="$ROUND_DIR/$RELEASE.tar.gz"
+ARCHIVE="$ROUND_DIR/$RELEASE.7z"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance,baseline}
@@ -226,19 +228,17 @@ cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The research loop itself, from the fleet checkout checked at the top: workflows, prompts,
 # policy and leads, tracked files only so no secret can ride along (the workflows name
-# theirs by reference). Both open research questions folders are built from that commit.
+# theirs by reference). The open research questions folder is built from that commit.
 git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
 git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
 if ! uv run python scripts/round/orq.py --stage "$STAGE" --fleet "$FLEET"; then
     echo "refusing to package: the open research questions did not build" >&2
     exit 1
 fi
-for folder in "Open Research Questions" "开放性研究问题"; do
-    if [ ! -d "$STAGE/$folder" ]; then
-        echo "refusing to package: $STAGE/$folder is missing" >&2
-        exit 1
-    fi
-done
+if [ ! -f "$STAGE/Open Research Questions/Open Research Questions.docx" ]; then
+    echo "refusing to package: $STAGE/Open Research Questions/Open Research Questions.docx is missing" >&2
+    exit 1
+fi
 
 # The merge audit, produced before the report was filled so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
@@ -578,12 +578,9 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 
 # per-file checksums, then the archive, then the archive's own checksum
 ( cd "$STAGE" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS )
-# pigz writes the same gzip format on every core; bsdtar's own -z uses one.
-if command -v pigz >/dev/null 2>&1; then
-    tar -cf - -C output "$RELEASE" | pigz -6 > "$ARCHIVE"
-else
-    tar -czf "$ARCHIVE" -C output "$RELEASE"
-fi
+# On every core; `7z a` adds to an archive already there, so a rerun in the same minute starts clean.
+rm -f "$ARCHIVE"
+( cd output && 7z a -mmt=on "$PROJ/$ARCHIVE" "$RELEASE" > /dev/null )
 # A mail transfer service refuses an archive over 5 GB, and the masters carry his six year
 # files as released, so a round can reach that. Such an archive goes as a Drive link.
 TRANSFER_BYTES=5000000000
@@ -595,12 +592,12 @@ fi
 # The checksum file records the bare filename, not the build path: a reviewer
 # who downloads only the archive runs `shasum -c` beside it, and a stored path
 # of `submissions/...` makes that fail before they have checked anything.
-( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.tar.gz" > "$RELEASE.tar.gz.sha256" )
-ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.tar.gz.sha256")
+( cd "$ROUND_DIR" && shasum -a 256 "$RELEASE.7z" > "$RELEASE.7z.sha256" )
+ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.7z.sha256")
 
-# What stays in git after the tarball is git-ignored: the checksum, and a manifest
+# What stays in git after the archive is git-ignored: the checksum, and a manifest
 # naming the commit and the baseline. The report and registers as sent are at that
-# commit, and the checksum proves a recovered tarball is the one that was sent, so no
+# commit, and the checksum proves a recovered archive is the one that was sent, so no
 # copy is kept. Rebuilding a superseded round is `git checkout <commit>` then
 # `just reproduce deliver && just ship package`.
 {
@@ -608,7 +605,7 @@ ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.tar.gz.sha256")
     echo "built        $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
     echo "commit       $(git rev-parse HEAD)"
     echo "baseline     $MARKER"
-    echo "archive      $RELEASE.tar.gz"
+    echo "archive      $RELEASE.7z"
     echo "sha256       $ARCHIVE_SHA"
     echo "bytes        $(wc -c < "$ARCHIVE" | tr -d ' ')"
     echo "files        $(find "$STAGE" -type f | wc -l | tr -d ' ')"
@@ -625,10 +622,10 @@ Delivery archive ready, in $ROUND_DIR/
 
   filename   $(basename "$ARCHIVE")
   size       $(du -h "$ARCHIVE" | cut -f1) ($(wc -c < "$ARCHIVE" | tr -d ' ') bytes)
-  format     tar + gzip (extract: tar -xzf $(basename "$ARCHIVE"))
+  format     7z (extract: 7z x $(basename "$ARCHIVE"))
   sha256     $ARCHIVE_SHA
   contents   $(find "$STAGE" -type f | wc -l | tr -d ' ') files, unpacking to $RELEASE/
 
 Tracked beside it: MANIFEST.txt and the .sha256.
-The tarball itself is git-ignored. Add the round's row to docs/registers/rounds.md.
+The archive itself is git-ignored. Add the round's row to docs/registers/rounds.md.
 EOF

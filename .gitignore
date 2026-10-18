@@ -29,8 +29,9 @@ output/
 *.warc
 *.warc.gz
 
-# A round's tarball stays out; its small records stay in, regenerable from MANIFEST.txt's commit.
+# A round's archive stays out; its small records stay in, regenerable from MANIFEST.txt's commit.
 submissions/**/*.tar.gz
+submissions/**/*.7z
 # Manifests `just verify raw` writes at the root.
 submissions/SHA256SUMS
 submissions/SHA256SUMS.stat

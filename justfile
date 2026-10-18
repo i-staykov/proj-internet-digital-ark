@@ -1352,7 +1352,7 @@ ship stage="all" *args:
     [ -f local.env ] && . ./local.env
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
-    newest_stage() { ls -d output/DomainDataCollectionTask_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
+    newest_stage() { ls -d output/KnowledgeDiscoveryCompetition_Submission_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
     # His release on disk, so verify runs the checks against his files that the archive leaves out.
     his_release() { uv run python -c "from ark.baseline import baseline_dir; print(baseline_dir().resolve())" 2>/dev/null; }
 
@@ -1478,7 +1478,7 @@ ship stage="all" *args:
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
         echo "  docx SOURCE      one markdown report into .docx"
-        echo "  orq [DIR]        both research-questions folders into DIR (default"
+        echo "  orq [DIR]        the research-questions folder into DIR (default"
         echo "                   \$TMPDIR/orq), never output/ or submissions/, and the page count"
         echo "  draft [--write]  the mail draft, printed unless --write"
         echo ""
@@ -1510,7 +1510,7 @@ ship stage="all" *args:
         uv run python scripts/round/build_report_docx.py "$1" --keep-markdown
         ;;
     orq)
-        # Both research-questions folders alone, to read before a ship. orq.py refuses a
+        # The research-questions folder alone, to read before a ship. orq.py refuses a
         # target under output/ or submissions/, so a look never lands in a delivery.
         dest="${1:-${TMPDIR:-/tmp}/orq}"
         uv run python scripts/round/orq.py --preview "$dest" || exit 1

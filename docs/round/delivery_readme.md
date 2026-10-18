@@ -10,8 +10,8 @@ Beside the download, then inside the extracted folder, with Python 3.10 or newer
 [`uv`](https://docs.astral.sh/uv/). The first line prints the sha256 given in the mail.
 
 ```
-shasum -a 256 [ARCHIVE].tar.gz
-tar -xzf [ARCHIVE].tar.gz && cd [ARCHIVE]
+shasum -a 256 [ARCHIVE].7z
+7z x [ARCHIVE].7z && cd [ARCHIVE]
 B=/path/to/merge261008-3  # your release, not shipped back; baseline/README.txt gives its sha256
 HIS=$B bash verify.sh
 ```
@@ -99,7 +99,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `experience-summary.md`, `findings.md` | what worked and what did not; the findings with their measurements |
 | `metric-explained.md`, `equivalent_english_domain_calculator/` | the metric, and your calculator, unmodified |
 | `sources.md`, `sources-closed.md` | every source tried: those used, with their download link, and those dropped, with the measurement that ruled each out |
-| `Open Research Questions/`, `开放性研究问题/` | section IV-A: `Open Research Questions.docx` with each test's code, log, sample and screenshots; the same answers as plain text |
+| `Open Research Questions/` | section IV-A: `Open Research Questions.docx` with each test's code, log, sample and screenshots |
 | `journals/`, `logs/`, `seeds/` | the raw response of every query (`journals/README.txt` names the sets left out on size), run logs, seed lists |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | the checks above |
 
