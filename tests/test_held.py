@@ -585,6 +585,26 @@ def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     assert _snapshot(tmp_path) == before
 
 
+@pytest.mark.skipif(shutil.which("7z") is None, reason="7z not installed")
+def test_a_7z_release_goes_in_like_a_zip(run, tmp_path):
+    """His 7z holds the marker folder at its root and stamps UTC, read back in his clock."""
+    _bench(tmp_path)
+    staged = _tree_on_disk(tmp_path / "staging7z" / "merge261231-2")
+    for path in (*staged.iterdir(), staged):
+        os.utime(path, (1798741860, 1798741860))  # 2026-12-31 18:31 UTC
+    his = tmp_path / "incoming/KnowledgeDiscoveryCompetition.7z"
+    subprocess.run(
+        ["7z", "a", his, staged.name], cwd=staged.parent, check=True, capture_output=True
+    )
+    assert intake.released_at(his, staged.name, None) == "2026-12-31 10:31"
+    run(intake, str(his))
+    tree = tmp_path / "ding/KnowledgeDiscoveryCompetition" / staged.name
+    current = json.loads((tmp_path / "baseline.json").read_text())["current"]
+    assert (current["directory"], current["reviewer_pairs"]) == (str(tree), sum(LINES.values()))
+    assert _rows(tmp_path)[staged.name]["artifact"] == his.name
+    assert releases.verify_trees({tree.name: [tree]}, {tree.name: [tmp_path / "ding" / his.name]})
+
+
 # **Seeding.** `ark seed` queues only the names nothing dates, `ark seed-pool` ships the raw
 # hostnames and URLs held evidence names, and the work queue hands out what was queued.
 

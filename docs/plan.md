@@ -59,7 +59,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
-- `intake.py` reads a 7z release.
 - One archive `KnowledgeDiscoveryCompetition_Submission_{time}_{name}.7z`, multithreaded, holding
   only `Open Research Questions/Open Research Questions.docx` for the answers; names in README,
   report and mail; lands the 2026-10-16 row of brief_amendments.md.
