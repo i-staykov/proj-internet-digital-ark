@@ -21,7 +21,7 @@
 # lives only in prose breaks in a shipped archive.
 #
 # His release does not ship back to him. The checks that read it (ISC, extended years, D4) take
-# its folder from HIS and SKIP without it: HIS=/path/to/merge261008-3 bash verify.sh
+# its folder from HIS and SKIP without it: HIS=/path/to/merge261016 bash verify.sh
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
