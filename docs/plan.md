@@ -31,7 +31,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
 
-- `hooks/commit-msg` refuses a Claude co-author trailer and a "Generated with" line.
 - justfile: the free-space check moves into `ark ingest` (169 copies, about -150 lines); delete
   `expand`, the duplicate comment at :1046, the cdx_gap_hostgrain step and script (repoint
   laws.md:214), `docs/report-sendable.md` with its `--keep-markdown` at :1437.

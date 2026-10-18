@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Refuses AI attribution (AGENTS.md, Public): a Claude co-author trailer or a "Generated with"
+# line, also behind a '#', which `-m` and `-F` keep. A verbose commit's diff below the scissors is cut.
+# Install with `just hooks`.
+
+set -uo pipefail
+
+msg=$(sed '/^# -* >8 -*$/,$d' "$1")
+if grep -qiE '^[^[:alpha:]]*co-authored-by:.*(claude|anthropic\.com)' <<<"$msg" ||
+    grep -qiE '^[^[:alpha:]]*generated with' <<<"$msg"; then
+    echo "" >&2
+    echo "commit-msg: REFUSED. The message carries AI attribution, delete that line." >&2
+    exit 1
+fi
