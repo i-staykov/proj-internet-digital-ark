@@ -22,21 +22,17 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## First (master)
 
-1. Intake of merge261016: C's first line, then `just intake` on his 1016 archive, then the
-   release literals in `docs/report.template.md:10` and `docs/round/delivery_readme.md:15,60` by
-   hand. Until then no round 13 figure is quoted: `ROUND.md` measures against merge261008-3.
-2. Issues. Close #329 (done by #332), #321, #334, #331, then #320; #304 (shipped platform
-   host-years stay) and #305; fold #287 into #286, close #285 and #303; label #216 backlog.
-   ark-fleet: close #214 into #208, close #217; #222 and #223 wait on #221, #215 on #286.
+1. Issues, the owner's closes: #329 (done by #332), #321, #334, #331, #320, #304 (shipped platform
+   host-years stay), #305; fold #287 into #286, close #285 and #303; label ark-fleet #216 backlog,
+   close #214 into #208 and #217; #222 and #223 wait on #221, #215 on #286.
 
 ## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
 
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- On the owner's word: the 1,518 `legacy` rows of ark-fleet `ledger/2026-09.jsonl` go; one
-  supervised read.yaml run, then Leg at pace_days 7 (or every lens at weight 0); then the 509
-  October closed leads go, the 106 without a register row after #356.
+- The 509 October closed leads go, the 106 without a register row after #356; the block writer
+  carries the deciding figure (#357, ark-fleet #227), so an ask's `- potential:` counts both parts.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
