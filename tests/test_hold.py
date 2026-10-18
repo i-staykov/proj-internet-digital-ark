@@ -62,6 +62,7 @@ gh)
 ssh)
     # The command runs as a host would run it: its own home, its own ARK_STATE_DIR.
     [ -e "$S/offline" ] && exit 255
+    [ "$5" = down.test ] && exit 255
     for cmd; do :; done; unset ARK_STATE_DIR; HOME=$S/host; eval "$cmd" ;;
 uv)
     # Something arrived only when the test says so, for the first check. The slot check fails.
@@ -316,6 +317,17 @@ def test_the_launchd_template_names_a_script_that_exists_and_a_path_that_finds_t
     env = plist["EnvironmentVariables"]
     assert {"/opt/homebrew/bin", "/h/.local/bin"} <= set(env["PATH"].split(":"))
     assert env["HOME"] == "/h"
+
+
+def test_a_silent_host_borrows_no_answer_from_the_next(box):
+    hosts = {"ARK_HOSTS": "host.test:2 down.test:3"}
+    out = box.run(["bash", "scripts/harness/hold.sh", "on"], hosts)
+    assert out.returncode == 0 and "lane 3 host: unconfirmed" in out.stdout
+    status = box.run(["bash", "scripts/harness/hold.sh", "status"], hosts)
+    assert "NOT HELD  pause-platform: the lane 3 host did not answer" in status.stdout.splitlines()
+    lift = box.run(["bash", "scripts/harness/hold.sh", "off", "pause-platform"], hosts)
+    assert lift.returncode == 1 and "unconfirmed on the lane 3 host" in lift.stdout
+    assert not (box.shim / "host/ark/state/pause-platform").exists(), "the live host was asked"
 
 
 def test_an_unreachable_host_and_gh_leave_the_local_hold_whole(box):

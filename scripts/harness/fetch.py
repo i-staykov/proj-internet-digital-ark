@@ -28,8 +28,8 @@ Anything else exits 2 before a request is made.
 here: each hop reads the robots.txt of the host it points at, so a 302 from a host that
 permits us onto a host that disallows us is refused instead of fetched. Five hops maximum.
 
-**No request is the Wayback CDX API's, the first or a hop.** The CDX has three clients, two
-on the laptop and one on the VPS, and none of them is a fetch. A url that asks it, by any
+**No request is the Wayback CDX API's, the first or a hop.** The CDX has three clients, the
+walk lanes of `ARK_HOSTS`, and none of them is a fetch. A url that asks it, by any
 path it answers on and however its host or path is spelled, exits 8 before anything is
 asked of any host, its robots.txt included. `cdx_query` is the rule, and ark-fleet's
 `read.py` keeps a copy of it, so a read refuses such a url before it starts.

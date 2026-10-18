@@ -151,12 +151,14 @@ lift() {
         echo "$name: enabled, bootstrapped"
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
+        rc=0
         for h in ${ARK_HOSTS:-}; do
             host_flags "$h" remove "$name" && continue
             echo "$name: removed here, unconfirmed on the lane ${h##*:} host"
-            return 1
+            rc=1
         done
-        echo "$name: removed"
+        [ "$rc" = 0 ] && echo "$name: removed"
+        return $rc
     elif in_list "$name" "$WORKFLOWS"; then
         case "$(wf_state "$name")" in
         active) echo "$name: already active" ;;
@@ -205,11 +207,12 @@ cmd_off() {
 cmd_status() {
     local disabled remote="" name why rc=0 h block
     disabled=$(launchctl print-disabled "$DOMAIN" 2>/dev/null)
-    # One block per host, `lane N` first: the flags it holds, then `answered`.
+    # One block per host, `lane N` to `end`: the flags it holds, then `answered`; a silent
+    # host's block is empty and borrows nothing from the next.
     for h in ${ARK_HOSTS:-}; do
         remote+="lane ${h##*:}"$'\n'$(on_host "$h" 'd="${ARK_STATE_DIR:-$HOME/ark/state}"
             for f in '"$FLAGS"'; do [ "$(head -1 "$d/$f" 2>/dev/null)" = human ] && echo "$f"
-            done; echo answered')$'\n'
+            done; echo answered')$'\nend\n'
     done
     for name in $JOBS $FLAGS $WORKFLOWS; do
         why=""
@@ -222,7 +225,7 @@ cmd_status() {
             [ "$(head -1 "$STATE_DIR/$name" 2>/dev/null)" = human ] || why="no flag here"
             [ -n "${ARK_HOSTS:-}" ] || why="${why:+$why, }ARK_HOSTS is not set"
             for h in ${ARK_HOSTS:-}; do
-                block=$(printf '%s\n' "$remote" | sed -n "/^lane ${h##*:}\$/,/^answered\$/p")
+                block=$(printf '%s\n' "$remote" | sed -n "/^lane ${h##*:}\$/,/^end\$/p")
                 if ! printf '%s\n' "$block" | grep -qx answered; then
                     why="${why:+$why, }the lane ${h##*:} host did not answer"
                 elif ! printf '%s\n' "$block" | grep -qx -- "$name"; then

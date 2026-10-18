@@ -2,11 +2,11 @@
 
 `ARK_HOSTS` in local.env lists the collector hosts, `target:lane` each, the target an ssh alias
 or `login@host`. On each, cron starts its lane at boot and every 10 minutes under `flock`, from
-a shallow clone of `live`, with `--lanes` one past the highest lane, so the queue splits by hash
-the same way everywhere. `install` first seeds a lane's state (done set, page counts, request
-log) from `data/` here, so a lane that once ran elsewhere walks on rather than over. The tick
-pulls each lane's journals home and re-ranks the queue (`just sync`, step 7). The laptop runs
-no lane (AGENTS.md, Channel).
+a shallow clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits
+by hash the same way everywhere. `install` first seeds a lane's state (done set, page counts,
+request log) from `data/` here, so a lane that once ran elsewhere walks on rather than over.
+The tick pulls each lane's journals home and re-ranks the queue (`just sync`, step 7). The
+laptop runs no lane (AGENTS.md, Channel).
 """
 
 from __future__ import annotations
@@ -30,12 +30,19 @@ def hosts() -> list[tuple[str, int]]:
     out = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.split()
     if not out:
         raise SystemExit("set ARK_HOSTS in local.env, target:lane each")
-    return [(t.rpartition(":")[0], int(t.rpartition(":")[2])) for t in out]
+    found = [(t.rpartition(":")[0], int(t.rpartition(":")[2])) for t in out]
+    # The walk shards pages by hash modulo the lane count, so a gap orphans its share.
+    if sorted(lane for _, lane in found) != list(range(len(found))):
+        raise SystemExit("ARK_HOSTS lanes must be 0 to n-1, each once: a gap is never walked")
+    return found
+
+
+SSH = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes"]
 
 
 def run(target: str, cmd: str) -> str:
-    ssh = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes", target, cmd]
-    p = subprocess.run(ssh, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    argv = [*SSH, target, cmd]
+    p = subprocess.run(argv, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return (p.stdout + p.stderr).strip()
 
 
@@ -49,16 +56,18 @@ def cron(lane: int, lanes: int) -> str:
 
 
 def install() -> None:
-    lanes = max(lane for _, lane in hosts()) + 1
+    lanes = len(hosts())
     for target, lane in hosts():
         state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
-        run(target, f"mkdir -p {state} ark-walk-data/queue")
-        rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120"]
+        if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
+            print(f"lane {lane}: its host did not answer, nothing installed")
+            continue
+        rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
         seed = [DATA / "raw/cdx_walk" / f"lane{lane}" / f for f in STATE]
         if seed := [str(f) for f in seed if f.is_file()]:
-            subprocess.run([*rsync, *seed, f"{target}:{state}"], check=True)
+            subprocess.run([*rsync, *seed, f"{target}:{state}"])
         queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
-        subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"], check=True)
+        subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
         line = shlex.quote(cron(lane, lanes))
         print(f"lane {lane}:", run(target, (
             f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
