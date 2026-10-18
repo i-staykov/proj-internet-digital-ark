@@ -39,6 +39,7 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
 | before | read |
 |---|---|
 | pricing, hunting, quoting a figure | [docs/lore/laws.md](docs/lore/laws.md) |
+| picking up work | [docs/plan.md](docs/plan.md) |
 | running anything | [docs/ops/runbook.md](docs/ops/runbook.md) |
 | proposing a source, briefing an agent | `just find <term>` |
 | arguing what Ding accepts | [the brief](docs/brief/ding/project-brief.md), then `private/personal-context.md` |
