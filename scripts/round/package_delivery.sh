@@ -424,13 +424,35 @@ journal_paths() {
         -not -path 'data/raw/usenet_new_items/*' -not -path 'data/raw/usenet_news_items/*' \
         -not -path 'data/raw/usenet_rec_items/*' -not -path 'data/raw/usenet_sci_items/*' \
         -not -path 'data/raw/usenet_soc_items/*' -not -path 'data/raw/usenet_talk_items/*' \
-        -not -path 'data/raw/usenet_uk_items/*' -not -path 'data/raw/extended_spent/*' "$@"
+        -not -path 'data/raw/usenet_uk_items/*' -not -path 'data/raw/extended_spent/*'
 }
+# Of those, only the journals a shipped row cites by file name: a provenance evidence row's
+# source_file or an extended ledger row's. The rest back nothing in the archive.
+CITED=$(mktemp)
+uv run python - > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from output/provenance and the extended ledger" >&2; exit 1; }
+import csv
+from pathlib import Path
+
+from ark.db import connect
+
+query = "SELECT DISTINCT source_file FROM read_parquet('output/provenance/evidence.parquet')"
+cited = {Path(row[0]).name for row in connect(":memory:").execute(query).fetchall() if row[0]}
+with Path("output/extended_years/evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
+    cited |= {Path(row["source_file"]).name for row in csv.DictReader(fh)}
+print("\n".join(sorted(cited)))
+PY
+if [ ! -s "$CITED" ]; then
+    echo "refusing to package: no shipped row cites a journal" >&2
+    exit 1
+fi
+cited_journals() { journal_paths | awk -F/ 'NR == FNR { cited[$0]; next } $NF in cited' "$CITED" -; }
 if [ -z "${ARK_SLIM:-}" ]; then
-    journal_paths -print0 \
-        | tar -cf - --null -T - 2>/dev/null \
+    cited_journals \
+        | tar -cf - -T - 2>/dev/null \
         | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
     cat > "$STAGE/journals/README.txt" <<'EXCL'
+Only the journals a shipped evidence row or extended_years/evidence_ledger.csv names are here.
+
 Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on disk,
 2026-09-22): the RDAP walks (rdap/, 3.6 GB), the Usenet extraction and posting journals
 (usenet_addr/ 9.9 GB, usenet_bare/ 2.1 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/
@@ -546,8 +568,8 @@ done
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
 git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
 
-# Every journal on disk must be in the archive; the count catches a directory no glob names.
-ON_DISK=$(journal_paths | wc -l | tr -d ' ')
+# Every cited journal on disk must be in the archive; the count catches a directory no glob names.
+ON_DISK=$(cited_journals | wc -l | tr -d ' ')
 SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
 if [ -n "${ARK_SLIM:-}" ]; then
     if [ "$SHIPPED_JOURNALS" != "0" ]; then
@@ -566,8 +588,7 @@ SLIM
 elif [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
-    journal_paths -exec basename {} \; \
-        | sort > /tmp/ark_on_disk.txt
+    cited_journals | sed 's|.*/||' | sort > /tmp/ark_on_disk.txt
     find "$STAGE/journals" -name '*.jsonl.gz' -exec basename {} \; \
         | sort > /tmp/ark_shipped.txt
     comm -23 /tmp/ark_on_disk.txt /tmp/ark_shipped.txt >&2
