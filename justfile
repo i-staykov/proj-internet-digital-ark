@@ -1364,6 +1364,13 @@ vm what="status":
             -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=11GB/' local.env)
         grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
         printf '%s\n' "$env" | $SSH 'cat > ark-local.env'
+        # Its lane's state and the queue first, into the clone, so the cron the install writes
+        # walks on from this machine's done set rather than over it.
+        N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
+        $SSH "[ -d ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ark; mkdir -p ark/data/raw/cdx_walk/lane$N ark/data/queue"
+        RS="rsync -a --ignore-existing --timeout=120 -e ${SSH% $ARK_VM}"
+        $RS data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
+        $RS data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;

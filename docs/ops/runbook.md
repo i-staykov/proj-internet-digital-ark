@@ -90,7 +90,7 @@ above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
 service from `~/ark`, firing only once `data/ark.duckdb` is there, its own lane the `local`
 entry of its `ARK_HOSTS`, installed there and never from here; the fleet stays on GitHub
 Actions. `just vm install` sets it up from the laptop, `sudo -n` for the packages and linger,
-printing the two root commands when refused; `gh auth login` there (repo, workflow) is the
+printing the root command it needs when refused; `gh auth login` there (repo, workflow) is the
 owner's, once. `just vm status|log` read it.
 
 **The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
