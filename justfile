@@ -128,7 +128,7 @@ cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
 
 # The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
-# VPS walker's finished journals home, and call `just bank` only when `bank_trigger.py`
+# lanes' finished journals home, and call `just bank` only when `bank_trigger.py`
 # names something that arrived. It opens no store itself, so a quiet hour holds no writer.
 # launchd runs it hourly while the laptop is awake, and it is safe to run by hand.
 #
@@ -150,7 +150,7 @@ sync fleet="~/GitHub/ark-fleet":
     # one of the two ways of starting it.
     if ! bash scripts/harness/sync_lock.sh take $$; then exit 0; fi
     trap 'bash scripts/harness/sync_lock.sh drop' EXIT
-    # ARK_VPS for the journals below, and the store's memory limit, which local.env assigns
+    # ARK_HOSTS for the journals below, and the store's memory limit, which local.env assigns
     # without `export` and the bank's children need.
     [ -f local.env ] && . ./local.env
     [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
@@ -242,17 +242,21 @@ sync fleet="~/GitHub/ark-fleet":
             fi
         fi
     fi
-    # 7. The VPS walk lane's journals and request log home (a journal still open has a dot name,
-    #    which the glob skips), then the queue re-ranked from every lane and sent back. The calls
-    #    are bounded, so an unreachable VPS costs seconds rather than the hour.
-    : "${ARK_VPS:?set ARK_VPS}"
+    # 7. Each walk lane's journals and request log home from its host (a journal still open has
+    #    a dot name, which the glob skips), then the queue re-ranked from every lane and sent
+    #    back. The calls are bounded, so an unreachable host costs seconds rather than the hour.
+    : "${ARK_HOSTS:?set ARK_HOSTS in local.env, target:lane each}"
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes"
-    for d in cdx_suffix extended/ia_cdx_hostnames; do
-        rsync -a --ignore-existing --timeout=120 -e "$SSH" "$ARK_VPS:ark-walk-data/raw/$d/walk_*.jsonl.gz" data/raw/$d/ || true
+    for h in $ARK_HOSTS; do
+        for d in cdx_suffix extended/ia_cdx_hostnames; do
+            rsync -a --ignore-existing --timeout=120 -e "$SSH" "${h%:*}:ark-walk-data/raw/$d/walk_*.jsonl.gz" data/raw/$d/ || true
+        done
+        mkdir -p data/raw/cdx_walk/lane${h##*:} && rsync -a --timeout=60 -e "$SSH" "${h%:*}:ark-walk-data/raw/cdx_walk/lane${h##*:}/log.tsv" data/raw/cdx_walk/lane${h##*:}/ || true
     done
-    mkdir -p data/raw/cdx_walk/lane2 && rsync -a --timeout=60 -e "$SSH" "$ARK_VPS:ark-walk-data/raw/cdx_walk/lane2/log.tsv" data/raw/cdx_walk/lane2/ || true
     uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
-    rsync -a --timeout=60 -e "$SSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VPS:ark-walk-data/queue/" || true
+    for h in $ARK_HOSTS; do
+        rsync -a --timeout=60 -e "$SSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "${h%:*}:ark-walk-data/queue/" || true
+    done
     # 8. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
     #    runs under this lock; a red bank exits 1 and so does this tick.
     BANK_RC=0
@@ -1339,7 +1343,7 @@ ship stage="all" *args:
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
-# the CDX walk's lanes, unattended: install status remove
+# the CDX walk's lanes on the ARK_HOSTS machines, unattended: install status remove
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}
 

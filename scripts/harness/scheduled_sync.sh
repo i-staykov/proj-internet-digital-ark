@@ -24,7 +24,7 @@ cd "$(dirname "$0")/../.." || exit 1
 # reads.
 # Sourcing alone is not enough: `local.env` assigns without `export`, so the value is a
 # shell variable this wrapper can read and every `uv run` child still gets the default.
-# Only this one is exported, so the VPS address stays out of child environments.
+# Only this one is exported, so the hosts stay out of child environments.
 [ -f local.env ] && . ./local.env
 [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
