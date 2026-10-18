@@ -1,7 +1,7 @@
 """Dated website announcements from Usenet archives (the Giganews donation to IA).
 
 A post carries its own date and one or more website URLs, so the date is intrinsic to the
-artifact. **Under Section XIII a Usenet post is a textual mention, so this is a CANDIDATE
+artifact. **Under Section XIV a Usenet post is a textual mention, so this is a CANDIDATE
 lane: it cannot date a year in the annual masters.** It is scored on the candidate track at
 the same rate.
 

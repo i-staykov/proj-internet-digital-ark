@@ -305,7 +305,7 @@ def extended_split() -> tuple[tuple[int, Decimal], tuple[int, Decimal]]:
 def candidate_potential() -> tuple[int, Decimal]:
     """Size of the shipped candidate pool, priced but NOT claimed.
 
-    His section XI: "Report annual and active-candidate Equivalent-English contributions
+    His section XII: "Report annual and active-candidate Equivalent-English contributions
     separately." Separately is the whole instruction. A candidate carries no in-window
     evidence, so this is what the pool would be worth if every name in it were later dated,
     which is a ceiling on future work and not a contribution to this round. It is printed
@@ -349,7 +349,7 @@ def common_lines(sorted_a: Path, sorted_b: Path) -> set[str]:
 def www_alias_share() -> tuple[int, Decimal] | None:
     """How much of the hostname half is `www.<a name held that same year>`, or None.
 
-    These rows ship: his section XI makes a base hostname and a distinct subdomain hostname
+    These rows ship: his section XII makes a base hostname and a distinct subdomain hostname
     each an annual record. The share is still reported every round, because it is the one
     number that says whether a corpus was worth reading: a bulk CDX index re-read at hostname
     grain is 99.5% to 100.0% alias, so it adds names without adding sites, while a corpus of
@@ -467,7 +467,7 @@ def main() -> None:
     print(f"  registrable-only growth rate      : {r_ee / BASELINE_EE * 100:.6f}%")
     c_names, c_ee = candidate_potential()
     if c_names:
-        # Reported separately because his XI says separately, and never added to anything.
+        # Reported separately because his XII says separately, and never added to anything.
         # The CLAIM is the net-new pool, not the working set: he scores the candidate track
         # at the same rate as the annual one, so it is the number that has to be watched.
         print(

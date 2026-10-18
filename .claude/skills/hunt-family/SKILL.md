@@ -5,7 +5,7 @@ description: Open a new source family: pick a lens never tried, screen it agains
 
 # Hunt a new source family
 
-A bulk dated HOSTNAME corpus meeting XIII comes first; one lens per leg, never the same twice running; two empty hunts change the method, not the effort. `docs/brief/ding/project-brief.md` sections V, VI and IX list the
+A bulk dated HOSTNAME corpus meeting XIV comes first; one lens per leg, never the same twice running; two empty hunts change the method, not the effort. `docs/brief/ding/project-brief.md` sections V, VI and IX list the
 shapes Ding expects tried; `docs/lore/laws.md` holds the killers and the arithmetic.
 
 1. Kill it from the desk first: `just find <family>` searches both register pages. A family already

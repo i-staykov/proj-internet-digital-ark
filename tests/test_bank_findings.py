@@ -121,7 +121,7 @@ def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reas
     holding both. The row gives the fleet's `closed_reason` over the scout's prose, the lead's
     URL before the prose's, the host when there is no URL, and the class held to a clause."""
     leads, incoming = tmp_path / "incoming/run_1/leads", tmp_path / "incoming"
-    why = "XIII: hostname-grain class custodian is not a web method"
+    why = "XIV: hostname-grain class custodian is not a web method"
     host = {"artifact": {"host": "ftp.one.invalid"}, "closed_reason": why}
     scout(leads, "scout-a", "verdict: FIND, 12,000 EE projected\n", filed=True, **host)
     prose = "verdict: CLOSED\nartifact: <http://mirror.invalid/copy.gz>, the mirror's copy\n"

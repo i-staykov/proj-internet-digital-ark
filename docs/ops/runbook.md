@@ -7,7 +7,7 @@ Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 1. `just cycle` (the hook printed the brief); settle what it names that a program cannot decide.
 2. Pick one lens (the `hunt-family` skill). Before any request, ask the disk: `just find <term>`,
    `just screen --dating <self|typed|undated> "<what the source is>"`, a grep of `data/raw/`.
-3. Price what you find on both tracks, as Figures says (the brief, XIII; the `price-source` skill;
+3. Price what you find on both tracks, as Figures says (the brief, XIV; the `price-source` skill;
    `AGENTS.md`, The window). A candidate needs no approval: `uv run ark seed <file>` pools it.
 4. Write the source's one `docs/registers/sources.md` row: its link and what dates one item.
    A fleet find banks through the tick and the bank; your own through

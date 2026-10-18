@@ -40,7 +40,7 @@ STAMP_NAME = "export_stamp.json"
 CLAIM_COPY_DIR = Path("data/exports/claim")
 
 
-# **Spec XIII: the annual CLAIM is website evidence only**, from a row of ours capturing exactly
+# **Spec XIV: the annual CLAIM is website evidence only**, from a row of ours capturing exactly
 # the shipped name (`evidence_types.qualifies_sql`). The store keeps every row, because a row
 # that cannot date a year is still evidence and still a candidate; what this filters is what
 # we ASSERT. `evidence_types.WEB_METHODS` is the allowlist and an unknown method fails closed.
@@ -308,7 +308,7 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
               AND {_shipping_filter("d.", with_year=False)}
             ORDER BY 1
         """,
-        # **A hostname whose every year fails XIII is a candidate too.** XIII names the
+        # **A hostname whose every year fails XIV is a candidate too.** XIV names the
         # classes (mail and Usenet delivery headers, DNS listings, registry events, mentions)
         # and says to store them as source-specific candidate assets with provenance; the ISC
         # arm is that shape for one source. Same rule as the registrable arm: no web capture
@@ -349,7 +349,7 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
 def export_header_candidates(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
-    """XIII's source-specific candidate asset: every hostname in the claim whose only dated
+    """XIV's source-specific candidate asset: every hostname in the claim whose only dated
     evidence is a non-web class (a server-written mail or Usenet header, a DNS listing), with
     per-host provenance, a summary and the exclusion ledger of the same validation run. Runs
     after the pool is reconciled, so every name here is in `candidate_additions.txt`. An
@@ -378,7 +378,7 @@ def export_header_candidates(
                        acquisition_method, evidence_type, source_url)
         TO '{provenance_path}' (HEADER true)
     """)
-    # The exclusion ledger XIII asks of every validation run, for this collection: the rows
+    # The exclusion ledger XIV asks of every validation run, for this collection: the rows
     # the hostname gate quarantined, one per record, with the reason and the decision.
     ledger_path = netnew_dir / "header_candidates_exclusions.csv"
     conn.execute(f"""
@@ -387,7 +387,7 @@ def export_header_candidates(
                    'candidate' AS scope,
                    e.evidence_url AS source_file,
                    e.evidence_value AS record_location,
-                   'fails the hostname syntax or suffix rule (XIII gate)' AS exclusion_reason,
+                   'fails the hostname syntax or suffix rule (XIV gate)' AS exclusion_reason,
                    'lowercased at ingest; quarantined, not exported' AS normalization_decision,
                    e.evidence_url AS evidence_reference
             FROM hostname_year hy
@@ -418,7 +418,7 @@ def export_header_candidates(
     summary = {
         "baseline": CURRENT_BASELINE_MARKER,
         "track": "candidate",
-        "collection": "hostnames whose only dated evidence is a non-web class (Section XIII)",
+        "collection": "hostnames whose only dated evidence is a non-web class (Section XIV)",
         "counting_unit": "distinct exact hostname across years",
         "candidates": stats["header_candidates"],
         "equivalent_english": str(ee.quantize(Decimal("0.0001"))),
@@ -537,7 +537,7 @@ def export_all(
         # 29,327 of them were absent from his files, so shipping the pool as the contribution
         # would overstate the registrable half of this track by 78x.
         #
-        # **A registrable name whose every year fails XIII is a candidate, not nothing**:
+        # **A registrable name whose every year fails XIV is a candidate, not nothing**:
         # failing rows re-track to candidates. When the pool took only names with NO year at
         # all, a registry list ingested as `artifact_listing` earned a year the annual screen
         # then refused, and the name fell between the two tracks: the `.dk` zone list's

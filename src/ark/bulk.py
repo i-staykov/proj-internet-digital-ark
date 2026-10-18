@@ -119,7 +119,7 @@ def names_another_host_sql(alias: str) -> str:
 
 
 def qualifies_own_sql(alias: str) -> str:
-    """The XIII screen on a row's own subject: a web method's capture of the exact host."""
+    """The XIV screen on a row's own subject: a web method's capture of the exact host."""
     return f"coalesce(({web_evidence_sql(alias)}) AND {exact_host_expr(alias)} IS NOT NULL, false)"
 
 
@@ -350,7 +350,7 @@ def ingest_file(
         # one evidence row per (domain, year) from this file: a row that ships (a capture of
         # exactly that domain) first, then the lowest value; the struct keeps value, url and
         # location from the same staged row. A row of this class with the same subject and
-        # year skips it, whichever source wrote it, unless the held row fails XIII and the
+        # year skips it, whichever source wrote it, unless the held row fails XIV and the
         # new one passes: an exact capture joins a host-less one
         fresh = conn.execute(
             f"""

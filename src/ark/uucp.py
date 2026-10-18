@@ -6,7 +6,7 @@ from the Canadian domain registry. Such a posting declares itself in the file:
     #R Automatically generated from a .CA domain registration form
 
 and lists one entry per name keyed by `#N`, with the registrar's `received:` /
-`approved:` dates inside the entry. This is registry data, so under Section XIII it is
+`approved:` dates inside the entry. This is registry data, so under Section XIV it is
 a CANDIDATE lane: it never dates a year in the annual masters.
 
 **The provenance gate must not be skipped.** Two kinds of posting share the format.

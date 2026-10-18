@@ -274,7 +274,7 @@ def retract_status_cmd(
     """Take every master record off the 4xx and 5xx captures `status_audit.py` lists.
 
     A host-year with a 2xx or 3xx in the audited raw moves to a new evidence row at the
-    earliest one; the rest keep a row that now carries its error status, so they fail XIII
+    earliest one; the rest keep a row that now carries its error status, so they fail XIV
     and export as candidates. `--write` then reads the other web families' journals again
     for the host-years left on an error capture, so a year another family holds comes back.
     """

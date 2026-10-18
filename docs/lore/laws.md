@@ -5,8 +5,8 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 
 ## Evidence
 
-- XIII passes 9.3% of round 10's net-new registrables (32,228 of 346,389, 30,343 by CDX) and 75.2% of hostnames (2,674,952 of 3,554,784, 2,509,555 by sweep); `src/ark/evidence_types.py` `WEB_METHODS`.
-- A Wayback capture of a zone file dates the delegation, not a site: 255,211 of round 10's registrable failures are DK Hostmaster's; `tests/test_xiii_web_evidence.py`.
+- XIV passes 9.3% of round 10's net-new registrables (32,228 of 346,389, 30,343 by CDX) and 75.2% of hostnames (2,674,952 of 3,554,784, 2,509,555 by sweep); `src/ark/evidence_types.py` `WEB_METHODS`.
+- A Wayback capture of a zone file dates the delegation, not a site: 255,211 of round 10's registrable failures are DK Hostmaster's; `tests/test_xiv_web_evidence.py`.
 - Only `MASTER_TYPES` (five types) may back a year, `link_target` never, and the claim takes only `WEB_METHODS`, an allowlist where an unknown method fails closed into candidates (`src/ark/evidence_types.py`).
 - A capture whose evidence reads status 4xx or 5xx stays a candidate whatever its method; `nypw_timemap_non_200` is the one method admitted by status, its 2xx and 3xx rows only, since a wildcard vhost answers 404 for any name (`REDIRECT_METHOD`, `ERROR_STATUS`).
 - Of 1,800 ISC hostname-years he audited, 48 (2.67%) had an exact-host CDX record anywhere in 1996 to 2013, against 22.1% for one Apache list-month's `by` hosts and 84.2% for his own `www.` names; `just find isc_survey_hostnames`.
@@ -214,7 +214,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A journal of answers without the response cannot be re-read: 1,163 gap journals hold 2,984,321 answers with no host, unreadable at hostname grain (`src/ark/cdx.py` `hosts_in`).
 - 7,578,321 domain-years rest on CDX evidence with a timestamp and no host, so no host can be named; every CDX query asks `fl=timestamp,original` (`src/ark/cdx.py`).
 - A cleanup downstream of the writer does not hold: bare years inferred from `www.` captures, cleaned to zero, came back as 22,920 from the fold overnight (`src/ark/hostnames.py`).
-- XIII filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).
+- XIV filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).
 - `domain_language` stays in `src/ark/db.py`: shipped provenance exports hold its rows and `ark rebuild` loads them (`src/ark/provenance.py` `OPTIONAL_TABLES`).
 - `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it (`scripts/round/offsite.py`, `docs/registers/retention.md`).
 

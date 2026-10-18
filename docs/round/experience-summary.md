@@ -4,7 +4,7 @@
 index. Its 2002 to 2013 part, all walked, is 99.8% of the equivalent-English (EE) credited to your
 annual files, both parts: 14,516,509.9365 of 14,541,219.6635 EE, 6.932714773% growth on your 2002 to 2013 files.
 `sources.md` and `sources-closed.md` carry every source tested with its verdict; "the evidence
-rule" is section XIII of your specification of 6 October.
+rule" is section XIV of your specification of 16 October.
 
 ## 1. The reusable technique: walk a namespace, not a name
 

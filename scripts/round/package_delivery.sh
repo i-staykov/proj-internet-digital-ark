@@ -307,7 +307,7 @@ cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
 cp scripts/round/verify_isc_candidates.py "$STAGE/"
 # The source-saturation ledger his 0901 update requires, regenerated at packaging.
 uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
-# Section XIII's second source-specific candidate collection: hosts whose only dated evidence
+# Section XIV's second source-specific candidate collection: hosts whose only dated evidence
 # is a server-written header or another non-web class, with provenance and the run's ledger.
 mkdir -p "$STAGE/server_header_hostnames"
 cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
@@ -326,7 +326,7 @@ cp output/candidate_unverified.txt "$STAGE/candidates.txt"
 # in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
 cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
 cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
-# The separately labelled unparsed pool of his section XI: "Retain malformed but potentially
+# The separately labelled unparsed pool of his section XII: "Retain malformed but potentially
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.
 #

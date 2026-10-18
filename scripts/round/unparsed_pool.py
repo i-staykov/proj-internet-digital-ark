@@ -1,6 +1,6 @@
-"""The separately labelled unparsed pool his section XI asks for.
+"""The separately labelled unparsed pool his section XII asks for.
 
-XI: "Retain malformed but potentially recoverable values only in a separately labeled unparsed or
+XII: "Retain malformed but potentially recoverable values only in a separately labeled unparsed or
 normalization-review file." We counted those values and dropped them: `no_host`, `rejected_host`
 and `registrable_row` are stats in the ingest's log and nothing else.
 
@@ -9,7 +9,7 @@ kept, so a value the funnel refused is recoverable by re-reading them and applyi
 again. That matters practically: two collectors are mid-run for days at a time, and a version of
 this that changed `ingest_hostname_journal` would have meant editing code a live fold loop calls.
 
-The distinction XI draws is between malformed-but-recoverable and simply-not-a-hostname, and the
+The distinction XII draws is between malformed-but-recoverable and simply-not-a-hostname, and the
 funnel already knows which is which, so each row carries the reason:
 
 - `not_rfc1123`  underscores, over-long labels, a numeric TLD. The era really had these names, so
@@ -136,7 +136,7 @@ def main() -> int:
         fh.write("# value\treason\n")
         for value, why in sorted(seen):
             # Only the malformed classes are listed. `is_registrable` is not malformed, it is
-            # a registrable, and XI asks for a file of malformed-but-recoverable values.
+            # a registrable, and XII asks for a file of malformed-but-recoverable values.
             if why != "is_registrable":
                 fh.write(f"{value}\t{why}\n")
     tail = " (stopped on saturation)" if counts.get("stopped_on_saturation") else ""

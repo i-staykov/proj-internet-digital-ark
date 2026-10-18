@@ -20,7 +20,7 @@ The evidence wall is the registrable unit's, unchanged:
   naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
   answered, not a site, so those lanes keep their evidence and write no hostname year.
   Server-written headers are admitted by name: a dated message's `Received: ... by` clause
-  and its news-server twin. Spec XIII narrows what such a record may ENTER an annual file
+  and its news-server twin. Spec XIV narrows what such a record may ENTER an annual file
   with: only exact-host year-specific web evidence, the rest being candidates;
 - **a host dates itself, never its registrable**: `www.<parent>` and every other host below
   a registrable is its own record, so no lane here writes `domain_year`;
@@ -82,7 +82,7 @@ POLAND_METHOD = "poland_pl_extract_hostgrain"
 # The Internet Archive's per-item aggregate CDX beside the DARTMOUTH-NBER-RESEARCH-2017 ARCs:
 # a bulk IA CDX file, read at hostname grain for the items whose stamps fall in the window.
 # Its own source row because it is its own collection; the method is the allowlist's bulk-CDX
-# name, since a row is an IA capture with the URL and stamp retained, XIII's reference pattern.
+# name, since a row is an IA capture with the URL and stamp retained, XIV's reference pattern.
 DARTMOUTH_ARCS_SOURCE = "dartmouth_arcs_cdx_hostnames"
 DARTMOUTH_ARCS_METHOD = "bulk_cdx_file"
 
@@ -257,7 +257,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "usenet_header_fqdn_hostnames",
     }
 )
-# `www.<parent>` is a record here, per his section XI ("a valid base hostname and
+# `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
 # evidence"). The shape is native to his own corpus: 1,450,310 of his names begin `www.`,
 # 1,221,065 with the bare name in the SAME year file, 114,875 of those from nobody but him.
@@ -329,7 +329,7 @@ def _insert_host_rows(
     ships: str = "false",
 ) -> pa.Table:
     """One evidence row per (hostname, year) of `table` that its class holds no row naming that
-    host in that year, from any source; the rows inserted come back. A row passing XIII
+    host in that year, from any source; the rows inserted come back. A row passing XIV
     (`ships`) still joins a held one that fails it, so a 2xx or 3xx takes a year an error
     capture held; nothing joins one that passes.
 
@@ -1696,7 +1696,7 @@ def retract_error_captures(
     """Every hostname or domain year whose evidence row quotes a capture the status audit
     lists as a 4xx or 5xx. A host-year with a 2xx or 3xx capture in the audited raw of its
     family's group is repointed to a new evidence row at the earliest one; the rest keep
-    their row, which gets its error status and so fails XIII and exports as a candidate. A
+    their row, which gets its error status and so fails XIV and exports as a candidate. A
     parent year moves to the host's repointed capture, or to another passing master row of
     its own, or stays on the error row. `write` false counts and changes nothing, and a
     second `write` resumes one that stopped.

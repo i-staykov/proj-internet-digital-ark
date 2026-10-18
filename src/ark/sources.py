@@ -131,7 +131,7 @@ def parse_nypw_timemap_nonok(path: Path, stats: Counter) -> Iterator[BulkRecord]
     """Yield one record per in-window capture whose stored status is NOT 200.
 
     The lane `_parse_nypw` throws away. Each row keeps its status in `evidence_value`, so
-    the XIII screen admits a 2xx or 3xx capture and keeps a 404 or 500 a candidate
+    the XIV screen admits a 2xx or 3xx capture and keeps a 404 or 500 a candidate
     (`REDIRECT_METHOD`). A separate spec rather than a relaxation of the parser above,
     so the 200 lane stays the control group.
     """
@@ -1650,7 +1650,7 @@ def parse_ukwa_link_target_bare(path: Path, stats: Counter) -> Iterator[BulkReco
     """Yield the TARGET of each row that names a registrable itself, as `artifact_listing`.
 
     The brief: "UK Web Archive host/link graph records may serve as direct annual evidence when
-    their year association is explicit and documented", and XIII admits "a dated web link-graph
+    their year association is explicit and documented", and XIV admits "a dated web link-graph
     record that identifies the target hostname". A registrable is identified only when the
     target IS it: a `www.` or deeper target dates that host, never the name beneath it. The
     host stays in the value.

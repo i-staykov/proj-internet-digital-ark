@@ -186,7 +186,7 @@ def _track(evidence_class: str, grain: str = "") -> str:
     """Whether anything this lead writes can reach a shipped file today.
 
     **The GRAIN decides, not the class name**, since a class string such as
-    `artifact_listing` can head an AXFR transcript. Section XIII admits a host to the annual
+    `artifact_listing` can head an AXFR transcript. Section XIV admits a host to the annual
     files only through `WEB_METHODS`; a hostname-grain lead of any other class but the ISC
     survey's is "stranded", though `export.py`'s candidate pool also takes every hostname
     with no web capture in any year.
@@ -334,7 +334,7 @@ def render(rows: list[dict], send: str = "", missing: str = "") -> str:
         out += [missing, ""]
     groups: list[tuple[str, float, list[dict]]] = []
     if stranded:
-        title = "Give the XIII-excluded hostnames a candidate outlet"
+        title = "Give the XIV-excluded hostnames a candidate outlet"
         groups.append((title, sum(r["low"] for r in stranded), stranded))
     for name, members in classes.items():
         groups.append((f"Admit `{_cell(name, 80)}`", sum(r["low"] for r in members), members))
