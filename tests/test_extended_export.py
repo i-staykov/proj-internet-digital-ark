@@ -97,8 +97,10 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     with (out / "evidence_ledger.csv").open() as fh:
         row = next(r for r in csv.DictReader(fh) if r["host"] == "new.com")
     assert (row["year"], row["method"], row["line"]) == ("2002", "ia_cdx_domain_sweep", "3")
-    assert row["source_sha256"] == hashlib.sha256(journal.read_bytes()).hexdigest()
-    assert row["evidence_url"] == "https://web.archive.org/web/20020101000000/http://new.com/"
+    assert row["timestamp"] == "20020101000000"
+    source = next(i for i in manifest["inputs"] if i["path"] == row["source_file"])
+    assert source["sha256"] == hashlib.sha256(journal.read_bytes()).hexdigest()
+    assert source["replay"] == "https://web.archive.org/web/{ts}/{url}"
     assert ext.stale(out) == []
     journal.write_bytes(_journal(ROWS[:2]))
     assert ext.stale(out), "a changed input makes the export stale"
@@ -125,15 +127,17 @@ def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported,
     done = run(pack, tmp_path)
     assert done.returncode == 0, done.stderr
     shipped = tmp_path / "stage/extended_years"
-    for f in shipped.glob("*.txt"):  # ours under the brief's name; his never ship back
-        assert f.read_bytes() == (shipped / "additions" / f.name).read_bytes()
-    assert list(shipped.glob("*.txt")), "extended_years/YYYY.txt ships"
+    for f in (tmp_path / "output/extended_years/additions").glob(
+        "*.txt"
+    ):  # once, as the brief names it
+        assert f.read_bytes() == (shipped / f.name).read_bytes()
+    assert list(shipped.glob("*.txt")) and not (shipped / "additions").exists()
     done = run(check, tmp_path / "stage")
     assert "SKIP  2 additions" in done.stdout and "HIS" in done.stdout, done.stdout + done.stderr
     done = run(check, tmp_path / "stage", HIS=str(his))
     assert "PASS  2 additions" in done.stdout, done.stdout + done.stderr
     # one line of his slipped into the additions
-    (shipped / "additions/2003.txt").write_bytes(text(["fine.info", "his.org"]))
+    (shipped / "2003.txt").write_bytes(text(["fine.info", "his.org"]))
     done = run(check, tmp_path / "stage", HIS=str(his))
     assert "FAIL" in done.stdout and "repeats 1 lines of" in done.stdout, done.stdout
     (his / "2002.txt").write_bytes(text(HIS[2002] + ["zzz.com"]))
