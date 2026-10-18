@@ -1,94 +1,71 @@
 # Experience summary
 
-**Deliverable D2 of the specification.** What worked, what did not, the yields and the limits.
-`sources.md` and `sources-closed.md` beside this carry every source tested, one row each with its
-verdict; `findings.md` carries the three results in full. "The evidence rule" is section XIII of
-your specification of 6 October; EE is equivalent-English; "our database" is the evidence store
-every figure here is measured against.
+**Deliverable D2.** One method made round 12: the public-suffix walk of the Internet Archive CDX
+index. Its 2002 to 2013 part, all walked, is 99.8% of the equivalent-English (EE) credited to your
+annual files, both parts: 14,516,509.9365 of 14,541,219.6635 EE, 6.932714773% growth on your 2002 to 2013 files.
+`sources.md` and `sources-closed.md` carry every source tested with its verdict; "the evidence
+rule" is section XIII of your specification of 6 October.
 
-## 1. The reusable technique
+## 1. The reusable technique: walk a namespace, not a name
 
-**Price what is already held, or already dismissed, at the grain that ships.** Three re-readings
-that cost no new discovery paid 168,184 EE:
+One `matchType=domain` request on a public suffix such as `co.uk` returns every captured host
+beneath it, in disjoint pages (`co.uk` is 3,387,186 index blocks, 339 requests). We keep root URLs
+answering 2xx or 3xx, one row per exact (host, year), and drop what your file for that year holds.
+One answer names thousands of hosts: unwalked 2002 to 2013 pages paid 1,354 EE a request
+(`scripts/engines/cdx_extended_walk.py`).
 
-| what was re-read | what the first reading had discarded | what it paid |
-|---|---|--:|
-| Dartmouth NBER ARCS per-item CDX | the captured hosts beneath registrable domains that were all held | 83,868 EE |
-| the whole CDX of one Internet Archive storage node, 57.6 GB, priced at 0 from its first lines | the named hosts: the index sorts IP-literal keys first, so a head sample sees none | 50,722 EE |
-| our candidate-pool rule, which took only names with no dated year | 189,251 `.dk` registrable domains whose only dated year came from a registry zone list, a class the evidence rule keeps out of the annual files, so they shipped in neither file | 33,594 EE |
+## 2. What worked, and its measured yield
 
-**Exhaust the artifact you already hold before looking for another one.** It needs no licence and
-no bandwidth, and the database is its own control.
-
-## 2. What worked
-
-- **Unattended admission under a rule fixed in advance** (class eligible for the annual files under
-  the evidence rule, machine stamp inside the artifact, terms read in full, invariants pass)
-  admits a bulk CDX collection without a request; a hostname-grain header class parks for a
-  written decision.
-- **Refusing at filing what cannot ship.** A hostname-grain lead whose class is not web evidence is
-  refused when filed, with the reason (15 of 18 open proposals measured were such classes); the
-  search is weighted toward capture index files.
-- **Archive clients judged by the index files they write, not by whether the process is alive.**
-- **Pricing before building.** Eight header-class artifacts were fetched and priced in 2.5 hours at
-  14 to 9,537 EE each; none was built into a collector, because none could ship.
+- **The public-suffix walk:** 14,516,509.9365 EE credited, 1,354 EE a request.
+- **Dartmouth NBER ARCS per-item CDX, read at hostname grain:** 83,868 EE, 20.6 EE per megabyte.
+- **Whole-node Internet Archive CDX `host_cdx_ia600702`, read whole:** 50,722 EE, 0.9 EE per
+  megabyte.
+- **Candidate-pool rule fix, `.dk` names dated only by a zone list:** 33,594 EE, 37,300 EE an hour.
 
 ## 3. What did not work
 
-- **Server-written header hostnames, under the evidence rule.** The uk Usenet hierarchy: 8.47 GB,
-  2,569,006 host-carrying posts, 39,999 hostname-year rows, 0 shippable EE. Server-written headers
-  prove a host in service, not a website; the hosts they date go to the candidate collection,
-  never to annual records.
-- **Ranking the domains to sweep by captured hosts without dropping the giants.** A capture-derived
-  ranking put yahoo, google and t.co at the head, and the archive clients wrote nothing for two
-  hours under throttling. Drop the parents your files already hold at scale before queuing.
-- **The availability endpoint as a third client.** 450 asks in 25 minutes on candidate hostnames:
-  0 exact and 3 variant recoveries, 20 throttles, then a sustained 429; about 5 EE an hour.
-- **Closed with measurements**, so not worth repeating: the July 1995 NASA HTTP log (31,654
-  host-years, none in window at any grain); Crossref reference URLs (48,000 works, 15 EE, ceiling
-  1,450); 14 European registry homepages (stubs); the Australian Web Archive CDX (`Disallow: /`);
-  2,218 in-window Alexa and wide-crawl items whose indexes answer 401 (closed on the first 401, not
-  probed per item); the JISC UK host-linkage file, unservable past 2 GiB through replay.
-
-### Archive errors, and the guard each one set
-
-| error | what it changed |
-|---|---|
-| `curl` timed out part-way through a 57.6 GB item and `--retry` truncated the file | a never-truncating `curl -C -` loop that compares the byte count to the item's stated size before declaring it complete |
-| `HTTP 206` with 0 bytes past 2,147,483,647 on a replayed file | a replayed artifact is read only to 2 GiB and its tail is declared unservable, not missing |
+- **The walk on 1996 to 2001.** The same unwalked pages paid 2.4 EE a request there, against
+  1,354 for 2002 to 2013: the early web this index covers is already held. The node CDX measured
+  it: 88.8% of its 931,864 in-window host-years were in your release or our database. Round 12's 1996 to 2001 part
+  grew 0.034315905%.
+- **Server-written header hostnames, under the evidence rule.** The uk Usenet hierarchy cost
+  8.47 GB for 2,569,006 host-carrying posts and 0 shippable EE; at least 0.40% of 749,068
+  header-dated host-years carry an exact-host capture for the same year. 15 of 18 open leads
+  measured were such classes, so a lead of such a class is refused when filed.
+- **Asking name by name.** One `matchType=domain` per parent with no hostname paid 642 EE per
+  client-hour, one CDX question per undated pool domain 125.
+- **The availability endpoint.** 450 asks in 25 minutes: 0 exact recoveries, about 5 EE an hour.
 
 ## 4. Lessons
 
-1. **Net-new, post-split.** The node CDX holds 931,864 in-window host-years; 88.8% were already
-   held, and the 11.2% is the figure.
-2. **Re-price at the moment of admission and at the grain that ships.** A collection dismissed at
-   registrable grain paid 83,868 EE at hostname grain; a source priced at 8,343.6 EE on a stale
-   copy of the database measured 4.5 against the live one.
-3. **Measure a partitioned corpus per partition.** A 256 KB head read of 282 indexes found the 25
-   that carry the window before a gigabyte was fetched.
+1. **A first page overstates a walk.** Page 0 is about twice as dense as the whole, so a page 0
+   projection is an upper bound.
+2. **Distinct hosts per row set a page's worth, not TLD weight.** `co.uk` paid 16.0 EE per 1,000
+   rows at 61.5 rows a host, against 657.2 at 1.5 (42x).
+3. **The index answers only what is asked exactly.** Its filter is a search, so an unanchored
+   root filter matches every row, and a 10,000-block page is cut mid-stream: the walker anchors
+   its filter and re-asks a cut page as subpages.
+4. **Re-price at the grain that ships, against the live database.** Dartmouth priced 0 at
+   registrable grain and 83,868 EE at hostname grain; a source priced at 8,343.6 EE on a stale
+   copy measured 4.5 against the live one.
+5. **Check bytes, not exit codes.** `curl --retry` truncated a 57.6 GB item, and a replay serves
+   0 bytes past 2 GiB: downloads compare against the stated size, and a replayed tail is declared
+   unservable.
 
 ## 5. Limitations, and the direction of the error
 
-The counting unit is set by the evidence rule: registry events, mail and Usenet headers and
-textual mentions ship as source-specific candidate collections with provenance, and the annual files
-hold exact-host website evidence only. Both dating routes err toward omission: a capture proves
-presence, never absence.
-
-Two gaps against the evidence rule: the exclusion ledger is emitted for the server-header candidate
-collection's run only (`candidates_unparsed.txt` carries a reason per line for the rest), and the
-TLD gate is the public suffix list plus nine retired ccTLDs, not a documented IANA list. Both are
-one filter over the database.
+A bare TLD answers 403, so `.com` cannot be walked: the walk reaches the two-label suffixes
+(`co.uk`, `com.au`) of TLDs weighing 0.5 or more English. A capture proves presence, never
+absence, so every figure errs toward omission. The annual files hold exact-host website evidence
+only; registry events, mail and Usenet headers and textual mentions ship as candidate collections
+with provenance. The exclusion ledger covers the server-header collection only, and the TLD gate
+is the public suffix list plus nine retired ccTLDs, not a documented IANA list.
 
 ## 6. Recommended directions
 
-The 5% gate is 3.72 million EE in 1996 to 2001 or 9.80 million EE in 2002 to 2013, 5% of each part
-of your files on `merge261008-3`.
-
-1. **Bulk custodian capture indexes read whole at hostname grain** remain the best yield per
-   megabyte, and the public ones we know at archive.org are read. The same shape at other
-   custodians is the avenue left open.
-2. **Registry datasets that publish dates** score on the candidate track at about 3,100 EE per hour
-   of work; an annual record needs a capture beside them.
-3. **Exact-host captures beside the candidate collections** are the one route that turns candidate
-   EE into annual records; a CDX client carries it, and section 3 measured the availability endpoint
-   out.
+1. **2002 to 2013:** walk the remaining suffix pages; that part already clears the 3% gate.
+2. **1996 to 2001:** the walk is spent there, so growth needs year-resolved sources outside it:
+   capture indexes at other custodians read whole at hostname grain, the best yield per megabyte
+   we measured.
+3. **Registry datasets that publish dates** score on the candidate track at about 3,100 EE per
+   hour of work; an exact-host capture beside a candidate is the one route into an annual record.

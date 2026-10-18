@@ -222,9 +222,6 @@ cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
 cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
-# The round's research findings, kept out of the report so the report stays the five
-# figures and the receipts. The report links here rather than carrying the method essay.
-cp docs/round/findings.md "$STAGE/findings.md"
 cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
 
 # The research loop itself, from the fleet checkout checked at the top: workflows, prompts,
