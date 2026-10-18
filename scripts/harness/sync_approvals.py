@@ -10,10 +10,11 @@ remember to act on.
 else, because the project repository is public. The measurement, the condition that failed and
 the terms question go in the private fleet issue that links to it.
 
-**The filing floor is the bar, not a token.** A source under the bar is not worth a decision, so
-below it the register block is the whole record.
+**The gate is the bar, not a source.** Nothing is filed until the pending asks' `- potential:`,
+deciding EE as `standing_rule.py` prices it (part 1 plus part 2 at the gate ratio), together
+reach the 1996 to 2001 gate; below it the register blocks are the record, at it every ask files.
 
-    uv run python scripts/harness/sync_approvals.py [--dry-run] [--floor 5000]
+    uv run python scripts/harness/sync_approvals.py [--dry-run]
 """
 
 from __future__ import annotations
@@ -31,16 +32,16 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 from ark import approvals  # noqa: E402
+from ark.baseline import GATE_EE  # noqa: E402
 
 REGISTER = REPO / "docs/registers/approved-sources-list.md"
+GATE = float(GATE_EE["1996-2001"])
 PROJECT = "i-staykov/proj-internet-digital-ark"
 FLEET = "i-staykov/ark-fleet"
 # The fleet's other asks for the owner carry this label too, so an open issue under it is
 # this script's only when its title is one `Request.title` writes, which `_TITLE` matches.
 LABEL = "needs-owner"
 _TITLE = re.compile(r"^Approve (.+)\? [\d,]+ EE$")
-# The standing bar for a lead worth a decision.
-DEFAULT_FLOOR = 5_000.0
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
 # The reasons `fleet_request.py` writes into a block the standing rule parks.
 _PARKED = re.compile(r"^-\s*parked:\s*(.+)$", re.M)
@@ -83,27 +84,28 @@ class Request:
         return f"Approve {self.source}? {self.potential:,.0f} EE"
 
 
-def blocks(text: str) -> dict[str, str]:
-    """Each request block, keyed by its source name."""
-    out: dict[str, str] = {}
+def blocks(text: str) -> dict[tuple[str, str], str]:
+    """Each request block, keyed by its source name and evidence type."""
+    out: dict[tuple[str, str], str] = {}
     for chunk in re.split(r"\n(?=### )", text):
         if not chunk.startswith("### "):
             continue
-        head = chunk[4:].split("\n", 1)[0]
-        out[head.split("/")[0].strip()] = chunk
+        source, _, etype = chunk[4:].split("\n", 1)[0].partition("/")
+        out[(source.strip(), etype.strip())] = chunk
     return out
 
 
-def requests(floor: float) -> list[Request]:
-    """Pending sources at or above the floor, with the figures their block carries."""
+def requests() -> list[Request]:
+    """The pending sources a human can settle, each with its block's figure; a block without
+    one is not yet an ask."""
     text = REGISTER.read_text(encoding="utf-8")
-    by_source = blocks(text)
+    by_head = blocks(text)
     out: list[Request] = []
     for approval in approvals.pending(REGISTER):
-        block = by_source.get(approval.source_name, "")
+        block = by_head.get((approval.source_name, approval.evidence_type), "")
         found = _POTENTIAL.search(block)
         potential = float(found.group(1).replace(",", "")) if found else 0.0
-        if potential < floor:
+        if not potential:
             continue
         reason = _FAILED.search(block)
         parked = _PARKED.search(block)
@@ -317,12 +319,13 @@ def raise_issue(request: Request, pr_url: str, dry_run: bool) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run", action="store_true", help="say what it would do, change nothing")
-    ap.add_argument(
-        "--floor", type=float, default=DEFAULT_FLOOR, help="EE below which nothing is filed"
-    )
     args = ap.parse_args(argv)
 
-    wanted = requests(args.floor)
+    wanted = requests()
+    total = sum(r.potential for r in wanted)
+    print(f"pending: {len(wanted)} asks, {total:,.0f} of {GATE:,.0f} EE to the gate")
+    if total < GATE:
+        wanted = []
     prs, issues = ({}, {}) if args.dry_run else (open_prs(), open_issues())
     decided = {a.source_name for a in approvals.load(REGISTER).values() if a.decision != "pending"}
     # Keyed on the source, not the whole title: the title carries the potential, and a block
@@ -361,9 +364,6 @@ def main(argv: list[str] | None = None) -> int:
                 ]
             )
             print(f"closed #{number}: {source}")
-
-    if not wanted:
-        print(f"nothing pending at or above {args.floor:,.0f} EE")
     return 0
 
 

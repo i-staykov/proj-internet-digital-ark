@@ -38,8 +38,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts/harness"))
 
 import duckdb  # noqa: E402
+from sync_approvals import requests  # noqa: E402
 
 from ark import db, export  # noqa: E402
 from ark.approvals import pending as pending_approvals  # noqa: E402
@@ -176,7 +178,7 @@ def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
     return rows
 
 
-def brief(fields: dict[str, str] | None, approvals: int, as_of: str | None = None) -> dict:
+def brief(fields: dict[str, str] | None, asks: list, as_of: str | None = None) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
     `gate_part` is the part with the smaller EE gap to its 3%, so `gate_percent >= gate_pct`
@@ -205,9 +207,14 @@ def brief(fields: dict[str, str] | None, approvals: int, as_of: str | None = Non
         }
         if as_of:
             snapshot["gate_as_of"] = as_of
+    waiting = {
+        "approvals": len(asks),
+        "ee": sum(r.potential for r in asks),
+        "gate_ee": float(GATE_EE["1996-2001"]),
+    }
     return snapshot | {
         "gate_pct": float(GATE_PCT),
-        "waiting_on_human": {"approvals": approvals},
+        "waiting_on_human": waiting,
         "pending_amendments": pending_amendments(),
     }
 
@@ -283,7 +290,7 @@ def build(full: bool = False) -> tuple[str, dict]:
         "**Source classes awaiting classification.** Ingest refuses these, so their journals sit",
         "on disk untouched until a `Decision:` line in",
         "`docs/registers/approved-sources-list.md` says",
-        "otherwise. Each one at or above the filing floor, unless it waits only on work, is also",
+        "otherwise. Once together they reach the gate, each one not waiting only on work is also",
         "an issue labelled `needs-owner` with a one-line pull request, which",
         "`scripts/harness/sync_approvals.py` files. Nothing is lost by leaving them; nothing",
         "enters an annual file while they wait.",
@@ -305,7 +312,7 @@ def build(full: bool = False) -> tuple[str, dict]:
         f"<!-- ark-round-state: {' '.join(f'{k}={v}' for k, v in state.items())} -->",
         "",
     ]
-    return "\n".join(parts), brief(parse_fields(figures), len(waiting), as_of)
+    return "\n".join(parts), brief(parse_fields(figures), requests(), as_of)
 
 
 def parse_state(text: str) -> dict[str, str] | None:

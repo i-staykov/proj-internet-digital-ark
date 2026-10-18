@@ -83,8 +83,8 @@ and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
 **Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
 `scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the
-ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park at or
-above its `--floor`; its merge (`AGENTS.md`, Git) approves it.
+ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park once
+the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 
 **The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on the VPS,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
