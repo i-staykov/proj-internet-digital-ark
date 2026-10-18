@@ -429,20 +429,22 @@ journal_paths() {
 # Of those, only the journals a shipped row cites by file name: a provenance evidence row's
 # source_file or an extended ledger row's. The rest back nothing in the archive.
 CITED=$(mktemp)
-uv run python - > "$CITED" <<'PY' || { echo "refusing to package: output/provenance names no journals" >&2; exit 1; }
+uv run python - > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from output/provenance and the extended ledger" >&2; exit 1; }
 import csv
 from pathlib import Path
 
 from ark.db import connect
 
 query = "SELECT DISTINCT source_file FROM read_parquet('output/provenance/evidence.parquet')"
-cited = {row[0] for row in connect(":memory:").execute(query).fetchall() if row[0]}
-ledger = Path("output/extended_years/evidence_ledger.csv")
-if ledger.is_file():
-    with ledger.open(newline="", encoding="utf-8") as fh:
-        cited |= {Path(row["source_file"]).name for row in csv.DictReader(fh)}
+cited = {Path(row[0]).name for row in connect(":memory:").execute(query).fetchall() if row[0]}
+with Path("output/extended_years/evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
+    cited |= {Path(row["source_file"]).name for row in csv.DictReader(fh)}
 print("\n".join(sorted(cited)))
 PY
+if [ ! -s "$CITED" ]; then
+    echo "refusing to package: no shipped row cites a journal" >&2
+    exit 1
+fi
 cited_journals() { journal_paths | awk -F/ 'NR == FNR { cited[$0]; next } $NF in cited' "$CITED" -; }
 if [ -z "${ARK_SLIM:-}" ]; then
     cited_journals \
