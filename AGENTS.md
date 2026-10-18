@@ -15,7 +15,8 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
 
 - **Public.** This repo is public; ark-fleet is private. No commit, PR, issue or comment here names
   a machine address, login, token value, local path, mail text or personal context. Nothing carries
-  AI attribution, `private/` never ships, big data never reaches git.
+  AI attribution, `private/` never ships, big data never reaches git, VPN config and keys live in
+  neither repo.
 - **Git.** `live` moves by PR, merged by the owner or, inside the tunable surface, the fleet's
   guard; only the tick and the round recipes push their generated files to it directly. Work in
   your own worktree, never switching or editing a shared clone.
