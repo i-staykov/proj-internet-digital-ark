@@ -29,6 +29,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - OpenPGP key creation dates the keypair, not the UID: of 4,225 Debian binding signatures, 47.6% bound the UID later, median two years, 0% earlier; `just find OpenPGP`.
 - A date dates the container, not the item, when republishing the source tomorrow would change it (`src/ark/sources.py` `_ZONE_SERIAL`).
 - Surviving fake hosts are typos of real ones (`mmembers.aol.com`, `home.mci20000.com`): no word list catches them, only a hand-judged sample rates them; `just find mmembers`.
+- Archived HTML carries transcription typos: about 40% of the names page expansion saw nowhere else were like `arvard.edu` for `harvard.edu`, so such a name takes the corroboration split.
 - Any name-shape filter over-catches: `bl.uk` is the British Library and `x.com` is real, so `src/ark/hostnames.py` `_VALID_HOST` tests structure only.
 - Munged addresses extract as hosts (`nospam.bigfoot.com`, `bigfoot.com.invalid`), more in his `prior_task` than ours; `just find nospam`.
 - A munged host found by two extractors is one artifact twice, not corroboration; `just find nospam`.
@@ -83,6 +84,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A target set recomputed live scored 24.2% where a fixed snapshot of the same 200 answers scored 59.7% (`src/ark/price_snapshot.py`).
 - `ark price-snapshot` exits 2 when its snapshot disagrees with its manifest (`src/ark/price_snapshot.py`).
 - A conditional rate taken off 725 journals, a proxy population, overstated the edge-year pilot 1.6x (`just price` prices a sample of the real items).
+- A share-first ranking spent 1,709 CDX queries on .edu, 97.2% English, for 5 hits.
 - Sweep order confounds rank against yield: on the platform-parent ranking, 198 swept parents gave rho +0.746 and 54 fresh ones rho -0.655; `just find ia_cdx_hostnames`.
 - A re-ranked queue's dense head is about 20 parents: 8 to 17 MB of compressed rows at the head, 0.2 to 2 MB by rank 50; two clients walk it in an hour; `just find ia_cdx_hostnames`.
 - EE per byte from a best-first head overstates the rest: 565 then 53 EE/MB (10.7x) on the domain-wide sweep, 722 then 134 EE/GB (5.4x) on Usenet alt; `just find usenet_alt`.

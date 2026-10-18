@@ -204,29 +204,3 @@ def read_seeds(lines: list[str]) -> list[tuple[str, bool]]:
         if url:
             seeds.append((url, curated))
     return seeds
-
-
-def split_by_corroboration(records: list[dict], known: set[str]) -> tuple[list[dict], list[dict]]:
-    """Split expansion records into the corroborated half and the rest.
-
-    The brief lets a curated directory page's capture date evidence every domain on it,
-    which is sound for the page and unsound for the parser: archived HTML carries
-    transcription typos, this route having produced `arvard.edu` from a `harvard.edu` link
-    plus `gov.edu` and `gintysuooly.com`, roughly 40% of never-before-seen names.
-
-    So a name some other source already attests stays curated and its capture date evidences
-    the year; a name appearing only here is emitted as an ordinary outbound link, which the
-    loader routes to the candidate pool. A statement about corroboration, not about the
-    page, and it discards nothing.
-    """
-    corroborated: list[dict] = []
-    uncorroborated: list[dict] = []
-    for record in records:
-        listed = record.get("domains") or []
-        seen = [d for d in listed if d in known]
-        unseen = [d for d in listed if d not in known]
-        if seen:
-            corroborated.append({**record, "domains": seen, "curated": True})
-        if unseen:
-            uncorroborated.append({**record, "domains": unseen, "curated": False})
-    return corroborated, uncorroborated
