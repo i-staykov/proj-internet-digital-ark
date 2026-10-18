@@ -227,6 +227,24 @@ UNPRICED = {"status": "no items to price", "ee": None, "fleet_program_ee": 7050.
 STORE, PROGRAM = ("store", 7000.0), ("program", 7050.0)
 
 
+def test_2002_to_2013_adds_at_the_ratio_of_the_gates(tmp_path):
+    incoming, _ = setup(tmp_path, lead=LEAD, price={"status": "priced", "ee": 0.0})
+    parts = {"1996-2001": {"ee": "0.0", "gate_ee": "300.0"}, "2002-2013": None}
+    program = incoming / "new-source" / "program_annual.json"
+    program.write_text(json.dumps({"parts": parts}), encoding="utf-8")
+    assert rule.confirmed_finds(incoming, []) == {}, "no part priced, no candidate"
+    parts["2002-2013"] = {"ee": "9000.0", "gate_ee": "900.0"}
+    program.write_text(json.dumps({"parts": parts}), encoding="utf-8")
+    got = rule.confirmed_finds(incoming, [])["new-source"]
+    assert (got["figure"], got["ee"]) == ("store", 3000.0)
+    parts["2002-2013"]["ee_hostname_years"] = "600.0"
+    program.write_text(json.dumps({"parts": parts}), encoding="utf-8")
+    store = incoming / "new-source" / "store_price.json"
+    store.write_text(json.dumps({"status": "priced", "ee": 0.0, "grain": "hostname"}))
+    got = rule.confirmed_finds(incoming, [])["new-source"]
+    assert got["ee"] == 200.0, "at hostname grain, part 2's hostname years"
+
+
 @pytest.mark.parametrize(
     ("price", "outcomes", "want"),
     [

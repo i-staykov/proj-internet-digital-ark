@@ -6,6 +6,8 @@ JSONL(.gz) rows `{"url", "timestamp", "status"?}`, one folder per source under
 `data/raw/extended/<source>/`. The folder names a source in `SOURCES`, which fixes its method
 and replay, and the register must approve it (`ark.approvals`), so a dataset never ships ahead
 of its decision: an unknown or unapproved folder refuses the run before a row is read.
+A fleet read's parts in `data/raw/fleet_read/<slug>/` join under the read's own source and the
+method their names carry, once the register decides that source; an undecided read waits.
 `--in SOURCE=GLOB` replaces the defaults, to price a dataset into a scratch `--out`.
 
 As the core's hostname ingest does, an error lane (`hostnames.error_lane`) dates nothing, and a
@@ -71,7 +73,10 @@ COLUMNS = _merge.COLUMNS
 
 OUT = Path("output/extended_years")
 # `*` takes each file's source from its folder's name.
-INPUTS = {"*": "data/raw/extended/*/*.jsonl*"}
+INPUTS = {
+    "*": "data/raw/extended/*/*.jsonl*",
+    "fleetread": "data/raw/fleet_read/*/fleetread_*.jsonl.gz",
+}
 # The capture sources a folder may name, each the core ingests as `cdx_timestamp`: its method,
 # and where a reader replays one of its captures. Anything else is not a capture and fails closed.
 EVIDENCE_TYPE = "cdx_timestamp"
@@ -85,6 +90,16 @@ SOURCES = {
 }
 # The capture's URL is on its journal line and the journal's sha256 in the manifest, so neither
 # repeats per row: the ledger is a third of the size.
+
+
+def capture(source: str, path: Path) -> tuple[str, str]:
+    """(method, replay) of one input: its source's in SOURCES, or a fleet read part's own
+    method, replayed on the Wayback as the store replays it."""
+    if hn.FLEETREAD_SOURCE.match(source):
+        return hn.fleet_read_source(path)[1], _WAYBACK
+    return SOURCES[source]
+
+
 LEDGER = ("year", "host", "method", "source_file", "line", "timestamp")
 RULE = (
     "a 2xx or 3xx capture of the exact host, stamped in the year, from an approved capture "
@@ -105,20 +120,28 @@ def rel(path: Path) -> str:
 
 def resolve_inputs(given: dict[str, str]) -> list[tuple[str, Path]]:
     """(source, journal) for every file the globs match, refused whole unless each source is
-    a capture source in `SOURCES` that the register approves."""
-    found = [
-        (Path(p).parent.name if s == "*" else s, Path(p))
-        for s, g in sorted(given.items())
-        for p in sorted(glob.glob(g))
-    ]
+    a capture source in `SOURCES` that the register approves; a fleet read's waits instead."""
+    found = []
+    for s, g in sorted(given.items()):
+        for p in sorted(glob.glob(g)):
+            try:
+                fleet = hn.fleet_read_source(Path(p)) if s == "fleetread" else None
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from None
+            found.append((fleet[0] if fleet else Path(p).parent.name if s == "*" else s, Path(p)))
+    undecided = set()
     for source in sorted({s for s, _ in found}):
-        if source not in SOURCES or SOURCES[source][0] not in WEB_METHODS:
+        fleet = hn.FLEETREAD_SOURCE.match(source)
+        if not fleet and (source not in SOURCES or SOURCES[source][0] not in WEB_METHODS):
             raise SystemExit(f"{source}: not a capture source in SOURCES, so it dates nothing")
         try:
             approvals.check(source, EVIDENCE_TYPE)
         except approvals.NotApproved as exc:
-            raise SystemExit(f"{source}: {exc}") from None
-    return found
+            if not fleet:
+                raise SystemExit(f"{source}: {exc}") from None
+            print(f"{source}: waits, {exc}", file=sys.stderr)
+            undecided.add(source)
+    return [(s, p) for s, p in found if s not in undecided]
 
 
 def stat_of(path: Path) -> dict:
@@ -155,8 +178,8 @@ def read_rows(inputs: list[tuple[str, Path]], rows_out: Path, drops: Counter) ->
             kept = seen.pop("kept", 0)
             drops.update(seen)
             described.append(
-                {"source": source, "method": SOURCES[source][0], "path": rel(path)}
-                | {"replay": SOURCES[source][1], "sha256": file_sha(path), "kept": kept}
+                {"source": source, "method": capture(source, path)[0], "path": rel(path)}
+                | {"replay": capture(source, path)[1], "sha256": file_sha(path), "kept": kept}
                 | ({"refused": refused} if refused else {})
                 | stat_of(path)
             )

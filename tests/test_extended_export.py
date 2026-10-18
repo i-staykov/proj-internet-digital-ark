@@ -106,6 +106,32 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert ext.stale(out), "a changed input makes the export stale"
 
 
+def test_a_decided_fleet_read_joins_and_an_undecided_one_waits(exported, monkeypatch):
+    ext, _, out, _, _, _ = exported
+    raw = out.parent / "fleet_read"
+    for slug, host in (("deep-read", "fleet.com"), ("pending-read", "wait.com")):
+        part = raw / slug / f"fleetread_bulk_cdx_file__{slug}_0001.jsonl.gz"
+        part.parent.mkdir(parents=True)
+        row = {"url": f"http://{host}/", "timestamp": "20030501000000", "status": "200"}
+        part.write_bytes(_journal([row]))
+
+    def decided(source: str, evidence_type: str) -> None:
+        if source == "fleet_pending_read_hostnames":
+            raise approvals.NotApproved("awaiting classification")
+
+    monkeypatch.setattr(approvals, "check", decided)
+    manifest = ext.export({"fleetread": str(raw / "*/fleetread_*.jsonl.gz")}, out / "fleet")
+    assert (out / "fleet/additions/2003.txt").read_text().split() == ["fleet.com"]
+    with (out / "fleet/evidence_ledger.csv").open() as fh:
+        (row,) = csv.DictReader(fh)
+    assert (row["method"], row["timestamp"]) == ("bulk_cdx_file", "20030501000000")
+    (source,) = manifest["inputs"]
+    assert (source["source"], source["replay"]) == (
+        "fleet_deep_read_hostnames",
+        "https://web.archive.org/web/{ts}/{url}",
+    )
+
+
 def _cut(script_name: str, start: str, end: str) -> str:
     body = (ROOT / "scripts/round" / script_name).read_text(encoding="utf-8")
     return "set -euo pipefail\n" + start + body.split(start, 1)[1].split(end, 1)[0]
