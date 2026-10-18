@@ -438,6 +438,8 @@ def cause(text: str, limit: int = 100) -> str:
         text = text[: limit + 1]
         stop = max(text.rfind(s) for s in (", ", "; ", " ("))
         text = text[:stop] if stop > limit // 3 else text.rpartition(" ")[0]
+    while text.count(")") > text.count("("):  # begun inside a parenthesis: that part goes
+        text = text[text.index(")") + 1 :].lstrip(" ,;:.")
     for mark in ("`", "**"):
         text = text[: text.rfind(mark)] if text.count(mark) % 2 else text
     text = text[: text.rfind("(")] if text.count("(") > text.count(")") else text
@@ -547,8 +549,8 @@ def ee_cell(f: dict) -> str:
     return f"fleet {f['ee']} EE, store not re-priced: {store.get('status') or 'no store price'}"
 
 
-# A row is an index entry read in a terminal, held to 500 characters. **A long cell is
-# TRUNCATED, and never replaced by a pointer** to another file that may go.
+# A `sources.md` row is held to 500 characters: a long method or probe cell is TRUNCATED,
+# never replaced by a pointer to a file that may go. `cause` keeps a closed row short.
 ROW_LIMIT = 500
 _CUT = "..."
 

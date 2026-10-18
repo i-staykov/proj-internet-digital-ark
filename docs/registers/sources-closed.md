@@ -376,7 +376,7 @@ replaces its row.
 | capture-index-files-eot-2004-2008-public-cdxj-cluster-summary-post-window-and-hub-robots-wall / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. | <https://eotarchive.s3.amazonaws.com/eot-index/collections/EOT-2008/indexes/cluster.summary> <s3://eotarchive> |
 | capture-index-files-general-open-data-hubs-opendatasoft-arcgis-splitgraph-quilt-commons-data-robots-and-type-wall / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. | <https://data.opendatasoft.com/explore/?q=wayback> <https://hub.huwise.com/pages/home/> |
 | capture-index-files-sourcegraph-file-level-cdx-regex-and-archiveorg-cdx-identifier-census-wall / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. archive.org holds one host_cdx item | <https://archive.org/advancedsearch.php?q=identifier%3A*cdx*+AND+mediatype%3A(web+OR+data> |
-| capture-index-files-wikimedia-uncovered-sister-wiki-externallinks-wayback-stamp-population-ceiling / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | 1.61 EE | CLOSED. 61 EE) | <https://dumps.wikimedia.org/enwikiquote/latest/enwikiquote-latest-externallinks.sql.gz> |
+| capture-index-files-wikimedia-uncovered-sister-wiki-externallinks-wayback-stamp-population-ceiling / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | 1.61 EE | CLOSED. also priced as a candidate, 1.61 EE | <https://dumps.wikimedia.org/enwikiquote/latest/enwikiquote-latest-externallinks.sql.gz> |
 | extraction-bands-archive-it-extraction-family-census-in-window-items-all-private-cdx-wall / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. | <https://archive.org/download/ARCHIVEIT-2697-EXTRACTION-XAB-00000/ARCHIVEIT-2697-EXTRACTION-XAB-00000.cdx.gz> |
 | extraction-bands-archive-it-extraction-item-sidecar-401-and-in-window-nber-census-closure / unclassified | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. |  |
 | extraction-bands-gwb-named-item-census-spn-outlinks-ars-and-nber-warcs-post-window-wall / bulk_cdx_file | 2026-10-10, fleet 20261010T0205Z | not priced | CLOSED. | <https://archive.org/advancedsearch.php?q=identifier%3ADARTMOUTH-NBER-RESEARCH-2017-warcs*&fl%5B%5D=identifier&fl%5B%5D=firstfiledate&fl%5B%5D=lastfiledate&fl%5B%5D=item_size&rows=500&output=json> <https://archive.org/about/terms.php> |
@@ -1045,7 +1045,7 @@ replaces its row.
 | dk-hostmaster-domains-txt-pre-2001-captures / registry_zone_list_wayback_capture | 2026-09-21, laptop | 0 EE | CLOSED. replay redirects for 1999-12-31 and 2000-12-31 both land on 20010110073500 | http://web.archive.org/web/20010110073500id_/http://www.dk-hostmaster.dk/domaincount/domains.txt |
 | jisc-ukwa-host-linkage-tail-beyond-2-gib / ukwa_host_link_graph | 2026-09-21, laptop re-test | 0 EE | CLOSED at the byte again. ranges from 2147483648 answer 206 with 0 bytes and a closed stream | https://web.archive.org/web/20200106181208id_/https://www.webarchive.org.uk/datasets/ukwa.ds.2/linkage/host-linkage.tsv.gz |
 | custodian-capture-indexes: discovery-route sweep, run 35547455999 / unclassified | 2026-09-21, fleet 20260921T0106Z | not priced | CLOSED. |  |
-| pre1996-utzoo-uucp-bang-path-grain-wall / unclassified | 2026-09-21, fleet 20260921T0106Z | not priced | CLOSED. 1) |  |
+| pre1996-utzoo-uucp-bang-path-grain-wall / unclassified | 2026-09-21, fleet 20260921T0106Z | not priced | CLOSED. |  |
 | unclaimeddomains-weekly-deleted-name-roster / registry-deletion roster published by a commercial expired-domain service, candi | 2026-09-21, fleet 20260921T0106Z | 2,264.1 EE | CLOSED. Measured 2264.0615 EE annual-arithmetic and 1870.7818 EE candidate against a 20000 EE floor | https://web.archive.org/web/20000929025531/http://www.unclaimeddomains.com/freesample.html/ |
 | custodian-capture-indexes-openwayback-replay-robots-wall / unclassified | 2026-09-21, fleet 20260921T0011Z | not priced | CLOSED. |  |
 | archived-directory-page-fetch-bound-bulk-ceiling / unclassified | 2026-09-21, fleet 20260920T2306Z | not priced | CLOSED. |  |
@@ -1068,7 +1068,7 @@ replaces its row.
 | custodian-capture-index-arquivo-textsearch-api-window-partition-sweep / custodian per-host per-year web-capture extract | 2026-09-20, fleet 20260920T1515Z | 26.0 EE | CLOSED. 25.9715 EE and 52 net-new pairs on the annual track, 192x under the lead's 5,000 floor | https://arquivo.pt/textsearch?q=portugal&from=19960101000000&to=20011231235959&maxItems=50 |
 | custodian-capture-index-robots-wall-cee-catalonia-sweep / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | CLOSED. |  |
 | custodian-capture-indexes-open-data-catalogue-and-pandora-title-route-sweep / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | CLOSED. |  |
-| pre-1996: the custodian route is dead at the source, and the window makes it price zero / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | CLOSED. 1) |  |
+| pre-1996: the custodian route is dead at the source, and the window makes it price zero / unclassified | 2026-09-20, fleet 20260920T1515Z | not priced | CLOSED. |  |
 | roads-subject-gateway-catalogue-rec-epoch-hostnames / catalogue record in a captured subject-gateway listing, dated by the gateway's o | 2026-09-20, fleet 20260920T1515Z | 55.8 EE | BLOCKED. Measured, not blocked |  |
 | law-webbase-2001-urls-hostname-grain / unclassified | 2026-09-20, fleet 20260920T1206Z | 0.0000 EE | CLOSED. | http://data.law.di.unimi.it/webdata/webbase-2001/webbase-2001.urls.gz |
 | custodian-capture-indexes-pywb-tld-enumeration-awa-ukwa-ukgwa-bac-nla-sweep / unclassified | 2026-09-20, fleet 20260920T0606Z | not priced | CLOSED. |  |
@@ -1105,7 +1105,7 @@ replaces its row.
 | academic-web-usage-logs-referer-and-origin-hostname-sweep / unclassified | 2026-09-17, fleet 20260917T1206Z | not priced | CLOSED. |  |
 | archiveorg-cdx-index-deposits-outside-the-web-collection / unclassified | 2026-09-17, fleet 20260917T0006Z | not priced | CLOSED. |  |
 | archiveorg-raw-mbox-received-by-relay-hosts / link_source (mail relay host, the Received: by clause alone, hostname grai | 2026-09-17, fleet 20260917T0006Z | 3,406.1 EE | CLOSED. Measured, not sampled: the whole 1996-2001 partition of the item; 5,554 net-new pairs and 3,406.0758 EE annual against merged260908, 32 percent under the 5,000 floor. |  |
-| registry-publications, leg 35156053937: big-register hunt outside the worked ccTLDs / unclassified | 2026-09-17, fleet 20260916T2306Z | not priced | CLOSED `title:(domain list) OR title:(registered domains) OR title:(whois database)`, 194 hits) |  |
+| registry-publications, leg 35156053937: big-register hunt outside the worked ccTLDs / unclassified | 2026-09-17, fleet 20260916T2306Z | not priced | CLOSED. no .it, .au, .nz or .fi register published names on dated rows |  |
 | openaire-data-europa-aggregator-sweep-outside-datacite-union / unclassified | 2026-09-16, fleet 20260916T1906Z | not priced | CLOSED. |  |
 | apnic-ftp-mailing-list-archives-received-by / unclassified | 2026-09-16, fleet 20260916T1806Z | not priced | CLOSED. |  |
 | listserv-notebooks-and-raw-mbox-routes-transport-closed / unclassified | 2026-09-16, fleet 20260916T1706Z | not priced | CLOSED. |  |
