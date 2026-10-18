@@ -4,15 +4,19 @@
 or a local path in a tracked file is published the moment the push lands. One scan covers
 those and the house bans on em and en dashes and on decision numbers; `tests/test_hygiene.py`
 proves it catches each, and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
-It does not catch `private/` text or big data.
+It does not catch `private/` text or big data. The machines `local.env` names are refused by
+their own strings, read from there and resolved through `ssh -G`, so no fixture can spell them.
 
 The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
 in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
 public host, which goes on the allowlist below with a comment saying why.
 """
 
+import argparse
 import ipaddress
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 from collections.abc import Iterable
@@ -85,6 +89,11 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
 # Frozen submissions are never edited, so they keep the decision numbers they were sent with.
 FROZEN = "submissions"
 
+# The local.env keys that name a machine, each value a whitespace-separated list of ssh
+# targets: `login@host` or an alias from the ssh config.
+HOST_KEYS = ("ARK_HOSTS", "ARK_VM", "ARK_VPS")
+_ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Z_]+)=(.*)$")
+
 # Every pattern above is written so that its own source line does not match it, which is
 # why the separators sit outside the character classes. Keep that true when editing one.
 
@@ -102,6 +111,36 @@ class Finding:
         return f"{self.path}:{self.line}: {self.rule}: {self.detail}"
 
 
+def local_hosts(env: Path) -> re.Pattern[str] | None:
+    """One pattern for every alias, host and address `env` names, or None with no such file
+    (CI, an unpacked archive).
+
+    A login is refused only with its host: the owner's contact address in every User-Agent
+    shares it. `ssh -G` only reads the config, so the hook stays offline.
+    """
+    if not env.is_file():
+        return None
+    targets: list[str] = []
+    for line in env.read_text(encoding="utf-8").splitlines():
+        match = _ASSIGNMENT.match(line)
+        if match and match.group(1) in HOST_KEYS:
+            targets += " ".join(shlex.split(match.group(2), comments=True)).split()
+    words: set[str] = set()
+    for target in targets:
+        words.add(target.rpartition("@")[2])
+        if not shutil.which("ssh"):
+            continue
+        cmd = ["ssh", "-G", target]
+        out = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True)
+        conf = dict(ln.split(" ", 1) for ln in out.stdout.splitlines() if " " in ln)
+        words.add(conf.get("hostname", ""))
+    words.discard("")
+    if not words:
+        return None
+    alternatives = "|".join(re.escape(w) for w in sorted(words, key=len, reverse=True))
+    return re.compile(rf"(?<![\w.-])(?:{alternatives})(?![\w-]|\.\w)")
+
+
 def text_of(path: Path) -> str | None:
     """The file's text, or None for a binary (git's own test: a NUL in the first 8000 bytes)."""
     data = path.read_bytes()
@@ -110,8 +149,11 @@ def text_of(path: Path) -> str | None:
     return data.decode("utf-8", errors="replace")
 
 
-def scan(paths: Iterable[Path]) -> list[Finding]:
-    """Every rule hit in these files, binaries skipped, in file then line order."""
+def scan(
+    paths: Iterable[Path], hosts: re.Pattern[str] | None = None, *, hosts_only: bool = False
+) -> list[Finding]:
+    """Every rule hit in these files, binaries skipped, in file then line order: with
+    `hosts_only` the local.env machines alone, for a repository with house rules of its own."""
     findings: list[Finding] = []
     for path in paths:
         text = text_of(Path(path))
@@ -119,6 +161,10 @@ def scan(paths: Iterable[Path]) -> list[Finding]:
             continue
         frozen = FROZEN in Path(path).parts
         for number, line in enumerate(text.splitlines(), 1):
+            if hosts and (hit := hosts.search(line)):
+                findings.append(Finding(Path(path), number, "local host", f"{len(hit[0])} chars"))
+            if hosts_only:
+                continue
             for rule, pattern, may_print in _RULES:
                 for match in pattern.finditer(line):
                     hit = match.group(0)
@@ -147,17 +193,26 @@ def tracked_files(root: Path) -> list[Path]:
     return [root / rel for rel in rels]
 
 
-def main() -> int:
-    """Scan the tracked tree, print one line per finding, non-zero exit on any."""
-    root = Path(
-        subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"], check=True, capture_output=True, text=True
-        ).stdout.strip()
-    )
-    files = tracked_files(root)
-    findings = scan(files)
+def main(argv: list[str] | None = None) -> int:
+    """Scan the tracked tree, or the files named (a commit message), print one line per
+    finding, non-zero exit on any."""
+    parser = argparse.ArgumentParser(prog="python -m ark.hygiene")
+    parser.add_argument("files", nargs="*", type=Path, help="scan these, not the tracked tree")
+    parser.add_argument("--env", type=Path, help="local.env of another checkout")
+    parser.add_argument("--hosts-only", action="store_true", help="only the local.env machines")
+    args = parser.parse_args(argv)
+    git = ["git", "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"]
+    out = subprocess.run(git, check=True, capture_output=True, text=True).stdout.split("\n")
+    root, common = Path(out[0]), Path(out[1])
+    files = [f.resolve() for f in args.files] or tracked_files(root)
+    # A worktree has no local.env of its own: the main checkout's, beside the common git dir.
+    hosts = local_hosts(args.env or common.parent / "local.env")
+    findings = scan(files, hosts, hosts_only=args.hosts_only)
     for finding in findings:
-        print(f"{finding.path.relative_to(root)}:{finding.line}: {finding.rule}: {finding.detail}")
+        where = (
+            finding.path.relative_to(root) if finding.path.is_relative_to(root) else finding.path
+        )
+        print(f"{where}:{finding.line}: {finding.rule}: {finding.detail}")
     if findings:
         print(
             f"\n{len(findings)} finding(s). Read each in context: a real leak is fixed and never "
@@ -166,7 +221,7 @@ def main() -> int:
             "in src/ark/hygiene.py with a comment saying why."
         )
         return 1
-    print(f"security-scan: clean over {len(files)} tracked files")
+    print(f"security-scan: clean over {len(files)} files")
     return 0
 
 

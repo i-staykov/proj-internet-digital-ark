@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from conftest import script
 
-from ark.hygiene import scan, tracked_files
+from ark.hygiene import local_hosts, scan, tracked_files
 
 ROOT = Path(__file__).resolve().parents[1]
 FLEET_LIST = ROOT / "tests" / "fleet_invoked_paths.txt"
@@ -65,6 +65,17 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
     assert "host login" in {f.rule for f in scan([probe])}, "a private-address login passed"
     allowed.write_text('STATUS = "== VPS (ark' + "@" + '203.0.113.7) =="\n')
     assert not scan([allowed]), "a documentation-range address is a legitimate fixture"
+
+
+def test_the_machines_local_env_names_are_refused(tmp_path) -> None:
+    """Alias and address by their own strings, word-bounded; a longer word passes."""
+    env, probe = tmp_path / "local.env", tmp_path / "probe.md"
+    env.write_text('ARK_VM=docs-vm\nexport ARK_VPS="someone' + "@" + '203.0.113.9"\n')
+    probe.write_text(
+        "ssh docs-vm\nat 203.0.113.9.\nmail someone" + "@" + "x\nok docs-vm2 203.0.113.90\n"
+    )
+    found = scan([probe], local_hosts(env), hosts_only=True)
+    assert [(f.line, f.rule) for f in found] == [(n, "local host") for n in (1, 2)]
 
 
 def test_no_script_shadows_a_standard_library_module() -> None:
