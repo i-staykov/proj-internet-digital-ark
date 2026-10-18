@@ -10,7 +10,7 @@ them. So their failures are the quiet kind:
    so `live` moves without this machine. A fast-forward-only pull is the whole fix:
    it takes the merge and refuses to invent one.
 3. **A second notification for the same crossing.** The gate issue says the round
-   is over 5%. Opened once it is information; opened hourly it is noise, and the
+   is over 3%. Opened once it is information; opened hourly it is noise, and the
    latch is deliberately two independent checks, a local ledger and the open-issue
    query, because either alone has a hole: the ledger cannot see an issue somebody
    closed by hand, and the query cannot see one that has been closed after shipping.
@@ -290,7 +290,7 @@ def gate(
 ) -> list[str]:
     """Open the gate issue on a crossing, once, and say what it did.
 
-    The figure is the gate line of `data/brief.json`, the part nearest its 5%, 1996 to 2001 or
+    The figure is the gate line of `data/brief.json`, the part nearest its 3%, 1996 to 2001 or
     2002 to 2013, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md
     prints it rather than measured a second time.
     """
@@ -298,7 +298,7 @@ def gate(
     # The gate counts against his release, so a shipped round reads over it until the next
     # release, and the latch below keys on the release alone: one crossing per release.
     percent = brief["gate_percent"]
-    target = float(brief.get("gate_pct", 5.0))
+    target = float(brief.get("gate_pct", 3.0))
     label = str(brief.get("round", "?"))
     # The brief carries the round number as a bare label ("8"), and the open-issue
     # query keys on the title, so the word belongs here and only here.
@@ -393,7 +393,7 @@ def main() -> None:
     pre.add_argument("--remote", default="origin")
     pre.add_argument("--no-pull", action="store_true", help="check only, stay offline")
 
-    ga = sub.add_parser("gate", help="open the gate issue once when the round crosses 5%%")
+    ga = sub.add_parser("gate", help="open the gate issue once when the round crosses 3%%")
     ga.add_argument("--repo", default=FLEET_REPO)
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
 

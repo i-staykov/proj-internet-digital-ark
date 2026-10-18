@@ -233,7 +233,7 @@ REGISTERS = {
         ("a re-run of the pricing cmd", ""),
         ("download decision. Then a rule on author_mail_host as an evidence class.", "class"),
         ("rule: whether a hostname in a FAQ body is master-eligible", "class"),
-        ("ask whether to send the round under the 5% gate", "send"),
+        ("ask whether to send the round under the 3% gate", "send"),
     ],
 )
 def test_only_a_class_or_the_send_is_asked(blocked, ask):
@@ -263,7 +263,7 @@ def test_the_send_is_the_gate_line_of_the_brief_and_never_a_guess(tmp_path, brie
 def test_the_page_asks_a_measured_class_and_the_send_never_the_store(tmp_path, monkeypatch, capsys):
     banked = {"t-line": True, "t-string": "true", "t-false": False}
     lines = [json.dumps({"kind": "outcome", "slug": s, "banked": b}) for s, b in banked.items()]
-    past = {"round": "Round 11", "baseline": "b1", "gate_percent": 5.2, "gate_pct": 5.0}
+    past = {"round": "Round 11", "baseline": "b1", "gate_percent": 5.2, "gate_pct": 3.0}
     files = {**REGISTERS, "brief.json": json.dumps(past), "ledger/2026-09.jsonl": "\n".join(lines)}
     for slug, extra in LEADS.items():
         doc = {"slug": slug, "status": "scouted", "evidence_class": "cdx_x", "grain": "registrable"}

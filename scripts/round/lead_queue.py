@@ -10,7 +10,7 @@ the send** (scripts/harness/standing_rule.py). A lead inside the standing size, 
 robots and class bounds is read and banked by the loop without asking, and a download, a
 terms page or a re-run is the loop's to settle, not his. So a lead is on the page only when
 it asks for a class nothing admits yet, and the send is where the round stands against the
-5% gate, read from `data/brief.json`.
+3% gate, read from `data/brief.json`.
 
 **Ranked on `ee_low`, not `ee_high`.** The high figure is a projection and has been wrong
 by five orders of magnitude at least once: `isc-domain-survey-free-editions` was scouted at
@@ -59,7 +59,7 @@ ASKS = (
         "class",
         re.compile(r"new (evidence )?class|evidence class|eligib|admissib|\brul(e|ing)\b", re.I),
     ),
-    ("send", re.compile(r"\bsend\b|\bsubmi(t|ssion)\b|5% gate", re.I)),
+    ("send", re.compile(r"\bsend\b|\bsubmi(t|ssion)\b|3% gate", re.I)),
 )
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -270,12 +270,12 @@ def _cell(text: str, width: int) -> str:
 
 
 def send_line(path: Path = BRIEF) -> str:
-    """The send, the one ask no lead carries: where the round stands against the 5% gate, read
+    """The send, the one ask no lead carries: where the round stands against the 3% gate, read
     from the brief the bank writes, the way `bank_hygiene.py gate` reads it: the gate line."""
     brief = _json(path)
     try:
         percent = float(brief["gate_percent"])
-        target = float(brief.get("gate_pct", 5.0))
+        target = float(brief.get("gate_pct", 3.0))
     except (KeyError, TypeError, ValueError):
         return "Not known here: `data/brief.json` is missing or carries no gate figure."
     label = str(brief.get("round", "?"))
