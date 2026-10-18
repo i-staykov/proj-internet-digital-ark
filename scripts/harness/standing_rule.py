@@ -22,8 +22,9 @@ one. The fleet's `class` clause is a different test, of a stream's grain and web
 program's figure on the pushed snapshot (`fleet_program_ee`) has agreed with it within 1% on
 the last ten finds booked as outcome lines in the fleet ledger; from then the program's figure
 decides for a find that has one, and the store re-price still decides for a find that has
-none. A confirmed FIND is a candidate when its deciding figure is a positive number, and the
-citation names which figure decided and its value.
+none. Either adds 2002 to 2013's EE from the program's annual price beside the find, times the
+ratio of the two parts' gates, as the fleet weighs it. A confirmed FIND is a candidate when that
+sum is a positive number, and the citation names which figure decided and the sum.
 
 **Why this is a program and not a judgement.** Every bound is a lookup: the fleet admitted the
 lead on every clause or it did not, the class has a master source in the register or it does
@@ -92,6 +93,18 @@ def _positive(value) -> bool:
     )
 
 
+def part_two(lead: Path) -> float:
+    """2002 to 2013's EE in `program_annual.json` beside the find, times the ratio of the two
+    parts' gates; 0 without it."""
+    parts = _json(lead / "program_annual.json").get("parts")
+    try:
+        ee, gate = (float(parts["2002-2013"][k]) for k in ("ee", "gate_ee"))
+        weight = float(parts["1996-2001"]["gate_ee"]) / gate
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+    return ee * weight if _positive(ee * weight) else 0.0
+
+
 def lead_of(incoming: Path, slug: str) -> dict:
     """The lead as the leg saw it, from the artifact rather than from the fleet clone.
 
@@ -128,6 +141,7 @@ def confirmed_finds(incoming: Path, outcomes: list[dict]) -> dict[str, dict]:
             continue
         figure = "program" if streak and _positive(store.get(FIELDS["program"])) else "store"
         ee = store.get(FIELDS[figure])
+        ee = (ee if _positive(ee) else 0.0) + part_two(lead)
         if not _positive(ee):
             continue
         out[slugify(lead.name)] = {
