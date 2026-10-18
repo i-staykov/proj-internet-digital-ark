@@ -140,8 +140,17 @@ def local_hosts(env: Path) -> re.Pattern[str] | None:
     words.discard("")
     if not words:
         return None
-    alternatives = "|".join(re.escape(w) for w in sorted(words, key=len, reverse=True))
-    return re.compile(rf"(?<![\w.-])(?:{alternatives})(?![\w-]|\.\w)")
+    # An address is not part of a longer dotted number (a full stop after it is prose); a name
+    # is caught with any label before or after it, so sub.<host> and <host>.extra are refused.
+    addresses = [w for w in words if IPV4.fullmatch(w)]
+    names = sorted(words - set(addresses), key=len, reverse=True)
+    parts = []
+    if addresses:
+        joined = "|".join(map(re.escape, addresses))
+        parts.append(rf"(?<!\d)(?<!\d\.)(?:{joined})(?!\d)(?!\.\d)")
+    if names:
+        parts.append(rf"(?<![\w-])(?:{'|'.join(map(re.escape, names))})(?![\w-])")
+    return re.compile("|".join(parts), re.IGNORECASE)
 
 
 def text_of(path: Path) -> str | None:
@@ -209,7 +218,10 @@ def main(argv: list[str] | None = None) -> int:
     root, common = Path(out[0]), Path(out[1])
     files = [f.resolve() for f in args.files] or tracked_files(root)
     # A worktree has no local.env of its own: the main checkout's, beside the common git dir.
-    hosts = local_hosts(args.env or common.parent / "local.env")
+    env = args.env or common.parent / "local.env"
+    hosts = local_hosts(env)
+    if hosts is None:
+        print(f"local host rule: off, {env.name} names no machine here")
     findings = scan(files, hosts, hosts_only=args.hosts_only)
     for finding in findings:
         where = (

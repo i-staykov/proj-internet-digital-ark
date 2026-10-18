@@ -68,14 +68,15 @@ def test_a_login_against_a_private_address_is_refused(tmp_path) -> None:
 
 
 def test_the_machines_local_env_names_are_refused(tmp_path) -> None:
-    """Alias and address by their own strings, word-bounded; a longer word passes."""
+    """Alias and address by their own strings in any case, a name with any label joined to
+    it; a longer word or dotted number passes, and `local` is this machine."""
     env, probe = tmp_path / "local.env", tmp_path / "probe.md"
-    env.write_text('ARK_HOSTS="docs-vm:0 someone' + "@" + '203.0.113.9:2"\n')
+    env.write_text('ARK_HOSTS="docs-vm:0 someone' + "@" + '203.0.113.9:2 local:1"\n')
     probe.write_text(
-        "ssh docs-vm\nat 203.0.113.9.\nmail someone" + "@" + "x\nok docs-vm2 203.0.113.90\n"
+        "ssh Docs-VM\nat 203.0.113.9.\nsub.docs-vm.example\nok docs-vm2 203.0.113.90 local\n"
     )
     found = scan([probe], local_hosts(env), hosts_only=True)
-    assert [(f.line, f.rule) for f in found] == [(n, "local host") for n in (1, 2)]
+    assert [(f.line, f.rule) for f in found] == [(n, "local host") for n in (1, 2, 3)]
 
 
 def test_no_script_shadows_a_standard_library_module() -> None:

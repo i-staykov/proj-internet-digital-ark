@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Refuses AI attribution (AGENTS.md, Public): a Claude co-author trailer or a "Generated with"
-# line, also behind a '#', which `-m` and `-F` keep. A verbose commit's diff below the scissors is cut.
-# Install with `just hooks`.
+# line, also behind a '#', which `-m` and `-F` keep, and any machine local.env names. A verbose
+# commit's diff below the scissors is cut. Install with `just hooks`.
 
 set -uo pipefail
 
+uv run -q python -m ark.hygiene --hosts-only "$1" > /dev/null ||
+    { echo "commit-msg: REFUSED. The message names a machine; name it by its role." >&2; exit 1; }
 msg=$(sed '/^# -* >8 -*$/,$d' "$1")
 if grep -qiE '^[^[:alpha:]]*co-authored-by:.*(claude|anthropic\.com)' <<<"$msg" ||
     grep -qiE '^[^[:alpha:]]*generated with' <<<"$msg"; then

@@ -65,7 +65,6 @@ the way; every PR net negative unless it adds a capability the round needs.
   lanes, the hourly bank and store, export and packaging as user services; the fleet stays on
   GitHub Actions, since the VM's terms bar AI agents allocating compute.
 - One host list in `local.env` replaces the VPS-specific install and sync; holds work remotely.
-- After #348, `hooks/commit-msg` also runs `python -m ark.hygiene --hosts-only "$1"`.
 - #292 End of Term; #286 re-priced against merge261016 for the owner's ruling.
 - Cutover: copy the store, run both for one bank, switch, retire the VPS; AGENTS.md names three
   CDX clients without placing them.
