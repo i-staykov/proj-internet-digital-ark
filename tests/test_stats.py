@@ -18,7 +18,7 @@ from his_release import HIS_YEARS, MARKER, WEB_METHOD, capture, stage, text
 
 from ark import db, held
 from ark import figures as fig
-from ark.baseline import SUBMITTED_ROUNDS
+from ark.baseline import GATE_EE, SUBMITTED_ROUNDS
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.english_share import weight_of
 from ark.export import export_all
@@ -309,6 +309,7 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     run = lambda cmd, timeout: calls.append(cmd) or figures  # noqa: E731
     brs = _script("build_round_state", monkeypatch, run=run, **paths)
     monkeypatch.setattr(brs, "pending_approvals", lambda: [])
+    monkeypatch.setattr(brs, "requests", lambda: [])
     monkeypatch.setattr(brs.extended, "INPUTS", {"*": str(tmp_path / "raw/*/*.jsonl*")})
     monkeypatch.setattr("ark.db.connect_read_only_patiently", REFUSE)
     monkeypatch.setattr(duckdb, "connect", REFUSE)
@@ -318,7 +319,8 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     brs.main()
     page, brief = brs.OUT.read_text(), json.loads(brs.BRIEF.read_text())
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
-    assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", {"approvals": 0})
+    waiting = {"approvals": 0, "ee": 0, "gate_ee": float(GATE_EE["1996-2001"])}
+    assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", waiting)
     # the part nearer its 3% in EE, so `gate_percent >= gate_pct` still means crossed
     assert (brief["extended_percent"], brief["gate_part"]) == ("4.590366", "2002-2013")
     assert (brief["gate_percent"], "gate_ee" in brief) == ("4.590366", False)

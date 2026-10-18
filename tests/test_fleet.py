@@ -497,7 +497,7 @@ def test_a_parked_block_says_why_and_is_filed_and_a_standing_rule_block_is_decid
     assert lines[-2 - len(parked) :] == [*parked, "- potential: 7000", "Decision: pending"]
     request.standing_rule.main([str(incoming), "--register", str(path), "--write"])
     monkeypatch.setattr(sync_approvals, "REGISTER", path)
-    filed = [(r.source, r.potential, r.failed) for r in sync_approvals.requests(5000.0)]
+    filed = [(r.source, r.potential, r.failed) for r in sync_approvals.requests()]
     if why is None:
         assert all("no ask: the standing rule decides it" in s for s in (dry, said))
         assert "sync_approvals.py" not in dry + said and filed == []

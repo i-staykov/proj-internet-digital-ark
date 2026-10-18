@@ -140,9 +140,8 @@ def test_pending_classes_are_reported_and_only_owner_calls_filed(monkeypatch, tm
     assert len(attention) == 1 and "bigcorpus/cdx_timestamp" in attention[0]
     assert sorted(tmp_path.rglob("*")) == before and sa.REGISTER.read_text() == text
     assert sa.failed_conditions(WORK) == {"4"}
-    wanted = {r.source: r for r in sa.requests(floor=5_000)}
-    assert list(wanted) == ["hostlist", "robots", "sampled"]
-    assert "tiny" in [r.source for r in sa.requests(floor=100)]
+    wanted = {r.source: r for r in sa.requests()}
+    assert list(wanted) == ["hostlist", "tiny", "robots", "sampled"]
     assert wanted["robots"].failed == f"parked by the standing rule: {ROBOTS}"
     assert wanted["sampled"].failed == "not stated in the block"
     assert wanted["sampled"].potential == 12345
@@ -152,10 +151,16 @@ def test_pending_classes_are_reported_and_only_owner_calls_filed(monkeypatch, tm
 
 def test_an_ask_is_one_needs_owner_issue_and_a_one_line_pr(monkeypatch, tmp_path, capsys):
     before = register(monkeypatch, tmp_path, TERMS, DECIDED)
-    (request,) = sa.requests(floor=5_000)
+    (request,) = sa.requests()
     after = sa.approve_line(request, before).splitlines()
     changed = [(a, b) for a, b in zip(before.splitlines(), after, strict=True) if a != b]
     assert changed == [("Decision: pending", "Decision: master")]
+    # Under the gate nothing is filed and the line says how far the asks together stand.
+    calls = fake_gh(monkeypatch, prs=[PR])
+    monkeypatch.setattr(sa, "GATE", 40_001.0)
+    assert sa.main([]) == 0 and "1 asks, 40,000 of 40,001 EE to the gate" in capsys.readouterr().out
+    assert not [args for args in calls if args[:2] == ["issue", "create"]]
+    monkeypatch.setattr(sa, "GATE", 40_000.0)
     calls = fake_gh(monkeypatch, prs=[PR])
     assert sa.main([]) == 0
     (filed,) = [args for args in calls if args[:2] == ["issue", "create"]]

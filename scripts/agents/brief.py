@@ -64,6 +64,7 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
     standing = (
         f"{abs(gap):,.0f} EE short of {gate}" if gap > 0 else f"{abs(gap):,.0f} EE past {gate}"
     )
+    waiting = snapshot["waiting_on_human"]
     lines = [
         f"brief written {age:.1f} h ago ({snapshot['written_at']})",
         f"round {snapshot['round']} against {snapshot['baseline']}: "
@@ -72,7 +73,12 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
         f"2002-2013 {snapshot.get('extended_percent', '?')}%, "
         f"{standing} on {snapshot.get('gate_part', 'one part')}"
         + (f", as of the export at {snapshot['gate_as_of']}" if "gate_as_of" in snapshot else ""),
-        f"waiting on a human: {snapshot['waiting_on_human']['approvals']} approvals pending",
+        f"waiting on a human: {waiting['approvals']} asks"
+        + (
+            f", {waiting['ee']:,.0f} of {waiting['gate_ee']:,.0f} EE to the gate"
+            if "ee" in waiting
+            else ""
+        ),
     ]
     pending = snapshot["pending_amendments"]
     if pending:

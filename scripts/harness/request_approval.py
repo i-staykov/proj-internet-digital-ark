@@ -314,8 +314,8 @@ def main() -> None:
     print(f"  {len(netnew):,} net-new pairs at stake, {ee(netnew):,.1f} equivalent-English")
     print("  ingest refuses until its Decision line says master, candidate-only or rejected")
     print(
-        "  at or above the floor, sync_approvals.py files it as a needs-owner issue with a "
-        "one-line pull request"
+        "  once the pending asks reach the gate, sync_approvals.py files it as a needs-owner "
+        "issue with a one-line pull request"
     )
 
 

@@ -68,7 +68,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A verifier re-running the same code reproduced to the digit a Usenet figure whose `^From` boundary missed 50.019% of posts (`scripts/sources/usenet/build_usenet_pool.py` `BOUNDARY`).
 - A worse reimplementation of an existing tool overstated a source 20x (`scripts/engines/build_promotion_journals.py`).
 - Net-new post-split EE and gross differ by more than 10x (`scripts/pricing/price_items.py` prints both).
-- Filing floor, net-new post-split EE: 5,000 for a new master-eligible class or a candidate-only lead, 1,000 for an approved class at a new grain whose items date the host; nothing below is filed (`sync_approvals.py` `DEFAULT_FLOOR`, ark-fleet `prompts/scout.md`).
+- Lead floor, net-new post-split EE: 5,000 for a new master-eligible class or a candidate-only lead, 1,000 for an approved class at a new grain whose items date the host (ark-fleet `prompts/scout.md`).
 - `price_items.py` prints the net-new part's mean weight, calling 0.6 good and under 0.4 the floor, below which only volume carries a source.
 - If one sentence cannot say what dates one item, the source is seed-only: `just screen` exits 2 without `--dating self|typed|undated`.
 - An already ingested journal prices at 0 net-new by construction, since net-new is pairs minus held pairs (`scripts/pricing/price_items.py`).

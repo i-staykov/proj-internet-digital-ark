@@ -23,9 +23,9 @@ bank, which is the behaviour wanted here rather than a silent yes.
 `standing_rule.confirmed_finds`, so every block written here is one the standing rule reads,
 and the block quotes the figure that decides. A source the standing rule admits gets its
 block and no ask: `standing_rule.py` writes its `Decision:` line in the same bank. A source
-it parks, a new class above all, keeps its block pending, and that block is the ask: once its
-`- potential:` is at or above the floor, `sync_approvals.py` files it as a `needs-owner`
-issue with a one-line pull request.
+it parks, a new class above all, keeps its block pending, and that block is the ask: once the
+pending asks together reach the gate, `sync_approvals.py` files it as a `needs-owner` issue
+with a one-line pull request.
 
     uv run python scripts/harness/fleet_request.py INCOMING [--fleet FLEET] [--write]
 """
@@ -61,8 +61,8 @@ FIGURE = {"store": "the store", "program": "the program"}
 NO_ASK = "no ask: the standing rule decides it"
 # What happens to a block the standing rule parks: it stays pending, and it is the ask.
 ASK = (
-    "at or above the floor, sync_approvals.py files the block as a needs-owner issue with a "
-    "one-line pull request"
+    "once the pending asks reach the gate, sync_approvals.py files the block as a needs-owner "
+    "issue with a one-line pull request"
 )
 # Where `fleet_findings.py` pulls a lead's whole read, one directory of journal parts.
 FLEET_READ = REPO / "data/raw/fleet_read"

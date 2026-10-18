@@ -203,8 +203,8 @@ def check_approvals() -> tuple[list[str], list[str]]:
     This is the harness's handover point: collection never waits on a human, and a
     `pending` class waits on one before its records can date a year. A pending class is
     not a fault, it is the queue working. The check writes nothing: the register's pending
-    block is the ask, and `sync_approvals.py` files the ones worth a decision as
-    `needs-owner` issues.
+    block is the ask, and `sync_approvals.py` files them as `needs-owner` issues once
+    together they reach the gate.
     """
     findings, attention = [], []
     priced = pending_approvals(APPROVALS)
