@@ -425,26 +425,22 @@ def ledger(fleet: Path) -> dict[str, list[dict]]:
                 continue
             if line.get("run_id") not in (None, ""):
                 out.setdefault(str(line["run_id"]), []).append(line)
-    moves = fleet_points(fleet) if out else None
+    moves = fleet_points(fleet) if out else {}
     for line in (line for held in out.values() for line in held):
-        if line.get("kind") == "leg" and moves is not None:
+        if line.get("kind") == "leg":
             line["_points"] = moves.get(str(line["run_id"]))
         else:
             line["_points"] = line.get("seven_day_delta")
     return out
 
 
-def fleet_points(fleet: Path) -> dict | None:
-    """`points` from the fleet's own scripts/ledger.py, standard library only, or None for a
-    checkout that predates it."""
-    script = fleet / "scripts/ledger.py"
-    if not script.is_file():
-        return None
-    spec = importlib.util.spec_from_file_location("fleet_ledger_for_orq", script)
+def fleet_points(fleet: Path) -> dict:
+    """`points` from the fleet's own scripts/ledger.py, standard library only."""
+    spec = importlib.util.spec_from_file_location(
+        "fleet_ledger_for_orq", fleet / "scripts/ledger.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    if not hasattr(module, "points"):
-        return None
     return module.points(module.read(fleet))
 
 
