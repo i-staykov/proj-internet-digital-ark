@@ -90,7 +90,8 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
 FROZEN = "submissions"
 
 # The local.env keys that name a machine, each value a whitespace-separated list of ssh
-# targets, `login@host` or an alias from the ssh config, each perhaps with a `:lane`.
+# targets, `login@host` or an alias from the ssh config, each perhaps with a `:lane`; `local`
+# is this machine.
 HOST_KEYS = ("ARK_HOSTS", "ARK_VM", "ARK_VPS")
 _ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Z_]+)=(.*)$")
 
@@ -127,6 +128,8 @@ def local_hosts(env: Path) -> re.Pattern[str] | None:
             targets += " ".join(shlex.split(match.group(2), comments=True)).split()
     words: set[str] = set()
     for target in (re.sub(r":\d+$", "", t) for t in targets):
+        if target == "local":
+            continue
         words.add(target.rpartition("@")[2])
         if not shutil.which("ssh"):
             continue
