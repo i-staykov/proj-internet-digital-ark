@@ -44,7 +44,7 @@ import sync_approvals  # noqa: E402  fleet_request put scripts/harness on the pa
 STAND_IN = r"""
 import json, sys
 from pathlib import Path
-KINDS = {"legacy": ("row", "line"), "outcome": ("slug", "decision", "banked")}
+KINDS = {"outcome": ("slug", "decision", "banked")}
 args = sys.argv[1:]
 kind, root = args[args.index("--kind") + 1], Path(args[args.index("--root") + 1])
 path = root / "ledger" / "2026-09.jsonl"
@@ -295,23 +295,24 @@ def test_the_ledger_appends_only_through_the_fleets_keyed_script_and_reads_month
 ):
     """A replay adds nothing, a refused row says why, and a line that is not one of the kind
     asked for is skipped."""
-    rows = [{"row": 1, "line": "a\t1\t2.0"}, {"row": 2, "line": "a\t1\t2.0"}]
-    assert fleet_ledger.lines(None, "legacy") == []
+    assert fleet_ledger.lines(None, "outcome") == []
     fleet = stand_in(tmp_path)
-    assert fleet_ledger.append(fleet, "legacy", rows) == (True, "ledger: 2 appended, 0 kept")
-    assert fleet_ledger.append(fleet, "legacy", rows) == (True, "ledger: 0 appended, 2 kept")
+    assert fleet_ledger.append(fleet, "outcome", OUTCOMES) == (True, "ledger: 2 appended, 0 kept")
+    assert fleet_ledger.append(fleet, "outcome", OUTCOMES) == (True, "ledger: 0 appended, 2 kept")
     ok, said = fleet_ledger.append(fleet, "outcome", [{"slug": "x", "banked": True}])
     assert not ok and "needs its key" in said
-    later = "".join(json.dumps(x) + "\n" for x in ({"kind": "legacy", "row": 3}, {"kind": "leg"}))
+    later = "".join(
+        json.dumps(x) + "\n" for x in ({"kind": "outcome", "slug": "c"}, {"kind": "leg"})
+    )
     (fleet / "ledger/2026-10.jsonl").write_text("not json\n[1]\n" + later)
-    assert [line["row"] for line in fleet_ledger.lines(fleet, "legacy")] == [1, 2, 3]
+    assert [line["slug"] for line in fleet_ledger.lines(fleet, "outcome")] == ["a", "b", "c"]
     pairs = ((1000.0, None), (0, 5.0), (True, 5.0))
     assert [fleet_ledger.agreement_pct(*pair) for pair in pairs] == [None, None, None]
 
 
-LEGACY = [
-    {"row": 1, "line": "20260901T1037Z\t432\t68.0", "at": "2026-09-01T10:37:00Z"},
-    {"row": 2, "line": "20260901T1037Z\t432\t68.0", "at": "2026-09-01T10:37:00Z"},
+OUTCOMES = [
+    {"slug": s, "decision": "held", "banked": False, "at": "2026-09-01T10:37:00Z"}
+    for s in ("a", "b")
 ]
 MONTH = "ledger/2026-09.jsonl"
 
@@ -328,7 +329,7 @@ def leg(clone: Path, run_id: str) -> None:
 
 def test_a_rejected_push_replays_the_clones_ledger_lines_after_the_reset(tmp_path):
     """A collect lands first, so the laptop's push is rejected and the retry resets the clone
-    onto the remote; the old TSV is gone by then, so nothing else could write its lines again."""
+    onto the remote and writes the laptop's lines again."""
     origin, theirs, ours = tmp_path / "origin.git", tmp_path / "theirs", tmp_path / "ours"
     git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
     for path in (theirs, ours):
@@ -342,7 +343,7 @@ def test_a_rejected_push_replays_the_clones_ledger_lines_after_the_reset(tmp_pat
     leg(theirs, "11")
     git(ours, "fetch", "-q", "origin")
     git(ours, "checkout", "-q", "-B", "main", "origin/main")
-    assert fleet_ledger.append(ours, "legacy", LEGACY)[0]
+    assert fleet_ledger.append(ours, "outcome", OUTCOMES)[0]
     leg(theirs, "12")
     done = subprocess.run(
         ["bash", str(HARNESS / "push_fleet.sh"), str(ours), "20260926T0900Z"],
@@ -357,7 +358,7 @@ def test_a_rejected_push_replays_the_clones_ledger_lines_after_the_reset(tmp_pat
     git(theirs, "pull", "-q", "origin", "main")
     lines = [json.loads(text) for text in (theirs / MONTH).read_text().splitlines()]
     assert [line["run_id"] for line in lines if line["kind"] == "leg"] == ["11", "12"]
-    assert [line["row"] for line in lines if line["kind"] == "legacy"] == [1, 2]
+    assert [line["slug"] for line in lines if line["kind"] == "outcome"] == ["a", "b"]
 
 
 # --- the request block ------------------------------------------------------------------

@@ -40,9 +40,7 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- Lean: the fable demotion path, the 1,518 `legacy` ledger rows and that fixture kind (also
-  tests/test_fleet.py), the slug list at leg.yaml:266 (scout.md:4 asks for `ls leads/`), the
-  thrice repeated "edit nothing" paragraph, vps/README's history, downloads.md's restatement.
+- Lean: the 1,518 `legacy` rows of ark-fleet `ledger/2026-09.jsonl` go on the owner's word.
 - A dry lens stops itself: #213's rule in the dealer; leg's next job dispatches the improver.
 - Pricing sees both parts: `just price`, the pricer agent and price-source use `ark price-snapshot`.
 - #221: a read's 2002 to 2013 rows bank (fleetread input to extended_export; deciding figure
