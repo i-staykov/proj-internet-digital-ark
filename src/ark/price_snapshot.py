@@ -758,6 +758,7 @@ def _parts(rows: list[tuple], calculated: dict, extended: list[int], late: Count
     )
     parts = {
         part: {"pairs": t["netnew_pairs"], "ee": t["ee"], "gate_ee": f"{gate:.4f}"}
+        | {"ee_hostname_years": t["ee_hostname_years"]}
         for t, (part, gate) in zip((one, two), GATE_EE.items(), strict=True)
     }
     parts["2002-2013"]["counts"] = dict(sorted(late.items()))

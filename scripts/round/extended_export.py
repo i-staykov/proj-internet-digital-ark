@@ -139,6 +139,7 @@ def resolve_inputs(given: dict[str, str]) -> list[tuple[str, Path]]:
         except approvals.NotApproved as exc:
             if not fleet:
                 raise SystemExit(f"{source}: {exc}") from None
+            print(f"{source}: waits, {exc}", file=sys.stderr)
             undecided.add(source)
     return [(s, p) for s, p in found if s not in undecided]
 

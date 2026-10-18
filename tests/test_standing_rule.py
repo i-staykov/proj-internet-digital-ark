@@ -237,6 +237,12 @@ def test_2002_to_2013_adds_at_the_ratio_of_the_gates(tmp_path):
     program.write_text(json.dumps({"parts": parts}), encoding="utf-8")
     got = rule.confirmed_finds(incoming, [])["new-source"]
     assert (got["figure"], got["ee"]) == ("store", 3000.0)
+    parts["2002-2013"]["ee_hostname_years"] = "600.0"
+    program.write_text(json.dumps({"parts": parts}), encoding="utf-8")
+    store = incoming / "new-source" / "store_price.json"
+    store.write_text(json.dumps({"status": "priced", "ee": 0.0, "grain": "hostname"}))
+    got = rule.confirmed_finds(incoming, [])["new-source"]
+    assert got["ee"] == 200.0, "at hostname grain, part 2's hostname years"
 
 
 @pytest.mark.parametrize(

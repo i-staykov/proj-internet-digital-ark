@@ -93,12 +93,14 @@ def _positive(value) -> bool:
     )
 
 
-def part_two(lead: Path) -> float:
-    """2002 to 2013's EE in `program_annual.json` beside the find, times the ratio of the two
-    parts' gates; 0 without it."""
+def part_two(lead: Path, grain) -> float:
+    """2002 to 2013's EE in `program_annual.json` beside the find, in the unit the part-1 figure
+    measures (its hostname years at hostname grain), times the ratio of the two parts' gates;
+    0 without it."""
     parts = _json(lead / "program_annual.json").get("parts")
+    unit = "ee_hostname_years" if grain == "hostname" else "ee"
     try:
-        ee, gate = (float(parts["2002-2013"][k]) for k in ("ee", "gate_ee"))
+        ee, gate = (float(parts["2002-2013"][k]) for k in (unit, "gate_ee"))
         weight = float(parts["1996-2001"]["gate_ee"]) / gate
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return 0.0
@@ -141,7 +143,7 @@ def confirmed_finds(incoming: Path, outcomes: list[dict]) -> dict[str, dict]:
             continue
         figure = "program" if streak and _positive(store.get(FIELDS["program"])) else "store"
         ee = store.get(FIELDS[figure])
-        ee = (ee if _positive(ee) else 0.0) + part_two(lead)
+        ee = (ee if _positive(ee) else 0.0) + part_two(lead, store.get("grain"))
         if not _positive(ee):
             continue
         out[slugify(lead.name)] = {
