@@ -11,8 +11,8 @@ else, because the project repository is public. The measurement, the condition t
 the terms question go in the private fleet issue that links to it.
 
 **The gate is the bar, not a source.** Nothing is filed until the pending asks' `- potential:`,
-net-new 1996 to 2001 EE, together reach that part's gate, the smaller of the two; below it the
-register blocks are the whole record, at it every ask is filed.
+deciding EE as `standing_rule.py` prices it (part 1 plus part 2 at the gate ratio), together
+reach the 1996 to 2001 gate; below it the register blocks are the record, at it every ask files.
 
     uv run python scripts/harness/sync_approvals.py [--dry-run]
 """

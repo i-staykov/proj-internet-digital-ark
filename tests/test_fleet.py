@@ -509,6 +509,39 @@ def test_a_parked_block_says_why_and_is_filed_and_a_standing_rule_block_is_decid
         assert filed == [("a_lead", 7000.0, f"parked by the standing rule: {why}")]
 
 
+def test_asks_file_together_at_the_gate_and_never_twice(tmp_path, monkeypatch, capsys):
+    """Four asks, none alone at the gate, all file once their sum reaches it; a second run finds
+    them open and files nothing; one ask fewer and the sum is under the gate, so nothing files."""
+    asks = {"ask_a": 15_000, "ask_b": 20_000, "ask_c": 25_000, "ask_d": 18_000}
+
+    def register(names):
+        head = "# Approved sources\n\n## Pending requests\n\n"
+        rows = (
+            f"### {n} / cdx_timestamp\nDecision: pending\n- potential: {asks[n]:,}\n\n"
+            for n in names
+        )
+        return head + "".join(rows)
+
+    path = tmp_path / "approvals.md"
+    path.write_text(register(asks), encoding="utf-8")
+    issues: dict[str, str] = {}
+    monkeypatch.setattr(sync_approvals, "REGISTER", path)
+    monkeypatch.setattr(sync_approvals, "GATE", 60_000.0)
+    monkeypatch.setattr(sync_approvals, "open_prs", dict)
+    monkeypatch.setattr(sync_approvals, "open_issues", lambda: dict(issues))
+    monkeypatch.setattr(sync_approvals, "raise_pr", lambda r, dry: f"pr/{r.slug}")
+    filed = lambda r, pr, dry: issues.setdefault(r.title, f"issue/{r.slug}")  # noqa: E731
+    monkeypatch.setattr(sync_approvals, "raise_issue", filed)
+    assert sync_approvals.main([]) == 0
+    assert sorted(issues) == [f"Approve {n}? {ee:,} EE" for n, ee in sorted(asks.items())]
+    assert sync_approvals.main([]) == 0 and len(issues) == 4
+    assert capsys.readouterr().out.count("open already") == 4
+    issues.clear()
+    path.write_text(register([n for n in asks if n != "ask_c"]), encoding="utf-8")
+    assert sync_approvals.main([]) == 0 and issues == {}
+    assert "3 asks, 53,000 of 60,000 EE to the gate" in capsys.readouterr().out
+
+
 def test_a_spec_waits_for_the_next_bank_while_his_held_sets_are_not_ready(tmp_path, monkeypatch):
     """`request_approval.py` exiting 3 refuses nothing, so no short block replaces it."""
     incoming, register = asked(tmp_path)
