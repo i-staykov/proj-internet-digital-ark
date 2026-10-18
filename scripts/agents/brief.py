@@ -36,7 +36,7 @@ LAYOUT = {
     "data": {
         *("baseline.json", "raw", "logs", "held", "seeds", "staging", "audit", "reports"),
         *("exports", "fleet_findings", "archive", "ark.duckdb", "ark.duckdb.wal", "duckdb_tmp"),
-        *("queue.sqlite", "brief.json", "banked_slugs.txt", "offsite-manifest.tsv"),
+        *("queue.sqlite", "brief.json", "banked_slugs.txt", "offsite-manifest.tsv", "orq", "queue"),
         *("SHA256SUMS", "SHA256SUMS.stat", "SHA1SUMS", ".DS_Store"),
     },
 }

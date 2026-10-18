@@ -426,6 +426,26 @@ def first_clause(text: str, limit: int = 240) -> str:
     return _clip(text, limit)
 
 
+_SENTENCE = re.compile(r"(?<!\be\.g)(?<!\bi\.e)(?<!\bvs)(?<!\bcf)\.\s+(?=[A-Z0-9`(*\"])")
+_DANGLING = re.compile(r"(?i)(?:[\s,;:(/-]+|\s+(?:an?|the|of|to|in|at|for|by|with|and|or|from))+$")
+
+
+def cause(text: str, limit: int = 100) -> str:
+    """The first sentence, cut back to a whole clause or word within `limit`, no mark left open."""
+    text = _SENTENCE.split(re.sub(r"\s+", " ", text).strip(), maxsplit=1)[0]
+    cut_short, text = text.endswith(".."), text.rstrip(".")
+    if len(text) > limit or cut_short:
+        text = text[: limit + 1]
+        stop = max(text.rfind(s) for s in (", ", "; ", " ("))
+        text = text[:stop] if stop > limit // 3 else text.rpartition(" ")[0]
+    while text.count(")") > text.count("("):  # begun inside a parenthesis: that part goes
+        text = text[text.index(")") + 1 :].lstrip(" ,;:.")
+    for mark in ("`", "**"):
+        text = text[: text.rfind(mark)] if text.count(mark) % 2 else text
+    text = text[: text.rfind("(")] if text.count("(") > text.count(")") else text
+    return _DANGLING.sub("", text)
+
+
 def drop_decision_numbers(text: str) -> str:
     """The text without decision numbers; a URL is kept whole, because a cut one does not open."""
     parts = re.split(rf"({_SCHEME}\S+)", text)
@@ -529,37 +549,25 @@ def ee_cell(f: dict) -> str:
     return f"fleet {f['ee']} EE, store not re-priced: {store.get('status') or 'no store price'}"
 
 
-# A row is an index entry read in a terminal, held to 500 characters. **A long cell is
-# TRUNCATED, and never replaced by a pointer** to another file: 400 characters of the
-# reason index the source where a pointer to a file that may go does not.
+# A `sources.md` row is held to 500 characters: a long method or probe cell is TRUNCATED,
+# never replaced by a pointer to a file that may go. `cause` keeps a closed row short.
 ROW_LIMIT = 500
 _CUT = "..."
 
 
-def _within_limit(cells: list[str], order: tuple[int, ...] = (3, 7), keep: int = 0) -> str:
-    """The row, trimming the prose cells in `order` until the whole row fits.
-
-    Method first and probe second, because those are the two a wave writes freely; every
-    other cell is a slug, a figure, a verdict or a link, and a truncated link is worse than
-    a long row. If both are down to the pointer and the row is still long, it is returned
-    long: that is a row worth a human looking at, not one worth mangling. The closed row
-    has one prose cell, its reason, and passes `(3,)` and its verdict prefix as `keep`, the
-    characters no trim removes.
-
-    What survives is the START of the cell, cut inside the prose and not at a clause, because
-    a reason that opens with a short sentence has its whole substance after that full stop.
+def _within_limit(cells: list[str]) -> str:
+    """The row, trimming the method cell, then the probe, the two a wave writes freely, until
+    it fits. A truncated link is worse than a long row, so a row still long is returned long.
     """
 
     def assemble() -> str:
         return "| " + " | ".join(cells) + " |"
 
-    for index in order:
+    for index in (3, 7):
         if len(assemble()) <= ROW_LIMIT:
             break
-        head, rest = cells[index][:keep], cells[index][keep:]
-        budget = ROW_LIMIT - (len(assemble()) - len(rest)) - len(_CUT)
-        kept = _clip(rest, budget).rstrip() if budget >= 40 else ""
-        cells[index] = head + kept + _CUT if kept or not head else head.rstrip()
+        budget = ROW_LIMIT - (len(assemble()) - len(cells[index])) - len(_CUT)
+        cells[index] = (_clip(cells[index], budget).rstrip() if budget >= 40 else "") + _CUT
     return assemble()
 
 
@@ -567,21 +575,17 @@ def closed_row(f: dict, run_label: str) -> str:
     """The five-column row a measured negative gets, in `sources-closed.md`.
 
     **A negative does not belong in `sources.md`**: only a priced FIND and a banked source
-    get a row there. The reason opens with its verdict word, then the lens and the probe;
-    the class, the figure and the artifact come from `lead.json` and the prose beside it.
-    The link cell holds the artifact, then every other URL the finding names. A scout
-    negative's reason is the fleet's `closed_reason`, else its own verdict sentence, else
-    the lens alone.
+    get a row there. The reason is its verdict word and the one cause that closed it; the
+    class, the figure and the artifact come from `lead.json` and the prose beside it. The
+    link cell holds the artifact, then every other URL the finding names. A scout negative's
+    cause is the fleet's `closed_reason`, else its own verdict sentence.
     """
     day = dt.date.today().isoformat()
     lead = f.get("lead") or {}
-    # A class is a token like `link_source` and a lens a name like `registry-publications`,
-    # both as a wave wrote them, sometimes as paragraphs; each is held to a clause.
+    # A class is a token like `link_source` as a wave wrote it, sometimes as a paragraph.
     etype = first_clause(
         lead.get("evidence_class") or f["fields"].get("evidence class") or "unclassified", 80
     )
-    lens = first_clause(lead.get("lens") or f["fields"].get("lens") or "no lens recorded", 60)
-    lens = lens.rstrip(".")
     artifact, host = artifact_of(f)
     measured = f"{f['ee']} EE" if f["ee"] not in ("0", "0.0") else "not priced"
     fields = f["fields"]
@@ -589,19 +593,18 @@ def closed_row(f: dict, run_label: str) -> str:
         said = str(lead.get("closed_reason") or f["scout"])
     else:
         said = fields.get("probe", "") or fields.get("reason", "") or fields.get("verdict", "")
-    reason = first_clause(said, 300)
     # The verdict leads; a probe that opens with it again loses the repeat.
-    reason = re.sub(rf"^{f['verdict']}\b[\s,.:;]*", "", reason, flags=re.I)
+    reason = cause(re.sub(rf"^\s*{f['verdict']}\b[\s,.:;]*", "", said, flags=re.I))
     cells = [
         f"{f['slug']} / {etype}",
         f"{day}, fleet {run_label}",
         measured,
-        f"{f['verdict']}. lens {lens}. {reason}".strip(),
+        f"{f['verdict']}. {reason}".strip(),
     ]
-    link = links(artifact, [*f["fields"].values(), *cells])
+    link = links(artifact, [*f["fields"].values(), said, *cells])
     # An artifact with no URL is found and keyed by its host.
     cells.append(f"{link} {host}".strip() if host and not artifact and host not in link else link)
-    return _within_limit(_tidy(cells), order=(3,), keep=len(f["verdict"]) + 2)
+    return "| " + " | ".join(_tidy(cells)) + " |"
 
 
 def _insert(path: Path, header: str, rows: list[str], key) -> int:
