@@ -139,8 +139,12 @@ def write_shipped(full: Path, netnew: Path, candidates: Path, dest: Path) -> dic
     An ISC row is kept by the hostname its value names, since `reduce_isc` reads every one."""
     conn = connect(":memory:")
     conn.execute("CREATE TABLE listed (name VARCHAR)")
-    lists = [candidates, *sorted(netnew.glob("*.txt"))]
-    for path in (p for p in lists if p.stat().st_size and not p.name.startswith("attested")):
+    names = ["candidate_additions.txt", "isc_candidates.txt", "header_candidates.txt"]
+    names += [
+        f"{year}{kind}.txt" for year in range(1996, 2002) for kind in ("", "_hostnames", "-ISC")
+    ]
+    lists = [candidates, *(netnew / name for name in names)]
+    for path in (p for p in lists if p.is_file() and p.stat().st_size):
         conn.execute(
             "INSERT INTO listed SELECT column0 FROM read_csv(?, header=false, delim='\t', "
             "quote='', escape='', auto_detect=false, columns={'column0': 'VARCHAR'})",

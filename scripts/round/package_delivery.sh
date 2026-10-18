@@ -477,7 +477,7 @@ conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web
 conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
 the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB)
 and the bulk capture-index journals an earlier round shipped, which back no record here
-(extended_spent/, 3.9 GB). Together about 43 GB against about 1.3 GB for everything here.
+(extended_spent/, 3.9 GB). Together about 43 GB against about 0.9 GB for everything here.
 
 Every assignment they back still ships and is still checkable: each (domain, year) and
 (hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
