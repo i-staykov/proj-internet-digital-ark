@@ -79,11 +79,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="the markdown draft")
     parser.add_argument("--out", type=Path, default=None, help="default: alongside, .docx")
-    parser.add_argument(
-        "--keep-markdown",
-        action="store_true",
-        help="also write the trimmed markdown, for reading what will be sent",
-    )
     args = parser.parse_args()
 
     if not args.source.is_file():
@@ -91,11 +86,6 @@ def main() -> int:
         return 1
     out = args.out or args.source.with_suffix(".docx")
     body = sendable(args.source.read_text(encoding="utf-8"))
-
-    if args.keep_markdown:
-        trimmed = args.source.with_name(args.source.stem + "-sendable.md")
-        trimmed.write_text(body, encoding="utf-8")
-        print(f"wrote {trimmed}")
 
     try:
         to_docx(body, out)

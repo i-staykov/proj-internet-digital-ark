@@ -9,7 +9,7 @@ that was an ordinary way to write down an address.
 The reason it was refused is on the record and it is a real one: a bare name in
 prose is often a company name, a file name or half an email address rather than
 a site. What changes the answer is that **the corroboration split is the evidence
-wall, not the pattern**. Every row here passes `split_by_corroboration`, so a
+wall, not the pattern**. Every row here passes the corroboration split, so a
 (domain, year) becomes a dated master record only when an independent lineage
 already places that domain in `domain_year`. A string that is not a registered
 domain cannot clear that, so it lands in the candidate pool and asserts nothing.

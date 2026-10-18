@@ -3,9 +3,11 @@ seed takes its file, rebuild refuses a store ahead of its export, a fleet read b
 
 import gzip
 import json
+import shutil
 from functools import partial
 from importlib.metadata import entry_points
 from pathlib import Path
+from unittest.mock import Mock
 
 import duckdb
 import pytest
@@ -17,7 +19,7 @@ from ark import cli
 from ark.bulk import ingest_files
 from ark.checks import collect_checks
 from ark.cli import app
-from ark.db import init_db
+from ark.db import GIB, init_db
 from ark.hostnames import fleet_read_registrables_tag
 
 runner = CliRunner()
@@ -31,6 +33,24 @@ def test_without_held_sets_export_and_rebuild_say_to_run_intake(tmp_path, monkey
         result = runner.invoke(app, args)
         assert (result.exit_code, type(result.exception)) == (1, SystemExit), args
         assert "run uv run ark intake" in result.output
+
+
+@pytest.mark.parametrize(
+    ("floor", "free", "code"),
+    [("10", 14, 2), ("10", 15, 0), ("0", 1000, 2), ("-1", 1000, 2)],
+    ids=["below-floor-plus-budget", "at-floor-plus-budget", "setting-0", "setting-negative"],
+)
+def test_ingest_and_export_refuse_below_the_floor_plus_the_budget(
+    tmp_path, monkeypatch, floor, free, code
+):
+    """A setting not positive fails closed, and the refusal comes before the store is touched."""
+    monkeypatch.chdir(tmp_path)
+    assert runner.invoke(app, ["init"]).exit_code == 0
+    monkeypatch.setenv("ARK_FREE_SPACE_GIB", floor)
+    monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "5")
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: Mock(free=free * GIB))
+    # past the guard, export stops at the missing held sets instead
+    assert runner.invoke(app, ["export"]).exit_code == (code or 1)
 
 
 def test_rebuild_refuses_when_the_store_is_ahead_of_the_export(tmp_path, monkeypatch, his_files):

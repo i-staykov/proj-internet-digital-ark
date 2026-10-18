@@ -318,15 +318,6 @@ def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, f
     assert fault != "ok" or {p.name: p.read_bytes() for p in tree.iterdir()} == before
 
 
-def test_every_ingest_and_export_has_an_independent_space_guard():
-    lines = (ROOT / "justfile").read_text().splitlines()
-    for i, line in enumerate(lines):
-        if line.strip().startswith(("uv run ark ingest", "uv run ark export")):
-            assert "bank_hygiene.py space" in lines[i - 1] and "|| true" not in lines[i - 1], line
-    run = [line.strip() for line in lines[lines.index("run *args:") :]]  # `just run export`
-    assert run[run.index("ingest*|export)") + 1].endswith("bank_hygiene.py space")
-
-
 def sums(folder: Path, files: list[str], kind: str = "SHA256SUMS") -> None:
     """The sidecars verify_raw writes: digests, and the (size, mtime_ns) each was taken at."""
     lines = [f"{sha((folder / r).read_bytes(), kind[:-4].lower())}  ./{r}\n" for r in files]

@@ -23,7 +23,14 @@ from ark.canonical import to_registrable
 from ark.cdx import HOST_TIMEOUT, RateGovernor, http_fetch, lookup_years, lookup_years_per_year
 from ark.cdx import answered as cdx_answered
 from ark.checks import AUDIT_PATH, collect_checks, format_checks
-from ark.db import DEFAULT_DB_PATH, connect, connect_patiently, connect_read_only_patiently, init_db
+from ark.db import (
+    DEFAULT_DB_PATH,
+    connect,
+    connect_patiently,
+    connect_read_only_patiently,
+    init_db,
+    space,
+)
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -87,8 +94,16 @@ def _held_sets() -> Iterator[None]:
 
 @app.callback()
 def _setup(
+    ctx: typer.Context,
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable debug logging.")] = False,
 ) -> None:
+    # Every ingest and export refuses below the free-space floor plus the write budget, before
+    # it touches the store. `intake` is left out: a reviewer runs it on his own disk.
+    if (ctx.invoked_subcommand or "").startswith(("ingest", "export")) and "--help" not in sys.argv:
+        code, lines = space()
+        typer.echo("\n".join(lines), err=True)
+        if code:
+            raise typer.Exit(code)
     logger.remove()
     logger.add(sys.stderr, level="DEBUG" if verbose else "INFO", format=_LOG_FORMAT)
     # every run leaves a permanent execution log; the delivery requires them

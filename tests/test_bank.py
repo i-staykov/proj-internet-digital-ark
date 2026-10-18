@@ -20,7 +20,7 @@ from conftest import script
 
 from ark.approvals import load
 from ark.baseline import CURRENT_BASELINE_MARKER
-from ark.db import SCHEMA_SQL
+from ark.db import GIB, SCHEMA_SQL
 
 ROOT = Path(__file__).resolve().parents[1]
 RECIPE = (ROOT / "justfile").read_text(encoding="utf-8")
@@ -278,7 +278,7 @@ def test_only_a_clean_clone_is_pulled(
 
 @pytest.mark.parametrize(
     "head,free,asked",
-    [("main", 100, ["rev-parse"]), ("live", 1, ["rev-parse", "status"])],
+    [("main", 100, ["rev-parse"]), ("live", 0, ["rev-parse", "status"])],
     ids=["on-main", "low-space-on-either-filesystem"],
 )
 def test_preflight_refuses_main_and_low_space_before_the_pull(
@@ -288,7 +288,7 @@ def test_preflight_refuses_main_and_low_space_before_the_pull(
     for name in ("data", "output"):
         (tmp_path / name).mkdir()
     by_name = {"data": 100, "output": free}
-    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=by_name[p.name] * hyg.GIB))
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: Mock(free=by_name[p.name] * GIB))
     calls = []
     run = lambda args, cwd: calls.append(args[0]) or (0, head if args[0] == "rev-parse" else "")  # noqa: E731
     code, lines = hyg.preflight(root=tmp_path, run=run)
@@ -313,7 +313,7 @@ def test_a_remote_that_never_answered_is_not_called_a_divergence(
     """Nine offline ticks once each said the clone had diverged; only a refusal says that."""
     for name in ("data", "output"):
         (tmp_path / name).mkdir()
-    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=1000 * hyg.GIB))
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: Mock(free=1000 * GIB))
     answers = {"rev-parse": (0, "live"), "status": (0, ""), "pull": pulled}
     code, lines = hyg.preflight(root=tmp_path, run=lambda args, cwd: answers[args[0]])
     other = "diverged" if said == "did not answer" else "did not answer"
@@ -330,21 +330,6 @@ def test_a_hung_git_comes_back_as_124_rather_than_a_traceback(monkeypatch):
         124,
         f"git pull timed out after {hyg.GIT_TIMEOUT_S}s",
     )
-
-
-@pytest.mark.parametrize(
-    ("floor", "free", "code"),
-    [("10", 14, 2), ("10", 15, 0), ("0", 1000, 2), ("-1", 1000, 2)],
-    ids=["below-floor-plus-budget", "at-floor-plus-budget", "setting-0", "setting-negative"],
-)
-def test_space_is_the_floor_plus_the_budget_and_a_setting_not_positive_fails_closed(
-    tmp_path, monkeypatch, floor, free, code
-):
-    monkeypatch.setenv("ARK_FREE_SPACE_GIB", floor)
-    monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "5")
-    monkeypatch.setattr(hyg.shutil, "disk_usage", lambda p: Mock(free=free * hyg.GIB))
-    code_got, lines = hyg.space(root=tmp_path)
-    assert code_got == code and (code == 0 or lines[-1].startswith("REFUSED")), lines
 
 
 @pytest.mark.parametrize(

@@ -354,18 +354,6 @@ def test_expand_page_records_each_capture_year_and_settles_only_a_reply(captures
     assert all(r["curated"] for r in records)
 
 
-def test_corroboration_keeps_known_names_curated_and_routes_the_rest() -> None:
-    # archived HTML carries typos like arvard.edu for harvard.edu, so the split is per name
-    page = dict(page_url="http://c/", year=1999, status=200, curated=True)
-    listed = [{**page, "domains": ["known.com", "arvard.edu", "also-known.org"]}]
-    curated, unverified = expand.split_by_corroboration(listed, {"known.com", "also-known.org"})
-    assert curated[0]["domains"] == ["known.com", "also-known.org"] and curated[0]["curated"]
-    assert unverified[0]["domains"] == ["arvard.edu"]
-    assert unverified[0]["curated"] is False, "a candidate earns its own year"
-    unseen = [{**page, "domains": ["never-seen.example"]}]
-    assert expand.split_by_corroboration(unseen, set()) == ([], [{**unseen[0], "curated": False}])
-
-
 extended = script("engines/cdx_extended_walk.py")
 order = script("engines/cdx_walk_order.py")
 

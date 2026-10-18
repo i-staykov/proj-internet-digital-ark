@@ -62,7 +62,7 @@ _BARE_WWW = re.compile(
     re.IGNORECASE,
 )
 # The bare form, `foo.com` with no scheme and no `www.`. The pattern can afford recall
-# because **every row passes `split_by_corroboration` before it can date anything**: a
+# because **every row passes the corroboration split before it can date anything**: a
 # company name or half an email address is not a domain another lineage has placed in
 # `domain_year`, so it becomes a candidate and asserts nothing.
 #

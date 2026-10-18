@@ -42,9 +42,6 @@ private/
 # Written by `just state`, per machine.
 docs/ROUND.md
 
-# Written by `build_report_docx.py --keep-markdown`; regenerable and addressed to the reviewer.
-docs/report-sendable.md
-
 # Word lock files, left behind when the .docx is open while it is rebuilt.
 ~$*
 

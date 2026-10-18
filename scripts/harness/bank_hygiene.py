@@ -25,9 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
-import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -64,50 +62,6 @@ GENERATED = (
     # commit leaves it changed.
     "docs/registers/retention.md",
 )
-
-GIB = 1024**3
-
-
-# Headroom above the guard under which every recipe says so before it refuses.
-WARN_GIB = 50
-
-
-def space(*, root: Path = ROOT) -> tuple[int, list[str]]:
-    """Require the free-space floor plus a write budget on both destination filesystems."""
-    try:
-        floor = float(os.environ.get("ARK_FREE_SPACE_GIB", "50"))
-        budget = float(os.environ.get("ARK_WRITE_BUDGET_GIB", "20"))
-        if not all(math.isfinite(n) and n > 0 for n in (floor, budget)):
-            raise ValueError("space settings must be finite positive GiB values")
-        store = root / "data/ark.duckdb"
-        budget_bytes = max(int(budget * GIB), store.stat().st_size if store.exists() else 0)
-        required = int(floor * GIB) + budget_bytes
-        lines = []
-        for destination in (root / "data", root / "output"):
-            probe = destination
-            while not probe.exists():
-                probe = probe.parent
-            free = shutil.disk_usage(probe).free
-            lines.append(
-                f"space {destination.name}: {free / GIB:.1f} GiB free, "
-                f"need {required / GIB:.1f} GiB "
-                f"({floor:g} floor + {budget_bytes / GIB:.1f} write budget)"
-            )
-            if free < required:
-                return 2, [
-                    *lines,
-                    "REFUSED: insufficient free space; no ingest or export started. "
-                    "Use verified off-site cleanup or increase capacity.",
-                ]
-            if free < required + int(WARN_GIB * GIB):
-                lines.append(
-                    f"WARNING: within {WARN_GIB} GiB of the guard; "
-                    "`just prune --disk` lists what can go"
-                )
-        return 0, lines
-    except (OSError, ValueError, OverflowError) as exc:
-        return 2, [f"REFUSED: cannot establish free space: {exc}"]
-
 
 GIT_TIMEOUT_S = 600
 # What git prints when the remote never answered, over ssh or https. Anything else that
@@ -232,6 +186,8 @@ def preflight(
         lines.append("  commit, stash or clean these before banking. Nothing was fetched.")
         return 2, lines
     lines.append("clone is clean")
+
+    from ark.db import space
 
     code, disk_lines = space(root=root)
     lines.extend(disk_lines)
@@ -386,8 +342,6 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="what", required=True)
 
-    sub.add_parser("space", help="refuse ingest/export below the free-space floor and write budget")
-
     pre = sub.add_parser("preflight", help="refuse a dirty or diverged clone, then fast-forward")
     pre.add_argument("--branch", default="live")
     pre.add_argument("--remote", default="origin")
@@ -398,11 +352,6 @@ def main() -> None:
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
 
     args = ap.parse_args()
-
-    if args.what == "space":
-        code, lines = space()
-        print("\n".join(lines))
-        raise SystemExit(code)
 
     if args.what == "preflight":
         code, lines = preflight(branch=args.branch, remote=args.remote, pull=not args.no_pull)

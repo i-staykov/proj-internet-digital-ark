@@ -249,7 +249,7 @@ ALLOWED = {
     "src/ark/provenance_trace.py": "ships alone as trace.py, importing only the standard library",
 }
 # The lanes: each splits what it read into dated and candidate by whether a name is dated
-LANES = ["src/ark/bulk.py", "src/ark/hostnames.py", "scripts/engines/split_expansion_journal.py"]
+LANES = ["src/ark/bulk.py", "src/ark/hostnames.py"]
 LANES += [
     f"scripts/sources/{rel}.py"
     for rel in """blocklists/split_chastity blocklists/split_junkfilter directories/split_tucows

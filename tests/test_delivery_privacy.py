@@ -38,7 +38,6 @@ def test_nothing_private_or_addressed_to_a_person_ships() -> None:
     assert not [n for n in names if n.startswith("private/")]
     # The known offenders, pinned by name as well as by shape, because they are the proof.
     for path in (
-        "docs/report-sendable.md",
         "docs/registers/questions.md",
         "docs/registers/rounds.md",
     ):
