@@ -1,10 +1,7 @@
 """The scribe, as code: book fleet findings into the register, deterministically.
 
-The sonnet scribe did three mechanical things every round: append one register row per
-finding, write the result line onto the hypothesis block, and leave the working tree ready
-to commit. Nothing in that list needs a model once the findings carry their fields in a
-fixed shape, and a model was the second-largest token cost in the loop. So this is that
-scribe, at zero tokens.
+One register row per finding needs no model once findings carry fixed-shape fields, so
+this books them at zero tokens.
 
 It never ingests and never decides: a FIND is booked exactly like a CLOSED, and the
 approval path (`standing_rule.py`, then `sync_approvals.py`) is the only thing that reaches
@@ -30,8 +27,7 @@ prose is written to be read and the sidecar is written to be checked. **A fleet 
 never reaches the register alone**: the EE cell carries the store's own re-price beside it,
 or says in words why there is none.
 
-    uv run python scripts/harness/bank_findings.py data/fleet_findings/incoming \\
-        --hypotheses ~/GitHub/ark-fleet/hypotheses.md --run-label wave-123
+    uv run python scripts/harness/bank_findings.py data/fleet_findings/incoming --run-label wave-123
 """
 
 from __future__ import annotations
@@ -635,44 +631,11 @@ def append_closed(rows: list[str], path: Path | None = None) -> int:
     return _insert(path or CLOSED, CLOSED_HEADING, rows, closed_key)
 
 
-def write_result_lines(hypo: Path, findings: list[dict]) -> int:
-    """Append a `result:` line to each finding's block in the fleet's hypothesis ledger.
-
-    A lead's fate goes back through `fleet_leads.py` into `leads/<slug>.json`, so a missing
-    ledger is the normal case, and it writes nothing rather than stopping the sync.
-    """
-    if not hypo.is_file():
-        return 0
-    text = hypo.read_text(encoding="utf-8")
-    wrote = 0
-    for f in findings:
-        head = f"## {f['slug']} |"
-        if head not in text:
-            continue
-        block_start = text.index(head)
-        block_end = text.find("\n## ", block_start + 1)
-        block_end = len(text) if block_end == -1 else block_end
-        if "\nresult:" in text[block_start:block_end]:
-            continue
-        clause = first_clause(f["fields"].get("probe", "") or f["fields"].get("reason", ""), 160)
-        line = f"result: {f['verdict']}, {f['ee']} EE, {clause}\n"
-        text = text[:block_end].rstrip("\n") + "\n" + line + text[block_end:].lstrip("\n")
-        wrote += 1
-    hypo.write_text(text, "utf-8")
-    return wrote
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("incoming", type=Path)
-    ap.add_argument("--hypotheses", type=Path, required=True)
     ap.add_argument("--run-label", default="run")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument(
-        "--results-only",
-        action="store_true",
-        help="only the result lines, so the next pick sees them before the admitter runs",
-    )
     ap.add_argument(
         "--registers",
         type=Path,
@@ -683,10 +646,6 @@ def main() -> int:
     findings = one_per_slug(findings_in(args.incoming))
     if not findings:
         print("nothing to bank")
-        return 0
-    if args.results_only:
-        wrote = write_result_lines(args.hypotheses, findings)
-        print(f"{wrote} result lines written to {args.hypotheses}")
         return 0
 
     register, closed_page = REGISTER, CLOSED
@@ -728,10 +687,9 @@ def main() -> int:
         append_rows(rows, register)
     if closed:
         append_closed(closed, closed_page)
-    wrote = write_result_lines(args.hypotheses, findings)
     print(
         f"booked {len(rows)} FIND rows into {register.name} and {len(closed)} into "
-        f"{closed_page.name}; {wrote} result lines written to {args.hypotheses}"
+        f"{closed_page.name}"
     )
     # The line the recipe reads: a drain that booked nothing new is finished rather than
     # failed, and may be archived even though no commit came out of it.

@@ -293,11 +293,9 @@ def test_an_outcome_line_is_banked_only_once_the_store_holds_the_sources_rows(tm
 def test_the_ledger_appends_only_through_the_fleets_keyed_script_and_reads_month_by_month(
     tmp_path,
 ):
-    """A replay adds nothing, a refused row says why, a clone without the script appends
-    nothing, and a line that is not one of the kind asked for is skipped."""
+    """A replay adds nothing, a refused row says why, and a line that is not one of the kind
+    asked for is skipped."""
     rows = [{"row": 1, "line": "a\t1\t2.0"}, {"row": 2, "line": "a\t1\t2.0"}]
-    ok, said = fleet_ledger.append(tmp_path, "legacy", rows)
-    assert (ok, "scripts/ledger.py" in said, (tmp_path / "ledger").exists()) == (False, True, False)
     assert fleet_ledger.lines(None, "legacy") == []
     fleet = stand_in(tmp_path)
     assert fleet_ledger.append(fleet, "legacy", rows) == (True, "ledger: 2 appended, 0 kept")

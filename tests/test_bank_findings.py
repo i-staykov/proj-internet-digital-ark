@@ -99,8 +99,7 @@ def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     (incoming / "neg.md").write_text(loose, encoding="utf-8")
     scout(incoming, "says-find", "verdict: FIND, 12,000 EE projected from one page\n")
     scout(incoming, "open", "verdict: FIND\n", status="scouted")
-    hypotheses = tmp_path / "gone.md"
-    argv = ["bank", str(incoming), "--hypotheses", str(hypotheses), "--registers", str(pages)]
+    argv = ["bank", str(incoming), "--registers", str(pages)]
     monkeypatch.setattr(sys, "argv", argv)
     for said in ("3 new rows, 1 replaced, 4 already booked", "0 new rows, 0 replaced, 8 already"):
         assert scribe.main() == 0
@@ -115,7 +114,6 @@ def test_drains_leave_one_row_per_slug_and_a_retried_drain_writes_nothing(
     assert len(rows[0]) <= scribe.ROW_LIMIT
     closed = (pages / "sources-closed.md").read_text("utf-8").split("|---|\n")[1].splitlines()
     assert [scribe.closed_key(r) for r in closed] == ["neg", "says-find", "shut"]
-    assert not hypotheses.exists(), "the hypothesis ledger is gone, and nothing recreates it"
 
 
 def test_a_closed_scout_a_run_filed_drains_to_its_slug_and_books_the_fleets_reason(tmp_path):

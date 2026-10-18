@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Commit and push the result lines, lead statuses, ledger lines and snapshot.json this
-# checkout wrote into the fleet clone.
+# Commit and push the lead statuses, ledger lines and snapshot.json this checkout wrote
+# into the fleet clone.
 #
-# A leg picks its slug from fleet MAIN, so a result line pushed to a feature branch
+# A leg picks its slug from fleet MAIN, so a lead status pushed to a feature branch
 # strands the verdict and the next leg re-deals settled slugs. `git push -q` with no
 # refspec pushes whatever branch the clone is on, so name the branch and refuse.
 # The tick and `just bank` both call it; a push that never lands is shouted, not fatal.
@@ -15,7 +15,7 @@ LABEL="${2:?push_fleet.sh <fleet clone> <label>}"
 
 BR="$(git -C "$FLEET" branch --show-current)"
 if [ "$BR" != main ]; then
-    echo "fleet clone is on $BR, not main: results, statuses, ledger and snapshot.json uncommitted."
+    echo "fleet clone is on $BR, not main: statuses, ledger and snapshot.json uncommitted."
     echo "  A leg picks from main, so a stranded verdict re-deals a settled slug."
     echo "  Check the clone out on main and re-run the sync."
     exit 0
@@ -55,23 +55,15 @@ for kind, rows in kinds.items():
     [ -f snapshot.json ] && cp snapshot.json "$TMP/ark_snapshot.json" || true
     git add leads 2>/dev/null || true
     git add ledger 2>/dev/null || true
-    [ -f hypotheses.md ] && git add hypotheses.md || true
     [ -f snapshot.json ] && git add snapshot.json || true
-    git commit -q -m "Result lines $LABEL" || true
+    git commit -q -m "Fleet sync $LABEL" || true
     for attempt in 1 2 3; do
         git push -q origin main 2>/dev/null && exit 0
         echo "fleet push rejected on attempt $attempt, replaying onto the remote"
-        # The hypothesis ledger left the fleet with v1 (ark-fleet #83); the replay of
-        # its result lines runs only where the file still exists.
-        [ -f hypotheses.md ] && cp hypotheses.md "$TMP/ark_result_lines.md" || true
         git diff --no-color --no-ext-diff origin/main HEAD -- ledger 2>/dev/null \
             | sed -n 's/^+{/{/p' > "$TMP/ark_ledger_lines.jsonl" || true
         git fetch -q origin main && git reset -q --hard origin/main
         [ -f "$TMP/ark_snapshot.json" ] && cp "$TMP/ark_snapshot.json" snapshot.json || true
-        if [ -f hypotheses.md ] && [ -f "$TMP/ark_result_lines.md" ]; then
-            (cd "$ROOT_FOR_MERGE" && uv run python scripts/harness/merge_result_lines.py \
-                "$TMP/ark_result_lines.md" "$FLEET/hypotheses.md")
-        fi
         if [ -s "$TMP/ark_ledger_lines.jsonl" ]; then
             (cd "$ROOT_FOR_MERGE" && uv run python -c "$REPLAY" \
                 "$HERE" "$FLEET" "$TMP/ark_ledger_lines.jsonl") || true
@@ -80,12 +72,11 @@ for kind, rows in kinds.items():
             data/fleet_findings/incoming --fleet "$FLEET" --write) || true
         git add leads 2>/dev/null || true
         git add ledger 2>/dev/null || true
-        [ -f hypotheses.md ] && git add hypotheses.md || true
         [ -f snapshot.json ] && git add snapshot.json || true
-        git commit -q -m "Result lines $LABEL" || true
+        git commit -q -m "Fleet sync $LABEL" || true
         sleep $(( attempt * 3 ))
     done
-    echo "RESULT LINES NOT PUSHED after three attempts. The fleet queue will over-report"
+    echo "FLEET SYNC NOT PUSHED after three attempts. The fleet queue will over-report"
     echo "  open leads until they land, so the dealer will re-deal settled work."
     exit 1
 ) || true

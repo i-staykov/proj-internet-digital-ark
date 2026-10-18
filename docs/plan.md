@@ -34,8 +34,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 - One D2 page around the public-suffix walk, which made 99.8% of round 12: fold `findings.md` into
   `experience-summary.md` (keep the topics and 300 words verify_delivery.sh checks); delete
   `findings.md`, its copy at package_delivery.sh:224, its README and index rows.
-- The deleted hypotheses path: merge_result_lines.py, write_result_lines, `--hypotheses`,
-  `--results-only`, the fleet_ledger.py:12 fallback, their tests.
 - sources-closed.md: one short row per slug (slug and URL stay, they are the bank's dedup keys);
   brief.py LAYOUT gains data/orq and data/queue.
 - After #343: the brief's section citations, XI to XII and XIII to XIV.

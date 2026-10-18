@@ -197,30 +197,25 @@ sync fleet="~/GitHub/ark-fleet":
     #     the watchdog that starts it, so this dispatches nothing. `discover_cycle.py` holds
     #     the check. Never fatal.
     uv run python scripts/harness/discover_cycle.py --slots-only --fleet "$FLEET" || true
-    # 3 to 7 need findings. A confirmed FIND needs the live store for its second price, so its
+    # 3 to 6 need findings. A confirmed FIND needs the live store for its second price, so its
     # whole drain goes to the bank; any other drain is booked here. Each shape, a closed scout
     # lead's `scout.md` among them, is tested alone: `ls` over all fails when ANY is unmatched.
     if ! compgen -G "$IN/*.md" >/dev/null && ! compgen -G "$IN/*/finding.json" >/dev/null \
         && ! compgen -G "$IN/*/scout.md" >/dev/null; then
         echo "nothing new to book"
     else
-        # 3. Result lines first and pushed at once: a leg that picks while the rest of this
-        #    recipe is still running relaunches settled slugs.
-        uv run python scripts/harness/bank_findings.py "$IN" \
-            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" --results-only
-        bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
         if uv run python scripts/harness/bank_trigger.py check --find; then
             echo "a confirmed FIND: the bank books this whole drain"
         else
-            # 4. The deterministic scribe: one row per slug, a FIND into sources.md with both
+            # 3. The deterministic scribe: one row per slug, a FIND into sources.md with both
             #    figures and every measured negative into sources-closed.md. A FIND re-measuring
             #    its own FIND row replaces it; a re-drained run writes nothing.
             SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
-                --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+                --run-label "$LABEL" | tee /dev/stderr)
             NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
-            # 5. The lead queue, rebuilt from the fleet's outcome lines and lead statuses.
+            # 4. The lead queue, rebuilt from the fleet's outcome lines and lead statuses.
             uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
-            # 6. One commit and one push, **only when the registers moved**: an empty commit
+            # 5. One commit and one push, **only when the registers moved**: an empty commit
             #    says a drain was booked when none was.
             git add docs/registers/
             COMMITTED=no
@@ -234,7 +229,7 @@ sync fleet="~/GitHub/ark-fleet":
             #    Then pending approvals as one issue and one mergeable pull request each, after
             #    the push, so a block this run wrote is on live and its pull request flips one line.
             uv run python scripts/harness/sync_approvals.py || true
-            # 7. What became of each lead, back into the fleet's queue, with the result lines.
+            # 6. What became of each lead, back into the fleet's queue.
             #    **A run leaves `incoming/` only once its rows are committed**; anything else
             #    keeps it here for the next tick, which is safe because every step is keyed on
             #    the slug.
@@ -247,7 +242,7 @@ sync fleet="~/GitHub/ark-fleet":
             fi
         fi
     fi
-    # 8. The VPS walk lane's journals and request log home (a journal still open has a dot name,
+    # 7. The VPS walk lane's journals and request log home (a journal still open has a dot name,
     #    which the glob skips), then the queue re-ranked from every lane and sent back. The calls
     #    are bounded, so an unreachable VPS costs seconds rather than the hour.
     : "${ARK_VPS:?set ARK_VPS}"
@@ -258,7 +253,7 @@ sync fleet="~/GitHub/ark-fleet":
     mkdir -p data/raw/cdx_walk/lane2 && rsync -a --timeout=60 -e "$SSH" "$ARK_VPS:ark-walk-data/raw/cdx_walk/lane2/log.tsv" data/raw/cdx_walk/lane2/ || true
     uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
     rsync -a --timeout=60 -e "$SSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VPS:ark-walk-data/queue/" || true
-    # 9. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
+    # 8. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
     #    runs under this lock; a red bank exits 1 and so does this tick.
     BANK_RC=0
     if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
@@ -266,9 +261,9 @@ sync fleet="~/GitHub/ark-fleet":
     else
         echo "$WHY"
     fi
-    # 10. The gate issue, once per crossing, read off the brief the last bank wrote; then a
-    #     snapshot push the last bank could not make, without the ack, its one store read.
-    #     Never while a red stands: output/ then holds the export that failed its check.
+    # 9. The gate issue, once per crossing, read off the brief the last bank wrote; then a
+    #    snapshot push the last bank could not make, without the ack, its one store read.
+    #    Never while a red stands: output/ then holds the export that failed its check.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
     if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
         echo "push: held while BANK RED stands"
@@ -418,8 +413,8 @@ bank *args:
     if has find; then
         RAN_A=yes
         uv run python scripts/harness/fleet_findings.py reprice "$IN"
-        SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" \
-            --hypotheses "$FLEET/hypotheses.md" --run-label "$LABEL" | tee /dev/stderr)
+        SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" --run-label "$LABEL" \
+            | tee /dev/stderr)
         NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
         uv run python scripts/harness/fleet_request.py "$IN" --fleet "$FLEET" --write
         DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \

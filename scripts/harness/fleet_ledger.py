@@ -9,10 +9,6 @@ are already in any month's file.
     append(fleet, kind, rows)   one `ledger.py append --kind K --json -` run over the fleet clone
     streak(outcomes)            whether the last STREAK finds with a store figure agree within 1%
 
-**The fleet clone may predate the ledger.** Until it holds `scripts/ledger.py`, `append`
-writes nothing and says why, and `lines` finds no files and returns nothing, so a caller
-keeps what it would have converted and the next tick tries again.
-
 **An outcome line** is the laptop's booking of one confirmed FIND: `slug`, `store_ee` (the
 live-store re-price), `program_ee` (the program's figure on the pushed snapshot),
 `agreement_pct` (`100 * program_ee / store_ee`), the register's `decision` and whether the
@@ -35,11 +31,6 @@ SCRIPT = "scripts/ledger.py"
 # WITHIN of the store's figure; until then the store re-price does.
 STREAK = 10
 WITHIN = 0.01
-
-
-def available(fleet: Path | None) -> bool:
-    """Whether `fleet` is a clone that holds the fleet's ledger script."""
-    return fleet is not None and (Path(fleet) / SCRIPT).is_file()
 
 
 def lines(fleet: Path | None, kind: str, ref: str | None = None) -> list[dict]:
@@ -82,12 +73,10 @@ def _month_files(fleet: Path, ref: str | None) -> list[str]:
     return [subprocess.run([*git, "show", f"{ref}:{n}"], env=env, **_TEXT).stdout for n in names]
 
 
-def append(fleet: Path | None, kind: str, rows: list[dict]) -> tuple[bool, str]:
+def append(fleet: Path, kind: str, rows: list[dict]) -> tuple[bool, str]:
     """Append `rows` as `kind` lines through the fleet's own script. Returns whether every
-    row is now in the ledger, and the script's last line or the reason nothing ran. A row
-    the script refuses stops the batch there, with the rows before it written."""
-    if not available(fleet):
-        return False, f"no {SCRIPT} in {fleet}, so nothing was appended"
+    row is now in the ledger, and the script's last line. A row the script refuses stops
+    the batch there, with the rows before it written."""
     body = "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
     done = subprocess.run(
         [
