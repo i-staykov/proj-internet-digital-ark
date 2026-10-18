@@ -400,7 +400,7 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
     assert (done["excluded"], done["running"]) == (["ia-like"], ["q1-running"])
     assert done["pending"] and all(orq.FROZEN_TOKEN_RE.fullmatch(t) for t in done["pending"])
     en = out / orq.EN
-    assert sorted(p.name for p in out.iterdir()) == sorted([orq.EN, orq.ZH])
+    assert [p.name for p in out.iterdir()] == [orq.EN]
     with (en / "tests.csv").open(newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert {row["label"] for row in rows} <= set(orq.LABELS)
@@ -416,10 +416,6 @@ def test_a_build_writes_both_folders_and_reads_neither_the_store_nor_private(tmp
     assert (frozen["leg"], frozen["code"]) == ("script", "code/q2-fixture.py")
     assert (en / frozen["logs"]).read_text().endswith("capture\n")
     assert "https://example.org/cdx" in (en / "sources.csv").read_text()
-    for name in (orq.TXT["Q1"], orq.TXT["Q2"]):
-        lines = {line.strip() for line in (out / orq.ZH / name).read_text().splitlines()}
-        assert set(orq.HEADINGS) <= lines, name
-    assert (out / orq.ZH / orq.README).read_text().strip()
     with zipfile.ZipFile(en / orq.DOCX) as docx:
         text = re.sub(r"<[^>]+>", "", docx.read("word/document.xml").decode("utf-8"))
     assert "50.0% of 2 names are in the next" in text  # his 2000 against his 2001
@@ -454,11 +450,10 @@ def block(script: str, start: str, end: str, prefix: str = "set -euo pipefail\n"
 
 
 def fixture_stage(root: Path) -> Path:
-    """The two folders as orq.py lays them out, by hand, so E1 runs without pandoc."""
-    en, zh = root / orq.EN, root / orq.ZH
+    """The folder as orq.py lays it out, by hand, so E1 runs without pandoc."""
+    en = root / orq.EN
     (en / "evidence/a-lead").mkdir(parents=True)
     (en / "evidence/a-lead/scout.md").write_text("scouted\n")
-    zh.mkdir()
     parts = orq.split(orq.TEMPLATE.read_text(encoding="utf-8"))
     q1, q2 = (parts[q].splitlines()[0].split(". ", 1)[1].strip() for q in ("Q1", "Q2"))
     half = len(q1) // 2  # the first question split across two runs, as Word splits a heading
@@ -473,9 +468,6 @@ def fixture_stage(root: Path) -> Path:
         writer = csv.DictWriter(handle, fieldnames=orq.TESTS_FIELDS)
         writer.writeheader()
         writer.writerows(rows)
-    for name in (orq.TXT["Q1"], orq.TXT["Q2"]):
-        (zh / name).write_text("\n\n".join(("Q", *orq.HEADINGS)) + "\n", encoding="utf-8")
-    (zh / orq.README).write_text("the folders\n", encoding="utf-8")
     return root
 
 
@@ -484,24 +476,22 @@ def docx(path: Path, xml: str) -> None:
         z.writestr("word/document.xml", xml)
 
 
-def test_e1_passes_both_folders_and_fails_on_any_one_gap(tmp_path):
+def test_e1_passes_the_folder_and_fails_on_any_one_gap(tmp_path):
     """The stage is built from orq.py's own constants, which verify.sh carries literally."""
     # verify.sh sets `fail` from the block and exits with it, so the block runs the same way
     e1 = block("verify_delivery.sh", "# --- 9 (E1)", "\nPY\n", prefix="fail=0\n")
     e1 += '\nPY\nexit "$fail"\n'
     done = bash(e1, fixture_stage(tmp_path / "good"))
     assert done.returncode == 0, done.stdout + done.stderr
-    en, zh, labels = Path(orq.EN), Path(orq.ZH), "question,id,label\nQ1,a,Fine\n"
+    en, labels = Path(orq.EN), "question,id,label\nQ1,a,Fine\n"
     breaks = {
-        "folder gone": lambda s: shutil.rmtree(s / zh),
-        "other folder gone": lambda s: shutil.rmtree(s / en),
+        "folder gone": lambda s: shutil.rmtree(s / en),
         "docx unreadable": lambda s: (s / en / orq.DOCX).write_bytes(b"not a zip"),
         "question missing": lambda s: docx(s / en / orq.DOCX, "<w:p><w:t>A title</w:t></w:p>"),
-        "one heading short": lambda s: (s / zh / orq.TXT["Q2"]).write_text("Limitations\n"),
         "a fourth label": lambda s: (s / en / "tests.csv").write_text(labels),
         "a named file gone": lambda s: shutil.rmtree(s / en / "evidence"),
-        "private text": lambda s: (s / zh / orq.README).write_text("see private/notes\n"),
-        "a link": lambda s: (s / zh / "linked.txt").symlink_to(s / zh / orq.README),
+        "private text": lambda s: (s / en / "notes.txt").write_text("see private/notes\n"),
+        "a link": lambda s: (s / en / "linked.csv").symlink_to(s / en / "tests.csv"),
     }
     for name, broken in breaks.items():
         broken(stage := fixture_stage(tmp_path / name.replace(" ", "-")))

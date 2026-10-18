@@ -1,10 +1,8 @@
-"""Build the two Open Research Questions folders every submission ships.
+"""Build the Open Research Questions folder every submission ships.
 
 Section IV-A of his brief asks for `Open Research Questions/Open Research Questions.docx`
 with code, source links, logs, samples and screenshots beside it, and every untested idea
-labelled "Pending validation". Section X asks for `开放性研究问题/`, plain-text answers
-under its six headings. Both are built from one template, `docs/orq/orq.template.md`, so
-they cannot say different things.
+labelled "Pending validation". It is built from `docs/orq/orq.template.md`.
 
     uv run python scripts/round/orq.py --preview DIR [--fleet DIR]
     uv run python scripts/round/orq.py --stage DIR [--fleet DIR]
@@ -58,7 +56,7 @@ ledger began.
 
 **It never reads `private/` or the store**: every file it opens from this repository or
 the fleet goes through `opened`, which refuses both, and a Q2 command reads only what its
-variables name. Evidence is copied into the folders, never linked, and a copy that names
+variables name. Evidence is copied into the folder, never linked, and a copy that names
 `private/` or a home directory stops the build.
 """
 
@@ -109,16 +107,13 @@ DISCOVERY = ("candidate_additions.txt", "isc_candidates.txt", "header_candidates
 DEFAULT_FLEET = Path.home() / "GitHub/ark-fleet"
 
 EN = "Open Research Questions"
-ZH = "开放性研究问题"
 DOCX = f"{EN}.docx"
-TXT = {"Q1": "Q1_pre1996_discovery.txt", "Q2": "Q2_year_assignment.txt"}
-README = "README.txt"
 
 VALIDATED = "Validated"
 TESTED = "Tested, not independently verified"
 PENDING = "Pending validation"
 LABELS = (VALIDATED, TESTED, PENDING)
-# Section X's six, in its order. His text has them lowercase inside one sentence.
+# Each question's six headings, in his order.
 HEADINGS = (
     "Proposed approaches",
     "Completed related work or tests",
@@ -219,7 +214,7 @@ def _dig(doc: dict | None, *keys):
 
 
 def clean(text: str, origin: str) -> str:
-    """Text bound for the folders, refused when it names private/ or a home directory."""
+    """Text bound for the folder, refused when it names private/ or a home directory."""
     if "private/" in text:
         raise Refusal(f"{origin} names private/, which never ships")
     if HOME.search(text):
@@ -1039,7 +1034,7 @@ def _git(fleet: Path, *args: str) -> str:
 
 
 def fleet_head(fleet: Path) -> str:
-    """The fleet commit the folders are built from, refused when the checkout holds changes
+    """The fleet commit the folder is built from, refused when the checkout holds changes
     under what is read, since the commit would not hold them. "" when the fleet is not the
     top of a git checkout."""
     top = _git(fleet, "rev-parse", "--show-toplevel")
@@ -1143,7 +1138,7 @@ def sources_rows(tests: list[Test], variables: dict[str, str]) -> list[dict]:
 
 
 def build(root: Path, fleet: Path, variables: dict[str, str] | None = None, strict=False) -> dict:
-    """Write both folders under `root`, replacing any earlier build of them there. `strict`
+    """Write the folder under `root`, replacing any earlier build of them there. `strict`
     (a stage) refuses a frozen-result token whose result has not landed."""
     started = time.monotonic()
     BROKEN.clear()
@@ -1212,9 +1207,8 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None, stri
 
     work = Path(tempfile.mkdtemp(prefix=".orq-", dir=root))
     try:
-        en, zh = work / EN, work / ZH
+        en = work / EN
         en.mkdir()
-        zh.mkdir()
         for test in every:
             if test.frozen is not None:
                 copy_frozen(test, en)
@@ -1233,25 +1227,12 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None, stri
         _write(en / "tests.csv", _csv(tests_rows(every, lines), TESTS_FIELDS), "tests.csv")
         _write(en / "sources.csv", _csv(sources_rows(every, variables), SOURCES_FIELDS), "sources")
         to_docx(clean(markdown, DOCX), en / DOCX)
-        parts = split(markdown)
-        title = parts["head"].splitlines()[0]
-        # The files the text names sit beside the .docx, in the sibling folder.
-        where = f"File paths are relative to `../{EN}/`.\n\n"
-        texts = {
-            TXT["Q1"]: f"{title}\n\n{where}{parts['Q1']}",
-            TXT["Q2"]: f"{title}\n\n{where}{parts['Q2']}",
-            README: parts["head"] + where + parts["tail"],
-        }
-        for name, text in texts.items():
-            plain(clean(text, name), zh / name)
         for path in work.rglob("*"):
             if path.is_file() and path.suffix in (".txt", ".csv", ".md", ".json", ".py"):
                 clean(path.read_text(encoding="utf-8"), str(path.relative_to(work)))
-        for name in (EN, ZH):
-            final = root / name
-            if final.exists():
-                shutil.rmtree(final)
-            (work / name).rename(final)
+        if (root / EN).exists():
+            shutil.rmtree(root / EN)
+        en.rename(root / EN)
     finally:
         shutil.rmtree(work, ignore_errors=True)
     seconds = round(time.monotonic() - started, 1)
@@ -1259,14 +1240,8 @@ def build(root: Path, fleet: Path, variables: dict[str, str] | None = None, stri
     return found | {"seconds": seconds, "fleet_commit": head, "screenshots": len(shots)}
 
 
-def plain(markdown: str, out: Path) -> None:
-    """Markdown to plain text through pandoc, unwrapped so a heading stays on one line."""
-    command = ["pandoc", "--from=markdown-smart", "--to=plain", "--wrap=none", "-o", str(out)]
-    subprocess.run(command, input=markdown.encode("utf-8"), check=True)
-
-
 def target(stage: Path | None, preview: Path | None) -> Path:
-    """Where the folders go. Never under submissions/; a preview never under output/ either."""
+    """Where the folder goes. Never under submissions/; a preview never under output/ either."""
     chosen = Path(stage or preview).expanduser()
     resolved = chosen.resolve()
     banned = [REPO / "submissions", OWNER / "submissions"]
@@ -1285,7 +1260,7 @@ def target(stage: Path | None, preview: Path | None) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     where = parser.add_mutually_exclusive_group(required=True)
-    where.add_argument("--stage", type=Path, help="a package stage to write the folders into")
+    where.add_argument("--stage", type=Path, help="a package stage to write the folder into")
     where.add_argument("--preview", type=Path, help="a scratch directory, never output/")
     where.add_argument("--measure", choices=sorted(MEASURES), help="print one Q2 measure")
     parser.add_argument(
@@ -1309,7 +1284,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"orq: {exc.filename} is not installed or missing", file=sys.stderr)
         return 1
     counts = ", ".join(f"{n} {label}" for label, n in done["counts"].items())
-    print(f"wrote {root / EN} and {root / ZH} in {done['seconds']} s")
+    print(f"wrote {root / EN} in {done['seconds']} s")
     print(f"  fleet {done['fleet_commit'] or 'not a git checkout'}: {counts}")
     if done["excluded"]:
         print(f"  left out of Q1 as postdating 1995: {', '.join(done['excluded'])}")
