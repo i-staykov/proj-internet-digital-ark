@@ -1365,10 +1365,12 @@ vm what="status":
         fi
         if ! bash scripts/harness/sync_lock.sh take $$; then exit 1; fi
         trap 'bash scripts/harness/sync_lock.sh drop' EXIT
-        # Not the VM's own lane state, which its walker owns, nor this machine's lock, logs,
-        # push marker and red.
-        rsync -a --partial --info=progress2 --timeout=300 -e "${SSH% $ARK_VM}" \
-            --exclude 'data/raw/cdx_walk/' --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
+        # Not the VM's own lane state, which its walker owns, nor git's baseline.json, nor this
+        # machine's lock, logs, marker, red and DuckDB spill; a cut store stays a partial, never
+        # the file the timer's condition looks for.
+        rsync -a --partial-dir=.rsync-partial --info=progress2 --timeout=300 -e "${SSH% $ARK_VM}" \
+            --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
+            --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
             --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
             data output "$ARK_VM:ark/"
         ;;
@@ -1394,7 +1396,7 @@ vm what="status":
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
         grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
-    *) echo "vm: install status log" >&2; exit 2 ;;
+    *) echo "vm: install copy status log" >&2; exit 2 ;;
     esac
 
 # The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
