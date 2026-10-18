@@ -7,7 +7,7 @@ the store after reading the artifact. One yes unlocks everything under its headi
 
 ## The send
 
-**Round 12 crossed the 3% gate** at 7.7401% of 2002-2013 against `merge261008-3`, and the send is yours: merge any open approval PR, then run `just ship` where the store is.
+Nothing to send: Round 12 stands at 0.0154% of 1996-2001 against `merge261016`, under the 3% gate, 2,172,409 EE short.
 
 ## New evidence classes, biggest first
 
