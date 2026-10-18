@@ -22,11 +22,11 @@ UID = os.getuid()
 ME = str(os.getpid())  # a live pid to hold the lock with
 STAMP = "2026-01-01T00:00:00Z"
 FLAG = f"human\n{STAMP}\n"
-# What `hold on` leaves: the file, the flag here and on the VPS, the job and workflows disabled.
+# What `hold on` leaves: the file, the flag here and on each host, the job and workflows disabled.
 HELD = {
     "state/hold": FLAG + "".join(f"{n}\n" for n in NAMES),
     "state/pause-platform": FLAG,
-    "shim/vps/ark/state/pause-platform": FLAG,
+    "shim/host/ark/state/pause-platform": FLAG,
     "shim/launchd/disabled/com.ark.sync": "",
     **{f"shim/workflows/{wf}": "disabled_manually\n" for wf in WORKFLOWS},
 }
@@ -60,9 +60,10 @@ gh)
     "workflow enable") echo active > "$S/workflows/$3" ;;
     esac ;;
 ssh)
-    # The command runs as the VPS would run it: its own home, its own ARK_STATE_DIR.
+    # The command runs as a host would run it: its own home, its own ARK_STATE_DIR.
     [ -e "$S/offline" ] && exit 255
-    for cmd; do :; done; unset ARK_STATE_DIR; HOME=$S/vps; eval "$cmd" ;;
+    [ "$5" = down.test ] && exit 255
+    for cmd; do :; done; unset ARK_STATE_DIR; HOME=$S/host; eval "$cmd" ;;
 uv)
     # Something arrived only when the test says so, for the first check. The slot check fails.
     case "$*" in *"bank_trigger.py check lock="*)
@@ -108,7 +109,7 @@ class Box:
         paths = {"ARK_STATE_DIR": self.state, "ARK_SYNC_LOCK": self.lock, "RECIPES": recipes}
         paths |= {"HOME": tmp / "home", "SHIM_LOG": self.log, "SHIM_STATE": self.shim}
         self.base = {k: str(v) for k, v in paths.items()}
-        self.base |= {"PATH": f"{bin_dir}:/usr/bin:/bin", "ARK_VPS": "vps.test"}
+        self.base |= {"PATH": f"{bin_dir}:/usr/bin:/bin", "ARK_HOSTS": "host.test:2"}
 
     def reset(self) -> None:
         for path in (self.state, self.shim, self.lock, self.agents, self.repo / "data"):
@@ -145,7 +146,7 @@ class Box:
         return [ln for ln in self.lines("launchctl ") if ln.split()[1] in verbs]
 
     def files(self) -> dict[str, str]:
-        """Every file here, on the VPS, in launchd and on GitHub, its stamps as STAMP."""
+        """Every file here, on the host, in launchd and on GitHub, its stamps as STAMP."""
         paths = [p for root in (self.state, self.shim) for p in root.rglob("*") if p.is_file()]
         stamp = re.compile(r"\d{4}-\d\d-\d\dT[\d:]{8}Z")
         return {p.relative_to(self.tmp).as_posix(): stamp.sub(STAMP, p.read_text()) for p in paths}
@@ -173,20 +174,20 @@ def box(shared) -> Box:
     return shared
 
 
-def test_on_disables_before_bootout_writes_the_flag_here_and_on_the_vps_and_status_reads_it(box):
+def test_on_disables_before_bootout_writes_the_flag_here_and_on_the_host_and_status_reads_it(box):
     out = box.hold("on")
     assert out.returncode == 0, out.stdout + out.stderr
     assert box.files() == HELD
     calls = [" ".join(call.split()[:2]) for call in box.launchd()]
     assert calls.index("launchctl disable") < calls.index("launchctl bootout")
-    assert box.lines("ssh -o ConnectTimeout=15 -o BatchMode=yes vps.test ")
+    assert box.lines("ssh -o ConnectTimeout=15 -o BatchMode=yes host.test ")
     for wf in WORKFLOWS:
         assert box.lines(f"gh workflow disable {wf} --repo i-staykov/ark-fleet"), wf
     status = box.hold("status")
     assert (status.returncode, status.stdout.splitlines()) == (0, [f"HELD      {n}" for n in NAMES])
     # Status reads the machine, not the file, and names what the file lists but it does not know.
     (box.shim / "launchd/disabled/com.ark.sync").rename(box.shim / "launchd/loaded/com.ark.sync")
-    (box.shim / "vps/ark/state/pause-platform").unlink()
+    (box.shim / "host/ark/state/pause-platform").unlink()
     (box.shim / "workflows/leg.yaml").write_text("active\n")
     with (box.state / "hold").open("a") as hold:
         hold.write("com.ark.cycle\n")
@@ -194,7 +195,7 @@ def test_on_disables_before_bootout_writes_the_flag_here_and_on_the_vps_and_stat
     assert status.returncode == 1
     assert status.stdout.splitlines() == [
         "NOT HELD  com.ark.sync: not disabled, loaded",
-        "NOT HELD  pause-platform: no flag on the VPS",
+        "NOT HELD  pause-platform: no flag on the lane 2 host",
         "NOT HELD  leg.yaml: active",
         "HELD      read.yaml",
         "HELD      improver.yaml",
@@ -318,17 +319,28 @@ def test_the_launchd_template_names_a_script_that_exists_and_a_path_that_finds_t
     assert env["HOME"] == "/h"
 
 
-def test_an_unreachable_vps_and_gh_leave_the_local_hold_whole(box):
+def test_a_silent_host_borrows_no_answer_from_the_next(box):
+    hosts = {"ARK_HOSTS": "host.test:2 down.test:3"}
+    out = box.run(["bash", "scripts/harness/hold.sh", "on"], hosts)
+    assert out.returncode == 0 and "lane 3 host: unconfirmed" in out.stdout
+    status = box.run(["bash", "scripts/harness/hold.sh", "status"], hosts)
+    assert "NOT HELD  pause-platform: the lane 3 host did not answer" in status.stdout.splitlines()
+    lift = box.run(["bash", "scripts/harness/hold.sh", "off", "pause-platform"], hosts)
+    assert lift.returncode == 1 and "unconfirmed on the lane 3 host" in lift.stdout
+    assert not (box.shim / "host/ark/state/pause-platform").exists(), "the live host was asked"
+
+
+def test_an_unreachable_host_and_gh_leave_the_local_hold_whole(box):
     (box.shim / "offline").touch()
     out = box.hold("on")
     assert out.returncode == 0, out.stdout + out.stderr
-    # The VPS, and each workflow gh could not be asked about.
+    # The host, and each workflow gh could not be asked about.
     assert out.stdout.count("unconfirmed") == 1 + len(WORKFLOWS)
     local = {k: v for k, v in HELD.items() if k.startswith(("state/", "shim/launchd/"))}
     assert box.files() == local | {"shim/offline": ""}
     status = box.hold("status")
     assert status.returncode == 1
-    assert "NOT HELD  pause-platform: the VPS did not answer" in status.stdout.splitlines()
+    assert "NOT HELD  pause-platform: the lane 2 host did not answer" in status.stdout.splitlines()
     assert "HELD      com.ark.sync" in status.stdout.splitlines()
     # With no plist, as after `just schedule remove`, the lift only enables the job.
     (box.agents / "com.ark.sync.plist").unlink()

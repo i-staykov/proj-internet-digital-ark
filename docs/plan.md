@@ -50,7 +50,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 - Collection and banking run with the laptop off: the VM, reached over the VPN, runs the walker
   lanes, the hourly bank and store, export and packaging as user services; the fleet stays on
   GitHub Actions, since the VM's terms bar AI agents allocating compute.
-- One host list in `local.env` replaces the VPS-specific install and sync; holds work remotely.
 - #292 End of Term; #286 re-priced against merge261016 for the owner's ruling.
-- Cutover: copy the store, run both for one bank, switch, retire the VPS; AGENTS.md names three
-  CDX clients without placing them.
+- Cutover: copy the store, run both for one bank, switch, retire the VPS (`sync_fleet.sh` and
+  the fleet_findings reprice still read `ARK_VPS`).

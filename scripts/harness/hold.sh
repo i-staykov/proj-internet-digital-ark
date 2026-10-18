@@ -11,8 +11,8 @@
 # refuses while the file exists. A listed name this script does not know is NOT HELD, and `off`
 # only drops its line.
 #
-# The VPS and GitHub are asked, never relied on: without them the job and the local flag
-# still go, and what could not be confirmed is printed, not fatal.
+# The collector hosts and GitHub are asked, never relied on: without them the job and the
+# local flag still go, and what could not be confirmed is printed, not fatal.
 #
 # Usage:
 #   bash scripts/harness/hold.sh on             hold every name
@@ -22,7 +22,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 
-# ARK_VPS lives in local.env, assigned without export, so it reaches no child environment.
+# ARK_HOSTS lives in local.env, `target:lane` each, assigned without export, so it reaches no
+# child environment.
 [ -f local.env ] && . ./local.env
 STATE_DIR="${ARK_STATE_DIR:-$HOME/ark/state}"
 HOLD="$STATE_DIR/hold"
@@ -33,7 +34,7 @@ FLAGS="pause-platform"
 WORKFLOWS="leg.yaml read.yaml improver.yaml"
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
-# On the VPS the flag follows that machine's own ARK_STATE_DIR.
+# On a host the flag follows that machine's own ARK_STATE_DIR.
 REMOTE_DIR='d="${ARK_STATE_DIR:-$HOME/ark/state}"; mkdir -p "$d"'
 
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
@@ -48,12 +49,13 @@ loaded() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j { f = 1 } END { e
 
 running() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j && $1 ~ /^[0-9]+$/ { print $1 }'; }
 
-vps() { ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VPS" "$1" < /dev/null 2>/dev/null; }
+# A host by its lane in what is printed: its target is never echoed.
+on_host() { ssh -o ConnectTimeout=15 -o BatchMode=yes "${1%:*}" "$2" < /dev/null 2>/dev/null; }
 
-# Write or remove flags on the VPS; 0 only once it has said it did.
-vps_flags() {
-    local verb=$1 cmd=$REMOTE_DIR f
-    shift
+# Write or remove flags on one host; 0 only once it has said it did.
+host_flags() {
+    local host=$1 verb=$2 cmd=$REMOTE_DIR f
+    shift 2
     for f in "$@"; do
         if [ "$verb" = write ]; then
             cmd="$cmd && printf 'human\\n%s\\n' '$STAMP' > \"\$d/$f\""
@@ -61,7 +63,7 @@ vps_flags() {
             cmd="$cmd && rm -f \"\$d/$f\""
         fi
     done
-    [ "$(vps "$cmd && echo done")" = done ]
+    [ "$(on_host "$host" "$cmd && echo done")" = done ]
 }
 
 # The state only when gh answered: on an HTTP error it prints the error body instead.
@@ -106,13 +108,14 @@ cmd_on() {
             echo "$job: disabled, $was"
         fi
     done
-    if [ -z "${ARK_VPS:-}" ]; then
-        echo "VPS: unconfirmed, ARK_VPS is not set; the walker there may still run"
-    elif vps_flags write $FLAGS; then
-        echo "VPS: $FLAGS written"
-    else
-        echo "VPS: unconfirmed, it did not answer; the walker there may still run"
-    fi
+    [ -n "${ARK_HOSTS:-}" ] || echo "hosts: unconfirmed, ARK_HOSTS is not set"
+    for h in ${ARK_HOSTS:-}; do
+        if host_flags "$h" write $FLAGS; then
+            echo "lane ${h##*:} host: $FLAGS written"
+        else
+            echo "lane ${h##*:} host: unconfirmed, it did not answer; its walker may still run"
+        fi
+    done
     for wf in $WORKFLOWS; do
         case "$(wf_state "$wf")" in
         disabled*) echo "$wf: already disabled" ;;
@@ -148,11 +151,14 @@ lift() {
         echo "$name: enabled, bootstrapped"
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
-        if [ -n "${ARK_VPS:-}" ] && ! vps_flags remove "$name"; then
-            echo "$name: removed here, unconfirmed on the VPS"
-            return 1
-        fi
-        echo "$name: removed"
+        local rc=0
+        for h in ${ARK_HOSTS:-}; do
+            host_flags "$h" remove "$name" && continue
+            echo "$name: removed here, unconfirmed on the lane ${h##*:} host"
+            rc=1
+        done
+        [ "$rc" = 0 ] && echo "$name: removed"
+        return $rc
     elif in_list "$name" "$WORKFLOWS"; then
         case "$(wf_state "$name")" in
         active) echo "$name: already active" ;;
@@ -199,12 +205,15 @@ cmd_off() {
 }
 
 cmd_status() {
-    local disabled remote="" name why rc=0
+    local disabled remote="" name why rc=0 h block
     disabled=$(launchctl print-disabled "$DOMAIN" 2>/dev/null)
-    if [ -n "${ARK_VPS:-}" ]; then
-        remote=$(vps 'd="${ARK_STATE_DIR:-$HOME/ark/state}"; for f in '"$FLAGS"'; do
-            [ "$(head -1 "$d/$f" 2>/dev/null)" = human ] && echo "$f"; done; echo answered')
-    fi
+    # One block per host, `lane N` to `end`: the flags it holds, then `answered`; a silent
+    # host's block is empty and borrows nothing from the next.
+    for h in ${ARK_HOSTS:-}; do
+        remote+="lane ${h##*:}"$'\n'$(on_host "$h" 'd="${ARK_STATE_DIR:-$HOME/ark/state}"
+            for f in '"$FLAGS"'; do [ "$(head -1 "$d/$f" 2>/dev/null)" = human ] && echo "$f"
+            done; echo answered')$'\nend\n'
+    done
     for name in $JOBS $FLAGS $WORKFLOWS; do
         why=""
         if ! listed "$name"; then
@@ -214,13 +223,15 @@ cmd_status() {
             loaded "$name" && why="${why:+$why, }loaded"
         elif in_list "$name" "$FLAGS"; then
             [ "$(head -1 "$STATE_DIR/$name" 2>/dev/null)" = human ] || why="no flag here"
-            if [ -z "${ARK_VPS:-}" ]; then
-                why="${why:+$why, }ARK_VPS is not set"
-            elif ! printf '%s\n' "$remote" | grep -qx answered; then
-                why="${why:+$why, }the VPS did not answer"
-            elif ! printf '%s\n' "$remote" | grep -qx -- "$name"; then
-                why="${why:+$why, }no flag on the VPS"
-            fi
+            [ -n "${ARK_HOSTS:-}" ] || why="${why:+$why, }ARK_HOSTS is not set"
+            for h in ${ARK_HOSTS:-}; do
+                block=$(printf '%s\n' "$remote" | sed -n "/^lane ${h##*:}\$/,/^end\$/p")
+                if ! printf '%s\n' "$block" | grep -qx answered; then
+                    why="${why:+$why, }the lane ${h##*:} host did not answer"
+                elif ! printf '%s\n' "$block" | grep -qx -- "$name"; then
+                    why="${why:+$why, }no flag on the lane ${h##*:} host"
+                fi
+            done
         else
             case "$(wf_state "$name")" in
             disabled*) ;;

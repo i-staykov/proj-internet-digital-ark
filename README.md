@@ -30,7 +30,7 @@ has the command.
 
 ```bash
 just hold status   # HELD or NOT HELD, one line per name: the job, the flag, each workflow
-just hold          # com.ark.sync, pause-platform here and on the VPS, the fleet workflows
+just hold          # com.ark.sync, pause-platform here and on each host, the fleet workflows
 ```
 
 The hold survives a reboot: only `just hold off [name]` lifts it.

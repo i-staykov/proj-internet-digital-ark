@@ -61,14 +61,14 @@ alone, never through a pipe, before believing a refusal.
 ## The loop
 
 **Collection.** `just walk install` keeps one lane per archive client running (`AGENTS.md`,
-Channel): launchd runs lanes 0 and 1 here under `caffeinate -i -s`, cron lane 2 on the VPS
+Channel): cron on each `ARK_HOSTS` machine of `local.env`, `target:lane` each
 (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows land in `data/raw/cdx_suffix/`
-and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`; the tick pulls the VPS lane's
+and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`; the tick pulls each lane's
 home and re-ranks the queue by measured EE per request, and `local.env` exports
 `ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
-drains the Leg and Read runs, books a drain with no confirmed FIND, pulls the VPS lane's finished
+drains the Leg and Read runs, books a drain with no confirmed FIND, pulls each lane's finished
 journals, and runs `just bank` when `scripts/harness/bank_trigger.py check` names what arrived: a
 confirmed FIND or a drained read, a changed approvals page, a new baseline, an approved journal
 the last bank could not fetch, or moved journals; the last two alone wait `ARK_BANK_JOURNAL_HOURS`.
@@ -86,7 +86,7 @@ and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park once
 the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 
-**The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on the VPS,
+**The hold.** `just hold` disables `com.ark.sync`, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
 each name and `just hold off <name>` lifts one, or drops a name it does not know. It survives a
 reboot; while it lists `com.ark.sync` the tick and the bank exit `held` and `just schedule

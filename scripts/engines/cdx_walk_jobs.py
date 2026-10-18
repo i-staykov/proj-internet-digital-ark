@@ -1,86 +1,93 @@
 """Keep the extended walk running with nobody at the keyboard: `just walk install|status|remove`.
 
-launchd keeps laptop lanes 0 and 1 alive (`RunAtLoad`, `KeepAlive`, restarted at most every
-10 minutes) under `caffeinate -i -s`, since idle sleep stops a lane with no error; cron starts
-VPS lane 2 at boot and every 10 minutes under `flock`, from a shallow clone of `live`. The tick
-pulls the VPS lane's journals home and re-ranks the queue (`just sync`, step 7).
+`ARK_HOSTS` in local.env lists the collector hosts, `target:lane` each, the target an ssh alias
+or `login@host`. On each, cron starts its lane at boot and every 10 minutes under `flock`, from
+a shallow clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits
+by hash the same way everywhere. `install` first seeds a lane's state (done set, page counts,
+request log) from `data/` here, so a lane that once ran elsewhere walks on rather than over.
+The tick pulls each lane's journals home and re-ranks the queue (`just sync`, step 7). The
+laptop runs no lane (AGENTS.md, Channel).
 """
 
 from __future__ import annotations
 
-import os
-import plistlib
+import shlex
 import subprocess
 import sys
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]
 DATA = CODE / "data"
-AGENTS = Path.home() / "Library/LaunchAgents"
 URL = "https://github.com/i-staykov/proj-internet-digital-ark"
 TAG = "# ark-walk"
-PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the VPS walker, not its shell or flock
+PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
 WALK = "$HOME/ark-walk"
-CRON = (
-    f"cd {WALK} && flock -n $HOME/ark-walk-data/lane.lock /usr/bin/python3 "
-    "scripts/engines/cdx_extended_walk.py --lane 2 --lanes 3 --data $HOME/ark-walk-data "
-    "--workers 3 --max-local 1 --connect-timeout 4 --max-transient 30 "
-    ">> $HOME/ark-walk-data/lane2.log 2>&1"
-)
+STATE = ("done.txt", "pages.json", "pending.txt", "log.tsv")
 
 
-def launchctl(*args: str) -> int:
-    return subprocess.run(["launchctl", *args], capture_output=True).returncode
+def hosts() -> list[tuple[str, int]]:
+    env = ["bash", "-c", ". ./local.env; echo $ARK_HOSTS"]
+    out = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.split()
+    if not out:
+        raise SystemExit("set ARK_HOSTS in local.env, target:lane each")
+    found = [(t.rpartition(":")[0], int(t.rpartition(":")[2])) for t in out]
+    # The walk shards pages by hash modulo the lane count, so a gap orphans its share.
+    if sorted(lane for _, lane in found) != list(range(len(found))):
+        raise SystemExit("ARK_HOSTS lanes must be 0 to n-1, each once: a gap is never walked")
+    return found
 
 
-def vps(cmd: str) -> str:
-    env = ["bash", "-c", ". ./local.env; echo $ARK_VPS"]
-    host = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.strip()
-    ssh = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes", host, cmd]
-    p = subprocess.run(ssh, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+SSH = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes"]
+
+
+def run(target: str, cmd: str) -> str:
+    argv = [*SSH, target, cmd]
+    p = subprocess.run(argv, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     return (p.stdout + p.stderr).strip()
 
 
+def cron(lane: int, lanes: int) -> str:
+    return (
+        f"cd {WALK} && flock -n $HOME/ark-walk-data/lane.lock /usr/bin/python3 "
+        f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {lanes} "
+        "--data $HOME/ark-walk-data --workers 3 --max-local 1 --connect-timeout 4 "
+        f"--max-transient 30 >> $HOME/ark-walk-data/lane{lane}.log 2>&1"
+    )
+
+
 def install() -> None:
-    domain = f"gui/{os.getuid()}"
-    for lane in (0, 1):
-        label, log = f"com.ark.walk.lane{lane}", str(DATA / f"logs/com.ark.walk.lane{lane}.log")
-        walk = str(CODE / "scripts/engines/cdx_extended_walk.py")
-        args = ["/usr/bin/caffeinate", "-i", "-s", str(CODE / ".venv/bin/python"), walk]
-        args += ["--lane", str(lane), "--lanes", "3", "--workers", "2"]
-        job = {"Label": label, "ProgramArguments": args, "RunAtLoad": True, "KeepAlive": True,
-               "ThrottleInterval": 600, "WorkingDirectory": str(CODE), "StandardOutPath": log,
-               "StandardErrorPath": log}  # fmt: skip
-        (AGENTS / f"{label}.plist").write_bytes(plistlib.dumps(job))
-        launchctl("bootout", f"{domain}/{label}")
-        launchctl("enable", f"{domain}/{label}")
-        if launchctl("bootstrap", domain, str(AGENTS / f"{label}.plist")):
-            subprocess.run(["sleep", "5"])  # a lane still stopping from the bootout
-            launchctl("bootstrap", domain, str(AGENTS / f"{label}.plist"))
-        print(f"loaded {label}")
-    print("VPS:", vps(
-        f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
-        f"git -C {WALK} pull -q --ff-only; mkdir -p $HOME/ark-walk-data/queue; "
-        f"(crontab -l 2>/dev/null | grep -v '{TAG}'; echo '@reboot {CRON} {TAG}'; "
-        f"echo '*/10 * * * * {CRON} {TAG}') | crontab -; git -C {WALK} log --oneline -1"
-    ))  # fmt: skip
+    lanes = len(hosts())
+    for target, lane in hosts():
+        state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
+        if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
+            print(f"lane {lane}: its host did not answer, nothing installed")
+            continue
+        rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
+        seed = [DATA / "raw/cdx_walk" / f"lane{lane}" / f for f in STATE]
+        if seed := [str(f) for f in seed if f.is_file()]:
+            subprocess.run([*rsync, *seed, f"{target}:{state}"])
+        queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
+        subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
+        line = shlex.quote(cron(lane, lanes))
+        print(f"lane {lane}:", run(target, (
+            f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
+            f"git -C {WALK} pull -q --ff-only; "
+            f"(crontab -l 2>/dev/null | grep -v '{TAG}'; echo @reboot {line} '{TAG}'; "
+            f"echo '*/10 * * * *' {line} '{TAG}') | crontab -; git -C {WALK} log --oneline -1"
+        )))  # fmt: skip
 
 
 def status() -> None:
-    listed = subprocess.run(["launchctl", "list"], capture_output=True, text=True).stdout
-    for lane in (0, 1, 2):
-        job = [ln for ln in listed.splitlines() if ln.endswith(f"com.ark.walk.lane{lane}")]
+    for target, lane in hosts():
         log = DATA / f"raw/cdx_walk/lane{lane}/log.tsv"
         rows = log.read_text().splitlines() if log.exists() else ["no requests yet"]
-        print(f"lane {lane}: {job[0] if job else '-'} | {rows[-1]}")
-    print("VPS walkers:", vps(f"pgrep -fc '{PY}'"))
+        print(f"lane {lane}: walkers {run(target, f'pgrep -fc {PY!r}') or '?'} | {rows[-1]}")
 
 
 def remove() -> None:
-    for lane in (0, 1):
-        launchctl("bootout", f"gui/{os.getuid()}/com.ark.walk.lane{lane}")
-        (AGENTS / f"com.ark.walk.lane{lane}.plist").unlink(missing_ok=True)
-    print("VPS:", vps(f"crontab -l | grep -v '{TAG}' | crontab -; pkill -f '{PY}'"))
+    for target, lane in hosts():
+        cmd = f"crontab -l | grep -v '{TAG}' | crontab -; pkill -f '{PY}'"
+        print(f"lane {lane}:", run(target, cmd))
 
 
 if __name__ == "__main__":
