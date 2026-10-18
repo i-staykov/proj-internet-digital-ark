@@ -20,7 +20,7 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
   guard; only the tick and the round recipes push their generated files to it directly. Work in
   your own worktree, never switching or editing a shared clone.
 - **The owner decides** a new evidence class and packages and sends every round. Asks are
-  `needs-owner` issues.
+  `needs-owner` issues, read only once the pending asks together reach the gate.
 - **The window.** A host-year ships only by its own evidence, as an addition to his file for that
   year, 1996 to 2013 (2002 on in `extended_years/YYYY.txt`; 2014 on is not hunted). The gate: 3%
   EE growth in 1996 to 2001 or in 2002 to 2013, each over his EE for those years; nothing ships under
