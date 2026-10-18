@@ -160,9 +160,12 @@ class Member:
 
 def seven_zip(*args: str) -> str:
     """Run `7z` in UTC, so the stamps it lists are the UTC ones a 7z stores."""
-    done = subprocess.run(
-        ["7z", *args], capture_output=True, text=True, env=os.environ | {"TZ": "UTC"}
-    )
+    try:
+        done = subprocess.run(
+            ["7z", *args], capture_output=True, text=True, env=os.environ | {"TZ": "UTC"}
+        )
+    except FileNotFoundError:
+        raise RuntimeError("7z command not installed") from None
     if done.returncode:
         raise RuntimeError(f"7z {args[0]} failed: {done.stderr.strip() or done.stdout[-300:]}")
     return done.stdout
