@@ -8,7 +8,7 @@ need a parser at all. So the thing worth making cheap is the **measurement**, no
 ingest.
 
     uv run python scripts/pricing/probe_source.py probes/example.toml
-    just price --items data/raw/probes/example.jsonl --label example
+    just price --items data/raw/probes/example.jsonl
 
 **What it deliberately cannot do.** Its output has no entry in `ark.sources.SOURCES`,
 so `ark ingest` has no spec to run and there is no path by which a probe can date a
@@ -301,7 +301,7 @@ def main() -> None:
             f"believing the price."
         )
     print(
-        f"\n  next: just price --items {out.relative_to(ROOT)} --label {spec['name']}\n"
+        f"\n  next: just price --items {out.relative_to(ROOT)}\n"
         f"  A probe cannot date a year: it has no ingest spec, by design. "
         f"If it prices well it earns a collector."
     )

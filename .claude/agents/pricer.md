@@ -14,9 +14,10 @@ source:        <name>
 link:          <url>
 dates one item: <the machine-written stamp, quoted>
 items:         <n>
-held fraction: <%>  (distinct domains sampled, not domain_year rows)
-net-new pairs: <n>  post-split
-net-new EE:    <n>  post-split, against <baseline marker>
+held:          <counts.already_held> of <counts.items> items (distinct domains sampled)
+1996 to 2001:  <pairs> pairs, <ee> EE of <gate_ee>, post-split
+2002 to 2013:  <pairs> pairs, <ee> EE of <gate_ee>
+snapshot:      <snapshot_marker>, built <snapshot_built_at>
 verdict:       admit | candidate-only | closed, with the reason in one line
 ```
 

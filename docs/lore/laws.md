@@ -16,7 +16,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - 1.419% of the ISC survey's 13,347,250 hosts are in his files; `just find isc_survey_hostnames`.
 - Hosts with only non-web evidence ship in `server_header_hostnames/` with provenance and exclusion ledger, counted in `header_candidates_summary.json` (`src/ark/export.py` `export_header_candidates`).
 - A registrable we found with no capture of its own name in any year, and not in his files by exact name, enters the candidate claim (`src/ark/export.py` `_candidate_pool`).
-- A self-dating record (capture stamp, registry creation date, dated listing) takes no corroboration split: `just price --no-split`.
+- A self-dating record (capture stamp, registry creation date, dated listing) takes no corroboration split: `just price --split none`.
 - Only a name recovered from free text takes the corroboration split, counting once another source dates that domain; on a delimited field it costs 1.3x to 5.5x, 255,254 to 56,707 DK zone list pairs (`scripts/pricing/price_items.py`, `src/ark/sources.py`).
 - The split, not the regex, is the wall on a human-typed corpus; a self-dating corpus takes no split, so its regex is its only screen (`scripts/harness/screen_hypothesis.py` `DATING`).
 - The split tests dating, never genuineness: 13 of 25 hand-audited post-split survivors from three scholarly corpora were genuine (52%); `just find pmc_oa_subset_fulltext_1998_2001`.

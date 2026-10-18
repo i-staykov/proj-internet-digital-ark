@@ -11,9 +11,10 @@ the running order, and it restates neither.
 1. `docs/lore/laws.md` first. The two screens (density and authority), the held-and-missing-this-year
    screen and the adjacent-year rule decide whether the bytes are worth fetching at all.
 2. Check the family is not closed: `just find <term>` searches both register pages.
-3. Turn the source into items (`item`, `year|date`, `text`) and measure:
-   `just price --items <items.jsonl> --label '<source>'`. It writes nothing.
-4. Quote the figure as this skill names it. Sample distinct domains, not `domain_year` rows.
+3. Turn the source into items (`{host, year, text}`, or `{url, timestamp, status}`, the only shape
+   2002 to 2013 prices from) and measure: `just price --items <items.jsonl>`. It writes nothing.
+4. Quote both `parts`, each beside its `gate_ee`, and the `snapshot_marker`. Sample distinct
+   domains, not `domain_year` rows.
 5. Log the result as the source's one row whatever the answer (`docs/ops/runbook.md`, step 4).
 
 More than two files to read, or any survey: hand it to the `pricer` subagent.

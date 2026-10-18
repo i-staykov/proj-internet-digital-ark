@@ -617,13 +617,14 @@ screen *args:
 probe spec *args:
     uv run python scripts/pricing/probe_source.py {{spec}} {{args}}
 
-# Price a normalised {item, year, text} JSONL against the live store: net-new pairs and
-# domains after the corroboration split, mean weight, a typo bound, and both a linear and a
-# saturating projection, quoting the lowest. Writes nothing.
+# Price {host, year, text} or {url, timestamp, status} JSONL on both parts, 1996 to 2001 and
+# 2002 to 2013, each beside its gate, against the snapshot the fleet prices on: his files, our
+# last export, his calculator. `--track candidate` for undated names, `--split none` for a
+# self-dating record. Reads no store, so it runs while the lock is held; writes nothing.
 #
-# price any dated corpus against the live store, writing nothing
+# price any dated corpus on both parts, writing nothing
 price *args:
-    uv run python scripts/pricing/price_items.py {{args}}
+    uv run ark price-snapshot --snapshot output/fleet_snapshot {{args}}
 
 # The same question at the second accepted unit. `price` collapses every name to its
 # registrable, so a hostname corpus prices near 0 there. This runs the ingest's own funnel and
