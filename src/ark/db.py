@@ -8,7 +8,9 @@ cross-row rules: every domain passes through to_registrable(), and a year assign
 derived from its evidence row, so a mismatched assignment cannot be expressed.
 """
 
+import math
 import os
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +22,47 @@ from ark.canonical import to_registrable
 from ark.evidence_types import ALL_TYPES, CANDIDATE_ONLY_TYPES
 
 DEFAULT_DB_PATH = Path("data/ark.duckdb")
+
+GIB = 1024**3
+# Headroom above the guard under which a write says so before it refuses.
+WARN_GIB = 50
+
+
+def space(*, root: Path = Path(".")) -> tuple[int, list[str]]:
+    """Require the free-space floor plus a write budget on both destination filesystems."""
+    try:
+        floor = float(os.environ.get("ARK_FREE_SPACE_GIB", "50"))
+        budget = float(os.environ.get("ARK_WRITE_BUDGET_GIB", "20"))
+        if not all(math.isfinite(n) and n > 0 for n in (floor, budget)):
+            raise ValueError("space settings must be finite positive GiB values")
+        store = root / DEFAULT_DB_PATH
+        budget_bytes = max(int(budget * GIB), store.stat().st_size if store.exists() else 0)
+        required = int(floor * GIB) + budget_bytes
+        lines = []
+        for destination in (root / "data", root / "output"):
+            probe = destination
+            while not probe.exists():
+                probe = probe.parent
+            free = shutil.disk_usage(probe).free
+            lines.append(
+                f"space {destination.name}: {free / GIB:.1f} GiB free, "
+                f"need {required / GIB:.1f} GiB "
+                f"({floor:g} floor + {budget_bytes / GIB:.1f} write budget)"
+            )
+            if free < required:
+                return 2, [
+                    *lines,
+                    "REFUSED: insufficient free space; no ingest or export started. "
+                    "Use verified off-site cleanup or increase capacity.",
+                ]
+            if free < required + int(WARN_GIB * GIB):
+                lines.append(
+                    f"WARNING: within {WARN_GIB} GiB of the guard; "
+                    "`just prune --disk` lists what can go"
+                )
+        return 0, lines
+    except (OSError, ValueError, OverflowError) as exc:
+        return 2, [f"REFUSED: cannot establish free space: {exc}"]
 
 
 # **DuckDB takes 80% of the machine by default**, and several processes open the store at

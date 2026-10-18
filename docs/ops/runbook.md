@@ -43,14 +43,13 @@ L=scripts/harness/sync_lock.sh
 bash $L take $$ || exit                  # 3: a sync holds it, try later
 trap "bash $L drop" EXIT; set -e
 set -a; . ./local.env; set +a            # db.py reads ARK_DB_MEMORY_LIMIT only from the environment
-just run ingest <spec> <journal>         # `just run` checks free space first
+just run ingest <spec> <journal>         # refuses under ARK_FREE_SPACE_GIB + ARK_WRITE_BUDGET_GIB free
 just run export && just check data       # export always before check
 '
 ```
 
-A bare `uv run ark ingest` or `export` skips the space check, so run
-`uv run python scripts/harness/bank_hygiene.py space` first. When an output name may have been
-recycled, compare the ledger's sha256 with the bytes on disk before ingesting or deleting anything.
+When an output name may have been recycled, compare the ledger's sha256 with the bytes on disk
+before ingesting or deleting anything.
 
 **The gate** (`AGENTS.md`, Done): its store half is the block above. Once `bash
 scripts/harness/sync_lock.sh holder` prints nothing, `git commit` runs the code half, the whole

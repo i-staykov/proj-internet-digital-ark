@@ -31,9 +31,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
 
-- justfile: the free-space check moves into `ark ingest` (169 copies, about -150 lines); delete
-  `expand`, the duplicate comment at :1046, the cdx_gap_hostgrain step and script (repoint
-  laws.md:214), `docs/report-sendable.md` with its `--keep-markdown` at :1437.
 - One D2 page around the public-suffix walk, which made 99.8% of round 12: fold `findings.md` into
   `experience-summary.md` (keep the topics and 300 words verify_delivery.sh checks); delete
   `findings.md`, its copy at package_delivery.sh:224, its README and index rows.

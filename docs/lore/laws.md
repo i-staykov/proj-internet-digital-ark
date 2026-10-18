@@ -83,8 +83,6 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A target set recomputed live scored 24.2% where a fixed snapshot of the same 200 answers scored 59.7% (`src/ark/price_snapshot.py`).
 - `ark price-snapshot` exits 2 when its snapshot disagrees with its manifest (`src/ark/price_snapshot.py`).
 - A conditional rate taken off 725 journals, a proxy population, overstated the edge-year pilot 1.6x (`just price` prices a sample of the real items).
-- A share-first ranking spent 1,709 CDX queries on .edu, 97.2% English, for 5 hits (`scripts/engines/build_expand_seeds.py`).
-- `scripts/engines/build_expand_seeds.py` scores a seed by TLD weight x years held, capped at 3.
 - Sweep order confounds rank against yield: on the platform-parent ranking, 198 swept parents gave rho +0.746 and 54 fresh ones rho -0.655; `just find ia_cdx_hostnames`.
 - A re-ranked queue's dense head is about 20 parents: 8 to 17 MB of compressed rows at the head, 0.2 to 2 MB by rank 50; two clients walk it in an hour; `just find ia_cdx_hostnames`.
 - EE per byte from a best-first head overstates the rest: 565 then 53 EE/MB (10.7x) on the domain-wide sweep, 722 then 134 EE/GB (5.4x) on Usenet alt; `just find usenet_alt`.
@@ -211,7 +209,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - The ingest ledger keys (source_name, file_name) with sha256, so a recycled name fails with `ledgered with different content (sha256 mismatch)` (`src/ark/bulk.py`).
 - Raw containers are never ledgered (`just residual`).
 - An unledgered journal is usually a superseded intermediate: banked `usenet_addr` and `usenet_bare` `*_candidates_cmp*` files hold the older per-run journals' pairs (`just residual`).
-- A journal of answers without the response cannot be re-read: 1,163 gap journals hold 2,984,321 answers with no host, unreadable at hostname grain (`scripts/engines/cdx_gap_hostgrain.py`).
+- A journal of answers without the response cannot be re-read: 1,163 gap journals hold 2,984,321 answers with no host, unreadable at hostname grain (`src/ark/cdx.py` `hosts_in`).
 - 7,578,321 domain-years rest on CDX evidence with a timestamp and no host, so no host can be named; every CDX query asks `fl=timestamp,original` (`src/ark/cdx.py`).
 - A cleanup downstream of the writer does not hold: bare years inferred from `www.` captures, cleaned to zero, came back as 22,920 from the fold overnight (`src/ark/hostnames.py`).
 - XIII filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).

@@ -5,6 +5,7 @@ names. `tests/test_standing_rule.py` is where the gate itself is exercised.
 """
 
 import importlib.util
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -14,6 +15,8 @@ import pytest
 from ark import approvals, db, held
 
 ROOT = Path(__file__).resolve().parents[1]
+# `ark ingest` and `export` refuse a small disk, and a test's store is tiny.
+os.environ["ARK_FREE_SPACE_GIB"] = os.environ["ARK_WRITE_BUDGET_GIB"] = "0.001"
 
 
 def script(rel: str, name: str = ""):

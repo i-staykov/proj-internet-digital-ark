@@ -46,7 +46,6 @@ FOLD = (
     "data/raw/usenet/usenet_candidates_*.jsonl.gz",
     "data/raw/cdx/*.jsonl.gz.part",
     "data/raw/cdx/cdx_*.jsonl.gz",
-    "data/raw/cdx_gap_hostgrain/*.jsonl.gz",
     "data/raw/cdx_suffix/*.jsonl.gz",
     "data/raw/usenet_*_items/*.jsonl.gz",
     "data/raw/usenet_*_items/*.jsonl",
