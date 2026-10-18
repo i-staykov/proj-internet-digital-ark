@@ -12,7 +12,7 @@ from his_release import WEB_METHOD, capture
 from ark.bulk import ingest_files
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.export import claim_files, export_all
-from ark.provenance import TABLES, load_provenance, write_provenance
+from ark.provenance import TABLES, load_provenance, write_provenance, write_shipped
 from ark.sources import SOURCES
 
 URL = "https://web.archive.org/web/19980101000000/http://example.com/"
@@ -261,3 +261,22 @@ def test_trace_py_summarises_every_table_and_tells_a_candidate_from_a_stranger(t
     assert out.rstrip().endswith("python trace.py example.com 1998")
     assert "no year assigned" in trace("candidate.org")
     assert "not in the dataset" in trace("nobody.net", "1998")
+
+
+def test_the_shipped_cut_keeps_every_row_of_a_listed_name_and_no_other(tmp_path) -> None:
+    """A delivery ships the rows of the names its lists hold, and the whole export stays home."""
+    conn = _store()
+    _dated(conn, "unlisted.com", 1999)
+    write_provenance(conn, full := tmp_path / "full")
+    (netnew := tmp_path / "netnew").mkdir()
+    (netnew / "1998.txt").write_text("example.com\n")
+    (netnew / "attested_registrables.txt").write_text("1999\tunlisted.com\n")
+    (netnew / "header_candidates_exclusions.csv").write_text("hostname,scope\n")
+    (candidates := tmp_path / "candidates.txt").write_text("")
+    counts = write_shipped(full, netnew, candidates, cut := tmp_path / "cut")
+    assert (counts["domain_year"], counts["evidence"], counts["domain"]) == (1, 1, 1)
+    reader = duckdb.connect()
+    for table in ("domain_year", "evidence", "domain"):
+        names = reader.execute(f"SELECT DISTINCT domain FROM {_parquet(cut, table)}").fetchall()
+        assert names == [("example.com",)], table
+    assert (cut / "LOAD.sql").is_file() and (cut / "trace.py").is_file()

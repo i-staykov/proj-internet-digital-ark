@@ -426,16 +426,32 @@ journal_paths() {
         -not -path 'data/raw/usenet_soc_items/*' -not -path 'data/raw/usenet_talk_items/*' \
         -not -path 'data/raw/usenet_uk_items/*' -not -path 'data/raw/extended_spent/*'
 }
-# Of those, only the journals a shipped row cites by file name: a provenance evidence row's
+# the provenance graph as Parquet: which source saw which domain in which year, so any shipped
+# line can be traced without the source data or the database. Only the rows of the names the
+# shipped lists hold (ark.provenance.write_shipped): the whole export is the store's authority
+# and stays home. An empty output/provenance refuses the package.
+if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
+    echo "refusing to package: output/provenance is empty" >&2
+    echo "run 'uv run ark export --provenance' first, then re-run." >&2
+    exit 1
+fi
+uv run python -c 'import sys
+from pathlib import Path
+from ark.provenance import write_shipped
+print("provenance:", write_shipped(Path("output/provenance"), Path("output/netnew"),
+      Path("output/candidate_unverified.txt"), Path(sys.argv[1])))' "$STAGE/provenance"
+
+# Of journal_paths, only those a shipped row cites by file name: a shipped evidence row's
 # source_file or an extended ledger row's. The rest back nothing in the archive.
 CITED=$(mktemp)
-uv run python - > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from output/provenance and the extended ledger" >&2; exit 1; }
+uv run python - "$STAGE/provenance" > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from the shipped provenance and the extended ledger" >&2; exit 1; }
 import csv
+import sys
 from pathlib import Path
 
 from ark.db import connect
 
-query = "SELECT DISTINCT source_file FROM read_parquet('output/provenance/evidence.parquet')"
+query = f"SELECT DISTINCT source_file FROM read_parquet('{sys.argv[1]}/evidence.parquet')"
 cited = {Path(row[0]).name for row in connect(":memory:").execute(query).fetchall() if row[0]}
 with Path("output/extended_years/evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
     cited |= {Path(row["source_file"]).name for row in csv.DictReader(fh)}
@@ -523,15 +539,6 @@ with ThreadPoolExecutor(8) as pool:
     print("\n".join(pool.map(measure, names)))
 PY
 
-# the provenance graph as Parquet: which source saw which domain in which year,
-# so any shipped line can be traced without the source data or the database.
-# Everything the export wrote ships; an empty output/provenance refuses the package.
-if ! compgen -G "output/provenance/*.parquet" >/dev/null; then
-    echo "refusing to package: output/provenance is empty" >&2
-    echo "run 'uv run ark export --provenance' first, then re-run." >&2
-    exit 1
-fi
-cp -R output/provenance/. "$STAGE/provenance/"
 
 # The reviewer's own scorer, so the archive can re-derive its headline figure without
 # reference to anything outside itself. `round_figures.py --verify` is named in the
