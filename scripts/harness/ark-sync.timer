@@ -1,0 +1,8 @@
+[Unit]
+Description=The ark's tick at five past every hour
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+
+[Install]
+WantedBy=timers.target

@@ -248,6 +248,7 @@ sync fleet="~/GitHub/ark-fleet":
     : "${ARK_HOSTS:?set ARK_HOSTS in local.env, target:lane each}"
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes"
     for h in $ARK_HOSTS; do
+        [ "${h%:*}" = local ] && continue  # its lane walks into data/ here
         for d in cdx_suffix extended/ia_cdx_hostnames; do
             rsync -a --ignore-existing --timeout=120 -e "$SSH" "${h%:*}:ark-walk-data/raw/$d/walk_*.jsonl.gz" data/raw/$d/ || true
         done
@@ -255,6 +256,7 @@ sync fleet="~/GitHub/ark-fleet":
     done
     uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
     for h in $ARK_HOSTS; do
+        [ "${h%:*}" = local ] && continue
         rsync -a --timeout=60 -e "$SSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "${h%:*}:ark-walk-data/queue/" || true
     done
     # 8. The bank, only when something arrived. ARK_LOCK_HELD names this shell, so the bank
@@ -1346,6 +1348,36 @@ hold what="on" name="":
 # the CDX walk's lanes on the ARK_HOSTS machines, unattended: install status remove
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}
+
+# the bank host ARK_VM, over the VPN: install status log
+vm what="status":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ -f local.env ] && . ./local.env
+    : "${ARK_VM:?set ARK_VM in local.env}"
+    SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes $ARK_VM"
+    case "{{what}}" in
+    install)
+        # Its local.env is this one with its own lane local, no ARK_VM and the 15 GB VM's
+        # own store limit; the install script moves it into the clone.
+        env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
+            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=11GB/' local.env)
+        grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
+        printf '%s\n' "$env" | $SSH 'cat > ark-local.env'
+        # Its lane's state and the queue first, into the clone, so the cron the install writes
+        # walks on from this machine's done set rather than over it.
+        N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
+        $SSH "[ -d ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ark; mkdir -p ark/data/raw/cdx_walk/lane$N ark/data/queue"
+        RS="rsync -a --ignore-existing --timeout=120 -e ${SSH% $ARK_VM}"
+        $RS data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
+        $RS data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
+        $SSH 'bash -s' < scripts/harness/vm_install.sh
+        ;;
+    status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
+        grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
+    log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
+    *) echo "vm: install status log" >&2; exit 2 ;;
+    esac
 
 # The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
 # arrived without a session open, and reads the `ship-now` label (the header of

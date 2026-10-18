@@ -1,0 +1,13 @@
+[Unit]
+Description=The ark's hourly tick: just sync, then ship-now
+After=network-online.target
+Wants=network-online.target
+# Not before the store copy: a tick on an empty store would bank into it and push its registers.
+ConditionPathExists=%h/ark/data/ark.duckdb
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ark
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/bash %h/ark/scripts/harness/scheduled_sync.sh
+Nice=5
