@@ -1,7 +1,7 @@
 """Fill the release table in docs/registers/releases.md from what is on disk.
 
 One row per reviewer release. The per-year cells are `wc -l` over `1996.txt` to
-`2001.txt` of the extracted tree under `ding/`; the checksum is of his zip where
+`2001.txt` of the extracted tree under `ding/`; the checksum is of his zip or 7z where
 one still exists, since his bytes are the artifact of record, and of our
 `data/archive/<marker>.tar.zst` where the zip was discarded after extraction.
 
@@ -16,17 +16,18 @@ and leaves the page alone, which is what a checkout without data gets.
     uv run python scripts/round/releases.py --refresh   # recount and rehash everything
     uv run python scripts/round/releases.py --verify-trees   # tree against its zip, writes nothing
 
-`--verify-trees` settles whether an extracted tree may be deleted: it compares every zip
-member under the marker with the file on disk by size and CRC-32, which the zip carries,
-so nothing is extracted.
+`--verify-trees` settles whether an extracted tree may be deleted: it compares every
+archive member under the marker with the file on disk by size and CRC-32, which a zip and a
+7z both carry, so nothing is extracted. A 7z needs the `7z` command.
 
-Zips are matched to markers by content, not by name: his zips are called
+Archives are matched to markers by content, not by name: his zips are called
 `Domain_Data_Collection_Task_0831_UpdateV2.zip` and the marker inside is
 `merged260830`, so only the member list says which release a zip holds.
 """
 
 import argparse
 import hashlib
+import os
 import re
 import shlex
 import stat
@@ -34,7 +35,11 @@ import subprocess
 import sys
 import zipfile
 import zlib
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+
+from ark.figures import HIS_ZONE
 
 PAGE = Path("docs/registers/releases.md")
 DING = Path("ding")
@@ -141,30 +146,89 @@ def find_trees(ding: Path, aliases: dict[str, Path]) -> dict[str, list[Path]]:
     return trees
 
 
-def zip_markers(zip_path: Path) -> set[str]:
-    """The release markers a zip holds, read from its member list."""
-    found: set[str] = set()
-    with zipfile.ZipFile(zip_path) as zf:
-        for name in zf.namelist():
-            for part in name.split("/"):
-                if MARKER.fullmatch(part):
-                    found.add(part)
+@dataclass(frozen=True)
+class Member:
+    """One entry of a release archive as its index lists it, `stamp` in his clock."""
+
+    name: str
+    size: int
+    crc: int
+    stamp: str
+    is_dir: bool
+    is_link: bool
+
+
+def seven_zip(*args: str) -> str:
+    """Run `7z` in UTC, so the stamps it lists are the UTC ones a 7z stores."""
+    done = subprocess.run(
+        ["7z", *args], capture_output=True, text=True, env=os.environ | {"TZ": "UTC"}
+    )
+    if done.returncode:
+        raise RuntimeError(f"7z {args[0]} failed: {done.stderr.strip() or done.stdout[-300:]}")
+    return done.stdout
+
+
+def members(archive: Path) -> list[Member]:
+    """Every entry of a release zip or 7z. A zip stamps his packer's clock, a 7z UTC."""
+    if archive.suffix != ".7z":
+        with zipfile.ZipFile(archive) as zf:
+            return [
+                Member(
+                    i.filename,
+                    i.file_size,
+                    i.CRC,
+                    "{:04d}-{:02d}-{:02d} {:02d}:{:02d}".format(*i.date_time[:5]),
+                    i.is_dir(),
+                    stat.S_ISLNK(i.external_attr >> 16),
+                )
+                for i in zf.infolist()
+            ]
+    found: list[Member] = []
+    for block in seven_zip("l", "-slt", str(archive)).partition("\n----------\n")[2].split("\n\n"):
+        f = dict(line.split(" = ", 1) for line in block.splitlines() if " = " in line)
+        if "Path" not in f:
+            continue
+        utc = datetime.strptime(f["Modified"][:16], "%Y-%m-%d %H:%M").replace(tzinfo=UTC)
+        attributes = f.get("Attributes", "").split() or [""]  # "D", "A", "A_ -rw-r--r--"
+        found.append(
+            Member(
+                f["Path"],
+                int(f.get("Size") or 0),
+                int(f.get("CRC") or "0", 16),
+                utc.astimezone(HIS_ZONE).strftime("%Y-%m-%d %H:%M"),
+                attributes[0].startswith("D"),
+                attributes[-1].startswith("l"),
+            )
+        )
     return found
 
 
-def find_zips(ding: Path) -> dict[str, list[Path]]:
-    zips: dict[str, list[Path]] = {}
+def extract(archive: Path, target: Path) -> None:
+    if archive.suffix == ".7z":
+        seven_zip("x", "-y", "-mmt=on", f"-o{target}", str(archive))
+    else:
+        with zipfile.ZipFile(archive) as zf:
+            zf.extractall(target)
+
+
+def archive_markers(archive: Path) -> set[str]:
+    """The release markers an archive holds, read from its member list."""
+    return {p for m in members(archive) for p in m.name.split("/") if MARKER.fullmatch(p)}
+
+
+def find_archives(ding: Path) -> dict[str, list[Path]]:
+    found: dict[str, list[Path]] = {}
     if not ding.is_dir():
-        return zips
-    for z in sorted(ding.rglob("*.zip")):
+        return found
+    for z in sorted([*ding.rglob("*.zip"), *ding.rglob("*.7z")]):
         try:
-            markers = zip_markers(z)
-        except zipfile.BadZipFile:
-            print(f"  skip {z.relative_to(ding.parent)}: not a zip", file=sys.stderr)
+            markers = archive_markers(z)
+        except (zipfile.BadZipFile, RuntimeError):
+            print(f"  skip {z.relative_to(ding.parent)}: not a {z.suffix[1:]}", file=sys.stderr)
             continue
         for marker in markers:
-            zips.setdefault(marker, []).append(z)
-    return zips
+            found.setdefault(marker, []).append(z)
+    return found
 
 
 def count_lines(path: Path) -> int:
@@ -216,41 +280,40 @@ def crc32(path: Path) -> int:
     return crc
 
 
-def zip_members(zip_path: Path, marker: str) -> dict[str, zipfile.ZipInfo]:
+def marker_members(archive: Path, marker: str) -> dict[str, Member]:
     """Members under the marker's directory, keyed by their path below it.
 
     His zips wrap the tree in a task directory, so the marker segment is the anchor
     and everything after it is what the extracted tree holds.
     """
-    members: dict[str, zipfile.ZipInfo] = {}
-    with zipfile.ZipFile(zip_path) as zf:
-        for info in zf.infolist():
-            if info.is_dir():
-                continue
-            parts = info.filename.split("/")
-            if any(p in ("", ".", "..") for p in parts) or "\\" in info.filename:
-                raise ValueError(f"unsafe zip member: {info.filename}")
-            if marker not in parts:
-                continue
-            rel = "/".join(parts[parts.index(marker) + 1 :])
-            if rel:
-                if (
-                    any(p in ("", ".", "..") for p in rel.split("/"))
-                    or "\\" in rel
-                    or rel in members
-                    or stat.S_ISLNK(info.external_attr >> 16)
-                ):
-                    raise ValueError(f"unsafe or duplicate zip member: {info.filename}")
-                members[rel] = info
-    return members
+    found: dict[str, Member] = {}
+    for m in members(archive):
+        if m.is_dir:
+            continue
+        parts = m.name.split("/")
+        if any(p in ("", ".", "..") for p in parts) or "\\" in m.name:
+            raise ValueError(f"unsafe archive member: {m.name}")
+        if marker not in parts:
+            continue
+        rel = "/".join(parts[parts.index(marker) + 1 :])
+        if rel:
+            if (
+                any(p in ("", ".", "..") for p in rel.split("/"))
+                or "\\" in rel
+                or rel in found
+                or m.is_link
+            ):
+                raise ValueError(f"unsafe or duplicate archive member: {m.name}")
+            found[rel] = m
+    return found
 
 
-def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int], list[str]]:
-    """Compare an extracted tree against its zip by size and CRC-32. Reads, never writes."""
-    members = zip_members(zip_path, marker)
-    counts = {"members": len(members), "matched": 0, "mismatched": 0, "missing": 0, "extra": 0}
+def verify_tree(tree: Path, archive: Path, marker: str) -> tuple[dict[str, int], list[str]]:
+    """Compare an extracted tree against its archive by size and CRC-32. Reads, never writes."""
+    listed = marker_members(archive, marker)
+    counts = {"members": len(listed), "matched": 0, "mismatched": 0, "missing": 0, "extra": 0}
     problems: list[str] = []
-    for rel, info in sorted(members.items()):
+    for rel, m in sorted(listed.items()):
         on_disk = tree / rel
         if any(p.is_symlink() for p in (on_disk, *on_disk.parents)):
             counts["mismatched"] += 1
@@ -261,22 +324,26 @@ def verify_tree(tree: Path, zip_path: Path, marker: str) -> tuple[dict[str, int]
             problems.append(f"  missing on disk: {rel}")
             continue
         size = on_disk.stat().st_size
-        if size != info.file_size:
+        if size != m.size:
             counts["mismatched"] += 1
-            problems.append(f"  size differs: {rel} ({size} on disk, {info.file_size} in zip)")
+            problems.append(f"  size differs: {rel} ({size} on disk, {m.size} in the archive)")
             continue
-        if crc32(on_disk) != info.CRC:
+        if crc32(on_disk) != m.crc:
             counts["mismatched"] += 1
             problems.append(f"  crc differs: {rel}")
             continue
         counts["matched"] += 1
-    with zipfile.ZipFile(zip_path) as zf:
-        for info in members.values():
-            with zf.open(info) as stream:
-                while stream.read(1 << 20):
-                    pass
+    # The listed CRC proves the tree, not the archive: reading every stream proves the archive.
+    if archive.suffix == ".7z":
+        seven_zip("t", str(archive))
+    else:
+        with zipfile.ZipFile(archive) as zf:
+            for m in listed.values():
+                with zf.open(m.name) as stream:
+                    while stream.read(1 << 20):
+                        pass
     for p in sorted(tree.rglob("*")):
-        if (p.is_file() or p.is_symlink()) and str(p.relative_to(tree)) not in members:
+        if (p.is_file() or p.is_symlink()) and str(p.relative_to(tree)) not in listed:
             counts["extra"] += 1
             problems.append(f"  extra on disk: {p.relative_to(tree)}")
     return counts, problems
@@ -432,7 +499,7 @@ def main() -> None:
 
     if args.verify_trees:
         aliases = {"merged260715-2": args.legacy}
-        if not verify_trees(find_trees(args.ding, aliases), find_zips(args.ding)):
+        if not verify_trees(find_trees(args.ding, aliases), find_archives(args.ding)):
             raise SystemExit(1)
         return
 
@@ -449,7 +516,7 @@ def main() -> None:
     rows = [by_marker.get(m) or blank_row(m) for m in markers]
 
     trees = find_trees(args.ding, {"merged260715-2": args.legacy})
-    zips = find_zips(args.ding)
+    zips = find_archives(args.ding)
     for stray in sorted(set(trees) | set(zips)):
         if stray not in markers:
             print(f"on disk but not in RELEASES: {stray}")

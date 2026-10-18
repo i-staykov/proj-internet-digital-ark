@@ -256,13 +256,13 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
             lines.append(f"HELD {backup.relative_to(root)}: {exc}")
 
     trees = releases.find_trees(root / "ding", {})
-    zips = releases.find_zips(root / "ding")
+    zips = releases.find_archives(root / "ding")
     for archive in sorted({p for paths in zips.values() for p in paths}):
         try:
             archive_stamp = offsite.signature(root, archive)
             offsite.deletion_proof(root, archive)
             inventories = {}
-            for marker in sorted(releases.zip_markers(archive)):
+            for marker in sorted(releases.archive_markers(archive)):
                 if not trees.get(marker):
                     raise ValueError(f"no extracted tree for {marker}")
                 tree = trees[marker][0]
@@ -486,7 +486,7 @@ def releases_selected(root: Path, receipt: dict) -> list[Candidate]:
             if not kept(found) and str(tree.resolve()).casefold() != here:
                 paths += [f for f in _files(tree) if f.suffix.lower() not in DOCUMENTS]
     markers_of: dict[Path, set[str]] = {}
-    for found, zips in releases.find_zips(root / "ding").items():
+    for found, zips in releases.find_archives(root / "ding").items():
         for z in zips:
             markers_of.setdefault(z, set()).add(found.casefold())
     paths += sorted(z for z, markers in markers_of.items() if not any(map(kept, markers)))
@@ -737,7 +737,7 @@ def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
     """Release trees that fail the CRC check against a zip still here, by tree."""
     releases = sibling("releases")
     trees = releases.find_trees(root / "ding", {})
-    zips = releases.find_zips(root / "ding")
+    zips = releases.find_archives(root / "ding")
     listed = {c.path for c in cands}
     failed = {}
     for marker, tree_paths in trees.items():

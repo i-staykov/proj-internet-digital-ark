@@ -547,7 +547,7 @@ def test_a_release_tree_is_held_without_a_crc_match_or_a_marker(tmp_path, monkey
     text = cleanup(tmp_path)
     why = "data/baseline.json names no release marker" if fault == "no-marker" else "CRC check"
     assert tree_file.exists() and f"HELD {OLD}/1996.txt: {why}" in text
-    assert fault != "duplicate-member" or "unsafe or duplicate zip member" in text
+    assert fault != "duplicate-member" or "unsafe or duplicate archive member" in text
 
 
 def test_a_frozen_submission_gets_no_sidecar_of_its_own(tmp_path):

@@ -1,4 +1,4 @@
-"""Take one reviewer release: verify the zip, extract it, remeasure it, point the figures at it.
+"""Take one reviewer release: verify his zip or 7z, extract it, remeasure it, point figures at it.
 
 The baseline goes stale between his release and our next measurement, and every hour
 collected against a stale denominator prices itself wrong. So the whole intake is one
@@ -36,7 +36,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import zipfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from decimal import Decimal
@@ -86,42 +85,32 @@ def run_module(module, argv: list[str]) -> None:
         sys.argv = saved
 
 
-def marker_of(zip_path: Path, chosen: str | None) -> str:
-    """The release a zip holds, read from its member list rather than from its name."""
-    markers = releases.zip_markers(zip_path)
+def marker_of(release: Path, chosen: str | None) -> str:
+    """The release an archive holds, read from its member list rather than from its name."""
+    markers = releases.archive_markers(release)
     if chosen:
         if chosen not in markers:
-            raise SystemExit(f"{zip_path}: holds {sorted(markers) or 'no marker'}, not {chosen}")
+            raise SystemExit(f"{release}: holds {sorted(markers) or 'no marker'}, not {chosen}")
         return chosen
     if len(markers) != 1:
-        raise SystemExit(f"{zip_path}: holds {sorted(markers) or 'no marker'}; pass --marker")
+        raise SystemExit(f"{release}: holds {sorted(markers) or 'no marker'}; pass --marker")
     return markers.pop()
 
 
-def zip_stamp(zip_path: Path) -> str | None:
-    """The newest member's own timestamp, `YYYY-MM-DD HH:MM`, written by his packer."""
-    with zipfile.ZipFile(zip_path) as zf:
-        stamps = [info.date_time for info in zf.infolist() if not info.is_dir()]
-    if not stamps:
-        return None
-    y, mo, d, h, mi, _ = max(stamps)
-    return f"{y:04d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}"
-
-
-def released_at(zip_path: Path, marker: str, given: str | None) -> str:
+def released_at(release: Path, marker: str, given: str | None) -> str:
     """When the release was cut, in his clock, because t_i is measured from it.
 
-    The zip's member stamps are his machine's, so they are used when they fall on the
-    marker's own date. When they do not, the date is all that is trustworthy and the
-    time has to come off his mail.
+    The newest entry's stamp, a folder's included (his 7z's last write is the marker
+    folder's), is used when it falls on the marker's own date. When it does not, the
+    date is all that is trustworthy and the time has to come off his mail.
     """
     if given:
         return given
     day = releases.release_date(marker)
-    stamp = zip_stamp(zip_path)
+    stamp = max((m.stamp for m in releases.members(release)), default=None)
     if stamp and stamp.startswith(day):
         return stamp
-    print(f"  no usable stamp in the zip for {day}; pass --released-at from his mail")
+    print(f"  no usable stamp in the archive for {day}; pass --released-at from his mail")
     return f"{day} 00:00"
 
 
@@ -230,7 +219,7 @@ def update_baseline(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("zip", type=Path, help="the reviewer's release zip")
+    ap.add_argument("zip", type=Path, help="the reviewer's release zip or 7z")
     ap.add_argument("--mail", type=Path, help="his verdict mail, for the round row")
     ap.add_argument("--round", help="round label, required with --mail")
     ap.add_argument("--received", help="'YYYY-MM-DD HH:MM' in his clock, required with --mail")
@@ -253,7 +242,7 @@ def main() -> None:
     if args.mail and not (args.round and args.received):
         raise SystemExit("--mail needs --round and --received")
     if not args.zip.is_file():
-        raise SystemExit(f"no zip at {args.zip}")
+        raise SystemExit(f"no release archive at {args.zip}")
 
     started = time.monotonic()
     dry = args.dry_run
@@ -282,8 +271,7 @@ def main() -> None:
         elif dry:
             print(f"  would extract {args.zip} into {target}")
         else:
-            with zipfile.ZipFile(args.zip) as zf:
-                zf.extractall(target)
+            releases.extract(args.zip, target)
             tree = extracted_tree(args.ding, marker)
             if tree is None:
                 raise SystemExit(f"{target}: no {marker}/ tree after extracting")
@@ -291,8 +279,8 @@ def main() -> None:
             changed.append(str(target))
 
     with step("artifact"):
-        # His zip is the artifact of record and `releases.py` hashes it where it lies,
-        # so a zip handed to us from elsewhere is kept beside the tree it produced.
+        # His archive is the artifact of record and `releases.py` hashes it where it lies,
+        # so an archive handed to us from elsewhere is kept beside the tree it produced.
         under_ding = args.ding.resolve() in args.zip.resolve().parents
         beside = args.ding / args.zip.name
         if under_ding:
