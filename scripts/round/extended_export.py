@@ -337,6 +337,11 @@ def stale(out: Path) -> list[str]:
     now = [(rel(p), *stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])]
     if recorded != now:
         problems.append(INPUTS_MOVED)
+    ledger = out / "evidence_ledger.csv"
+    if ledger.is_file():
+        with ledger.open(encoding="utf-8") as fh:
+            if fh.readline() != ",".join(LEDGER) + "\n":
+                problems.append("its ledger's columns are not LEDGER's")
     return problems
 
 
