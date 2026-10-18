@@ -54,8 +54,8 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
-- #315: the unparsed-pool rescan ignores walk journals; cited journals only; claimed-only
-  provenance only if verify.sh and README step 2 still pass.
+- #315: cited journals only; claimed-only provenance only if verify.sh and README step 2 still
+  pass.
 - The bank: incremental extended export; one fold transaction per source (hostnames.py:644).
 
 ## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
