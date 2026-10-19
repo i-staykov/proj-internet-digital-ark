@@ -34,6 +34,12 @@ the way; every PR net negative unless it adds a capability the round needs.
 - The 509 October closed leads go, the 106 without a register row after #356; the block writer
   carries the deciding figure (#357, ark-fleet #227), so an ask's `- potential:` counts both parts.
 
+- The fleet runs on the VM: the runners are user services there, every workflow reads the snapshot
+  and journals from the VM's own `data/`, `sync_fleet.sh` and `ARK_VPS` go, the VPS retires after
+  the cutover. ark-fleet is rebuilt around that, as simple as it can be on HPI hardware, with one
+  short README stating the architecture (what runs where, what moves by PR, how a leg, a read and
+  the bank meet) and nothing else restated; ark-fleet #232 closes with that fact. A fresh session.
+
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
 - The bank folds each source's new journals in one transaction, since a fold costs 4 to 6 s per
@@ -45,5 +51,7 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 - #369: the VM's GitHub login, then `just vm install`.
 - #292 End of Term; #286 re-priced against merge261016 for the owner's ruling.
+- The VM carries only what runs continuously; spent raw artifacts and old releases go to Google
+  Drive by rclone from the laptop (runbook, Backups), the rest stays on the laptop.
 - The owner runs the cutover (runbook, The VM); after ark-fleet #232, retire the VPS and drop
   `ARK_VPS` from `sync_fleet.sh` and the fleet_findings reprice.
