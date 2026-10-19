@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # The bank host, set up from the laptop: `just vm install` pipes this to the VM after its
-# local.env. As the login, `sudo -n` for the packages and linger only: uv, just and gh under
-# ~/.local/bin, the ark clone on `live`, the fleet clone, its own walk lane, and the tick as a
-# systemd user timer that outlives a logout and fires only once the store is there. Idempotent.
-# `gh auth login` there is the owner's, once (docs/ops/runbook.md).
+# local.env. As the login, `sudo -n` for the packages, the fleet user and linger only: uv,
+# just and gh under ~/.local/bin, the ark clone on `live`, the fleet clone, its own walk lane,
+# the tick as a systemd user timer that outlives a logout and fires only once the store is
+# there, and the fleet as ARK_FLEET_USER, an ordinary user whose runners read this login's
+# staged snapshot by path (ark-fleet README.md). Idempotent. `gh auth login` there is the
+# owner's, once (docs/ops/runbook.md).
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 mkdir -p ~/.local/bin ~/GitHub ~/.config/systemd/user
@@ -39,3 +41,19 @@ systemctl --user daemon-reload
     root "loginctl enable-linger $(id -un)"
 systemctl --user enable --now ark-sync.timer
 systemctl --user list-timers ark-sync.timer --no-pager --no-legend
+
+# The fleet user: a home, linger, and ark-fleet's own installer as that user, with this
+# login's checkout as the bank it reads and the token the laptop sent ahead, used once.
+# The legs read output/ by path and never local.env, hence the modes.
+fleet=$(sed -n 's/^ARK_FLEET_USER=//p' ~/ark/local.env | tr -d "\"'")
+[ -n "$fleet" ] || { echo "no ARK_FLEET_USER in local.env, so no fleet here"; exit 0; }
+id -u "$fleet" > /dev/null 2>&1 || sudo -n useradd -m -s /bin/bash "$fleet" ||
+    root "useradd -m -s /bin/bash $fleet"
+[ "$(loginctl show-user "$fleet" -p Linger --value 2> /dev/null)" = yes ] ||
+    sudo -n loginctl enable-linger "$fleet" || root "loginctl enable-linger $fleet"
+mkdir -p ~/ark/output && chmod o+x ~ ~/GitHub ~/ark ~/ark/output && chmod 600 ~/ark/local.env
+token=""
+[ ! -f ~/ark-runner-token ] || { token=$(cat ~/ark-runner-token); rm -f ~/ark-runner-token; }
+[ -d ~/GitHub/ark-fleet/host ] || { echo "no fleet clone yet ('gh auth login' first), so the fleet waits"; exit 0; }
+sudo -n -u "$fleet" env ARK_BANK="$HOME/ark" RUNNER_TOKEN="$token" \
+    bash ~/GitHub/ark-fleet/host/install.sh || root "the fleet install as $fleet, see ark-fleet README.md"

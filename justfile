@@ -268,20 +268,20 @@ sync fleet="~/GitHub/ark-fleet":
         echo "$WHY"
     fi
     # 9. The gate issue, once per crossing, read off the brief the last bank wrote; then a
-    #    snapshot push the last bank could not make, without the ack, its one store read.
+    #    snapshot stage the last bank could not publish, without the ack, its one store read.
     #    Never while a red stands: output/ then holds the export that failed its check.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
     if [ -f data/logs/.push_pending ] && [ -f data/logs/bank_red.json ]; then
         echo "push: held while BANK RED stands"
     elif [ -f data/logs/.push_pending ]; then
-        if bash scripts/harness/sync_fleet.sh --no-ack \
+        if uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
             && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
                 --publish-expected "$FLEET" \
             && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
             && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
                 | cmp -s - "$FLEET/snapshot.json"; then
             rm -f data/logs/.push_pending
-            echo "push: the pending snapshot reached the VPS, and fleet main expects its claim"
+            echo "push: the snapshot is staged, and fleet main expects its claim"
         else
             echo "push: still pending, the next tick retries"
         fi
@@ -537,11 +537,15 @@ bank *args:
             echo "nothing was committed, so the drain stays in $IN"
         fi
     fi
-    # e. The snapshot the fleet prices against, when this bank exported one, then its claim in
-    #    the fleet's snapshot.json. data/logs/.push_pending goes once fleet main holds that.
+    # e. The snapshot the fleet prices against, when this bank exported one: staged in
+    #    output/fleet_snapshot, where the legs read it, the acks that free a folded read's
+    #    parts beside it, then its claim in the fleet's snapshot.json. data/logs/.push_pending
+    #    goes once fleet main holds that. A failed ack costs the fleet disk, never the stage.
     if [ "$EXPORTED" = no ]; then
         echo "push: nothing was exported, so the fleet's snapshot stands"
-    elif bash scripts/harness/sync_fleet.sh \
+    elif uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+        && { uv run python scripts/harness/ack_journals.py --out output/journal_acks.tsv >/dev/null \
+            || echo "ack skipped: the fleet keeps its journals"; } \
         && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
             --publish-expected "$FLEET" \
         && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
@@ -549,7 +553,7 @@ bank *args:
             | cmp -s - "$FLEET/snapshot.json"; then
         rm -f data/logs/.push_pending
     else
-        echo "push pending: the VPS or fleet main did not take the snapshot, the next tick retries"
+        echo "push pending: the stage or fleet main did not take the snapshot, the next tick retries"
     fi
 
 # The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
@@ -1083,7 +1087,7 @@ intake *args:
     case "{{args}}" in *--dry-run*) exit 0 ;; esac
     uv run ark intake
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
-    bash scripts/harness/sync_fleet.sh
+    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
     FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
     LABEL=$(date -u +%Y%m%dT%H%MZ)
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
@@ -1386,12 +1390,17 @@ vm what="status":
         if bash scripts/harness/hold.sh holds com.ark.sync; then
             echo "vm install: the tick is held; the VM's timer would lift it, 'just hold off' first" >&2; exit 1
         fi
-        # Its local.env is this one with its own lane local, no ARK_VM and the 15 GB VM's
-        # own store limit; the install script moves it into the clone.
+        # Its local.env is this one with its own lane local, no ARK_VM and a store limit
+        # that leaves a leg's 3 GB probe and a read's 2 GB room in the VM's 15 GB; the
+        # install script moves it into the clone. ARK_FLEET_USER names the fleet's user
+        # there; the runner registration token, when RUNNER_TOKEN is set here, goes ahead
+        # the same way and is used once.
         env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
-            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=11GB/' local.env)
+            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=8GB/' local.env)
         grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
-        printf '%s\n' "$env" | $SSH 'cat > ark-local.env'
+        grep -q '^ARK_FLEET_USER=.' <<<"$env" || { echo "vm install: set ARK_FLEET_USER in local.env" >&2; exit 1; }
+        printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env'
+        if [ -n "${RUNNER_TOKEN:-}" ]; then printf '%s\n' "$RUNNER_TOKEN" | $SSH 'umask 077; cat > ark-runner-token'; fi
         # Its lane's state and the queue first, into the clone, so the cron the install writes
         # walks on from this machine's done set rather than over it.
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")

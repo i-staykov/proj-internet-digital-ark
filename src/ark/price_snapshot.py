@@ -1,7 +1,7 @@
 """The one price a fleet leg may quote, measured against a snapshot instead of the store.
 
 A fleet runner has no 52 GB `data/ark.duckdb`, so it prices against a directory the laptop
-builds and pushes (`scripts/harness/sync_fleet.sh`).
+builds and stages (`scripts/harness/snapshot_manifest.py`).
 
 **The snapshot is name lists, his calculator and a manifest, nothing else.**
 
@@ -202,7 +202,7 @@ def read_manifest(snapshot: Path) -> tuple[dict, str]:
     """The manifest and the sha256 of its own bytes, which is what a finding cites."""
     path = snapshot / MANIFEST_NAME
     if not path.is_file():
-        raise SnapshotError(f"{path} does not exist; run sync_fleet.sh to build the snapshot")
+        raise SnapshotError(f"{path} does not exist; stage it with snapshot_manifest.py")
     raw = path.read_bytes()
     try:
         manifest = json.loads(raw)

@@ -50,20 +50,21 @@ SIDECAR = "finding.json"
 PROSE = "finding.md"
 LEAD = "lead.json"
 STORE_PRICE = "store_price.json"
-# Where a price leg leaves the `{host, year}` lines it measured (the fleet's ITEMS_DIR).
-# They outlive the leg so that `pricing.cmd` re-runs for verify, and they are the only copy:
-# the run artifact carries the finding, the lead and the extractor, and no data at all.
-VPS_ITEMS = "/projects/ark-data/items"
-# What the leg has to leave beside its finding for the laptop to be able to check it. Both
+# Where a price leg leaves the `{host, year}` lines it measured: `items/` under the fleet
+# user's `~/ark-data` on this host, `ARK_FLEET_USER` in local.env. They outlive the leg so
+# that `pricing.cmd` re-runs for verify, and they are the only copy: the run artifact
+# carries the finding, the lead and the extractor, and no data at all.
+FLEET_DATA = "ark-data"
+# What the leg has to leave beside its finding for the bank to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
-# What the program prices against: the snapshot the last push staged. Relative to REPO, so
-# no local path reaches store_price.json.
+# What the program prices against: the snapshot the last bank staged, which the legs read
+# through a link. Relative to REPO, so no local path reaches store_price.json.
 SNAPSHOT = Path("output/fleet_snapshot")
-# A corpus `read.yaml` read whole: its journal parts and `receipt.json` on the VPS, pulled
-# here per lead. The pull is the gate: only a complete read whose every part matches the
-# sha256 the receipt lists lands, so what the bank ingests is exactly what the read wrote.
-VPS_JOURNALS = "/projects/ark-data/journals"
+# A corpus `read.yaml` read whole: its journal parts and `receipt.json` under `journals/`
+# in the fleet's data, pulled here per lead. The pull is the gate: only a complete read whose
+# every part matches the sha256 the receipt lists lands, so what the bank ingests is exactly
+# what the read wrote.
 FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
@@ -256,32 +257,39 @@ def items_file(lead: Path) -> Path | None:
     return None
 
 
-def items_remote() -> str:
-    """Where the items live, which is not in the artifact.
-
-    A price leg writes `{host, year}` lines to `$ITEMS_DIR/<slug>.jsonl` on the VPS so that
-    `pricing.cmd` still re-runs for the verify leg two waves later; the artifact carries the
-    finding, the lead and the extractor and none of the data. So the re-price has to fetch
-    them, and a laptop with no `ARK_VPS` cannot re-price at all, which is worth saying out
-    loud rather than reporting as a missing file.
-    """
-    if os.environ.get("ARK_ITEMS_REMOTE"):
-        return os.environ["ARK_ITEMS_REMOTE"]
+def fleet_data() -> Path | None:
+    """The fleet user's `~/ark-data` on this host, or None where local.env names no user.
+    A checkout with none cannot re-price a fleet lead at all, which is worth saying out
+    loud rather than reporting as a missing file."""
     env = REPO / "local.env"
     if env.is_file():
         for line in env.read_text(encoding="utf-8").splitlines():
             name, _, value = line.strip().partition("=")
-            if name.strip() == "ARK_VPS" and value.strip():
-                return f"{value.strip().strip(chr(34)).strip(chr(39))}:{VPS_ITEMS}"
-    return ""
+            if name.strip() == "ARK_FLEET_USER" and value.strip():
+                user = value.strip().strip(chr(34)).strip(chr(39))
+                return Path(f"~{user}").expanduser() / FLEET_DATA
+    return None
+
+
+def items_remote() -> str:
+    """Where the items live, which is not in the artifact: `items/` in the fleet's data.
+
+    A price leg writes `{host, year}` lines to `items/<slug>.jsonl` so that `pricing.cmd`
+    still re-runs for the verify leg two waves later; the artifact carries the finding, the
+    lead and the extractor and none of the data, so the re-price reads them from there.
+    """
+    if os.environ.get("ARK_ITEMS_REMOTE"):
+        return os.environ["ARK_ITEMS_REMOTE"]
+    data = fleet_data()
+    return str(data / "items") if data else ""
 
 
 def journals_remote() -> str:
-    """Where a read's journal parts live, the same host `items_remote` names."""
+    """Where a read's journal parts live: `journals/` beside the items."""
     if os.environ.get("ARK_READ_REMOTE"):
         return os.environ["ARK_READ_REMOTE"]
-    items = items_remote()
-    return items.removesuffix(VPS_ITEMS) + VPS_JOURNALS if items.endswith(VPS_ITEMS) else ""
+    data = fleet_data()
+    return str(data / "journals") if data else ""
 
 
 def _sha256(path: Path, whole=None) -> str:
@@ -335,7 +343,7 @@ def fetch_read(lead: Path) -> Path | None:
         return target
     remote = journals_remote()
     if not remote:
-        print(f"reprice: no ARK_VPS in local.env, so {lead.name}'s read cannot be pulled")
+        print(f"reprice: no ARK_FLEET_USER in local.env, so {lead.name}'s read cannot be pulled")
         return None
     staging = FLEET_READ / f".{lead.name}.part"
     shutil.rmtree(staging, ignore_errors=True)
@@ -362,7 +370,7 @@ def fetch_items(lead: Path) -> Path | None:
         return here
     remote = items_remote()
     if not remote:
-        print(f"reprice: no ARK_VPS in local.env, so {lead.name}'s items cannot be fetched")
+        print(f"reprice: no ARK_FLEET_USER in local.env, so {lead.name}'s items cannot be fetched")
         return None
     target = lead / "items.jsonl"
     done = subprocess.run(

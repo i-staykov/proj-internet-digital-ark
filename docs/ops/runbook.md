@@ -1,6 +1,6 @@
 # Runbook
 
-Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `docs/harness.md`.
+Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet `README.md`.
 
 ## When prompted, in this order
 
@@ -88,14 +88,16 @@ the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 
 **The VM** (`ARK_VM` in `local.env`, over the VPN) runs the tick as the `ark-sync.timer` user
 service from `~/ark`, firing only once `data/ark.duckdb` is there, its own lane the `local`
-entry of its `ARK_HOSTS`, installed there and never from here; the fleet stays on GitHub
-Actions. `just vm install` sets it up from the laptop, `sudo -n` for the packages and linger,
-printing the root command it needs when refused; `gh auth login` there (repo, workflow) is the
-owner's, once. `just vm status|log` read it. The cutover follows `just vm install` at once, on
-the VPN: `just hold on`, `just vm copy`, `just schedule remove`, `just hold off`; the VM's first
-bank at :05 then reproduces the figures of `docs/ROUND.md`, nothing having arrived, and this
-checkout only pulls from then on.
-The VPS keeps the fleet's runners and snapshot until ark-fleet #232 is ruled.
+entry of its `ARK_HOSTS`, installed there and never from here, and the fleet's runners as
+`ARK_FLEET_USER`, an ordinary user whose legs read the bank's staged snapshot by path
+(ark-fleet `README.md`). `just vm install` sets it up from the laptop, `sudo -n` for the
+packages, the fleet user and linger, printing the root command it needs when refused, and
+sends a runner registration token ahead when `RUNNER_TOKEN` is set; `gh auth login` there
+(repo, workflow) is the owner's, once. `just vm status|log` read it. The cutover follows
+`just vm install` at once, on the VPN: `just hold on`, `just vm copy`, stop the VPS runner
+services, `just schedule remove`, `just hold off`; the VM's first bank at :05 then reproduces
+the figures of `docs/ROUND.md`, nothing having arrived, stages the snapshot the first leg
+prices against, and this checkout only pulls from then on.
 
 **The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows

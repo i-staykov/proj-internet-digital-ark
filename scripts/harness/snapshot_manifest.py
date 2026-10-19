@@ -1,8 +1,8 @@
 """Stage the pricing snapshot the fleet prices against, and write its manifest.
 
-`sync_fleet.sh` pushes what this stages. The staging directory is built with hard links,
-so his release and our exports cost no disk and no copy time, and the bytes the manifest
-hashes are the bytes that get pushed.
+The legs read what this stages, through a link into `output/fleet_snapshot`. The staging
+directory is built with hard links, so pointing at a 1.5 GB baseline and a 300 MB candidate
+export costs no disk and no copy time, and the bytes the manifest hashes are the bytes read.
 
 What lands, and why each piece is there:
 
@@ -93,7 +93,7 @@ def sources(baseline: Path, marker: str) -> tuple[dict[str, Path], set[str], lis
     optional: set[str] = set()
     absent: list[str] = []
     # His 2002 to 2013 files land whenever the release has them, so a failed export never
-    # drops them from the VPS; only our additions wait for the export's manifest.
+    # drops them from the stage; only our additions wait for the export's manifest.
     exported = (EXPORT_EXTENDED / "manifest.json").is_file()
     extended = [year for year in EXTENDED_YEARS if (baseline / f"{year}.txt").is_file()]
     for year in (*YEARS, *extended):
@@ -154,7 +154,7 @@ def claim_of(files: dict[str, Path]) -> set[str]:
 
 def publish_expected(stage: Path, fleet: Path) -> int:
     """Write the fleet's `snapshot.json` from the staged manifest, building nothing, so it
-    names the claim `sync_fleet.sh` pushed."""
+    names the claim the stage holds."""
     manifest = json.loads((stage / MANIFEST_NAME).read_text(encoding="utf-8"))
     claim = manifest.get("claim_sha256")
     if not claim or not fleet.is_dir():
