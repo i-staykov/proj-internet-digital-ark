@@ -118,12 +118,12 @@ def records_of(journal: Path, source: str = "") -> list[dict]:
 
 
 def his_extended(baseline: Path, names: set[str]) -> set[tuple[str, int]]:
-    """The (name, year) pairs his `extended_years/YYYY.txt` files hold among `names`, read as
-    `held.his_lines` reads a line. The held sets cover 1996 to 2001 only, and these files are
-    not prepared, so a set lookup over each line."""
+    """The (name, year) pairs his 2002 to 2013 files, beside 1996 to 2001's at the release root,
+    hold among `names`, read as `held.his_lines` reads a line. The held sets cover 1996 to 2001
+    only, and these files are not prepared, so a set lookup over each line."""
     out: set[tuple[str, int]] = set()
     for year in EXTENDED_YEARS:
-        path = baseline / "extended_years" / f"{year}.txt"
+        path = baseline / f"{year}.txt"
         if names and path.is_file():
             with path.open(encoding="utf-8", errors="replace") as fh:
                 lines = (line.replace("\r", "").strip().lower() for line in fh)
@@ -221,10 +221,11 @@ def main() -> None:
     records = records_of(args.journal, args.source)
     # a journal's `domain` is raw until the ingest canonicalizes it; held asks the result
     pairs = {
-        (name, r["year"])
+        (name, year)
         for r in records
         if r.get("domain")
-        and (r.get("year") in YEARS or r.get("year") in EXTENDED_YEARS)
+        and str(r.get("year")).isdigit()
+        and ((year := int(r["year"])) in YEARS or year in EXTENDED_YEARS)
         and (name := to_registrable(str(r["domain"])))
     }
     weights = english_weights()
@@ -251,9 +252,12 @@ def main() -> None:
 
     netnew = pairs - held_pairs
     # The deciding figure, as `standing_rule.py` weighs it: part 1, plus part 2 at the ratio
-    # of the two parts' gates. `sync_approvals.py` files the block by it.
+    # of the two parts' gates, 0 when a release has no 2002 to 2013. `sync_approvals.py` files
+    # the block by it.
     late = {(d, y) for d, y in netnew if y in EXTENDED_YEARS}
-    potential = ee(netnew - late) + ee(late) * GATE_EE["1996-2001"] / GATE_EE["2002-2013"]
+    gate_two = GATE_EE["2002-2013"]
+    weight = GATE_EE["1996-2001"] / gate_two if gate_two else Decimal(0)
+    potential = ee(netnew - late) + ee(late) * weight
     corroborated = {(d, y) for d, y in netnew if d in attested}
     mean = ee(netnew) / len(netnew) if netnew else Decimal(0)
 

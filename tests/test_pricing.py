@@ -81,10 +81,10 @@ def test_the_pricers_hold_by_exact_name(tmp_path: Path, his_files: Path, monkeyp
     monkeypatch.setattr(approval, "APPROVALS", register)
     monkeypatch.setattr(approval, "nearest_closed", lambda name: "nothing close.")
     journal = tmp_path / "udrp.jsonl"
-    # 2003: his extended file holds already-his.com; lonely.com is net-new; 2016 is not hunted
-    (his_files / "extended_years").mkdir(exist_ok=True)
-    (his_files / "extended_years/2003.txt").write_text("already-his.com\n", encoding="utf-8")
-    late = [("already-his.com", 2003), ("lonely.com", 2003), ("lonely.com", 2016)]
+    # 2003: his file holds already-his.com; lonely.com is net-new, its year a string; 2016 is
+    # not hunted
+    (his_files / "2003.txt").write_text("already-his.com\n", encoding="utf-8")
+    late = [("already-his.com", 2003), ("lonely.com", "2003"), ("lonely.com", 2016)]
     journal.write_text(
         "".join(json.dumps({"domain": d, "year": 1998}) + "\n" for d in NAMES.split())
         + "".join(json.dumps({"domain": d, "year": y}) + "\n" for d, y in late)
