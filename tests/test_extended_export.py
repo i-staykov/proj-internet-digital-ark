@@ -5,6 +5,7 @@ import csv
 import gzip
 import hashlib
 import json
+import os
 import subprocess
 from decimal import Decimal as D
 
@@ -53,6 +54,7 @@ def exported(tmp_path, monkeypatch):
     monkeypatch.setattr(ext, "baseline_dir", lambda: his)
     monkeypatch.setattr(ext, "REVIEWER_EXTENDED_EE_BY_YEAR", {2002: D(4), 2003: D(2)})
     monkeypatch.setattr(ext, "english_weights", lambda: {"com": D("0.5"), "info": D("0.25")})
+    monkeypatch.setattr(ext, "CACHE", tmp_path / "cache")
     journal = tmp_path / "raw/ia_cdx_hostnames/a.jsonl.gz"
     journal.parent.mkdir(parents=True)
     journal.write_bytes(_journal(ROWS))
@@ -104,6 +106,16 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert ext.stale(out) == []
     journal.write_bytes(_journal(ROWS[:2]))
     assert ext.stale(out), "a changed input makes the export stale"
+
+
+def test_a_second_export_reads_only_the_inputs_that_moved(exported):
+    ext, _, out, manifest, journal, globs = exported
+    st = journal.stat()
+    journal.write_bytes(b"x" * st.st_size)  # same size and mtime: its cached rows stand
+    os.utime(journal, ns=(st.st_atime_ns, st.st_mtime_ns))
+    assert ext.export(globs, out)["years"] == manifest["years"]
+    journal.write_bytes(_journal(ROWS[:1]))
+    assert ext.export(globs, out)["years"] != manifest["years"]
 
 
 def test_a_decided_fleet_read_joins_and_an_undecided_one_waits(exported, monkeypatch):
