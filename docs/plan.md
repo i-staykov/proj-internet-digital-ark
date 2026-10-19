@@ -22,16 +22,21 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## First (master)
 
-1. Issues, the owner's closes: #329 (done by #332), #321, #334, #331, #320, #304 (shipped platform
-   host-years stay), #305; fold #287 into #286, close #285 and #303; label ark-fleet #216 backlog,
-   close #214 into #208 and #217; #222 and #223 wait on #221, #215 on #286.
+1. Issues, the owner's closes: #321, #334 and #331 (each closes on its last comment); #292 takes
+   `needs-owner`; ark-fleet #222 closes into #223.
 
 ## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
 
+- The store and the round pipeline shrink to what the deliverable needs: first one measured table
+  (each component's size, its step's time, what it buys his files and their witness), then one PR
+  per theme, net negative, each fact a `laws.md` row; #315 closes with it. A fresh session.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
 - The 509 October closed leads go, the 106 without a register row after #356.
+- Every reader of a price takes the deciding figure: the dealer lands model-written parts on its
+  `_landed` path too, prompts and schemas say deciding EE, tests feed two-part prices (ark-fleet
+  #223). After ark-fleet #233.
 
 - The fleet runs on the VM: the runners are user services there, every workflow reads the snapshot
   and journals from the VM's own `data/`, `sync_fleet.sh` and `ARK_VPS` go, the VPS retires after
@@ -49,7 +54,7 @@ the way; every PR net negative unless it adds a capability the round needs.
 ## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
 
 - #369: the VM's GitHub login, then `just vm install`.
-- #292 End of Term; #286 re-priced against merge261016 for the owner's ruling.
+- #292 and #286 are asks under the gate: 73,184 and 229,638 deciding EE against merge261016.
 - The VM carries only what runs continuously; spent raw artifacts and old releases go to Google
   Drive by rclone from the laptop (runbook, Backups), the rest stays on the laptop.
 - The owner runs the cutover (runbook, The VM); after ark-fleet #232, retire the VPS and drop
