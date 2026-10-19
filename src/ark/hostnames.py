@@ -327,6 +327,7 @@ def _insert_host_rows(
     params: dict[str, object],
     url_sql: str = "$url",
     ships: str = "false",
+    file_sql: str = "$file",
 ) -> pa.Table:
     """One evidence row per (hostname, year) of `table` that its class holds no row naming that
     host in that year, from any source; the rows inserted come back. A row passing XIV
@@ -338,15 +339,15 @@ def _insert_host_rows(
     here, because only a lane's own row can carry the hostname record.
 
     `table` has hostname, parent, year, value and location, the value ending in the hostname.
-    `params` names the source, the class (`type`), the method, the file, and what `url_sql` and
-    `ships` read.
+    `params` names the source, the class (`type`), the method, and what `url_sql`, `ships` and
+    `file_sql` read.
     """
     return conn.execute(
         f"""
         INSERT INTO evidence (domain, source_id, evidence_year, evidence_type, evidence_value,
                               evidence_url, acquisition_method, source_file, record_location)
         WITH {held_rows_sql(table, domain="parent", subject=_NAMED_LAST)}
-        SELECT t.parent, $source_id, t.year, $type, t.value, {url_sql}, $method, $file,
+        SELECT t.parent, $source_id, t.year, $type, t.value, {url_sql}, $method, {file_sql},
                t.location
         FROM {table} t
         WHERE NOT EXISTS (
@@ -355,7 +356,7 @@ def _insert_host_rows(
               AND (h.ships OR NOT ({ships})))
         RETURNING evidence_id, domain AS parent, evidence_year AS year,
                   lower(regexp_extract(evidence_value, '([^ ]+)$', 1)) AS hostname,
-                  evidence_value
+                  evidence_value, source_file
         """,
         params,
     ).to_arrow_table()
@@ -399,10 +400,7 @@ def _stage_hosts(
 
 
 def ingest_hostname_journal(
-    conn: duckdb.DuckDBPyConnection,
-    path: Path,
-    ledger: set[tuple[str, str, str]] | None = None,
-    only: set[tuple[str, int]] | None = None,
+    conn: duckdb.DuckDBPyConnection, path: Path, only: set[tuple[str, int]] | None = None
 ) -> dict[str, int | str | bool]:
     """One journal of raw capture rows into hostname_year, idempotently. With `only`, the
     journal is read again past the ledger for those (host, year) keys alone, and the ledger
@@ -414,51 +412,19 @@ def ingest_hostname_journal(
         stats["refused"] = True
         logger.warning(f"{exc}; journal refused")
         return stats
-    if only is not None:
-        with _one_transaction(conn):
-            stats = _ingest_rows(conn, path, source_name, method, stats, only)
-        logger.info(str(stats))
-        return stats
-    # **Skip on the CONTENT, not on the name**, because an append-style collector writes its
-    # journal under the journal's FINAL name, one batch per index page, for hours. A name-only
-    # ledger marks a live journal done at whatever length it happened to have, and every row
-    # written afterwards is never read. The `.part`-then-rename convention does not cover an
-    # append-style collector; this does, for every lane at once.
-    digest = _sha256(path)
-    # **One query for the whole directory, not one per file.** The check itself is cheap;
-    # asking the store 24,664 times is not, and at ~60ms of round trip each that was 24
-    # minutes of a 25 minute run. `ingest_hostname_dir` reads the ledger once and passes
-    # it; a caller with no ledger still asks, so a single-file ingest is unchanged.
-    if ledger is not None:
-        already = (source_name, path.name, digest) in ledger
-    else:
-        already = bool(
-            conn.execute(
-                "SELECT count(*) FROM ingested_file "
-                "WHERE source_name = ? AND file_name = ? AND sha256 = ?",
-                [source_name, path.name, digest],
-            ).fetchone()[0]
-        )
-    if already:
+    digest = "" if only is not None else _sha256(path)
+    if (
+        only is None
+        and conn.execute(
+            "SELECT count(*) FROM ingested_file "
+            "WHERE source_name = ? AND file_name = ? AND sha256 = ?",
+            [source_name, path.name, digest],
+        ).fetchone()[0]
+    ):
         stats["skipped"] = True
-        # debug, not info: in a directory of 24,664 journals this line alone wrote 24,664
-        # rows to the log every run, and it says nothing a reader wants.
-        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     with _one_transaction(conn):
-        stats = _ingest_rows(conn, path, source_name, method, stats, None)
-        if stats.get("refused"):
-            return stats
-        # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
-        # row to the new digest rather than adding one. `record_rows` accumulates, because the
-        # journal really did yield rows on both passes and the total is what the ledger is for.
-        conn.execute(
-            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
-            "record_rows = ingested_file.record_rows + excluded.record_rows",
-            [source_name, path.name, digest, stats["hostname_year_rows"]],
-        )
+        stats.update(_fold_journals(conn, source_name, method, [(path, digest)], only))
     logger.info(str(stats))
     return stats
 
@@ -468,26 +434,14 @@ def ingest_hostname_journal(
 _ROW_HOST = re.compile(r'"url":\s*"[A-Za-z][A-Za-z0-9+.-]*://([^/:"?#\s]+)')
 
 
-def _ingest_rows(
-    conn: duckdb.DuckDBPyConnection,
-    path: Path,
-    source_name: str,
-    method: str,
-    stats: dict[str, int | str | bool],
-    only: set[tuple[str, int]] | None,
-) -> dict[str, int | str | bool]:
-    from ark import approvals
-
-    # The same gate every other master-eligible ingest passes: a journal family with no
-    # `Decision: master` line behind its source row is refused before anything is read.
-    approvals.check(source_name, "cdx_timestamp")
+def _captures(
+    path: Path, only: set[tuple[str, int]] | None, counts: Counter[str]
+) -> dict[tuple[str, int], tuple[bool, str, str | None, int]] | None:
+    """The capture quoted per (host, year) of one journal: any 2xx or 3xx before any error,
+    then the earliest, with the journal line it sits on; None when the journal is refused."""
     only_hosts = {h for h, _ in only} if only is not None else None
-
-    counts: Counter[str] = Counter()
-    # the capture quoted per (host, year): any 2xx or 3xx before any error, then the earliest,
-    # with the journal line it sits on
     seen: dict[tuple[str, int], tuple[bool, str, str | None, int]] = {}
-    strict, errors_only, refused = status_required(path), error_lane(path), False
+    strict, errors_only = status_required(path), error_lane(path)
     opener = gzip.open if path.suffix == ".gz" else open
     try:
         with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
@@ -512,8 +466,8 @@ def _ingest_rows(
                         counts["bad_status"] += 1
                         continue
                 elif strict:
-                    refused = True
-                    break
+                    logger.warning(f"{path.name}: a row carries no capture status, journal refused")
+                    return None
                 error = status is not None and status[0] in "45"
                 if errors_only and not error:
                     counts["status_mismatch"] += 1
@@ -540,15 +494,48 @@ def _ingest_rows(
     except (EOFError, OSError):
         # a journal cut mid-write; what was read is real, the tail returns next sweep
         counts["truncated_tail"] += 1
-    if refused:
-        # before any write and before the ledger, so a re-emitted file is read next time
-        stats["refused"] = True
-        logger.warning(f"{path.name}: a row carries no capture status, journal refused")
+    return seen
+
+
+def _fold_journals(
+    conn: duckdb.DuckDBPyConnection,
+    source_name: str,
+    method: str,
+    journals: list[tuple[Path, str]],
+    only: set[tuple[str, int]] | None = None,
+) -> dict[str, int | bool]:
+    """One source's journals, each `(path, sha256)`, into hostname_year in the caller's one
+    transaction: one insert, one dating and one repoint for all of them, since each statement
+    costs seconds on the live store whatever its length. A journal's ledger row is written
+    unless `only` is given; a refused journal is left out and unledgered.
+
+    A host-year keeps the first journal's capture, as journals read one by one did, unless
+    that capture is an error and a later one is not."""
+    from ark import approvals
+
+    # The same gate every other master-eligible ingest passes: a journal family with no
+    # `Decision: master` line behind its source row is refused before anything is read.
+    approvals.check(source_name, "cdx_timestamp")
+    counts: Counter[str] = Counter()
+    merged: dict[tuple[str, int], tuple[bool, str, str | None, int, str]] = {}
+    read: list[tuple[Path, str]] = []
+    for path, digest in journals:
+        seen = _captures(path, only, counts)
+        if seen is None:
+            counts["files_refused"] += 1
+            continue
+        read.append((path, digest))
+        for key, capture in seen.items():
+            held = merged.get(key)
+            if held is None or (held[0] and not capture[0]):
+                merged[key] = (*capture, path.name)
+    stats: dict[str, int | bool] = {"refused": not read, **counts}
+    if not read:
         return stats
 
     # the registrable funnel, once per distinct host
     parents: dict[str, str] = {}
-    for host in {h for h, _ in seen}:
+    for host in {h for h, _ in merged}:
         reg = to_registrable(host)
         if reg is None:
             counts["rejected_host"] += 1
@@ -567,21 +554,22 @@ def _ingest_rows(
             status,
             f"cdx capture {ts} status {status} {host}" if error else f"cdx capture {ts} {host}",
             f"line {lineno}",
+            file,
         )
-        for (host, year), (error, ts, status, lineno) in sorted(seen.items())
+        for (host, year), (error, ts, status, lineno, file) in sorted(merged.items())
         if host in parents
     ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
     stats["error_hostname_years"] = sum(1 for row in rows if row[4])
+    per_file: Counter[str] = Counter()
     if rows:
         source_id = ensure_source(conn, source_name, "timestamped")
-        conn.execute(
-            "CREATE TEMP TABLE IF NOT EXISTS hostage (hostname TEXT, parent TEXT, "
-            "year INTEGER, ts TEXT, status TEXT, value TEXT, location TEXT)"
-        )
-        conn.execute("DELETE FROM hostage")
-        conn.executemany("INSERT INTO hostage VALUES (?, ?, ?, ?, ?, ?, ?)", rows)
+        names = ("hostname", "parent", "year", "ts", "status", "value", "location", "file")
+        columns = zip(names, map(list, zip(*rows, strict=True)), strict=True)
+        conn.register("hostage_rows", pa.table(dict(columns)))
+        conn.execute("CREATE OR REPLACE TEMP TABLE hostage AS FROM hostage_rows")
+        conn.unregister("hostage_rows")
         conn.execute(
             r"""
             INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
@@ -597,12 +585,13 @@ def _ingest_rows(
                 "source_id": source_id,
                 "type": "cdx_timestamp",
                 "method": method,
-                "file": path.name,
                 "web": method in WEB_METHODS,
             },
             url_sql="'https://web.archive.org/web/' || t.ts || '/http://' || t.hostname || '/'",
             ships="$web AND t.status IS NULL",
+            file_sql="t.file",
         )
+        per_file.update(fresh.column("source_file").to_pylist())
         stats["evidence_rows"] = fresh.num_rows
         stats["hostname_year_rows"] = _date_hosts(conn, fresh)
         # A 2xx or 3xx takes a host-year that an earlier journal gave to an error capture. The
@@ -635,19 +624,38 @@ def _ingest_rows(
             ).fetchone()[0]
         finally:
             conn.unregister("fresh_hosts")
-        conn.execute("DELETE FROM hostage")
+        conn.execute("DROP TABLE hostage")
     else:
         stats["hostname_year_rows"] = 0
+    if only is None:
+        # `ingested_file` is keyed on (source_name, file_name), so a grown journal UPDATES its
+        # row to the new digest rather than adding one. `record_rows`, the evidence rows each
+        # journal gave, accumulates, because the journal really did yield rows on both passes.
+        conn.executemany(
+            "INSERT INTO ingested_file (source_name, file_name, sha256, record_rows) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT (source_name, file_name) DO UPDATE SET sha256 = excluded.sha256, "
+            "record_rows = ingested_file.record_rows + excluded.record_rows",
+            [[source_name, p.name, digest, per_file[p.name]] for p, digest in read],
+        )
     return stats
+
+
+# The gzip bytes one fold batch reads, so a run of large journals never holds the whole
+# directory's captures in memory.
+_FOLD_BATCH_BYTES = 16 << 20
 
 
 def ingest_hostname_dir(
     conn: duckdb.DuckDBPyConnection, root: Path, pattern: str = "*.jsonl.gz"
 ) -> dict[str, int]:
+    """Every new or grown journal under `root`, each source's in one transaction per batch.
+
+    **Skip on the CONTENT, not on the name**, because an append-style collector writes its
+    journal under its final name for hours: a name-only ledger marks a live journal done at
+    whatever length it had. The ledger is read in one query, not one per file."""
     totals: Counter[str] = Counter()
     files = sorted(root.glob(pattern)) if root.is_dir() else [root]
-    # The whole ledger, once. It is one row per file ever ingested, so it costs a few MB
-    # of memory and saves one round trip per file in the directory.
     ledger = {
         (str(s), str(f), str(h))
         for s, f, h in conn.execute(
@@ -655,17 +663,33 @@ def ingest_hostname_dir(
         ).fetchall()
     }
     logger.info(f"ledger: {len(ledger):,} files already ingested, read in one query")
-    for i, path in enumerate(files, 1):
-        stats = ingest_hostname_journal(conn, path, ledger=ledger)
-        for key, value in stats.items():
-            if isinstance(value, int) and not isinstance(value, bool):
-                totals[key] += value
-            elif key == "skipped" and value:
-                totals["files_skipped"] += 1
-            elif key == "refused" and value:
-                totals["files_refused"] += 1
-        if not stats.get("skipped") or i % 2000 == 0 or i == len(files):
-            logger.info(f"[{i}/{len(files)}] {path.name} done")
+    groups: dict[tuple[str, str], list[tuple[Path, str]]] = {}
+    for path in files:
+        try:
+            key = source_for(path)
+        except ValueError as exc:
+            logger.warning(f"{exc}; journal refused")
+            totals["files_refused"] += 1
+            continue
+        digest = _sha256(path)
+        if (key[0], path.name, digest) in ledger:
+            totals["files_skipped"] += 1
+        else:
+            groups.setdefault(key, []).append((path, digest))
+    for (source_name, method), journals in groups.items():
+        batch: list[tuple[Path, str]] = []
+        size = 0
+        for i, (path, digest) in enumerate(journals, 1):
+            batch.append((path, digest))
+            size += path.stat().st_size
+            if size < _FOLD_BATCH_BYTES and i < len(journals):
+                continue
+            with _one_transaction(conn):
+                stats = _fold_journals(conn, source_name, method, batch)
+            stats.pop("refused")
+            totals.update(stats)
+            logger.info(f"{source_name}: [{i}/{len(journals)}] journals folded, {stats}")
+            batch, size = [], 0
     totals["files_seen"] = len(files)
     logger.info(f"hostnames: {dict(totals)}")
     return dict(totals)
