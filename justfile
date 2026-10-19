@@ -1409,6 +1409,16 @@ vm what="status":
         $RS data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
         $RS data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
+        # Then the fleet, as its user, the registration token on stdin and nowhere else; a
+        # refused sudo prints the one command the owner runs there, the token typed after it.
+        FLEET_USER=$(sed -n 's/^ARK_FLEET_USER=//p' <<<"$env" | tr -d "\"'")
+        if ! $SSH '[ -d ~/GitHub/ark-fleet/host ]'; then
+            echo "vm install: no fleet clone there yet ('gh auth login' on the VM, then this again)"
+        else
+            printf '%s\n' "${RUNNER_TOKEN:-}" | $SSH "cmd=\"ARK_BANK=\$HOME/ark RUNNER_TOKEN=- bash \$HOME/GitHub/ark-fleet/host/install.sh\";
+                sudo -n -u $FLEET_USER env -u SUDO_USER \$cmd || {
+                    echo \"REFUSED: sudo asks a password; as root there:  su - $FLEET_USER -c '\$cmd'  then the registration token on one line\" >&2; exit 1; }"
+        fi
         ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
         grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;

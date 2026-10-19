@@ -92,12 +92,15 @@ entry of its `ARK_HOSTS`, installed there and never from here, and the fleet's r
 `ARK_FLEET_USER`, an ordinary user whose legs read the bank's staged snapshot by path
 (ark-fleet `README.md`). `just vm install` sets it up from the laptop, `sudo -n` for the
 packages, the fleet user and linger, printing the root command it needs when refused, and
-sends a runner registration token ahead when `RUNNER_TOKEN` is set; `gh auth login` there
-(repo, workflow) is the owner's, once. `just vm status|log` read it. The cutover follows
-`just vm install` at once, on the VPN: `just hold on`, `just vm copy`, stop the VPS runner
-services, `just schedule remove`, `just hold off`; the VM's first bank at :05 then reproduces
-the figures of `docs/ROUND.md`, nothing having arrived, stages the snapshot the first leg
-prices against, and this checkout only pulls from then on.
+runs the fleet's installer as that user with `RUNNER_TOKEN` from this shell on its stdin;
+it refuses while the tick is held. `gh auth login` there (repo, workflow) is the owner's,
+once. `just vm status|log` read it. The cutover, on the VPN: `just vm install`; `gh auth
+login` on the VM; `RUNNER_TOKEN=<from the fleet's Settings, Actions, Runners> just vm
+install` again, which registers the runners; `just hold on`; `just vm copy`; on the VPS as
+its fleet user `systemctl --user disable --now ark-runner@{1..5}.service`; `just schedule
+remove`; `just hold off`. The VM's first bank at :05 then reproduces the figures of
+`docs/ROUND.md`, nothing having arrived, and stages the snapshot; a leg before it refuses
+the missing snapshot and costs nothing. This checkout only pulls from then on.
 
 **The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows

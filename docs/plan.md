@@ -37,7 +37,6 @@ the way; every PR net negative unless it adds a capability the round needs.
   `_landed` path too, prompts and schemas say deciding EE, tests feed two-part prices (ark-fleet
   #223). After ark-fleet #233.
 
-
 ## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
 
 - #369: the VM's GitHub login, then `just vm install`.

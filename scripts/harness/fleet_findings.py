@@ -33,6 +33,7 @@ import hashlib
 import json
 import math
 import os
+import pwd
 import re
 import shutil
 import subprocess
@@ -267,7 +268,11 @@ def fleet_data() -> Path | None:
             name, _, value = line.strip().partition("=")
             if name.strip() == "ARK_FLEET_USER" and value.strip():
                 user = value.strip().strip(chr(34)).strip(chr(39))
-                return Path(f"~{user}").expanduser() / FLEET_DATA
+                try:
+                    return Path(pwd.getpwnam(user).pw_dir) / FLEET_DATA
+                except KeyError:
+                    print("reprice: ARK_FLEET_USER names no user on this machine, so no fleet data")
+                    return None
     return None
 
 

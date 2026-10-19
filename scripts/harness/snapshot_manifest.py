@@ -193,6 +193,13 @@ def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
             # A different filesystem, or a link limit. Copying is slower and correct.
             shutil.copy2(files[rel], target)
     (out / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    # The legs read the stage as another user, by path: readable as a fact, not an umask.
+    for root, dirs, names in os.walk(out):
+        for d in dirs:
+            os.chmod(Path(root) / d, 0o755)
+        for n in names:
+            os.chmod(Path(root) / n, 0o644)
+    out.chmod(0o755)
 
 
 def main() -> int:

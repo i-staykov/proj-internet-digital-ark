@@ -51,6 +51,7 @@ def write(rows: list[tuple[str, str]], out: Path) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     body = "".join(f"{name}\t{digest}\n" for name, digest in rows)
     out.write_text(body, encoding="utf-8")
+    out.chmod(0o644)  # the fleet's cleanup reads it by path
     return len(rows)
 
 

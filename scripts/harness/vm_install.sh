@@ -42,18 +42,15 @@ systemctl --user daemon-reload
 systemctl --user enable --now ark-sync.timer
 systemctl --user list-timers ark-sync.timer --no-pager --no-legend
 
-# The fleet user: a home, linger, and ark-fleet's own installer as that user, with this
-# login's checkout as the bank it reads and the token the laptop sent ahead, used once.
-# The legs read output/ by path and never local.env, hence the modes.
+# The fleet user: a home and linger, and this login's side of their meeting point. The
+# legs traverse ~/ark to read output/ by path and nothing else of the clone: data/, private/
+# and local.env are closed to them. `just vm install` then runs ark-fleet's own installer as
+# that user, the runner token on its stdin.
 fleet=$(sed -n 's/^ARK_FLEET_USER=//p' ~/ark/local.env | tr -d "\"'")
 [ -n "$fleet" ] || { echo "no ARK_FLEET_USER in local.env, so no fleet here"; exit 0; }
 id -u "$fleet" > /dev/null 2>&1 || sudo -n useradd -m -s /bin/bash "$fleet" ||
     root "useradd -m -s /bin/bash $fleet"
 [ "$(loginctl show-user "$fleet" -p Linger --value 2> /dev/null)" = yes ] ||
     sudo -n loginctl enable-linger "$fleet" || root "loginctl enable-linger $fleet"
-mkdir -p ~/ark/output && chmod o+x ~ ~/GitHub ~/ark ~/ark/output && chmod 600 ~/ark/local.env
-token=""
-[ ! -f ~/ark-runner-token ] || { token=$(cat ~/ark-runner-token); rm -f ~/ark-runner-token; }
-[ -d ~/GitHub/ark-fleet/host ] || { echo "no fleet clone yet ('gh auth login' first), so the fleet waits"; exit 0; }
-sudo -n -u "$fleet" env ARK_BANK="$HOME/ark" RUNNER_TOKEN="$token" \
-    bash ~/GitHub/ark-fleet/host/install.sh || root "the fleet install as $fleet, see ark-fleet README.md"
+mkdir -p ~/ark/output ~/ark/data && chmod o+x ~ ~/GitHub ~/ark ~/ark/output
+chmod 600 ~/ark/local.env && chmod 700 ~/ark/data && { [ ! -d ~/ark/private ] || chmod 700 ~/ark/private; }
