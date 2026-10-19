@@ -25,7 +25,8 @@ The evidence wall is the registrable unit's, unchanged:
 - **a host dates itself, never its registrable**: `www.<parent>` and every other host below
   a registrable is its own record, so no lane here writes `domain_year`;
 - a class keeps one row per (host, year), whichever source repeats it, and each row names its
-  file and line. A file's rows, hostname years and ledger row commit together.
+  file and line. A file's rows, hostname years and ledger row commit together, a run of one
+  source's journals in one transaction.
 
 The registrable half of the same journal is `cdx_suffix_convert.py`'s job: captures whose host
 IS the registrable, collapsed into per-domain year sets for the `cdx_snapshot` ingest.
@@ -379,9 +380,10 @@ def _stage_hosts(
     conn: duckdb.DuckDBPyConnection, table: str, rows: list[tuple], source_id: int
 ) -> None:
     """One file's rows into the temp table `table` as one relation, since a file runs to
-    millions: (hostname, parent, year, value, location), and url when a row carries its own.
-    Each parent is filed as a domain."""
-    names = ("hostname", "parent", "year", "value", "location", "url")[: len(rows[0])]
+    millions: (hostname, parent, year, value, location), then url, file and status when a row
+    carries its own. Each parent is filed as a domain."""
+    names = ("hostname", "parent", "year", "value", "location", "url", "file", "status")
+    names = names[: len(rows[0])]
     columns = {name: [row[i] for row in rows] for i, name in enumerate(names)}
     columns["year"] = pa.array(columns["year"], type=pa.int32())
     conn.register(f"{table}_rows", pa.table(columns))
@@ -504,31 +506,31 @@ def _fold_journals(
     journals: list[tuple[Path, str]],
     only: set[tuple[str, int]] | None = None,
 ) -> dict[str, int | bool]:
-    """One source's journals, each `(path, sha256)`, into hostname_year in the caller's one
-    transaction: one insert, one dating and one repoint for all of them, since each statement
-    costs seconds on the live store whatever its length. A journal's ledger row is written
-    unless `only` is given; a refused journal is left out and unledgered.
+    """One source's journals, each `(path, sha256)`, in order, into hostname_year in the
+    caller's one transaction, with one insert, one dating and one repoint for all of them.
+    A journal's ledger row is written unless `only` is given; a refused one is left out.
 
-    A host-year keeps the first journal's capture, as journals read one by one did, unless
-    that capture is an error and a later one is not."""
+    The rows are those the journals read one by one would write: a host-year's first capture,
+    and after an error the first 2xx or 3xx, which takes the host-year."""
     from ark import approvals
 
     # The same gate every other master-eligible ingest passes: a journal family with no
     # `Decision: master` line behind its source row is refused before anything is read.
     approvals.check(source_name, "cdx_timestamp")
     counts: Counter[str] = Counter()
-    merged: dict[tuple[str, int], tuple[bool, str, str | None, int, str]] = {}
+    merged: dict[tuple[str, int], list[tuple[bool, str, str | None, int, str]]] = {}
     read: list[tuple[Path, str]] = []
     for path, digest in journals:
-        seen = _captures(path, only, counts)
+        seen = _captures(path, only, own := Counter())
         if seen is None:
             counts["files_refused"] += 1
             continue
+        counts.update(own)
         read.append((path, digest))
         for key, capture in seen.items():
-            held = merged.get(key)
-            if held is None or (held[0] and not capture[0]):
-                merged[key] = (*capture, path.name)
+            held = merged.setdefault(key, [])
+            if not held or (len(held) == 1 and held[0][0] and not capture[0]):
+                held.append((*capture, path.name))
     stats: dict[str, int | bool] = {"refused": not read, **counts}
     if not read:
         return stats
@@ -550,34 +552,23 @@ def _fold_journals(
             host,
             parents[host],
             year,
-            ts,
-            status,
             f"cdx capture {ts} status {status} {host}" if error else f"cdx capture {ts} {host}",
             f"line {lineno}",
+            f"https://web.archive.org/web/{ts}/http://{host}/",
             file,
+            status,
         )
-        for (host, year), (error, ts, status, lineno, file) in sorted(merged.items())
+        for (host, year), captures in sorted(merged.items())
         if host in parents
+        for error, ts, status, lineno, file in captures
     ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
-    stats["error_hostname_years"] = sum(1 for row in rows if row[4])
+    stats["error_hostname_years"] = sum(1 for row in rows if row[7])
     per_file: Counter[str] = Counter()
     if rows:
         source_id = ensure_source(conn, source_name, "timestamped")
-        names = ("hostname", "parent", "year", "ts", "status", "value", "location", "file")
-        columns = zip(names, map(list, zip(*rows, strict=True)), strict=True)
-        conn.register("hostage_rows", pa.table(dict(columns)))
-        conn.execute("CREATE OR REPLACE TEMP TABLE hostage AS FROM hostage_rows")
-        conn.unregister("hostage_rows")
-        conn.execute(
-            r"""
-            INSERT OR IGNORE INTO domain (domain, tld, discovered_source)
-            SELECT DISTINCT parent, regexp_replace(parent, '^[^.]+\.', ''), ?
-            FROM hostage
-            """,
-            [source_id],
-        )
+        _stage_hosts(conn, "hostage", rows, source_id)
         fresh = _insert_host_rows(
             conn,
             "hostage",
@@ -587,15 +578,16 @@ def _fold_journals(
                 "method": method,
                 "web": method in WEB_METHODS,
             },
-            url_sql="'https://web.archive.org/web/' || t.ts || '/http://' || t.hostname || '/'",
+            url_sql="t.url",
             ships="$web AND t.status IS NULL",
             file_sql="t.file",
         )
         per_file.update(fresh.column("source_file").to_pylist())
         stats["evidence_rows"] = fresh.num_rows
         stats["hostname_year_rows"] = _date_hosts(conn, fresh)
-        # A 2xx or 3xx takes a host-year that an earlier journal gave to an error capture. The
-        # rows those host-years cite are read first, so the status test never scans evidence.
+        # A 2xx or 3xx takes a host-year an earlier journal, or this batch's dating, gave to an
+        # error capture. The rows those host-years cite are read first, so the status test
+        # never scans evidence.
         conn.register("fresh_hosts", fresh)
         try:
             stats["repointed"] = conn.execute(
@@ -624,7 +616,6 @@ def _fold_journals(
             ).fetchone()[0]
         finally:
             conn.unregister("fresh_hosts")
-        conn.execute("DROP TABLE hostage")
     else:
         stats["hostname_year_rows"] = 0
     if only is None:
@@ -649,7 +640,8 @@ _FOLD_BATCH_BYTES = 16 << 20
 def ingest_hostname_dir(
     conn: duckdb.DuckDBPyConnection, root: Path, pattern: str = "*.jsonl.gz"
 ) -> dict[str, int]:
-    """Every new or grown journal under `root`, each source's in one transaction per batch.
+    """Every new or grown journal under `root`, in name order, each run of one source's in one
+    transaction (`docs/lore/laws.md`, Store).
 
     **Skip on the CONTENT, not on the name**, because an append-style collector writes its
     journal under its final name for hours: a name-only ledger marks a live journal done at
@@ -663,7 +655,8 @@ def ingest_hostname_dir(
         ).fetchall()
     }
     logger.info(f"ledger: {len(ledger):,} files already ingested, read in one query")
-    groups: dict[tuple[str, str], list[tuple[Path, str]]] = {}
+    batches: list[tuple[tuple[str, str], list[tuple[Path, str]]]] = []
+    size = 0
     for path in files:
         try:
             key = source_for(path)
@@ -674,22 +667,18 @@ def ingest_hostname_dir(
         digest = _sha256(path)
         if (key[0], path.name, digest) in ledger:
             totals["files_skipped"] += 1
-        else:
-            groups.setdefault(key, []).append((path, digest))
-    for (source_name, method), journals in groups.items():
-        batch: list[tuple[Path, str]] = []
-        size = 0
-        for i, (path, digest) in enumerate(journals, 1):
-            batch.append((path, digest))
-            size += path.stat().st_size
-            if size < _FOLD_BATCH_BYTES and i < len(journals):
-                continue
-            with _one_transaction(conn):
-                stats = _fold_journals(conn, source_name, method, batch)
-            stats.pop("refused")
-            totals.update(stats)
-            logger.info(f"{source_name}: [{i}/{len(journals)}] journals folded, {stats}")
-            batch, size = [], 0
+            continue
+        if not batches or batches[-1][0] != key or size >= _FOLD_BATCH_BYTES:
+            batches.append((key, []))
+            size = 0
+        batches[-1][1].append((path, digest))
+        size += path.stat().st_size
+    for i, ((source_name, method), batch) in enumerate(batches, 1):
+        with _one_transaction(conn):
+            stats = _fold_journals(conn, source_name, method, batch)
+        stats.pop("refused")
+        totals.update(stats)
+        logger.info(f"[{i}/{len(batches)}] {source_name}: {len(batch)} journals, {stats}")
     totals["files_seen"] = len(files)
     logger.info(f"hostnames: {dict(totals)}")
     return dict(totals)

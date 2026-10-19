@@ -167,6 +167,8 @@ def test_an_error_capture_is_a_candidate_and_a_2xx_or_3xx_of_the_year_wins(tmp_p
             for name, rows in (journals[::-1] if order == "ok-read-first" else journals)
         ]
     assert sum(s.get("status_mismatch", 0) for s in stats) == 1
+    # an error read before its 2xx stays a candidate row, in one fold as journal by journal
+    assert _q(conn, "SELECT count(*) FROM evidence") == [(4 if order == "ok-read-first" else 5,)]
     assert _values(conn) == {
         "shop.example.com": f"cdx capture {OK} shop.example.com",
         "www.example.com": f"cdx capture {OK} www.example.com",

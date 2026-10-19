@@ -206,6 +206,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A lane counts once the bank reads it, converters too: 67 RDAP journals (~12,000 EE) and 5,793 CDX year-records sat unread (`just bank` step c, `bank_trigger.py` `FOLD`).
 - `just residual` (`scripts/harness/audit_residual.py`) finds unread journals only for families with an ingest glob; a new lane has none and stays invisible to it.
 - An ingest that opens no file prints zeros, `files_seen` 0, and exits 0: a gz-only glob missed every IETF `.jsonl` shard (`src/ark/hostnames.py` `ingest_usenet_item_dir`).
+- A capture-journal fold costs about 3 s whatever its length (median 3.2 s over 3,420 journals, 3.19 s under 100 lines), its held-row scan, repoint and commit paid once per transaction: 200 journals took 611.6 s one by one, 6.9 s folded together (`src/ark/hostnames.py` `ingest_hostname_dir`).
 - A name key freezes a growing file: the IETF collector appends to one shard per list, so the ingest keys name plus sha256 and re-reads a changed digest (`src/ark/hostnames.py`).
 - A collector's output name carries a run id, never a resetting counter: a restarted sweep overwrote six `batch1_shard_*` files (`scripts/sources/usenet/sweep_alt_hierarchy.sh` `RUN_ID`).
 - The ingest ledger keys (source_name, file_name) with sha256, so a recycled name fails with `ledgered with different content (sha256 mismatch)` (`src/ark/bulk.py`).
