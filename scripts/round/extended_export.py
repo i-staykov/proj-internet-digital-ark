@@ -32,6 +32,7 @@ merges each additions file with his (`package_delivery.sh`):
 
 import argparse
 import csv
+import functools
 import glob
 import gzip
 import hashlib
@@ -72,8 +73,9 @@ _spec.loader.exec_module(_merge)
 COLUMNS = _merge.COLUMNS
 
 OUT = Path("output/extended_years")
-# Each input's kept rows and what the manifest records of it, so a run reads only the inputs
-# that are new or moved since the last: a full read of every journal costs about ten minutes.
+# What each input and each of his files gave the last run, so a run reads only what moved
+# (`docs/lore/laws.md`, Store). An entry is keyed on its file's size and mtime_ns and on the
+# screen's code, which holds because his files are frozen and a journal only grows.
 CACHE = Path("data/staging/extended_rows")
 # `*` takes each file's source from its folder's name.
 INPUTS = {
@@ -152,33 +154,46 @@ def stat_of(path: Path) -> dict:
     return {"size": st.st_size, "mtime_ns": st.st_mtime_ns}
 
 
+@functools.cache
 def code_of_screen() -> str:
     """What a cached input's rows were screened by: the window and the code and data it runs."""
     digest = hashlib.sha256(repr(sorted(EXTENDED_YEARS)).encode())
-    for part in (
-        __file__,
-        hn.__file__,
-        canonical.__file__,
-        canonical.PSL_PATH,
-        delegation.__file__,
-    ):
+    parts = (__file__, hn.__file__, canonical.__file__, delegation.__file__)
+    for part in (*parts, canonical.PSL_PATH):
         digest.update(Path(part).read_bytes())
     return digest.hexdigest()
 
 
-def screened(path: Path, code: str) -> tuple[bytes, dict]:
-    """One input's kept captures as `year<TAB>host<TAB>ts<SOH>line` lines and what the
-    manifest records of it, read again only when its size, mtime or `code` moved. A refused
-    journal keeps no row."""
-    where = os.path.abspath(path)
-    key = CACHE / hashlib.sha256(where.encode()).hexdigest()
-    st = stat_of(path)
+def cache_entry(path: Path) -> Path:
+    return CACHE / f"{hashlib.sha256(os.path.abspath(path).encode()).hexdigest()}.gz"
+
+
+def cached(path: Path) -> tuple[dict, bytes] | None:
+    """A file's entry, its facts and rows, while the file and the screen are as they were; a
+    torn or foreign entry is a miss."""
     try:
-        meta = json.loads(key.with_suffix(".json").read_text(encoding="utf-8"))
-        if (meta["stat"], meta["code"]) == (st, code):
-            return gzip.decompress(key.with_suffix(".tsv.gz").read_bytes()), meta
-    except (OSError, ValueError, KeyError):
-        pass
+        head, _, rows = gzip.decompress(cache_entry(path).read_bytes()).partition(b"\n")
+        facts = json.loads(head)
+    except (OSError, EOFError, ValueError):
+        return None
+    return (facts, rows) if facts.get("key") == [stat_of(path), code_of_screen()] else None
+
+
+def cache(path: Path, facts: dict, rows: bytes = b"") -> dict:
+    """Write a file's entry under a temporary name and rename it in, so a reader never sees half."""
+    facts = {"key": [stat_of(path), code_of_screen()]} | facts
+    CACHE.mkdir(parents=True, exist_ok=True)
+    temp = CACHE / f".{cache_entry(path).name}.{os.getpid()}"
+    temp.write_bytes(gzip.compress(json.dumps(facts).encode() + b"\n" + rows, compresslevel=1))
+    os.replace(temp, cache_entry(path))
+    return facts
+
+
+def screened(path: Path) -> tuple[dict, bytes]:
+    """What the manifest records of one input and its kept captures, `year<TAB>host<TAB>ts<SOH>
+    line` lines, read again only when it moved. A refused journal keeps no row."""
+    if hit := cached(path):
+        return hit
     seen, rows, refused = Counter(), [], None
     if hn.error_lane(path):
         refused = "an error lane, whose captures are errors"
@@ -197,41 +212,28 @@ def screened(path: Path, code: str) -> tuple[bytes, dict]:
     if refused:
         rows, seen = [], Counter(journal_refused=1)
     data = "".join(rows).encode()
-    meta = {"path": where, "stat": st, "code": code, "sha256": file_sha(path)}
-    meta |= {"kept": seen.pop("kept", 0), "drops": dict(seen)} | (
-        {"refused": refused} if refused else {}
-    )
-    CACHE.mkdir(parents=True, exist_ok=True)
-    key.with_suffix(".tsv.gz").write_bytes(gzip.compress(data, compresslevel=1))
-    key.with_suffix(".json").write_text(json.dumps(meta), encoding="utf-8")  # last: the commit
-    return data, meta
+    facts = {"sha256": file_sha(path), "kept": seen.pop("kept", 0), "drops": dict(seen)}
+    return cache(path, facts | ({"refused": refused} if refused else {}), data), data
 
 
 def read_rows(inputs: list[tuple[str, Path]], rows_out: Path, drops: Counter) -> list[dict]:
     """Every kept capture as `year<TAB>host<TAB>ts<TAB>input<TAB>line`, and each input
     as the manifest records it."""
-    described, code = [], code_of_screen()
+    described = []
     with rows_out.open("wb") as out:
         for index, (source, path) in enumerate(inputs):
-            data, meta = screened(path, code)
+            facts, data = screened(path)
             out.write(data.replace(b"\x01", b"\t%d\t" % index))
-            drops.update(meta["drops"])
-            if meta.get("refused"):
-                print(f"{rel(path)}: refused, {meta['refused']}", file=sys.stderr)
+            drops.update(facts["drops"])
+            if refused := facts.get("refused"):
+                print(f"{rel(path)}: refused, {refused}", file=sys.stderr)
+            method, replay = capture(source, path)
             described.append(
-                {"source": source, "method": capture(source, path)[0], "path": rel(path)}
-                | {
-                    "replay": capture(source, path)[1],
-                    "sha256": meta["sha256"],
-                    "kept": meta["kept"],
-                }
-                | ({"refused": meta["refused"]} if meta.get("refused") else {})
-                | meta["stat"]
+                {"source": source, "method": method, "path": rel(path), "replay": replay}
+                | {"sha256": facts["sha256"], "kept": facts["kept"]}
+                | ({"refused": refused} if refused else {})
+                | facts["key"][0]
             )
-    for gone in CACHE.glob("*.json"):  # an input deleted since its rows were cached
-        if not Path(json.loads(gone.read_text(encoding="utf-8"))["path"]).exists():
-            gone.with_suffix(".tsv.gz").unlink(missing_ok=True)
-            gone.unlink()
     return described
 
 
@@ -276,27 +278,17 @@ def file_sha(path: Path) -> str:
 
 def his_file(year: int) -> tuple[Path, dict]:
     """His file for the year, refused unless `comm` can read it byte for byte, and its line
-    count and sha256, checked again only when its size or mtime moved: his 2002 to 2013 files
-    are 9.2 GB."""
+    count and sha256, all checked again only when it moved."""
     path = baseline_dir() / f"{year}.txt"
     if not path.is_file():
         raise SystemExit(f"{path}: he has no {year} file, so nothing can be added to it")
-    key = CACHE / "his" / f"{hashlib.sha256(os.path.abspath(path).encode()).hexdigest()}.json"
-    try:
-        facts = json.loads(key.read_text(encoding="utf-8"))
-        if facts["stat"] == stat_of(path):
-            return path, facts
-    except (OSError, ValueError, KeyError):
-        pass
-    facts = {"stat": stat_of(path)}
+    if hit := cached(path):
+        return path, hit[0]
     held.check_sorted(path)
     found = subprocess.run(["grep", "-q", "-e", "[^a-z0-9.-]", "-e", "^$", str(path)], env=_C)
     if found.returncode != 1:
         raise SystemExit(f"{path}: a line is not a lowercase name (grep {found.returncode})")
-    facts |= {"lines": held.lines(path), "sha256": file_sha(path)}
-    key.parent.mkdir(parents=True, exist_ok=True)
-    key.write_text(json.dumps(facts), encoding="utf-8")
-    return path, facts
+    return path, cache(path, {"lines": held.lines(path), "sha256": file_sha(path)})
 
 
 def export(globs: dict[str, str], out: Path) -> dict:
@@ -310,7 +302,8 @@ def export(globs: dict[str, str], out: Path) -> dict:
     ledger.writerow(LEDGER)
     with tempfile.TemporaryDirectory(dir=out) as tmp, ledger_fh:
         work, rows, ordered = Path(tmp), Path(tmp) / "rows.tsv", Path(tmp) / "sorted.tsv"
-        described = read_rows(resolve_inputs(globs), rows, drops)
+        inputs = resolve_inputs(globs)
+        described = read_rows(inputs, rows, drops)
         sort = ["sort", "-S", "2G", "-T", str(work), "-o", str(ordered), str(rows)]
         subprocess.run(sort, env=_C, check=True)
         # Sorted by year, host, then stamp, so the first row of each host-year is its earliest.
@@ -381,6 +374,12 @@ def export(globs: dict[str, str], out: Path) -> dict:
                  f"{ee:.4f}", f"{growth:.6f}")
             )  # fmt: skip
 
+    if globs == INPUTS:  # a scratch `--in` run leaves the release's entries be
+        used = {cache_entry(p) for _, p in inputs} | {
+            cache_entry(baseline_dir() / f"{y}.txt") for y in ours
+        }
+        for unused in set(CACHE.glob("*.gz")) - used:
+            unused.unlink()
     with (out / "dedup_report.csv").open("w", newline="", encoding="utf-8") as fh:
         csv.writer(fh, lineterminator="\n").writerows([COLUMNS, *report])
     total_ee = sum((Decimal(e["increment_ee"]) for e in years.values()), Decimal(0))

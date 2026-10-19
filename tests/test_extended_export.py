@@ -108,8 +108,14 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert ext.stale(out), "a changed input makes the export stale"
 
 
-def test_a_second_export_reads_only_the_inputs_that_moved(exported):
+def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch):
     ext, _, out, manifest, journal, globs = exported
+    torn = ext.cache_entry(journal)
+    torn.write_bytes(torn.read_bytes()[:20])  # a torn entry is a miss, read again
+    (ext.CACHE / "gone.gz").write_bytes(b"")  # no file's: a release run prunes it
+    monkeypatch.setattr(ext, "INPUTS", globs)
+    assert ext.export(globs, out)["years"] == manifest["years"]
+    assert not (ext.CACHE / "gone.gz").exists()
     st = journal.stat()
     journal.write_bytes(b"x" * st.st_size)  # same size and mtime: its cached rows stand
     os.utime(journal, ns=(st.st_atime_ns, st.st_mtime_ns))
