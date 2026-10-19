@@ -46,8 +46,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 
-- The bank folds each source's new journals in one transaction, since a fold costs 4 to 6 s per
-  journal whatever its length (hostnames.py:644).
 - The extended export reads only new and grown inputs, since a full run rereads all 18,714 when
   one is new.
 
