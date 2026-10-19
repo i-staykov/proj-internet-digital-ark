@@ -95,15 +95,16 @@ def candidates(incoming: Path, outcomes: list[dict]) -> list[tuple[Path, dict, d
 
 
 def figure_said(find: dict) -> str:
-    """The deciding figure, in bold, and what it was measured on."""
+    """The deciding figure, in bold, and what part 1 was measured on."""
     store = find["store"]
+    decides = f"**{find['ee']:,.1f} EE deciding**, part 1 plus part 2 at the ratio of the gates"
     if find["figure"] == "program":
         return (
-            f"**{find['ee']:,.1f} EE net-new by the program on the pushed snapshot**, which "
-            f"agreed with the live store within 1% on the last {fleet_ledger.STREAK} finds"
+            f"{decides}, part 1 by the program on the pushed snapshot, which agreed with the "
+            f"live store within 1% on the last {fleet_ledger.STREAK} finds"
         )
     netnew = store.get("netnew") or 0
-    return f"**{find['ee']:,.1f} EE net-new on the live store** over {netnew:,} records"
+    return f"{decides}, part 1 on the live store over {netnew:,} records"
 
 
 def request_class(lead_dir: Path, lead: dict) -> tuple[str, str | None]:

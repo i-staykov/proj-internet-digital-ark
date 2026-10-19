@@ -31,8 +31,8 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- The 509 October closed leads go, the 106 without a register row after #356; the block writer
-  carries the deciding figure (#357, ark-fleet #227), so an ask's `- potential:` counts both parts.
+- ark-fleet's 527 October closed leads go; the 105 without a row of their own are booked under the
+  row naming their artifact, and the scout greps both registers.
 
 ## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
 

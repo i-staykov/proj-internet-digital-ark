@@ -81,13 +81,21 @@ def test_the_pricers_hold_by_exact_name(tmp_path: Path, his_files: Path, monkeyp
     monkeypatch.setattr(approval, "APPROVALS", register)
     monkeypatch.setattr(approval, "nearest_closed", lambda name: "nothing close.")
     journal = tmp_path / "udrp.jsonl"
+    # 2003: his extended file holds already-his.com; lonely.com is net-new; 2016 is not hunted
+    (his_files / "extended_years").mkdir(exist_ok=True)
+    (his_files / "extended_years/2003.txt").write_text("already-his.com\n", encoding="utf-8")
+    late = [("already-his.com", 2003), ("lonely.com", 2003), ("lonely.com", 2016)]
     journal.write_text(
         "".join(json.dumps({"domain": d, "year": 1998}) + "\n" for d in NAMES.split())
+        + "".join(json.dumps({"domain": d, "year": y}) + "\n" for d, y in late)
     )
     run(approval, "udrp_proceedings", "--journal", str(journal))
     table = register.read_text(encoding="utf-8")
-    assert "| already held, ours or his | 2 |" in table
+    assert "| already held, ours or his | 3 |" in table
     assert "| `master` (taking the corroboration split) | 1 |" in table
+    weight = approval.english_weights()["com"]
+    ratio = approval.GATE_EE["1996-2001"] / approval.GATE_EE["2002-2013"]
+    assert f"- potential: {weight * 8 + weight * ratio:.0f}\n" in table
 
 
 def _journal(path: Path, rows: list[tuple[str, ...]]) -> Path:
