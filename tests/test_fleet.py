@@ -462,7 +462,7 @@ def test_each_confirmed_repriced_find_gets_one_pending_block_quoting_its_decidin
         a.decision == "pending" and a.evidence_type == "cdx_timestamp" for a in parsed.values()
     )
     facts = ["- journal: `", "- potential: 7000", "- what dates one item: 1999-05-04T11:02:13Z"]
-    assert all(fact in block_of(text) for fact in [*facts, "7,000.0 EE net-new on the live store"])
+    assert all(fact in block_of(text) for fact in [*facts, "7,000.0 EE deciding**, part 1 plus"])
     assert "- potential: 7020" in block_of(text, "program_only")
     e_read, f_read = (block_of(text, f"fleet_{s}_read_hostnames") for s in "ef")
     assert f"- ingest: ark ingest-hostnames {tmp_path / 'fleet_read/e-read'}/" in e_read

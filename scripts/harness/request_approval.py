@@ -45,10 +45,12 @@ import duckdb  # noqa: E402
 
 from ark import held  # noqa: E402
 from ark.approvals import load  # noqa: E402
+from ark.baseline import EXTENDED_YEARS, GATE_EE  # noqa: E402
 from ark.canonical import to_registrable  # noqa: E402
 from ark.db import connect_read_only_patiently  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.evidence_types import MASTER_TYPES  # noqa: E402
+from ark.ingest import YEARS  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
 # The exit when his held sets are missing or stale: nothing was refused, so `fleet_request.py`
@@ -112,6 +114,20 @@ def records_of(journal: Path, source: str = "") -> list[dict]:
                 "url": record.evidence_url or "",
             }
         )
+    return out
+
+
+def his_extended(baseline: Path, names: set[str]) -> set[tuple[str, int]]:
+    """The (name, year) pairs his 2002 to 2013 files, beside 1996 to 2001's at the release root,
+    hold among `names`, read as `held.his_lines` reads a line. The held sets cover 1996 to 2001
+    only, and these files are not prepared, so a set lookup over each line."""
+    out: set[tuple[str, int]] = set()
+    for year in EXTENDED_YEARS:
+        path = baseline / f"{year}.txt"
+        if names and path.is_file():
+            with path.open(encoding="utf-8", errors="replace") as fh:
+                lines = (line.replace("\r", "").strip().lower() for line in fh)
+                out |= {(n, year) for n in lines if n in names}
     return out
 
 
@@ -205,9 +221,12 @@ def main() -> None:
     records = records_of(args.journal, args.source)
     # a journal's `domain` is raw until the ingest canonicalizes it; held asks the result
     pairs = {
-        (name, r["year"])
+        (name, year)
         for r in records
-        if r.get("domain") and r.get("year") and (name := to_registrable(str(r["domain"])))
+        if r.get("domain")
+        and str(r.get("year")).isdigit()
+        and ((year := int(r["year"])) in YEARS or year in EXTENDED_YEARS)
+        and (name := to_registrable(str(r["domain"])))
     }
     weights = english_weights()
 
@@ -226,10 +245,19 @@ def main() -> None:
     # his all.txt is his six year files merged, so this is `held.attested` without a second scan
     attested = {d for d, _ in held_pairs}
 
+    held_pairs |= his_extended(his.baseline, {d for d, y in pairs if y in EXTENDED_YEARS})
+
     def ee(rows) -> Decimal:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
 
     netnew = pairs - held_pairs
+    # The deciding figure, as `standing_rule.py` weighs it: part 1, plus part 2 at the ratio
+    # of the two parts' gates, 0 when a release has no 2002 to 2013. `sync_approvals.py` files
+    # the block by it.
+    late = {(d, y) for d, y in netnew if y in EXTENDED_YEARS}
+    gate_two = GATE_EE["2002-2013"]
+    weight = GATE_EE["1996-2001"] / gate_two if gate_two else Decimal(0)
+    potential = ee(netnew - late) + ee(late) * weight
     corroborated = {(d, y) for d, y in netnew if d in attested}
     mean = ee(netnew) / len(netnew) if netnew else Decimal(0)
 
@@ -257,8 +285,7 @@ def main() -> None:
         f"- refetch: {refetch}",
         f"- agent's dating claim: {args.dating or 'NOT STATED, which is a reason to refuse'}",
         f"- {nearest_closed(spec.source_name)}",
-        # The figure `sync_approvals.py` files the block by: the master net-new EE below.
-        f"- potential: {ee(netnew):.0f}",
+        f"- potential: {potential:.0f}",
         "",
         "**Check these before reading anything else.** Seeded-random sample, "
         f"seed `{args.seed}`, so it is reproducible and was not chosen by the agent:",
@@ -311,7 +338,7 @@ def main() -> None:
 
     print(f"appended a pending request to {APPROVALS.relative_to(ROOT)}")
     print(f"  {spec.source_name} / {spec.evidence_type}")
-    print(f"  {len(netnew):,} net-new pairs at stake, {ee(netnew):,.1f} equivalent-English")
+    print(f"  {len(netnew):,} net-new pairs at stake, {potential:,.1f} EE deciding")
     print("  ingest refuses until its Decision line says master, candidate-only or rejected")
     print(
         "  once the pending asks reach the gate, sync_approvals.py files it as a needs-owner "

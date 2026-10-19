@@ -31,8 +31,7 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- The 509 October closed leads go, the 106 without a register row after #356; the block writer
-  carries the deciding figure (#357, ark-fleet #227), so an ask's `- potential:` counts both parts.
+- The 509 October closed leads go, the 106 without a register row after #356.
 
 - The fleet runs on the VM: the runners are user services there, every workflow reads the snapshot
   and journals from the VM's own `data/`, `sync_fleet.sh` and `ARK_VPS` go, the VPS retires after
