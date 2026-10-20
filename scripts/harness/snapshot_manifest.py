@@ -1,8 +1,8 @@
 """Stage the pricing snapshot the fleet prices against, and write its manifest.
 
 `sync_fleet.sh` pushes what this stages. The staging directory is built with hard links,
-so pointing at a 1.5 GB baseline and a 300 MB candidate export costs no disk and no copy
-time, and the bytes the manifest hashes are the bytes that get pushed.
+so his release and our exports cost no disk and no copy time, and the bytes the manifest
+hashes are the bytes that get pushed.
 
 What lands, and why each piece is there:
 
@@ -20,7 +20,8 @@ What lands, and why each piece is there:
     candidates/{candidate_additions,header_candidates}.txt   ours, in the claim
     netnew/attested_registrables.txt      what the store dates beyond his files, required
     calculator/                           his scorer and its table, required
-    manifest.json                         {marker, built_at, claim_sha256, files}
+    manifest.json                         {marker, built_at, claim_sha256, files}, each
+                                          file's lines, sha256, sorted and source stat
 
 **A zero-line file refuses the build**, because an empty held-set prices every name as
 net-new, which is the most flattering way this can go wrong, and so does an ABSENT
@@ -167,16 +168,24 @@ def publish_expected(stage: Path, fleet: Path) -> int:
 
 
 def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
-    """Hard-link every manifest file into `out` and write the manifest last.
+    """Hard-link every manifest file into `out`, keep a link that already names its file, and
+    write the manifest last.
 
-    The manifest is written last on purpose: a run interrupted halfway leaves a manifest
-    that describes files which are not there yet, and the pricer refuses that rather than
-    measuring against a torn snapshot.
+    The manifest goes first and comes back last: a run interrupted halfway leaves none, and the
+    pricer refuses that rather than measuring against a torn snapshot. A link is kept because
+    linking changes its file's ctime, which keys the next build's reuse.
     """
-    if out.exists():
-        shutil.rmtree(out)
+    (out / MANIFEST_NAME).unlink(missing_ok=True)
+    for path in sorted(out.rglob("*"), reverse=True) if out.exists() else []:
+        rel = path.relative_to(out).as_posix()
+        if path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+        elif path.is_file() and (rel not in manifest["files"] or not path.samefile(files[rel])):
+            path.unlink()
     for rel in manifest["files"]:
         target = out / rel
+        if target.exists():
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             os.link(files[rel], target)
@@ -215,8 +224,8 @@ def main() -> int:
         )
         return 1
     try:
-        previous = json.loads((args.out / MANIFEST_NAME).read_text(encoding="utf-8"))["files"]
-    except (OSError, ValueError, KeyError):
+        previous = json.loads((args.out / MANIFEST_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
         previous = {}
     try:
         manifest, skipped = build_manifest(marker, files, optional, claim_of(files), previous)
