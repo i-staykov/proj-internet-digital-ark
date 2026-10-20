@@ -27,14 +27,14 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
-- The claim export skips a bank whose evidence ids, domain rows and baseline are unchanged, and
-  the ISC reduction is cached per release: 314.5 s per no-op bank, 90 s per bank.
+- The claim export: the ISC reduction cached per release, each candidate list one pass fewer
+  against his held sets (`src/ark/export.py`, `held.py`).
 - The snapshot manifest rehashes only entries whose size, mtime_ns or inode moved, and a price
-  verifies the stage once: 54.8 s of CPU per exporting bank, 9.76 GB of reads per leg.
+  verifies the stage once (`snapshot_manifest.py`, `price_snapshot.py`).
 - The bank folds only globs whose fingerprint moved, and the hostnames ingest skips an unchanged
-  journal by size and mtime_ns before its sha256: 18.3 s and 28 s per bank.
-- The ark log file takes INFO, not DEBUG (7.75 MB per bank, 2.4 GB on disk), and `just ship all`
-  uploads retention after the mail draft (8,540 s off its path); #315 closes with this line.
+  journal by size and mtime_ns before its sha256 (`justfile`, `hostnames.py`).
+- The ark log file takes INFO, and `just ship all` uploads retention after the mail draft
+  (`cli.py`, `justfile`); #315 closes with this line.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
