@@ -3,6 +3,7 @@ error capture, refuse a snapshot off its manifest, and quote his calculator's EE
 
 import gzip
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -361,10 +362,18 @@ def _emptied(snapshot: Path) -> None:
     (snapshot / "manifest.json").write_text(json.dumps(manifest))
 
 
+def _rewritten(snapshot: Path) -> None:
+    """Equal-size bytes put back under the old mtime, as a re-extraction leaves them."""
+    st = (path := snapshot / MARKER / "1996.txt").stat()
+    path.write_text("two.com\n")
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))
+
+
 @pytest.mark.parametrize(
     ("damage", "match"),
     [
         (_emptied, "no lines"),
+        (_rewritten, "does not match"),
         (lambda s: _write(s / MARKER / "1996.txt", ["one.com", "sneaked.com"]), "does not match"),
         (lambda s: (s / MARKER / "1999.txt").unlink(), "not in the snapshot"),
         (lambda s: _write(s / "netnew" / "1996.txt", ["unlisted.com"]), "not in the manifest"),
@@ -372,13 +381,24 @@ def _emptied(snapshot: Path) -> None:
         (lambda s: (s / "manifest.json").write_text('{"marker": 0, "built_at": 0}'), "no 'files'"),
         (lambda s: (s / "manifest.json").unlink(), "does not exist"),
     ],
-    ids="zero-line changed-file missing-file unlisted-file no-marker no-files no-manifest".split(),
+    ids="zero-line same-size changed missing unlisted no-marker no-files no-manifest".split(),
 )
 def test_a_snapshot_that_does_not_match_its_manifest_is_refused(tmp_path, damage, match) -> None:
     snapshot = _snapshot(tmp_path, held={1996: ["one.com"]})
     damage(snapshot)
     with pytest.raises(ps.SnapshotError, match=match):
         ps.price(snapshot, _items(tmp_path, "two.com:1996"))
+
+
+def test_a_file_that_kept_its_stat_is_neither_hashed_nor_rebuilt(tmp_path, monkeypatch) -> None:
+    snapshot = _snapshot(tmp_path, held={1996: ["one.com"]})
+    manifest, _ = ps.read_manifest(snapshot)
+    monkeypatch.setattr(ps, "file_stats", lambda path: pytest.fail(f"{path} was hashed"))
+    ps.verify_snapshot(snapshot, manifest)
+    files = {rel: snapshot / rel for rel in manifest["files"]}
+    assert ps.build_manifest(MARKER, files, previous=manifest)[0]["files"] == manifest["files"]
+    with pytest.raises(ps.SnapshotError, match="not a mapping"):
+        ps.build_manifest(MARKER, files, previous={"files": []})
 
 
 def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, monkeypatch) -> None:

@@ -27,8 +27,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
-- The snapshot manifest rehashes only entries whose size, mtime_ns or inode moved, and a price
-  verifies the stage once (`snapshot_manifest.py`, `price_snapshot.py`).
 - The bank folds only globs whose fingerprint moved, and the hostnames ingest skips an unchanged
   journal by size and mtime_ns before its sha256 (`justfile`, `hostnames.py`).
 - The ark log file takes INFO, and `just ship all` uploads retention after the mail draft
