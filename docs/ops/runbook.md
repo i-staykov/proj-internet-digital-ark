@@ -145,13 +145,14 @@ labelled `needs-owner`, opens.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`, commits the
    regenerated report and `.docx`, packages (`masters/` and `extended_years/` are his year file and
-   ours by `LC_ALL=C sort -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would, prunes verified
-   round copies, re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent
-   and closes the gate issue. It refuses while `just hold status` lists `com.ark.sync`. `just ship
+   ours by `LC_ALL=C sort -m -u`; a stale or wrong export stamp refuses it), verifies as a reviewer would,
+   re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent, closes the
+   gate issue, and only then uploads and prunes verified round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship
    --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
    owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
 3. Extract the tarball outside the repository and follow its README through tier 2, cold
-   (`docs/round/delivery_readme.md`). Then send.
+   (`docs/round/delivery_readme.md`). Then send, once the round cleanup `ship all` runs last
+   exited zero (else `just ship verify` until it does): the draft is written before it.
 
 ## Intake
 

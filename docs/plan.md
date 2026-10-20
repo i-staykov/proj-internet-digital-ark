@@ -27,8 +27,6 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
-- The ark log file takes INFO, and `just ship all` uploads retention after the mail draft
-  (`cli.py`, `justfile`); #315 closes with this line.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
