@@ -22,11 +22,13 @@ the way; every PR net negative unless it adds a capability the round needs.
 
 ## First (master)
 
-1. Issues, the owner's closes: #321, #334 and #331 (each closes on its last comment); #292 takes
-   `needs-owner`; ark-fleet #222 closes into #223.
+1. Issues, the owner's closes: #321, #334 and #331 (each closes on its last comment); #292 and
+   #315 take `needs-owner`; ark-fleet #222 closes into #223.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
+- `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
+  measured whether they banked, then folded or deleted. A fresh session.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
