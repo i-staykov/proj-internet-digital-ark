@@ -165,7 +165,7 @@ def export_isc_hostnames(
 def _minus_his(names: Path, his: held.Held, out: Path, taken: Path | None = None) -> int:
     """Write the lines of `names` that no candidate file and no year file of his holds, by
     exact name, and count them. `taken` gets those his candidate files hold, which the
-    candidate summary counts, as `names` less the rest: a pass over his 2 GB costs 9 s."""
+    candidate summary counts, as `names` less the rest rather than another pass over his."""
     rest = names.with_name(f"{names.stem}_not_candidate.txt")
     held.minus(names, his.candidates, rest)
     if taken:
@@ -173,13 +173,18 @@ def _minus_his(names: Path, his: held.Held, out: Path, taken: Path | None = None
     return held.minus(rest, his.all, out)
 
 
+# In the cache key: bumped whenever the Python of the reduction changes (`held.dump`,
+# `_minus_his`, the `comm` flags), which the key's digest of the query cannot see.
+ISC_CACHE_VERSION = 1
+
+
 def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> Path:
     """Build `isc_export`, the survey hostnames no file of his and no table of ours names, and
     return the file of those his candidate files hold.
 
     Exact names only: a held parent or a different `www.` form does not exclude a hostname.
-    No annual table is modified. The 100 s against his files is kept in `his.dir`, keyed on
-    the query, the ISC rows and his held sets."""
+    No annual table is modified. The reduction against his files is kept in `his.dir`, keyed
+    on `ISC_CACHE_VERSION`, the query, the ISC rows and his held sets."""
     query = f"""
         SELECT DISTINCT hy.hostname, hy.assigned_year FROM (
             SELECT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
@@ -197,7 +202,8 @@ def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> P
         FROM evidence e JOIN source s ON s.source_id = e.source_id WHERE s.name = '{ISC_SOURCE}'
     """).fetchone()
     stats = [[p.stat().st_size, p.stat().st_mtime_ns] for p in (his.all, his.candidates)]
-    key = json.dumps([hashlib.sha256(query.encode()).hexdigest(), rows[0], str(rows[1]), stats])
+    query_sha = hashlib.sha256(query.encode()).hexdigest()
+    key = json.dumps([ISC_CACHE_VERSION, query_sha, rows[0], str(rows[1]), stats])
     cache, stamp = his.dir / "isc", his.dir / "isc" / "key.json"
     if not (stamp.is_file() and stamp.read_text(encoding="utf-8") == key):
         # the key is written last, so a crash leaves a miss

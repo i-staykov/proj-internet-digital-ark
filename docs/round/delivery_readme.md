@@ -57,7 +57,7 @@ uv run --with duckdb --no-project python provenance/trace.py "$(head -1 addition
 ```
 
 Rebuild every 1996 to 2001 list from the evidence, with no archive queries and no source data.
-`ark intake` checks your release, linked in as `baseline/merge261016`, and writes 4.5 GB under
+`ark intake` checks your release, linked in as `baseline/merge261016`, and writes 4.2 GB under
 `source/data/held/`:
 
 ```
