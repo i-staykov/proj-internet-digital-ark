@@ -638,16 +638,26 @@ _FOLD_BATCH_BYTES = 16 << 20
 
 
 def ingest_hostname_dir(
-    conn: duckdb.DuckDBPyConnection, root: Path, pattern: str = "*.jsonl.gz"
+    conn: duckdb.DuckDBPyConnection,
+    root: Path,
+    pattern: str = "*.jsonl.gz",
+    digests: Path | None = None,
 ) -> dict[str, int]:
     """Every new or grown journal under `root`, in name order, each run of one source's in one
     transaction (`docs/lore/laws.md`, Store).
 
     **Skip on the CONTENT, not on the name**, because an append-style collector writes its
     journal under its final name for hours: a name-only ledger marks a live journal done at
-    whatever length it had. The ledger is read in one query, not one per file."""
+    whatever length it had. The ledger is read in one query, not one per file. `digests`
+    keeps each journal's size, mtime and sha256, so one that kept both is not hashed again."""
     totals: Counter[str] = Counter()
     files = sorted(root.glob(pattern)) if root.is_dir() else [root]
+    known, seen = {}, {}
+    if digests and digests.is_file():
+        for line in digests.read_text(encoding="utf-8").splitlines():
+            name, size, mtime, sha = (line.split("\t") + ["", "", ""])[:4]
+            if size.isdigit() and mtime.isdigit() and len(sha) == 64:  # else it is hashed again
+                known[name] = (int(size), int(mtime), sha)
     ledger = {
         (str(s), str(f), str(h))
         for s, f, h in conn.execute(
@@ -664,7 +674,10 @@ def ingest_hostname_dir(
             logger.warning(f"{exc}; journal refused")
             totals["files_refused"] += 1
             continue
-        digest = _sha256(path)
+        st, old = path.stat(), known.get(path.name)
+        hit = old and old[:2] == (st.st_size, st.st_mtime_ns)
+        digest = old[2] if hit else _sha256(path)
+        seen[path.name] = (st.st_size, st.st_mtime_ns, digest)
         if (key[0], path.name, digest) in ledger:
             totals["files_skipped"] += 1
             continue
@@ -672,7 +685,12 @@ def ingest_hostname_dir(
             batches.append((key, []))
             size = 0
         batches[-1][1].append((path, digest))
-        size += path.stat().st_size
+        size += st.st_size
+    if digests:
+        part = digests.with_name(digests.name + ".part")
+        rows = (f"{n}\t{s}\t{m}\t{h}\n" for n, (s, m, h) in sorted(seen.items()))
+        part.write_text("".join(rows), encoding="utf-8")
+        part.replace(digests)
     for i, ((source_name, method), batch) in enumerate(batches, 1):
         with _one_transaction(conn):
             stats = _fold_journals(conn, source_name, method, batch)

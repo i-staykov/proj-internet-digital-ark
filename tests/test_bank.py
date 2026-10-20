@@ -437,6 +437,21 @@ def test_journals_and_a_retry_wait_out_the_window_unless_the_bank_runs_anyway(
     assert bt.check(root) == (0, "bank: approvals not yet banked, retried")
 
 
+def test_a_journal_landing_after_its_fold_is_still_new_to_the_next_bank(tmp_path, monkeypatch):
+    """The stamp takes what `check` measured for a collector's glob, and the bank's own output
+    as it stands after the bank, so neither is lost nor counted."""
+    root = _tree(tmp_path)
+    monkeypatch.setenv("ARK_BANK_JOURNAL_HOURS", "0")
+    (usenet := root / "data/raw/usenet").mkdir(parents=True)
+    (usenet / "usenet_dated_a.jsonl.gz").write_bytes(b"a")
+    assert bt.check(root)[0] == 0
+    (usenet / "usenet_dated_b.jsonl.gz").write_bytes(b"b")
+    (root / "data/raw/cdx/cdx_c.jsonl.gz").write_bytes(b"c")
+    bt.stamp(root)
+    moved = "bank: journals data/raw/usenet/usenet_dated_*.jsonl.gz (+1 files, +1 bytes)"
+    assert bt.check(root) == (0, moved)
+
+
 def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     """The red leaves the stamp alone, so what arrived before it still counts after `clear`."""
     root = _tree(tmp_path)

@@ -258,7 +258,7 @@ def ingest_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        ingest_hostname_dir(conn, path)
+        ingest_hostname_dir(conn, path, digests=Path("data/logs") / f"{path.name}.digests.tsv")
 
 
 @app.command(name="retract-status")

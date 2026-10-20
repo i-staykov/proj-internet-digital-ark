@@ -8,6 +8,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from ark import hostnames
 from ark.bulk import ingest_files
 from ark.checks import collect_checks
 from ark.db import init_db
@@ -203,6 +204,30 @@ def test_a_host_capture_dates_that_host_alone(tmp_path) -> None:
     www = [("www.example.com", year) for year in (1998, 1999, 2000)]
     assert _shipped(conn) == [("shop.example.com", 1998), *www]
     assert not _q(conn, "FROM domain_year") and not _failing(conn)
+
+
+def test_a_journal_grown_under_its_name_is_hashed_past_its_cached_digest(
+    tmp_path, monkeypatch
+) -> None:
+    """A journal that kept its size and mtime is taken by its cached digest, never one that grew,
+    and a line the cache cannot read is hashed again."""
+    init_db(conn := duckdb.connect())
+    (raw := tmp_path / "raw").mkdir()
+
+    def read() -> dict:
+        return ingest_hostname_dir(conn, raw, digests=tmp_path / "digests.tsv")
+
+    _journal(raw, CAPTURES[:2], "sweep_test.jsonl.gz")
+    first = read()
+    _journal(raw, CAPTURES, "sweep_test.jsonl.gz")
+    grown = read()
+    monkeypatch.setattr(hostnames, "_sha256", lambda path: pytest.fail(f"{path} was hashed"))
+    again = read()
+    assert [s.get("evidence_rows", 0) for s in (first, grown, again)] == [2, 1, 0]
+    assert again["files_skipped"] == 1
+    (tmp_path / "digests.tsv").write_text("sweep_test.jsonl.gz\tnot a size\n")
+    monkeypatch.undo()
+    assert read()["files_skipped"] == 1
 
 
 def test_every_row_names_its_journal_and_line_and_a_repeat_adds_no_row(tmp_path) -> None:
