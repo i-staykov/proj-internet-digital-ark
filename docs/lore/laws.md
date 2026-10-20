@@ -217,12 +217,16 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - 7,578,321 domain-years rest on CDX evidence with a timestamp and no host, so no host can be named; every CDX query asks `fl=timestamp,original` (`src/ark/cdx.py`).
 - A cleanup downstream of the writer does not hold: bare years inferred from `www.` captures, cleaned to zero, came back as 22,920 from the fold overnight (`src/ark/hostnames.py`).
 - XIV filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).
+- A claim export spends 106 of its 337 s in 11 `comm` passes against his 2 GB held sets, 8.9 to 10.6 s each whatever the input's size, and 100.4 s in its ISC phase for 0 survivors of 13.5M names; 4 of 25 banks in a week added no evidence row (`src/ark/export.py`).
+- Every bank sha256-hashes all 66,600 `cdx_suffix` journals (23.4 GB, 27.8 to 30.3 s) before its ledger lookup, and folds unchanged globs for 18.3 s, an enqueue that added 0 in 22 of 22 banks among them (`src/ark/hostnames.py`, `just bank` step c).
+- A quiet bank writes 8.17 MB to the ark log, 95% of it DEBUG skip lines, and the ark logs hold 2.54 GB; round 12's `just ship all` uploaded retention for 8,540 s before the calculator and the mail draft (`src/ark/cli.py`, `just ship`).
 - `domain_language` stays in `src/ark/db.py`: shipped provenance exports hold its rows and `ark rebuild` loads them (`src/ark/provenance.py` `OPTIONAL_TABLES`).
-- `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it (`scripts/round/offsite.py`, `docs/registers/retention.md`).
+- `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it, and no `data/logs` file ships: round 12's log tails named 1,259 `private/` files, and its 23 CDX logs hold 157 local-path lines, 21 under `private/` (`scripts/round/offsite.py`, `scripts/round/package_delivery.sh`).
 
 ## Harness
 
 - A fleet price on a synced held-set is a ceiling: 1,180,003.5 EE re-priced on the store to about 4,850 (132 of 258,631 pairs missing) (`src/ark/price_snapshot.py`, `ark price-snapshot`).
+- Snapshot staging rehashes all 14.11 GB of its 48 hard links each exporting bank, 54.8 s with 50.6 s of CPU, while 23.5 MB (0.17%) moves between his releases; a price-snapshot call hashes 4.88 GB, and a new release's push kept the sync lock 5,795 s at 3.3 MB/s (`scripts/harness/snapshot_manifest.py`, `src/ark/price_snapshot.py`).
 - A fleet leg downloads only through `scripts/harness/fetch.py`: whole robots.txt on every hop, 1 GB cap by header and stream, no extraction, two write roots.
 - `standing_rule.py` parks a lead unless its `standing` block shows the fleet admitted it on all five clauses (size, terms, robots, class, window), and itself tests only the class: one with no master source in the register parks (`CLAUSES`).
 - The store re-price decides a FIND until the fleet program's figure has agreed with it within 1% on the last ten booked finds; then the program's figure decides (`scripts/harness/standing_rule.py`).
