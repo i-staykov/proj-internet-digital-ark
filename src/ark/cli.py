@@ -106,8 +106,8 @@ def _setup(
             raise typer.Exit(code)
     logger.remove()
     logger.add(sys.stderr, level="DEBUG" if verbose else "INFO", format=_LOG_FORMAT)
-    # every run leaves a permanent execution log; the delivery requires them
-    logger.add(_LOG_FILE, level="DEBUG", format="{time} | {level: <7} | {message}")
+    # every run leaves its execution log, at INFO: DEBUG is the per-file skips, on --verbose
+    logger.add(_LOG_FILE, level="INFO", format="{time} | {level: <7} | {message}")
 
 
 @app.command()

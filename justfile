@@ -1226,7 +1226,6 @@ ship stage="all" *args:
         # it ships INSIDE a delivery and wrong from this repository; a hardcoded path once
         # verified the PREVIOUS round's stage and reported its figures as this round's.
         HIS="$(his_release)" bash scripts/round/verify_delivery.sh "$(newest_stage)"
-        stage_retention
     }
 
     # Close the gate issue only on a verified delivery, and only when one is open: the
@@ -1247,11 +1246,11 @@ ship stage="all" *args:
     -h|--help|help)
         echo "just ship <stage> [args]"
         echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
-        echo "                   draft, and closing the gate issue"
+        echo "                   draft, closing the gate issue, and round cleanup"
         echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
         echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
-        echo "                   report and .docx, package, verify"
+        echo "                   report and .docx, package, verify, round cleanup"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
@@ -1265,7 +1264,7 @@ ship stage="all" *args:
         echo "  just ship all              banks nothing still pending, and says so"
         ;;
     prep) stage_prep ;;
-    build) stage_build "${1:-}" ;;
+    build) stage_build "${1:-}" && stage_retention ;;
     package)
         set -e
         hold_lock
@@ -1340,6 +1339,8 @@ ship stage="all" *args:
         echo "== the mail draft =="
         uv run python scripts/round/ship_mail.py --write --archive "$(newest_stage)"
         close_gate_issue
+        # last, so the upload of the round's copies never stands between the build and the mail
+        stage_retention
         ;;
     *) echo "ship: all prep build package verify calculator docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
