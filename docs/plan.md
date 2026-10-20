@@ -25,11 +25,16 @@ the way; every PR net negative unless it adds a capability the round needs.
 1. Issues, the owner's closes: #321, #334 and #331 (each closes on its last comment); #292 takes
    `needs-owner`; ark-fleet #222 closes into #223.
 
-## A. Lean, public (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md)
+## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
-- The store and the round pipeline shrink to what the deliverable needs: first one measured table
-  (each component's size, its step's time, what it buys his files and their witness), then one PR
-  per theme, net negative, each fact a `laws.md` row; #315 closes with it. A fresh session.
+- The claim export skips a bank whose evidence ids, domain rows and baseline are unchanged, and
+  the ISC reduction is cached per release: 314.5 s per no-op bank, 90 s per bank.
+- The snapshot manifest rehashes only entries whose size, mtime_ns or inode moved, and a price
+  verifies the stage once: 54.8 s of CPU per exporting bank, 9.76 GB of reads per leg.
+- The bank folds only globs whose fingerprint moved, and the hostnames ingest skips an unchanged
+  journal by size and mtime_ns before its sha256: 18.3 s and 28 s per bank.
+- The ark log file takes INFO, not DEBUG (7.75 MB per bank, 2.4 GB on disk), and `just ship all`
+  uploads retention after the mail draft (8,540 s off its path); #315 closes with this line.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
@@ -43,9 +48,6 @@ the way; every PR net negative unless it adds a capability the round needs.
   the cutover. ark-fleet is rebuilt around that, as simple as it can be on HPI hardware, with one
   short README stating the architecture (what runs where, what moves by PR, how a leg, a read and
   the bank meet) and nothing else restated; ark-fleet #232 closes with that fact. A fresh session.
-
-## C. Throughput and packaging (owns intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest, delivery_readme.md)
-
 
 ## D. Collectors and the VM (a fresh session once a peer has ended; owns collector deployment, sync)
 

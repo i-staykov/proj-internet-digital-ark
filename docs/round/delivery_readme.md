@@ -32,10 +32,10 @@ T=$(python3 -c 'import datetime as d; print((d.date.today() - d.date(2026, 8, 2)
 
 ```
 # 1, your records: 1996 to 2001, then 2002 to 2013
-cat $B/199?.txt $B/200[01].txt | wc -l
+cat $B/199[6-9].txt $B/200[01].txt | wc -l
 cat $B/200[2-9].txt $B/201[0-3].txt | wc -l
 # 2, your equivalent-English
-E1=$(ee $B/199?.txt $B/200[01].txt); echo $E1
+E1=$(ee $B/199[6-9].txt $B/200[01].txt); echo $E1
 E2=$(ee $B/200[2-9].txt $B/201[0-3].txt); echo $E2
 # 3, our records
 cat additions/*.txt hostnames/*.txt | wc -l
@@ -100,7 +100,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `metric-explained.md`, `equivalent_english_domain_calculator/` | the metric, and your calculator, unmodified |
 | `sources.md`, `sources-closed.md` | every source tried: those used, with their download link, and those dropped, with the measurement that ruled each out |
 | `Open Research Questions/` | section IV-A: `Open Research Questions.docx` with each test's code, log, sample and screenshots |
-| `journals/`, `logs/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), run logs, seed lists |
+| `journals/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), seed lists |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | the checks above |
 
 Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Every `.csv` is

@@ -218,7 +218,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A cleanup downstream of the writer does not hold: bare years inferred from `www.` captures, cleaned to zero, came back as 22,920 from the fold overnight (`src/ark/hostnames.py`).
 - XIV filters the claim, never the store: `export.py` screens six year files, six hostname files and both manifests; `domain_year` and `hostname_year` keep every row (`src/ark/export.py`).
 - `domain_language` stays in `src/ark/db.py`: shipped provenance exports hold its rows and `ark rebuild` loads them (`src/ark/provenance.py` `OPTIONAL_TABLES`).
-- `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it (`scripts/round/offsite.py`, `docs/registers/retention.md`).
+- `private/` has no retention row, so `offsite.py` never copies it off-site and no reproduction reads it, and no `data/logs` file ships: round 12's log tails named 1,259 `private/` files, and its 23 CDX logs hold 157 local-path lines, 21 under `private/` (`scripts/round/offsite.py`, `scripts/round/package_delivery.sh`).
 
 ## Harness
 

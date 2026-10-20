@@ -186,7 +186,7 @@ STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.7z"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,logs,source,seeds,journals,provenance,baseline}
+mkdir -p "$STAGE"/{masters,additions,audit,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
@@ -558,15 +558,9 @@ else
     echo "warning: no calculator beside $MERGED, archive will not self-score" >&2
 fi
 
-# audit CSVs + execution logs
+# audit CSVs. No file of data/logs ships: each can name a local or private/ path, and the
+# execution logs the brief asks for ship inside Open Research Questions/ and audit/.
 cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
-# Logs tailed, not copied whole: what a reader wants from a log is the shape of the run
-# and its most recent state, and the last 20,000 lines give both; the full files stay
-# under `data/logs/`.
-for log in data/logs/*; do
-    [ -f "$log" ] || continue
-    tail -n 20000 "$log" > "$STAGE/logs/$(basename "$log")" 2>/dev/null || true
-done
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
