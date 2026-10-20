@@ -36,6 +36,12 @@ APPROVALS = "docs/registers/approved-sources-list.md"
 BASELINE = "data/baseline.json"
 STAMP = "data/logs/bank_stamp.json"
 RED = "data/logs/bank_red.json"
+# What the last `check` measured. The stamp takes it for every glob but the bank's own output,
+# so a journal landing after its fold is still new to the next bank.
+SEEN = "data/logs/bank_seen.json"
+# The globs the bank's own steps write (a promoted partial, the cdx_suffix convert's output),
+# stamped as they stand after the bank so its output never counts.
+BANK_WRITES = ("data/raw/cdx/*.jsonl.gz.part", "data/raw/cdx/cdx_*.jsonl.gz")
 # Written by the bank while an approved journal is absent or its refetch failed; paced like
 # the journals.
 RETRY = "data/logs/bank_approvals_retry"
@@ -161,6 +167,8 @@ def check(root: Path = ROOT, find_only: bool = False) -> tuple[int, str]:
     if not seen or current != seen.get("marker"):
         reasons.append(f"bank: baseline {current}")
 
+    digest = fold_digest(root)
+    _write(root / SEEN, digest)
     moved = []
     if (root / RETRY).exists():
         moved.append("bank: approvals not yet banked, retried")
@@ -168,7 +176,7 @@ def check(root: Path = ROOT, find_only: bool = False) -> tuple[int, str]:
         moved.append("bank: journals, no stamp yet")
     else:
         before = seen.get("fold") or {}
-        for pattern, cur in fold_digest(root).items():
+        for pattern, cur in digest.items():
             was = before.get(pattern) or [0, 0, 0]
             if cur != was:
                 files, size = cur[0] - was[0], cur[1] - was[1]
@@ -190,12 +198,14 @@ def check(root: Path = ROOT, find_only: bool = False) -> tuple[int, str]:
 
 
 def stamp(root: Path = ROOT) -> dict:
-    """What the bank has seen. Measured after its journal step, so its own output never counts."""
+    """What the bank has seen: its own output after its journal step, the rest as `check` saw it."""
+    fold, seen = fold_digest(root), _json(root / SEEN)
+    fold |= {glob: seen[glob] for glob in fold if glob in seen and glob not in BANK_WRITES}
     doc = {
         "at": _now(),
         "approvals_sha256": approvals_sha(root),
         "marker": marker(root),
-        "fold": fold_digest(root),
+        "fold": fold,
     }
     _write(root / STAMP, doc)
     return doc

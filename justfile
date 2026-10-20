@@ -344,6 +344,13 @@ bank *args:
     echo "$WHY"
     has() { printf '%s\n' "$WHY" | grep -q "^bank: $1"; }
     want() { [ "$FORCE" = yes ] || has "$1"; }
+    # A glob moved since the last green bank, or every glob on a forced or first bank: an
+    # unmoved one costs only ingest starts, skip passes and an empty enqueue.
+    moved() {
+        [ "$FORCE" = yes ] || has "journals, no stamp" \
+            || printf '%s\n' "$WHY" | grep -qF "bank: journals $1 ("
+    }
+    fold() { { moved "$1" || moved "${1%.gz}"; } && compgen -G "${1%.gz}*" >/dev/null; }
     RAN_A=no; RAN_B=no; EXPORTED=no; DECIDED=0; NEW_ROWS=""
     CHECK_LOG=$(mktemp)
     # c. Journals, then the export a new baseline needs too. Every ingest is keyed on its
@@ -353,12 +360,12 @@ bank *args:
     if want journals || want baseline; then
         C_RAN=""; C_FAIL=""
         if want journals; then
-            if compgen -G "data/raw/usenet/usenet_dated_*.jsonl.gz" >/dev/null; then
+            if fold "data/raw/usenet/usenet_dated_*.jsonl.gz"; then
                 C_RAN="$C_RAN usenet_dated"
                 uv run ark ingest usenet_dated data/raw/usenet/usenet_dated_*.jsonl.gz | tail -1 \
                     || C_FAIL="$C_FAIL usenet_dated"
             fi
-            if compgen -G "data/raw/usenet/usenet_candidates_*.jsonl.gz" >/dev/null; then
+            if fold "data/raw/usenet/usenet_candidates_*.jsonl.gz"; then
                 C_RAN="$C_RAN usenet_candidates"
                 uv run ark ingest usenet_candidates data/raw/usenet/usenet_candidates_*.jsonl.gz | tail -1 \
                     || C_FAIL="$C_FAIL usenet_candidates"
@@ -386,16 +393,16 @@ bank *args:
             fi
             # The body-URL lanes, each with its own approved ingest, each shard skipped on content.
             for pool in data/raw/usenet_*_items; do
-                [ -d "$pool" ] || continue
+                [ -d "$pool" ] && fold "data/raw/usenet_*_items/*.jsonl.gz" || continue
                 C_RAN="$C_RAN $pool"
                 uv run ark ingest-usenet-hostnames "$pool" | tail -1 || C_FAIL="$C_FAIL $pool"
             done
-            if [ -d data/raw/maillists_items ]; then
+            if fold "data/raw/maillists_items/*.jsonl.gz"; then
                 C_RAN="$C_RAN maillists_items"
                 uv run ark ingest-maillist-hostnames data/raw/maillists_items | tail -1 \
                     || C_FAIL="$C_FAIL maillists_items"
             fi
-            if [ -d data/raw/enron_items ]; then
+            if fold "data/raw/enron_items/*.jsonl.gz"; then
                 C_RAN="$C_RAN enron_items"
                 uv run ark ingest-enron-hostnames data/raw/enron_items | tail -1 \
                     || C_FAIL="$C_FAIL enron_items"
