@@ -7,8 +7,10 @@ into the masters, so the export writes none.
 """
 
 import filecmp
+import hashlib
 import json
 import os
+import shutil
 import tempfile
 import time
 from collections.abc import Iterator
@@ -163,24 +165,22 @@ def export_isc_hostnames(
 def _minus_his(names: Path, his: held.Held, out: Path, taken: Path | None = None) -> int:
     """Write the lines of `names` that no candidate file and no year file of his holds, by
     exact name, and count them. `taken` gets those his candidate files hold, which the
-    candidate summary counts."""
-    if taken:
-        held.intersect(names, his.candidates, taken)
+    candidate summary counts, as `names` less the rest: a pass over his 2 GB costs 9 s."""
     rest = names.with_name(f"{names.stem}_not_candidate.txt")
     held.minus(names, his.candidates, rest)
+    if taken:
+        held.minus(names, rest, taken)
     return held.minus(rest, his.all, out)
 
 
-def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> Path | None:
+def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> Path:
     """Build `isc_export`, the survey hostnames no file of his and no table of ours names, and
-    return the file of those his candidate files hold, or None when the survey gave none.
+    return the file of those his candidate files hold.
 
     Exact names only: a held parent or a different `www.` form does not exclude a hostname.
-    No annual table is modified.
-    """
-    conn.execute(
-        f"""
-        CREATE OR REPLACE TEMP TABLE isc_export AS
+    No annual table is modified. The 100 s against his files is kept in `his.dir`, keyed on
+    the query, the ISC rows and his held sets."""
+    query = f"""
         SELECT DISTINCT hy.hostname, hy.assigned_year FROM (
             SELECT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)) AS hostname,
                    e.domain AS parent, e.evidence_year AS assigned_year
@@ -191,22 +191,32 @@ def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> P
           AND length(hy.hostname) <= 253
           AND regexp_matches(hy.hostname, '{_HOSTNAME_RE}')
           AND {_shipping_filter_for("hy.hostname", "hy.assigned_year")}
-        """
-    )
-    if not conn.execute("SELECT count(*) FROM isc_export").fetchone()[0]:
-        return None
-    names, taken = work / "isc.txt", work / "isc_held.txt"
-    held.dump(conn, "SELECT DISTINCT hostname FROM isc_export ORDER BY 1", names)
-    _minus_his(names, his, work / "isc_kept.txt", taken)
-    held.read_names(conn, "isc_kept", work / "isc_kept.txt")
+    """
+    rows = conn.execute(f"""
+        SELECT count(*), bit_xor(hash(e.evidence_id, e.evidence_value, e.evidence_year, e.domain))
+        FROM evidence e JOIN source s ON s.source_id = e.source_id WHERE s.name = '{ISC_SOURCE}'
+    """).fetchone()
+    stats = [[p.stat().st_size, p.stat().st_mtime_ns] for p in (his.all, his.candidates)]
+    key = json.dumps([hashlib.sha256(query.encode()).hexdigest(), rows[0], str(rows[1]), stats])
+    cache, stamp = his.dir / "isc", his.dir / "isc" / "key.json"
+    if not (stamp.is_file() and stamp.read_text(encoding="utf-8") == key):
+        # the key is written last, so a crash leaves a miss
+        shutil.rmtree(cache, ignore_errors=True)
+        cache.mkdir(parents=True)
+        conn.execute(f"CREATE OR REPLACE TEMP TABLE isc_export AS {query}")
+        held.dump(conn, "SELECT DISTINCT hostname FROM isc_export ORDER BY 1", work / "isc.txt")
+        _minus_his(work / "isc.txt", his, work / "isc_kept.txt", cache / "held.txt")
+        held.read_names(conn, "isc_kept", work / "isc_kept.txt")
+        conn.execute("DELETE FROM isc_export WHERE hostname NOT IN (SELECT name FROM isc_kept)")
+        conn.execute(f"COPY isc_export TO '{cache / 'kept.parquet'}' (FORMAT parquet)")
+        stamp.write_text(key, encoding="utf-8")
+    conn.execute(f"CREATE OR REPLACE TEMP TABLE isc_export AS FROM '{cache / 'kept.parquet'}'")
     conn.execute("""
         DELETE FROM isc_export
-        WHERE hostname NOT IN (SELECT name FROM isc_kept)
-           OR hostname IN (SELECT hostname FROM hostname_year)
+        WHERE hostname IN (SELECT hostname FROM hostname_year)
            OR hostname IN (SELECT domain FROM domain_year)
     """)
-    conn.execute("DROP TABLE isc_kept")
-    return taken
+    return cache / "held.txt"
 
 
 @contextmanager
@@ -498,8 +508,7 @@ def export_all(
         # The claim runs the ISC reduction too: the summary counts his survey names among the
         # names he held, and what survives it joins the candidate pool.
         with _phase("isc"):
-            isc_taken = reduce_isc(conn, his, work)
-            taken = [isc_taken] if isc_taken else []
+            taken = [reduce_isc(conn, his, work)]
             if not claim_only:
                 export_isc_hostnames(conn, netnew_dir, stats)
                 export_isc_provenance(conn, netnew_dir, stats)
