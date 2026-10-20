@@ -226,7 +226,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 ## Harness
 
 - A fleet price on a synced held-set is a ceiling: 1,180,003.5 EE re-priced on the store to about 4,850 (132 of 258,631 pairs missing) (`src/ark/price_snapshot.py`, `ark price-snapshot`).
-- Snapshot staging rehashes all 14.11 GB of its 48 hard links each exporting bank, 54.8 s with 50.6 s of CPU, while 23.5 MB (0.17%) moves between his releases; a price-snapshot call hashes 4.88 GB, and a new release's push kept the sync lock 5,795 s at 3.3 MB/s (`scripts/harness/snapshot_manifest.py`, `src/ark/price_snapshot.py`).
+- Snapshot staging hashed and sort-checked all 14.11 GB of its 48 hard links each exporting bank, 55.98 s, while 23.5 MB (0.17%) moves between his releases; reusing each entry whose source keeps its size, mtime and inode it takes 0.25 s, and a price checks size and mtime first, 0.002 s against 3.92 to 4.03 s hashing 4.88 GB a call; a new release's push kept the sync lock 5,795 s at 3.3 MB/s (`scripts/harness/snapshot_manifest.py`, `src/ark/price_snapshot.py`).
 - A fleet leg downloads only through `scripts/harness/fetch.py`: whole robots.txt on every hop, 1 GB cap by header and stream, no extraction, two write roots.
 - `standing_rule.py` parks a lead unless its `standing` block shows the fleet admitted it on all five clauses (size, terms, robots, class, window), and itself tests only the class: one with no master source in the register parks (`CLAUSES`).
 - The store re-price decides a FIND until the fleet program's figure has agreed with it within 1% on the last ten booked finds; then the program's figure decides (`scripts/harness/standing_rule.py`).

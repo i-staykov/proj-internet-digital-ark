@@ -11,8 +11,9 @@ builds and pushes (`scripts/harness/sync_fleet.sh`).
     calculator/                 his equivalent_english_domains.py and the table it loads
     manifest.json               {marker, built_at, claim_sha256, files: {path: {lines, sha256}}}
 
-Every named file is hashed before it is read, and a disagreeing digest, line count
-or presence refuses the whole run. So does a zero-line file: an empty held-set makes
+Every named file is checked before it is read, by the size and mtime the manifest took
+from its source, else by its hash, and a disagreeing digest, line count or presence refuses
+the whole run. So does a zero-line file: an empty held-set makes
 everything look net-new, the most flattering way this can be wrong.
 
 **The annual track prices 1996 to 2013 in two parts**, each beside the EE its gate asks. A
@@ -129,8 +130,17 @@ def is_sorted(path: Path, tabbed: bool = False) -> bool:
     return done.returncode == 0
 
 
+def _stat(path: Path) -> dict[str, int]:
+    st = path.stat()
+    return {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "inode": st.st_ino}
+
+
 def build_manifest(
-    marker: str, files: dict[str, Path], optional: Iterable[str] = (), claim: Iterable[str] = ()
+    marker: str,
+    files: dict[str, Path],
+    optional: Iterable[str] = (),
+    claim: Iterable[str] = (),
+    previous: dict | None = None,
 ) -> tuple[dict, list[str]]:
     """The manifest for a snapshot, and the optional entries left out for being empty.
 
@@ -138,7 +148,10 @@ def build_manifest(
     and pricing against a snapshot without them would report every name as net-new. An
     optional entry may legitimately be empty (a year in which one export family found
     nothing), so it is dropped from the snapshot rather than shipped as a zero-line file.
+    An entry of `previous` whose source keeps its size, mtime and inode is reused: his files
+    are 99.8% of the 14 GB and move only with his release.
     """
+    previous = previous or {}
     optional = set(optional)
     entries: dict[str, dict[str, int | str | bool]] = {}
     skipped: list[str] = []
@@ -146,13 +159,17 @@ def build_manifest(
         path = files[rel]
         if not path.is_file():
             raise SnapshotError(f"{rel}: {path} does not exist, so the snapshot is incomplete")
+        stat, old = _stat(path), previous.get(rel, {})
+        if all(old.get(key) == value for key, value in stat.items()):
+            entries[rel] = old
+            continue
         lines, sha256 = file_stats(path)
         if lines == 0:
             if rel in optional:
                 skipped.append(rel)
                 continue
             raise SnapshotError(f"{rel} has no lines; an empty held-set prices everything as new")
-        entries[rel] = {"lines": lines, "sha256": sha256}
+        entries[rel] = {"lines": lines, "sha256": sha256, **stat}
         if rel.endswith(".txt"):
             entries[rel]["sorted"] = is_sorted(path, tabbed=rel == ATTESTED)
     if not entries:
@@ -226,6 +243,9 @@ def verify_snapshot(snapshot: Path, manifest: dict) -> None:
 
 
 def _check_file(path: Path, rel: str, expected: dict) -> None:
+    stat = _stat(path)
+    if expected.get("lines") and all(stat[k] == expected.get(k) for k in ("size", "mtime_ns")):
+        return
     lines, sha256 = file_stats(path)
     if lines == 0:
         raise SnapshotError(f"{rel} has no lines; an empty held-set prices everything as new")

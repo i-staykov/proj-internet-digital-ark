@@ -215,7 +215,11 @@ def main() -> int:
         )
         return 1
     try:
-        manifest, skipped = build_manifest(marker, files, optional, claim_of(files))
+        previous = json.loads((args.out / MANIFEST_NAME).read_text(encoding="utf-8"))["files"]
+    except (OSError, ValueError, KeyError):
+        previous = {}
+    try:
+        manifest, skipped = build_manifest(marker, files, optional, claim_of(files), previous)
     except SnapshotError as exc:
         print(f"snapshot_manifest: {exc}", file=sys.stderr)
         return 1
