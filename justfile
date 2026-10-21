@@ -1405,9 +1405,9 @@ vm what="status":
         # walks on from this machine's done set rather than over it.
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
         $SSH "[ -d ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ark; mkdir -p ark/data/raw/cdx_walk/lane$N ark/data/queue"
-        RS="rsync -a --ignore-existing --timeout=120 -e ${SSH% $ARK_VM}"
-        $RS data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
-        $RS data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
+        RSH="${SSH% $ARK_VM}"
+        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
+        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         # Then the fleet, as its user, the registration token on stdin and nowhere else; a
         # refused sudo prints the one command the owner runs there, the token typed after it.
