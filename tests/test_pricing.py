@@ -204,7 +204,7 @@ def _write(path: Path, names: list[str]) -> Path:
 
 
 def _snapshot(root: Path, held=None, netnew=None, candidates=None, calculator=None, last=2001):
-    """A snapshot as `sync_fleet.sh` pushes it, with his calculator from `calculator` or ours."""
+    """A snapshot as the bank stages it, with his calculator from `calculator` or ours."""
     snapshot = root / "ark-data"
     files = {f"calculator/{name}": snapshot / "calculator" / name for name in ps.CALCULATOR_FILES}
     (snapshot / "calculator").mkdir(parents=True)

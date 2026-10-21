@@ -20,8 +20,7 @@ cd "$(dirname "$0")/../.." || exit 1
 # **Machine-local config, the same file the recipes read.** Without
 # it this wrapper runs on the packaged defaults, and `build_round_state.py` dies at the
 # 40% cap with a DuckDB `Out of Memory Error` inside `stats.py::_corroboration`. The
-# laptop sets ARK_DB_MEMORY_LIMIT here rather than raising a default the 7 GB VPS also
-# reads.
+# host sets ARK_DB_MEMORY_LIMIT here rather than raising a default every host reads.
 # Sourcing alone is not enough: `local.env` assigns without `export`, so the value is a
 # shell variable this wrapper can read and every `uv run` child still gets the default.
 # Only this one is exported, so the hosts stay out of child environments.

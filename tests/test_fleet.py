@@ -72,7 +72,7 @@ PRICER = ["uv", "run", "python"]
 
 @pytest.fixture(autouse=True)
 def _no_real_box(tmp_path, monkeypatch):
-    """Items and reads come from scratch remotes into a scratch pull, never from the VPS."""
+    """Items and reads come from scratch remotes into a scratch pull, never from the fleet."""
     monkeypatch.setenv("ARK_ITEMS_REMOTE", str(tmp_path / "no-items"))
     monkeypatch.setenv("ARK_TELEMETRY_DIR", "/nonexistent")
     monkeypatch.delenv("ARK_READ_REMOTE", raising=False)
@@ -171,7 +171,7 @@ def test_a_confirmed_find_is_repriced_on_the_figure_its_pricer_prints_after_the_
 
 
 def remote_read(root: Path, complete=True, tamper=False, extra="", rename="") -> Path:
-    """A read as `read.yaml` leaves it on the VPS: parts plus the receipt that lists them."""
+    """A read as `read.yaml` leaves it: the parts plus the receipt that lists them."""
     (directory := root / "journals/a-lead").mkdir(parents=True)
     parts, whole = [], hashlib.sha256()
     for n in (1, 2):
@@ -200,7 +200,7 @@ HOSTNAMES = "## Decided\n\n### fleet_a_lead_hostnames / cdx_timestamp\n\nDecisio
 
 
 def test_only_a_read_matching_its_receipt_is_pulled_priced_and_acked(tmp_path, monkeypatch, capsys):
-    """Priced on its pulled parts at hostname grain; the VPS frees a part its ingest acked."""
+    """Priced on its pulled parts at hostname grain; the fleet frees a part its ingest acked."""
     lead = drop(tmp_path / "incoming", read={})
     for n, (kwargs, said) in enumerate(BAD_READS):
         monkeypatch.setenv("ARK_READ_REMOTE", str(remote_read(tmp_path / str(n), **kwargs)))
