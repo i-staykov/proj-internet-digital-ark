@@ -1380,7 +1380,7 @@ vm what="status":
         # Not the VM's own lane state, which its walker owns, nor git's baseline.json, nor this
         # machine's lock, logs, marker, red and DuckDB spill; a cut store stays a partial, never
         # the file the timer's condition looks for.
-        rsync -a --partial-dir=.rsync-partial --info=progress2 --timeout=300 -e "${SSH% $ARK_VM}" \
+        rsync -a --partial-dir=.rsync-partial --progress --timeout=300 -e "${SSH% $ARK_VM}" \
             --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
             --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
             --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
