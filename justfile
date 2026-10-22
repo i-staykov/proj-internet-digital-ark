@@ -1377,14 +1377,16 @@ vm what="status":
         fi
         if ! bash scripts/harness/sync_lock.sh take $$; then exit 1; fi
         trap 'bash scripts/harness/sync_lock.sh drop' EXIT
-        # Not the VM's own lane state, which its walker owns, nor git's baseline.json, nor this
-        # machine's lock, logs, marker, red and DuckDB spill; a cut store stays a partial, never
-        # the file the timer's condition looks for.
-        rsync -a --partial-dir=.rsync-partial --progress --timeout=300 -e "${SSH% $ARK_VM}" \
+        # The store, the outputs and his current release (`data/baseline.json` names its
+        # directory under ding/; the bank refuses without it). Not the VM's own lane state,
+        # which its walker owns, nor git's baseline.json, nor this machine's lock, logs, marker,
+        # red and DuckDB spill; a cut store stays a partial, never the file the timer's
+        # condition looks for.
+        rsync -aR --partial-dir=.rsync-partial --progress --timeout=300 -e "${SSH% $ARK_VM}" \
             --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
             --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
             --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
-            data output "$ARK_VM:ark/"
+            data output "$(dirname "$(python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])')")" "$ARK_VM:ark/"
         ;;
     install)
         if bash scripts/harness/hold.sh holds com.ark.sync; then
