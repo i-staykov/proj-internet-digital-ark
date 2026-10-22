@@ -1368,6 +1368,9 @@ vm what="status":
     [ -f local.env ] && . ./local.env
     : "${ARK_VM:?set ARK_VM in local.env}"
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes $ARK_VM"
+    # rsync gets the VM's home spelt out: macOS rsync sends nothing to a relative remote
+    # path and still exits 0.
+    VMHOME=$($SSH 'echo $HOME')
     case "{{what}}" in
     copy)
         # The store and the outputs, whole, while no tick here can write them; the lock the
@@ -1386,7 +1389,7 @@ vm what="status":
             --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
             --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
             --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
-            data output "$(dirname "$(python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])')")" "$ARK_VM:ark/"
+            data output "$(dirname "$(python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])')")" "$ARK_VM:$VMHOME/ark/"
         ;;
     install)
         if bash scripts/harness/hold.sh holds com.ark.sync; then
@@ -1408,8 +1411,8 @@ vm what="status":
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
         $SSH "[ -d ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ark; mkdir -p ark/data/raw/cdx_walk/lane$N ark/data/queue"
         RSH="${SSH% $ARK_VM}"
-        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane$N/ "$ARK_VM:ark/data/raw/cdx_walk/lane$N/"
-        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:ark/data/queue/"
+        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane$N/ "$ARK_VM:$VMHOME/ark/data/raw/cdx_walk/lane$N/"
+        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:$VMHOME/ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         # Then the fleet, as its user, the registration token on stdin and nowhere else; a
         # refused sudo prints the one command the owner runs there, the token typed after it.
