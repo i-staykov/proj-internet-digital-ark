@@ -16,6 +16,9 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
+# The bank host follows `live`: a merged PR reaches it before the tick runs, since the
+# recipe refuses a diverged clone and nobody pulls here by hand. A dirty tree is left alone.
+git diff --quiet && git pull -q --ff-only origin live
 
 # **Machine-local config, the same file the recipes read.** Without
 # it this wrapper runs on the packaged defaults, and `build_round_state.py` dies at the
