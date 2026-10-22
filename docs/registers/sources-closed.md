@@ -6,6 +6,10 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| era-list-archives-speeders-amsat-neohapsis-birding-ia-item-wall / mail_received_header | 2026-10-22, fleet 20261022T1609Z | not priced | CLOSED. Lens paid nothing: one era list yields tens of names, floor is 5,000 candidate EE | <https://archive.org/download/speeders/speeders.199805> |
+| humanist-dhhumanist-yearly-text-1996-1997-from-and-body-url-hosts / candidate_mail_from_and_body_url_host | 2026-10-22, fleet 20261022T1609Z | not priced | CLOSED. | <https://dhhumanist.org/archives/Converted_Text/humanist.1996-1997.txt> |
+| lugnet-news-1998-2013-message-body-url-and-mail-hosts / candidate_mail_from_and_body_url_host | 2026-10-22, fleet 20261022T1609Z | 0.98 EE | CLOSED. Track: candidate (body links and body mail addresses are not web evidence, never annual) | <https://news.lugnet.com/general/?n=1000> <https://news.lugnet.com/> |
+| seul-mhonarc-1998-2004-month-index-poster-hosts / candidate: SEUL list archive (MHonArc 2.1.0) month-index poster address hosts, d | 2026-10-22, fleet 20261022T1609Z | 9.85 EE | CLOSED. 14 net-new candidate names (9.85 EE) of 1,591 host-years | <https://archives.seul.org/seul/edu/Mar-1999/maillist.html> <https://archives.seul.org/> |
 | anu-link-hypermail-1996-2000-poster-and-body-url-hosts / candidate_mail_from_and_body_url_host | 2026-10-22, fleet 20261022T1406Z | 1.6225 EE | CLOSED. 96 messages over 8 months 1996 to 2000 price at 1.6225 candidate EE (2 net-new names) | <http://web.archive.org/web/20000831012657id_/http://www.anu.edu.au/mail-archives/link/link9707/> |
 | csf-colorado-hypermail-academic-lists-1998-2000-poster-and-body-url-hosts / candidate: Hypermail message page poster, Message-Id and body URL hosts, dated b | 2026-10-22, fleet 20261022T1406Z | not priced | CLOSED. Track: candidate | <http://web.archive.org/web/20010714074434id_/http://csf.colorado.edu/mail/pen-l/jun98/> <ftp://csf.colorado.edu> |
 | era-list-archives-39783944463-leg / unclassified | 2026-10-22, fleet 20261022T1406Z | not priced | CLOSED. Track: candidate (mail is not web evidence, never annual) |  |
