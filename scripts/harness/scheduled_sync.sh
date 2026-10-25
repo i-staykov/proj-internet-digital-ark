@@ -31,6 +31,15 @@ mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 
+# The walk follows its code: once the walker or its cron changed since the last install, the
+# cron is reinstalled and the walkers stopped (SIGTERM saves what they owe); cron restarts them.
+WALK=$(git rev-parse HEAD:scripts/engines/cdx_walk_jobs.py HEAD:scripts/engines/cdx_extended_walk.py)
+if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install >> "$LOG" 2>&1; then
+    pkill -f '^/usr/bin/python3 .*cdx_extended_walk[.]py'; echo "$WALK" > data/logs/.walk_code
+    # a draining walker still owns its lane's pending subpages: none restarts beside it
+    for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
+fi
+
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
 ship_now() {
