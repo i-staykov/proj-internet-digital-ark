@@ -392,12 +392,12 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
         return lane
 
     lane = lane_with(page)
+    for n, status in ((279, "HTTP400"), (280, "HTTP504")):  # past the end; silent, never paused
+        lane.settle(("on.ca", 100, n, 1996, 2013, "all"), status, False, 0, [], None, ["row"])
+    assert {f"on.ca 100 {n} 1996 2013" for n in (279, 280)} <= lane.done and not lane.pause_until
     assert lane.take() == page
     lane.settle(page, "SSLZeroReturnError", False, 0, [], None, ["row"])
     assert "co.uk 1000 7 1996 2013" not in lane.done, "an unknown failure is no answer"
-    sub = ("on.ca", 100, 279, 1996, 2013, "all")
-    lane.settle(sub, "HTTP400", False, 0, [], None, ["row"])
-    assert "on.ca 100 279 1996 2013" in lane.done, "a subpage past the end answers 400"
     assert lane.take() == page
     lane.settle(page, "200", False, 5, ["k1", "k5"], None, ["row"])  # cut at k5
     p9 = lane.take()
