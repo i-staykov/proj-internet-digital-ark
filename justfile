@@ -1089,7 +1089,8 @@ intake *args:
     case "{{args}}" in *--dry-run*) exit 0 ;; esac
     uv run ark intake
     # One release on the bank host: the one replaced goes once the held sets are rebuilt.
-    if [ "$(release)" != "$PREV" ] && [[ "$PREV" == ding/* ]]; then rm -rf "$PREV"; fi
+    NEW=$(release)
+    if [ -n "$NEW" ] && [ "$NEW" != "$PREV" ] && [[ "$PREV" == ding/* ]]; then rm -rf "$PREV"; fi
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
     FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
