@@ -20,11 +20,12 @@ is read from `original`, never from the urlkey, which folds `www.` into the apex
 **Failures cost time, never rows.** A page streams for up to minutes, and the server can cut a
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
-row. A page silent for 60 s answers 504 and is booked at once, never paused on; a 1,000-block
-one has its subpages 0 and 5 probed and the other eight asked only if a probe has rows. Any
-other answer marks nothing done: a 429 or 503 pauses the lane for `Retry-After` or a minute a
-throttle, a refusal, `ENETDOWN` or 403 from 30 s doubling to 15 min, and requests start
-`--min-interval` apart, since a burst earns a block of the address.
+row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
+subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
+at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
+lane for `Retry-After` or a minute a throttle, a refusal, `ENETDOWN` or 403 from 30 s doubling
+to 15 min, eased only by an answer, and requests start `--min-interval` apart, since a burst
+earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -57,12 +58,7 @@ PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
 THROTTLES = {"HTTP429", "HTTP503"}
-FAST = {
-    "ConnectTimeout",
-    "TimeoutError",
-    "ConnectionResetError",
-    "RemoteDisconnected",
-}
+FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
@@ -367,7 +363,8 @@ class Lane:
         key = key_of(task)
         self.log.write("\t".join(map(str, row)) + "\n")
         tries = self.fails.get(key, 0)
-        silent = status == "HTTP504" or (status == "HTTP400" and task[1] < PAGE)  # 400: past end
+        silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
+        silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
@@ -375,6 +372,8 @@ class Lane:
                 self.inflight.discard(task)
                 self.save_pending()
                 self.log.write(f"# parked {status} {key}: asked again next start\n")
+            elif status == "HTTP504":  # the page's silence, not the address's: no pause
+                self.requeue(task, front=True)
             elif status in THROTTLES:
                 self.throttled += 1
                 wait = after or 60.0 * self.throttled
@@ -387,7 +386,8 @@ class Lane:
                 self.refused, self.transient = self.refused + 1, 0
                 self.back_off(task, min(900, 30 * 2 ** min(self.refused - 1, 5)), status)
             return
-        self.throttled = self.refused = self.transient = 0
+        if status == "200":  # only an answer eases the back-off
+            self.throttled = self.refused = self.transient = 0
         self.inflight.discard(task)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
@@ -422,12 +422,7 @@ def main() -> None:
     ap.add_argument("--max-local", type=int, default=2, help="CDX clients allowed here")
     ap.add_argument("--min-interval", type=float, default=10.0, help="seconds between starts")
     ap.add_argument("--connect-timeout", type=float, default=20)
-    ap.add_argument(
-        "--max-transient",
-        type=int,
-        default=8,
-        help="dropped connects in a row before pausing longer",
-    )
+    ap.add_argument("--max-transient", type=int, default=8, help="dropped connects before a pause")
     ap.add_argument("--timeout", type=float, default=70, help="per read; the gateway 504s at 60 s")
     a = ap.parse_args()
     signal.signal(signal.SIGTERM, _sigterm)
