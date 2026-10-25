@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-# The hold: the hourly job here and on the bank host, the walkers' `pause-platform` flag and
-# the fleet's Leg, Read and Improver workflows stop, stay stopped across a reboot, and start again only when a human lifts
-# them. `just hold` is the interface.
+# The hold: the bank host's hourly timer, the walkers' `pause-platform` flag and the fleet's Leg,
+# Read and Improver workflows stop, stay stopped across a reboot, and start again only when a
+# human lifts them. `just hold` is the interface.
 #
-# A reboot undoes a bootout, because launchd loads every plist in ~/Library/LaunchAgents at
-# login. `launchctl disable` is what persists, so `on` disables a job before booting it out and
-# `off` enables it before bootstrapping it. The hold file names what is held, one name per line
-# under `human` and a UTC stamp. While it lists `com.ark.sync`, `just sync` and `just bank` exit
-# `held` unless one hand run sets `ARK_HOLD_BYPASS=dry-run` inline; `just schedule install`
-# refuses while the file exists. A listed name this script does not know is NOT HELD, and `off`
-# only drops its line.
+# `systemctl --user disable --now` persists across a reboot and lets a tick in flight finish. The
+# hold file names what is held, one name per line under `human` and a UTC stamp. While it lists
+# `ark-sync.timer`, `just sync` and `just bank` exit `held` unless one hand run sets
+# `ARK_HOLD_BYPASS=dry-run` inline. A listed name this script does not know is NOT HELD, and
+# `off` only drops its line.
 #
-# The collector hosts and GitHub are asked, never relied on: without them the job and the
-# local flag still go, and what could not be confirmed is printed, not fatal.
+# The bank host (ARK_VM, or this machine where local.env names none), the collector hosts and
+# GitHub are asked, never relied on: without them the file and the local flag still go, and
+# what could not be confirmed is printed, not fatal.
 #
 # Usage:
 #   bash scripts/harness/hold.sh on             hold every name
@@ -27,11 +26,8 @@ cd "$(dirname "$0")/../.." || exit 1
 [ -f local.env ] && . ./local.env
 STATE_DIR="${ARK_STATE_DIR:-$HOME/ark/state}"
 HOLD="$STATE_DIR/hold"
-AGENTS="$HOME/Library/LaunchAgents"
-DOMAIN="gui/$(id -u)"
-JOBS="com.ark.sync"
-FLAGS="pause-platform"
 TIMER="ark-sync.timer"
+FLAGS="pause-platform"
 WORKFLOWS="leg.yaml read.yaml improver.yaml"
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
@@ -46,16 +42,19 @@ listed() { names | grep -x -- "$1" > /dev/null; }
 
 drop() { grep -vx -- "$1" "$HOLD" > "$HOLD.tmp"; mv "$HOLD.tmp" "$HOLD"; }
 
-loaded() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j { f = 1 } END { exit !f }'; }
-
-running() { launchctl list 2>/dev/null | awk -v j="$1" '$3 == j && $1 ~ /^[0-9]+$/ { print $1 }'; }
-
 # A host by its lane in what is printed: its target is never echoed. A `local` lane walks here.
 on_host() { ssh -o ConnectTimeout=15 -o BatchMode=yes "${1%:*}" "$2" < /dev/null 2>/dev/null; }
 remote_hosts() { for h in ${ARK_HOSTS:-}; do [ "${h%:*}" = local ] || echo "$h"; done; }
 
-# The bank host's tick is its timer; 0 only once it has said it did what was asked.
-vm() { ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VM" "$1" < /dev/null 2>/dev/null; }
+# The bank host's tick is its timer, here when local.env names no ARK_VM; 0 only once it has
+# said it did what was asked.
+vm() {
+    if [ -n "${ARK_VM:-}" ]; then
+        ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VM" "$1" < /dev/null 2>/dev/null
+    elif command -v systemctl > /dev/null; then
+        bash -c "$1" < /dev/null 2>/dev/null
+    fi
+}
 vm_timer() { [ "$(vm "systemctl --user $1 $TIMER >/dev/null 2>&1 && echo done")" = done ]; }
 
 # Write or remove flags on one host; 0 only once it has said it did.
@@ -79,47 +78,20 @@ wf_state() {
 }
 
 cmd_on() {
-    local rc=0 job f wf was waited
+    local rc=0 f wf
     mkdir -p "$STATE_DIR" || exit 1
-    # The file goes first, so a job that starts while this runs already reads it, and the
+    # The file goes first, so a tick that starts while this runs already reads it, and the
     # flag next, so the walkers idle after the page in flight.
-    { printf 'human\n%s\n' "$STAMP"; printf '%s\n' $JOBS $FLAGS $WORKFLOWS; } > "$HOLD" || exit 1
+    { printf 'human\n%s\n' "$STAMP"; printf '%s\n' $TIMER $FLAGS $WORKFLOWS; } > "$HOLD" || exit 1
     echo "hold: $HOLD written"
     for f in $FLAGS; do
         printf 'human\n%s\n' "$STAMP" > "$STATE_DIR/$f" || rc=1
     done
     echo "flags: $FLAGS written here"
-    for job in $JOBS; do
-        if ! launchctl disable "$DOMAIN/$job"; then
-            echo "$job: FAILED to disable"
-            rc=1
-            continue
-        fi
-        # A sync in flight finishes: no new one starts past the file, and a bootout would end
-        # an ingest mid-write.
-        waited=0
-        while [ "$job" = com.ark.sync ] && [ -n "$(running "$job")" ] &&
-            [ "$waited" -lt "${ARK_HOLD_WAIT:-3600}" ]; do
-            [ "$waited" = 0 ] && echo "$job: a sync is running, waiting for it to finish"
-            sleep 10
-            waited=$((waited + 10))
-        done
-        was="was not loaded"
-        loaded "$job" && was="booted out"
-        launchctl bootout "$DOMAIN/$job" 2>/dev/null || true
-        if loaded "$job"; then
-            echo "$job: disabled, FAILED to boot out"
-            rc=1
-        else
-            echo "$job: disabled, $was"
-        fi
-    done
-    if [ -n "${ARK_VM:-}" ]; then
-        if vm_timer "disable --now"; then
-            echo "VM: $TIMER disabled"
-        else
-            echo "VM: unconfirmed, it did not answer; the tick there may still run"
-        fi
+    if vm_timer "disable --now"; then
+        echo "$TIMER: disabled"
+    else
+        echo "$TIMER: unconfirmed, the bank host did not answer; its tick may still run"
     fi
     [ -n "${ARK_HOSTS:-}" ] || echo "hosts: unconfirmed, ARK_HOSTS is not set"
     for h in $(remote_hosts); do
@@ -148,27 +120,9 @@ cmd_on() {
 # Lift one name; 0 once it is lifted.
 lift() {
     local name=$1
-    if in_list "$name" "$JOBS"; then
-        launchctl enable "$DOMAIN/$name" || { echo "$name: FAILED to enable"; return 1; }
-        # The VM's timer first: with no plist here, as after the cutover, the lift ends early.
-        local rc=0
-        if [ -n "${ARK_VM:-}" ] && ! vm_timer "enable --now"; then
-            echo "VM: $TIMER unconfirmed, it did not answer"
-            rc=1
-        fi
-        if [ ! -f "$AGENTS/$name.plist" ]; then
-            echo "$name: enabled, no plist to load"
-            return $rc
-        fi
-        launchctl bootstrap "$DOMAIN" "$AGENTS/$name.plist" 2>/dev/null
-        if ! loaded "$name"; then
-            # It goes back in the file, so it goes back to disabled: a login must not load it.
-            launchctl disable "$DOMAIN/$name"
-            echo "$name: FAILED to bootstrap, disabled again"
-            return 1
-        fi
-        echo "$name: enabled, bootstrapped"
-        return $rc
+    if [ "$name" = "$TIMER" ]; then
+        vm_timer "enable --now" || { echo "$TIMER: unconfirmed, the bank host did not answer"; return 1; }
+        echo "$TIMER: enabled"
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
         local rc=0
@@ -201,8 +155,8 @@ cmd_off() {
     local todo name rc=0
     [ -f "$HOLD" ] || { echo "hold: nothing is held"; return 0; }
     if [ -n "${1:-}" ]; then
-        if ! in_list "$1" "$JOBS $FLAGS $WORKFLOWS" && ! listed "$1"; then
-            echo "hold: no such name $1, one of: $JOBS $FLAGS $WORKFLOWS" >&2
+        if ! in_list "$1" "$TIMER $FLAGS $WORKFLOWS" && ! listed "$1"; then
+            echo "hold: no such name $1, one of: $TIMER $FLAGS $WORKFLOWS" >&2
             return 2
         fi
         listed "$1" || { echo "$1: not held"; return 0; }
@@ -211,7 +165,7 @@ cmd_off() {
         todo=$(names)
     fi
     for name in $todo; do
-        # The line goes first, so a job started by its own bootstrap does not read it as held.
+        # The line goes first, so a tick the timer starts does not read it as held.
         drop "$name"
         lift "$name" || { echo "$name" >> "$HOLD"; rc=1; }
     done
@@ -225,8 +179,7 @@ cmd_off() {
 }
 
 cmd_status() {
-    local disabled remote="" name why rc=0 h block
-    disabled=$(launchctl print-disabled "$DOMAIN" 2>/dev/null)
+    local remote="" name why rc=0 h block
     # One block per host, `lane N` to `end`: the flags it holds, then `answered`; a silent
     # host's block is empty and borrows nothing from the next.
     for h in $(remote_hosts); do
@@ -234,20 +187,16 @@ cmd_status() {
             for f in '"$FLAGS"'; do [ "$(head -1 "$d/$f" 2>/dev/null)" = human ] && echo "$f"
             done; echo answered')$'\nend\n'
     done
-    for name in $JOBS $FLAGS $WORKFLOWS; do
+    for name in $TIMER $FLAGS $WORKFLOWS; do
         why=""
         if ! listed "$name"; then
             why="not in the hold file"
-        elif in_list "$name" "$JOBS"; then
-            printf '%s\n' "$disabled" | grep -qE "\"$name\" => (disabled|true)" || why="not disabled"
-            loaded "$name" && why="${why:+$why, }loaded"
-            if [ -n "${ARK_VM:-}" ]; then
-                case "$(vm "systemctl --user is-enabled $TIMER 2>/dev/null; echo answered")" in
-                enabled*) why="${why:+$why, }the VM timer is enabled" ;;
-                *answered*) ;;
-                *) why="${why:+$why, }the VM did not answer" ;;
-                esac
-            fi
+        elif [ "$name" = "$TIMER" ]; then
+            case "$(vm "systemctl --user is-enabled $TIMER 2>/dev/null; echo answered")" in
+            enabled*) why="enabled on the bank host" ;;
+            *answered*) ;;
+            *) why="the bank host did not answer" ;;
+            esac
         elif in_list "$name" "$FLAGS"; then
             [ "$(head -1 "$STATE_DIR/$name" 2>/dev/null)" = human ] || why="no flag here"
             [ -n "${ARK_HOSTS:-}" ] || why="${why:+$why, }ARK_HOSTS is not set"
@@ -274,7 +223,7 @@ cmd_status() {
         fi
     done
     for name in $(names); do
-        in_list "$name" "$JOBS $FLAGS $WORKFLOWS" && continue
+        in_list "$name" "$TIMER $FLAGS $WORKFLOWS" && continue
         echo "NOT HELD  $name: not a hold name; 'just hold off $name' drops it"
         rc=1
     done

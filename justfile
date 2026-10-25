@@ -14,7 +14,6 @@ help:
     echo "  just collect <source>   no source lists them"
     echo "  just hold <what> [name] on off status"
     echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
-    echo "  just schedule <what>    install remove"
     echo "  just ship <stage>       all prep build package verify calculator docx orq draft"
     echo "  just verify <what>      raw trees delivery offsite"
 
@@ -130,7 +129,7 @@ cycle *args:
 # The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
 # lanes' finished journals home, and call `just bank` only when `bank_trigger.py`
 # names something that arrived. It opens no store itself, so a quiet hour holds no writer.
-# launchd runs it hourly while the laptop is awake, and it is safe to run by hand.
+# The VM's `ark-sync.timer` runs it hourly, and it is safe to run by hand.
 #
 # Idempotent by construction: an unfinished run is re-downloaded and a drained slug is dropped
 # rather than re-booked. `data/logs/.sync.lock` is taken first and handed to the bank, so a
@@ -141,7 +140,7 @@ cycle *args:
 sync fleet="~/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then
+    if bash scripts/harness/hold.sh holds ark-sync.timer; then
         # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
         if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
         echo "hold bypassed: dry-run"
@@ -300,7 +299,7 @@ sync fleet="~/GitHub/ark-fleet":
 bank *args:
     #!/usr/bin/env bash
     set -euo pipefail
-    if bash scripts/harness/hold.sh holds com.ark.sync; then
+    if bash scripts/harness/hold.sh holds ark-sync.timer; then
         # A dry run's hand run passes the hold; the jobs, flags and workflows stay held.
         if [ "${ARK_HOLD_BYPASS:-}" != dry-run ]; then echo held; exit 0; fi
         echo "hold bypassed: dry-run"
@@ -1194,7 +1193,7 @@ ship stage="all" *args:
 
     stage_prep() {
         set -e
-        if bash scripts/harness/hold.sh holds com.ark.sync; then
+        if bash scripts/harness/hold.sh holds ark-sync.timer; then
             echo "ship prep: the hold is on, so the bank would not run" >&2
             exit 1
         fi
@@ -1422,7 +1421,7 @@ vm what="status":
     VMHOME=$($SSH 'echo $HOME')
     case "{{what}}" in
     install)
-        if bash scripts/harness/hold.sh holds com.ark.sync; then
+        if bash scripts/harness/hold.sh holds ark-sync.timer; then
             echo "vm install: the tick is held; the VM's timer would lift it, 'just hold off' first" >&2; exit 1
         fi
         # Its local.env is this one with its own lane local, no ARK_VM and a store limit
@@ -1457,92 +1456,4 @@ vm what="status":
         grep -E "^(===== scheduled|login ok|LOGIN DEAD)" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -4' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
     *) echo "vm: install status log" >&2; exit 2 ;;
-    esac
-
-# The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
-# arrived without a session open, and reads the `ship-now` label (the header of
-# scripts/harness/scheduled_sync.sh).
-#
-# **The checkout lives under ~/GitHub so that none of this needs Full Disk Access.** Under
-# ~/Documents, which macOS TCC protects, a launchd agent inherits no grant from the terminal
-# that installed it and exits 126 with `launchctl list` looking normal, so `install` runs the
-# job once as the probe and reports what it did. launchd also starts with a bare PATH, which is
-# why the template carries one that finds just, uv, gh and claude; 127 is that failure.
-#
-# the hourly launchd job that syncs and banks unattended: install remove status
-schedule what="install" job="com.ark.sync":
-    #!/usr/bin/env bash
-    set -uo pipefail
-    JOB=com.ark.sync
-    [ "{{job}}" = "$JOB" ] || { echo "schedule: no such job {{job}}, the one job is $JOB" >&2; exit 2; }
-    PLIST="$HOME/Library/LaunchAgents/$JOB.plist"
-    DOMAIN="gui/$(id -u)"
-    case "{{what}}" in
-    install)
-        set -euo pipefail
-        # A hold is lifted only by hand, and an install would lift it.
-        if bash scripts/harness/hold.sh holds; then
-            echo "schedule: the laptop is held; lift it with 'just hold off' first" >&2
-            exit 1
-        fi
-        mkdir -p "$HOME/Library/LaunchAgents" data/logs
-        # The hourly job was com.ark.bank once. An installed plist outlives the rename and
-        # names a script that no longer exists, firing a 127 every hour with `launchctl
-        # list` looking normal, and `remove` cannot reach a name the list above has dropped.
-        stale="$HOME/Library/LaunchAgents/com.ark.bank.plist"
-        if [ -f "$stale" ]; then
-            launchctl bootout "$DOMAIN/com.ark.bank" 2>/dev/null || true
-            rm -f "$stale"
-            echo "removed the superseded com.ark.bank job"
-        fi
-        sed -e "s|ARK_ROOT|{{justfile_directory()}}|g" -e "s|ARK_HOME|$HOME|g" \
-            "scripts/harness/$JOB.plist.template" > "$PLIST"
-        launchctl bootout "$DOMAIN/$JOB" 2>/dev/null || true
-        launchctl enable "$DOMAIN/$JOB"
-        # A job still stopping from the bootout refuses the bootstrap once.
-        launchctl bootstrap "$DOMAIN" "$PLIST" || { sleep 2; launchctl bootstrap "$DOMAIN" "$PLIST"; }
-        echo "loaded $JOB"
-        echo "running $JOB once to find out whether launchd can reach this directory"
-        launchctl kickstart -k "$DOMAIN/$JOB" 2>/dev/null || true
-        sleep 20
-        # A sync still running has no exit status yet, so a pid passes, as an exit of 0 does.
-        line=$(launchctl list | awk -v p="$JOB" '$3 == p { print $1, $2 }')
-        pid=${line%% *}
-        status=${line##* }
-        if [ -n "$line" ] && { [ "$pid" != "-" ] || [ "$status" = "0" ]; }; then
-            if [ "$pid" != "-" ]; then
-                echo "OK: $JOB is running as pid $pid"
-            else
-                echo "OK: $JOB exited 0"
-            fi
-            echo "$JOB runs at :05 every hour and appends to data/logs/scheduled_sync.log"
-        else
-            echo "FAILED: ${line:-$JOB is not loaded}"
-            echo
-            echo "  126 or 1 here means launchd cannot read this checkout. It lives"
-            echo "  under ~/GitHub, which macOS does not protect, so the usual cause is"
-            echo "  a plist still rendered from an old path, or a checkout moved under a"
-            echo "  protected directory: re-run 'just schedule install' from where the"
-            echo "  repository is now. 127 means a tool is not on the PATH the"
-            echo "  template sets."
-            echo
-            echo "  Until then a terminal that runs 'just sync' hourly covers the same"
-            echo "  ground, because it inherits the grant of the terminal that started it."
-            tail -3 data/logs/scheduled_sync.err 2>/dev/null || true
-        fi
-        ;;
-    status)
-        line=$(launchctl list | awk -v j="$JOB" '$3 == j { print "pid " $1 ", last exit " $2 }')
-        echo "$JOB: ${line:-not loaded}"
-        if [ -f data/logs/scheduled_sync.log ]; then
-            echo "--- data/logs/scheduled_sync.log"
-            grep '^===== scheduled' data/logs/scheduled_sync.log | tail -2
-        fi
-        ;;
-    remove)
-        launchctl bootout "$DOMAIN/$JOB" 2>/dev/null || true
-        rm -f "$PLIST"
-        echo "removed $JOB"
-        ;;
-    *) echo "schedule: install remove status" >&2; exit 2 ;;
     esac
