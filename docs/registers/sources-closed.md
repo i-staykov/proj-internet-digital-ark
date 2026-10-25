@@ -6,6 +6,11 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| defacement-ledgers-hack-mirror-rebuild-onething-hnn-wayback-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0907Z | not priced | CLOSED. | <https://web.archive.org/web/19990508202632id_/http://www.onething.com/archive/> |
+| httparchive-2013-11-05-har-bodies-and-unread-2013-items-epoch-wall / httparchive_har_entry | 2026-10-25, fleet 20261025T0907Z | not priced | CLOSED. | <https://archive.org/download/har_httparchive_2013_11_05_0/bodies.zip> <http://www.dardarkom.com/> |
+| httparchive-2013-dec-rerun-partition-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0907Z | 0.0000 EE | CLOSED. HTTP Archive cannot pay on either track as the class stands: every stamp is 2010 to 2013 | <https://archive.org/download/httparchive_2013_12_04_1/131204_1.zip> <http://www.grimeforum.com/> |
+| httparchive-downloads-pages-tables-2010-2013-candidate-window-wall / httparchive_har_entry | 2026-10-25, fleet 20261025T0907Z | 0.0000 EE | CLOSED. Track: candidate | <https://archive.org/download/httparchive_downloads/httparchive_Aug_1_2012_pages.csv.gz> <http://www.tripod.com/> |
+| httparchive-har-2013-09-01-a-bodies-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0907Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/har_httparchive_2013_09_01_A/bodies.zip> <http://www.fitbit.com/> |
 | add-attack-defacement-ledger-arsiv-replay-pages / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. | <https://web.archive.org/web/20130101100050id_/http://add-attack.com/Arsiv> |
 | defacement-ledgers-zone-h-2004-replay-page-and-hack-mirror-sibling-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. | <https://web.archive.org/web/20041230204813/http://www.zone-h.org/en/defacements> <http://www.zone-h.org:80/en/defacements> |
 | httparchive-2011-wpt-iso-date-partition-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012/120809_0.zip> <http://www.sportbox.ru/> |
