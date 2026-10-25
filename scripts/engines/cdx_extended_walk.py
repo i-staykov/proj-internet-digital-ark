@@ -20,8 +20,8 @@ is read from `original`, never from the urlkey, which folds `www.` into the apex
 **Failures cost time, never rows.** A page streams for up to minutes, and the server can cut a
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
-row. A page silent for 60 s answers 504, so its
-100-block subpages 0 and 5 are probed and the other eight asked only if a probe has rows. Any
+row. A page silent for 60 s answers 504 and is booked at once, never paused on; a 1,000-block
+one has its subpages 0 and 5 probed and the other eight asked only if a probe has rows. Any
 other answer marks nothing done: a 429 or 503 pauses the lane for `Retry-After` or a minute a
 throttle, a refusal, `ENETDOWN` or 403 from 30 s doubling to 15 min, and requests start
 `--min-interval` apart, since a burst earns a block of the address.
@@ -367,8 +367,7 @@ class Lane:
         key = key_of(task)
         self.log.write("\t".join(map(str, row)) + "\n")
         tries = self.fails.get(key, 0)
-        silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
-        silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
+        silent = status == "HTTP504" or (status == "HTTP400" and task[1] < PAGE)  # 400: past end
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
