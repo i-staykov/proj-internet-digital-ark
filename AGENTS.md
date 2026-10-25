@@ -30,8 +30,8 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
   contract. Read a host's terms and whole robots.txt first; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
   changes ark-fleet `policy.json` `token`.
-- **Frozen.** His files are append-only; `submissions/` and generated pages (`docs/index.md` marks
-  them) are never hand-edited.
+- **Frozen.** His files are append-only; `submissions/` and generated pages (their first lines name
+  the script) are never hand-edited.
 - **Files.** A rule lives only here, a measured fact only in `docs/lore/laws.md`, code's rationale
   in its docstring or comment.
 - **Done.** Every commit passes the hook gate (ruff, format, scan, pytest). Only a zero exit marks
