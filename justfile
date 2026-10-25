@@ -1142,7 +1142,10 @@ ship stage="all" *args:
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {
-        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: round cleanup skipped"; return 0; fi
+        # Offsite needs a whole-drive remote: a drive.file one sees none of the copies made before.
+        if ! rclone config show gdrive 2>/dev/null | grep -qx 'scope = drive'; then
+            echo "no whole-drive gdrive remote here: round cleanup skipped"; return 0
+        fi
         just verify raw
         just verify offsite --manifest
         just verify offsite --upload --yes
@@ -1160,12 +1163,13 @@ ship stage="all" *args:
         for f in "$archive" "$archive.sha256" "$(dirname "$archive")/MANIFEST.txt"; do
             want=$(shasum -a 256 "$f" | cut -d' ' -f1) got=""
             for _ in 1 2; do
-                rclone copy --checksum "$f" "$dest/"
+                rclone copy --checksum "$f" "$dest/" || true
                 got=$(rclone lsjson --stat --hash --hash-type sha256 "$dest/$(basename "$f")" \
-                    | python3 -c 'import json, sys; print(json.load(sys.stdin)["Hashes"]["sha256"])')
+                    | python3 -c 'import json, sys; print(json.load(sys.stdin)["Hashes"]["sha256"])' 2>/dev/null) \
+                    || got=""
                 [ "$got" = "$want" ] && break
             done
-            if [ "$got" != "$want" ]; then echo "ship drive: $f is $got on Drive" >&2; return 1; fi
+            if [ "$got" != "$want" ]; then echo "ship drive: $f is not on Drive with sha256 $want after two copies" >&2; return 1; fi
         done
         echo "ship drive: $dest, $(rclone link "$dest")"
     }
