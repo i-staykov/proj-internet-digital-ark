@@ -236,4 +236,4 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A local `claude -p` bills the laptop's own Claude login at API rates, while `scripts/harness/standing_rule.py` makes the admit decision with no tokens.
 - VPS corpus bytes go only to `$ARK_PROBE_DIR`, a RAM tmpfs private to one run, since `/tmp` sits on the root disk agentless scanning images (ark-fleet `.github/workflows/leg.yaml`).
 - A sweep of the guessed globs `/tmp/ark_probe*` and `/tmp/ark_run_*` missed `/tmp/arkrun` (ark-fleet `.github/workflows/leg.yaml`).
-- Killed legs left 2.4 GiB of a 3.9 GiB tmpfs (ark-fleet `vps/cleanup.sh`).
+- Killed legs left 2.4 GiB of a 3.9 GiB tmpfs (ark-fleet `host/cleanup.sh`).
