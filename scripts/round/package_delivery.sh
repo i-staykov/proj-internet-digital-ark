@@ -96,8 +96,8 @@ fi
 
 # The same argument as the clean-tree guard, applied to the data: output/ is a
 # snapshot taken by `ark export`, and every ingest since then makes it older than
-# the store. Shipping a stale one understates the result and contradicts the
-# report, which quotes the store. Caught this way once, 1,513 pairs behind.
+# the store. Shipping a stale one understates the result. Caught this way once,
+# 1,513 pairs behind.
 SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
 # Read-only and patient, so a bank holding the writer is a wait and never a refusal that
 # names the wrong cause. The stamps' ledgers must equal the store's, the bank's claim must
@@ -120,19 +120,6 @@ if [ "$SHIPPED" != "$STORED" ]; then
     exit 1
 fi
 
-# The same argument once more, applied to the REPORT. The two guards above keep
-# the code and the data in step with each other, and neither of them looks at the
-# document that describes both. So the report drifted: it was regenerated against
-# a store that the collectors had grown by 10,000 pairs since the archive was
-# cut, and the two shipped side by side quoting different totals. A reviewer
-# checking the headline against `additions/` would have found it wrong, which is
-# the single most likely thing for them to check first.
-#
-# Regenerating is cheap and idempotent, so this rebuilds the report and refuses
-# if that changed anything. A report that is already current is a no-op here.
-# The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while a bank holds the write lock. A busy store
-# prints its failure rather than hiding it.
 # The merge, the overlap counts, the accepted increment and the reconciliation
 # checks, produced here rather than described. It scores every baseline and merged
 # annual file with the reviewer's own calculator, so this is his arithmetic on our
@@ -150,36 +137,6 @@ if ! uv run python scripts/round/merge_against_baseline.py --stamp "$(date -u +%
 fi
 cat output/merge/merge_run.log
 
-# **Before the report is filled, not after.** `fill_report.py` reads the newest
-# `output/merge/merge_audit_ark*.json` for section 8, so running the merge afterwards
-# shipped a report whose merge figures were one packaging run behind the audit beside
-# it. The fill guard below sees this run's audit.
-REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
-FILL_OUT=""
-for _ in $(seq 1 60); do
-    if FILL_OUT=$(uv run python scripts/round/fill_report.py 2>&1); then
-        break
-    fi
-    case "$FILL_OUT" in
-        *"Conflicting lock"*) sleep 5 ;;
-        *) echo "refusing to package: scripts/round/fill_report.py failed" >&2
-           echo "$FILL_OUT" >&2
-           exit 1 ;;
-    esac
-done
-if ! printf '%s' "$FILL_OUT" | grep -q "filled cleanly"; then
-    echo "refusing to package: the report could not be regenerated" >&2
-    echo "$FILL_OUT" >&2
-    exit 1
-fi
-REPORT_AFTER=$(shasum -a 256 docs/report.md | cut -d' ' -f1)
-if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
-    echo "refusing to package: docs/report.md was stale against the store and has been" >&2
-    echo "regenerated. Review the change, commit it, then re-run." >&2
-    git --no-pager diff --stat docs/report.md >&2
-    exit 1
-fi
-
 # His name for the one archive, KnowledgeDiscoveryCompetition_Submission_{SubmissionTime}_{Name}.7z,
 # also names the folder it unpacks to. His SubmissionTime is when he receives it; the packaging
 # minute, UTC, stands in for it.
@@ -190,22 +147,22 @@ mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"/{additions,audit,source,seeds,journals,provenance,baseline}
 
-# The Word report is generated from the markdown, never maintained separately:
-# a hand-made copy silently went 18 hours stale once, so the two disagreed.
-# One report, `docs/report.md`, generated from `docs/report.template.md` by
-# `scripts/round/fill_report.py`. Dated report filenames meant this line had to be
-# repointed every round, and the round it was not repointed shipped the previous
-# round's figures beside this round's data.
-REPORT="docs/report.md"
-# The .docx is built once, by build_report_docx.py with the reference document that
-# sets 10pt body and 0.75in margins. Rebuilding it here with bare pandoc shipped a
-# 12pt four-page copy of the same three-page report, so the built file is copied.
-if [ -f docs/report.docx ]; then
-    cp docs/report.docx "$STAGE/report.docx"
-else
-    echo "warning: docs/report.docx missing, run: just ship docx docs/report.md" >&2
-fi
-cp "$REPORT" "$STAGE/report.md"
+# The report's figures, from the store after this run's merge audit, so the two agree. The
+# report itself is filled from them on the laptop and never ships here: a wording edit then
+# needs no repackage. A bank holding the write lock is a wait, never a refusal.
+FILL_OUT=""
+for _ in $(seq 1 60); do
+    if FILL_OUT=$(uv run python scripts/round/fill_report.py --write-figures "$STAGE/audit/report_figures.json" 2>&1); then
+        break
+    fi
+    case "$FILL_OUT" in
+        *"Conflicting lock"*) sleep 5 ;;
+        *) echo "refusing to package: scripts/round/fill_report.py failed" >&2
+           echo "$FILL_OUT" >&2
+           exit 1 ;;
+    esac
+done
+[ -f "$STAGE/audit/report_figures.json" ] || { echo "refusing to package: no report figures" >&2; echo "$FILL_OUT" >&2; exit 1; }
 # the reviewer's own check, runnable from inside the unpacked folder
 cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
@@ -240,7 +197,7 @@ if [ ! -f "$STAGE/Open Research Questions/Open Research Questions.docx" ]; then
     exit 1
 fi
 
-# The merge audit, produced before the report was filled so the two agree. Copied by
+# The merge audit, produced before the report figures so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
 MERGE_STAMP="$(date -u +%Y%m%d)"

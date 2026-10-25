@@ -23,6 +23,9 @@ legacy-data/
 /data/*
 !/data/baseline.json
 output/
+# Filled on the laptop from an archive's `audit/report_figures.json`.
+docs/report.md
+docs/report.docx
 *.duckdb
 *.duckdb.wal
 *.parquet

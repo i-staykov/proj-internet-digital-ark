@@ -138,8 +138,9 @@ sync` rebuilds; it reads no store, so the bank re-prices a FIND on the store, wh
 `scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
 names with no database, where `grep -Fxf` over his year files pins the CPU.
 
-Draft findings into `docs/report.template.md` as they land; `scripts/round/fill_report.py` turns
-it into `docs/report.md`.
+Draft findings into `docs/report.template.md` as they land; on the laptop, `just ship report
+<archive.7z>` fills it from the archive's `audit/report_figures.json` with no store, into
+`docs/report.md`, its `.docx` and the mail draft.
 
 ## Ship: the owner's procedure
 
@@ -148,16 +149,15 @@ labelled `needs-owner`, opens.
 
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.
    Nothing else uploads.
-2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`, commits the
-   regenerated report and `.docx`, packages our
-   additions alone (a stale or wrong export stamp refuses it), verifies as a reviewer would,
-   re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent, closes the
-   gate issue, and only then uploads and prunes verified round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship
-   --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
+2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`,
+   packages our additions alone (a stale or wrong export stamp refuses it), verifies as a reviewer would,
+   re-scores with his calculator, closes the gate issue, and only then uploads and prunes verified
+   round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
    owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
 3. Extract the tarball outside the repository and follow its README through tier 2, cold
-   (`docs/round/delivery_readme.md`). Then send, once the round cleanup `ship all` runs last
-   exited zero (else `just ship verify` until it does): the draft is written before it.
+   (`docs/round/delivery_readme.md`). `just ship report <archive.7z>` writes the report, its `.docx`
+   and the mail draft. Then send, once the round cleanup `ship all` runs last exited zero (else
+   `just ship verify` until it does).
 
 ## Intake
 

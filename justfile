@@ -1211,17 +1211,6 @@ ship stage="all" *args:
         uv run ark check
         echo "== the round state, with the store sections =="
         uv run python scripts/round/build_round_state.py --full
-        # `package_delivery.sh` regenerates the report and refuses a dirty tree or a report that
-        # changed, so a human reviews the diff. Rebuilding and committing the report and its
-        # .docx here makes this one pass: the diff is nothing but regenerated figures.
-        echo "== regenerating the report and the .docx he asks for =="
-        uv run python scripts/round/fill_report.py
-        uv run python scripts/round/build_report_docx.py docs/report.md
-        if ! git diff --quiet -- docs/report.md docs/report.docx; then
-            git add docs/report.md docs/report.docx
-            git commit -q -m "Regenerate the round report and its .docx before packaging"
-            echo "== committed the regenerated report artifacts =="
-        fi
         echo "== packaging =="
         bash scripts/round/package_delivery.sh "${1:-}"
         echo "== verifying the built delivery the way a reviewer would =="
@@ -1249,12 +1238,12 @@ ship stage="all" *args:
     case "{{stage}}" in
     -h|--help|help)
         echo "just ship <stage> [args]"
-        echo "  all [round]      prep, then build, then the reviewer's calculator, the mail"
-        echo "                   draft, closing the gate issue, and round cleanup"
+        echo "  all [round]      prep, then build, then the reviewer's calculator, closing the"
+        echo "                   gate issue, and round cleanup"
         echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
         echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
-        echo "                   report and .docx, package, verify, round cleanup"
+        echo "                   package, verify, round cleanup"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"
@@ -1262,6 +1251,7 @@ ship stage="all" *args:
         echo "  orq [DIR]        the research-questions folder into DIR (default"
         echo "                   \$TMPDIR/orq), never output/ or submissions/, and the page count"
         echo "  draft [--write]  the mail draft, printed unless --write"
+        echo "  report ARCHIVE   on the laptop: the report, .docx and draft from its figures"
         echo ""
         echo "Nothing above has run. A rehearsal with nothing decided:"
         echo "  just ship draft            print the mail, write nothing"
@@ -1283,6 +1273,17 @@ ship stage="all" *args:
         stage_retention
         ;;
     calculator) uv run python scripts/round/round_figures.py --verify ;;
+    report)
+        # On the laptop, from the archive's figures alone: the report, its .docx and the mail draft.
+        if [ $# -lt 1 ]; then echo "ship report ARCHIVE.7z" >&2; exit 2; fi
+        set -e
+        fresh=$(mktemp -d)
+        7z e -o"$fresh" "$1" "*/audit/report_figures.json" > /dev/null
+        uv run python scripts/round/fill_report.py --figures "$fresh/report_figures.json"
+        rm -rf "$fresh"
+        uv run python scripts/round/build_report_docx.py docs/report.md
+        uv run python scripts/round/ship_mail.py --write --archive "$1"
+        ;;
     docx)
         if [ $# -lt 1 ]; then echo "ship docx SOURCE.md" >&2; exit 2; fi
         # The mail carries the five fields and nothing else; the method goes in an attached
@@ -1340,13 +1341,11 @@ ship stage="all" *args:
         stage_build "$round"
         echo "== the reviewer's own calculator =="
         uv run python scripts/round/round_figures.py --verify
-        echo "== the mail draft =="
-        uv run python scripts/round/ship_mail.py --write --archive "$(newest_stage)"
         close_gate_issue
         # last, so the upload of the round's copies never stands between the build and the mail
         stage_retention
         ;;
-    *) echo "ship: all prep build package verify calculator docx orq draft (--help for the chain)" >&2; exit 2 ;;
+    *) echo "ship: all prep build package verify calculator report docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
 
 # --- unattended ---------------------------------------------------------------

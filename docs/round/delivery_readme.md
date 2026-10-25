@@ -2,7 +2,7 @@
 
 Additions to your annual domain files, 1996 to 2013. A record is one exact hostname in one year,
 kept on its own 2xx or 3xx web capture of that host in that year, and never one your file for that
-year holds. `report.docx` gives the figures; each check below prints one of them.
+year holds. `audit/report_figures.json` holds the report's figures; each check below prints one of them.
 
 ## Check
 
