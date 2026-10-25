@@ -1142,6 +1142,7 @@ ship stage="all" *args:
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {
+        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: round cleanup skipped"; return 0; fi
         just verify raw
         just verify offsite --manifest
         just verify offsite --upload --yes
@@ -1238,8 +1239,8 @@ ship stage="all" *args:
     case "{{stage}}" in
     -h|--help|help)
         echo "just ship <stage> [args]"
-        echo "  all [round]      prep, then build, then the reviewer's calculator, closing the"
-        echo "                   gate issue, and round cleanup"
+        echo "  all [round]      prep, then build, then the reviewer's calculator, verify.sh on"
+        echo "                   a fresh extraction, closing the gate issue, and round cleanup"
         echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
         echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
@@ -1341,6 +1342,15 @@ ship stage="all" *args:
         stage_build "$round"
         echo "== the reviewer's own calculator =="
         uv run python scripts/round/round_figures.py --verify
+        echo "== verify.sh in a fresh extraction of the archive =="
+        archive=$(ls -t submissions/*/*.7z | head -1)
+        ( cd "$(dirname "$archive")" && shasum -a 256 -c "$(basename "$archive").sha256" )
+        fresh=$(mktemp -d "$PWD/output/.fresh.XXXXXX")
+        if ! 7z x -o"$fresh" "$archive" > /dev/null \
+                || ! HIS="$(his_release)" bash "$fresh/$(basename "$archive" .7z)/verify.sh"; then
+            rm -rf "$fresh"; exit 1
+        fi
+        rm -rf "$fresh"
         close_gate_issue
         # last, so the upload of the round's copies never stands between the build and the mail
         stage_retention
