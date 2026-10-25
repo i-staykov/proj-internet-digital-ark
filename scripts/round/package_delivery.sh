@@ -150,36 +150,6 @@ if ! uv run python scripts/round/merge_against_baseline.py --stamp "$(date -u +%
 fi
 cat output/merge/merge_run.log
 
-# **Before the report is filled, not after.** `fill_report.py` reads the newest
-# `output/merge/merge_audit_ark*.json` for section 8, so running the merge afterwards
-# shipped a report whose merge figures were one packaging run behind the audit beside
-# it. The fill guard below sees this run's audit.
-REPORT_BEFORE=$(shasum -a 256 docs/report.md 2>/dev/null | cut -d' ' -f1)
-FILL_OUT=""
-for _ in $(seq 1 60); do
-    if FILL_OUT=$(uv run python scripts/round/fill_report.py 2>&1); then
-        break
-    fi
-    case "$FILL_OUT" in
-        *"Conflicting lock"*) sleep 5 ;;
-        *) echo "refusing to package: scripts/round/fill_report.py failed" >&2
-           echo "$FILL_OUT" >&2
-           exit 1 ;;
-    esac
-done
-if ! printf '%s' "$FILL_OUT" | grep -q "filled cleanly"; then
-    echo "refusing to package: the report could not be regenerated" >&2
-    echo "$FILL_OUT" >&2
-    exit 1
-fi
-REPORT_AFTER=$(shasum -a 256 docs/report.md | cut -d' ' -f1)
-if [ "$REPORT_BEFORE" != "$REPORT_AFTER" ]; then
-    echo "refusing to package: docs/report.md was stale against the store and has been" >&2
-    echo "regenerated. Review the change, commit it, then re-run." >&2
-    git --no-pager diff --stat docs/report.md >&2
-    exit 1
-fi
-
 # His name for the one archive, KnowledgeDiscoveryCompetition_Submission_{SubmissionTime}_{Name}.7z,
 # also names the folder it unpacks to. His SubmissionTime is when he receives it; the packaging
 # minute, UTC, stands in for it.
@@ -190,22 +160,22 @@ mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"/{additions,audit,source,seeds,journals,provenance,baseline}
 
-# The Word report is generated from the markdown, never maintained separately:
-# a hand-made copy silently went 18 hours stale once, so the two disagreed.
-# One report, `docs/report.md`, generated from `docs/report.template.md` by
-# `scripts/round/fill_report.py`. Dated report filenames meant this line had to be
-# repointed every round, and the round it was not repointed shipped the previous
-# round's figures beside this round's data.
-REPORT="docs/report.md"
-# The .docx is built once, by build_report_docx.py with the reference document that
-# sets 10pt body and 0.75in margins. Rebuilding it here with bare pandoc shipped a
-# 12pt four-page copy of the same three-page report, so the built file is copied.
-if [ -f docs/report.docx ]; then
-    cp docs/report.docx "$STAGE/report.docx"
-else
-    echo "warning: docs/report.docx missing, run: just ship docx docs/report.md" >&2
-fi
-cp "$REPORT" "$STAGE/report.md"
+# The report's figures, from the store after this run's merge audit, so the two agree. The
+# report itself is filled from them on the laptop and never ships here: a wording edit then
+# needs no repackage. A bank holding the write lock is a wait, never a refusal.
+FILL_OUT=""
+for _ in $(seq 1 60); do
+    if FILL_OUT=$(uv run python scripts/round/fill_report.py --write-figures "$STAGE/audit/report_figures.json" 2>&1); then
+        break
+    fi
+    case "$FILL_OUT" in
+        *"Conflicting lock"*) sleep 5 ;;
+        *) echo "refusing to package: scripts/round/fill_report.py failed" >&2
+           echo "$FILL_OUT" >&2
+           exit 1 ;;
+    esac
+done
+[ -f "$STAGE/audit/report_figures.json" ] || { echo "refusing to package: no report figures" >&2; echo "$FILL_OUT" >&2; exit 1; }
 # the reviewer's own check, runnable from inside the unpacked folder
 cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
 chmod +x "$STAGE/verify.sh"
