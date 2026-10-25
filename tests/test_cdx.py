@@ -366,18 +366,17 @@ def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_
     assert extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False) == []
 
 
-def test_extended_walk_asks_1996_to_2001_first_wherever_it_prices():
+def test_extended_walk_asks_the_best_ee_a_request_first_whichever_window_pays():
     prices = {
-        "co.nz all": {"p1": 1.0, "p2": 2000.0},
-        "co.uk all": {"p1": 0.0, "p2": 900.0},
-        "co.uk p1": {"p1": 3.0, "p2": 0.0},
-        "com.au all": {"p1": 40.0, "p2": 500.0},
+        "com.pk all": {"p1": 0.14, "p2": 40.7},
+        "me.uk all": {"p1": 0.0, "p2": 11156.4},
+        "co.uk p1": {"p1": 40.84, "p2": 0.0},
         "gov.au all": {"p1": 0.0, "p2": 0.0, "n": 6},
         "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
     }
     units = [tuple(u.split()) for u in prices]
     priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, explore=2)
-    assert priced == [("co.nz", "all"), ("com.au", "all"), ("co.uk", "p1"), ("co.uk", "all")]
+    assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all")], "p1 breaks the tie"
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
