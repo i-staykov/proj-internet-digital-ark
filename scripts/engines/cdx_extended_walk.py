@@ -22,9 +22,10 @@ its ten exact 1/10 subpages, last first, stopping at the subpage that starts bef
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
 subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
-lane for `Retry-After` or a minute a throttle, a refusal, `ENETDOWN` or 403 from 30 s doubling
-to 15 min, eased only by an answer, and requests start `--min-interval` apart, since a burst
-earns a block of the address.
+lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
+and 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
+403 from 30 s doubling to 15 min, eased only by an answer; and requests start
+`--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -373,9 +374,8 @@ class Lane:
             elif status == "HTTP504":  # the page's silence, not the address's: no pause
                 self.requeue(task, front=True)
             elif status in THROTTLES:
-                self.throttled += 1
-                wait = after or 60.0 * self.throttled
-                self.back_off(task, max(wait, 1800) if self.throttled >= 6 else wait, status)
+                self.throttled += 1  # ten, nothing booked between: an address block
+                self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
             elif status in FAST and self.transient < self.a.max_transient:
                 self.transient += 1
                 self.requeue(task, front=True)
@@ -384,8 +384,9 @@ class Lane:
                 self.refused, self.transient = self.refused + 1, 0
                 self.back_off(task, min(900, 30 * 2 ** min(self.refused - 1, 5)), status)
             return
-        if status == "200":  # only an answer eases the back-off
-            self.throttled = self.refused = self.transient = 0
+        self.throttled = 0
+        if status == "200":  # only an answer eases the refusal back-off
+            self.refused = self.transient = 0
         self.inflight.discard(task)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut

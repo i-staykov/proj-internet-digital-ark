@@ -407,7 +407,11 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
     lane.settle(page, "200", False, 5, ["k1", "k5"], None, ["row"])  # cut at k5
     p9 = lane.take()
     assert p9[1:3] == (100, 79)
-    lane.settle(p9, "HTTP503", False, 0, [], None, ["row"])  # backed off, still owed
+    for n in range(10):  # flat a minute, then an address block's 15 after ten in a row
+        lane.pause_until = 0
+        lane.settle(p9, "HTTP503", False, 0, [], None, ["row"])  # backed off, still owed
+        assert round(lane.pause_until - time.time(), -1) == (900 if n == 9 else 60)
+        assert lane.take() == p9
     restarted = lane_with(page)
     assert restarted.subq[0] == p9 and restarted.meta[p9] == ("cut", "co.uk 1000 7 1996 2013", "k5")
     p9 = restarted.take()
