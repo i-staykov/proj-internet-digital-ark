@@ -1468,7 +1468,7 @@ vm what="status":
         ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
         stat -c "%a %n" .config/gh/hosts.yml ark/local.env;
-        grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
+        grep -E "^(===== scheduled|login ok|LOGIN DEAD)" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -4' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
     *) echo "vm: install copy status log" >&2; exit 2 ;;
     esac
