@@ -11,3 +11,4 @@ WorkingDirectory=%h/ark
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/bash %h/ark/scripts/harness/scheduled_sync.sh
 Nice=5
+UMask=0077
