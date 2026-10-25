@@ -153,6 +153,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - Mail-archive cost is `crawl-delay`, not bandwidth: `mail.gnome.org` read 1,415 files in 562 s, `mail.python.org` at `crawl-delay: 2` 1,207 in 2,400 s; `just find crawl-delay`.
 - Dartmouth ARCS per-item CDX, 25 in-window items: 20.6 EE per MB gzip, 1,363 to 29,078 EE an item, 60% to 98% `www.` of a held parent; `just find dartmouth_arcs_cdx_hostnames`.
 - The one public node CDX, `host_cdx_ia600702` (57.6 GB gzip), read whole: 931,864 host-years, 88% held, 104,347 records, 50,722 EE, 0.9 EE per MB; `just find host_cdx_ia600702`.
+- The End of Term web archive's nine CDXJ index parts (eotarchive S3, CC0, 22.8 GB gzip), streamed whole on the VM in about two hours: 341,915 net-new 2002 to 2013 host-years, 225,160.61 EE (2004 12,429, 2005 6, 2008 16,186, 2009 33,406, 2012 66,321, 2013 96,813), 9.9 EE per MB, reproducing the 10-18 price of 225,168.52 EE; `scripts/sources/eot/eot_cdxj.py`, `output/extended_years/evidence_ledger.csv`.
 - Ingesting `host_cdx_ia600702` needs a 28 GB DuckDB memory limit, `ARK_DB_MEMORY_LIMIT` in `local.env` (`src/ark/db.py`).
 - Arquivo.pt `IA.cdxj` (50,930,113,941 bytes) is a hostname-grain custodian extract, fetched in parallel ranges in about 25 minutes (`scripts/sources/arquivo/fetch_ia_cdxj.sh`).
 - Arquivo.pt's robots.txt disallows `/wayback`, `/cdxj`, `/services` and `/datasets` for `User-agent: *`, so `IA.cdxj` is no CDX substitute; `just find IA.cdxj`.
