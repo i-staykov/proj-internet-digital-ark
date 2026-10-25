@@ -1,31 +1,12 @@
 # ark: the command set. `just` alone lists it, so an existing tool is found before one is written.
-#
-# Thin wrappers over the `uv run ...` commands, so the ORDER is hard to get wrong; the raw
-# commands stay the reproducibility contract. docs/ops/runbook.md has the procedures.
 
 set quiet := true
 
-# every recipe, plus the choices the dispatching ones take
-help:
-    just --list
-    echo ""
-    echo "Dispatching recipes:"
-    echo "  just check <what>       all code data lint fmt test scan"
-    echo "  just collect <source>   no source lists them"
-    echo "  just hold <what> [name] on off status"
-    echo "  just reproduce <stage>  all baseline sources candidates journals seeds deliver"
-    echo "  just ship <stage>       all prep build package verify calculator docx orq draft"
-    echo "  just verify <what>      raw trees delivery offsite"
-
-# --- the environment ----------------------------------------------------------
-
-# sync the locked environment (installs deps into .venv)
+# sync the locked environment into .venv
 setup:
     uv sync
 
-# Hooks live in hooks/ because .git/hooks is not versioned.
-#
-# install the git hooks into .git/hooks
+# install the git hooks from hooks/ into .git/hooks
 hooks:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -36,16 +17,10 @@ hooks:
         echo "installed .git/hooks/$n -> hooks/$n"
     done
 
-# run any CLI command directly, e.g. `just run stats` or `just run cdx --help`
+# run any ark CLI command, e.g. `just run stats` or `just run cdx --help`
 run *args:
     uv run ark {{args}}
 
-# --- validating ---------------------------------------------------------------
-
-# `ark check` validates the DATA, the test suite the CODE, and each keeps its own word;
-# bare `just check` runs both. `scan` is the last gate before tracked bytes are
-# world-readable, and is the command the pre-commit hook and CI run.
-#
 # validate: all (default) code data lint fmt test scan
 check what="all":
     #!/usr/bin/env bash
@@ -70,16 +45,6 @@ check what="all":
     *) echo "check: all code data lint fmt test scan" >&2; exit 2 ;;
     esac
 
-# Prove what is on DISK, as opposed to the code or the store.
-#
-#   raw       checksum every data entry and regenerate docs/registers/retention.md. A
-#             path with no row in that table is not deletable.
-#   trees     every zip member of a release against the file on disk, by size and CRC-32
-#   delivery  a built delivery as the reviewer reads it: checksums, pair counts, and that
-#             every shipped pair traces to an observation. Takes the directory.
-#   offsite   the off-site copy of what nothing else could bring back. Never deletes
-#             anything, either side.
-#
 # prove what is on disk: raw trees delivery offsite
 verify what="" *args:
     #!/usr/bin/env bash
@@ -93,50 +58,23 @@ verify what="" *args:
     *) echo "verify: raw trees delivery offsite" >&2; exit 2 ;;
     esac
 
-# --- where the round stands ---------------------------------------------------
-
-# Assembled from the claim files and the programs that own each figure, so no number in it
-# is a second copy. No store unless `--full`; `--check` exits 1 when a claim file has changed
-# since the file's footer.
-#
-# regenerate docs/ROUND.md, the generated statement of where the round stands
+# regenerate docs/ROUND.md from the store; --check exits 1 when it is stale
 state *args:
     uv run python scripts/round/build_round_state.py {{args}}
 
-# Reads the data/brief.json snapshot the bank and `just state` leave.
-# Never opens the store or runs ssh, so a session-start hook can call it inside its timeout.
-#
-# where the round stands, read from the last snapshot rather than the store
+# where the round stands, from the last snapshot, never the store or ssh
 brief:
     uv run python scripts/agents/brief.py
 
-# The reviewer's first priority in one command: unprocessed files, globs that match too
-# little, downloaded bytes with no parser. Read-only and NOT a gate.
-#
 # what is on disk that nothing has read, and what the documented path would miss
 residual *args:
     uv run python scripts/harness/audit_residual.py {{args}}
 
-# One pass of the harness: collector yield, unbanked journals, pending approvals,
-# docs/ROUND.md. It ends with the items
-# no program can decide, which is the part worth reading. `--until EPOCH --every SECS`
-# loops; `--no-network` skips the re-probe, the only step that leaves the machine.
-#
 # check the round once and report what needs judgement
 cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
 
-# The hourly tick: drain the fleet's findings, book the ones that need no store, bring the
-# lanes' finished journals home, and call `just bank` only when `bank_trigger.py`
-# names something that arrived. It opens no store itself, so a quiet hour holds no writer.
-# The VM's `ark-sync.timer` runs it hourly, and it is safe to run by hand.
-#
-# Idempotent by construction: an unfinished run is re-downloaded and a drained slug is dropped
-# rather than re-booked. `data/logs/.sync.lock` is taken first and handed to the bank, so a
-# hand run and the hourly job cannot meet in the store, and the one that arrives second says
-# who has it and stops.
-#
-# drain and book the fleet's findings, then bank only what arrived
+# the hourly tick: drain and book the fleet's findings, then bank only what arrived
 sync fleet="~/GitHub/ark-fleet":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -274,11 +212,7 @@ sync fleet="~/GitHub/ark-fleet":
         echo "push: held while BANK RED stands"
     elif [ -f data/logs/.push_pending ]; then
         if uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
-            && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
-                --publish-expected "$FLEET" \
-            && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
-            && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
-                | cmp -s - "$FLEET/snapshot.json"; then
+            && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" --snapshot; then
             rm -f data/logs/.push_pending
             echo "push: the snapshot is staged, and fleet main expects its claim"
         else
@@ -287,14 +221,6 @@ sync fleet="~/GitHub/ark-fleet":
     fi
     exit "$BANK_RC"
 
-# The store's only writer. It runs what arrived: new journals and a new baseline (c), a
-# confirmed FIND (a), a changed approvals page or a standing-rule decision (b); then the round
-# state, the stamp, one commit and the fleet's queue (d), and the snapshot push (e). Journals
-# go first, so a FIND is priced on a store that holds them and a red there leaves no
-# `Decision:` line behind. A red writes data/logs/bank_red.json, and nothing banks until
-# `uv run python scripts/harness/bank_trigger.py clear`. The tick hands it the lock through
-# ARK_LOCK_HELD; by hand it takes the lock and runs the preflight itself.
-#
 # bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
 bank *args:
     #!/usr/bin/env bash
@@ -545,93 +471,40 @@ bank *args:
     elif uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
         && { uv run python scripts/harness/ack_journals.py --out output/journal_acks.tsv >/dev/null \
             || echo "ack skipped: the fleet keeps its journals"; } \
-        && uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
-            --publish-expected "$FLEET" \
-        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
-        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
-            | cmp -s - "$FLEET/snapshot.json"; then
+        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" --snapshot; then
         rm -f data/logs/.push_pending
     else
         echo "push pending: the stage or fleet main did not take the snapshot, the next tick retries"
     fi
 
-# The route into the three register pages: `.claude/settings.json` denies a read, `grep` or
-# `sed` of sources*.md. One truncated line per hit: page and line, source key, verdict, net-new EE,
-# the shape the term sat in, and the text; `--detail` prints one approved-page entry whole.
-# Nothing prints over 40 lines without `--all`. Exit 1 is "not in the register", exit 2 is
-# "the search did not run": different answers.
-#
-#   just find iedr                            every hit, over all three pages
-#   just find iedr_register --detail          that approved-page entry, whole
-#   just find blocklist squidguard            hits under one source key
-#   uv run python scripts/round/find.py "ftp listing"   multi-word: `just` splits arguments
-#
 # search the three register pages, one truncated line per hit
 find *args:
     uv run python scripts/round/find.py {{args}}
 
-# --- proposing and pricing a source -------------------------------------------
-
-# Does the proposal collide with a family already closed with a measurement, and what dates
-# ONE of its items. Both register pages are parsed at run time rather than copied, so it
-# cannot drift. Exits 2 if no dating claim is made: a source whose
-# items carry no date is seed-only, and that decides what it can ever be.
-#
 # screen a source proposal against the closed register before it costs a request
 screen *args:
     uv run python scripts/harness/screen_hypothesis.py {{args}}
 
-# Turn a URL into a priceable journal from a TOML description, so a source can be measured
-# before anyone decides whether it is worth a hand-written collector. It refuses to guess a
-# column, reports what it threw away by reason, and its output has no ingest spec, so no
-# probe can date a year. Then `just price --items data/raw/probes/<name>.jsonl`.
-#
 # price a source from a TOML description, writing no Python
 probe spec *args:
     uv run python scripts/pricing/probe_source.py {{spec}} {{args}}
 
-# Price {host, year, text} or {url, timestamp, status} JSONL on both parts, 1996 to 2001 and
-# 2002 to 2013, each beside its gate, against the snapshot the fleet prices on: his files, our
-# last export, his calculator. `--track candidate` for undated names, `--split none` for a
-# self-dating record. Reads no store, so it runs while the lock is held; writes nothing.
-#
 # price any dated corpus on both parts, writing nothing
 price *args:
     uv run ark price-snapshot --snapshot output/fleet_snapshot {{args}}
 
-# The same question at the second accepted unit. `price` collapses every name to its
-# registrable, so a hostname corpus prices near 0 there. This runs the ingest's own funnel and
-# differences against hostname_year AND his baseline files, read-only, so a corpus gets its
-# number without the write lock.
-#
 # price a corpus at hostname grain against the live store, writing nothing
 price-hosts *args:
     uv run python scripts/pricing/price_hostnames.py {{args}}
 
-# A source class may not date a year until a human classifies it, and `ark ingest` enforces
-# that rather than trusting anyone to remember. This writes the request: a seeded-random
-# sample of real records with live links, the measured figures, and what the source is worth
-# under each possible decision. Candidate-only evidence needs no approval.
-#
 # ask a human to classify a source class before its records can date a year
 approve *args:
     uv run python scripts/harness/request_approval.py {{args}}
 
-# Re-ask every source closed because something could not be REACHED, as opposed to closed
-# because a measurement killed it. It extracts the failed hosts from the verdict prose and
-# asks again. A 200 is news only when the verdict did not already predict one.
-#
 # re-probe every availability-closed lead, and report only what changed
 reprobe *args:
     uv run python scripts/harness/reprobe_closed.py {{args}}
 
-# --- reproducing the result ---------------------------------------------------
-
-# The whole result from an empty store, offline, in six stages. Needs the bulk sources in
-# data/raw/, the supplied baseline in legacy-data/ that the audit measures, AND his current
-# release, since net-new is defined against his files. To collect NEW evidence, see the network
-# recipes below. `just reproduce` runs all six in order; a stage name runs one.
-#
 # rebuild offline: all (default) baseline sources candidates journals seeds deliver
 reproduce stage="all":
     #!/usr/bin/env bash
@@ -879,39 +752,11 @@ reproduce stage="all":
     *) echo "reproduce: all baseline sources candidates journals seeds deliver" >&2; exit 2 ;;
     esac
 
-# Needs no source data at all, only the held sets `ark intake` writes. About eight minutes, plus
-# about three for `ark intake`, and byte-identical.
-#
-# tier 2: regenerate every result file from a provenance export. `ark export` does not
-# write that export unless asked, so refresh it with `ark export --provenance` first or
-# this rebuilds whatever was last shipped.
+# tier 2: regenerate every result file from a provenance export, then check
 rebuild dir="output/provenance":
     uv run ark rebuild {{dir}}
     uv run ark check
 
-# --- the per-source collectors ------------------------------------------------
-
-# One source per invocation. Each is collect-then-split: the collector writes a journal and
-# touches no database, the split sorts it into a dated half and a candidate half. The split
-# is the evidence wall for every free-text source, so it is not optional.
-#
-#   apache-headers               Apache list relay hosts, dated per message
-#   attrition                    the defacement mirror index, no request sent
-#   enron                        the FERC corpus, dated per message
-#   maillists                    public pipermail archives, dated per message
-#   pandora-seed                 the PANDORA title index into the candidate pool
-#   rtfm-faqs [tag]              the Usenet FAQ mirror, dated by revision header
-#   trade-press [limit]          scanned computer magazines, dated by issue
-#   trade-press-american [journal]
-#   trade-press-reextract        re-read the cached OCR, no request sent
-#   tucows                       software release dates plus the vendor's home page
-#   usenet-addresses [mode] [workers]
-#   usenet-bare [workers]        bare `foo.com` in the bodies
-#   usenet-ingest [tag]          split and ingest whatever has finished downloading
-#   usenet-measure ARCHIVES...   yield against the store BEFORE ingesting
-#   usenet-whois [workers]       whois records pasted into the bodies
-#   uucp-maps                    a .CA registry dump that travelled over Usenet
-#
 # run one per-source collector by name; no name lists them
 collect source="" *args:
     #!/usr/bin/env bash
@@ -1058,27 +903,11 @@ collect source="" *args:
     *) echo "collect: no source called '{{source}}'; run 'just collect' for the list" >&2; exit 2 ;;
     esac
 
-# --- retention ----------------------------------------------------------------
-
-# Fill docs/registers/releases.md from what is on disk: per-year line counts of every
-# extracted release tree under ding/, and the sha256 of the reviewer's zip or of our
-# data/archive/<marker>.tar.zst where there is none. Writes only the cells it can compute, so
-# a hash outlives the zip leaving the machine. `--zstd` packs the zip-less trees first;
-# `--refresh` recounts and rehashes everything.
-#
 # fill docs/registers/releases.md from the release trees on disk
 releases *args:
     uv run python scripts/round/releases.py {{args}}
 
-# Take one reviewer release: verify the zip's sha256, extract it beside the other releases,
-# count the year files, remeasure them with his own calculator, point data/baseline.json at
-# the new marker and refresh docs/registers/releases.md; `--mail` also writes the round's row
-# in docs/registers/rounds.md. Every figure comes from the extracted files, never from his
-# mail. A second run on the same zip changes nothing, `--dry-run` says what it would do, and a
-# marker already recorded under a different sha256 stops the run. Then `ark intake` writes the
-# held sets every diff against him reads; nothing of his enters the store.
-#
-# take one reviewer release: verify, extract, remeasure, record
+# take one reviewer release: verify, extract, remeasure, record, publish the snapshot
 intake *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -1094,44 +923,18 @@ intake *args:
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
     FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
-        --publish-expected "$FLEET" \
-        && bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" \
-        && git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
-            | cmp -s - "$FLEET/snapshot.json" \
+    bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL" --snapshot \
         || { touch data/logs/.push_pending; echo "push pending: the next tick retries"; }
 
-# Write a round's row in docs/registers/rounds.md from the reviewer's verdict mail: his five
-# figures parsed, S and t computed from the two stamps rather than read off the mail, and a
-# benchmark he never sent marked not received. Pass the mail, the round label and the receipt
-# stamp in his clock, e.g.
-# `just rounds --mail private/mail/verdict7.txt --round 7 --received "2026-09-02 05:50"`.
-#
 # write a round's row in docs/registers/rounds.md from his verdict mail
 rounds *args:
     uv run python scripts/round/rounds.py {{args}}
 
-# The report reads the retention register and deletes nothing. --round and --disk list
-# what they would delete, each file with its proof, and --write deletes what is proven;
-# --disk never touches submissions/, a journal, a sidecar or a store backup.
-#
 # report retention, or list and delete what somebody serves again
 prune *args:
     uv run python scripts/round/prune.py {{args}}
 
-# --- shipping -----------------------------------------------------------------
-
-# The round-end sequence, in the one order that works, as one recipe. The stages, and what
-# each one runs: `just ship --help`, which prints the chain and runs none of it.
-#
-# The store moves only inside `just bank`, and ship holds the sync lock from its bank to the
-# package, so no tick banks in between. `package_delivery.sh` refuses unless the export stamp
-# is a full export whose ledger matches the store and whose claim equals the bank's.
-#
-# **Safe to rehearse with nothing decided.** `bank_approved.py` reports and SKIPS anything
-# still pending, and `just ship draft` prints the mail it would send without writing it.
-#
-# ship the round: bank, export, gate, package, verify, draft the mail
+# ship the round: all (default) prep build package verify calculator report drive docx orq draft
 ship stage="all" *args:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -1397,19 +1200,15 @@ ship stage="all" *args:
     *) echo "ship: all prep build package verify calculator report drive docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
 
-# --- unattended ---------------------------------------------------------------
-
-# Long form: the header of scripts/harness/hold.sh.
-#
-# stop the hourly job, pause-platform and the fleet workflows until lifted: on off status
+# hold the tick, pause-platform and the fleet workflows until lifted: on (default) off status
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
-# the CDX walk's lanes on the ARK_HOSTS machines, unattended: install status remove
+# the CDX walk's lanes on the ARK_HOSTS machines: status (default) install done remove
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}
 
-# the bank host ARK_VM, over the VPN: install copy status log
+# the bank host ARK_VM, over the VPN: status (default) install log
 vm what="status":
     #!/usr/bin/env bash
     set -euo pipefail

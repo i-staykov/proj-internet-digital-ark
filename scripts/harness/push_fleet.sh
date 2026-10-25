@@ -7,18 +7,27 @@
 # refspec pushes whatever branch the clone is on, so name the branch and refuse.
 # The tick and `just bank` both call it; a push that never lands is shouted, not fatal.
 #
-# Usage: bash scripts/harness/push_fleet.sh <fleet clone> <label>
+# With --snapshot it first writes the staged snapshot's claim into the clone's snapshot.json,
+# and exits non-zero unless fleet main holds it after the push.
+#
+# Usage: bash scripts/harness/push_fleet.sh <fleet clone> <label> [--snapshot]
 set -euo pipefail
 
 FLEET="${1:?push_fleet.sh <fleet clone> <label>}"
 LABEL="${2:?push_fleet.sh <fleet clone> <label>}"
+SNAPSHOT="${3:-}"
 
 BR="$(git -C "$FLEET" branch --show-current)"
 if [ "$BR" != main ]; then
     echo "fleet clone is on $BR, not main: statuses, ledger and snapshot.json uncommitted."
     echo "  A leg picks from main, so a stranded verdict re-deals a settled slug."
     echo "  Check the clone out on main and re-run the sync."
-    exit 0
+    [ "$SNAPSHOT" != --snapshot ]
+    exit
+fi
+if [ "$SNAPSHOT" = --snapshot ]; then
+    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+        --publish-expected "$FLEET"
 fi
 # **A rejected push must never be swallowed**: a queue that still reports settled
 # leads as open keeps the generator from refilling it. Fetch, replay our writes onto
@@ -80,3 +89,5 @@ for kind, rows in kinds.items():
     echo "  open leads until they land, so the dealer will re-deal settled work."
     exit 1
 ) || true
+[ "$SNAPSHOT" != --snapshot ] || git -C "$FLEET" show origin/main:snapshot.json 2>/dev/null \
+    | cmp -s - "$FLEET/snapshot.json"
