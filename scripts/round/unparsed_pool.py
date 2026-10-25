@@ -153,8 +153,10 @@ def main() -> int:
             # a registrable, and XII asks for a file of malformed-but-recoverable values.
             if why != "is_registrable":
                 fh.write(f"{value}\t{why}\n")
-    # stamped with the scan's start, so a journal written while it ran is newer next time
-    os.utime(args.out, (started, started))
+    # Stamped with the scan's start, so a journal written while it ran is newer next time; a cut
+    # pass is stamped at the epoch, so the next `--incremental` reads every journal again.
+    stamp = 0 if args.limit or args.stable_after else started
+    os.utime(args.out, (stamp, stamp))
     tail = " (stopped on saturation)" if counts.get("stopped_on_saturation") else ""
     print(f"{read:,} journals, {counts['values']:,} values, {len(seen):,} distinct refused{tail}")
     for why, n in counts.most_common():

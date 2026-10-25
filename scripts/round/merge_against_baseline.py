@@ -40,6 +40,7 @@ import argparse
 import csv
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from decimal import Decimal
@@ -105,8 +106,9 @@ HOSTNAMES = _first_holding(
 )
 
 
-# Each summary by its file's sha256, beside the held sets of the release it scores against, so a
-# file scored once is never rescored and the next `ark intake` drops both; no cache without them.
+# Each summary keyed by its file's content, sha256, beside the held sets of the release it scores
+# against, so a file scored once is never rescored; an intake of another release drops both, and
+# none is kept where no held set is.
 SCORES = Path("data/held") / CURRENT_BASELINE_MARKER / "scores"
 
 
@@ -125,7 +127,9 @@ def score(path: Path, work: Path) -> dict:
     summary = (out / "summary.json").read_text(encoding="utf-8")
     if SCORES.parent.is_dir():
         SCORES.mkdir(exist_ok=True)
-        cached.write_text(summary, encoding="utf-8")
+        part = cached.with_suffix(".part")
+        part.write_text(summary, encoding="utf-8")
+        os.replace(part, cached)
     return json.loads(summary)
 
 
