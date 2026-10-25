@@ -1083,9 +1083,13 @@ releases *args:
 intake *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    release() { python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])'; }
+    PREV=$(release)
     uv run python scripts/round/intake.py {{args}}
     case "{{args}}" in *--dry-run*) exit 0 ;; esac
     uv run ark intake
+    # One release on the bank host: the one replaced goes once the held sets are rebuilt.
+    if [ "$(release)" != "$PREV" ] && [[ "$PREV" == ding/* ]]; then rm -rf "$PREV"; fi
     # a new baseline the fleet cannot see prices every wave against a stale ceiling
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
     FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
@@ -1416,25 +1420,6 @@ vm what="status":
     # path and still exits 0.
     VMHOME=$($SSH 'echo $HOME')
     case "{{what}}" in
-    copy)
-        # The store and the outputs, whole, while no tick here can write them; the lock the
-        # tick takes refuses a second copy. Re-runnable: rsync moves only what changed.
-        if ! bash scripts/harness/hold.sh holds com.ark.sync; then
-            echo "vm copy: hold the tick first, 'just hold on'" >&2; exit 1
-        fi
-        if ! bash scripts/harness/sync_lock.sh take $$; then exit 1; fi
-        trap 'bash scripts/harness/sync_lock.sh drop' EXIT
-        # The store, the outputs and his current release (`data/baseline.json` names its
-        # directory under ding/; the bank refuses without it). Not the VM's own lane state,
-        # which its walker owns, nor git's baseline.json, nor this machine's lock, logs, marker,
-        # red and DuckDB spill; a cut store stays a partial, never the file the timer's
-        # condition looks for.
-        rsync -aR --partial-dir=.rsync-partial --progress --timeout=300 -e "${SSH% $ARK_VM}" \
-            --exclude 'data/raw/cdx_walk/' --exclude 'data/baseline.json' --exclude 'data/duckdb_tmp/' \
-            --exclude 'data/logs/*.log' --exclude 'data/logs/.sync.lock' \
-            --exclude 'data/logs/.push_pending' --exclude 'data/logs/bank_red.json' \
-            data output "$(dirname "$(python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])')")" "$ARK_VM:$VMHOME/ark/"
-        ;;
     install)
         if bash scripts/harness/hold.sh holds com.ark.sync; then
             echo "vm install: the tick is held; the VM's timer would lift it, 'just hold off' first" >&2; exit 1
@@ -1470,7 +1455,7 @@ vm what="status":
         stat -c "%a %n" .config/gh/hosts.yml ark/local.env;
         grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
-    *) echo "vm: install copy status log" >&2; exit 2 ;;
+    *) echo "vm: install status log" >&2; exit 2 ;;
     esac
 
 # The launchd job: com.ark.sync runs `just sync` at five past every hour, which banks what
