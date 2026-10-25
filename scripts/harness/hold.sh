@@ -51,7 +51,7 @@ remote_hosts() { for h in ${ARK_HOSTS:-}; do [ "${h%:*}" = local ] || echo "$h";
 vm() {
     if [ -n "${ARK_VM:-}" ]; then
         ssh -o ConnectTimeout=15 -o BatchMode=yes "$ARK_VM" "$1" < /dev/null 2>/dev/null
-    else
+    elif command -v systemctl > /dev/null; then
         bash -c "$1" < /dev/null 2>/dev/null
     fi
 }
