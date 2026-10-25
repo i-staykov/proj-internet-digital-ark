@@ -9,9 +9,10 @@ per (host, year), the earliest, as `{url, timestamp, status}` in
 sha256 is the part's own, so a cut stream books nothing; a part with a journal is done, and
 a failed one is retried after the others, three times at most (`.eot_<part>.failed`).
 
-One part a run, none while the tick is held: the tick starts it after the bank as its own
-user unit, `ark-eot`, so it outlives the tick (`scripts/harness/scheduled_sync.sh`). Peak disk
-is one part's journal.
+Every part left, back to back, the hold read between parts: the tick starts it after the bank
+as its own user unit, `ark-eot`, so it outlives the tick and never runs twice
+(`scripts/harness/scheduled_sync.sh`). A part streams in about 18 minutes, 11 GB an hour; peak
+disk is one part's journal.
 
     uv run python scripts/sources/eot/eot_cdxj.py
 """
@@ -112,10 +113,12 @@ def failures(part: str) -> int:
 
 
 def main() -> None:
-    if subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode == 0:
-        return print("eot: held")
-    todo = [p for p in PARTS if not (OUT / f"eot_{p}.jsonl.gz").exists() and failures(p) < 3]
-    print(read(min(todo, key=failures)) if todo else "eot: every part read or given up")
+    while subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode:
+        todo = [p for p in PARTS if not (OUT / f"eot_{p}.jsonl.gz").exists() and failures(p) < 3]
+        if not todo:
+            return print("eot: every part read or given up", flush=True)
+        print(read(min(todo, key=failures)), flush=True)
+    print("eot: held", flush=True)
 
 
 if __name__ == "__main__":
