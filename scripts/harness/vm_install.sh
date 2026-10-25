@@ -23,6 +23,18 @@ fi
 # pandoc builds the archive's Open Research Questions.docx.
 dpkg -s p7zip-full pigz pandoc > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz pandoc ||
     root "apt-get install -y p7zip-full pigz pandoc"
+# rclone from its own release, as gh above: a distribution's is too old for Drive's sha256. Its
+# remote is the owner's, once: `rclone config create gdrive drive scope=drive.file` here, the
+# token from `rclone authorize drive` on the laptop; the secret stays in ~/.config/rclone.
+if ! command -v rclone > /dev/null; then
+    zip=$(mktemp)
+    curl -sL "https://downloads.rclone.org/rclone-current-linux-$(dpkg --print-architecture).zip" -o "$zip"
+    7z e -y -o"$HOME/.local/bin" "$zip" '*/rclone' > /dev/null && chmod 755 ~/.local/bin/rclone
+    rm -f "$zip"
+fi
+[ ! -f ~/.config/rclone/rclone.conf ] || chmod 600 ~/.config/rclone/rclone.conf
+rclone listremotes 2> /dev/null | grep -qx gdrive: ||
+    echo "no gdrive remote: rclone config create gdrive drive scope=drive.file (the owner, once)"
 
 [ -d ~/ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ~/ark
 git -C ~/ark pull -q --ff-only
