@@ -380,8 +380,21 @@ def test_extended_walk_asks_the_best_ee_a_request_first_whichever_window_pays():
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
+def test_extended_walk_asks_questions_after_every_priced_page_a_thousandth_of_a_page_each():
+    prices = {"me.uk all": {"p1": 0.0, "p2": 11156.0}, "ask-gap ask": {"p1": 1.25}}
+    prices |= {"ask-edge ask": {"n": 4999}, "ask-pool ask": {"n": 5000}}
+    units = [tuple(u.split()) for u in [*prices, "ask-new ask"]]
+    asked = {("ask-edge", "ask"): 1999, ("ask-new", "ask"): 2000}
+    priced, exploring, waiting = extended.rank(units, prices, asked, explore=2)
+    assert priced == [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask")]
+    assert exploring == [] and waiting == [("ask-new", "ask")], "ask-pool is dropped"
+
+
 def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(tmp_path):
-    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "order.json", max_transient=0)
+    a = SimpleNamespace(
+        state_dir=tmp_path, order=tmp_path / "o.json", max_transient=0, data=tmp_path
+    )
+    a.questions = False
     page = ("co.uk", 1000, 7, 1996, 2013, "all")
 
     def lane_with(page):
