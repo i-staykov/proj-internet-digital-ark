@@ -90,6 +90,8 @@ def install() -> None:
         for w in ("@reboot", "'*/10 * * * *'")
     )
     sh(f"mkdir -p {DATA}/logs; (crontab -l 2>/dev/null | grep -v '{TAG}'; {lines}) | crontab -")
+    if sh(f"crontab -l | grep -c -- '--lanes {LANES} .*{TAG}'") != str(2 * LANES):
+        raise SystemExit("walk install: the crontab did not take; the tick stops no walker")
     print(f"{LANES} lanes of {WORKERS} workers:", sh(f"git -C {CODE} log --oneline -1"))
 
 
