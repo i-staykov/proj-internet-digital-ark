@@ -32,8 +32,7 @@ unless it adds a capability the round needs.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
-- #395 the justfile at one comment line per recipe; #397 no page restates another; #402 the
-  VM's posture in one runbook table.
+- #395 the justfile at one comment line per recipe; #397 no page restates another.
 - #398 the suite keeps only the tests that fail when a shipped thing is wrong.
 - #406 the laptop keeps no copy of the VM's data and intake runs on the VM; #408 the next VM ship
   times the export and the merge against the Kill.
