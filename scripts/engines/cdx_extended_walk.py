@@ -192,9 +192,8 @@ class Lane:
 
     def __init__(self, a: argparse.Namespace):
         self.a, self.lock, self.pages, self.asked = a, threading.Lock(), {}, {}
-        done = a.state_dir / "done.txt"
-        lines = done.read_text().splitlines() if done.exists() else []
-        self.done = {" ".join(ln.split()[:5]) for ln in lines}
+        done = sorted(a.state_dir.parent.glob("lane*/done.txt"))  # every lane's: none re-asks
+        self.done = {" ".join(ln.split()[:5]) for f in done for ln in f.read_text().splitlines()}
         self.pending, self.subq, self.meta = a.state_dir / "pending.txt", [], {}
         for ln in self.pending.read_text().splitlines() if self.pending.exists() else []:
             task, meta = decode(ln)
