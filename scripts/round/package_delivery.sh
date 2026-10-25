@@ -188,7 +188,7 @@ STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.7z"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{masters,additions,audit,source,seeds,journals,provenance,baseline}
+mkdir -p "$STAGE"/{additions,audit,source,seeds,journals,provenance,baseline}
 
 # The Word report is generated from the markdown, never maintained separately:
 # a hand-made copy silently went 18 hours stale once, so the two disagreed.
@@ -260,26 +260,6 @@ if [ "$OVERLAP" != 0 ]; then
 fi
 
 
-# masters/: his year file merged with our two net-new files by exact name, no roll-up, as
-# README.md states it. `sort -m` on unsorted input is silently wrong, so each input is checked,
-# and a year `ark intake` had to copy refuses: his raw file would not reproduce the merge.
-HELD_YEARS=$(uv run python -c '
-import sys
-from ark import held
-try:
-    his = held.load()
-except held.HeldError as error:
-    sys.exit(f"refusing to package: {error}")
-for year, path in his.years.items():
-    if path != his.baseline / f"{year}.txt":
-        sys.exit(f"refusing to package: his {year}.txt is not sorted, unique and lowercase")
-    print(year, path)') || exit 1
-while read -r y HISY; do
-    for f in "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt"; do
-        LC_ALL=C sort -c -u "$f" || { echo "refusing to package: $f is not LC_ALL=C sorted and unique" >&2; exit 1; }
-    done
-    LC_ALL=C sort -m -u "$HISY" "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt" > "$STAGE/masters/$y.txt"
-done <<< "$HELD_YEARS"
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 # The second output unit (his acceptance of 2026-09-01): hostname records per year,
@@ -358,7 +338,7 @@ cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
 # domain counting unit necessarily drops
-cp output/seeds/download_seeds.txt output/seeds/download_seeds.csv "$STAGE/seeds/" 2>/dev/null || true
+cp output/seeds/download_seeds.csv "$STAGE/seeds/" 2>/dev/null || true
 
 # the raw responses of every archive and registry query, so both network stages
 # replay from bytes rather than from a service whose answers change. `find`, not
@@ -507,7 +487,7 @@ fi
 
 uv run python scripts/round/verify_isc_candidates.py \
     --collection "$STAGE/isc_survey_hostnames" --baseline "$MERGED" \
-    --annual-dirs "$STAGE/masters" "$STAGE/additions" "$STAGE/hostnames" \
+    --annual-dirs "$STAGE/additions" "$STAGE/hostnames" \
     --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
 
 python3 - "$MERGED" "$MARKER" > "$STAGE/baseline/README.txt" <<'PY'
@@ -560,9 +540,15 @@ else
     echo "warning: no calculator beside $MERGED, archive will not self-score" >&2
 fi
 
-# audit CSVs. No file of data/logs ships: each can name a local or private/ path, and the
-# execution logs the brief asks for ship inside Open Research Questions/ and audit/.
-cp data/reports/*.csv "$STAGE/audit/" 2>/dev/null || true
+# audit CSVs, each once: only those written since the newest other round's archive was built.
+# No file of data/logs ships: each can name a local or private/ path, and the execution logs the
+# brief asks for ship inside Open Research Questions/ and audit/.
+LAST_BUILT=$(awk -v own="$ROUND_DIR/MANIFEST.txt" 'FILENAME != own && $1 == "built" {print $2}' \
+    submissions/*/MANIFEST.txt 2>/dev/null | sort | tail -1)
+SINCE="$STAGE/.since"
+TZ=UTC touch -t "$(printf '%s' "${LAST_BUILT:-1970-01-01T00:00:00Z}" | tr -d ':TZ-' | sed 's/\(..\)$/.\1/')" "$SINCE"
+find data/reports -maxdepth 1 -name '*.csv' -newer "$SINCE" -exec cp {} "$STAGE/audit/" \; 2>/dev/null || true
+rm "$SINCE"
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
 git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
@@ -611,8 +597,8 @@ fi
 # On every core; `7z a` adds to an archive already there, so a rerun in the same minute starts clean.
 rm -f "$ARCHIVE"
 ( cd output && 7z a -mmt=on "$PROJ/$ARCHIVE" "$RELEASE" > /dev/null )
-# A mail transfer service refuses an archive over 5 GB, and the masters carry his six year
-# files as released, so a round can reach that. Such an archive goes as a Drive link.
+# A mail transfer service refuses an archive over 5 GB, and the journals grow every round, so a
+# round can reach that. Such an archive goes as a Drive link.
 TRANSFER_BYTES=5000000000
 ARCHIVE_BYTES=$(wc -c < "$ARCHIVE" | tr -d ' ')
 if [ "$ARCHIVE_BYTES" -gt "$TRANSFER_BYTES" ]; then
