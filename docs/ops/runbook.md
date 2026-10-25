@@ -151,13 +151,18 @@ labelled `needs-owner`, opens.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`,
    packages our additions alone (a stale or wrong export stamp refuses it), verifies as a reviewer would,
-   re-scores with his calculator, closes the gate issue, and only then uploads and prunes verified
-   round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
-   owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
+   re-scores with his calculator, puts the archive, its `.sha256` and `MANIFEST.txt` in
+   `gdrive:ark-submissions/<release>/` (`just ship drive`), closes the gate issue, and only then
+   uploads and prunes verified round copies. It refuses while `just hold status` lists
+   `com.ark.sync`. `just ship --help` prints the chain; `just ship orq` prints Word's page count.
+   Away from a session, the owner labels an open ark-fleet issue `ship-now` and the next tick
+   runs it once; with `ARK_SHIP_NOW=1` in `local.env` the gate issue opens so labelled.
 3. `ship all` ran the README's checksum and `verify.sh` on a fresh extraction; follow the rest
    through tier 2, cold, outside the repository (`docs/round/delivery_readme.md`). `just ship report
-   <archive.7z>` writes the report, its `.docx` and the mail draft. Then send, once the round
-   cleanup `ship all` runs last exited zero (else `just ship verify` until it does).
+   <archive.7z>` writes the report, its `.docx` and the mail draft with the Drive link; the edited
+   `.docx` joins the archive by `rclone copy docs/report.docx gdrive:ark-submissions/<release>/`.
+   Then send, once the round cleanup `ship all` runs last exited zero (else `just ship verify`
+   until it does).
 
 ## Intake
 
