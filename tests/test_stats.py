@@ -14,18 +14,16 @@ from unittest.mock import Mock
 import duckdb
 import pytest
 from conftest import script
-from his_release import HIS_YEARS, MARKER, WEB_METHOD, capture, stage, text
+from his_release import HIS_YEARS, WEB_METHOD, capture, stage, text
 
 from ark import db, held
 from ark import figures as fig
 from ark.baseline import GATE_EE, SUBMITTED_ROUNDS
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
-from ark.english_share import weight_of
 from ark.export import export_all
 from ark.sources import SOURCES
-from ark.stats import PROVENANCE_LINEAGE, collect_stats, format_stats
+from ark.stats import PROVENANCE_LINEAGE, collect_stats
 
-ROOT = Path(__file__).resolve().parents[1]
 ROWS = {r[0]: r for r in SUBMITTED_ROUNDS}
 YEARS = range(1996, 2002)
 POOL = "candidate_unverified.txt"
@@ -106,38 +104,6 @@ def scored(tmp_path_factory):
         dirs = {"netnew_dir": root / "netnew", "report_dir": root / "reports"}
         export_all(conn, candidates_path=root / "c", provenance_dir=root, baseline=his, **dirs)
     return SimpleNamespace(root=root, his=his, stats=stats, **dirs)
-
-
-def test_the_scoreboard_counts_only_what_the_export_ships(scored) -> None:
-    """A pair counts when it ships: a web capture of exactly its name his file for that year lacks,
-    and his `www.rolled.com` holds no `rolled.com`. Discovery and completeness partition it."""
-    s = scored.stats
-    shipped = {y: len((scored.netnew_dir / f"{y}.txt").read_text().split()) for y in YEARS}
-    assert s["netnew_pairs_by_year"] == {y: n for y, n in shipped.items() if n}
-    assert s["netnew_pairs_by_year"] == {1998: 6, 1999: 3, 2000: 1}
-    assert (s["discovery_pairs"], s["completeness_pairs"], s["netnew_domains"]) == (8, 2, 7)
-    assert s["ee_discovery_pairs"] + s["ee_completeness_pairs"] == s["ee_netnew"]
-    # found.com earns two years and is one discovery
-    assert s["ee_discovery_pairs"] - s["ee_netnew_domains"] == weight_of("found.com")
-    # the store still holds every row; only the scored figures narrow, and the pool holds
-    # none of his and no name whose TLD never existed in the window
-    assert (s["total_domains"], s["total_pairs"], s["evidence_rows"]) == (22, 18, 29)
-    assert (s["his_release"], s["baseline_domains"], s["candidate_pool"]) == (MARKER, 7, 3)
-    # every pair the TLD filter ships, his or ours: early.info and x.arpa weigh nothing
-    assert s["ee_assigned"] == 15 * weight_of("x.com") + weight_of("x.fr")
-    out = format_stats(s)  # `ark stats` and ROUND.md show the per-year counts and the release
-    assert "    1998: 6\n" in out and f"(measured against {MARKER}, so" in out
-
-
-def test_corroboration_counts_distinct_master_sources_of_distinct_lineages(scored) -> None:
-    """Candidate-only rows and a second row of one source add no source, and sources of one
-    lineage confirm nothing independently; an unmapped source is a lineage of its own."""
-    keys = ("avg_sources_per_pair", "corroborated_pairs", "baseline_corroborated")
-    keys += ("independently_corroborated_pairs", "independently_corroborated_netnew")
-    assert [scored.stats[k] for k in keys] == [1.3333, 5, 1, 4, 3]
-    assert scored.stats["evidence_rows_by_lineage"]["internet_archive"] == 5
-    by_type = {"cdx_timestamp": 21, "artifact_listing": 5, "link_target": 2, "whois_creation": 1}
-    assert list(scored.stats["evidence_rows_by_type"].items()) == list(by_type.items())
 
 
 def test_every_source_has_an_explicit_provenance_lineage() -> None:

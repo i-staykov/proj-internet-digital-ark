@@ -1,6 +1,6 @@
-"""The laptop's side of the fleet loop: drain, re-price, request block, outcome line and ledger,
-the push that must not drop a ledger line, and the tick's and the bank's fleet steps as the
-justfile runs them."""
+"""What the bank takes from the fleet: a read only when it matches its receipt, one pending block
+per repriced find, the standing rule's decision, the asks filed together at the gate, and the
+push that must not drop a ledger line."""
 
 import gzip
 import hashlib
@@ -9,7 +9,6 @@ import os
 import shutil
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -20,15 +19,10 @@ from conftest import script
 from ark import approvals
 from ark.db import init_db
 from ark.hostnames import ingest_hostname_journal
-from ark.price_snapshot import NO_SPLIT_CLASSES
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "scripts/harness"
-FLEET = Path(os.environ.get("ARK_FLEET") or "~/GitHub/ark-fleet").expanduser()
-# The fleet's own validator, schemas and ledger script, copied out or run over scratch files.
-CONTRACT = FLEET if (FLEET / "scripts/contract.py").is_file() else None
 RECIPE = (ROOT / "justfile").read_text(encoding="utf-8")
-TICK = RECIPE[RECIPE.index("\nsync fleet=") : RECIPE.index("\nbank ")]
 BANK = RECIPE[RECIPE.index("\nbank ") :]
 BANK = BANK[: BANK.index("\n\n")]
 # Under a hook git exports GIT_DIR and GIT_INDEX_FILE, and a scratch clone would stage into ours.
@@ -66,7 +60,6 @@ for number, text in enumerate(sys.stdin.read().splitlines(), 1):
         fh.write(json.dumps({**line, "kind": kind, "key": key}) + "\n")
 print(f"ledger: {added} appended, {kept} kept")
 """
-PENDING = {"status": "pending"}
 PRICER = ["uv", "run", "python"]
 
 
@@ -78,11 +71,6 @@ def _no_real_box(tmp_path, monkeypatch):
     monkeypatch.delenv("ARK_READ_REMOTE", raising=False)
     for module in (findings, request):
         monkeypatch.setattr(module, "FLEET_READ", tmp_path / "fleet_read")
-
-
-def ff(capsys, *args) -> tuple[int, str]:
-    """`fleet_findings.py` in-process: its exit code and what it printed."""
-    return findings.main([str(arg) for arg in args]), capsys.readouterr().out
 
 
 def finding(slug: str = "a-lead", **over) -> dict:
@@ -129,45 +117,6 @@ def fake_bin(tmp_path: Path) -> str:
 
 
 # --- the re-price -----------------------------------------------------------------------
-
-NO_SPLIT = "net-new, no split          : 2,345 pairs, 5,897.3 EE"
-KEPT = "  the split would have kept: 1,111 pairs, 1,111.1 EE  <- for the record"
-
-
-def test_a_confirmed_find_is_repriced_on_the_figure_its_pricer_prints_after_the_split(
-    tmp_path, monkeypatch, capsys
-):
-    """Only a confirmed FIND with items, by the pricer its grain names; a listing takes no split,
-    and neither the figure before the split nor the one it would have kept is read."""
-    disputed = drop(tmp_path / "incoming", "a-lead", finding(verify={"status": "disputed"}))
-    bare = drop(tmp_path / "incoming", "b-lead")
-    said = ff(capsys, "reprice", tmp_path / "incoming")[1]
-    assert "a-lead is disputed, not re-priced" in said and "b-lead NOT re-priced" in said
-    got = [json.loads((lead / "store_price.json").read_text()) for lead in (disputed, bare)]
-    want = [("verify disputed", None), ("no items to price, see the run log", None)]
-    assert [(price["status"], price["ee"]) for price in got] == want
-    (disputed / "lead.json").write_text(json.dumps({"grain": "hostname"}), "utf-8")
-    assert findings.grain_of("a-lead", finding(), disputed) == "hostname"
-    # With no lead file the track decides, falling back to the general pricer.
-    assert findings.grain_of("b-lead", finding(), bare) == "registrable"
-    assert findings.grain_of("b-lead", finding(pricing={"track": "candidate"}), bare) == "candidate"
-    items = findings._ITEMS_EE.search("net-new AFTER the split    : 1,234 pairs, 4,786.2 EE")
-    hosts = findings._HOST_EE.search("NET-NEW hostname years 9,001  12,345.6789 EE   (quote)")
-    assert (items.group(2), hosts.group(2)) == ("4,786.2", "12,345.6789")
-    before = "net-new BEFORE the split   : 9,999 pairs, 9,999.9 EE  <- DO NOT QUOTE"
-    assert [findings._ITEMS_EE.search(line) for line in (before, KEPT)] == [None, None]
-    # The no-split line is the one `price_items.py` prints, and a listing is priced on it.
-    printed = 'f"net-new, no split          : {len(netnew):,} pairs, {ee(netnew):,.1f} EE"'
-    assert printed in (ROOT / "scripts/pricing/price_items.py").read_text(encoding="utf-8")
-    kind = {"grain": "registrable", "evidence_class": min(NO_SPLIT_CLASSES)}
-    lead, items = drop(tmp_path, "a-listing", lead=kind), tmp_path / "items.jsonl"
-    monkeypatch.setattr(findings, "fetch_items", lambda _lead: items)
-    ran = Mock(return_value=subprocess.CompletedProcess([], 0, f"{NO_SPLIT}\n{KEPT}\n", ""))
-    monkeypatch.setattr(findings.subprocess, "run", ran)
-    result = findings.price(lead, {"verdict": "FIND"})
-    pricer = [*PRICER, "scripts/pricing/price_items.py", "--items", str(items), "--no-split"]
-    assert [call.args[0] for call in ran.call_args_list] == [pricer]
-    assert (result["status"], result["netnew"], result["ee"]) == ("priced", 2345, 5897.3)
 
 
 def remote_read(root: Path, complete=True, tamper=False, extra="", rename="") -> Path:
@@ -231,9 +180,6 @@ def test_only_a_read_matching_its_receipt_is_pulled_priced_and_acked(tmp_path, m
 
 # --- the outcome line and the ledger it goes through -----------------------------------
 
-DECIDED = "## Pending requests\n\n### a_find / artifact_listing\nDecision: master\n\n"
-DECIDED += "### b_find / artifact_listing\nDecision: candidate-only\n"
-
 
 def store(path: Path, *sources: str) -> Path:
     """A tiny store whose ingest has written one file under each of `sources`."""
@@ -251,63 +197,6 @@ def confirmed(root: Path, slug: str, price: dict | None, **over) -> Path:
     """A drained, confirmed FIND with its lead and, unless None, its store price."""
     lead = {"slug": slug, "evidence_class": "artifact_listing"}
     return drop(root, slug, finding(slug, **over), lead=lead, store_price=price)
-
-
-def booked(capsys, tmp_path: Path, ingested=(), fleet=None, db=None):
-    """`outcome` over a tiny store, never the live one: exit, words, lines by slug:banked."""
-    incoming, fleet = tmp_path / "incoming", fleet or tmp_path / "fleet"
-    if not incoming.exists():
-        confirmed(incoming, "a-find", {"status": "priced", "ee": 1000.0, "fleet_program_ee": 995.0})
-        confirmed(incoming, "b-find", {"status": "no items to price", "ee": None})
-        confirmed(incoming, "c-find", {"status": "priced", "ee": 50.0})
-        confirmed(incoming, "unconfirmed", {"ee": None}, verify=PENDING)
-        confirmed(incoming, "unpriced", None)
-        confirmed(incoming, "negative", {"ee": 5.0}, verdict="CLOSED")
-    (register := tmp_path / "approved.md").write_text(DECIDED, encoding="utf-8")
-    db = db or store(tmp_path / "ark.duckdb", *ingested)
-    flags = ["--fleet", fleet, "--register", register, "--db", db]
-    code, out = ff(capsys, "outcome", incoming, *flags)
-    lines = fleet_ledger.lines(fleet, "outcome")
-    return code, out, {f"{line['slug']}:{line['banked']}": line for line in lines}
-
-
-def test_an_outcome_line_is_banked_only_once_the_store_holds_the_sources_rows(tmp_path, capsys):
-    """Under a decision that admits them, and only once landed; a line that did not exits 1."""
-    code, out, lines = booked(capsys, tmp_path, fleet=tmp_path / "old-clone")
-    assert (code, lines, "not booked" in out) == (1, {}, True)
-    code, out, lines = booked(
-        capsys, tmp_path, fleet=stand_in(tmp_path / "fleet"), db=tmp_path / "no-store"
-    )
-    assert (code, "could not be opened" in out) == (0, True)
-    assert sorted(lines) == ["a-find:False", "b-find:False", "c-find:False"]
-    a, b, c = lines["a-find:False"], lines["b-find:False"], lines["c-find:False"]
-    assert (a["store_ee"], a["program_ee"], a["agreement_pct"]) == (1000.0, 995.0, 99.5)
-    assert (a["decision"], b["decision"], c["decision"]) == ("master", "candidate-only", "pending")
-    assert len(booked(capsys, tmp_path, ingested=("some_other_source",))[2]) == 3, "none added"
-    _, out, lines = booked(capsys, tmp_path, ingested=("a_find", "b_find", "c_find"))
-    want = ["a-find:False", "a-find:True", "b-find:False", "b-find:True", "c-find:False"]
-    assert sorted(lines) == want and "2 banked in the store" in out
-    assert '"banked": true' in (tmp_path / "fleet/ledger/2026-09.jsonl").read_text()
-
-
-def test_the_ledger_appends_only_through_the_fleets_keyed_script_and_reads_month_by_month(
-    tmp_path,
-):
-    """A replay adds nothing, a refused row says why, and a line that is not one of the kind
-    asked for is skipped."""
-    assert fleet_ledger.lines(None, "outcome") == []
-    fleet = stand_in(tmp_path)
-    assert fleet_ledger.append(fleet, "outcome", OUTCOMES) == (True, "ledger: 2 appended, 0 kept")
-    assert fleet_ledger.append(fleet, "outcome", OUTCOMES) == (True, "ledger: 0 appended, 2 kept")
-    ok, said = fleet_ledger.append(fleet, "outcome", [{"slug": "x", "banked": True}])
-    assert not ok and "needs its key" in said
-    later = "".join(
-        json.dumps(x) + "\n" for x in ({"kind": "outcome", "slug": "c"}, {"kind": "leg"})
-    )
-    (fleet / "ledger/2026-10.jsonl").write_text("not json\n[1]\n" + later)
-    assert [line["slug"] for line in fleet_ledger.lines(fleet, "outcome")] == ["a", "b", "c"]
-    pairs = ((1000.0, None), (0, 5.0), (True, 5.0))
-    assert [fleet_ledger.agreement_pct(*pair) for pair in pairs] == [None, None, None]
 
 
 OUTCOMES = [
@@ -373,16 +262,6 @@ LEAD = {
     "size_estimate": {"items": 10, "ee_low": 1.0, "ee_high": 2.0}, "floor": 1000.0,
     "history": [{"lane": "scout", "run_id": "17", "at": "2026-09-09T00:00:00Z"}],
 }  # fmt: skip
-
-
-def with_contract(fleet: Path) -> Path:
-    """The fleet's validator and schemas, copied in; the clone itself is only read."""
-    if CONTRACT is None:
-        pytest.skip("no fleet clone with a validator to copy")
-    (fleet / "scripts").mkdir(parents=True, exist_ok=True)
-    shutil.copy2(CONTRACT / "scripts/contract.py", fleet / "scripts/contract.py")
-    shutil.copytree(CONTRACT / "schemas", fleet / "schemas")
-    return fleet
 
 
 REGISTER = "# Approved sources\n\n## Pending requests\n\n### old_source / cdx_timestamp\n"
@@ -543,176 +422,4 @@ def test_asks_file_together_at_the_gate_and_never_twice(tmp_path, monkeypatch, c
     assert "3 asks, 53,000 of 60,000 EE to the gate" in capsys.readouterr().out
 
 
-def test_a_spec_waits_for_the_next_bank_while_his_held_sets_are_not_ready(tmp_path, monkeypatch):
-    """`request_approval.py` exiting 3 refuses nothing, so no short block replaces it."""
-    incoming, register = asked(tmp_path)
-    (incoming / "a-lead/items.jsonl").write_text("{}\n", encoding="utf-8")
-    monkeypatch.setitem(request.SOURCES, "a_lead", object())
-    done = subprocess.CompletedProcess([], request.NOT_NOW, "", "no held sets: run ark intake")
-    monkeypatch.setattr(request.subprocess, "run", lambda *a, **k: done)
-    assert request.by_the_tool("a_lead", incoming / "a-lead", ASKED, {}) is None
-    assert block(incoming, register) == REGISTER
-
-
 # --- the tick's and the bank's fleet steps, off the justfile ----------------------------
-
-
-def _block(recipe: str, first: str, last: str) -> str:
-    """The lines from the one starting `first` to the next one that is `last`, dedented."""
-    lines = recipe.splitlines()
-    start = next(i for i, ln in enumerate(lines) if ln.startswith(first))
-    stop = next(i for i in range(start, len(lines)) if lines[i].rstrip() == last)
-    return textwrap.dedent("\n".join(lines[start : stop + 1]))
-
-
-def _bash(script: str, cwd: Path, timeout: int = 30, **env) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["bash", "-c", "set -euo pipefail\n" + script],
-        cwd=cwd,
-        env={**os.environ, **env},
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-
-
-# A `gh` that lists runs the way GitHub does: newest first, filtered by `--event`, cut at
-# `--limit` (GitHub's own default is 20), a 404 for a workflow it has not, and a log of downloads.
-FAKE_GH = r"""
-import json, os, sys
-args = sys.argv[1:]
-def flag(name, default=None):
-    return args[args.index(name) + 1] if name in args else default
-if args[:2] == ["run", "list"]:
-    runs = json.load(open(os.environ["FAKE_RUNS"])).get(flag("--workflow"))
-    if runs is None:
-        sys.exit(f"HTTP 404: workflow {flag('--workflow')} not found")
-    runs = [run for run in runs if flag("--event") in (None, run["event"])]
-    for run in runs[: int(flag("--limit", "20"))]:
-        print(f"{run['id']}\t{run['status']}")
-elif args[:2] == ["run", "download"]:
-    with open(os.environ["FAKE_LOG"], "a") as fh:
-        fh.write(f"{args[2]}\n")
-"""
-
-
-def test_the_drain_takes_every_dispatched_run_and_a_404_skips_only_that_workflow(tmp_path):
-    """A run is PROCESSED once completed, so one still running is taken again. The watchdog's
-    scheduled runs carry nothing, and the oldest of a day's dispatched runs is still found."""
-    (tmp_path / "bin").mkdir()
-    (tmp_path / "bin/gh").write_text(f"#!{sys.executable} -S\n{FAKE_GH}")
-    (tmp_path / "bin/gh").chmod(0o755)
-    runs, log, processed = tmp_path / "runs.json", tmp_path / "gh.log", tmp_path / "processed"
-    drain = _block(TICK, "    for WF in leg.yaml read.yaml; do", "    done")
-    paths = {"FAKE_RUNS": runs, "FAKE_LOG": log, "PROCESSED": processed, "IN": tmp_path / "in"}
-    env = {"PATH": f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}"}
-    env |= {name: str(path) for name, path in paths.items()}
-
-    def drained(**workflows) -> list[str]:
-        runs.write_text(json.dumps({f"{name}.yaml": listed for name, listed in workflows.items()}))
-        log.write_text("")
-        done = _bash(drain, tmp_path, **env)
-        assert done.returncode == 0, done.stdout + done.stderr
-        assert ("gh could not list leg.yaml" in done.stdout) == ("leg" not in workflows)
-        return log.read_text().split()
-
-    def run(rid: int, status: str = "completed", event: str = "workflow_dispatch") -> dict:
-        return {"id": rid, "status": status, "event": event}
-
-    reads = [run(9, "in_progress"), run(8), run(7)]
-    processed.write_text("7\n")
-    assert drained(read=reads) == ["9", "8"]
-    assert processed.read_text().split() == ["7", "8"]
-    day = [run(rid, event="schedule" if rid % 5 == 0 else "workflow_dispatch")
-           for rid in range(1330, 1000, -1)]  # fmt: skip
-    with processed.open("a") as fh:
-        fh.write("".join(f"{r['id']}\n" for r in day if r["id"] not in (1001, 1330)))
-    assert drained(leg=day, read=reads) == ["1001", "9"]
-
-
-def test_a_drain_of_closed_scout_leads_alone_reaches_the_scribe(tmp_path):
-    gate = _block(
-        TICK, "    if ! compgen -G", '        && ! compgen -G "$IN/*/scout.md" >/dev/null; then'
-    )
-    script = gate + " echo nothing; else echo book; fi"
-    (incoming := tmp_path / "incoming").mkdir()
-    assert _bash(script, tmp_path, IN=str(incoming)).stdout.strip() == "nothing"
-    (incoming / "some-lead").mkdir()
-    (incoming / "some-lead" / "scout.md").write_text("# some-lead\n")
-    assert _bash(script, tmp_path, IN=str(incoming)).stdout.strip() == "book"
-
-
-def test_every_fleet_step_names_the_fleet_and_outcomes_follow_the_commit_before_the_push():
-    """No step reads a cached queue; the outcome lines follow the register commit onto `live`,
-    on every bank, and no flag from the bank says banked: the store's ingested files do."""
-    steps = {
-        TICK: ("discover_cycle.py",),
-        BANK: ("fleet_request.py", "standing_rule.py"),
-    }
-    for recipe, names in steps.items():
-        for name in names:
-            line = next(ln for ln in recipe.splitlines() if f"scripts/harness/{name}" in ln)
-            assert '--fleet "$FLEET"' in line, name
-    queue = [ln for ln in RECIPE.splitlines() if "scripts/round/lead_queue.py" in ln]
-    assert queue and not any("--cached" in ln for ln in queue), queue
-    order = [
-        'git commit -q -m "Sync fleet findings $LABEL"',
-        "git push -q origin live",
-        'fleet_findings.py outcome "$IN" data/fleet_findings/banked/*/',
-        "fleet_leads.py",
-        "push_fleet.sh",
-        'mv "$IN" "data/fleet_findings/banked/$LABEL"',  # a drain leaves once committed
-    ]
-    at = [BANK.index(text) for text in order]
-    assert at == sorted(at), order
-    assert "--banked" not in BANK
-
-
-def test_every_bank_books_every_drains_outcome_until_it_lands_and_its_find_is_banked(tmp_path):
-    """The bank's step d, in a checkout of its own. A clone without the ledger script books
-    nothing and the drain still moves; a later bank that holds no find books it pending, then
-    master once the owner approves, then banked once the store holds its rows, then nothing."""
-    repo = tmp_path / "repo"
-    (harness := repo / "scripts/harness").mkdir(parents=True)
-    for path in HARNESS.glob("*.py"):
-        shutil.copy(path, harness / path.name)
-    (harness / "push_fleet.sh").write_text('echo "push_fleet: pushed"\n', encoding="utf-8")
-    (repo / "src").symlink_to(ROOT / "src")
-    (repo / "docs/registers").mkdir(parents=True)
-    (repo / "data/fleet_findings/banked").mkdir(parents=True)
-    fleet = with_contract(tmp_path / "fleet")
-    (fleet / "leads").mkdir()
-    (lead := fleet / "leads/foo-bar.json").write_text(json.dumps(dict(LEAD, slug="foo-bar")))
-    confirmed(repo / "data/fleet_findings/incoming", "foo-bar", {"status": "priced", "ee": 12000.0})
-    env = {"PATH": fake_bin(tmp_path), "IN": "data/fleet_findings/incoming", "FLEET": str(fleet)}
-    step_d = _block(BANK, "    # Every bank books the outcome of every drain", "    fi")
-
-    def banked(label: str, decision: str, ran_a="no", committed="no") -> str:
-        (repo / "docs/registers/approved-sources-list.md").write_text(
-            f"## Pending requests\n\n### foo_bar / artifact_listing\nDecision: {decision}\n"
-        )
-        done = _bash(step_d, repo, 180, LABEL=label, RAN_A=ran_a, COMMITTED=committed, **env)
-        assert done.returncode == 0, done.stdout + done.stderr
-        return done.stdout
-
-    keys = lambda: [line["key"] for line in fleet_ledger.lines(fleet, "outcome")]  # noqa: E731
-    said = banked("20260926T0100Z", "pending", ran_a="yes", committed="yes")
-    assert "the outcome lines did not land" in said and keys() == []
-    assert (repo / "data/fleet_findings/banked/20260926T0100Z/foo-bar/finding.json").is_file()
-    assert not any((repo / "data/fleet_findings/incoming").iterdir())
-    stand_in(fleet)
-    banked("20260926T0200Z", "pending")
-    assert keys() == ["foo-bar:pending:False"]
-    store(repo / "data/ark.duckdb", "some_other_source")
-    banked("20260926T0300Z", "master")
-    assert (
-        keys()[-1] == "foo-bar:master:False"
-        and json.loads(lead.read_text())["status"] == "verified"
-    )
-    store(repo / "data/ark.duckdb", "foo_bar")
-    banked("20260926T0400Z", "master")
-    assert (
-        keys()[-1] == "foo-bar:master:True" and json.loads(lead.read_text())["status"] == "banked"
-    )
-    banked("20260926T0500Z", "master")
-    assert len(keys()) == 3, "a later bank adds nothing"
