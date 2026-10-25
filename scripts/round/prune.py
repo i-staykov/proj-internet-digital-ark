@@ -41,8 +41,8 @@ lists, and with `--write` deletes:
     its bytes, that sha1 and the URL;
   * every package stage in `output/` but the newest, once the newest's archive is on
     Drive with the checksum git keeps;
-  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code, an agent's
-    handoff or a working agent reads. Nothing there has a copy anywhere, so `--private --write`
+  * with `--private`, everything in `private/` but PRIVATE_KEEP, which code or a working agent
+    reads. Nothing there has a copy anywhere, so `--private --write`
     deletes only with `--owner-go`, the owner's go, which no recipe passes. Without it, it
     lists `private/` and deletes nothing at all.
 
@@ -306,8 +306,6 @@ PRIVATE_KEEP = frozenset(
         "emails",
         "email-draft.md",
         "email.template.md",
-        "handoff.md",
-        "handoffs",
         "research-throughput-20260927",
     }
 )

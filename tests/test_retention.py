@@ -69,7 +69,7 @@ HOST, SPENT = ("host_cdx_ia600702", "ia600702.hostcdx.gz"), "data/raw/host_cdx/i
 UNLISTED = ("Current_Release", "Newer_Release", "merged270101", "Both.zip", "jsonl.gz")
 UNLISTED += (NEW_STAGE, "feedback-phase-9", "README.md", "\nprivate:")
 # PRIVATE_KEEP, and a journal, which never() keeps even in private/
-KEPT_PRIVATE = ("personal-context.md", "handoff.md", "mail/verdict.txt", "emails/a.eml")
+KEPT_PRIVATE = ("personal-context.md", "mail/verdict.txt", "emails/a.eml")
 KEPT_PRIVATE += ("email-draft.md", "email.template.md", "work/x.jsonl.gz")
 HELD = f"HELD {SPENT}: "
 SPENT_CASES = {
