@@ -29,8 +29,8 @@ Collection runs as three walker lanes, one per archive client; the runbook's Col
 has the command.
 
 ```bash
-just hold status   # HELD or NOT HELD, one line per name: the job, the flag, each workflow
-just hold          # com.ark.sync, pause-platform here and on each host, the fleet workflows
+just hold status   # HELD or NOT HELD, one line per name: the timer, the flag, each workflow
+just hold          # the VM's ark-sync.timer, pause-platform on each host, the fleet workflows
 ```
 
 The hold survives a reboot: only `just hold off [name]` lifts it.
@@ -38,7 +38,7 @@ The hold survives a reboot: only `just hold off [name]` lifts it.
 ## Take in what the fleet found
 
 ```bash
-just sync        # hourly under launchd while the laptop is awake, and safe to run by hand
+just sync        # hourly under the VM's ark-sync.timer, and safe to run by hand
 just bank        # what the tick runs when something arrived; --force runs it anyway, never on red
 ```
 
