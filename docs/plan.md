@@ -35,8 +35,7 @@ unless it adds a capability the round needs.
 - #394 the VM timer and no launchd job; #395 the justfile at one comment line per recipe; #396 no
   handoff; #397 no page restates another; #402 the VM's posture in one runbook table.
 - #398 the suite keeps only the tests that fail when a shipped thing is wrong.
-- #404 `just ship all` whole on the VM; #405 a gate crossing packages itself, archive and report
-  in one Drive folder.
+- #405 a gate crossing packages itself, archive and report in one Drive folder.
 - #406 the laptop keeps no copy of the VM's data and intake runs on the VM; #407 the log sink
   deletes after 14 days; #408 a ship reruns nothing whose inputs did not move.
 
