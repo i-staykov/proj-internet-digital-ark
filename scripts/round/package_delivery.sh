@@ -260,6 +260,17 @@ if [ "$OVERLAP" != 0 ]; then
 fi
 
 
+# The README's `sort -m -u` merge is silently wrong on unsorted input, so a year of his that
+# `ark intake` had to copy sorted refuses.
+uv run python -c '
+import sys
+from ark import held
+try:
+    his = held.load()
+except held.HeldError as error:
+    sys.exit(f"refusing to package: {error}")
+bad = [y for y, path in his.years.items() if path != his.baseline / f"{y}.txt"]
+sys.exit(f"refusing to package: his {bad} not sorted, unique and lowercase" if bad else 0)' || exit 1
 cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
 cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
 # The second output unit (his acceptance of 2026-09-01): hostname records per year,
