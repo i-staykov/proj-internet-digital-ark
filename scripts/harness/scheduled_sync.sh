@@ -48,7 +48,7 @@ ship_now() {
     echo "ship-now on $FLEET_REPO#$n: packaging"
     gh issue edit "$n" --repo "$FLEET_REPO" --remove-label ship-now >/dev/null 2>&1 || true
     if just ship all > "data/logs/ship_$STAMP.log" 2>&1; then
-        body="Packaged by the hourly sync at $STAMP. Nothing was sent: the mail draft is on the laptop, under private/."
+        body="Packaged by the hourly sync at $STAMP. Nothing was sent: \`just ship report <archive>\` fills the report and the mail draft."
     else
         body="The hourly sync tried to package at $STAMP and \`just ship all\` failed. Label removed so it does not retry; the log is data/logs/ship_$STAMP.log on the laptop."
     fi

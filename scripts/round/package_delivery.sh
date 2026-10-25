@@ -96,8 +96,8 @@ fi
 
 # The same argument as the clean-tree guard, applied to the data: output/ is a
 # snapshot taken by `ark export`, and every ingest since then makes it older than
-# the store. Shipping a stale one understates the result and contradicts the
-# report, which quotes the store. Caught this way once, 1,513 pairs behind.
+# the store. Shipping a stale one understates the result. Caught this way once,
+# 1,513 pairs behind.
 SHIPPED=$(cat output/netnew/199[6-9].txt output/netnew/200[01].txt 2>/dev/null | wc -l | tr -d ' ')
 # Read-only and patient, so a bank holding the writer is a wait and never a refusal that
 # names the wrong cause. The stamps' ledgers must equal the store's, the bank's claim must
@@ -120,19 +120,6 @@ if [ "$SHIPPED" != "$STORED" ]; then
     exit 1
 fi
 
-# The same argument once more, applied to the REPORT. The two guards above keep
-# the code and the data in step with each other, and neither of them looks at the
-# document that describes both. So the report drifted: it was regenerated against
-# a store that the collectors had grown by 10,000 pairs since the archive was
-# cut, and the two shipped side by side quoting different totals. A reviewer
-# checking the headline against `additions/` would have found it wrong, which is
-# the single most likely thing for them to check first.
-#
-# Regenerating is cheap and idempotent, so this rebuilds the report and refuses
-# if that changed anything. A report that is already current is a no-op here.
-# The retry loop is not optional. DuckDB allows many readers or one writer, so a
-# read-only connection still fails while a bank holds the write lock. A busy store
-# prints its failure rather than hiding it.
 # The merge, the overlap counts, the accepted increment and the reconciliation
 # checks, produced here rather than described. It scores every baseline and merged
 # annual file with the reviewer's own calculator, so this is his arithmetic on our
@@ -210,7 +197,7 @@ if [ ! -f "$STAGE/Open Research Questions/Open Research Questions.docx" ]; then
     exit 1
 fi
 
-# The merge audit, produced before the report was filled so the two agree. Copied by
+# The merge audit, produced before the report figures so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
 MERGE_STAMP="$(date -u +%Y%m%d)"
