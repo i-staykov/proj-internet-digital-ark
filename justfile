@@ -194,6 +194,8 @@ sync fleet="~/GitHub/ark-fleet":
         done
         mkdir -p data/raw/cdx_walk/lane${h##*:} && rsync -a --timeout=60 -e "$SSH" "${h%:*}:ark-walk-data/raw/cdx_walk/lane${h##*:}/log.tsv" data/raw/cdx_walk/lane${h##*:}/ || true
     done
+    # The pool's questions the lanes also ask, written once where they walk.
+    if grep -q 'local:' <<<"$ARK_HOSTS"; then uv run python scripts/engines/pool_questions.py || true; fi
     uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
     for h in $ARK_HOSTS; do
         [ "${h%:*}" = local ] && continue

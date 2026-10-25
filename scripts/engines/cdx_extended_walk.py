@@ -6,6 +6,11 @@ the years it was captured in. A bare TLD answers 403, so `.com` cannot be walked
 (`docs/lore/laws.md`). The suffixes are the ICANN two-label ones of every TLD he weighs; the
 measured price per request (`cdx_walk_order.py`) orders the walk, not a weight cutoff.
 
+**Pool questions** are the queue's second kind, `ask`: one exact root-key question for each
+registrable in `data/queue/pool_questions.tsv` (`pool_questions.py`), in the file's order. Each
+tier is a unit, ranked by its measured EE per request like a page; a question counts as a
+thousandth of a page for exploring and dropping.
+
 **Root URLs only.** `filter=urlkey:^[^/]*\\)/$` keeps the root captures of each host: 92.5% of
 the hosts of a page at a third of the bytes, and a page answers 2 to 3 times faster. The regex
 must be anchored; IA's filter is a search, so an unanchored `\\)/` matches every row.
@@ -105,30 +110,30 @@ def rank(units, order: dict, asked: dict, explore: int) -> tuple[list, list, lis
     answered requests is dropped."""
     priced, exploring, waiting = [], [], []
     for u in units:
-        price = order.get(f"{u[0]} {u[1]}") or {}
+        price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
         if total > 0:
             priced.append(((-total, -p1), u))
-        elif price.get("n", 0) < DROP_AFTER:
-            (exploring if asked.get(u, 0) < explore else waiting).append(u)
+        elif price.get("n", 0) < DROP_AFTER * scale:  # a question is a thousandth of a page
+            (exploring if asked.get(u, 0) < explore * scale else waiting).append(u)
     priced.sort(key=lambda k: k[0])
     return [u for _, u in priced], exploring, waiting
 
 
 def fetch(task, a, sink):
     """Stream one page into `sink`; (status, complete, seconds, bytes, Retry-After)."""
-    sfx, size, page, first, last, _kind = task
+    sfx, size, page, first, last, kind = task
+    shape = [("url", sfx), ("matchType", "domain"), ("pageSize", str(size)), ("page", str(page))]
+    if kind == "ask":  # one registrable's root key, apex and www, the earliest row a year
+        shape = [("url", a.questions[sfx][page]), ("collapse", "timestamp:4")]
     query = urllib.parse.urlencode(
         [
-            ("url", sfx),
-            ("matchType", "domain"),
+            *shape,
             ("from", str(first)),
             ("to", str(last)),
             ("filter", "statuscode:[23][0-9][0-9]"),
             ("filter", "urlkey:" + ROOT),
             ("fl", "urlkey,timestamp,original,statuscode"),
-            ("pageSize", str(size)),
-            ("page", str(page)),
         ]
     )
     t0 = time.time()
@@ -219,7 +224,22 @@ class Lane:
                 self.pages[(sfx, kind)] = [t for t in tasks if key_of(t) not in self.done]
                 self.asked[(sfx, kind)] = len(tasks) - len(self.pages[(sfx, kind)])
 
+    def add_questions(self) -> None:
+        """Queue this lane's share of the pool's questions, in the file's order, once it is
+        written (`pool_questions.py`): one unit a tier, a question a line."""
+        for line in (self.a.data / "queue/pool_questions.tsv").read_text().splitlines():
+            tier, domain = line.split("\t")
+            self.a.questions.setdefault(f"ask-{tier}", []).append(domain)
+        for sfx, names in self.a.questions.items():
+            tasks = [(sfx, 1, i, FIRST, LAST, "ask") for i in range(len(names))]
+            tasks = [t for t in tasks if mine(f"{sfx} {t[2]}", self.a.lane, self.a.lanes)]
+            self.pages[(sfx, "ask")] = [t for t in tasks if key_of(t) not in self.done]
+            self.asked[(sfx, "ask")] = len(tasks) - len(self.pages[(sfx, "ask")])
+
     def rerank(self, force: bool = False) -> None:
+        if not self.a.questions and (self.a.data / "queue/pool_questions.tsv").exists():
+            self.add_questions()
+            force = True
         mtime = self.a.order.stat().st_mtime if self.a.order.exists() else 0.0
         if mtime != self.order_mtime:
             try:
@@ -443,6 +463,7 @@ def main() -> None:
     for f in sorted(a.state_dir.parent.glob("lane*/pages.json")):
         counts.update(json.loads(f.read_text()))
     wanted = sorted(suffixes(), key=lambda s: -counts.get(s, 0))
+    a.questions = {}
     lane = Lane(a)
     for sfx in wanted:
         lane.add_pages(sfx, counts.get(sfx, 0))
