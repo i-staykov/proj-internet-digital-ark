@@ -50,7 +50,7 @@ ship_now() {
     if just ship all > "data/logs/ship_$STAMP.log" 2>&1; then
         body="Packaged by the hourly sync at $STAMP. Nothing was sent: \`just ship report <archive>\` fills the report and the mail draft."
     else
-        body="The hourly sync tried to package at $STAMP and \`just ship all\` failed. Label removed so it does not retry; the log is data/logs/ship_$STAMP.log on the laptop."
+        body="The hourly sync tried to package at $STAMP and \`just ship all\` failed. Label removed so it does not retry; the log is data/logs/ship_$STAMP.log on the bank host."
     fi
     # the log tail, without anything shaped like an address
     body="$body"$'\n\n```\n'"$(grep -vE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|@' "data/logs/ship_$STAMP.log" | tail -15)"$'\n```'
