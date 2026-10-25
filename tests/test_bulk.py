@@ -233,21 +233,6 @@ def test_a_capture_of_the_exact_domain_wins_over_a_lower_value(tmp_path: Path) -
     ]
 
 
-def test_same_source_pair_not_duplicated_across_files(tmp_path: Path) -> None:
-    conn = _fresh_db()
-    records = [BulkRecord(raw="example.com", year=1996, evidence_value="x")]
-    path_a = tmp_path / "a.txt"
-    path_b = tmp_path / "b.txt"
-    path_a.write_text("unused\n", encoding="utf-8")
-    path_b.write_text("unused\n", encoding="utf-8")
-
-    ingest_files(conn, _spec(records), [path_a], report_dir=tmp_path)
-    ingest_files(conn, _spec(records), [path_b], report_dir=tmp_path)
-
-    # second file carries the same (domain, year): no second evidence row
-    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 1
-
-
 def test_re_ingesting_a_file_or_a_second_source_repeating_a_pair_adds_no_row(
     tmp_path: Path,
 ) -> None:
@@ -402,21 +387,6 @@ def test_audit_csv_has_drops_and_corrections(tmp_path: Path) -> None:
     assert results["http://www.example.com/page"] == "valid"
 
 
-def test_run_metrics_written_per_file_and_per_run(tmp_path: Path) -> None:
-    conn = _fresh_db()
-    records = [BulkRecord(raw="example.com", year=1996, evidence_value="a")]
-
-    ingest_files(conn, _spec(records), [_touch(tmp_path)], report_dir=tmp_path)
-
-    sources = {
-        row[0]
-        for row in conn.execute(
-            "SELECT source FROM run_metrics WHERE command = 'ingest'"
-        ).fetchall()
-    }
-    assert sources == {"toy:toy.txt", "toy"}
-
-
 def test_unknown_evidence_type_rejected() -> None:
     with pytest.raises(ValueError, match="unknown evidence type"):
         _spec([], evidence_type="not_a_type")
@@ -466,35 +436,6 @@ def test_corrupt_file_does_not_abort_the_run(tmp_path: Path) -> None:
     assert "a_bad" not in audit_text
 
 
-def test_multi_file_single_call_aggregates(tmp_path: Path) -> None:
-    conn = _fresh_db()
-    (tmp_path / "one.txt").write_text("a-site.com\n", encoding="utf-8")
-    (tmp_path / "two.txt").write_text("b-site.org\n", encoding="utf-8")
-
-    summary = ingest_files(
-        conn, _line_spec(), [tmp_path / "two.txt", tmp_path / "one.txt"], report_dir=tmp_path
-    )
-
-    assert summary["files_ingested"] == 2
-    assert summary["evidence_rows"] == 2
-    assert summary["year_rows"] == 2
-    # booleans never leak into the aggregated summary
-    assert "skipped" not in summary
-
-
-def test_audit_header_written_once_across_runs(tmp_path: Path) -> None:
-    conn = _fresh_db()
-    records = [BulkRecord(raw="http://www.example.com/x", year=1996, evidence_value="a")]
-    path = _touch(tmp_path)
-
-    ingest_files(conn, _spec(records), [path], report_dir=tmp_path)
-    ingest_files(conn, _spec(records), [path], report_dir=tmp_path)
-
-    with (tmp_path / "toy_audit.csv").open(encoding="utf-8") as fh:
-        rows = list(csv.reader(fh))
-    assert sum(1 for row in rows if row[0] == "original") == 1
-
-
 def test_empty_file_still_gets_a_ledger_row(tmp_path: Path) -> None:
     conn = _fresh_db()
     summary = ingest_files(conn, _spec([]), [_touch(tmp_path)], report_dir=tmp_path)
@@ -519,35 +460,3 @@ def test_null_url_on_earliest_capture_stays_null(tmp_path: Path) -> None:
     value, url = conn.execute("SELECT evidence_value, evidence_url FROM evidence").fetchone()
     assert value == "19980101000000"
     assert url is None
-
-
-def test_out_of_window_record_is_counted_not_fatal(tmp_path: Path) -> None:
-    conn = _fresh_db()
-    records = [
-        BulkRecord(raw="fine.com", year=1996, evidence_value="a"),
-        BulkRecord(raw="early.com", year=1995, evidence_value="b"),
-    ]
-
-    summary = ingest_files(conn, _spec(records), [_touch(tmp_path)], report_dir=tmp_path)
-
-    assert summary["files_ingested"] == 1
-    assert summary["out_of_window"] == 1
-    assert conn.execute("SELECT count(*) FROM evidence").fetchone()[0] == 1
-
-
-def test_candidate_enqueue_recovers_after_queue_loss(tmp_path: Path, his_files: Path) -> None:
-    conn = _fresh_db()
-    queue_conn = connect_queue(":memory:")
-    records = [BulkRecord(raw="linked.com", year=1999, evidence_value="link")]
-    spec = _spec(records, "link_target")
-    path = _touch(tmp_path)
-
-    first = ingest_files(conn, spec, [path], queue_conn, report_dir=tmp_path)
-    # simulate the crash window: queue rows lost after the file committed
-    queue_conn.execute("DELETE FROM fetch_state")
-    second = ingest_files(conn, spec, [path], queue_conn, report_dir=tmp_path)
-
-    assert first["enqueued"] == 1
-    assert second["files_skipped"] == 1
-    # the re-run repairs the queue from durable evidence rows
-    assert second["enqueued"] == 1

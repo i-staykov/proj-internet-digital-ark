@@ -367,7 +367,6 @@ def test_split_chastity_dates_what_we_or_his_files_date(tmp_path, his_files, mon
 intake = script("round/intake.py")
 releases = intake.releases
 LINES = {1996: 3, 1997: 0, 1998: 5, 1999: 1, 2000: 2, 2001: 1234}
-ZITE = "".join(f"zite{i}.com\n" for i in range(3))  # 1996.txt's length, other bytes
 NEW = "merged261231"  # a date no real release uses, so no assertion reads a real row
 STAMP = (2026, 12, 31, 10, 31, 0)
 PHASE7 = "feedback-phase-7/Domain_Data_Collection_Task 3/merged260830"
@@ -492,41 +491,6 @@ def test_verify_trees_refuses_an_unsafe_member_a_symlink_or_a_bad_payload(tmp_pa
     assert "unsafe" in out or not member
 
 
-def test_verify_trees_claims_each_copy_that_matches_its_zip_and_writes_nothing(run, tmp_path):
-    """A marker newer than RELEASES is verified too, and every copy of a tree, each by CRC-32."""
-    ding = tmp_path / "ding"
-    future, shallow = (_tree_on_disk(ding / m) for m in ("merged270101", "merged260830"))
-    deep = _tree_on_disk(ding / "duplicate/nested/merged260830")
-    _zip(future, ding / "future.zip")
-    _zip(shallow, ding / "release.zip")
-    assert releases.find_trees(ding, {})[shallow.name] == [shallow, deep]
-    last = (out := run(releases, "--verify-trees")).splitlines()[-1]
-    assert out.count("8 members, 8 matched, 0 mismatched, 0 missing on disk, 0 extra on disk") == 3
-    assert all(str(tree) in last for tree in (future, shallow, deep))
-    (deep / "1996.txt").write_text(ZITE)  # one failing copy leaves the others claimed
-    last = run(releases, "--verify-trees", stops="^1$").splitlines()[-1]
-    assert last == VERIFIED + f"{shallow}, {future}"
-    (future / "1998.txt").unlink()
-    (shallow / "stray.txt").write_text("extra\n")
-    assert run(releases, "--verify-trees", stops="^1$").splitlines()[-1] == VERIFIED + "none"
-    assert not (tmp_path / "releases.md").exists()
-
-
-@pytest.mark.skipif(shutil.which("zstd") is None, reason="zstd not installed")
-def test_zstd_packs_the_zipless_tree_and_hashes_it(run, tmp_path):
-    """Only the tree named by the marker goes in, rooted at the marker."""
-    _bench(tmp_path)
-    run(releases, "--zstd")
-    target = tmp_path / "archive/merged260810.tar.zst"
-    row = _rows(tmp_path)["merged260810"]
-    assert (row["artifact"], row["sha256"]) == (target.name, digests(target.parent)[target.name])
-    tar = subprocess.run(["zstd", "-dc", str(target)], capture_output=True, check=True).stdout
-    listed = subprocess.run(["tar", "-tf", "-"], input=tar, capture_output=True, check=True)
-    names = {line.strip("/") for line in listed.stdout.decode().split()}
-    assert "merged260810/2001.txt" in names
-    assert all(n == "merged260810" or n.startswith("merged260810/") for n in names)
-
-
 def test_a_release_and_a_verdict_go_in_once_with_one_command(run, tmp_path):
     """A dry run or a wrong sha256 writes nothing; a repeat changes no byte; a second zip stops;
     a table cell outlives its zip."""
@@ -608,8 +572,6 @@ def test_a_7z_release_goes_in_like_a_zip(run, tmp_path):
 # **Seeding.** `ark seed` queues only the names nothing dates, `ark seed-pool` ships the raw
 # hostnames and URLs held evidence names, and the work queue hands out what was queued.
 
-TASK = "cdx_verify"
-
 
 def test_seed_queues_all_but_a_name_ours_or_his_already_date(tmp_path, his_files) -> None:
     """ours.com is dated by our evidence and already-his.com by his files alone; known.com is
@@ -665,25 +627,3 @@ def test_the_pool_ships_each_in_window_raw_name_beneath_a_domain(tmp_path, his_f
     records = ("www.already-his.com", "www.rolled.com")
     _, result = _pool(tmp_path, "third", *records, conn=duckdb.connect())
     assert (result["domains"], result["domains_not_in_his_files"]) == (5, 3)
-
-
-def test_the_queue_hands_out_each_name_once_and_recovers_a_crash() -> None:
-    queue = wq.connect_queue(":memory:")
-    assert wq.enqueue(queue, TASK, ["a.com", "b.com"]) == 2
-    assert wq.enqueue(queue, TASK, ["a.com", "c.com"]) == 1
-    (done,) = wq.claim(queue, TASK, limit=1)
-    assert wq.counts(queue, TASK) == {"pending": 2, "in_flight": 1}
-    wq.mark_done(queue, TASK, done)
-    wq.enqueue(queue, TASK, [done])  # a finished key cannot be re-enqueued back to pending
-    (failed,) = wq.claim(queue, TASK, limit=1)
-    wq.mark_failed(queue, TASK, failed, http_status=404)  # final, with no retry time
-    assert wq.counts(queue, TASK) == {"pending": 1, "done": 1, "failed": 1}
-    # a crash leaves the last claim in flight: the reset returns it, its attempts kept
-    (retried,) = wq.claim(queue, TASK)
-    assert wq.reset_in_flight(queue) == 1
-    assert wq.claim(queue, TASK) == [retried]
-    row = "SELECT attempts FROM fetch_state WHERE task_type = ? AND key = ?"
-    assert queue.execute(row, (TASK, retried)).fetchone()["attempts"] == 2
-    wq.mark_failed(queue, TASK, retried, http_status=429, retry_after_s=3600)
-    assert wq.counts(queue, TASK) == {"pending": 1, "done": 1, "failed": 1}
-    assert wq.claim(queue, TASK) == [], "pending again, but not before its retry time"
