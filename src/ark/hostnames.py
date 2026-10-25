@@ -92,6 +92,10 @@ DARTMOUTH_ARCS_METHOD = "bulk_cdx_file"
 HOSTCDX_SOURCE = "ia_node_host_cdx_hostnames"
 HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
 
+# The End of Term web archive's CDXJ indexes, 2002 to 2013 only, the same class.
+EOT_SOURCE = "eot_cdxj"
+EOT_METHOD = DARTMOUTH_ARCS_METHOD
+
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
 # sweep, because both are IA CDX responses, and its own method so the contribution table can

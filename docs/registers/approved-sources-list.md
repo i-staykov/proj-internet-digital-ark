@@ -757,6 +757,13 @@ Decision: master
 - potential: 40 (candidate track only, one GET)
 Decision: candidate-only
 
+### eot_cdxj / cdx_timestamp
+- the artifact: the End of Term web archive's nine CDXJ indexes, `eotarchive.s3.amazonaws.com/eot-index/collections/EOT-{2004,2008,2012}/indexes/eot*-cdx-*.cdxj.gz` (2004: 2, 2008: 3, 2012: 4; 22.8 GB compressed), CC0, read in-stream by `scripts/sources/eot/eot_cdxj.py` through `scripts/harness/fetch.py`, each part checked against its sha256
+- what dates one item: the 14-digit capture stamp CDXJ carries between the SURT key and the JSON body, written by the crawler, with the JSON's `status` 2xx or 3xx; 2002 to 2013 only, one row per host-year, into `data/raw/extended/eot_cdxj/` for the extended export (`bulk_cdx_file`, an existing class)
+- measured 2026-10-18 against merge261016 and our additions: 341,922 net-new host-years, 225,168.52 EE on 2002 to 2013 (2013 96,799.51, 2012 66,340.25, 2009 33,389.17, 2008 16,201.11, 2004 12,432.27, 2005 6.21), 0 on 1996 to 2001
+- potential: 225,169
+Decision: master
+
 ## Pending requests
 
 None.
