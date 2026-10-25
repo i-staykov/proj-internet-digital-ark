@@ -641,8 +641,8 @@ def _pool(tmp_path: Path, key: str, *records: str | tuple[str, int], conn=None) 
 
 
 def test_the_pool_ships_each_in_window_raw_name_beneath_a_domain(tmp_path, his_files) -> None:
-    """A raw value that is its domain adds nothing; a URL keeps its commas; the list a crawler
-    reads holds a seed once; a rerun replaces only its own source's rows. The pool counts the
+    """A raw value that is its domain adds nothing; a URL keeps its commas; a rerun replaces
+    only its own source's rows. The pool counts the
     domains his files lack by exact name, and never one ours could not be."""
     url = "http://books.example.co.uk/news/0,6109,393333,00.html"
     early, late = ("a.ex.com", 1995), ("c.ex.com", 2002)
@@ -655,7 +655,8 @@ def test_the_pool_ships_each_in_window_raw_name_beneath_a_domain(tmp_path, his_f
     assert rows == want + [(seed, "example.com", year, "first") for seed, year in www]
     _pool(tmp_path, "second", "b.ex.org")
     _, result = _pool(tmp_path, "first", "c.ex.net")
-    assert (tmp_path / "seeds" / "download_seeds.txt").read_text() == "b.ex.org\nc.ex.net\n"
+    seeds = duckdb.connect().execute(f"SELECT seed FROM {table} ORDER BY 1").fetchall()
+    assert seeds == [("b.ex.org",), ("c.ex.net",)]
     assert result["parts"] == 2
     empty = combine_parts(seed_dir=tmp_path / "s", parts_dir=tmp_path / "p")
     assert empty == {"parts": 0, "seeds": 0} and not (tmp_path / "s").exists()
