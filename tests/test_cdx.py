@@ -381,7 +381,10 @@ def test_extended_walk_asks_the_best_ee_a_request_first_whichever_window_pays():
 
 
 def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(tmp_path):
-    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "order.json", max_transient=0)
+    a = SimpleNamespace(
+        state_dir=tmp_path, order=tmp_path / "o.json", max_transient=0, data=tmp_path
+    )
+    a.questions = {}
     page = ("co.uk", 1000, 7, 1996, 2013, "all")
 
     def lane_with(page):
