@@ -6,6 +6,12 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| add-attack-defacement-ledger-arsiv-replay-pages / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. | <https://web.archive.org/web/20130101100050id_/http://add-attack.com/Arsiv> |
+| defacement-ledgers-zone-h-2004-replay-page-and-hack-mirror-sibling-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. | <https://web.archive.org/web/20041230204813/http://www.zone-h.org/en/defacements> <http://www.zone-h.org:80/en/defacements> |
+| httparchive-2011-wpt-iso-date-partition-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012/120809_0.zip> <http://www.sportbox.ru/> |
+| httparchive-2013-may-small-partition-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0806Z | 0.0000 EE | CLOSED. | <https://archive.org/download/httparchive_2013_05/130503_0.zip> <http://www.bravoteens.com/index.shtml> |
+| httparchive-downloads-apr-2011-requests-csv-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0806Z | 0.0000 EE | CLOSED. | <https://archive.org/download/httparchive_downloads/httparchive_Apr_15_2011_requests.csv.gz> <http://b.scorecardresearch.com/b2?> |
+| zone-h-com-cn-defacement-ledger-replay-chain-ends / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0806Z | not priced | CLOSED. | <https://web.archive.org/web/20110108135809id_/http://www.zone-h.com.cn/> |
 | defacement-ledgers-flashback-antionline-aljyyosh-sibling-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. | <https://web.archive.org/web/20000816002556id_/http://www.flashback.se/hack/1999/12/> |
 | defacement-siblings-phish-and-malware-blocklist-ledgers-noncapture-zero / phish_ledger_verification_record | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. | <https://web.archive.org/web/20140426094539id_/http://data.phishtank.com/data/online-valid.csv> |
 | httparchive-downloads-2010-requests-and-dump-tables-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0706Z | 10758.6514 EE | CLOSED. The claim track (candidate) prices 0 of 64,467 items: 60,019 are 2010 fetches outside the candidate | <https://archive.org/download/httparchive_downloads/httparchive_Nov_15_2010_requests.csv.gz> <http://b.scorecardresearch.com/b2?> |
