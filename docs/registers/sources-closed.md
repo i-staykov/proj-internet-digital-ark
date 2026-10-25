@@ -6,6 +6,11 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| defacement-ledgers-flashback-antionline-aljyyosh-sibling-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. | <https://web.archive.org/web/20000816002556id_/http://www.flashback.se/hack/1999/12/> |
+| defacement-siblings-phish-and-malware-blocklist-ledgers-noncapture-zero / phish_ledger_verification_record | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. | <https://web.archive.org/web/20140426094539id_/http://data.phishtank.com/data/online-valid.csv> |
+| httparchive-downloads-2010-requests-and-dump-tables-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0706Z | 10758.6514 EE | CLOSED. The claim track (candidate) prices 0 of 64,467 items: 60,019 are 2010 fetches outside the candidate | <https://archive.org/download/httparchive_downloads/httparchive_Nov_15_2010_requests.csv.gz> <http://b.scorecardresearch.com/b2?> |
+| httparchive-downloads-apr-2012-requests-csv-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_downloads/httparchive_Apr_15_2012_requests.csv.gz> <http://www.love21cn.com/> |
+| safemode-org-mirror-apache-day-tree-ia-replay-2000-2002 / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0706Z | not priced | CLOSED. | <https://web.archive.org/web/20030302142109id_/http://safemode.org/mirror/2001/09/01/> |
 | defacement-ledgers-post2002-sibling-ledgers-and-detection-datasets-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://web.archive.org/web/20120718024203id_/http://www.hack-mirror.com/> |
 | defacement-ledgers-successor-mirror-hosts-live-and-replay / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://hack-mirror.com/archive> |
 | defacement-ledgers-turk-h-mirror-zone-replay-and-dataset-host-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://web.archive.org/web/20130305102824id_/http://turk-h.org/root> |
