@@ -2,6 +2,9 @@
 
 set quiet := true
 
+_default:
+    just --list
+
 # sync the locked environment into .venv
 setup:
     uv sync
