@@ -187,3 +187,17 @@ def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported,
     (his / "2002.txt").write_bytes(text(HIS[2002] + ["zzz.com"]))
     done = run(check, tmp_path / "stage", HIS=str(his))
     assert "is not the file manifest.json names" in done.stdout, done.stdout
+
+
+def test_the_end_of_term_reader_keeps_the_earliest_capture_a_host_year_in_the_window():
+    eot = script("sources/eot/eot_cdxj.py")
+    lines = [
+        b'gov,a)/ 20080102000000 {"url": "http://Example.COM:80/", "status": "301"}',
+        b'gov,a)/x 20080101000000 {"url": "http://example.com/x", "status": "200"}',
+        b'gov,a)/ 20010101000000 {"url": "http://old.gov/", "status": "200"}',
+        b'gov,b)/ 20090101000000 {"url": "http://b.gov/", "status": "-"}',
+        b'gov,c)/ 20090101000000 {"url": "http://c.gov/\\q", "status": "200"}',
+    ]
+    keep, broken = eot.earliest(lines)
+    assert keep == {("example.com", "2008"): ("20080101000000", "http://example.com/x", "200")}
+    assert broken == 1
