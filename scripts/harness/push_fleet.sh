@@ -22,8 +22,8 @@ if [ "$BR" != main ]; then
     echo "fleet clone is on $BR, not main: statuses, ledger and snapshot.json uncommitted."
     echo "  A leg picks from main, so a stranded verdict re-deals a settled slug."
     echo "  Check the clone out on main and re-run the sync."
-    [ "$SNAPSHOT" != --snapshot ]
-    exit
+    [ "$SNAPSHOT" = --snapshot ] && exit 1
+    exit 0
 fi
 if [ "$SNAPSHOT" = --snapshot ]; then
     uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
