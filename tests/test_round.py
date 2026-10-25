@@ -1,6 +1,7 @@
 """The round's own pages: the verdict mail parsed into one row of `rounds.md`, the mail draft
 a rehearsal never writes, and the shipped saturation ledger, byte for byte the register."""
 
+import os
 import re
 import sys
 from datetime import date
@@ -243,3 +244,11 @@ def test_the_unparsed_pool_reads_no_walk_journal(tmp_path, monkeypatch):
         sys, "argv", ["unparsed_pool.py", "--dirs", str(tmp_path), "--out", str(out)]
     )
     assert pool.main() == 0 and out.read_text().splitlines()[1:] == ["bad_one.com\tnot_rfc1123"]
+    # incremental: a journal newer than the file is read alone and merged in, as a full scan would
+    (tmp_path / "sweep_a.jsonl.gz").write_bytes(b"")  # a full scan would lose bad_one.com
+    (tmp_path / "sweep_b.jsonl.gz").write_bytes(gzip.compress(b'{"url": "http://bad_3.com/"}\n'))
+    os.utime(tmp_path / "sweep_a.jsonl.gz", (0, 0))
+    os.utime(out, (1, 1))
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--incremental"])
+    assert pool.main() == 0
+    assert out.read_text().splitlines()[1:] == [f"bad_{n}.com\tnot_rfc1123" for n in ("3", "one")]

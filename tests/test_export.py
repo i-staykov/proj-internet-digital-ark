@@ -165,11 +165,13 @@ def run(tmp_path_factory):
         _export(conn, root / "claim", baseline, claim_only=True)
         stats = _export(conn, root / "full", baseline, with_provenance=True)
         _export(_store(reverse=True), root / "reversed", baseline)
+        _export(conn, root / "over", baseline, claim_only=True)
+        over = _export(conn, root / "over", baseline)
         shipped = netnew_shipped_pairs(conn, baseline)
     (bank := root / "bank").mkdir()
     for name in ("candidate_additions.txt", STAMP):
         shutil.copy(root / "claim/netnew" / name, bank)
-    return SimpleNamespace(root=root, conn=conn, stats=stats, shipped=shipped, bank=bank)
+    return SimpleNamespace(root=root, conn=conn, stats=stats, over=over, shipped=shipped, bank=bank)
 
 
 def _words(run, rel: str) -> list[str]:
@@ -258,6 +260,18 @@ def test_two_exports_of_one_store_are_byte_identical(run) -> None:
         for top in (run.root / "full", run.root / "reversed")
     )  # fmt: skip
     assert full == reversed_ and len(full) > 20
+
+
+def test_a_full_export_over_the_claims_store_keeps_its_files(run) -> None:
+    """The ship's full export after the bank's claim on one store skips the claim's phases and
+    leaves what a full export from nothing writes."""
+    assert "candidate_additions" in run.stats and "candidate_additions" not in run.over
+    full, over = (
+        {str(p.relative_to(top)): p.read_bytes() for p in top.rglob("*")
+         if p.is_file() and p.name != STAMP and "provenance" not in p.parts}
+        for top in (run.root / "full", run.root / "over")
+    )  # fmt: skip
+    assert full == over
 
 
 def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(run) -> None:
