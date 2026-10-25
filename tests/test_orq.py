@@ -209,7 +209,7 @@ def test_reads_refuse_private_and_the_store_as_do_text_and_folders(tmp_path, mon
     for path in [*reads, orq.REPO / "data/ark.duckdb.wal"]:
         with pytest.raises(orq.Refusal):
             orq.read_bytes(path)
-    for text in ("see private/handoff.md", "a traceback in /" + "Users/someone/notes.txt"):
+    for text in ("see private/notes.md", "a traceback in /" + "Users/someone/notes.txt"):
         with pytest.raises(orq.Refusal):
             orq.clean(text, "fixture")
     assert orq.clean("site.com/home/whats-new/", "fixture")
