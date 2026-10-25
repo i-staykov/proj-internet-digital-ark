@@ -1142,12 +1142,36 @@ ship stage="all" *args:
 
     # Round cleanup requires local checksums and verified remote copies; no upload.
     stage_retention() {
-        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: round cleanup skipped"; return 0; fi
+        # Offsite needs a whole-drive remote: a drive.file one sees none of the copies made before.
+        if ! rclone config show gdrive 2>/dev/null | grep -qx 'scope = drive'; then
+            echo "no whole-drive gdrive remote here: round cleanup skipped"; return 0
+        fi
         just verify raw
         just verify offsite --manifest
         just verify offsite --upload --yes
         just verify offsite --verify
         just prune --round --write
+    }
+
+    # The newest archive, its .sha256 and MANIFEST.txt into one Drive folder, each checked by its
+    # sha256 there after at most two copies, and the folder's link printed for `ship report`.
+    stage_drive() {
+        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: nothing on Drive"; return 0; fi
+        local archive dest f want got
+        archive=$(ls -t submissions/*/*.7z | head -1)
+        dest="gdrive:ark-submissions/$(basename "$archive" .7z)"
+        for f in "$archive" "$archive.sha256" "$(dirname "$archive")/MANIFEST.txt"; do
+            want=$(shasum -a 256 "$f" | cut -d' ' -f1) got=""
+            for _ in 1 2; do
+                rclone copy --checksum "$f" "$dest/" || true
+                got=$(rclone lsjson --stat --hash --hash-type sha256 "$dest/$(basename "$f")" \
+                    | python3 -c 'import json, sys; print(json.load(sys.stdin)["Hashes"]["sha256"])' 2>/dev/null) \
+                    || got=""
+                [ "$got" = "$want" ] && break
+            done
+            if [ "$got" != "$want" ]; then echo "ship drive: $f is not on Drive with sha256 $want after two copies" >&2; return 1; fi
+        done
+        echo "ship drive: $dest, $(rclone link "$dest")"
     }
 
     # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
@@ -1240,7 +1264,8 @@ ship stage="all" *args:
     -h|--help|help)
         echo "just ship <stage> [args]"
         echo "  all [round]      prep, then build, then the reviewer's calculator, verify.sh on"
-        echo "                   a fresh extraction, closing the gate issue, and round cleanup"
+        echo "                   a fresh extraction, the Drive copy, closing the gate issue,"
+        echo "                   and round cleanup"
         echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
         echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
@@ -1253,6 +1278,7 @@ ship stage="all" *args:
         echo "                   \$TMPDIR/orq), never output/ or submissions/, and the page count"
         echo "  draft [--write]  the mail draft, printed unless --write"
         echo "  report ARCHIVE   on the laptop: the report, .docx and draft from its figures"
+        echo "  drive            the newest archive to Drive, its folder link printed"
         echo ""
         echo "Nothing above has run. A rehearsal with nothing decided:"
         echo "  just ship draft            print the mail, write nothing"
@@ -1275,7 +1301,8 @@ ship stage="all" *args:
         ;;
     calculator) uv run python scripts/round/round_figures.py --verify ;;
     report)
-        # On the laptop, from the archive's figures alone: the report, its .docx and the mail draft.
+        # On the laptop, from the archive's figures alone: the report, its .docx and the mail
+        # draft, with the Drive folder's link when the archive is there.
         if [ $# -lt 1 ]; then echo "ship report ARCHIVE.7z" >&2; exit 2; fi
         set -e
         fresh=$(mktemp -d)
@@ -1284,7 +1311,14 @@ ship stage="all" *args:
         rm -rf "$fresh"
         uv run python scripts/round/build_report_docx.py docs/report.md
         uv run python scripts/round/ship_mail.py --write --archive "$1"
+        draft=$(ls -t private/emails/drafts/*.md | head -1)
+        if link=$(rclone link "gdrive:ark-submissions/$(basename "$1" .7z)" 2>/dev/null); then
+            printf '\nArchive: %s\n' "$link" >> "$draft"
+        else
+            echo "no Drive folder for $1: the draft carries no link"
+        fi
         ;;
+    drive) stage_drive ;;
     docx)
         if [ $# -lt 1 ]; then echo "ship docx SOURCE.md" >&2; exit 2; fi
         # The mail carries the five fields and nothing else; the method goes in an attached
@@ -1351,11 +1385,12 @@ ship stage="all" *args:
             rm -rf "$fresh"; exit 1
         fi
         rm -rf "$fresh"
+        stage_drive
         close_gate_issue
         # last, so the upload of the round's copies never stands between the build and the mail
         stage_retention
         ;;
-    *) echo "ship: all prep build package verify calculator report docx orq draft (--help for the chain)" >&2; exit 2 ;;
+    *) echo "ship: all prep build package verify calculator report drive docx orq draft (--help for the chain)" >&2; exit 2 ;;
     esac
 
 # --- unattended ---------------------------------------------------------------

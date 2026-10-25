@@ -243,8 +243,10 @@ def gate(
     now: datetime | None = None,
     call: Callable[[list[str]], tuple[int, str]] = gh,
     write: bool = False,
+    ship: bool = False,
 ) -> list[str]:
-    """Open the gate issue on a crossing, once, and say what it did.
+    """Open the gate issue on a crossing, once, and say what it did. With `ship` it also
+    carries `ship-now`, so the next tick runs `just ship all` unattended.
 
     The figure is the gate line of `data/brief.json`, the part nearest its 3%, 1996 to 2001 or
     2002 to 2013, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md
@@ -301,14 +303,17 @@ def gate(
             f"years, against `{marker}`{since}, read off the last bank at "
             f"{now.isoformat(timespec='seconds')}.",
             "",
-            "Next: merge any open approval PR, then run `just ship` where the store is.",
+            "Next: merge any open approval PR; the next tick runs `just ship all`."
+            if ship
+            else "Next: merge any open approval PR, then run `just ship` where the store is.",
             "Opened once per crossing, and closed on a verified package.",
         ]
     )
+    labels = f"{LABEL},ship-now" if ship else LABEL
     if not write:
-        return [f"would open the gate issue: {title}"]
+        return [f"would open the gate issue, labelled {labels}: {title}"]
     code, out = call(
-        ["issue", "create", "--repo", repo, "--title", title, "--label", LABEL, "--body", body]
+        ["issue", "create", "--repo", repo, "--title", title, "--label", labels, "--body", body]
     )
     if code != 0:
         return [f"gate issue not opened: `gh issue create` failed: {out or code}"]
@@ -364,9 +369,11 @@ def main() -> None:
         return
     from ark.baseline import CURRENT_BASELINE_RELEASED
 
-    for line in gate(
-        brief, released=CURRENT_BASELINE_RELEASED[:10], repo=args.repo, write=args.write
-    ):
+    env = ROOT / "local.env"
+    lines = env.read_text(encoding="utf-8").splitlines() if env.is_file() else []
+    ship = any(ln.strip().replace('"', "") == "ARK_SHIP_NOW=1" for ln in lines)
+    released = CURRENT_BASELINE_RELEASED[:10]
+    for line in gate(brief, released=released, repo=args.repo, write=args.write, ship=ship):
         if line:
             print(f"  {line}")
 
