@@ -6,6 +6,12 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| defacement-ledgers-post2002-sibling-ledgers-and-detection-datasets-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://web.archive.org/web/20120718024203id_/http://www.hack-mirror.com/> |
+| defacement-ledgers-successor-mirror-hosts-live-and-replay / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://hack-mirror.com/archive> |
+| defacement-ledgers-turk-h-mirror-zone-replay-and-dataset-host-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. | <https://web.archive.org/web/20130305102824id_/http://turk-h.org/root> |
+| httparchive-2010-nov-daily-test-items-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_101116> |
+| httparchive-2013-ios-agent-oct-aug-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0606Z | 1656.5526 EE | CLOSED. Candidate track: 1,656.5526 EE, 3,240 net-new names | <https://archive.org/download/httparchive_2013_10_19_0/131019_0.zip> |
+| httparchive-downloads-pages-table-2011-2013-page-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0606Z | not priced | CLOSED. Four HTTP Archive pages-table dumps read whole | <https://archive.org/download/httparchive_downloads/httparchive_Apr_15_2013_pages.csv.gz> <http://www.appspot.com/> |
 | httparchive-2012-2013-crawl-tail-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012_10/121001_A.zip> <http://www.imoveissjc.com/> |
 | httparchive-2013-rerun-day-and-2010-2011-small-zip-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. No HTTP Archive file under the 1 GiB cap reaches half the floor | <https://archive.org/download/httparchive_2013_02/130206_0.zip> <http://www.torrentz.in/> <https://archive.org/about/terms.php> |
 | httparchive-downloads-2011-desktop-requests-csv-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | 0.0000 EE | CLOSED. Whole artifact read and priced | <https://archive.org/download/httparchive_downloads/httparchive_Dec_15_2011_requests.csv.gz> <http://narod2.yandex.ru/> |
