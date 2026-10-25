@@ -6,6 +6,10 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| defacement-ledgers-zone-h-bulk-dataset-and-detection-corpus-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0306Z | not priced | CLOSED. | <https://web.archive.org/web/20031206053508id_/http://www.zone-h.org/en/defacements/> |
+| defacement-ledgers-zone-h-derived-datasets-and-ia-item-search-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0306Z | not priced | CLOSED. | <https://huggingface.co/datasets/hugoromao/defacement-detection-balanced> |
+| httparchive-2011-wpt-partitions-iewtr-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0306Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2011/110215.zip> <http://www.tagmybuddy.com/> |
+| httparchive-2013-har-json-entries-and-wpt-reruns-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0306Z | 30244.0251 EE | CLOSED. The claim track (candidate) prices 0 of 154,551 items: all 154,549 dated rows are 2013 fetches | <https://archive.org/download/har_httparchive_2013_09_01_9/bodies.zip> <http://www.pastors.com/> |
 | defacement-ledgers-zone-h-js-wall-and-sibling-ledger-replay-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0206Z | not priced | CLOSED. No bulk ledger reachable: Zone-H answers robots.txt with a JS cookie challenge | <https://web.archive.org/web/20120718024203/http://www.hack-mirror.com/> |
 | httparchive-wpt-monthly-zips-2010-2012-iewtr-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0206Z | not priced | CLOSED. | <https://archive.org/download/httparchive_2011/110331.zip> |
 | spoon-collective-majordomo-month-mbox-1996-2001-received-relay-hosts / candidate: majordomo month-mbox Received from/by relay, From, Message-ID and bod | 2026-10-22, fleet 20261022T1806Z | 900.7 EE | CLOSED. the program measured 900.7 EE against the 5,000 floor | <http://web.archive.org/web/20040114115009id_/http://lists.village.virginia.edu/listservs/spoons/heidegger.archive/heidegger.0101> |
