@@ -4,8 +4,8 @@
 `login@host`, or `local` for this machine, whose lane walks straight into `data/` here. On each,
 cron starts its lane at boot and every 10 minutes under `flock`, a remote one from a shallow
 clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits by hash
-the same way everywhere. `install` first seeds a remote lane's state (done set, page counts,
-request log) from `data/` here, so a lane that once ran elsewhere walks on rather than over.
+the same way everywhere. `install` first seeds every lane's state (done set, page counts,
+request log) from `data/` here, so a lane walks on from what any lane answered.
 The tick pulls each remote lane's journals home and re-ranks the queue (`just sync`, step 7).
 The laptop runs no lane (AGENTS.md, Channel).
 """
@@ -23,7 +23,6 @@ URL = "https://github.com/i-staykov/proj-internet-digital-ark"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
 WALK = "$HOME/ark-walk"
-STATE = ("done.txt", "pages.json", "pending.txt", "log.tsv")
 
 
 def setting(name: str) -> str:
@@ -70,14 +69,13 @@ def install() -> None:
             print(f"lane {lane}: the VM installs its own lane, `just vm install`")
             continue
         else:
-            state = f"ark-walk-data/raw/cdx_walk/lane{lane}/"
-            if run(target, f"mkdir -p {state} ark-walk-data/queue && echo ok") != "ok":
+            state = "ark-walk-data/raw/cdx_walk/"
+            if run(target, f"mkdir -p {state}lane{lane} ark-walk-data/queue && echo ok") != "ok":
                 print(f"lane {lane}: its host did not answer, nothing installed")
                 continue
             rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
-            seed = [DATA / "raw/cdx_walk" / f"lane{lane}" / f for f in STATE]
-            if seed := [str(f) for f in seed if f.is_file()]:
-                subprocess.run([*rsync, *seed, f"{target}:{state}"])
+            if seed := [str(d) for d in sorted((DATA / "raw/cdx_walk").glob("lane*"))]:
+                subprocess.run([*rsync, *seed, f"{target}:{state}"])  # every lane's done set
             queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
             subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
             run(target, (

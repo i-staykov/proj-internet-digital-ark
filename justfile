@@ -1405,12 +1405,12 @@ vm what="status":
         grep -q '^ARK_FLEET_USER=.' <<<"$env" || { echo "vm install: set ARK_FLEET_USER in local.env" >&2; exit 1; }
         printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env'
         if [ -n "${RUNNER_TOKEN:-}" ]; then printf '%s\n' "$RUNNER_TOKEN" | $SSH 'umask 077; cat > ark-runner-token'; fi
-        # Its lane's state and the queue first, into the clone, so the cron the install writes
-        # walks on from this machine's done set rather than over it.
+        # Every lane's state and the queue first, into the clone, so the cron the install writes
+        # walks on from every done set here rather than over it.
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
         $SSH "[ -d ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ark; mkdir -p ark/data/raw/cdx_walk/lane$N ark/data/queue"
         RSH="${SSH% $ARK_VM}"
-        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane$N/ "$ARK_VM:$VMHOME/ark/data/raw/cdx_walk/lane$N/"
+        rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane* "$ARK_VM:$VMHOME/ark/data/raw/cdx_walk/"
         rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:$VMHOME/ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         # Then the fleet, as its user, the registration token on stdin and nowhere else; a
