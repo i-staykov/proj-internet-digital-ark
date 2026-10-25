@@ -474,12 +474,14 @@ def export_all(
         raise ValueError("a claim export writes no provenance graph")
     # read once: this connection holds the store, so nothing moves it before the stamp
     ledger = store_ledger(conn)
-    # A full export over the store a claim export read keeps the claim's files, byte for byte
-    # what it would write, and runs only the phases the full files need.
+    # A full export over the store a claim export read with this code keeps the claim's files,
+    # byte for byte what it would write, and runs only the phases the full files need.
+    code = code_digest()
     prior = read_stamp(netnew_dir) or {}
     reuse = (
         not claim_only
         and prior.get("mode") == "claim"
+        and prior.get("code") == code
         and prior.get("baseline") == CURRENT_BASELINE_MARKER
         and {key: prior.get(key) for key in ledger} == ledger
         and all(path.is_file() for path in claim_files(netnew_dir, candidates_path))
@@ -641,10 +643,19 @@ def export_all(
         **ledger,
         "baseline": CURRENT_BASELINE_MARKER,
         "provenance": with_provenance,
+        "code": code,
     }
     (netnew_dir / STAMP_NAME).write_text(json.dumps(stamp, indent=2) + "\n", encoding="utf-8")
     logger.info(f"export: {stats}")
     return stats
+
+
+def code_digest() -> str:
+    """The sha256 of the package's code and data files, which decide every exported byte."""
+    digest, root = hashlib.sha256(), Path(__file__).parent
+    for path in sorted(p for p in root.rglob("*") if p.suffix in {".py", ".json"}):
+        digest.update(path.relative_to(root).as_posix().encode() + b"\0" + path.read_bytes())
+    return digest.hexdigest()
 
 
 def claim_files(
