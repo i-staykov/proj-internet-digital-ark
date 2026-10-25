@@ -24,9 +24,9 @@ unless it adds a capability the round needs.
 
 ## First (master and owner)
 
-- Asks: #411 two more CDX clients from other addresses; #412 a link graph's target side;
-  #393 the terms sentence for the two candidate-grain finds; ark-fleet #215 ClueWeb09 whole;
-  ark-fleet #216 the Internet Archive's private 1996 to 2013 indexes.
+- Asks: #412 a link graph's target side; #393 the terms sentence for the two candidate-grain
+  finds; ark-fleet #215 ClueWeb09 whole; ark-fleet #216 the Internet Archive's private 1996 to
+  2013 indexes.
 - `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
   measured whether they banked, then folded or deleted.
 
@@ -54,8 +54,9 @@ unless it adds a capability the round needs.
 
 ## D. Collectors and the VM (owns collector deployment, sync)
 
-- #409 a 504 costs the lane one request, never a pause; #410 one CDX question per pool domain
-  never asked; #390 the done set is every lane's; #391 the 2,211 suffixes under the cutoff;
-  #392 the worker count that measures best.
+- Throughput, in this order: #409 a 504 costs the lane one request, never a pause; #391 the
+  2,211 suffixes under the cutoff; #392 the worker count that measures best; #411 the VM runs
+  the Channel's three clients; #390 the done set is every lane's; #410 one CDX question per pool
+  domain never asked.
 - #292 End of Term banks; #413 its 2008 and 2012 indexes read whole; #286 dated crawl lists bank
   as 2002 to 2013 evidence.
