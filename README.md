@@ -60,5 +60,4 @@ and untracked, because the figures move daily and the page names the machine tha
 | | |
 |---|---|
 | [AGENTS.md](AGENTS.md) | the hard rules |
-| [docs/index.md](docs/index.md) | one line per page in `docs/`: what it is and when to read it |
 | [docs/ops/runbook.md](docs/ops/runbook.md) | the loop's commands and procedures, in the order a session runs them |

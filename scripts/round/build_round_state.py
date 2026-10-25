@@ -66,7 +66,6 @@ _spec.loader.exec_module(extended)
 
 OUT = ROOT / "docs/ROUND.md"
 BRIEF = ROOT / "data/brief.json"
-AMENDMENTS = ROOT / "docs/brief/brief_amendments.md"
 STATE_RE = re.compile(r"<!-- ark-round-state: (.*?) -->")
 EXTENDED_MANIFEST = extended.OUT / "manifest.json"
 # Fields 3 to 5 and the two gate lines exactly as round_figures prints them.
@@ -162,22 +161,6 @@ def parse_fields(figures: str) -> dict[str, str] | None:
     return {key: m.group(1) for key, m in found.items()}
 
 
-def pending_amendments(path: Path | None = None) -> list[dict[str, str]]:
-    """Rows of the amendments ledger with a cell still reading `pending`: a brief
-    change intake transcribed that nobody has classified or landed yet."""
-    path = path or AMENDMENTS
-    rows = []
-    if not path.exists():
-        return rows
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.startswith("|"):
-            continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if any(c.lower() == "pending" for c in cells):
-            rows.append({"date": cells[0], "text": cells[1][:120] if len(cells) > 1 else ""})
-    return rows
-
-
 def brief(fields: dict[str, str] | None, asks: list, as_of: str | None = None) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
@@ -215,7 +198,6 @@ def brief(fields: dict[str, str] | None, asks: list, as_of: str | None = None) -
     return snapshot | {
         "gate_pct": float(GATE_PCT),
         "waiting_on_human": waiting,
-        "pending_amendments": pending_amendments(),
     }
 
 
