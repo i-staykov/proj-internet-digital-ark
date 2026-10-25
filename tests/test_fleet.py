@@ -29,8 +29,8 @@ BANK = BANK[: BANK.index("\n\n")]
 ENV = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
 
 
-NAMES = ("fleet_ledger", "fleet_findings", "fleet_request", "ack_journals")
-fleet_ledger, findings, request, ack = (script(f"harness/{name}.py", name) for name in NAMES)
+NAMES = ("fleet_ledger", "fleet_findings", "fleet_request", "ack_journals", "fleet_leads")
+fleet_ledger, findings, request, ack, leads = (script(f"harness/{name}.py", name) for name in NAMES)
 import sync_approvals  # noqa: E402  fleet_request put scripts/harness on the path
 
 # A stand-in for the fleet's `scripts/ledger.py append`: it keys a line on the fields the real
@@ -423,3 +423,25 @@ def test_asks_file_together_at_the_gate_and_never_twice(tmp_path, monkeypatch, c
 
 
 # --- the tick's and the bank's fleet steps, off the justfile ----------------------------
+
+
+def test_a_stale_artifact_leaves_a_lead_the_fleet_re_dealt_alone(tmp_path):
+    """A disputed FIND in the drain closes its lead only while the fleet's own finding agrees."""
+    slug = "a-lead-no-register-holds"
+    disputed = {"verdict": "FIND", "verify": {"status": "disputed"}}
+    (tmp_path / "in" / slug).mkdir(parents=True)
+    (tmp_path / "in" / slug / "finding.json").write_text(json.dumps({"slug": slug, **disputed}))
+    (tmp_path / "fleet" / "scripts").mkdir(parents=True)
+    (tmp_path / "fleet" / "schemas").mkdir()
+    (tmp_path / "fleet" / "schemas" / "lead.json").write_text("{}")
+    (tmp_path / "fleet" / "scripts" / "contract.py").write_text(
+        "from pathlib import Path\nSCHEMAS = Path(__file__).resolve().parents[1] / 'schemas'\n"
+        "def check_schema(doc, schema):\n    return []\ndef check_semantics(doc):\n    return []\n"
+    )
+    lead, now = tmp_path / "fleet" / "leads" / f"{slug}.json", tmp_path / "fleet" / "leads" / slug
+    now.mkdir(parents=True)
+    for fleet_has, status in (({"verdict": "BLOCKED"}, "scouted"), (disputed, "closed")):
+        lead.write_text(json.dumps({"slug": slug, "status": "scouted"}))
+        (now / "finding.json").write_text(json.dumps(fleet_has))
+        leads.main([str(tmp_path / "in"), "--fleet", str(tmp_path / "fleet"), "--write"])
+        assert json.loads(lead.read_text())["status"] == status
