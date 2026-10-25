@@ -3,8 +3,8 @@
 One paged `matchType=domain` request over a public suffix (`co.uk`, `co.nz`, `com.au`) returns
 thousands of exact (host, year) captures: every host under a 1,000-block slice of the index, with
 the years it was captured in. A bare TLD answers 403, so `.com` cannot be walked this way
-(`docs/lore/laws.md`). The suffixes are the ICANN two-label ones of every TLD he weighs above 0
-English, ranked by `cdx_walk_order.py`, so rows per host, not the TLD's weight, price a page.
+(`docs/lore/laws.md`). The suffixes are the ICANN two-label ones of every TLD he weighs; the
+measured price per request (`cdx_walk_order.py`) orders the walk, not a weight cutoff.
 
 **Root URLs only.** `filter=urlkey:^[^/]*\\)/$` keeps the root captures of each host: 92.5% of
 the hosts of a page at a third of the bytes, and a page answers 2 to 3 times faster. The regex
@@ -79,14 +79,14 @@ def _sigterm(signum, frame):  # noqa: ARG001
 
 
 def suffixes() -> list[str]:
-    """The ICANN two-label public suffixes of every TLD he weighs above 0 English."""
+    """The ICANN two-label public suffixes of every TLD he weighs."""
     spec = importlib.util.spec_from_file_location("share", REPO / "src/ark/english_share.py")
     share = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(share)  # one module, not the package: the VPS runs bare python3
-    weighed = {t for t, w in share.english_weights().items() if w > 0} - {"arpa"}
+    weighed = set(share.english_weights()) - {"arpa"}
     psl = (REPO / "src/ark/data/public_suffix_list.dat").read_text(encoding="utf-8")
     icann = psl.split("===BEGIN ICANN DOMAINS===")[1].split("===END ICANN DOMAINS===")[0]
-    names = (line.strip() for line in icann.splitlines())
+    names = (n for n in map(str.strip, icann.splitlines()) if n[:1].isalnum())  # no `//`, `*`, `!`
     return [s for s in names if s.isascii() and s.count(".") == 1 and s.split(".")[1] in weighed]
 
 
