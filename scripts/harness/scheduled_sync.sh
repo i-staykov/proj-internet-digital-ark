@@ -67,7 +67,7 @@ ship_now() {
 # record, this is a noticeboard.
 tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
 
-# The End of Term indexes where the lanes walk, one part an hour after the bank, as its own
+# The End of Term indexes where the lanes walk, every part left after the bank, as its own
 # unit so it outlives this one, never two at once (scripts/sources/eot/eot_cdxj.py).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
     systemd-run --user --unit ark-eot --collect --working-directory="$PWD" -E PATH="$PATH" \
