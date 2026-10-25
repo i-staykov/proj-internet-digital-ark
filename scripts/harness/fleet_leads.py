@@ -123,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
         if status is None:
             print(f"leads: {slug} is not settled here, left as the fleet has it")
             continue
+        # A lead the fleet re-dealt after this artifact carries a finding that settles otherwise.
+        now = _json(fleet / "leads" / slug / "finding.json")
+        if now and status_for(now, banked, slug) != status:
+            print(f"leads: {slug}: the fleet moved on past this drain, left as the fleet has it")
+            continue
         settled.append((slug, status))
     # The drain's own verdict decides its slugs; the ledger decides every other lead.
     settled += [(slug, "banked") for slug in sorted(banked - drained)]
