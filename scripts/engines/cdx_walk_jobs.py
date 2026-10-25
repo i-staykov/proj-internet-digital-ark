@@ -5,7 +5,8 @@
 cron starts its lane at boot and every 10 minutes under `flock`, a remote one from a shallow
 clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits by hash
 the same way everywhere. `install` first seeds every lane's state (done set, page counts,
-request log) from `data/` here, so a lane walks on from what any lane answered.
+request log) from `data/` here, a missing done set built from its log (`done`), so a lane walks
+on from what any lane answered.
 The tick pulls each remote lane's journals home and re-ranks the queue (`just sync`, step 7).
 The laptop runs no lane (AGENTS.md, Channel).
 """
@@ -59,7 +60,28 @@ def cron(lane: int, lanes: int, code: str, data: str) -> str:
     )
 
 
+def done() -> None:
+    """Give each lane folder with a log but no done set one, booked as the walker books: a 200
+    complete or with rows, a 1,000-block 504, a subpage's 400 or fourth 504."""
+    for lane in sorted((DATA / "raw/cdx_walk").glob("lane*")):
+        if (lane / "done.txt").exists() or not (lane / "log.tsv").exists():
+            continue
+        keys, silent = {}, {}
+        for row in (f.split("\t") for f in (lane / "log.tsv").read_text().splitlines()):
+            if len(row) < 14:  # a `#` note
+                continue
+            key, size, status = " ".join(row[1:6]), int(row[2]), row[7]
+            silent[key] = silent.get(key, 0) + (status == "HTTP504")
+            answered = status == "200" and (row[8] == "1" or int(row[11]) > 0)
+            past_end = status == "HTTP400" and size < 1000
+            if answered or past_end or status == "HTTP504" and (size >= 1000 or silent[key] >= 4):
+                keys[key] = None
+        (lane / "done.txt").write_text("".join(k + "\n" for k in keys))
+        print(f"{lane.name}: {len(keys)} answered pages from its log")
+
+
 def install() -> None:
+    done()
     lanes = len(hosts())
     for target, lane in hosts():
         code, data = WALK, "$HOME/ark-walk-data"
@@ -108,4 +130,6 @@ if __name__ == "__main__":
     gitdir, common = subprocess.run(git, capture_output=True, text=True).stdout.split()
     if Path(CODE, gitdir).resolve() != Path(CODE, common).resolve():
         raise SystemExit("run `just walk` from the main checkout, whose data/ the bank reads")
-    {"install": install, "status": status, "remove": remove}[(sys.argv[1:] or ["status"])[0]]()
+    {"install": install, "done": done, "status": status, "remove": remove}[
+        (sys.argv[1:] or ["status"])[0]
+    ]()
