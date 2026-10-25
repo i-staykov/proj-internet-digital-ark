@@ -98,16 +98,17 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
 
 
 def rank(units, order: dict, asked: dict, explore: int) -> tuple[list, list, list]:
-    """(priced, exploring, waiting): every unit that prices at all on 1996 to 2001, then the
-    rest, each by its EE per request over both parts; the unpriced ones still owed `explore`
-    pages; the explored ones waiting for a price. A unit priced at nothing over `DROP_AFTER`
+    """(priced, exploring, waiting): every priced unit by its EE per request over both windows,
+    1996 to 2001 the tiebreak, since the gate is 3% on either window and the 1996 to 2001 first
+    order paid 0.14 EE a request; the unpriced ones still owed `explore` pages; the explored
+    ones waiting for a price. A unit priced at nothing over `DROP_AFTER`
     answered requests is dropped."""
     priced, exploring, waiting = [], [], []
     for u in units:
         price = order.get(f"{u[0]} {u[1]}") or {}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
         if total > 0:
-            priced.append(((p1 <= 0, -total), u))
+            priced.append(((-total, -p1), u))
         elif price.get("n", 0) < DROP_AFTER:
             (exploring if asked.get(u, 0) < explore else waiting).append(u)
     priced.sort(key=lambda k: k[0])
