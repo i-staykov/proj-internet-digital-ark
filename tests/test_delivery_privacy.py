@@ -48,10 +48,3 @@ def test_nothing_private_or_addressed_to_a_person_ships() -> None:
         head = path.read_text(errors="replace")[:4000].lower() if path.is_file() else ""
         offenders += [f"{name} ({p!r})" for p in ADDRESSED if p in head]
     assert not offenders, "mark them export-ignore in .gitattributes: " + "; ".join(offenders)
-
-
-def test_the_shipped_report_carries_no_unwritten_section() -> None:
-    """A `<!-- ROUND` marker is for a human to write; the template carries them by design."""
-    report = ROOT / "docs/report.md"
-    lines = report.read_text().splitlines() if report.is_file() else []
-    assert not [ln for ln in lines if ln.lstrip().lower().startswith("<!-- round")]

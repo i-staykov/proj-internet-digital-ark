@@ -543,6 +543,36 @@ def test_a_stale_or_dirty_fleet_is_refused(tmp_path):
         orq.fleet_head(fleet)
 
 
+def test_the_report_fills_from_the_archive_figures_and_verify_finds_each(
+    tmp_path, monkeypatch, capsys
+):
+    """No store opens; t and both scores come from the growth figures and the fill date; the
+    report verdict passes the filled report and fails it once one figure is changed by hand."""
+    stage, growth = (
+        tmp_path / "stage",
+        {"GROWTH_CORE": "1.2345678901", "GROWTH_EXT": "0.0000000000"},
+    )
+    (stage / "audit").mkdir(parents=True)
+    (stage / "audit/report_figures.json").write_text(json.dumps({"EE": "1,234.5000"} | growth))
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/report.template.md").write_text("[EE] [TDAYS] [SCORE_CORE] [SCORE_EXT]\n")
+    monkeypatch.chdir(tmp_path)
+    figures = str(stage / "audit/report_figures.json")
+    monkeypatch.setattr(sys, "argv", ["fill_report.py", "--figures", figures])
+    fill = script("round/fill_report.py")
+    monkeypatch.setattr(fill, "connect_read_only_patiently", None)
+    monkeypatch.setattr(fill, "now_in_his_clock", lambda: "2026-10-25 09:00")
+    fill.main()
+    assert "docs/report.md: filled cleanly" in capsys.readouterr().out
+    report = (tmp_path / "docs/report.md").read_text()
+    assert report.startswith("1,234.5000 84 S = 10 x (1.2345678901 / 84) = 0.146972368 S = 10 x")
+    verdict = block("verify_delivery.sh", "# --- 10.", "\nPY\n", prefix="fail=0\n") + "\nPY\n"
+    shutil.copy(tmp_path / "docs/report.md", stage / "report.md")
+    assert "PASS" in bash(verdict, stage).stdout
+    (stage / "report.md").write_text(report.replace("1,234.5000", "1,234.6000"))
+    assert "FAIL  report.md lacks EE" in bash(verdict + 'exit "$fail"\n', stage).stdout
+
+
 def test_packaging_refuses_a_note_naming_another_verdict_count_than_verify_declares(tmp_path):
     text = (REPO / "scripts/round/verify_delivery.sh").read_text(encoding="utf-8")
     said = "|".join(

@@ -1,14 +1,13 @@
 """The submission mail draft: the filled figures, the open questions, the cumulative record.
 
 Three parts and no fourth. The FIGURES are not computed here: `fill_report.py` fills
-`private/email-draft.md` from the store, and this appends to that body rather than keeping a
-second copy of a number that would then drift from the report. The REMINDERS come from
-`docs/registers/questions.md`, because a question he never answered is only asked again
-if a program puts
-it in front of whoever sends the mail; the row's `remind-on` decides when, and a remind-on that
-names an event rather than a date is due at the next mail, since a ship IS that event. The
-CUMULATIVE record is read from the `awarded p_i` and `S_i quoted` columns of
-`docs/registers/rounds.md` by column name, so the numbers are the ones he quoted and not ours.
+`private/email-draft.md` from the archive's `audit/report_figures.json`, and this appends to that
+body rather than keeping a second copy of a number that would then drift from the report. The
+REMINDERS come from `docs/registers/questions.md`, because a question he never answered is only
+asked again if a program puts it in front of whoever sends the mail; the row's `remind-on`
+decides when, and a remind-on that names an event rather than a date is due at the next mail,
+since a ship IS that event. The CUMULATIVE record is read from the `awarded p_i` and `S_i quoted`
+columns of `docs/registers/rounds.md` by column name, so the numbers are the ones he quoted.
 Those columns carry 1996 to 2001 only; a second part sits in the row's note and is never
 summed with them.
 

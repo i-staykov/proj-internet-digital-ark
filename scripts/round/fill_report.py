@@ -1,4 +1,4 @@
-"""Substitute the round report's placeholders from the live store.
+"""Substitute the round report's placeholders from the live store or the archive's figures.
 
 The report must not contain a figure that disagrees with the shipped files, and
 the way that happens is a human retyping a number after the data moved. So the
@@ -13,6 +13,12 @@ outcome worse than a stale number.
 
     uv run python scripts/round/fill_report.py --check     # report which tokens remain
     uv run python scripts/round/fill_report.py             # write filled copies
+    uv run python scripts/round/fill_report.py --write-figures <stage>/audit/report_figures.json
+    uv run python scripts/round/fill_report.py --figures <stage>/audit/report_figures.json
+
+The packager writes the figures into the archive and ships no report, so the report is filled
+on the laptop from them with no store, and a wording edit never repackages. t and the scores
+are derived at fill time from the growth figures and today's date.
 
 `docs/*.template.md` are the sources; `docs/*.md` are generated. Edit the
 templates, never the filled copies, or the next refresh discards the edit.
@@ -200,8 +206,6 @@ def substitutions(f: dict) -> dict[str, str]:
     ext = json.loads(manifest.read_text(encoding="utf-8")) if manifest.is_file() else {}
     ext_ee = Decimal(ext.get("increment_ee", "0"))
     ext_growth = ext_ee / REVIEWER_EXTENDED_EE * 100 if REVIEWER_EXTENDED_EE else Decimal(0)
-    now = now_in_his_clock()
-    t_now = t_days_assignment(now)
     baseline_ee = Decimal(str(f["ee_baseline"]))
     four = Decimal("0.0001")
     subs |= {
@@ -213,10 +217,9 @@ def substitutions(f: dict) -> dict[str, str]:
         "EXTPOSTMERGE": f"{REVIEWER_EXTENDED_EE.quantize(four) + ext_ee.quantize(four):,.4f}",
         "COMBINEDEE": f"{ee_total.quantize(four) + ext_ee.quantize(four):,.4f}",
         "DISTINCTNEW": f"{distinct_added():,}",
-        "TDAYS": str(t_now),
-        "TSPAN": t_span(now),
-        "SCORE_CORE": score_line(growth, t_now),
-        "SCORE_EXT": score_line(ext_growth, t_now),
+        # At the ten places `score_line` prints, so each occurs in the filled report.
+        "GROWTH_CORE": f"{growth.quantize(Decimal('1E-10')):f}",
+        "GROWTH_EXT": f"{ext_growth.quantize(Decimal('1E-10')):f}",
     }
     # The mail quotes the reconciliation count too, and it is read from the audit rather
     # than typed, because a mail claiming a pass count the audit does not hold is the one
@@ -228,6 +231,17 @@ def substitutions(f: dict) -> dict[str, str]:
     subs["RECONCILIATION"] = f"{sum(1 for c in checks if c.get('passed'))} of {len(checks)}"
 
     return subs
+
+
+def dated(subs: dict[str, str], now: str) -> dict[str, str]:
+    """t, its span and both scores, as he would count them on `now`."""
+    t = t_days_assignment(now)
+    return {
+        "TDAYS": str(t),
+        "TSPAN": t_span(now),
+        "SCORE_CORE": score_line(Decimal(subs["GROWTH_CORE"]), t),
+        "SCORE_EXT": score_line(Decimal(subs["GROWTH_EXT"]), t),
+    }
 
 
 def distinct_added() -> int:
@@ -287,11 +301,21 @@ def fill(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="report, do not write")
+    parser.add_argument("--figures", type=Path, help="fill from this JSON, opening no store")
+    parser.add_argument("--write-figures", type=Path, help="write the store's figures here, only")
     args = parser.parse_args()
 
-    conn = connect_read_only_patiently(DB)
-    subs = substitutions(figures(conn))
-    conn.close()
+    if args.figures:
+        subs = json.loads(args.figures.read_text(encoding="utf-8"))
+    else:
+        conn = connect_read_only_patiently(DB)
+        subs = substitutions(figures(conn))
+        conn.close()
+    if args.write_figures:
+        args.write_figures.write_text(json.dumps(subs, indent=2) + "\n", encoding="utf-8")
+        print(f"{args.write_figures}: written")
+        return
+    subs |= dated(subs, now_in_his_clock())
 
     failed = False
     for template, target, stubs_fatal in DOCUMENTS:
