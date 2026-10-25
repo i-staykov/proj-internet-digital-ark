@@ -439,8 +439,9 @@ def main() -> None:
         if walked.exists()
         else set()
     )
-    pages = a.state_dir / "pages.json"
-    counts = json.loads(pages.read_text()) if pages.exists() else {}
+    counts = {}  # every lane's: a suffix one lane counted is counted for all
+    for f in sorted(a.state_dir.parent.glob("lane*/pages.json")):
+        counts.update(json.loads(f.read_text()))
     wanted = sorted(suffixes(), key=lambda s: -counts.get(s, 0))
     lane = Lane(a)
     for sfx in wanted:
