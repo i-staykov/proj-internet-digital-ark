@@ -106,8 +106,11 @@ def _setup(
             raise typer.Exit(code)
     logger.remove()
     logger.add(sys.stderr, level="DEBUG" if verbose else "INFO", format=_LOG_FORMAT)
-    # every run leaves its execution log, at INFO: DEBUG is the per-file skips, on --verbose
-    logger.add(_LOG_FILE, level="INFO", format="{time} | {level: <7} | {message}")
+    # every run leaves its execution log, at INFO: DEBUG is the per-file skips, on --verbose; a
+    # log older than 14 days is deleted when the run ends, since nothing reads one
+    logger.add(
+        _LOG_FILE, level="INFO", format="{time} | {level: <7} | {message}", retention="14 days"
+    )
 
 
 @app.command()
