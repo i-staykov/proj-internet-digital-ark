@@ -474,16 +474,21 @@ def _program(
     try:
         doc = json.loads(out.read_text(encoding="utf-8"))
         rule = str(doc["split"]).split(":")[0]
-        return float(doc[keys[0]]), int(doc[keys[1]]), f"priced, {track}, split {rule}"
+        # the candidate claim ships no hostname-grain name, so that part never counts
+        ee = float(doc[keys[0]]) - (
+            float(doc.get("ee_hostname") or 0) if track == "candidate" else 0
+        )
+        return ee, int(doc[keys[1]]), f"priced, {track}, split {rule}"
     except (OSError, ValueError, KeyError, TypeError):
         return None, None, f"price-snapshot exited {done.returncode}, see program_{track}.txt"
 
 
 def program_price(lead: Path, finding: dict, items: Path) -> dict:
     """The items priced again by the command a leg runs, against the snapshot the last push
-    staged, with the program's own split. `fleet_program_ee` is the annual track's 1996 to 2001
-    in the unit the store's figure measures, on hostname grain its hostname years; a finding
-    that claims the candidate track gets that figure too, under its own key."""
+    staged, with the program's own split. `fleet_program_ee` is the figure on the track the
+    finding claims, the one the store's is set against: the annual track's in the store's unit
+    (on hostname grain its hostname years), or for a candidate claim the candidate track's
+    registrable part, the annual one then kept as `fleet_program_annual_ee`."""
     evidence_class = load(lead / LEAD).get("evidence_class")
     grain = grain_of(lead.name, finding, lead)
     tracks = ["annual"]
@@ -498,6 +503,9 @@ def program_price(lead: Path, finding: dict, items: Path) -> dict:
             keys = ("ee_hostname_years", "netnew_hostname_years")
         ee, netnew, status = _program(lead, items, track, evidence_class, keys)
         result.update({f"fleet_{name}_ee": ee, f"{name}_netnew": netnew, f"{name}_status": status})
+    if claimed == "candidate":
+        result["fleet_program_annual_ee"] = result["fleet_program_ee"]
+        result["fleet_program_ee"] = result["fleet_program_candidate_ee"]
     return result
 
 
