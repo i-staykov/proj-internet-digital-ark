@@ -154,10 +154,10 @@ labelled `needs-owner`, opens.
    re-scores with his calculator, closes the gate issue, and only then uploads and prunes verified
    round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
    owner labels an open ark-fleet issue `ship-now` and the next tick runs it once.
-3. Extract the tarball outside the repository and follow its README through tier 2, cold
-   (`docs/round/delivery_readme.md`). `just ship report <archive.7z>` writes the report, its `.docx`
-   and the mail draft. Then send, once the round cleanup `ship all` runs last exited zero (else
-   `just ship verify` until it does).
+3. `ship all` ran the README's checksum and `verify.sh` on a fresh extraction; follow the rest
+   through tier 2, cold, outside the repository (`docs/round/delivery_readme.md`). `just ship report
+   <archive.7z>` writes the report, its `.docx` and the mail draft. Then send, once the round
+   cleanup `ship all` runs last exited zero (else `just ship verify` until it does).
 
 ## Intake
 

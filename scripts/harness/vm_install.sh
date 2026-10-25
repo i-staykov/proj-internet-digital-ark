@@ -20,8 +20,9 @@ if ! command -v gh > /dev/null; then
     curl -sL "https://github.com/cli/cli/releases/download/v$v/$name.tar.gz" |
         tar -xz -C ~/.local/bin --strip-components=2 "$name/bin/gh"
 fi
-dpkg -s p7zip-full pigz > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz ||
-    root "apt-get install -y p7zip-full pigz"
+# pandoc builds the archive's Open Research Questions.docx.
+dpkg -s p7zip-full pigz pandoc > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz pandoc ||
+    root "apt-get install -y p7zip-full pigz pandoc"
 
 [ -d ~/ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ~/ark
 git -C ~/ark pull -q --ff-only
