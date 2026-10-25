@@ -24,8 +24,8 @@ fi
 dpkg -s p7zip-full pigz pandoc > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz pandoc ||
     root "apt-get install -y p7zip-full pigz pandoc"
 # rclone from its own release, as gh above: a distribution's is too old for Drive's sha256. Its
-# remote is the owner's, once: `rclone config create gdrive drive scope=drive.file` here, the
-# token from `rclone authorize drive` on the laptop; the secret stays in ~/.config/rclone.
+# remote is the owner's, once, its token made on the laptop since the VM has no browser; the
+# secret stays in ~/.config/rclone.
 if ! command -v rclone > /dev/null; then
     zip=$(mktemp)
     curl -sL "https://downloads.rclone.org/rclone-current-linux-$(dpkg --print-architecture).zip" -o "$zip"
@@ -33,8 +33,12 @@ if ! command -v rclone > /dev/null; then
     rm -f "$zip"
 fi
 [ ! -f ~/.config/rclone/rclone.conf ] || chmod 600 ~/.config/rclone/rclone.conf
-rclone listremotes 2> /dev/null | grep -qx gdrive: ||
-    echo "no gdrive remote: rclone config create gdrive drive scope=drive.file (the owner, once)"
+rclone listremotes 2> /dev/null | grep -qx gdrive: || cat << 'STEP'
+no gdrive remote. The owner, once: on the laptop
+    rclone authorize "drive" '{"scope":"drive.file"}'
+then here, with the JSON it prints
+    rclone config create gdrive drive scope=drive.file config_is_local=false config_token='<json>'
+STEP
 
 [ -d ~/ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ~/ark
 git -C ~/ark pull -q --ff-only

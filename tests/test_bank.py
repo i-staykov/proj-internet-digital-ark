@@ -356,6 +356,10 @@ def test_the_gate_opens_one_issue_per_crossing(tmp_path, brief, listed, said, as
     if asked == 2:
         said = hyg.gate({**BRIEF, **brief}, ship=True, **kw | {"latch_path": tmp_path / "f"})[0]
         assert "labelled needs-owner,ship-now:" in said
+        calls.clear()
+        hyg.gate({**BRIEF, **brief}, write=True, ship=True, **kw | {"latch_path": tmp_path / "g"})
+        labels = [args[args.index("--label") + 1] for args in calls if args[1] == "create"]
+        assert labels == ["needs-owner,ship-now"]
 
 
 def test_a_brief_without_the_gate_line_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
