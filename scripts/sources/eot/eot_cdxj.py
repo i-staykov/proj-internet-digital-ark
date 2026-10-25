@@ -48,14 +48,17 @@ YEARS = {str(y).encode() for y in range(2002, 2014)}
 LINE = re.compile(rb"^\S+ (\d{14}) ")
 STATUS = re.compile(rb'"status": ?"?([23]\d\d)')
 URL_FIELD = re.compile(rb'"url": ?"((?:[^"\\]|\\.)*)"')
+WARC = re.compile(rb'"filename": ?"([^"]*)"')
 
 
-def earliest(lines) -> tuple[dict[tuple[str, str], tuple[str, str, str]], int]:
+def earliest(lines, warcs: set | None = None) -> tuple[dict, int]:
     """(host, year) -> (timestamp, url, status), the earliest 2xx or 3xx capture a year, and
-    how many urls did not decode, skipped."""
+    how many urls did not decode, skipped; every line's WARC into `warcs`, given one."""
     keep: dict = {}
     broken = 0
     for raw in lines:
+        if warcs is not None and (warc := WARC.search(raw)):
+            warcs.add(warc.group(1))
         m = LINE.match(raw)
         if not m or m.group(1)[:4] not in YEARS or not (status := STATUS.search(raw)):
             continue
@@ -78,10 +81,11 @@ def read(part: str) -> str:
     with tempfile.TemporaryFile() as err:
         proc = subprocess.Popen([*fetch, "--max-bytes", "5G"], stdout=subprocess.PIPE, stderr=err)
         try:
-            keep, broken = earliest(io.BufferedReader(gzip.GzipFile(fileobj=proc.stdout)))
+            warcs: set = set()
+            keep, broken = earliest(io.BufferedReader(gzip.GzipFile(fileobj=proc.stdout)), warcs)
         except (OSError, EOFError) as exc:  # a cut gzip stream
             proc.kill()
-            keep, broken = {}, 0
+            keep, broken, warcs = {}, 0, set()
             print(f"{part}: stream broke, {exc}")
         proc.wait()
         err.seek(0)
@@ -96,6 +100,8 @@ def read(part: str) -> str:
     with gzip.GzipFile(tmp, "wb", mtime=0) as raw, io.TextIOWrapper(raw) as fh:
         for ts, original, status in sorted(keep.values()):
             fh.write(json.dumps({"url": original, "timestamp": ts, "status": status}) + "\n")
+    # the WARCs the part indexes, which #413's per-WARC CDX files are measured against
+    (OUT / f".eot_{part}.warcs.gz").write_bytes(gzip.compress(b"\n".join(sorted(warcs)), mtime=0))
     os.replace(tmp, OUT / f"eot_{part}.jsonl.gz")
     return f"{part}: {len(keep)} host-years from {receipt['bytes']} bytes, {broken} urls broken"
 
