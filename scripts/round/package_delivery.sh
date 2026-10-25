@@ -280,15 +280,14 @@ cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_su
 # recoverable values only in a separately labeled unparsed or normalization-review file." Each
 # row carries the reason the funnel refused it, and none of it counts toward any figure.
 #
-# **Kept in `output/netnew/` and rebuilt only when a journal is newer than it.** The scan is
-# exhaustive by design, and exhaustive now means reading 226 GB of gzip: it cost 25 minutes of
-# every packaging run, repeated in full whenever a report line changed. The journals only grow,
-# so a copy younger than every journal is the same file the scan would write.
+# **Kept in `output/netnew/`, and only the journals newer than it are read and merged in.** The
+# scan is exhaustive by design over 23 GB of gzip; a journal is written once, so the merge is the
+# file a full scan would write.
 UNPARSED="output/netnew/candidates_unparsed.txt"
 # Only what the scan reads can stale it: the three DEFAULT_DIRS of unparsed_pool.py, no walk journal.
 if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw/cdx_suffix data/raw/cdx_gap_hostgrain data/raw/nypw_hostgrain \
         -name '*.jsonl.gz' ! -name 'walk_*' -newer "$UNPARSED" -print -quit 2>/dev/null)" ]; then
-    uv run python scripts/round/unparsed_pool.py --out "$UNPARSED" || true
+    uv run python scripts/round/unparsed_pool.py --incremental --out "$UNPARSED" || true
 fi
 cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 

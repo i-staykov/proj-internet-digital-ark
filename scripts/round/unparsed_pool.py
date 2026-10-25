@@ -22,6 +22,10 @@ funnel already knows which is which, so each row carries the reason:
 - `reverse_dns` an `in-addr.arpa` or `ip6.arpa` name, refused as infrastructure.
 
     uv run python scripts/round/unparsed_pool.py [--dirs data/raw/cdx_suffix ...] [--limit N]
+    uv run python scripts/round/unparsed_pool.py --incremental   # journals newer than --out alone
+
+A journal is written once, so `--incremental` merging the newer journals into the file equals a
+full scan's file.
 """
 
 from __future__ import annotations
@@ -29,6 +33,8 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
+import os
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -78,10 +84,16 @@ def main() -> int:
         "default, because the refused set does not saturate and a sample truncates it 274x",
     )
     ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--incremental", action="store_true", help="read journals newer than --out")
     args = ap.parse_args()
 
     counts: Counter[str] = Counter()
     seen: set[tuple[str, str]] = set()
+    since, started = 0.0, time.time()
+    if args.incremental and args.out.is_file():
+        since = args.out.stat().st_mtime
+        rows = args.out.read_text(encoding="utf-8").splitlines()[1:]
+        seen = {tuple(row.split("\t", 1)) for row in rows if row}  # type: ignore[misc]
     read = 0
     # **The refused set does NOT saturate, and I claimed it did on a sample.** 25 journals
     # gave 4,306 distinct refused values from 14.4M; the whole 554 give 1,178,435 from
@@ -97,6 +109,8 @@ def main() -> int:
         if not root.is_dir():
             continue
         for path in sorted(p for p in root.glob("*.jsonl.gz") if not p.name.startswith(WALK)):
+            if path.stat().st_mtime <= since:
+                continue
             if args.limit and read >= args.limit:
                 break
             read += 1
@@ -139,6 +153,10 @@ def main() -> int:
             # a registrable, and XII asks for a file of malformed-but-recoverable values.
             if why != "is_registrable":
                 fh.write(f"{value}\t{why}\n")
+    # Stamped with the scan's start, so a journal written while it ran is newer next time; a cut
+    # pass is stamped at the epoch, so the next `--incremental` reads every journal again.
+    stamp = 0 if args.limit or args.stable_after else started
+    os.utime(args.out, (stamp, stamp))
     tail = " (stopped on saturation)" if counts.get("stopped_on_saturation") else ""
     print(f"{read:,} journals, {counts['values']:,} values, {len(seen):,} distinct refused{tail}")
     for why, n in counts.most_common():
