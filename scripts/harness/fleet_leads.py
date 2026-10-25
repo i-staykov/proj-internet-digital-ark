@@ -1,32 +1,22 @@
 """Tell the fleet what became of each lead, by writing its status back into `leads/`.
 
-**The queue is only true if the end of the pipeline writes to it.** A lead reaches
-`verified` in the fleet and then leaves for the laptop, which books it, decides it, ingests
-it or refuses it. Nothing there is visible from GitHub, so without this the dealer keeps
-seeing a settled lead as live work and re-deals it.
+**The queue is only true if the end of the pipeline writes to it**: what the laptop books is
+invisible from GitHub, so without this the dealer re-deals a settled lead.
 
 Two terminal statuses, and the schema has no third:
 
-    banked   the store holds it: the fleet ledger holds an outcome line for the slug whose
-             `banked` is true, which the bank appends once the source's rows are ingested,
-             often after its drain has left `incoming/`, so every lead in `leads/` with
-             such a line is set `banked`, drained or not
-    closed   a measured negative: a CLOSED finding, or a FIND its own verify lane disputed
+    banked   the fleet ledger holds an outcome line for the slug whose `banked` is true,
+             which the bank appends once its rows are ingested, drained or not
+    closed   a CLOSED finding, or a FIND its verify disputed; it leaves `leads/` once
+             `sources-closed.md` books its slug, since the register keeps the verdict
 
-Everything else is left exactly as it is. A confirmed FIND still waiting on the owner is not
-settled, and a BLOCKED leg is a leg to run again, not a lead to bury.
+Everything else is left as it is: a confirmed FIND waiting on the owner is not settled, and a
+BLOCKED leg is a leg to run again. **Banked is read off the ledger, not the register**, whose
+blocks are keyed on the name they were written under; only a JSON `true` counts.
 
-**Banked is read off the ledger, not the register.** A register block is keyed on the name
-it was written under, which is a lead's slug only when the block was written from it, so a
-register match never banked a source named by hand or by a tool. An outcome line carries
-the lead's own slug. Only a JSON `true` counts: a line whose `banked` is the string "true"
-books nothing.
-
-The file is rewritten key by key, never regenerated, so a field this laptop knows nothing
-about survives. **Only a lead the fleet's own validator passes is written**: the result is
-checked in-process against the clone's `schemas/lead.json` before the write, and one that
-fails, or a clone with no validator, is named and left as it was. No history entry is
-added, because the lead schema has no laptop lane.
+The file is rewritten key by key, so a field this laptop knows nothing about survives, and
+only a lead the clone's own `schemas/lead.json` check passes is written; one that fails, or a
+clone with no validator, is named and left as it was.
 
     uv run python scripts/harness/fleet_leads.py data/fleet_findings/incoming \\
         --fleet ~/GitHub/ark-fleet [--write]
@@ -38,6 +28,7 @@ import argparse
 import importlib.util
 import json
 import re
+import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -47,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fleet_ledger  # noqa: E402
 
 CONTRACT = "scripts/contract.py"
+CLOSED_REGISTER = Path(__file__).resolve().parents[2] / "docs" / "registers" / "sources-closed.md"
 
 
 def slugify(name: str) -> str:
@@ -117,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     banked = banked_slugs(fleet)
     check = validator(fleet)
+    booked = CLOSED_REGISTER.read_text(encoding="utf-8") if CLOSED_REGISTER.is_file() else ""
     written = refused = 0
     settled: list[tuple[str, str]] = []
     drained = set()
@@ -139,6 +132,12 @@ def main(argv: list[str] | None = None) -> int:
         if not lead:
             if slug in drained:
                 print(f"leads: {slug} has no lead file in the fleet clone, nothing written")
+            continue
+        if status == "closed" and re.search(rf"(?<![\w-]){re.escape(slug)}(?![\w-])", booked):
+            if args.write:
+                lead_file.unlink()
+                shutil.rmtree(lead_file.with_suffix(""), ignore_errors=True)
+            print(f"leads: {slug} is booked closed, so it leaves the queue (write: {args.write})")
             continue
         if lead.get("status") == status:
             continue
