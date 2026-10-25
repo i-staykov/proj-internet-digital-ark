@@ -61,10 +61,10 @@ alone, never through a pipe, before believing a refusal.
 ## The loop
 
 **Collection.** `just walk install` keeps one lane per archive client running (`AGENTS.md`,
-Channel): cron on each `ARK_HOSTS` machine of `local.env`, `target:lane` each
-(`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows land in `data/raw/cdx_suffix/`
-and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`; the tick pulls each lane's
-home and re-ranks the queue by measured EE per request, and `local.env` exports
+Channel): cron on the bank host, the `local` entry of its `ARK_HOSTS`, reinstalled by the tick
+when the walk's code changes (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows
+land in `data/raw/cdx_suffix/` and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`;
+the tick re-ranks the queue by measured EE per request, and `local.env` exports
 `ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It

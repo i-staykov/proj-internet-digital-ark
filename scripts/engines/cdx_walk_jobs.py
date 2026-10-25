@@ -1,14 +1,12 @@
 """Keep the extended walk running with nobody at the keyboard: `just walk install|status|remove`.
 
-`ARK_HOSTS` in local.env lists the collector hosts, `target:lane` each, the target an ssh alias,
-`login@host`, or `local` for this machine, whose lane walks straight into `data/` here. On each,
-cron starts its lane at boot and every 10 minutes under `flock`, a remote one from a shallow
-clone of `live`, with `--lanes` their count and the lanes 0 to n-1, so the queue splits by hash
-the same way everywhere. `install` first seeds every lane's state (done set, page counts,
-request log) from `data/` here, a missing done set built from its log (`done`), so a lane walks
-on from what any lane answered.
-The tick pulls each remote lane's journals home and re-ranks the queue (`just sync`, step 7).
-The laptop runs no lane (AGENTS.md, Channel).
+The bank host walks: the machine whose `ARK_HOSTS` in local.env has a `local` entry runs `LANES`
+lanes, the Channel's clients, each `WORKERS` requests at once. Cron starts each at boot and every
+10 minutes under its own `flock`, with `--lanes` their count, so the queue splits by hash. The
+tick reinstalls the cron and stops the walkers when this file or the walker changed, and cron
+restarts them on the new code (`scripts/harness/scheduled_sync.sh`). `install` first gives every
+lane folder a done set (`done`), since each lane skips what any lane answered. The laptop runs no
+lane (AGENTS.md, Channel).
 """
 
 from __future__ import annotations
@@ -20,43 +18,29 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]
 DATA = CODE / "data"
-URL = "https://github.com/i-staykov/proj-internet-digital-ark"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
-WALK = "$HOME/ark-walk"
+LANES, WORKERS = 3, 3  # the Channel's three clients here, requests at once in each
 
 
-def setting(name: str) -> str:
-    env = ["bash", "-c", f". ./local.env; echo ${name}"]
-    return subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.strip()
+def here() -> bool:
+    """Whether this machine walks: a `local` entry in its ARK_HOSTS."""
+    env = ["bash", "-c", ". ./local.env; echo $ARK_HOSTS"]
+    hosts = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.split()
+    return any(h.rpartition(":")[0] == "local" for h in hosts)
 
 
-def hosts() -> list[tuple[str, int]]:
-    out = setting("ARK_HOSTS").split()
-    if not out:
-        raise SystemExit("set ARK_HOSTS in local.env, target:lane each")
-    found = [(t.rpartition(":")[0], int(t.rpartition(":")[2])) for t in out]
-    # The walk shards pages by hash modulo the lane count, so a gap orphans its share.
-    if sorted(lane for _, lane in found) != list(range(len(found))):
-        raise SystemExit("ARK_HOSTS lanes must be 0 to n-1, each once: a gap is never walked")
-    return found
-
-
-SSH = ["ssh", "-o", "ConnectTimeout=15", "-o", "BatchMode=yes"]
-
-
-def run(target: str, cmd: str) -> str:
-    argv = ["bash", "-c", cmd] if target == "local" else [*SSH, target, cmd]
-    p = subprocess.run(argv, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+def sh(cmd: str) -> str:
+    p = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
     return (p.stdout + p.stderr).strip()
 
 
-def cron(lane: int, lanes: int, code: str, data: str) -> str:
+def cron(lane: int) -> str:
     return (
-        f"cd {code} && flock -n {data}/lane.lock /usr/bin/python3 "
-        f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {lanes} "
-        f"--data {data} --workers 3 --max-local 1 --connect-timeout 4 "
-        f"--max-transient 30 >> {data}/logs/lane{lane}.log 2>&1"
+        f"cd {CODE} && flock -n {DATA}/lane{lane}.lock /usr/bin/python3 "
+        f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {LANES} "
+        f"--data {DATA} --workers {WORKERS} --max-local {LANES} --connect-timeout 4 "
+        f"--max-transient 30 >> {DATA}/logs/lane{lane}.log 2>&1"
     )
 
 
@@ -96,48 +80,30 @@ def done() -> None:
 
 
 def install() -> None:
+    if not here():
+        print("no lane here: the bank host walks, `just vm install`")
+        return
     done()
-    lanes = len(hosts())
-    for target, lane in hosts():
-        code, data = WALK, "$HOME/ark-walk-data"
-        if target == "local":
-            code, data = str(CODE), str(DATA)
-        elif target == setting("ARK_VM"):
-            print(f"lane {lane}: the VM installs its own lane, `just vm install`")
-            continue
-        else:
-            state = "ark-walk-data/raw/cdx_walk/"
-            if run(target, f"mkdir -p {state}lane{lane} ark-walk-data/queue && echo ok") != "ok":
-                print(f"lane {lane}: its host did not answer, nothing installed")
-                continue
-            rsync = ["rsync", "-a", "--ignore-existing", "--timeout=120", "-e", " ".join(SSH)]
-            if seed := [str(d) for d in sorted((DATA / "raw/cdx_walk").glob("lane*"))]:
-                subprocess.run([*rsync, *seed, f"{target}:{state}"])  # every lane's done set
-            queue = [str(DATA / "queue" / f) for f in ("cdx_order.json", "cdx_walked.txt")]
-            subprocess.run([*rsync, *queue, f"{target}:ark-walk-data/queue/"])
-            run(target, (
-                f"[ -d {WALK}/.git ] || git clone -q --depth 1 -b live {URL} {WALK}; "
-                f"git -C {WALK} pull -q --ff-only"
-            ))  # fmt: skip
-        line = shlex.quote(cron(lane, lanes, code, data))
-        print(f"lane {lane}:", run(target, (
-            f"mkdir -p {data}/logs; (crontab -l 2>/dev/null | grep -v '{TAG}'; "
-            f"echo @reboot {line} '{TAG}'; echo '*/10 * * * *' {line} '{TAG}') | crontab -; "
-            f"git -C {code} log --oneline -1"
-        )))  # fmt: skip
+    lines = "".join(
+        f"echo {w} {shlex.quote(cron(lane))} '{TAG}'; "
+        for lane in range(LANES)
+        for w in ("@reboot", "'*/10 * * * *'")
+    )
+    sh(f"mkdir -p {DATA}/logs; (crontab -l 2>/dev/null | grep -v '{TAG}'; {lines}) | crontab -")
+    if sh(f"crontab -l | grep -c -- '--lanes {LANES} .*{TAG}'") != str(2 * LANES):
+        raise SystemExit("walk install: the crontab did not take; the tick stops no walker")
+    print(f"{LANES} lanes of {WORKERS} workers:", sh(f"git -C {CODE} log --oneline -1"))
 
 
 def status() -> None:
-    for target, lane in hosts():
+    print("walkers:", sh(f"pgrep -fc {PY!r}") or "0")
+    for lane in range(LANES):
         log = DATA / f"raw/cdx_walk/lane{lane}/log.tsv"
-        rows = log.read_text().splitlines() if log.exists() else ["no requests yet"]
-        print(f"lane {lane}: walkers {run(target, f'pgrep -fc {PY!r}') or '?'} | {rows[-1]}")
+        print(f"lane {lane}:", log.read_text().splitlines()[-1] if log.exists() else "no requests")
 
 
 def remove() -> None:
-    for target, lane in hosts():
-        cmd = f"crontab -l | grep -v '{TAG}' | crontab -; pkill -f '{PY}'"
-        print(f"lane {lane}:", run(target, cmd))
+    print(sh(f"crontab -l | grep -v '{TAG}' | crontab -; pkill -f '{PY}'"))
 
 
 if __name__ == "__main__":
