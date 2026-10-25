@@ -6,6 +6,8 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| defacement-ledgers-zone-h-js-wall-and-sibling-ledger-replay-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0206Z | not priced | CLOSED. No bulk ledger reachable: Zone-H answers robots.txt with a JS cookie challenge | <https://web.archive.org/web/20120718024203/http://www.hack-mirror.com/> |
+| httparchive-wpt-monthly-zips-2010-2012-iewtr-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0206Z | not priced | CLOSED. | <https://archive.org/download/httparchive_2011/110331.zip> |
 | spoon-collective-majordomo-month-mbox-1996-2001-received-relay-hosts / candidate: majordomo month-mbox Received from/by relay, From, Message-ID and bod | 2026-10-22, fleet 20261022T1806Z | 900.7 EE | CLOSED. the program measured 900.7 EE against the 5,000 floor | <http://web.archive.org/web/20040114115009id_/http://lists.village.virginia.edu/listservs/spoons/heidegger.archive/heidegger.0101> |
 | era-list-archives-speeders-amsat-neohapsis-birding-ia-item-wall / mail_received_header | 2026-10-22, fleet 20261022T1609Z | not priced | CLOSED. Lens paid nothing: one era list yields tens of names, floor is 5,000 candidate EE | <https://archive.org/download/speeders/speeders.199805> |
 | humanist-dhhumanist-yearly-text-1996-1997-from-and-body-url-hosts / candidate_mail_from_and_body_url_host | 2026-10-22, fleet 20261022T1609Z | not priced | CLOSED. | <https://dhhumanist.org/archives/Converted_Text/humanist.1996-1997.txt> |
