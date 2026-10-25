@@ -6,6 +6,9 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| archivebot-2013-go-item-cdx-capture-hosts / bulk_cdx_file | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. | <https://archive.org/download/archiveteam_archivebot_go_001/archiveteam_archivebot_go_001.cdx.gz> |
+| httparchive-2011-may-rerun-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. Seven unread `httparchive_2011` partitions, 110505, 110506, 110507, 110508, 110510 | <https://archive.org/download/httparchive_2011/110506.zip> <http://www.google.it/> |
+| httparchive-2012-09-wpt-tail-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012_09/120919_0.zip> <https://archive.org/about/terms.php> |
 | http-archive-har-40184146730-leg / unclassified | 2026-10-25, fleet 20261025T1106Z | not priced | CLOSED. Track: candidate | <https://archive.org/download/httparchive_downloads/httparchive_Nov_15_2010_pages.csv.gz> <http://files.wordpress.com/> |
 | http-archive-har-dec-2010-pages-and-1996-2001-proxy-trace-wall / httparchive_har_entry | 2026-10-25, fleet 20261025T1106Z | not priced | CLOSED. HTTP Archive pays neither track, and the lens's other population | <https://archive.org/download/httparchive_downloads/httparchive_Dec_28_2010_pages.csv.gz> <http://global-sei.com/> |
 | http-archive-lens-mirror-status-and-ia-fetch-log-sweep / httparchive_har_entry | 2026-10-25, fleet 20261025T1106Z | not priced | CLOSED. Track: candidate | <http://web.archive.org/web/20001210122600id_/http://www.cpan.org/MIRRORED.BY> <http://www.cpan.org/MIRRORED.BY> <http://www.apache.org/dyn/closer.cgi> |
