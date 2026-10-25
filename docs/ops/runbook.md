@@ -95,13 +95,8 @@ packages, the fleet user and linger, printing the root command it needs when ref
 runs the fleet's installer as that user with `RUNNER_TOKEN` from this shell on its stdin;
 it refuses while the tick is held. `gh auth login` there is the owner's, once, with a
 fine-grained token: Contents and Issues read and write, Actions read, both repositories.
-`just vm status|log` read it, status with the modes of `hosts.yml` and `local.env`. The cutover, on the VPN: `just vm install`; `gh auth
-login` on the VM; `RUNNER_TOKEN=<from the fleet's Settings, Actions, Runners> just vm
-install` again, which registers the runners; `just hold on`; `just vm copy`; on the VPS as
-its fleet user `systemctl --user disable --now ark-runner@{1..5}.service`; `just schedule
-remove`; `just hold off`. The VM's first bank at :05 then reproduces the figures of
-`docs/ROUND.md`, nothing having arrived, and stages the snapshot; a leg before it refuses
-the missing snapshot and costs nothing. This checkout only pulls from then on.
+`just vm status|log` read it, status with the modes of `hosts.yml` and `local.env`. This
+checkout only pulls; it keeps no copy of the VM's data.
 
 **The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
 and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
@@ -167,10 +162,11 @@ labelled `needs-owner`, opens.
 
 ## Intake
 
-Nothing of his enters the store. In the sync-lock script, this replaces the ingest and export lines:
+Nothing of his enters the store. Intake runs on the VM, in a worktree of `~/ark`, his archive
+copied there once; in the sync-lock script, this replaces the ingest and export lines:
 
 ```bash
-just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, then `ark intake`
+just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, `ark intake`, drop the release replaced
 just reproduce deliver     # export, stats, check, then prune.py --round --write
 uv run python scripts/round/round_figures.py --verify
 uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
