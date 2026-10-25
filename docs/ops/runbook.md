@@ -98,12 +98,12 @@ fine-grained token: Contents and Issues read and write, Actions read, both repos
 `just vm status|log` read it, status with the modes of `hosts.yml` and `local.env`. This
 checkout only pulls; it keeps no copy of the VM's data.
 
-**The hold.** `just hold` disables `com.ark.sync` and the VM's timer, writes `pause-platform` here and on each host,
-and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold status` shows
-each name and `just hold off <name>` lifts one, or drops a name it does not know. It survives a
-reboot; while it lists `com.ark.sync` the tick and the bank exit `held` and `just schedule
-install` refuses. A dry run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline
-for that one run. Right after `just hold off com.ark.sync`, run `just bank --force` by hand: with
+**The hold.** `just hold` disables the VM's `ark-sync.timer`, writes `pause-platform` here and on
+each host, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
+status` shows each name and `just hold off <name>` lifts one, or drops a name it does not know.
+It survives a reboot; while it lists `ark-sync.timer` the tick and the bank exit `held`. A dry
+run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run. Right
+after `just hold off ark-sync.timer`, run `just bank --force` by hand: with
 no `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass
 takes about an hour.
 
@@ -117,7 +117,7 @@ takes about an hour.
 | re-ask leads closed on reach | `just reprobe` |
 | re-price a parked source | `just price` or `just price-hosts` before reopening it: its net-new falls as the store grows |
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
-| prove what is on disk | `just verify raw`, `just verify offsite --verify`; in a worktree, whose `data/` entries are links offsite refuses and whose `submissions/` has no tarballs, `scripts/round/verify_raw.py` and `offsite.py` take `--root <checkout> --table docs/registers/retention.md`; `just schedule status` for the hourly job |
+| prove what is on disk | `just verify raw`, `just verify offsite --verify`; in a worktree, whose `data/` entries are links offsite refuses and whose `submissions/` has no tarballs, `scripts/round/verify_raw.py` and `offsite.py` take `--root <checkout> --table docs/registers/retention.md`; `just vm status` for the hourly tick |
 | a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
 | retention | `just prune`; `just prune --round --write` removes only what has its proofs, a `data/ark.duckdb.pre-*.bak` once a later credited round is in `data/baseline.json`; a backup needs no Drive copy |
 | triage a VPS scanner alert | its File and Malware panes first: a corpus path with `JS/Obfuscator`, `HTML/` or an era worm is expected; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer, check `auth.log` for non-publickey logins, `ss -tulpn`, crontabs and recently modified units. A laptop alert: `docs/ops/security-posture.md` |
@@ -150,7 +150,7 @@ labelled `needs-owner`, opens.
    re-scores with his calculator, puts the archive, its `.sha256` and `MANIFEST.txt` in
    `gdrive:ark-submissions/<release>/` (`just ship drive`), closes the gate issue, and only then
    uploads and prunes verified round copies. It refuses while `just hold status` lists
-   `com.ark.sync`. `just ship --help` prints the chain; `just ship orq` prints Word's page count.
+   `ark-sync.timer`. `just ship --help` prints the chain; `just ship orq` prints Word's page count.
    Away from a session, the owner labels an open ark-fleet issue `ship-now` and the next tick
    runs it once; with `ARK_SHIP_NOW=1` in `local.env` the gate issue opens so labelled.
 3. `ship all` ran the README's checksum and `verify.sh` on a fresh extraction; follow the rest
