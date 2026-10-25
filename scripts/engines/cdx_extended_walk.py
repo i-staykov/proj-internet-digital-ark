@@ -108,16 +108,19 @@ def rank(units, order: dict, asked: dict, explore: int) -> tuple[list, list, lis
     order paid 0.14 EE a request; the unpriced ones still owed `explore` pages; the explored
     ones waiting for a price. A unit priced at nothing over `DROP_AFTER`
     answered requests is dropped."""
-    priced, exploring, waiting = [], [], []
+    priced, exploring, waiting, asks = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
         if total > 0:
-            priced.append(((-total, -p1), u))
+            priced.append(((u[1] == "ask", -total, -p1), u))
         elif price.get("n", 0) < DROP_AFTER * scale:  # a question is a thousandth of a page
-            (exploring if asked.get(u, 0) < explore * scale else waiting).append(u)
+            if asked.get(u, 0) >= explore * scale:
+                waiting.append(u)
+            else:  # an unpriced tier of questions waits for every priced page, never a slot
+                (asks if u[1] == "ask" else exploring).append(u)
     priced.sort(key=lambda k: k[0])
-    return [u for _, u in priced], exploring, waiting
+    return [u for _, u in priced] + asks, exploring, waiting
 
 
 def fetch(task, a, sink):
@@ -125,7 +128,7 @@ def fetch(task, a, sink):
     sfx, size, page, first, last, kind = task
     shape = [("url", sfx), ("matchType", "domain"), ("pageSize", str(size)), ("page", str(page))]
     if kind == "ask":  # one registrable's root key, apex and www, the earliest row a year
-        shape = [("url", a.questions[sfx][page]), ("collapse", "timestamp:4")]
+        shape = [("url", page), ("collapse", "timestamp:4")]
     query = urllib.parse.urlencode(
         [
             *shape,
@@ -226,15 +229,18 @@ class Lane:
 
     def add_questions(self) -> None:
         """Queue this lane's share of the pool's questions, in the file's order, once it is
-        written (`pool_questions.py`): one unit a tier, a question a line."""
+        written (`pool_questions.py`): one unit a tier, a question a domain, its done key."""
+        tiers: dict = {}
         for line in (self.a.data / "queue/pool_questions.tsv").read_text().splitlines():
             tier, domain = line.split("\t")
-            self.a.questions.setdefault(f"ask-{tier}", []).append(domain)
-        for sfx, names in self.a.questions.items():
-            tasks = [(sfx, 1, i, FIRST, LAST, "ask") for i in range(len(names))]
-            tasks = [t for t in tasks if mine(f"{sfx} {t[2]}", self.a.lane, self.a.lanes)]
+            if mine(f"ask {domain}", self.a.lane, self.a.lanes):
+                tiers.setdefault(f"ask-{tier}", []).append(
+                    (f"ask-{tier}", 1, domain, FIRST, LAST, "ask")
+                )
+        for sfx, tasks in tiers.items():
             self.pages[(sfx, "ask")] = [t for t in tasks if key_of(t) not in self.done]
             self.asked[(sfx, "ask")] = len(tasks) - len(self.pages[(sfx, "ask")])
+        self.a.questions = True
 
     def rerank(self, force: bool = False) -> None:
         if not self.a.questions and (self.a.data / "queue/pool_questions.tsv").exists():
@@ -284,7 +290,7 @@ class Lane:
                 if self.pages[u]:
                     task = self.pages[u].pop(0)
                     self.asked[u] += 1
-                    if u in self.exploring and self.asked[u] == 2:
+                    if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
                         self.rerank(force=True)
                     self.inflight.add(task)
                     return task
@@ -463,7 +469,7 @@ def main() -> None:
     for f in sorted(a.state_dir.parent.glob("lane*/pages.json")):
         counts.update(json.loads(f.read_text()))
     wanted = sorted(suffixes(), key=lambda s: -counts.get(s, 0))
-    a.questions = {}
+    a.questions = False
     lane = Lane(a)
     for sfx in wanted:
         lane.add_pages(sfx, counts.get(sfx, 0))
