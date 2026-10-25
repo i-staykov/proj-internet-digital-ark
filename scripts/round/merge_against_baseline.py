@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import subprocess
 import sys
@@ -104,15 +105,28 @@ HOSTNAMES = _first_holding(
 )
 
 
+# Each summary by its file's sha256, beside the held sets of the release it scores against, so a
+# file scored once is never rescored and the next `ark intake` drops both; no cache without them.
+SCORES = Path("data/held") / CURRENT_BASELINE_MARKER / "scores"
+
+
 def score(path: Path, work: Path) -> dict:
     """Run the reviewer's calculator over one file and return its summary verbatim."""
+    with path.open("rb") as fh:
+        cached = SCORES / f"{hashlib.file_digest(fh, 'sha256').hexdigest()}.json"
+    if cached.is_file():
+        return json.loads(cached.read_text(encoding="utf-8"))
     out = work / f"score_{path.parent.name}_{path.stem}"
     subprocess.run(
         [sys.executable, str(CALCULATOR), str(path), "--output-dir", str(out)],
         check=True,
         capture_output=True,
     )
-    return json.loads((out / "summary.json").read_text(encoding="utf-8"))
+    summary = (out / "summary.json").read_text(encoding="utf-8")
+    if SCORES.parent.is_dir():
+        SCORES.mkdir(exist_ok=True)
+        cached.write_text(summary, encoding="utf-8")
+    return json.loads(summary)
 
 
 def merge_year(

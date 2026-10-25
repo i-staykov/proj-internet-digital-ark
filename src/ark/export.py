@@ -472,9 +472,21 @@ def export_all(
     old stamp already gone."""
     if claim_only and with_provenance:
         raise ValueError("a claim export writes no provenance graph")
-    (netnew_dir / STAMP_NAME).unlink(missing_ok=True)
     # read once: this connection holds the store, so nothing moves it before the stamp
     ledger = store_ledger(conn)
+    # A full export over the store a claim export read keeps the claim's files, byte for byte
+    # what it would write, and runs only the phases the full files need.
+    prior = read_stamp(netnew_dir) or {}
+    reuse = (
+        not claim_only
+        and prior.get("mode") == "claim"
+        and prior.get("baseline") == CURRENT_BASELINE_MARKER
+        and {key: prior.get(key) for key in ledger} == ledger
+        and all(path.is_file() for path in claim_files(netnew_dir, candidates_path))
+    )
+    if reuse:
+        logger.info("export: the claim's files stand for this store, so their phases are skipped")
+    (netnew_dir / STAMP_NAME).unlink(missing_ok=True)
     stats: dict[str, int] = {}
     with _phase("held"):
         his = held.load(baseline)
@@ -482,10 +494,11 @@ def export_all(
     netnew_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=netnew_dir.parent, prefix=".export-") as tmp:
         work = Path(tmp)
-        with _phase("attested registrables"):
-            stats["attested_registrables"] = _write_attested(
-                conn, his, work, netnew_dir / ATTESTED_NAME
-            )
+        if not reuse:
+            with _phase("attested registrables"):
+                stats["attested_registrables"] = _write_attested(
+                    conn, his, work, netnew_dir / ATTESTED_NAME
+                )
 
         with _phase("netnew"):
             for year, count in held.netnew(conn, his, work, netnew_dir).items():
@@ -494,22 +507,23 @@ def export_all(
         # The hostname half of the annual contribution ships beside the registrable half.
         # Brief IV.9 requires exact qualifying hostnames, not a registrable-only roll-up;
         # these are annual records, not auxiliary seeds.
-        with _phase("hostnames"):
-            for year in YEARS:
-                hosts = work / f"host_{year}.txt"
-                held.dump(
-                    conn,
-                    f"""
-                    SELECT DISTINCT hy.hostname FROM hostname_year hy
-                    WHERE hy.assigned_year = {year} AND {HOSTNAME_SHIPPING_FILTER}
-                      AND {web_evidence_exists("hy.evidence_id", "hy.hostname")}
-                    ORDER BY 1
-                    """,
-                    hosts,
-                )
-                stats[f"netnew_hostnames_{year}"] = held.minus(
-                    hosts, his.year(year), netnew_dir / f"{year}_hostnames.txt"
-                )
+        if not reuse:
+            with _phase("hostnames"):
+                for year in YEARS:
+                    hosts = work / f"host_{year}.txt"
+                    held.dump(
+                        conn,
+                        f"""
+                        SELECT DISTINCT hy.hostname FROM hostname_year hy
+                        WHERE hy.assigned_year = {year} AND {HOSTNAME_SHIPPING_FILTER}
+                          AND {web_evidence_exists("hy.evidence_id", "hy.hostname")}
+                        ORDER BY 1
+                        """,
+                        hosts,
+                    )
+                    stats[f"netnew_hostnames_{year}"] = held.minus(
+                        hosts, his.year(year), netnew_dir / f"{year}_hostnames.txt"
+                    )
 
         # The claim runs the ISC reduction too: the summary counts his survey names among the
         # names he held, and what survives it joins the candidate pool.
@@ -523,81 +537,85 @@ def export_all(
             with _phase("manifests"):
                 _write_manifests(conn, netnew_dir)
 
-        # `candidates.txt` ships beside the claim, so it holds none of his names either: it was a
-        # store-only list, and 341,674 of its 375,476 names were in his `candidate_pool.txt`.
-        with _phase("candidate_unverified"):
-            unverified = work / "unverified.txt"
-            held.dump(
-                conn,
-                f"""
-                SELECT d.domain FROM domain d
-                WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
-                  AND {_shipping_filter("d.", with_year=False)}
-                ORDER BY 1
-                """,
-                unverified,
-            )
-            stats["candidates"] = _minus_his(unverified, his, candidates_path)
+        if not reuse:
+            # `candidates.txt` ships beside the claim, so it holds none of his names either: it was
+            # a store-only list, and 341,674 of its 375,476 names were in his
+            # `candidate_pool.txt`.
+            with _phase("candidate_unverified"):
+                unverified = work / "unverified.txt"
+                held.dump(
+                    conn,
+                    f"""
+                    SELECT d.domain FROM domain d
+                    WHERE NOT EXISTS (SELECT 1 FROM domain_year dy WHERE dy.domain = d.domain)
+                      AND {_shipping_filter("d.", with_year=False)}
+                    ORDER BY 1
+                    """,
+                    unverified,
+                )
+                stats["candidates"] = _minus_his(unverified, his, candidates_path)
 
-        # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
-        # rate as annual records, so this is held to the same net-new standard: every
-        # candidate collection we hold, unioned, minus every name his release holds as a
-        # candidate (`held.candidate_files`) or lists in any of his six annual files.
-        #
-        # One file, not one per collection: provenance belongs in `provenance/` and
-        # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
-        # reconcile three files to count one track.
-        #
-        # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and
-        # 29,327 of them were absent from his files, so shipping the pool as the contribution
-        # would overstate the registrable half of this track by 78x.
-        #
-        # **A registrable name whose every year fails XIV is a candidate, not nothing**:
-        # failing rows re-track to candidates. When the pool took only names with NO year at
-        # all, a registry list ingested as `artifact_listing` earned a year the annual screen
-        # then refused, and the name fell between the two tracks: the `.dk` zone list's
-        # 251,114 rows shipped in neither file.
-        with _phase("candidate pool"):
-            taken += _candidate_pool(conn, his, work)
-            stats["candidate_additions"] = held.dump(
-                conn,
-                "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
-                netnew_dir / "candidate_additions.txt",
-            )
-            # the distinct names his candidate files took out of the claim, before his years
-            held_names = held.union(taken, work / "held_by_him.txt")
+            # THE CANDIDATE TRACK, as one pool. He scores candidates separately and at the same
+            # rate as annual records, so this is held to the same net-new standard: every
+            # candidate collection we hold, unioned, minus every name his release holds as a
+            # candidate (`held.candidate_files`) or lists in any of his six annual files.
+            #
+            # One file, not one per collection: provenance belongs in `provenance/` and
+            # `isc_survey_provenance.csv`, and splitting the pool by origin makes the reviewer
+            # reconcile three files to count one track.
+            #
+            # The whole pool is NOT the claim: our registrable pool held 2,279,755 names and
+            # 29,327 of them were absent from his files, so shipping the pool as the contribution
+            # would overstate the registrable half of this track by 78x.
+            #
+            # **A registrable name whose every year fails XIV is a candidate, not nothing**:
+            # failing rows re-track to candidates. When the pool took only names with NO year at
+            # all, a registry list ingested as `artifact_listing` earned a year the annual screen
+            # then refused, and the name fell between the two tracks: the `.dk` zone list's
+            # 251,114 rows shipped in neither file.
+            with _phase("candidate pool"):
+                taken += _candidate_pool(conn, his, work)
+                stats["candidate_additions"] = held.dump(
+                    conn,
+                    "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
+                    netnew_dir / "candidate_additions.txt",
+                )
+                # the distinct names his candidate files took out of the claim, before his years
+                held_names = held.union(taken, work / "held_by_him.txt")
 
-        with _phase("header candidates"):
-            export_header_candidates(conn, netnew_dir, stats)
-        weights = english_weights()
-        counts = conn.execute(
-            """
-            SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
-            FROM candidate_pool GROUP BY 1, 2 ORDER BY 1, 2
-            """
-        ).fetchall()
-        by_unit: dict[str, tuple[int, Decimal]] = {}
-        for unit, tld, n in counts:
-            unit_n, unit_ee = by_unit.get(unit, (0, Decimal(0)))
-            by_unit[unit] = (unit_n + n, unit_ee + weights.get(tld, Decimal(0)) * n)
-        summary = {
-            "baseline": CURRENT_BASELINE_MARKER,
-            "track": "candidate",
-            "counting_unit": "distinct name, registrable domains and exact hostnames in one pool",
-            "candidates": sum(n for n, _ in by_unit.values()),
-            "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
-            "by_unit": {
-                u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
-            },
-            # what his release already held, and so what the claim is net of
-            "held_by_him": {
-                "names": held_names,
-                "files": [str(p.relative_to(his.baseline)) for p in his.candidate_files],
-            },
-        }
-        (netnew_dir / "candidate_additions_summary.json").write_text(
-            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-        )
+            with _phase("header candidates"):
+                export_header_candidates(conn, netnew_dir, stats)
+            weights = english_weights()
+            counts = conn.execute(
+                """
+                SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
+                FROM candidate_pool GROUP BY 1, 2 ORDER BY 1, 2
+                """
+            ).fetchall()
+            by_unit: dict[str, tuple[int, Decimal]] = {}
+            for unit, tld, n in counts:
+                unit_n, unit_ee = by_unit.get(unit, (0, Decimal(0)))
+                by_unit[unit] = (unit_n + n, unit_ee + weights.get(tld, Decimal(0)) * n)
+            summary = {
+                "baseline": CURRENT_BASELINE_MARKER,
+                "track": "candidate",
+                "counting_unit": (
+                    "distinct name, registrable domains and exact hostnames in one pool"
+                ),
+                "candidates": sum(n for n, _ in by_unit.values()),
+                "equivalent_english": str(sum((ee for _, ee in by_unit.values()), Decimal(0))),
+                "by_unit": {
+                    u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
+                },
+                # what his release already held, and so what the claim is net of
+                "held_by_him": {
+                    "names": held_names,
+                    "files": [str(p.relative_to(his.baseline)) for p in his.candidate_files],
+                },
+            }
+            (netnew_dir / "candidate_additions_summary.json").write_text(
+                json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+            )
 
         if not claim_only:
             # per-source and per-year contribution tables, which ship in the audit folder
