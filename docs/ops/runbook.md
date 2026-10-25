@@ -93,8 +93,9 @@ entry of its `ARK_HOSTS`, installed there and never from here, and the fleet's r
 (ark-fleet `README.md`). `just vm install` sets it up from the laptop, `sudo -n` for the
 packages, the fleet user and linger, printing the root command it needs when refused, and
 runs the fleet's installer as that user with `RUNNER_TOKEN` from this shell on its stdin;
-it refuses while the tick is held. `gh auth login` there (repo, workflow) is the owner's,
-once. `just vm status|log` read it. The cutover, on the VPN: `just vm install`; `gh auth
+it refuses while the tick is held. `gh auth login` there is the owner's, once, with a
+fine-grained token: Contents and Issues read and write, Actions read, both repositories.
+`just vm status|log` read it, status with the modes of `hosts.yml` and `local.env`. The cutover, on the VPN: `just vm install`; `gh auth
 login` on the VM; `RUNNER_TOKEN=<from the fleet's Settings, Actions, Runners> just vm
 install` again, which registers the runners; `just hold on`; `just vm copy`; on the VPS as
 its fleet user `systemctl --user disable --now ark-runner@{1..5}.service`; `just schedule

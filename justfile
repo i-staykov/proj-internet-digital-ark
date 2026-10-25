@@ -1441,15 +1441,12 @@ vm what="status":
         fi
         # Its local.env is this one with its own lane local, no ARK_VM and a store limit
         # that leaves a leg's 3 GB probe and a read's 2 GB room in the VM's 15 GB; the
-        # install script moves it into the clone. ARK_FLEET_USER names the fleet's user
-        # there; the runner registration token, when RUNNER_TOKEN is set here, goes ahead
-        # the same way and is used once.
+        # install script moves it into the clone. ARK_FLEET_USER names the fleet's user there.
         env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
             -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=8GB/' local.env)
         grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
         grep -q '^ARK_FLEET_USER=.' <<<"$env" || { echo "vm install: set ARK_FLEET_USER in local.env" >&2; exit 1; }
-        printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env'
-        if [ -n "${RUNNER_TOKEN:-}" ]; then printf '%s\n' "$RUNNER_TOKEN" | $SSH 'umask 077; cat > ark-runner-token'; fi
+        printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env; rm -f ark-runner-token'
         # Every lane's state and the queue first, into the clone, so the cron the install writes
         # walks on from every done set here rather than over it.
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
@@ -1470,6 +1467,7 @@ vm what="status":
         fi
         ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
+        stat -c "%a %n" .config/gh/hosts.yml ark/local.env;
         grep "^===== scheduled" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -2' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
     *) echo "vm: install copy status log" >&2; exit 2 ;;
