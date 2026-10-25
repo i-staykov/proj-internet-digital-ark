@@ -93,13 +93,13 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `candidates.txt`, `isc_survey_hostnames/`, `server_header_hostnames/` | the candidate collections, each with provenance: names without year-specific web evidence, ISC Domain Survey hosts, and hosts named only in mail or Usenet server headers |
 | `candidates_unparsed.txt` | values the parser refused, each with its reason |
 | `provenance/` | the evidence graph of every name the lists hold, as Parquet, with `trace.py` and `LOAD.sql` |
-| `audit/` | the merge against your release in your column names, `merge_stats_ark_*.csv` and `merge_audit_ark_*.json`; per-source contribution, source saturation, `year_growth.csv` and the ingest audits |
+| `audit/` | the merge against your release in your column names, `merge_stats_ark_*.csv` and `merge_audit_ark_*.json`; per-source contribution, source saturation, `year_growth.csv` and the ingest audits written this round |
 | `source/` | `source.tar.gz`, the code at `COMMIT.txt` with `pyproject.toml` and `uv.lock`; `fleet.tar.gz`, the research agents at `FLEET_COMMIT.txt` |
 | `experience-summary.md` | the method that made the round, what worked and what did not, with their measurements |
 | `metric-explained.md`, `equivalent_english_domain_calculator/` | the metric, and your calculator, unmodified |
 | `sources.md`, `sources-closed.md` | every source tried: those used, with their download link, and those dropped, with the measurement that ruled each out |
 | `Open Research Questions/` | section IV-A: `Open Research Questions.docx` with each test's code, log, sample and screenshots |
-| `journals/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), seed lists |
+| `journals/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), `download_seeds.csv` and the expansion seed lists |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | the checks above |
 
 Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Your file for a year

@@ -2,8 +2,8 @@
 
 Two targets: the net-new year files, registrable and hostname, with their evidence manifests
 (small, the committed work product), and the candidate lists. Held by him is the exact name in
-his files, tested by `LC_ALL=C comm` through `held`. Packaging merges his year files with ours
-into the masters, so the export writes none.
+his files, tested by `LC_ALL=C comm` through `held`. He merges his year files with ours, so the
+export writes none.
 """
 
 import filecmp

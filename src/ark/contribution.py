@@ -108,8 +108,8 @@ YEAR_COLUMNS = ["year", "base_unique", "added_unique", "merged_unique", "growth_
 
 def _year_rows(his: held.Held, netnew_dir: Path) -> list[tuple[int, int, int, int]]:
     """Each year from line counts: his year file, then our registrable and hostname files.
-    Each of ours had his year file taken out by `comm`, and packaging merges the three into
-    `masters/<year>.txt`, so `merged_unique` is its `wc -l` as long as ours share no line."""
+    Each of ours had his year file taken out by `comm`, so `merged_unique` is the `wc -l` of the
+    README's `sort -m -u` of the three as long as ours share no line."""
     rows = []
     with tempfile.TemporaryDirectory(prefix="ark-growth-") as tmp:
         for year in YEARS:
