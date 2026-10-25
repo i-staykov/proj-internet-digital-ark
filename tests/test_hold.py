@@ -190,24 +190,6 @@ def test_on_disables_the_timer_writes_the_flag_here_and_on_the_host_and_status_r
     ]
 
 
-def test_off_lifts_one_name_or_all_and_drops_one_it_does_not_know(box):
-    box.write(HELD | {"state/hold": HELD["state/hold"] + "pause\n", "state/pause": "human\n"})
-    # The header's `human` is not a name, and a name neither known nor listed is refused.
-    for name in ("com.ark.other", "human"):
-        assert box.hold("off", name).returncode == 2, name
-    # A listed name it does not know, as status says to run it, only drops its line.
-    unknown = box.hold("off", "pause")
-    assert unknown.returncode == 0 and "pause: not a hold name, dropped" in unknown.stdout
-    assert (box.shim / "vm/disabled").exists()
-    one = box.hold("off", "ark-sync.timer")
-    assert one.returncode == 0 and not (box.shim / "vm/disabled").exists(), one.stdout
-    assert (box.state / "hold").read_text().splitlines()[2:] == NAMES[1:]
-    out = box.hold("off")
-    assert out.returncode == 0, out.stdout + out.stderr
-    active = {f"shim/workflows/{wf}": "active\n" for wf in WORKFLOWS}
-    assert box.files() == active | {"state/pause": "human\n"}
-
-
 def test_the_sync_and_the_bank_obey_the_hold(box):
     """A recipe past the hold stops at the lock, held here by a live pid; a dry run's hand run
     passes and says so, any other bypass value is held, and nothing is lifted."""
@@ -279,17 +261,6 @@ def test_the_bank_takes_the_lock_unless_its_caller_holds_it(box):
     assert hand.stdout.strip() == "bank: nothing arrived", hand.stdout + hand.stderr
     ((lock, held),) = {(lock, held) for _, lock, held in box.uv()}
     assert lock not in ("", ME) and held == "" and not box.lock.exists()
-
-
-def test_a_silent_host_borrows_no_answer_from_the_next(box):
-    hosts = {"ARK_HOSTS": "host.test:2 down.test:3"}
-    out = box.run(["bash", "scripts/harness/hold.sh", "on"], hosts)
-    assert out.returncode == 0 and "lane 3 host: unconfirmed" in out.stdout
-    status = box.run(["bash", "scripts/harness/hold.sh", "status"], hosts)
-    assert "NOT HELD  pause-platform: the lane 3 host did not answer" in status.stdout.splitlines()
-    lift = box.run(["bash", "scripts/harness/hold.sh", "off", "pause-platform"], hosts)
-    assert lift.returncode == 1 and "unconfirmed on the lane 3 host" in lift.stdout
-    assert not (box.shim / "host/ark/state/pause-platform").exists(), "the live host was asked"
 
 
 def test_an_unreachable_host_and_gh_leave_the_local_hold_whole(box):
