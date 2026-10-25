@@ -87,7 +87,6 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 |---|---|
 | `additions/` | 1996 to 2001 registrable additions per year; `evidence_manifest.csv`, one evidence row each |
 | `hostnames/` | 1996 to 2001 new hostnames per year, each below a registrable domain and never one itself, so none is also in `additions/`; `hostnames_evidence_manifest.csv`, one capture each |
-| `masters/` | your 1996 to 2001 file merged with both by exact name, `LC_ALL=C sort -m -u` |
 | `extended_years/` | 2002 to 2013: `<year>.txt` ours, none in your file for that year, `evidence_ledger.csv` the journal line of one capture per addition (line `line` of `journals/` plus `source_file` without `data/raw/` holds its `url`; that input's `replay` in `manifest.json`, filled with the row's `timestamp` and that `url`, is its replay link), `dedup_report.csv` in your merge columns, `manifest.json` the inputs and your files' sha256 |
 | `baseline/README.txt` | your release the additions count against: the sha256 and line count of each file of it the checks read |
 | `candidate_additions.txt`, `candidate_additions_summary.json` | every candidate name we hold that is in neither your pool nor your annual files, with their count and equivalent-English |
@@ -103,7 +102,9 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `journals/`, `seeds/` | the raw response behind every shipped evidence row (`journals/README.txt` names the sets left out on size), seed lists |
 | `SHA256SUMS`, `verify.sh`, `verify_isc_candidates.py` | the checks above |
 
-Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Every `.csv` is
+Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Your file for a year
+with ours is `LC_ALL=C sort -m -u $B/2001.txt additions/2001.txt hostnames/2001_hostnames.txt`, and
+from 2002 `LC_ALL=C sort -m -u $B/2005.txt extended_years/2005.txt`. Every `.csv` is
 RFC 4180 and UTF-8 with one header row; an `audit/` file with a header and no rows means the
 audited condition did not occur. Journals are gzipped JSON Lines; provenance is Parquet.
 

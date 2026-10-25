@@ -10,8 +10,7 @@ the source wrote it, so a seed cannot disagree with the evidence it came from. O
 whose raw form differs from the registered domain are kept.
 
 Shipped, under `output/seeds/`:
-  `download_seeds.txt`     one distinct raw hostname or URL per line, sorted
-  `download_seeds.csv`     the same seeds with domain, year and source name
+  `download_seeds.csv`     one raw hostname or URL per row, with domain, year and source name
 
 Intermediate, under `data/seeds/parts/`: one CSV per source, so re-running a source replaces
 only its own rows.
@@ -33,7 +32,6 @@ from ark.ingest import YEARS
 
 SEED_DIR = Path("output/seeds")
 PARTS_DIR = Path("data/seeds/parts")
-SEED_LIST_NAME = "download_seeds.txt"
 SEED_TABLE_NAME = "download_seeds.csv"
 PART_COLUMNS = ["seed", "domain", "year"]
 TABLE_COLUMNS = ["seed", "domain", "year", "source"]
@@ -106,10 +104,6 @@ def combine_parts(
     db.execute(
         f"COPY (SELECT seed, domain, year, source FROM seed_pool "
         f"ORDER BY seed, year, source) TO '{table_path}' (HEADER true, FORCE_QUOTE (seed))"
-    )
-    list_path = seed_dir / SEED_LIST_NAME
-    db.execute(
-        f"COPY (SELECT DISTINCT seed FROM seed_pool ORDER BY seed) TO '{list_path}' (HEADER false)"
     )
 
     result = {

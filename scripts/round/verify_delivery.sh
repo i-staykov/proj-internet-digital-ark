@@ -138,7 +138,7 @@ if [ -d isc_survey_hostnames ]; then
     elif command -v uv >/dev/null 2>&1; then
         uv run --with duckdb --no-project python verify_isc_candidates.py \
             --collection isc_survey_hostnames --baseline "$HIS" \
-            --annual-dirs masters additions hostnames \
+            --annual-dirs additions hostnames \
             --weights isc_survey_hostnames/tld_english_share.json || fail=1
     else
         say "ISC candidates" "FAIL  needs uv (https://docs.astral.sh/uv/)"; fail=1
