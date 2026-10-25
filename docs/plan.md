@@ -42,12 +42,9 @@ unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
-- ark-fleet #208 the fleet banks store EE within 100 priced legs or is held; #234 a stale snapshot
-  deals a scout; #248 the closed FINDs over the floor re-dealt; #249 the lenses reach 2002 to 2013
-  custodian records.
-- ark-fleet #235 closed leads leave the repository; #236 the README opens with the architecture
-  diagram; #237 no person named, no dead link, no experiments; #223 a ledger line's EE from the
-  program's file alone.
+- ark-fleet #208 the fleet banks store EE within 100 priced legs or is held; #236 the README opens
+  with the architecture diagram; #237 no person named, no dead link, no experiments; #223 a ledger
+  line's EE from the program's file alone; #253 an improver proposes a change once.
 - #399 the fleet user reads two files of the login's clone; #400 no stray runner token; #401 the
   tick says whether its login is alive.
 
