@@ -68,7 +68,7 @@ def done() -> None:
             continue
         keys, silent = {}, {}
         for row in (f.split("\t") for f in (lane / "log.tsv").read_text().splitlines()):
-            if len(row) < 14:  # a `#` note
+            if len(row) < 14 or not row[2].isdigit():  # a `#` note or a torn line
                 continue
             key, size, status = " ".join(row[1:6]), int(row[2]), row[7]
             silent[key] = silent.get(key, 0) + (status == "HTTP504")
