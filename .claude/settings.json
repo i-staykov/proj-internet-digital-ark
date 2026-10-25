@@ -28,17 +28,6 @@
           }
         ]
       }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && uv run python scripts/agents/handoff.py",
-            "timeout": 20
-          }
-        ]
-      }
     ]
   }
 }

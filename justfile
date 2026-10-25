@@ -103,7 +103,7 @@ verify what="" *args:
 state *args:
     uv run python scripts/round/build_round_state.py {{args}}
 
-# Reads the data/brief.json snapshot the bank and `just state` leave, plus private/handoff.md.
+# Reads the data/brief.json snapshot the bank and `just state` leave.
 # Never opens the store or runs ssh, so a session-start hook can call it inside its timeout.
 #
 # where the round stands, read from the last snapshot rather than the store
