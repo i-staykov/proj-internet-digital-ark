@@ -1211,17 +1211,6 @@ ship stage="all" *args:
         uv run ark check
         echo "== the round state, with the store sections =="
         uv run python scripts/round/build_round_state.py --full
-        # `package_delivery.sh` regenerates the report and refuses a dirty tree or a report that
-        # changed, so a human reviews the diff. Rebuilding and committing the report and its
-        # .docx here makes this one pass: the diff is nothing but regenerated figures.
-        echo "== regenerating the report and the .docx he asks for =="
-        uv run python scripts/round/fill_report.py
-        uv run python scripts/round/build_report_docx.py docs/report.md
-        if ! git diff --quiet -- docs/report.md docs/report.docx; then
-            git add docs/report.md docs/report.docx
-            git commit -q -m "Regenerate the round report and its .docx before packaging"
-            echo "== committed the regenerated report artifacts =="
-        fi
         echo "== packaging =="
         bash scripts/round/package_delivery.sh "${1:-}"
         echo "== verifying the built delivery the way a reviewer would =="
@@ -1254,7 +1243,7 @@ ship stage="all" *args:
         echo "  prep             take the sync lock, bank if anything arrived, merge audit,"
         echo "                   figures"
         echo "  build [round]    take the sync lock, full export, invariants, round state,"
-        echo "                   report and .docx, package, verify, round cleanup"
+        echo "                   package, verify, round cleanup"
         echo "  package [round]  package, verify delivery and retained copies, round cleanup"
         echo "  verify           verify the newest delivery and retained copies, round cleanup"
         echo "  calculator       his own calculator over the built files"

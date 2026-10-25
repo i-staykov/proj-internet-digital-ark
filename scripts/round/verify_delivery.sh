@@ -14,7 +14,8 @@
 # D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
 # asked, every merge reconciliation check passed and agrees with the shipped files, and the
 # reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
-# research questions folders, their questions, headings, labels and files.
+# research questions folders, their questions, headings, labels and files; then the report, in
+# the folder or beside it, carries every figure of audit/report_figures.json.
 #
 # Checks 5 to 8 police the four deliverables he added, called D1 to D4 throughout
 # this project. They are checks rather than a checklist because a requirement that
@@ -30,7 +31,7 @@ cd "${1:-$(dirname "$0")}"
 fail=0
 # The labelled verdicts a full archive prints. Packaging refuses a README that names
 # another count, and tests/test_orq.py counts the labels in this file against it.
-VERDICTS=15
+VERDICTS=16
 say() { printf '%-46s %s\n' "$1" "$2"; }
 
 # --- 1. file integrity -------------------------------------------------------
@@ -536,6 +537,23 @@ shots = [p for p in (EN / "screenshots").glob("*") if p.is_file()] if (EN / "scr
 print(f"{LABEL:<46} PASS  the folder, both questions, three labels")
 if not shots:
     print(f"{'':<46}       WARN  no screenshots/ beside the document")
+PY
+
+# --- 10. the report carries the archive's figures ----------------------------
+python3 - <<'PY' || fail=1
+import json, sys
+from pathlib import Path
+figures = Path("audit/report_figures.json")
+report = next((p for p in (Path("report.md"), Path("../report.md")) if p.is_file()), None)
+if report is None or not figures.is_file():
+    print(f"{'report figures':<46} SKIP  no report.md or audit/report_figures.json")
+    sys.exit(0)
+text = report.read_text(encoding="utf-8")
+missing = [k for k, v in json.loads(figures.read_text(encoding="utf-8")).items() if v not in text]
+if missing:
+    print(f"{'report figures':<46} FAIL  {report} lacks {', '.join(missing)}")
+    sys.exit(1)
+print(f"{'report figures':<46} PASS  {report} carries every figure of {figures}")
 PY
 
 echo

@@ -23,8 +23,6 @@ sit at the root. Hard rules live in `AGENTS.md`. *Generated* pages name the scri
 | [registers/questions.md](registers/questions.md) | Questions put to the reviewer; `just ship` copies the open rows into the mail (*not shipped*) | before drafting a round email |
 | [ROUND.md](ROUND.md) | Where the round stands (*generated* by `scripts/round/build_round_state.py`, git-ignored) | whenever a figure about the round is needed |
 | [report.template.md](report.template.md) | The round report with its stubs | when a five-figure source banks |
-| [report.md](report.md) | The filled report (*generated* by `scripts/round/fill_report.py`) | to read what shipped |
-| [report.docx](report.docx) | The Word rendering of the report (*generated* by `scripts/round/build_report_docx.py`) | before sending |
 | [round/delivery_readme.md](round/delivery_readme.md) | The README at the archive root | before packaging |
 | [round/experience-summary.md](round/experience-summary.md) | The method that made the round, what worked, what did not, the limits (D2) | when writing up a round |
 | [round/assets/](round/assets/) | `report-reference.docx`, the Word style reference | when the report styling changes |
