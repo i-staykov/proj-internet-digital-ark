@@ -6,6 +6,12 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| httparchive-2012-2013-crawl-tail-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012_10/121001_A.zip> <http://www.imoveissjc.com/> |
+| httparchive-2013-rerun-day-and-2010-2011-small-zip-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. No HTTP Archive file under the 1 GiB cap reaches half the floor | <https://archive.org/download/httparchive_2013_02/130206_0.zip> <http://www.torrentz.in/> <https://archive.org/about/terms.php> |
+| httparchive-downloads-2011-desktop-requests-csv-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T0506Z | 0.0000 EE | CLOSED. Whole artifact read and priced | <https://archive.org/download/httparchive_downloads/httparchive_Dec_15_2011_requests.csv.gz> <http://narod2.yandex.ru/> |
+| malware-domain-list-mdlcsv-export-2009-2013-ledger-hosts / malware_url_ledger_record | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. | <https://web.archive.org/web/20131010141142id_/http://www.malwaredomainlist.com/mdlcsv.php> |
+| xssed-archive-listing-mirror-rows-2007-2013 / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. | <http://www.xssed.com/archive/page=1/> |
+| xssed-xss-mirror-archive-ledger-2007-2013-hosts / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0506Z | not priced | CLOSED. | <http://www.xssed.com/archive/page=1530/> <http://www.xssed.com/archive/page=N/> |
 | alldas-org-defaced-list-seclists-2002-mirror-finished-stamps / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0406Z | not priced | CLOSED. | <https://seclists.org/alldas/2002/Jul/> |
 | defacement-ledgers-zone-h-cookie-wall-and-ml-defacement-dataset-epoch-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0406Z | not priced | CLOSED. | <https://datasets-server.huggingface.co/rows?dataset=hugoromao/defacement-detection-balanced&config=default&split=train&offset=40000&length=8> <http://www.hakole.co.il> |
 | defacement-ledgers-zone-hc-replay-and-dataset-hub-sweep / attrition_defacement_mirror_index | 2026-10-25, fleet 20261025T0406Z | not priced | CLOSED. Zone-HC claims 140,554 records (2009 to 2012) but serves them 20 per page with no export | <https://web.archive.org/web/20121227090921id_/http://zone-hc.com/> <http://soliro.net> |
