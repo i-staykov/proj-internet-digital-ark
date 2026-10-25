@@ -48,5 +48,4 @@ unless it adds a capability the round needs.
 - Throughput, in this order: #391 the 2,211 suffixes under the cutoff; #392 the worker count
   that measures best; #411 the VM runs the Channel's three clients; #410 one CDX question per
   pool domain never asked.
-- #413 the End of Term 2008 and 2012 indexes read whole; #286 dated crawl lists bank as 2002 to
-  2013 evidence.
+- #286 dated crawl lists bank as 2002 to 2013 evidence.
