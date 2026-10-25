@@ -445,3 +445,27 @@ def test_a_stale_artifact_leaves_a_lead_the_fleet_re_dealt_alone(tmp_path):
         (now / "finding.json").write_text(json.dumps(fleet_has))
         leads.main([str(tmp_path / "in"), "--fleet", str(tmp_path / "fleet"), "--write"])
         assert json.loads(lead.read_text())["status"] == status
+
+
+def test_a_candidate_claim_is_set_against_the_programs_registrable_candidate_figure(
+    tmp_path, monkeypatch
+):
+    """analog's figures: the annual 21,058.52 is no longer the agreement's other side."""
+    docs = {
+        "annual": {"split": "auto: dated", "ee": "21058.5194", "netnew_pairs": 32829},
+        "candidate": {"split": "none: no year", "ee": "14531.6714", "ee_hostname": "14526.7571"},
+    }
+    docs["candidate"]["netnew_pairs"] = 21554
+
+    def run(cmd, **_):
+        track = cmd[cmd.index("--track") + 1]
+        Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps(docs[track]))
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(findings.subprocess, "run", run)
+    (tmp_path / "lead.json").write_text(json.dumps({"grain": "candidate"}))
+    got = findings.program_price(tmp_path, {"pricing": {"track": "candidate"}}, tmp_path / "i")
+    assert (round(got["fleet_program_ee"], 4), got["fleet_program_annual_ee"]) == (
+        4.9143,
+        21058.5194,
+    )
