@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One unattended sync, for launchd to call every hour.
+# One unattended sync, for the hourly timer (`ark-sync.timer`) to call.
 #
 # `just sync` is the tick that moves the round without a session open: it books the
 # fleet's findings and calls `just bank` when approvals, a confirmed FIND, a baseline or
@@ -20,13 +20,9 @@ cd "$(dirname "$0")/../.." || exit 1
 # recipe refuses a diverged clone and nobody pulls here by hand. A dirty tree is left alone.
 git diff --quiet && git pull -q --ff-only origin live
 
-# **Machine-local config, the same file the recipes read.** Without
-# it this wrapper runs on the packaged defaults, and `build_round_state.py` dies at the
-# 40% cap with a DuckDB `Out of Memory Error` inside `stats.py::_corroboration`. The
-# host sets ARK_DB_MEMORY_LIMIT here rather than raising a default every host reads.
-# Sourcing alone is not enough: `local.env` assigns without `export`, so the value is a
-# shell variable this wrapper can read and every `uv run` child still gets the default.
-# Only this one is exported, so the hosts stay out of child environments.
+# The recipes' own `local.env`: without its ARK_DB_MEMORY_LIMIT the bank dies at DuckDB's 40%
+# cap. It assigns without `export`, so that one value is exported and the hosts stay out of
+# child environments.
 [ -f local.env ] && . ./local.env
 [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
 
@@ -35,10 +31,7 @@ mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 
-# **No lock here.** A lock held by this wrapper protects it from itself and from nothing
-# else. The lock is in the recipe (`sync_lock.sh`), so this and a hand-run `just sync` take
-# the same one; a run that finds it held prints why and stops, and that line lands in this
-# log like any other.
+# No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
 ship_now() {
     local n body
@@ -60,6 +53,9 @@ ship_now() {
 
 {
     printf '\n===== scheduled sync %s =====\n' "$(date -u '+%F %T UTC')"
+    login="login ok" && gh auth status > /dev/null 2>&1 || login="LOGIN DEAD"
+    expiry=$(gh api -i user 2> /dev/null | tr -d '\r' | sed -n 's/^github-authentication-token-expiration: //Ip')
+    echo "$login, token expiry: ${expiry:-no expiry header}"
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
     just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]'
