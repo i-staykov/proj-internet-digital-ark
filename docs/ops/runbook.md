@@ -149,8 +149,8 @@ labelled `needs-owner`, opens.
 1. `just verify raw && just verify offsite --manifest && just verify offsite --upload --yes`.
    Nothing else uploads.
 2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`, commits the
-   regenerated report and `.docx`, packages (`masters/` is his year file and ours by `LC_ALL=C sort
-   -m -u`, `extended_years/` ours alone; a stale or wrong export stamp refuses it), verifies as a reviewer would,
+   regenerated report and `.docx`, packages our
+   additions alone (a stale or wrong export stamp refuses it), verifies as a reviewer would,
    re-scores with his calculator, drafts the mail into `private/emails/drafts` unsent, closes the
    gate issue, and only then uploads and prunes verified round copies. It refuses while `just hold status` lists `com.ark.sync`. `just ship
    --help` prints the chain; `just ship orq` prints Word's page count. Away from a session, the
