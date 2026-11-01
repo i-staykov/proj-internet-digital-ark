@@ -25,11 +25,11 @@ long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is 
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
 subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
-at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 rests the
-worker that got it for `Retry-After` or a minute, flat, while the others stream on, and pauses the
-lane 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
-403 from 30 s doubling to 15 min, eased only by an answer; and requests start `--min-interval`
-apart, since a burst earns a block of the address.
+at once and booked after its fourth. Any other answer marks nothing done: a 503 with no
+`Retry-After` rests the worker that got it and its task a minute while the others stream on; a
+429 or `Retry-After` pauses the lane that long or a minute, flat, and ten in a row with nothing
+booked between 15 minutes; a refusal, `ENETDOWN` or 403 from 30 s doubling to 15 min, eased only
+by an answer; and requests start `--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -212,7 +212,7 @@ class Lane:
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
-        self.pause_until, self.next_start, self.rest = 0.0, 0.0, {}  # rest: a worker's own pause
+        self.pause_until, self.next_start, self.rest = 0.0, 0.0, {}  # a worker's or task's pause
         self.throttled = self.refused = self.transient = 0
 
     def add_pages(self, sfx: str, n: int) -> None:
@@ -263,8 +263,8 @@ class Lane:
         os.replace(tmp, self.pending)
 
     def requeue(self, task: tuple, front: bool) -> None:
-        """Put an unanswered task back: a subpage at the head (a rest or pause does the waiting), a
-        page at the front or the back of its unit."""
+        """Put an unanswered task back: a subpage at the head, a page at the front or the back of
+        its unit; `take` passes over it while it rests."""
         self.inflight.discard(task)
         if task in self.meta:
             self.subq.insert(0, task)
@@ -277,8 +277,9 @@ class Lane:
     def take(self):
         with self.lock:
             self.rerank()
-            while self.subq:
-                task = self.subq.pop(0)
+            now = time.time()
+            for task in [t for t in self.subq if self.rest.get(t, 0) <= now]:
+                self.subq.remove(task)
                 if key_of(task) not in self.done:
                     self.inflight.add(task)
                     return task
@@ -286,7 +287,7 @@ class Lane:
             self.taken += 1
             first = self.exploring if self.taken % 4 == 0 else self.ranked
             for u in first + self.ranked + self.exploring + self.waiting:
-                if self.pages[u]:
+                if self.pages[u] and self.rest.get(self.pages[u][0], 0) <= now:
                     task = self.pages[u].pop(0)
                     self.asked[u] += 1
                     if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
@@ -382,7 +383,7 @@ class Lane:
     def back_off(self, task: tuple, seconds: float, why: str, worker: bool = False) -> None:
         self.requeue(task, front=False)
         if worker:
-            self.rest[threading.get_ident()] = time.time() + seconds
+            self.rest[threading.get_ident()] = self.rest[task] = time.time() + seconds
         else:
             self.pause_until = max(self.pause_until, time.time() + seconds)
         self.log.write(f"# {'rest' if worker else 'pause'} {round(seconds)} s: {why}\n")
@@ -406,7 +407,8 @@ class Lane:
             elif status in THROTTLES:
                 self.throttled += 1
                 block = self.throttled >= 10  # ten, nothing booked between: an address block
-                self.back_off(task, 900.0 if block else after or 60.0, status, worker=not block)
+                one = status == "HTTP503" and not after and not block  # asked of one connection
+                self.back_off(task, 900.0 if block else after or 60.0, status, worker=one)
             elif status in FAST and self.transient < self.a.max_transient:
                 self.transient += 1
                 self.requeue(task, front=True)
@@ -419,6 +421,7 @@ class Lane:
         if status == "200":  # only an answer eases the refusal back-off
             self.refused = self.transient = 0
         self.inflight.discard(task)
+        self.rest.pop(task, None)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
             sib = {t for t in self.subq if self.meta[t][1] == parent and t[2] < task[2]}
