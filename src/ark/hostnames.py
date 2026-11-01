@@ -96,6 +96,9 @@ HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
 EOT_SOURCE = "eot_cdxj"
 EOT_METHOD = DARTMOUTH_ARCS_METHOD
 
+# HTTP Archive's request logs, 2002 to 2013 only, their own web method (#449).
+HAR_SOURCE, HAR_METHOD = "httparchive_har", "httparchive_har_entry"
+
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix
 # sweep, because both are IA CDX responses, and its own method so the contribution table can

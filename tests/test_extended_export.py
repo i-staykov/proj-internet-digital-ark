@@ -4,9 +4,11 @@ in that year, and a package of ours alone that verify proves disjoint from his f
 import csv
 import gzip
 import hashlib
+import io
 import json
 import os
 import subprocess
+import zipfile
 from decimal import Decimal as D
 
 import pytest
@@ -201,3 +203,30 @@ def test_the_end_of_term_reader_keeps_the_earliest_capture_a_host_year_in_the_wi
     keep, broken = eot.earliest(lines)
     assert keep == {("example.com", "2008"): ("20080101000000", "http://example.com/x", "200")}
     assert broken == 1
+
+
+def test_the_http_archive_reader_dates_a_host_by_its_own_2xx_or_3xx_request_alone():
+    har = script("sources/httparchive/har_year.py")
+
+    def row(day, t, action, host, path, code, secure="0"):
+        return "\t".join([day, t, "Run_1", "ip", action, host, path, code, *[""] * 38, secure])
+
+    log = [
+        row("08/01/2012", "09:56:47", "GET", "www.a.com", "/", "200", secure="1"),
+        row("08/01/2012", "09:00:00", "GET", "WWW.A.com", "/x", "301"),
+        row("08/01/2012", "08:00:00", "GET", "b.com", "/", "404"),
+        row("08/01/2012", "08:00:00", "", "", "http://c.com/", "0"),  # the page launch
+        row("08/01/2011", "08:00:00", "GET", "d.com", "/", "200"),  # the agent's clock
+        row("08/01/2012", "08:00:00", "GET", "89574,winebusiness.com", "/", "200"),
+    ]
+    test, outer = io.BytesIO(), io.BytesIO()
+    with zipfile.ZipFile(test, "w") as z:
+        z.writestr("1_IEWTR.txt.gz", gzip.compress("\n".join(["Date\tTime", *log]).encode()))
+    with zipfile.ZipFile(outer, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("120801_0_S3K.zip", test.getvalue())
+    keep: dict = {}
+    for _, blob in har.members(io.BytesIO(outer.getvalue())):
+        har.earliest(har.requests(blob), keep, "2012")
+    assert keep == {("www.a.com", "2012"): ("20120801090000", "http://WWW.A.com/x", "301")}
+    with pytest.raises(ValueError):  # cut inside a header: the zip fails, never the reader
+        list(har.members(io.BytesIO(outer.getvalue()[:20])))

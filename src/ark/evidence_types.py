@@ -59,6 +59,9 @@ WEB_METHODS = frozenset(
         # serving the web at the stamped date and attrition mirrored what it served,
         # which is his custodian pattern and is non-error by construction.
         "attrition_defacement_mirror_index",
+        # a custodian's own dated request log: an HTTP Archive agent's request to the exact
+        # host, answered 2xx or 3xx (#449)
+        "httparchive_har_entry",
         # a dated web link graph naming the target host
         "ukwa_host_link_graph",
         "ukwa_hostgrain",
@@ -96,6 +99,7 @@ def web_evidence_sql(alias: str = "e") -> str:
 _TS = "[0-9]{14}"
 _CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
+_HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
 _STAMPED = "^([0-9]{14}|nypw (first capture|timemap capture) (status [0-9]{3} )?[0-9]{14})$"
 _MIRROR = "/mirror/[0-9]{4}/[0-9]{2}/[0-9]{2}/([^/]+)/?$"
 
@@ -105,9 +109,10 @@ def exact_host_expr(alias: str) -> str:
 
     Chosen by the value's format, one branch per format a web method writes, never by the URL
     alone: a format this does not know names no host, so it fails closed. `cdx capture <ts>
-    [status <nnn>] <host>` and `host_link_graph:<year> <host>` name it last; a bare stamp and
-    a TimeMap stamp take the URL's host, only when the URL carries the same stamp; a defacement
-    mirror names it in its path. `cdx capture <year>` and `host_link_graph:<year>` name none.
+    [status <nnn>] <host>`, `host_link_graph:<year> <host>` and `har entry <ts> status <2xx or
+    3xx> <host>` name it last; a bare stamp and a TimeMap stamp take the URL's host, only when
+    the URL carries the same stamp; a defacement mirror names it in its path. `cdx capture
+    <year>` and `host_link_graph:<year>` name none.
     """
     v, u = f"{alias}.evidence_value", f"lower({alias}.evidence_url)"
     url_host = (
@@ -117,6 +122,7 @@ def exact_host_expr(alias: str) -> str:
     url_ts = f"regexp_extract({u}, '^https?://[^/]+/(web|wayback)/({_TS})/', 2)"
     return f"""(CASE
         WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
+          OR regexp_matches({v}, '{_HAR}')
           THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
         WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
           THEN nullif({url_host}, '')
