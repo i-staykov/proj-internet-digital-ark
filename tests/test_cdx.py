@@ -4,6 +4,7 @@ injected, so nothing here asks the archive anything."""
 import email.utils
 import gzip
 import json
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -390,11 +391,13 @@ def test_extended_walk_asks_questions_after_every_priced_page_a_thousandth_of_a_
     assert exploring == [] and waiting == [("ask-new", "ask")], "ask-pool is dropped"
 
 
-def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(tmp_path):
+def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(
+    tmp_path, monkeypatch
+):
     a = SimpleNamespace(
         state_dir=tmp_path, order=tmp_path / "o.json", max_transient=0, data=tmp_path
     )
-    a.questions = False
+    a.questions, a.min_interval = False, 10
     page = ("co.uk", 1000, 7, 1996, 2013, "all")
 
     def lane_with(page):
@@ -419,12 +422,21 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
     lane.settle(page, "200", False, 5, ["k1", "k5"], None, ["row"])  # cut at k5
     p9 = lane.take()
     assert p9[1:3] == (100, 79)
-    for n in range(10):  # the worker rests a minute; the lane pauses 15 after ten in a row
-        lane.pause_until = 0
+    lane.pause_until, me, seen = 0, threading.get_ident(), []
+    for n in range(10):  # a 503 rests its worker and task a minute; ten pause the lane 15
         lane.settle(p9, "HTTP503", False, 0, [], None, ["row"])  # backed off, still owed
-        until = lane.pause_until or max(lane.rest.values())
-        assert round(until - time.time(), -1) == (900 if n == 9 else 60)
-        assert lane.take() == p9
+        pause = lane.pause_until and lane.pause_until - time.time()
+        assert (round(lane.rest[me] - time.time(), -1), round(pause, -1)) == (60, 900 * (n == 9))
+    other = threading.Thread(target=lambda: seen.append(lane.gate()))
+    monkeypatch.setattr(extended._platform, "PAUSE_FLAG", tmp_path / "no-flag")
+    lane.pause_until, lane.next_start = 0, 0
+    other.start(), other.join(5)
+    assert seen == [True], "the other workers stream on through one worker's rest"
+    assert (p8 := lane.take()) not in (p9, None), "nobody asks a resting task again"
+    lane.requeue(p8, front=True)
+    lane.throttled = 0
+    lane.settle(p9, "HTTP503", False, 0, [], 120, ["row"])  # Retry-After: the lane waits
+    assert round(lane.pause_until - time.time(), -1) == 120
     restarted = lane_with(page)
     assert restarted.subq[0] == p9 and restarted.meta[p9] == ("cut", "co.uk 1000 7 1996 2013", "k5")
     p9 = restarted.take()
