@@ -25,8 +25,7 @@ unless it adds a capability the round needs.
 ## First (master and owner)
 
 - Asks: #412 a link graph's target side; #393 the terms sentence for the two candidate-grain
-  finds; ark-fleet #215 ClueWeb09 whole; ark-fleet #216 the Internet Archive's private 1996 to
-  2013 indexes.
+  finds; ark-fleet #215 ClueWeb09 whole.
 - `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
   measured whether they banked, then folded or deleted.
 
@@ -46,4 +45,3 @@ unless it adds a capability the round needs.
 ## D. Collectors and the VM (owns collector deployment, sync)
 
 - Throughput: #392 the worker count that measures best.
-- #286 dated crawl lists bank as 2002 to 2013 evidence.
