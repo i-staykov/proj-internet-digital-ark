@@ -40,9 +40,8 @@ unless it adds a capability the round needs.
 
 - ark-fleet #208: 56 legs banked 0 EE because its candidate figures were hostname grain (244,532
   headline, 42,116 registrable; fixed by #263 and #444); the one measured annual signal is HTTP
-  Archive 2010 to 2013 at candidate grain (price legs 114 to 11,510 decided EE a sample): the owner
-  rules on `httparchive_har_entry` as a web method, then one year is read whole; defacement-ledgers
-  parks (20 scouts, 0 leads).
+  Archive 2010 to 2013 at candidate grain (price legs 114 to 11,510 decided EE a sample);
+  defacement-ledgers parks (20 scouts, 0 leads).
 
 ## D. Collectors and the VM (owns collector deployment, sync)
 

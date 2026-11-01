@@ -765,9 +765,9 @@ Decision: candidate-only
 Decision: master
 
 ### httparchive_har / cdx_timestamp
-- the artifact: the archive.org item `httparchive_2012`, 112 zips, 651 GB, each a stored zip of WebPageTest test zips, read in-stream by `scripts/sources/httparchive/har_year.py` through `scripts/harness/fetch.py`, each zip checked against the item's sha1
+- the artifact: the archive.org item `httparchive_2012`, 112 zips, 651 GB, each a stored zip of WebPageTest test zips, under archive.org's terms (archive.org/about/terms.php; the item's metadata names no licence), read in-stream by `scripts/sources/httparchive/har_year.py` through `scripts/harness/fetch.py`, each zip checked against the item's sha1
 - what dates one item: an `<run>_IEWTR.txt.gz` row, the agent's own request log stamped at fetch time (Date, Time, Action, Host, URL, Response Code); a 2xx or 3xx dates the exact request host (`httparchive_har_entry`, #449), 4xx and 5xx date nothing; one row per host-year into `data/raw/extended/httparchive_har/`
-- measured 2026-11-01 on a 1.0 GB sample (the first 250 MB of 120101, 120515_0, 120801_0, 120901_5) against merge261016 and our additions of 10-21: 17,415 host-years, 5,759 net-new, 2,902.83 EE on 2002 to 2013; 1,044 of those hosts are in our 2012 additions since
+- measured 2026-11-01 on a 1.0 GB sample (the first 250 MB of 120101, 120515_0, 120801_0, 120901_5) against merge261016 plus our additions of 10-21: 17,415 host-years, 5,759 net-new, 2,902.83 EE on 2002 to 2013; 1,044 of those hosts are in our 2012 additions now
 - potential: 2,903 a GB on its head; the year saturates
 Decision: master
 
