@@ -1,4 +1,4 @@
-"""Rank the extended walk's queue by measured net-new EE per request, one figure per part.
+"""Price the extended walk's units by measured net-new EE and seconds a request, by part.
 
 Every answered request (200 or 504) in every lane's `log.tsv` is charged to its (suffix, kind)
 unit. Each `walk_*` journal is priced once: its (host, year) rows absent from his same-year file
@@ -62,6 +62,25 @@ def price(path: Path, held: list[Release], weights: dict) -> float:
     return ee
 
 
+def charge(lines, units: dict, names: dict) -> None:
+    """Charge each log row to its (suffix, kind) unit: answered requests and every second."""
+    for r in (line.rstrip("\n").split("\t") for line in lines):
+        if len(r) >= 14 and r[2].isdigit() and r[9].replace(".", "", 1).isdigit():
+            names[f"walk_{r[1]}_ps{r[2]}_p{r[3]}_{r[4]}-{r[5]}"] = unit = f"{r[1]} {r[6]}"
+            cost = units.setdefault(unit, [0, 0.0, 0.0, 0.0])
+            cost[3] += float(r[9])
+            cost[0] += r[7] in ("200", "HTTP504")  # a refusal is the address's, not a price
+
+
+def prices(units: dict) -> dict:
+    """EE and seconds an answered request; a unit with no answer has no price."""
+    return {
+        unit: {"p1": round(ee1 / n, 2), "p2": round(ee2 / n, 2), "n": n, "s": round(secs / n, 1)}
+        for unit, (n, ee1, ee2, secs) in units.items()
+        if n
+    }
+
+
 def main() -> None:
     baseline = json.loads((DATA / "baseline.json").read_text())["current"]
     held = [Release(DATA.parent / baseline["directory"]), Release(DATA / "queue/cdx_held")]
@@ -76,12 +95,8 @@ def main() -> None:
     units: dict[str, list] = {}
     names: dict[str, str] = {}
     for log in DATA.glob("raw/cdx_walk/*/log.tsv"):
-        for r in (line.rstrip("\n").split("\t") for line in open(log)):
-            if len(r) >= 14 and r[2].isdigit() and r[9].replace(".", "", 1).isdigit():
-                names[f"walk_{r[1]}_ps{r[2]}_p{r[3]}_{r[4]}-{r[5]}"] = unit = f"{r[1]} {r[6]}"
-                cost = units.setdefault(unit, [0, 0.0, 0.0, 0.0])
-                cost[3] += float(r[9])
-                cost[0] += r[7] in ("200", "HTTP504")  # a refusal is the address's, not a price
+        with open(log) as fh:
+            charge(fh, units, names)
     for part, folder in ((1, "raw/cdx_suffix"), (2, "raw/extended/ia_cdx_hostnames")):
         for path in (DATA / folder).glob("walk_*.jsonl.gz"):
             unit = names.get(path.name.split("_cut_")[0].removesuffix(".jsonl.gz"))
@@ -95,10 +110,7 @@ def main() -> None:
                     continue
                 units[unit][part] += cache["journals"][key]
     order = json.loads(out.read_text()).get("units", {}) if out.exists() else {}
-    for unit, (n, ee1, ee2, secs) in units.items():
-        if n:
-            order[unit] = {"p1": round(ee1 / n, 2), "p2": round(ee2 / n, 2), "n": n}
-            order[unit]["s"] = round(secs / n, 1)
+    order.update(prices(units))
     for path, doc in ((out, {"marker": baseline["marker"], "units": order}), (cache_path, cache)):
         path.with_suffix(".tmp").write_text(json.dumps(doc, indent=1))
         os.replace(path.with_suffix(".tmp"), path)

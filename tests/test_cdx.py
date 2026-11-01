@@ -377,20 +377,31 @@ def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
         "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
     }
     units = [tuple(u.split()) for u in prices]
-    priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, explore=2)
+    priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, 2, 10.0)
     assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all"), ("co.nz", "all")]
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
 def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws_price():
     prices = {"me.uk all": {"p2": 11156.0, "s": 300}, "co.nz all": {"p2": 0.5, "s": 50}}
-    prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}}
-    units = [tuple(u.split()) for u in [*prices, "ask-gap ask", "ask-new ask"]]
-    asked = {("ask-new", "ask"): 2000}
-    priced, exploring, waiting = extended.rank(units, prices, asked, explore=2)
+    prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}, "ask-x ask": {"n": 3000}}
+    units = [tuple(u.split()) for u in [*prices, "ask-gap ask"]]
+    priced, exploring, waiting = extended.rank(units, prices, {}, 2, 10.0)
     want = [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask"), ("co.nz", "all")]
-    assert priced == want and exploring == [], "laws: gap 0.25 EE a second, edge 0.05"
-    assert waiting == [("ask-new", "ask")], "ask-pool, measured at nothing, is dropped"
+    assert priced == want and exploring == [], "laws price at the 10 s floor: 0.125, 0.026 a s"
+    assert waiting == [("ask-x", "ask")], "a tier at nothing waits, never explores; pool drops"
+
+
+def test_walk_order_charges_a_unit_every_second_over_its_answers():
+    units, names = {}, {}
+    rows = [("co.uk", "200", 30), ("co.uk", "HTTP503", 5), ("co.uk", "HTTP504", 60)]
+    rows += [("on.ca", "ConnectionRefusedError", 4)]
+    lines = [
+        "\t".join(["s", sfx, "1000", "1", "1996", "2013", "all", st, "0", str(t), *"0000"])
+        for sfx, st, t in rows
+    ]
+    order.charge(lines, units, names)
+    assert order.prices(units) == {"co.uk all": {"p1": 0.0, "p2": 0.0, "n": 2, "s": 47.5}}
 
 
 def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(
