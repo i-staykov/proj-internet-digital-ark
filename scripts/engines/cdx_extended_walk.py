@@ -3,7 +3,7 @@
 One paged `matchType=domain` request over a public suffix (`co.uk`, `co.nz`, `com.au`) returns
 thousands of exact (host, year) captures: every host under a 1,000-block slice of the index, with
 the years it was captured in. The suffixes are the ICANN two-label ones of every TLD he weighs
-(a bare TLD answers 403); the measured price per request (`cdx_walk_order.py`) orders the walk.
+(a bare TLD answers 403); the measured EE a second (`cdx_walk_order.py`) orders the walk.
 
 **Pool questions** are the queue's second kind, `ask`: one exact root-key question for each
 registrable in `data/queue/pool_questions.tsv` (`pool_questions.py`), in the file's order. Each
@@ -103,23 +103,25 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
-def rank(units, order: dict, asked: dict, explore: int) -> tuple[list, list, list]:
+def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, list, list]:
     """(priced, exploring, waiting): every priced unit by its EE a second over both windows,
     every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
     question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
-    3% on either window. The unpriced ones still owed `explore` pages; the explored ones waiting
-    for a price. A unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
+    3% on either window; no request costs less than `floor`, the start interval. The unpriced
+    ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
+    waiting for a price. A unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
     priced, exploring, waiting = [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
             price = {"p1": ASKED.get(u[0], 0.0), "s": ASK_SECONDS}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
-        seconds = price.get("s") or PAGE_SECONDS
+        seconds = max(price.get("s") or PAGE_SECONDS, floor)
         if total > 0:
             priced.append(((-total / seconds, -p1), u))
         elif price.get("n", 0) < DROP_AFTER * scale:
-            (waiting if asked.get(u, 0) >= explore * scale else exploring).append(u)
+            done = u[1] == "ask" or asked.get(u, 0) >= explore * scale  # a tier never explores
+            (waiting if done else exploring).append(u)
     priced.sort(key=lambda k: k[0])
     return [u for _, u in priced], exploring, waiting
 
@@ -255,7 +257,9 @@ class Lane:
             except (OSError, ValueError):
                 pass
         if force:
-            self.ranked, self.exploring, self.waiting = rank(self.pages, self.order, self.asked, 2)
+            self.ranked, self.exploring, self.waiting = rank(
+                self.pages, self.order, self.asked, 2, self.a.min_interval
+            )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
 
     def save_pending(self) -> None:
