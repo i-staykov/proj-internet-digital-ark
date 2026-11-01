@@ -15,7 +15,8 @@ journal whose family must carry a status (`hostnames.status_required`) is refuse
 row without one. A row is kept when its stamp's year is 2002 to 2013, its status is not 4xx or
 5xx, its host passes his `HOST_RE` (`hostnames.host_of`) and has a registrable, and its TLD
 existed that year (`ark.delegation.existed`). Each kept host-year carries its earliest
-capture; whatever his same-year file holds, by exact name, is dropped by `comm`.
+capture with a status, else its earliest status-less row (a crawl list's stamp is a year, not a
+capture time); whatever his same-year file holds, by exact name, is dropped by `comm`.
 
 Written, all sorted and unique under LC_ALL=C, nothing loaded whole into memory; packaging
 merges each additions file with his (`package_delivery.sh`):
@@ -212,8 +213,8 @@ def screened(path: Path) -> tuple[dict, bytes]:
                     break
                 seen[reason or "kept"] += 1
                 if row:
-                    year, host, ts = row
-                    rows.append(f"{year}\t{host}\t{ts}\x01{lineno}\n")
+                    year, host, ts, statusless = row
+                    rows.append(f"{year}\t{host}\t{statusless}{ts}\x01{lineno}\n")
     if refused:
         rows, seen = [], Counter(journal_refused=1)
     data = "".join(rows).encode()
@@ -273,7 +274,7 @@ def screen(line: bytes, strict: bool) -> tuple[str | None, tuple | None]:
         return "tld_did_not_exist", None
     if to_registrable(host) is None:
         return "no_registrable", None
-    return None, (year, host, ts)
+    return None, (year, host, ts, "0" if "status" in row else "1")
 
 
 def file_sha(path: Path) -> str:
@@ -311,7 +312,8 @@ def export(globs: dict[str, str], out: Path) -> dict:
         described = read_rows(inputs, rows, drops)
         sort = ["sort", "-S", "2G", "-T", str(work), "-o", str(ordered), str(rows)]
         subprocess.run(sort, env=_C, check=True)
-        # Sorted by year, host, then stamp, so the first row of each host-year is its earliest.
+        # Sorted by year, host, status-less flag, then stamp: the first row of each host-year is
+        # its earliest capture with a status, else its earliest status-less row.
         ours: dict[int, tuple] = {}
         last = None
         with ordered.open(encoding="utf-8") as fh:
@@ -348,6 +350,7 @@ def export(globs: dict[str, str], out: Path) -> dict:
                     tlds[host.rsplit(".", 1)[-1]] += 1
                     for row in ev:  # both sorted by host: a merge-join
                         h, ts, index, lineno = row.rstrip("\n").split("\t")
+                        ts = ts[1:]  # after the status-less flag
                         if h == host:
                             break
                     source = described[int(index)]

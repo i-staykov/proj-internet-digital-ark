@@ -4,9 +4,10 @@ A dated crawl list is a class on two conditions (#286): the dataset documents a 
 calendar year and its nodes are fetched pages. Both hold for the two lists in `LISTS`
 (`ark.hostnames.CRAWL_LISTS`): ClueWeb09's url-docid map (`ir.nist.gov`, 10.2 GB bz2, read from
 its 2016 Wayback capture, fleet #215), every page fetched in January and February 2009 as
-`<url> <docid>`, URL-sorted inside segments of some 20,000 pages; and LAW's ClueWeb12 URL list
-(13.9 GB gzip), every page fetched from 2012-02-10 to 05-10 in crawl order, one URL a line, its
-node id the URL's ordinal since LAW publishes no docid. A node dates its exact host in the list's
+`<url> <docid>`, sorted by URL inside segments of some 20,000 pages, the segments in crawl
+order; and LAW's ClueWeb12 URL list (13.9 GB gzip), every page fetched from 2012-02-10 to 05-10
+in crawl order, one URL a line, its node id the URL's ordinal since LAW publishes no docid. A
+node dates its exact host in the list's
 year (`crawl_list_node`), status-less, since a crawl list carries no response code. One row per
 host among the last four million seen, `{url, timestamp, node}`, the stamp carrying the year
 alone (`LISTS`), into `data/raw/extended/crawl_lists/<list>_<n>.jsonl.gz`,
@@ -43,9 +44,10 @@ from ark.hostnames import CRAWL_LISTS, host_of
 REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/raw/extended/crawl_lists"
 PART, RECENT = 5_000_000, 4_000_000  # the window holds about 700 MB
-# name: (the row stamp, the stream's codec). The stamp carries the list's year, not a capture
-# time: the documented crawl's first day, 2012-02-10 for ClueWeb12 (LAW); ClueWeb09's
-# documentation gives January and February 2009, no day, so its stamp is the year's first day.
+# name: (the row stamp, the stream's codec). The stamp is the crawl window's first documented
+# day at year precision, not a capture time: 2012-02-10 for ClueWeb12 (LAW); ClueWeb09's
+# documentation gives January and February 2009, no day, so the year's first day. The export
+# ranks a capture with a status above it for the same host-year.
 LISTS = {"clueweb09": ("20090101000000", "bz2"), "clueweb12": ("20120210000000", "gzip")}
 
 
@@ -120,9 +122,11 @@ def write_parts(pairs, folder: Path, name: str, stamp: str) -> list[Path]:
 def read(name: str) -> str:
     """One line for the log; the parts and the receipt land only on a whole, decoded stream."""
     stamp, codec = LISTS[name]
+    OUT.mkdir(parents=True, exist_ok=True)
+    for stale in OUT.glob(f".{name}_*.tmp"):  # a killed run's parts
+        stale.unlink()
     t0, proc = time.time(), fetch(CRAWL_LISTS[name])
     stream = Hashed(proc.stdout)
-    OUT.mkdir(parents=True, exist_ok=True)
     try:
         parts = write_parts(runs(lines(stream, codec)), OUT, name, stamp)
         why = None
@@ -133,7 +137,7 @@ def read(name: str) -> str:
     if why or proc.returncode:
         for p in parts:
             p.unlink(missing_ok=True)
-        why = f"{name}: not booked, fetch exit {proc.returncode}, {why or 'stream cut'}"
+        why = f"{name}: not booked, fetch exit {proc.returncode}" + (f", {why}" if why else "")
         with open(OUT / f".{name}.failed", "a") as fh:
             fh.write(why + "\n")
         return why

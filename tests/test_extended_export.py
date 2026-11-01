@@ -101,8 +101,10 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert (drop["invalid_host"], drop["tld_did_not_exist"], drop["journal_refused"]) == (1, 2, 2)
     with (out / "evidence_ledger.csv").open() as fh:
         row = next(r for r in csv.DictReader(fh) if r["host"] == "new.com")
-    assert (row["year"], row["method"], row["line"]) == ("2002", "ia_cdx_domain_sweep", "3")
-    assert row["timestamp"] == "20020101000000"
+    assert (row["year"], row["method"], row["line"]) == ("2002", "ia_cdx_domain_sweep", "2")
+    assert row["timestamp"] == "20020301000000", (
+        "a capture with a status outranks a status-less row"
+    )
     source = next(i for i in manifest["inputs"] if i["path"] == row["source_file"])
     assert source["sha256"] == hashlib.sha256(journal.read_bytes()).hexdigest()
     assert source["replay"] == "https://web.archive.org/web/{ts}/{url}"
@@ -257,7 +259,7 @@ def test_the_clueweb_reader_writes_one_status_less_row_a_host_with_its_node_id(t
     assert rows[0]["timestamp"] == "20090101000000" and "status" not in rows[0]
     assert ex.screen(json.dumps(rows[0]).encode(), strict=False) == (
         None,
-        (2009, "a.com", "20090101000000"),
+        (2009, "a.com", "20090101000000", "1"),
     )
     with pytest.raises(ValueError):  # a stream cut inside a block books nothing
         list(cw.lines(io.BytesIO(bz2.compress(b"http://c.com/ x\n" * 1000)[:-20])))
@@ -265,3 +267,47 @@ def test_the_clueweb_reader_writes_one_status_less_row_a_host_with_its_node_id(t
     urls = io.BytesIO(gzip.compress(b"http://c.com/\nhttp://c.com/x\nhttp://d.com/\n"))
     assert list(cw.runs(cw.lines(urls, "gzip"))) == [("http://c.com/", "0"), ("http://d.com/", "2")]
     assert ex.capture("crawl_lists", tmp_path / "clueweb12_3.jsonl.gz")[1].endswith("nat.urls.gz")
+
+
+def test_a_status_less_crawl_list_row_ships_through_the_export_with_its_node_id(
+    tmp_path, monkeypatch
+):
+    ext = script("round/extended_export.py")
+    his = stage(tmp_path, {"2009.txt": text(["his.org"])})
+    monkeypatch.setattr(ext, "baseline_dir", lambda: his)
+    monkeypatch.setattr(ext, "REVIEWER_EXTENDED_EE_BY_YEAR", {2009: D(4)})
+    monkeypatch.setattr(ext, "english_weights", lambda: {"com": D("0.5")})
+    monkeypatch.setattr(ext, "CACHE", tmp_path / "cache")
+    monkeypatch.setattr(approvals, "check", lambda *a: None)
+    journal = tmp_path / "raw/crawl_lists/clueweb09_0.jsonl.gz"
+    journal.parent.mkdir(parents=True)
+    row = {"url": "http://new.com/", "timestamp": "20090101000000", "node": "clueweb09-en0000-00-1"}
+    journal.write_bytes(_journal([row]))
+    manifest = ext.export({"*": str(tmp_path / "raw/*/*.jsonl*")}, tmp_path / "out")
+    assert manifest["years"]["2009"]["accepted_by_method"] == {"crawl_list_node": 1}
+    with (tmp_path / "out/evidence_ledger.csv").open() as fh:
+        row = next(csv.DictReader(fh))
+    assert (row["host"], row["method"], row["line"]) == ("new.com", "crawl_list_node", "1")
+    assert row["timestamp"] == "20090101000000"
+    assert manifest["inputs"][0]["replay"].endswith("clueweb.urls-docid.bz2")
+
+
+def test_a_failed_fetch_counts_a_strike_and_leaves_no_part(tmp_path, monkeypatch):
+    cw = script("sources/crawl_lists/clueweb.py")
+    monkeypatch.setattr(cw, "OUT", tmp_path)
+
+    class Refused:
+        stdout, returncode = io.BytesIO(b""), 6
+
+        def kill(self):
+            pass
+
+        def wait(self):
+            return self.returncode
+
+    monkeypatch.setattr(cw, "fetch", lambda url, max_bytes="14G": Refused())
+    (tmp_path / ".clueweb09_0.tmp").write_bytes(b"stale")
+    assert cw.read("clueweb09").startswith("clueweb09: not booked, fetch exit 6")
+    assert (tmp_path / ".clueweb09.failed").read_text().count("\n") == 1
+    assert not list(tmp_path.glob("*.tmp")) and not list(tmp_path.glob("*.jsonl.gz"))
+    assert cw.todo() == ["clueweb09", "clueweb12"] and cw.failures("clueweb09") == 1

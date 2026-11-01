@@ -52,8 +52,6 @@ FORMATS = [
     # an HTTP Archive request names its host last, on a 2xx or 3xx alone
     ("httparchive_har_entry", f"har entry {T1} status 200 example.com", None, True),
     ("httparchive_har_entry", f"har entry {T1} status 404 example.com", None, False),
-    # a crawl list's node is status-less and names its host as any capture row does
-    ("crawl_list_node", f"cdx capture {T1} example.com", None, True),
     # a link graph names its target last; its source form names none
     ("ukwa_host_link_graph", "host_link_graph:1999 example.com", None, True),
     ("ukwa_host_link_graph", "host_link_graph:1999 other.com", None, False),
