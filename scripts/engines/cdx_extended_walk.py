@@ -29,7 +29,8 @@ at once and booked after its fourth. Any other answer marks nothing done: a 429 
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
 and 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
 403 from 30 s doubling to 15 min, eased only by an answer; and requests start
-`--min-interval` apart, since a burst earns a block of the address.
+`--min-interval` apart in a lane and under `--starts-a-minute` across the lanes here, since a
+burst earns a block of the address and refusals follow its combined start rate, not one lane's.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -42,6 +43,7 @@ rate is always charged with its waits and failures.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import gzip
 import http.client
 import importlib.util
@@ -307,11 +309,25 @@ class Lane:
             with self.lock:
                 now = time.time()
                 held = _platform.PAUSE_FLAG.exists() or now < self.pause_until
-                if not held and now >= self.next_start:
+                if not held and now >= self.next_start and self.budget(now):
                     self.next_start = now + self.a.min_interval
                     return True
             time.sleep(1)
         return False
+
+    def budget(self, now: float) -> bool:
+        """One start budget for the address: fewer than `--starts-a-minute` starts across every
+        lane here in the last minute, booked in the lanes' shared `starts` file under its lock."""
+        with open(self.a.state_dir.parent / "starts", "a+") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            fh.seek(0)
+            recent = [t for t in map(float, fh.read().split()) if t > now - 60]
+            if len(recent) >= self.a.starts_a_minute:
+                return False
+            fh.seek(0)
+            fh.truncate()
+            fh.write("".join(f"{t}\n" for t in [*recent, now]))
+            return True
 
     def count_missing(self, missing: list[str]) -> None:
         """Count the suffixes pages.json lacks, one a minute, while the lane walks."""
@@ -452,6 +468,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=1, help="requests at once in this client")
     ap.add_argument("--max-local", type=int, default=2, help="CDX clients allowed here")
     ap.add_argument("--min-interval", type=float, default=10.0, help="seconds between starts")
+    ap.add_argument("--starts-a-minute", type=float, default=4.0, help="across the lanes here")
     ap.add_argument("--connect-timeout", type=float, default=20)
     ap.add_argument("--max-transient", type=int, default=8, help="dropped connects before a pause")
     ap.add_argument("--timeout", type=float, default=70, help="per read; the gateway 504s at 60 s")

@@ -452,3 +452,18 @@ def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     release = order.Release(tmp_path)
     assert all(release.holds(2001, h) for h in ("a.co.uk", "b-c.co.uk", "b.co.uk", "zz.com.au"))
     assert not any(release.holds(2001, h) for h in ("a.co", "b.co.ukx", "c.co.uk", "zzz"))
+
+
+def test_the_lanes_share_one_start_budget_for_the_address(tmp_path):
+    lanes = []
+    for i in range(2):
+        a = SimpleNamespace(
+            state_dir=tmp_path / f"lane{i}", order=tmp_path / "o.json", data=tmp_path
+        )
+        a.max_transient, a.questions, a.min_interval, a.starts_a_minute = 0, False, 10, 3
+        a.state_dir.mkdir()
+        lanes.append(extended.Lane(a))
+    now = 1_000_000.0
+    assert [lanes[i % 2].budget(now + i) for i in range(4)] == [True, True, True, False]
+    assert lanes[1].budget(now + 59) is False, "the fourth start in a minute waits, whichever lane"
+    assert lanes[0].budget(now + 61) is True, "a minute on, the first start has aged out"
