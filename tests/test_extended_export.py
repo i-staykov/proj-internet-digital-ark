@@ -216,7 +216,7 @@ def test_the_http_archive_reader_dates_a_host_by_its_own_2xx_or_3xx_request_alon
         row("08/01/2012", "09:00:00", "GET", "WWW.A.com", "/x", "301"),
         row("08/01/2012", "08:00:00", "GET", "b.com", "/", "404"),
         row("08/01/2012", "08:00:00", "", "", "http://c.com/", "0"),  # the page launch
-        row("08/01/2001", "08:00:00", "GET", "d.com", "/", "200"),
+        row("08/01/2011", "08:00:00", "GET", "d.com", "/", "200"),  # the agent's clock
         row("08/01/2012", "08:00:00", "GET", "89574,winebusiness.com", "/", "200"),
     ]
     test, outer = io.BytesIO(), io.BytesIO()
@@ -226,5 +226,7 @@ def test_the_http_archive_reader_dates_a_host_by_its_own_2xx_or_3xx_request_alon
         z.writestr("120801_0_S3K.zip", test.getvalue())
     keep: dict = {}
     for _, blob in har.members(io.BytesIO(outer.getvalue())):
-        har.earliest(har.requests(blob), keep)
+        har.earliest(har.requests(blob), keep, "2012")
     assert keep == {("www.a.com", "2012"): ("20120801090000", "http://WWW.A.com/x", "301")}
+    with pytest.raises(ValueError):  # cut inside a header: the zip fails, never the reader
+        list(har.members(io.BytesIO(outer.getvalue()[:20])))
