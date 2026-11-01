@@ -25,7 +25,7 @@ CANDIDATE_METHODS = """usenet_server_written_header published_registry_creation_
 isc_domain_survey registry_zone_list_wayback_capture registry_listing_capture ia_domain_year_census
 ncsa_whats_new_pages prior_task nypw_timemap_non_200 a_method_invented_tomorrow""".split()
 JUDGED_WEB = """attrition_defacement_mirror_index nypw_first_capture_index nypw_firstcdx_hostgrain
-nypw_timemap ukwa_host_link_graph""".split()
+nypw_timemap ukwa_host_link_graph httparchive_har_entry""".split()
 
 
 def wayback(stamp: str, original: str) -> str:
@@ -49,6 +49,9 @@ FORMATS = [
     ("early_web_hostgrain", f"cdx capture {T1} status 302 example.com", None, True),
     ("nypw_timemap_hostgrain", f"cdx capture {T1} status 404 example.com", None, False),
     ("bulk_cdx_file", f"cdx capture {T1} status 503 example.com", None, False),
+    # an HTTP Archive request names its host last, on a 2xx or 3xx alone
+    ("httparchive_har_entry", f"har entry {T1} status 200 example.com", None, True),
+    ("httparchive_har_entry", f"har entry {T1} status 404 example.com", None, False),
     # a link graph names its target last; its source form names none
     ("ukwa_host_link_graph", "host_link_graph:1999 example.com", None, True),
     ("ukwa_host_link_graph", "host_link_graph:1999 other.com", None, False),
