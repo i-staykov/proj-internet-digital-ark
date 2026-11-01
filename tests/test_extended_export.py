@@ -233,8 +233,8 @@ def test_the_http_archive_reader_dates_a_host_by_its_own_2xx_or_3xx_request_alon
         list(har.members(io.BytesIO(outer.getvalue()[:20])))
 
 
-def test_the_clueweb09_reader_writes_one_status_less_row_a_host_with_its_node_id(tmp_path):
-    cw, ex = script("sources/crawl_lists/clueweb09.py"), script("round/extended_export.py")
+def test_the_clueweb_reader_writes_one_status_less_row_a_host_with_its_node_id(tmp_path):
+    cw, ex = script("sources/crawl_lists/clueweb.py"), script("round/extended_export.py")
     lines = [
         b"http://a.com/ clueweb09-en0000-00-00000",
         b"http://a.com/x clueweb09-en0000-00-00001",
@@ -251,7 +251,7 @@ def test_the_clueweb09_reader_writes_one_status_less_row_a_host_with_its_node_id
         ("http://b.com/", "clueweb09-en0000-00-00002"),
     ]
     cw.PART = 1
-    parts = cw.write_parts(pairs, tmp_path)
+    parts = cw.write_parts(pairs, tmp_path, "clueweb09", "20090101000000")
     rows = [json.loads(gzip.open(p).read()) for p in parts]
     assert [r["node"] for r in rows] == ["clueweb09-en0000-00-00000", "clueweb09-en0000-00-00002"]
     assert rows[0]["timestamp"] == "20090101000000" and "status" not in rows[0]
@@ -261,3 +261,7 @@ def test_the_clueweb09_reader_writes_one_status_less_row_a_host_with_its_node_id
     )
     with pytest.raises(ValueError):  # a stream cut inside a block books nothing
         list(cw.lines(io.BytesIO(bz2.compress(b"http://c.com/ x\n" * 1000)[:-20])))
+    # a URL list without node ids, gzipped: the node is the URL's ordinal in the file
+    urls = io.BytesIO(gzip.compress(b"http://c.com/\nhttp://c.com/x\nhttp://d.com/\n"))
+    assert list(cw.runs(cw.lines(urls, "gzip"))) == [("http://c.com/", "0"), ("http://d.com/", "2")]
+    assert ex.capture("crawl_lists", tmp_path / "clueweb12_3.jsonl.gz")[1].endswith("nat.urls.gz")
