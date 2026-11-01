@@ -24,12 +24,13 @@ extended exporter), written under a dot name and renamed whole. The host is read
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
-subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
-at once and booked after its fourth. Any other answer marks nothing done: a 503 with no
-`Retry-After` rests the worker that got it and its task a minute while the others stream on; a
-429 or `Retry-After` pauses the lane that long or a minute, flat, and ten in a row with nothing
-booked between 15 minutes; a refusal, `ENETDOWN` or 403 from 30 s doubling to 15 min, eased only
-by an answer; and requests start `--min-interval` apart, since a burst earns a block of the address.
+subpages 0 and 5 probed, the other eight asked only if a probe has rows; a 100-block one is asked
+as its ten 10-block subpages at once; a 10-block one again at once, booked after its fourth. Any
+other answer marks nothing done: a 503 with no `Retry-After` rests the worker that got it and its
+task a minute while the others stream on; a 429 or `Retry-After` pauses the lane that long or a
+minute, flat, and ten in a row with nothing booked between 15 minutes; a refusal, `ENETDOWN` or
+403 from 30 s doubling to 15 min, eased only by an answer; and requests start `--min-interval`
+apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -94,12 +95,13 @@ def suffixes() -> list[str]:
 
 
 def subpages(task: tuple, cut: bool) -> list[tuple]:
-    """The 1/10 subpages to ask after a failed page: all ten last first after a cut, or the
-    0 and 5 probes after a silent 504. A 100-block page is not split again on a 504."""
+    """The 1/10 subpages to ask after a failed page: all ten last first after a cut or a
+    100-block page's 504, the 0 and 5 probes after a 1,000-block one's. A 10-block page is not
+    split again on a 504."""
     sfx, size, page, *rest = task
-    if size < 10 or (not cut and size < PAGE):
+    if size < 10 or (not cut and size < PAGE // 10):
         return []
-    ks = range(9, -1, -1) if cut else (0, 5)
+    ks = (0, 5) if not cut and size >= PAGE else range(9, -1, -1)
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
@@ -399,7 +401,7 @@ class Lane:
         key = key_of(task)
         self.log.write("\t".join(map(str, row)) + "\n")
         tries = self.fails.get(key, 0)
-        silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
+        silent = status == "HTTP504" and (task[1] >= PAGE // 10 or tries >= 3)
         silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
@@ -439,9 +441,10 @@ class Lane:
             self.meta.update({t: ("rest", parent, "") for t in rest})
             self.subq[0:0] = rest
         if not (status == "200" and complete):
-            subs = subpages(task, cut=bool(edge))
+            subs = subpages(task, cut=bool(edge)) if status != "HTTP400" else []  # past the end
+            subrole = "probe" if task[1] >= PAGE else "rest"  # a 100-block page asks all ten
             self.meta.update(
-                {t: ("cut", key, edge[-1]) if edge else ("probe", key, "") for t in subs}
+                {t: ("cut", key, edge[-1]) if edge else (subrole, key, "") for t in subs}
             )
             self.subq[0:0] = subs
             if not subs:

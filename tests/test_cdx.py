@@ -364,7 +364,9 @@ def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_
     cut = extended.subpages(task, cut=True)
     assert cut == [("co.uk", 100, 70 + k, 1996, 2013, "all") for k in range(9, -1, -1)]
     assert [t[2] for t in extended.subpages(task, cut=False)] == [70, 75]
-    assert extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False) == []
+    split = extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False)
+    assert [t[1:3] for t in split] == [(10, 700 + k) for k in range(9, -1, -1)], "all ten at once"
+    assert extended.subpages(("co.uk", 10, 700, 1996, 2013, "all"), cut=False) == []
 
 
 def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
@@ -421,13 +423,16 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
 
     lane = lane_with(page)
     lane.settle(("on.ca", 100, 279, 1996, 2013, "all"), "HTTP400", False, 0, [], None, ["row"])
-    silent = ("on.ca", 100, 280, 1996, 2013, "all")
-    lane.subq, lane.meta[silent] = [silent], ("probe", "on.ca 1000 28 1996 2013", "")
-    for _ in range(4):  # a silent subpage is asked again at once, never pausing the lane
-        assert lane.take() == silent and "on.ca 100 280 1996 2013" not in lane.done
+    split = ("on.ca", 100, 280, 1996, 2013, "all")  # a 100-block 504: booked, its ten owed
+    lane.settle(split, "HTTP504", False, 0, [], None, ["row"])
+    assert [t[2] for t in lane.subq] == list(range(2809, 2799, -1)) and not lane.pause_until
+    silent, lane.subq = lane.subq[0], lane.subq[:1]
+    for _ in range(4):  # a silent 10-block is asked again at once, never pausing the lane
+        assert lane.take() == silent and "on.ca 10 2809 1996 2013" not in lane.done
         lane.settle(silent, "HTTP504", False, 0, [], None, ["row"])
         assert not lane.pause_until
-    assert {f"on.ca 100 {n} 1996 2013" for n in (279, 280)} <= lane.done and lane.subq == []
+    keys = {"on.ca 100 279 1996 2013", "on.ca 100 280 1996 2013", "on.ca 10 2809 1996 2013"}
+    assert keys <= lane.done and lane.subq == []
     assert lane.take() == page
     lane.settle(page, "SSLZeroReturnError", False, 0, [], None, ["row"])
     assert "co.uk 1000 7 1996 2013" not in lane.done, "an unknown failure is no answer"
