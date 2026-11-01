@@ -93,6 +93,7 @@ SOURCES = {
     hn.HOSTCDX_SOURCE: (hn.HOSTCDX_METHOD, _WAYBACK),
     hn.ARQUIVO_SOURCE: (hn.ARQUIVO_METHOD, "https://arquivo.pt/wayback/{ts}/{url}"),
     hn.EOT_SOURCE: (hn.EOT_METHOD, _WAYBACK),  # eotarchive.org replays none at /wayback/
+    hn.HAR_SOURCE: (hn.HAR_METHOD, "https://archive.org/details/httparchive_{ts:.4}"),  # the item
 }
 # The capture's URL is on its journal line and the journal's sha256 in the manifest, so neither
 # repeats per row: the ledger is a third of the size.
