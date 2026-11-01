@@ -432,20 +432,22 @@ class Lane:
         self.rest.pop(task, None)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
-            sib = {t for t in self.subq if self.meta[t][1] == parent and t[2] < task[2]}
+            at = task[1] * task[2]  # in blocks, so a split child's 10-blocks compare too
+            sib = {t for t in self.subq if self.meta[t][1] == parent and t[1] * t[2] < at}
             self.subq = [t for t in self.subq if t not in sib]
         if role == "probe" and edge and parent not in self.opened:
             self.opened.add(parent)
-            base = (task[2] // 10) * 10
-            rest = [(task[0], task[1], base + k, *task[3:]) for k in range(10) if k not in (0, 5)]
+            sfx, size, page = parent.split()[:3]  # the page probed, whichever child had rows
+            rest = [(sfx, int(size) // 10, int(page) * 10 + k, *task[3:]) for k in range(10)]
+            rest = [t for t in rest if t[2] % 10 not in (0, 5)]
             self.meta.update({t: ("rest", parent, "") for t in rest})
             self.subq[0:0] = rest
         if not (status == "200" and complete):
             subs = subpages(task, cut=bool(edge)) if status != "HTTP400" else []  # past the end
-            subrole = "probe" if task[1] >= PAGE else "rest"  # a 100-block page asks all ten
-            self.meta.update(
-                {t: ("cut", key, edge[-1]) if edge else (subrole, key, "") for t in subs}
-            )
+            # a 504'd subpage's ten stand in for it: its role, parent and cut row
+            owed = ("probe", key, "") if task[1] >= PAGE else (role, parent, stop)
+            owed = owed if owed[0] else ("rest", key, "")
+            self.meta.update({t: ("cut", key, edge[-1]) if edge else owed for t in subs})
             self.subq[0:0] = subs
             if not subs:
                 self.log.write(f"# skipped {status} {key}\n")
