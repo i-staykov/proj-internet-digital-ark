@@ -7,8 +7,8 @@ the years it was captured in. The suffixes are the ICANN two-label ones of every
 
 **Pool questions** are the queue's second kind, `ask`: one exact root-key question for each
 registrable in `data/queue/pool_questions.tsv` (`pool_questions.py`), in the file's order. Each
-tier is a unit, ranked by its measured EE per request like a page; a question counts as a
-thousandth of a page for exploring and dropping.
+tier is a unit ranked like a page, at its laws price (`ASKED`) until 2,000 answers measure it; a
+question counts as a thousandth of a page for exploring and dropping.
 
 **Root URLs only.** `filter=urlkey:^[^/]*\\)/$` keeps the root captures of each host: 92.5% of
 the hosts of a page at a third of the bytes, and a page answers 2 to 3 times faster. The regex
@@ -61,6 +61,8 @@ ROOT = r"^[^/]*\)/$"
 PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
+ASKED = {"ask-gap": 1.249, "ask-edge": 0.2645, "ask-pool": 0.18}  # EE a question, laws.md
+ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
 STOP = threading.Event()
@@ -102,24 +104,24 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
 
 
 def rank(units, order: dict, asked: dict, explore: int) -> tuple[list, list, list]:
-    """(priced, exploring, waiting): every priced unit by its EE per request over both windows,
-    1996 to 2001 the tiebreak, since the gate is 3% on either window and the 1996 to 2001 first
-    order paid 0.14 EE a request; the unpriced ones still owed `explore` pages; the explored
-    ones waiting for a price. A unit priced at nothing over `DROP_AFTER`
-    answered requests is dropped."""
-    priced, exploring, waiting, asks = [], [], [], []
+    """(priced, exploring, waiting): every priced unit by its EE a second over both windows,
+    every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
+    question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
+    3% on either window. The unpriced ones still owed `explore` pages; the explored ones waiting
+    for a price. A unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
+    priced, exploring, waiting = [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
+        if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
+            price = {"p1": ASKED.get(u[0], 0.0), "s": ASK_SECONDS}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
+        seconds = price.get("s") or PAGE_SECONDS
         if total > 0:
-            priced.append(((u[1] == "ask", -total, -p1), u))
-        elif price.get("n", 0) < DROP_AFTER * scale:  # a question is a thousandth of a page
-            if asked.get(u, 0) >= explore * scale:
-                waiting.append(u)
-            else:  # an unpriced tier of questions waits for every priced page, never a slot
-                (asks if u[1] == "ask" else exploring).append(u)
+            priced.append(((-total / seconds, -p1), u))
+        elif price.get("n", 0) < DROP_AFTER * scale:
+            (waiting if asked.get(u, 0) >= explore * scale else exploring).append(u)
     priced.sort(key=lambda k: k[0])
-    return [u for _, u in priced] + asks, exploring, waiting
+    return [u for _, u in priced], exploring, waiting
 
 
 def fetch(task, a, sink):
