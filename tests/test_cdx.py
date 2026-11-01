@@ -367,28 +367,30 @@ def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_
     assert extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False) == []
 
 
-def test_extended_walk_asks_the_best_ee_a_request_first_whichever_window_pays():
+def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
     prices = {
-        "com.pk all": {"p1": 0.14, "p2": 40.7},
-        "me.uk all": {"p1": 0.0, "p2": 11156.4},
-        "co.uk p1": {"p1": 40.84, "p2": 0.0},
+        "com.pk all": {"p1": 0.14, "p2": 40.7, "s": 40},
+        "co.nz all": {"p1": 0.0, "p2": 100.0, "s": 600},  # more a request, less a second
+        "me.uk all": {"p1": 0.0, "p2": 11156.4, "s": 300},
+        "co.uk p1": {"p1": 40.84, "p2": 0.0, "s": 10},
         "gov.au all": {"p1": 0.0, "p2": 0.0, "n": 6},
         "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
     }
     units = [tuple(u.split()) for u in prices]
     priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, explore=2)
-    assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all")], "p1 breaks the tie"
+    assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all"), ("co.nz", "all")]
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
-def test_extended_walk_asks_questions_after_every_priced_page_a_thousandth_of_a_page_each():
-    prices = {"me.uk all": {"p1": 0.0, "p2": 11156.0}, "ask-gap ask": {"p1": 1.25}}
-    prices |= {"ask-edge ask": {"n": 4999}, "ask-pool ask": {"n": 5000}}
-    units = [tuple(u.split()) for u in [*prices, "ask-new ask"]]
-    asked = {("ask-edge", "ask"): 1999, ("ask-new", "ask"): 2000}
+def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws_price():
+    prices = {"me.uk all": {"p2": 11156.0, "s": 300}, "co.nz all": {"p2": 0.5, "s": 50}}
+    prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}}
+    units = [tuple(u.split()) for u in [*prices, "ask-gap ask", "ask-new ask"]]
+    asked = {("ask-new", "ask"): 2000}
     priced, exploring, waiting = extended.rank(units, prices, asked, explore=2)
-    assert priced == [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask")]
-    assert exploring == [] and waiting == [("ask-new", "ask")], "ask-pool is dropped"
+    want = [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask"), ("co.nz", "all")]
+    assert priced == want and exploring == [], "laws: gap 0.25 EE a second, edge 0.05"
+    assert waiting == [("ask-new", "ask")], "ask-pool, measured at nothing, is dropped"
 
 
 def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_restart(

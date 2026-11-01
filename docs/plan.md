@@ -46,5 +46,5 @@ unless it adds a capability the round needs.
 ## D. Collectors and the VM (owns collector deployment, sync)
 
 - Throughput, in this order: #392 the worker count that measures best; #411 the VM runs the
-  Channel's three clients; #410 one CDX question per pool domain never asked.
+  Channel's three clients.
 - #286 dated crawl lists bank as 2002 to 2013 evidence.
