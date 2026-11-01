@@ -98,6 +98,8 @@ EOT_METHOD = DARTMOUTH_ARCS_METHOD
 
 # HTTP Archive's request logs, 2002 to 2013 only, their own web method (#449).
 HAR_SOURCE, HAR_METHOD = "httparchive_har", "httparchive_har_entry"
+# Dated crawl lists, status-less: a crawl inside one year whose nodes are fetched pages (#286).
+CRAWL_SOURCE, CRAWL_METHOD = "crawl_lists", "crawl_list_node"
 
 
 # The gap engine's own journals, re-emitted at hostname grain. Same source row as the suffix

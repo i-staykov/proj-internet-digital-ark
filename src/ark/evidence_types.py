@@ -62,6 +62,8 @@ WEB_METHODS = frozenset(
         # a custodian's own dated request log: an HTTP Archive agent's request to the exact
         # host, answered 2xx or 3xx (#449)
         "httparchive_har_entry",
+        # a dated crawl list's node: a page fetched inside one year, status-less (#286)
+        "crawl_list_node",
         # a dated web link graph naming the target host
         "ukwa_host_link_graph",
         "ukwa_hostgrain",
