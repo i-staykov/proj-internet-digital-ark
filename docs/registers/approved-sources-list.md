@@ -771,6 +771,13 @@ Decision: master
 - potential: 2,903 a GB on its head; the year saturates
 Decision: master
 
+### crawl_lists / cdx_timestamp
+- the artifact: the ClueWeb09 url-docid map, `ir.nist.gov/clueweb.urls-docid.bz2` (10.2 GB bz2), read from its 2016 Wayback capture (fleet #215) in-stream by `scripts/sources/crawl_lists/clueweb09.py` through `scripts/harness/fetch.py`, the whole stream's sha256 in `clueweb09.receipt`; every page ClueWeb09 fetched in January and February 2009, `<url> <docid>`
+- what dates one item: the list itself, a dated crawl list on two conditions (#286): the dataset documents a crawl inside one calendar year and its nodes are fetched pages; a node dates its exact host in 2009 (`crawl_list_node`), status-less, since a crawl list carries no response code; one row per host with its node id into `data/raw/extended/crawl_lists/`, the export folding repeats
+- measured 2026-10-18 on the first 357,226,562 bytes (3.5%, URL-sorted, so it says nothing of the rest) against merge261016: 1,861,468 host-years, 1,140,309 net-new (61%), 677,838.98 EE on 2009; 2026-11-01 the reader's parse of that prefix's first 12 MB: 637,953 lines in 1.0 s, 84,292 rows, 84,266 hosts, every row kept by the export's screen
+- potential: 677,839 measured; the other 96.5% unpriced
+Decision: master
+
 ## Pending requests
 
 None.

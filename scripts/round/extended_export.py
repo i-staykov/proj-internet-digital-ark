@@ -86,6 +86,9 @@ INPUTS = {
 # and where a reader replays one of its captures. Anything else is not a capture and fails closed.
 EVIDENCE_TYPE = "cdx_timestamp"
 _WAYBACK = "https://web.archive.org/web/{ts}/{url}"
+_CLUEWEB = (
+    "https://web.archive.org/web/20161228002334id_/https://ir.nist.gov/clueweb.urls-docid.bz2"
+)
 SOURCES = {
     hn.SOURCE_NAME: (hn.SWEEP_METHOD, _WAYBACK),
     hn.EARLY_WEB_SOURCE: (hn.EARLY_WEB_METHOD, _WAYBACK),
@@ -94,6 +97,8 @@ SOURCES = {
     hn.ARQUIVO_SOURCE: (hn.ARQUIVO_METHOD, "https://arquivo.pt/wayback/{ts}/{url}"),
     hn.EOT_SOURCE: (hn.EOT_METHOD, _WAYBACK),  # eotarchive.org replays none at /wayback/
     hn.HAR_SOURCE: (hn.HAR_METHOD, "https://archive.org/details/httparchive_{ts:.4}"),  # the item
+    # status-less: a crawl list carries no response code; replayed as the list itself
+    hn.CRAWL_SOURCE: (hn.CRAWL_METHOD, _CLUEWEB),
 }
 # The capture's URL is on its journal line and the journal's sha256 in the manifest, so neither
 # repeats per row: the ledger is a third of the size.

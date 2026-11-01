@@ -1,6 +1,7 @@
 """The 2002 to 2013 additions: only his same-year file's complement, only by a capture stamped
 in that year, and a package of ours alone that verify proves disjoint from his files."""
 
+import bz2
 import csv
 import gzip
 import hashlib
@@ -230,3 +231,33 @@ def test_the_http_archive_reader_dates_a_host_by_its_own_2xx_or_3xx_request_alon
     assert keep == {("www.a.com", "2012"): ("20120801090000", "http://WWW.A.com/x", "301")}
     with pytest.raises(ValueError):  # cut inside a header: the zip fails, never the reader
         list(har.members(io.BytesIO(outer.getvalue()[:20])))
+
+
+def test_the_clueweb09_reader_writes_one_status_less_row_a_host_with_its_node_id(tmp_path):
+    cw, ex = script("sources/crawl_lists/clueweb09.py"), script("round/extended_export.py")
+    lines = [
+        b"http://a.com/ clueweb09-en0000-00-00000",
+        b"http://a.com/x clueweb09-en0000-00-00001",
+        b"http://b.com/ clueweb09-en0000-00-00002",
+        b"http://a.com/y clueweb09-en0000-01-00000",  # a segment later: the window folds it
+        b"http://under_score.com/ clueweb09-en0000-01-00001",
+    ]
+    stream = io.BytesIO(
+        bz2.compress(b"\n".join(lines[:3]) + b"\n") + bz2.compress(b"\n".join(lines[3:]) + b"\n")
+    )
+    pairs = list(cw.runs(cw.lines(stream)))
+    assert pairs == [
+        ("http://a.com/", "clueweb09-en0000-00-00000"),
+        ("http://b.com/", "clueweb09-en0000-00-00002"),
+    ]
+    cw.PART = 1
+    parts = cw.write_parts(pairs, tmp_path)
+    rows = [json.loads(gzip.open(p).read()) for p in parts]
+    assert [r["node"] for r in rows] == ["clueweb09-en0000-00-00000", "clueweb09-en0000-00-00002"]
+    assert rows[0]["timestamp"] == "20090101000000" and "status" not in rows[0]
+    assert ex.screen(json.dumps(rows[0]).encode(), strict=False) == (
+        None,
+        (2009, "a.com", "20090101000000"),
+    )
+    with pytest.raises(ValueError):  # a stream cut inside a block books nothing
+        list(cw.lines(io.BytesIO(bz2.compress(b"http://c.com/ x\n" * 1000)[:-20])))
