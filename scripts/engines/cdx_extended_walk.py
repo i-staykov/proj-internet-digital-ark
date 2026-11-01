@@ -2,9 +2,8 @@
 
 One paged `matchType=domain` request over a public suffix (`co.uk`, `co.nz`, `com.au`) returns
 thousands of exact (host, year) captures: every host under a 1,000-block slice of the index, with
-the years it was captured in. A bare TLD answers 403, so `.com` cannot be walked this way
-(`docs/lore/laws.md`). The suffixes are the ICANN two-label ones of every TLD he weighs; the
-measured price per request (`cdx_walk_order.py`) orders the walk, not a weight cutoff.
+the years it was captured in. The suffixes are the ICANN two-label ones of every TLD he weighs
+(a bare TLD answers 403); the measured price per request (`cdx_walk_order.py`) orders the walk.
 
 **Pool questions** are the queue's second kind, `ask`: one exact root-key question for each
 registrable in `data/queue/pool_questions.tsv` (`pool_questions.py`), in the file's order. Each
@@ -18,19 +17,19 @@ must be anchored; IA's filter is a search, so an unanchored `\\)/` matches every
 **One row per (host, year)**, the earliest 2xx or 3xx capture, as `{url, timestamp, status}` in
 `walk_<suffix>_ps<P>_p<N>_<years>.jsonl.gz`, 1996 to 2001 under `<data>/raw/cdx_suffix/` (the
 hostname ingest prices it) and 2002 to 2013 under `<data>/raw/extended/ia_cdx_hostnames/` (the
-extended exporter), written under a dot name and renamed whole. The host
-is read from `original`, never from the urlkey, which folds `www.` into the apex.
+extended exporter), written under a dot name and renamed whole. The host is read from
+`original`, never from the urlkey, which folds `www.` into the apex.
 
 **Failures cost time, never rows.** A page streams for up to minutes, and the server can cut a
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
 subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
-at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
-lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
-and 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
-403 from 30 s doubling to 15 min, eased only by an answer; and requests start
-`--min-interval` apart, since a burst earns a block of the address.
+at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 rests the
+worker that got it for `Retry-After` or a minute, flat, while the others stream on, and pauses the
+lane 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
+403 from 30 s doubling to 15 min, eased only by an answer; and requests start `--min-interval`
+apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -213,7 +212,7 @@ class Lane:
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
-        self.pause_until = self.next_start = 0.0
+        self.pause_until, self.next_start, self.rest = 0.0, 0.0, {}  # rest: a worker's own pause
         self.throttled = self.refused = self.transient = 0
 
     def add_pages(self, sfx: str, n: int) -> None:
@@ -264,7 +263,7 @@ class Lane:
         os.replace(tmp, self.pending)
 
     def requeue(self, task: tuple, front: bool) -> None:
-        """Put an unanswered task back: a subpage at the head (the pause does the waiting), a
+        """Put an unanswered task back: a subpage at the head (a rest or pause does the waiting), a
         page at the front or the back of its unit."""
         self.inflight.discard(task)
         if task in self.meta:
@@ -301,7 +300,8 @@ class Lane:
         while not STOP.is_set():
             with self.lock:
                 now = time.time()
-                held = _platform.PAUSE_FLAG.exists() or now < self.pause_until
+                until = max(self.pause_until, self.rest.get(threading.get_ident(), 0))
+                held = _platform.PAUSE_FLAG.exists() or now < until
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
@@ -379,10 +379,13 @@ class Lane:
         row.append(len(ext))
         return status, complete, rows[0], edge, after, row
 
-    def back_off(self, task: tuple, seconds: float, why: str) -> None:
+    def back_off(self, task: tuple, seconds: float, why: str, worker: bool = False) -> None:
         self.requeue(task, front=False)
-        self.pause_until = max(self.pause_until, time.time() + seconds)
-        self.log.write(f"# pause {round(seconds)} s: {why}\n")
+        if worker:
+            self.rest[threading.get_ident()] = time.time() + seconds
+        else:
+            self.pause_until = max(self.pause_until, time.time() + seconds)
+        self.log.write(f"# {'rest' if worker else 'pause'} {round(seconds)} s: {why}\n")
 
     def settle(self, task, status, complete, rows, edge, after, row) -> None:
         """Book one answer under the lane lock."""
@@ -401,8 +404,9 @@ class Lane:
             elif status == "HTTP504":  # the page's silence, not the address's: no pause
                 self.requeue(task, front=True)
             elif status in THROTTLES:
-                self.throttled += 1  # ten, nothing booked between: an address block
-                self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
+                self.throttled += 1
+                block = self.throttled >= 10  # ten, nothing booked between: an address block
+                self.back_off(task, 900.0 if block else after or 60.0, status, worker=not block)
             elif status in FAST and self.transient < self.a.max_transient:
                 self.transient += 1
                 self.requeue(task, front=True)
