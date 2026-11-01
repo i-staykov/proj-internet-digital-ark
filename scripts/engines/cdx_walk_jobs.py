@@ -70,10 +70,12 @@ def done() -> None:
             elif status == "200" and int(row[11]) > 0 or status == "HTTP504" and size >= 100:
                 owing[key] = status
         for key, status in sorted(owing.items(), key=lambda o: int(o[0].split()[1])):
-            # the finest first; a 1,000-block 504 probes 0 and 5, all ten once one has rows
+            # the finest first; a 1,000-block 504 probes 0 and 5, all ten once a probe, or a
+            # 10-block of a 504'd probe, has rows
             probes = [sub(key, 0), sub(key, 5)]
+            found = any(rows.get(k) for p in probes for k in [p, *(sub(p, j) for j in range(10))])
             wanted = probes if status != "200" and int(key.split()[1]) >= 1000 else None
-            wanted = None if any(rows.get(p) for p in probes) else wanted
+            wanted = None if found else wanted
             if all(k in booked for k in wanted or [sub(key, k) for k in range(10)]):
                 booked.add(key)
         (lane / "done.txt").write_text("".join(k + "\n" for k in sorted(booked)))
