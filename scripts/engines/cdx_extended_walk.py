@@ -28,7 +28,8 @@ subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpa
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
 and 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
-403 from 30 s doubling to 15 min, eased only by an answer; and requests start
+403 from 30 s doubling to 15 min, eased only by an answer, this lane's or a sibling's, since a
+sibling's answer shows the address is not blocked; and requests start
 `--min-interval` apart in a lane and under `--starts-a-minute` across the lanes here, since a
 burst earns a block of the address and refusals follow its combined start rate, not one lane's.
 
@@ -218,7 +219,7 @@ class Lane:
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
-        self.pause_until = self.next_start = 0.0
+        self.pause_until = self.next_start = self.refused_at = 0.0
         self.throttled = self.refused = self.transient = 0
 
     def add_pages(self, sfx: str, n: int) -> None:
@@ -308,11 +309,22 @@ class Lane:
         while not STOP.is_set():
             with self.lock:
                 now = time.time()
+                if self.refused and now < self.pause_until and self.eased():
+                    self.pause_until = self.refused = 0
                 held = _platform.PAUSE_FLAG.exists() or now < self.pause_until
                 if not held and now >= self.next_start and self.budget(now):
                     self.next_start = now + self.a.min_interval
                     return True
             time.sleep(1)
+        return False
+
+    def eased(self) -> bool:
+        """Whether a sibling lane answered since this lane's refusal pause began: the address
+        is not blocked, so the ladder is this lane's alone and ends."""
+        for mark in self.a.state_dir.parent.glob("lane*/answered"):
+            if mark.parent != self.a.state_dir and mark.stat().st_mtime > self.refused_at:
+                self.log.write(f"# eased: {mark.parent.name} answered\n")
+                return True
         return False
 
     def budget(self, now: float) -> bool:
@@ -429,12 +441,13 @@ class Lane:
                 self.requeue(task, front=True)
                 self.pause_until = max(self.pause_until, time.time() + 5)
             else:
-                self.refused, self.transient = self.refused + 1, 0
+                self.refused, self.transient, self.refused_at = self.refused + 1, 0, time.time()
                 self.back_off(task, min(900, 30 * 2 ** min(self.refused - 1, 5)), status)
             return
         self.throttled = 0
-        if status == "200":  # only an answer eases the refusal back-off
+        if status == "200":  # only an answer eases the refusal back-off, a sibling's too
             self.refused = self.transient = 0
+            (self.a.state_dir / "answered").touch()
         self.inflight.discard(task)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut

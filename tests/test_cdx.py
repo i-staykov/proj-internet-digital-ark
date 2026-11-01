@@ -467,3 +467,21 @@ def test_the_lanes_share_one_start_budget_for_the_address(tmp_path):
     assert [lanes[i % 2].budget(now + i) for i in range(4)] == [True, True, True, False]
     assert lanes[1].budget(now + 59) is False, "the fourth start in a minute waits, whichever lane"
     assert lanes[0].budget(now + 61) is True, "a minute on, the first start has aged out"
+
+
+def test_a_sibling_lane_answer_eases_a_refusal_pause(tmp_path):
+    lanes = []
+    for i in range(2):
+        a = SimpleNamespace(
+            state_dir=tmp_path / f"lane{i}", order=tmp_path / "o.json", data=tmp_path
+        )
+        a.max_transient, a.questions, a.min_interval, a.starts_a_minute = 0, False, 10, 4
+        a.state_dir.mkdir()
+        lanes.append(extended.Lane(a))
+    lanes[0].refused, lanes[0].refused_at = 3, time.time() - 1
+    (tmp_path / "lane0/answered").touch()  # its own answer is not a sibling's
+    assert lanes[0].eased() is False
+    (tmp_path / "lane1/answered").touch()
+    assert lanes[0].eased() is True
+    lanes[0].refused_at = time.time() + 1  # a refusal after that answer: the ladder holds
+    assert lanes[0].eased() is False
