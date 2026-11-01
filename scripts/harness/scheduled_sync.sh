@@ -78,7 +78,7 @@ tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
 
 # The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
 # every part left after the bank, each its own unit so it outlives this one, never two at once
-# (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb09.py).
+# (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb.py).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
     systemd-run --user --unit ark-eot --collect --working-directory="$PWD" -E PATH="$PATH" \
         bash -c 'uv run python scripts/sources/eot/eot_cdxj.py >> data/logs/eot_cdxj.log 2>&1' \
@@ -87,6 +87,6 @@ if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
         bash -c 'uv run python scripts/sources/httparchive/har_year.py >> data/logs/har.log 2>&1' \
         >/dev/null 2>&1 || true
     systemd-run --user --unit ark-clueweb --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/crawl_lists/clueweb09.py >> data/logs/clueweb09.log 2>&1' \
+        bash -c 'uv run python scripts/sources/crawl_lists/clueweb.py >> data/logs/clueweb.log 2>&1' \
         >/dev/null 2>&1 || true
 fi

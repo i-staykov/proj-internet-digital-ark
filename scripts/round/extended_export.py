@@ -86,9 +86,6 @@ INPUTS = {
 # and where a reader replays one of its captures. Anything else is not a capture and fails closed.
 EVIDENCE_TYPE = "cdx_timestamp"
 _WAYBACK = "https://web.archive.org/web/{ts}/{url}"
-_CLUEWEB = (
-    "https://web.archive.org/web/20161228002334id_/https://ir.nist.gov/clueweb.urls-docid.bz2"
-)
 SOURCES = {
     hn.SOURCE_NAME: (hn.SWEEP_METHOD, _WAYBACK),
     hn.EARLY_WEB_SOURCE: (hn.EARLY_WEB_METHOD, _WAYBACK),
@@ -97,8 +94,7 @@ SOURCES = {
     hn.ARQUIVO_SOURCE: (hn.ARQUIVO_METHOD, "https://arquivo.pt/wayback/{ts}/{url}"),
     hn.EOT_SOURCE: (hn.EOT_METHOD, _WAYBACK),  # eotarchive.org replays none at /wayback/
     hn.HAR_SOURCE: (hn.HAR_METHOD, "https://archive.org/details/httparchive_{ts:.4}"),  # the item
-    # status-less: a crawl list carries no response code; replayed as the list itself
-    hn.CRAWL_SOURCE: (hn.CRAWL_METHOD, _CLUEWEB),
+    hn.CRAWL_SOURCE: (hn.CRAWL_METHOD, ""),  # status-less; replayed as its list, `capture`
 }
 # The capture's URL is on its journal line and the journal's sha256 in the manifest, so neither
 # repeats per row: the ledger is a third of the size.
@@ -109,6 +105,8 @@ def capture(source: str, path: Path) -> tuple[str, str]:
     method, replayed on the Wayback as the store replays it."""
     if hn.FLEETREAD_SOURCE.match(source):
         return hn.fleet_read_source(path)[1], _WAYBACK
+    if source == hn.CRAWL_SOURCE:
+        return hn.CRAWL_METHOD, hn.CRAWL_LISTS[path.name.split("_")[0]]
     return SOURCES[source]
 
 
