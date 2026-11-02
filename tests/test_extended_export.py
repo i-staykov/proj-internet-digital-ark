@@ -309,9 +309,49 @@ def test_a_failed_fetch_counts_a_strike_and_leaves_no_part(tmp_path, monkeypatch
     monkeypatch.setattr(cw, "fetch", lambda url, max_bytes="14G": Refused())
     (tmp_path / ".clueweb09_0.tmp").write_bytes(b"stale")
     assert cw.read("clueweb09").startswith("clueweb09: not booked, fetch exit 6")
-    assert (tmp_path / ".clueweb09.failed").read_text().count("\n") == 1
+    assert (tmp_path / ".clueweb09.357226562.failed").read_text().count("\n") == 1
     assert not list(tmp_path.glob("*.tmp")) and not list(tmp_path.glob("*.jsonl.gz"))
     assert cw.todo() == ["clueweb09", "clueweb12"] and cw.failures("clueweb09") == 1
+
+
+def test_a_prefix_artifact_books_exactly_its_bytes_and_drops_the_cut_tail(tmp_path, monkeypatch):
+    cw = script("sources/crawl_lists/clueweb.py")
+    monkeypatch.setattr(cw, "OUT", tmp_path)
+    prefix = bz2.compress(b"http://a.com/ n0\nhttp://b.com/ n1\n")
+    # a multi-block member (over 900 KB of distinct lines), cut inside its second block: the
+    # capture ends mid-line, as the real one does
+    many = b"".join(b"http://h%07d.com/page n%d\n" % (i, i) for i in range(60_000))
+    whole = bz2.compress(many, compresslevel=1)
+    cut = whole[: len(whole) * 2 // 3]
+    body = prefix + cut
+    sha = hashlib.sha256(body).hexdigest()
+    monkeypatch.setitem(cw.LISTS, "clueweb09", ("20090101000000", "bz2", len(body), sha))
+
+    class Truncated:  # fetch.py exits 7 once the rest never arrives
+        returncode = 7
+
+        def __init__(self):
+            self.stdout = io.BytesIO(body + b"more of the capture")
+
+        def kill(self):
+            pass
+
+        def wait(self):
+            return self.returncode
+
+    monkeypatch.setattr(cw, "fetch", lambda url, max_bytes="14G": Truncated())
+    (tmp_path / ".clueweb09.failed").write_text("old definition\n" * 3)
+    assert cw.read("clueweb09").startswith(f"clueweb09\t{len(body)}\t")
+    receipt = json.loads((tmp_path / f"clueweb09.{len(body)}.receipt").read_text())
+    assert (receipt["bytes"], receipt["sha256"]) == (len(body), sha)
+    rows = [json.loads(ln) for ln in gzip.open(tmp_path / "clueweb09_0.jsonl.gz", "rt")]
+    assert [r["node"] for r in rows[:2]] == ["n0", "n1"] and 1000 < len(rows) < 60_000
+    last = rows[-1]["url"]
+    assert last.endswith("/page") and last == f"http://h{rows[-1]['node'][1:].zfill(7)}.com/page"
+    assert all(r["url"].endswith("/page") for r in rows[2:]), "no mid-line fragment"
+    assert not (tmp_path / ".clueweb09.failed").exists() and cw.todo() == ["clueweb12"]
+    monkeypatch.setitem(cw.LISTS, "clueweb09", ("20090101000000", "bz2", len(body) - 1, sha))
+    assert "not the prefix's" in cw.read("clueweb09") and cw.failures("clueweb09") == 1
 
 
 def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monkeypatch):
