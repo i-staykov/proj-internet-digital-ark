@@ -7,7 +7,7 @@ record is in your file for its year.
 
 | | 1996 to 2001 | 2002 to 2013 | check |
 |------------------|-----------------:|-----------------:|----:|
-| Original total, records | [BASELINEPAIRS] | 367,376,239 | 1 |
+| Original total, records | [BASELINEPAIRS] | 411,293,455 | 1 |
 | Equivalent-English total | [EEBASELINE] | [EXTBASELINEEE] | 2 |
 | Increment, records | [TOTAL] | [EXTPAIRS] | 3 |
 | Equivalent-English increment | [EE] | [EXTEE] | 4 |
