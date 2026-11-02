@@ -28,8 +28,8 @@ subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpa
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
 and 15 minutes only after ten in a row with nothing booked between; a refused connection from
-30 s doubling to 2 min, since about 18% of starts are refused whatever the rate, a per-connection
-coin, not a wall; `ENETDOWN` or 403, which are walls, from 30 s doubling to 15 min; each eased
+30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
+or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
 only by an answer; and requests start
 `--min-interval` apart, since a burst earns a block of the address.
 
@@ -67,7 +67,10 @@ ASKED = {"ask-gap": 1.249, "ask-edge": 0.2645, "ask-pool": 0.18}  # EE a questio
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
-WALLS = {"HTTP403", "OSError"}  # a 403 or ENETDOWN: the address is shut, not a connection dropped
+WALLS = {
+    "HTTP403",
+    "OSError",
+}  # a 403, or a bare OSError, our link down: a wall, not a dropped connection
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
