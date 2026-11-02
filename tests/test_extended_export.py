@@ -11,6 +11,7 @@ import os
 import subprocess
 import zipfile
 from decimal import Decimal as D
+from types import SimpleNamespace
 
 import pytest
 from conftest import ROOT, script
@@ -383,3 +384,29 @@ def test_a_host_index_reads_each_host_as_its_own_root_with_its_index_as_node(tmp
     (tmp_path / "wdc2012.receipt").unlink()
     assert cw.read("wdc2012").startswith("wdc2012: not booked")
     assert cw.failures("wdc2012") == 1 and "wdc2012" in cw.todo()
+
+
+def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monkeypatch):
+    har = script("sources/httparchive/har_year.py")
+    monkeypatch.setattr(har, "OUT", tmp_path)
+    for name, host in (("har_120101", "a.com"), ("har_130101", "b.com")):
+        (tmp_path / f"{name}.jsonl.gz").write_bytes(_journal([{"url": f"http://{host}/"}]))
+    assert har.seen_so_far(2012) == {"a.com"} and har.seen_so_far(2013) == {"b.com"}
+    docs = [
+        {"identifier": "httparchive_2013_01", "item_size": 1},  # a monthly: last whatever its size
+        {"identifier": "httparchive_2013_12_15_7", "item_size": 9},
+        {"identifier": "httparchive_2013_09_19_0", "item_size": 2},  # FIRST already
+        {"identifier": "httparchive_2013_07_15_5", "item_size": 3},
+    ]
+    body = json.dumps({"response": {"docs": docs}}).encode()
+    monkeypatch.setattr(
+        har,
+        "fetch",
+        lambda url, max_bytes="1G": SimpleNamespace(stdout=io.BytesIO(body), wait=lambda: 0),
+    )
+    assert [i for i, _ in har.items()] == [
+        *(n for n, _ in har.FIRST),
+        "httparchive_2013_07_15_5",
+        "httparchive_2013_12_15_7",
+        "httparchive_2013_01",
+    ]

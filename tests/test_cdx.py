@@ -452,3 +452,16 @@ def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     release = order.Release(tmp_path)
     assert all(release.holds(2001, h) for h in ("a.co.uk", "b-c.co.uk", "b.co.uk", "zz.com.au"))
     assert not any(release.holds(2001, h) for h in ("a.co", "b.co.ukx", "c.co.uk", "zzz"))
+
+
+def test_a_refused_connection_ladder_caps_at_two_minutes_and_a_wall_at_fifteen():
+    coin = [extended.refusal_pause(n, "ConnectionRefusedError") for n in range(1, 7)]
+    assert coin == [30, 60, 120, 120, 120, 120]
+    assert [extended.refusal_pause(n, "HTTP403") for n in (1, 3, 5, 6, 9)] == [
+        30,
+        120,
+        480,
+        900,
+        900,
+    ]
+    assert extended.refusal_pause(6, "OSError") == 900, "ENETDOWN is an OSError, a wall"
