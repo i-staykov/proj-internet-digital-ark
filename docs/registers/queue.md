@@ -7,7 +7,7 @@ the store after reading the artifact. One yes unlocks everything under its headi
 
 ## The send
 
-Nothing to send: Round 12 stands at 0.0339% of 1996-2001 against `merge261016`, under the 3% gate, 2,158,945 EE short.
+Nothing to send: Round 12 stands at 2.9822% of 2002-2013 against `merge261016`, under the 3% gate, 39,807 EE short.
 
 ## New evidence classes, biggest first
 
