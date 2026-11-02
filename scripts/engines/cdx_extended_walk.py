@@ -27,8 +27,10 @@ row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block
 subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
-and 15 minutes only after ten in a row with nothing booked between; a refusal, `ENETDOWN` or
-403 from 30 s doubling to 15 min, eased only by an answer; and requests start
+and 15 minutes only after ten in a row with nothing booked between; a refused connection from
+30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
+or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
+only by an answer; and requests start
 `--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
@@ -65,6 +67,10 @@ ASKED = {"ask-gap": 1.249, "ask-edge": 0.2645, "ask-pool": 0.18}  # EE a questio
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
+WALLS = {
+    "HTTP403",
+    "OSError",
+}  # a 403, or a bare OSError, our link down: a wall, not a dropped connection
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
@@ -198,6 +204,11 @@ def decode(line: str) -> tuple[tuple, tuple]:
     head, *meta = line.split("\t")
     s, z, p, f, la, k = head.split()
     return (s, int(z), int(p), int(f), int(la), k), tuple(meta)
+
+
+def refusal_pause(refused: int, status: str) -> float:
+    """The n-th refusal in a row: 30 s doubling, to 15 min for a wall, to 2 min otherwise."""
+    return min(900.0 if status in WALLS else 120.0, 30.0 * 2 ** min(refused - 1, 5))
 
 
 class Lane:
@@ -414,7 +425,7 @@ class Lane:
                 self.pause_until = max(self.pause_until, time.time() + 5)
             else:
                 self.refused, self.transient = self.refused + 1, 0
-                self.back_off(task, min(900, 30 * 2 ** min(self.refused - 1, 5)), status)
+                self.back_off(task, refusal_pause(self.refused, status), status)
             return
         self.throttled = 0
         if status == "200":  # only an answer eases the refusal back-off
