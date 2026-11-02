@@ -311,3 +311,12 @@ def test_a_failed_fetch_counts_a_strike_and_leaves_no_part(tmp_path, monkeypatch
     assert (tmp_path / ".clueweb09.failed").read_text().count("\n") == 1
     assert not list(tmp_path.glob("*.tmp")) and not list(tmp_path.glob("*.jsonl.gz"))
     assert cw.todo() == ["clueweb09", "clueweb12"] and cw.failures("clueweb09") == 1
+
+
+def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monkeypatch):
+    har = script("sources/httparchive/har_year.py")
+    monkeypatch.setattr(har, "OUT", tmp_path)
+    for name, host in (("har_120101", "a.com"), ("har_130101", "b.com")):
+        (tmp_path / f"{name}.jsonl.gz").write_bytes(_journal([{"url": f"http://{host}/"}]))
+    assert har.seen_so_far(2012) == {"a.com"} and har.seen_so_far(2013) == {"b.com"}
+    assert har.YEARS[0] == 2012 and set(har.YEARS) == {2010, 2011, 2012, 2013}

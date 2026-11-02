@@ -1,4 +1,4 @@
-"""Read one HTTP Archive year whole into 2002 to 2013 hostname journals.
+"""Read the HTTP Archive years whole into 2002 to 2013 hostname journals, 2012, 2013, 2011, 2010.
 
 Each zip of the archive.org item `httparchive_<year>` (2012: 112 zips, 651 GB) is a stored zip of
 WebPageTest test zips; a test holds `<run>_IEWTR.txt.gz`, the agent's own tab-separated log of
@@ -11,12 +11,14 @@ A zip streams through `scripts/harness/fetch.py --to -`, the one download path, 
 touches the disk; its journal lands only when the stream's sha1 is the item's own for that file,
 so a cut stream books nothing. A zip with a journal is done, a failed one is retried after the
 others, three times at most (`.har_<zip>.failed`); a test zip that does not open is skipped and
-counted. Every zip left, back to back in crawl order, the hold read between: the tick starts it
-after the bank as its own user unit, `ark-har`, so it outlives the tick and never runs twice
-(`scripts/harness/scheduled_sync.sh`). Each zip logs its bytes and host-years, and how many hosts
-are new to the year: a saturation count, not EE, which is priced on the journals.
+counted. Every zip left, back to back in crawl order, year after year in `YEARS` (2012 first as
+the year read so far, then 2013, whose file his EoT read found thinnest, then 2011 and 2010), the
+hold read between: the tick starts it after the bank as its own user unit, `ark-har`, so it
+outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`). Each zip logs its
+bytes and host-years, and how many hosts are new to its year: a saturation count, not EE, which
+is priced on the journals.
 
-    uv run python scripts/sources/httparchive/har_year.py [--year 2012]
+    uv run python scripts/sources/httparchive/har_year.py [--year 2013]   # one year alone
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ from ark.hostnames import host_of
 REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/raw/extended/httparchive_har"
 ITEM = "https://archive.org/{what}/httparchive_{year}"
+YEARS = (2012, 2013, 2011, 2010)  # a zip's name starts with its year's two digits
 LOCAL = struct.Struct("<4sHHHHHIIIHH")  # a zip member's local header
 WHEN = re.compile(r"(\d\d)/(\d\d)/(\d{4})\t(\d\d):(\d\d):(\d\d)")
 YES = re.compile(r"[23]\d\d")
@@ -133,10 +136,10 @@ def failures(part: str) -> int:
     return len(marker.read_text().splitlines()) if marker.exists() else 0
 
 
-def seen_so_far() -> set:
+def seen_so_far(year: int) -> set:
     """Every host the year's booked journals hold."""
     seen = set()
-    for journal in OUT.glob("har_*.jsonl.gz"):
+    for journal in OUT.glob(f"har_{str(year)[2:]}*.jsonl.gz"):
         with gzip.open(journal, "rt") as fh:
             seen.update(host_of(json.loads(line)["url"]) for line in fh)
     return seen
@@ -147,32 +150,43 @@ def todo(zips: dict) -> list:
     return [n for n in zips if f"har_{n[:-4]}.jsonl.gz" not in done and failures(n[:-4]) < 3]
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--year", type=int, default=2012)
-    year = ap.parse_args().year
+def read_year(year: int) -> bool:
+    """Every zip of one year left, the hold read between; False once the hold stops it."""
     proc = fetch(ITEM.format(what="metadata", year=year))
     files = json.loads(proc.stdout.read() or b"{}").get("files", [])
     if proc.wait():
-        return print(f"har {year}: the item's file list did not arrive", flush=True)
+        print(f"har {year}: the item's file list did not arrive", flush=True)
+        return True
     zips = {
         f["name"]: (int(f["size"]), f["sha1"])
         for f in files
         if f["name"].endswith(".zip") and int(f["size"])
     }
     if not todo(zips):
-        return print(f"har {year}: every zip read or given up", flush=True)
-    seen = seen_so_far()
+        print(f"har {year}: every zip read or given up", flush=True)
+        return True
+    seen = seen_so_far(year)
     print("zip\tbytes\tseconds\thost-years\ttests broken\thosts new to the year", flush=True)
     while subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode:
         if not (left := todo(zips)):
-            return print(f"har {year}: every zip read or given up", flush=True)
+            print(f"har {year}: every zip read or given up", flush=True)
+            return True
         name = min(left, key=lambda n: (failures(n[:-4]), n))  # crawl order, failures last
         line, keep = read(year, name, *zips[name])
         hosts = {host for host, _ in keep}
         print(line + (f"\t{len(hosts - seen)}" if keep else ""), flush=True)
         seen |= hosts
     print(f"har {year}: held", flush=True)
+    return False
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--year", type=int, help="one year alone; else every year in YEARS in turn")
+    year = ap.parse_args().year
+    for y in (year,) if year else YEARS:
+        if not read_year(y):
+            break
 
 
 if __name__ == "__main__":
