@@ -317,7 +317,11 @@ def test_a_prefix_artifact_books_exactly_its_bytes_and_drops_the_cut_tail(tmp_pa
     cw = script("sources/crawl_lists/clueweb.py")
     monkeypatch.setattr(cw, "OUT", tmp_path)
     prefix = bz2.compress(b"http://a.com/ n0\nhttp://b.com/ n1\n")
-    cut = bz2.compress(b"http://c.com/ n2\n" * 300)[:-40]  # the capture ends inside a block
+    # a multi-block member (over 900 KB of distinct lines), cut inside its second block: the
+    # capture ends mid-line, as the real one does
+    many = b"".join(b"http://h%07d.com/page n%d\n" % (i, i) for i in range(60_000))
+    whole = bz2.compress(many, compresslevel=1)
+    cut = whole[: len(whole) * 2 // 3]
     body = prefix + cut
     sha = hashlib.sha256(body).hexdigest()
     monkeypatch.setitem(cw.LISTS, "clueweb09", ("20090101000000", "bz2", len(body), sha))
@@ -340,7 +344,10 @@ def test_a_prefix_artifact_books_exactly_its_bytes_and_drops_the_cut_tail(tmp_pa
     receipt = json.loads((tmp_path / f"clueweb09.{len(body)}.receipt").read_text())
     assert (receipt["bytes"], receipt["sha256"]) == (len(body), sha)
     rows = [json.loads(ln) for ln in gzip.open(tmp_path / "clueweb09_0.jsonl.gz", "rt")]
-    assert [r["node"] for r in rows] == ["n0", "n1"], "the cut block's lines are dropped"
+    assert [r["node"] for r in rows[:2]] == ["n0", "n1"] and 1000 < len(rows) < 60_000
+    last = rows[-1]["url"]
+    assert last.endswith("/page") and last == f"http://h{rows[-1]['node'][1:].zfill(7)}.com/page"
+    assert all(r["url"].endswith("/page") for r in rows[2:]), "no mid-line fragment"
     assert not (tmp_path / ".clueweb09.failed").exists() and cw.todo() == ["clueweb12"]
     monkeypatch.setitem(cw.LISTS, "clueweb09", ("20090101000000", "bz2", len(body) - 1, sha))
     assert "not the prefix's" in cw.read("clueweb09") and cw.failures("clueweb09") == 1

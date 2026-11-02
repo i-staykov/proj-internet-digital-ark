@@ -3,8 +3,8 @@
 A dated crawl list is a class on two conditions (#286): the dataset documents a crawl inside one
 calendar year and its nodes are fetched pages. Both hold for the two lists in `LISTS`
 (`ark.hostnames.CRAWL_LISTS`): the first 357,226,562 bytes of ClueWeb09's url-docid map
-(`ir.nist.gov`, bz2) as its 2016 Wayback capture serves them (the capture declares the map's 10.2 GB
-and ends at 357,351,424 bytes every time, so the receipted prefix is the artifact, fleet #215),
+(`ir.nist.gov`, bz2) as its 2016 Wayback capture serves them (the capture is itself a prefix, so
+the receipted range is the artifact, fleet #215),
 every page fetched in January and February 2009 as
 `<url> <docid>`, sorted by URL inside segments of some 20,000 pages, the segments in crawl
 order; and LAW's ClueWeb12 URL list (13.9 GB gzip), every page fetched from 2012-02-10 to 05-10
@@ -14,13 +14,13 @@ year (`crawl_list_node`), status-less, since a crawl list carries no response co
 host among the last four million seen, `{url, timestamp, node}`, the stamp carrying the year
 alone (`LISTS`), into `data/raw/extended/crawl_lists/<list>_<n>.jsonl.gz`,
 5,000,000 rows a part; the export's sort folds a host that recurs further apart. The witness is
-the row's node id, each part's sha256 in the export manifest and the list's own in
-`<list>.receipt`.
+the row's node id, each part's sha256 in the export manifest and the artifact's own in
+`<artifact>.receipt` (the list, or list.prefixbytes).
 
 A list streams through `scripts/harness/fetch.py --to -`, the one download path, and never
 touches the disk; its parts land together, only when the whole stream, or exactly the prefix with
 its sha256, arrived and decoded, so a cut stream books nothing and the list is read again, three
-times at most (`.<tag>.failed`, the tag naming the artifact, so a redefined one starts afresh). Each
+times at most (`.<tag>.failed`, the tag naming the artifact). Each
 list left, the hold read between: the tick starts it after the bank as its own user unit,
 `ark-clueweb`, so it outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`).
 
