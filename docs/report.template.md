@@ -22,10 +22,32 @@ and `extended_years/dedup_report.csv`.
 
 ## 2. Source and rule
 
-**One source**: the Internet Archive CDX API, `web.archive.org/cdx/search/cdx`. For 2002 to 2013
-we query each public suffix, such as `co.uk`, with `matchType=domain` and read every result page.
-1996 to 2001 holds hostnames (`hostnames/`) from those queries and registrable domains
-(`additions/`) from one query per domain.
+**Internet Archive CDX API** (`web.archive.org/cdx/search/cdx`): for 2002 to 2013 one
+`matchType=domain` query per public suffix, such as `co.uk`, every result page read; for 1996 to
+2001 hostnames from those queries and registrable domains from one query per domain. A row is
+dated by the capture's own timestamp, answered 2xx or 3xx: your category (1), a CDX record with
+an explicit capture timestamp for the exact hostname.
+
+**End of Term web archive CDXJ indexes** (EOT-2004, -2008, -2012; eotarchive S3, CC0): the
+crawler's capture stamp in the index line, status 2xx or 3xx: category (1), an archive capture
+record with its timestamp.
+
+**HTTP Archive request logs** (archive.org items `httparchive_2010` to `_2013`): each
+WebPageTest run's own request log, one line per request stamped at fetch time with the host and
+the response code; a 2xx or 3xx dates the exact host: category (3), a custodian's dataset with
+item-level, year-specific records (item, zip, test and log line cited).
+
+**ClueWeb09 url-docid map** (`ir.nist.gov`, the receipted prefix of its 2016 Wayback capture):
+every page fetched in January and February 2009 with its docid; the documented crawl window dates
+the host, the docid is the record: category (2), a dated, traceable crawl list.
+
+**ClueWeb12 URL list** (LAW, `clueweb12-nat.urls.gz`): every page fetched 2012-02-10 to 05-10 in
+crawl order; the documented window dates the host, the URL's ordinal is the record: category (2).
+
+**Web Data Commons 2012 Hyperlink Graph host index** (`sd-index.gz`, extracted from the Common
+Crawl 2012 corpus, crawled 2012-01-27 to 06-05): the hosts of the pages crawled, each with its
+index; WDC kept only links to another crawled page, so every host had a page fetched: category
+(2), a dated, traceable link graph listing the exact hostname.
 
 **The rule.** A record is one exact hostname in one year. It is kept when a capture of that exact
 host stamped in that year answered 2xx or 3xx, the host passes your `HOST_RE` and its TLD existed
