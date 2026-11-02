@@ -17,9 +17,9 @@ saturate (laws); the order is one year's first item before any year's second, sm
 the monthlies last, 2013's items found by archive.org's search. A crawl zip that two items list
 (a 2013 monthly holds its per-crawl zips) is read once, from the first item, and its strikes
 carry. The hold is read between zips: the tick starts it after the bank as its own user unit,
-`ark-har`, so it outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`). Each zip logs its
-bytes and host-years, and how many hosts are new to its year: a saturation count, not EE, which
-is priced on the journals.
+`ark-har`, so it outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`).
+Each zip logs its bytes and host-years, and how many hosts are new to its year: a saturation
+count, not EE, which is priced on the journals.
 
     uv run python scripts/sources/httparchive/har_year.py [--item httparchive_2011]   # one item
 """
