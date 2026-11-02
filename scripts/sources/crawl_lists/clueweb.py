@@ -64,7 +64,7 @@ LISTS = {
         "05e3c7b154539a9376b6aa91c5630f54d7a6a3f4b30c9c2655a0456350a9e744",
     ),
     "clueweb12": ("20120210000000", "gzip", None, None),
-    "wdc2012": ("20120101000000", "gzip", None, None),  # the 2012 corpus; the year's first day
+    "wdc2012": ("20120127000000", "gzip", None, None),  # CC-MAIN-2012: 2012-01-27 to 06-05
 }
 # A list published in parts: how many, and each part's URL; the register's URL is the part list.
 PARTS = {
