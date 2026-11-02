@@ -104,7 +104,7 @@ CRAWL_SOURCE, CRAWL_METHOD = "crawl_lists", "crawl_list_node"
 CRAWL_LISTS = {
     "clueweb09": "https://web.archive.org/web/20161228002334id_/https://ir.nist.gov/clueweb.urls-docid.bz2",
     "clueweb12": "http://data.law.di.unimi.it/webdata/clueweb12/clueweb12-nat.urls.gz",
-    "wdc2012": "http://webdatacommons.org/hyperlinkgraph/2012-08/data/index.list.txt",  # 83 parts
+    "wdc2012": "https://data.dws.informatik.uni-mannheim.de/hyperlinkgraph/2012-08/sd-index.gz",
 }
 
 
