@@ -311,7 +311,7 @@ def test_a_failed_fetch_counts_a_strike_and_leaves_no_part(tmp_path, monkeypatch
     assert cw.read("clueweb09").startswith("clueweb09: not booked, fetch exit 6")
     assert (tmp_path / ".clueweb09.357226562.failed").read_text().count("\n") == 1
     assert not list(tmp_path.glob("*.tmp")) and not list(tmp_path.glob("*.jsonl.gz"))
-    assert cw.todo() == ["clueweb09", "clueweb12"] and cw.failures("clueweb09") == 1
+    assert cw.todo() == ["clueweb09", "clueweb12", "wdc2012"] and cw.failures("clueweb09") == 1
 
 
 def test_a_prefix_artifact_books_exactly_its_bytes_and_drops_the_cut_tail(tmp_path, monkeypatch):
@@ -349,9 +349,41 @@ def test_a_prefix_artifact_books_exactly_its_bytes_and_drops_the_cut_tail(tmp_pa
     last = rows[-1]["url"]
     assert last.endswith("/page") and last == f"http://h{rows[-1]['node'][1:].zfill(7)}.com/page"
     assert all(r["url"].endswith("/page") for r in rows[2:]), "no mid-line fragment"
-    assert not (tmp_path / ".clueweb09.failed").exists() and cw.todo() == ["clueweb12"]
+    assert not (tmp_path / ".clueweb09.failed").exists() and cw.todo()[0] == "clueweb12"
     monkeypatch.setitem(cw.LISTS, "clueweb09", ("20090101000000", "bz2", len(body) - 1, sha))
     assert "not the prefix's" in cw.read("clueweb09") and cw.failures("clueweb09") == 1
+
+
+def test_a_host_index_reads_each_host_as_its_own_root_with_its_index_as_node(tmp_path, monkeypatch):
+    cw = script("sources/crawl_lists/clueweb.py")
+    monkeypatch.setattr(cw, "OUT", tmp_path)
+    body = gzip.compress(b"0---0.com\t0\nflickr.com\t1\nunder_score.com\t2\nflickr.com\t3")
+
+    class Whole:
+        returncode = 0
+
+        def __init__(self):
+            self.stdout = io.BytesIO(body)
+
+        def kill(self):
+            pass
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(cw, "fetch", lambda url, max_bytes="14G": Whole())
+    assert cw.read("wdc2012").startswith(f"wdc2012\t{len(body)}\t")
+    rows = [json.loads(ln) for ln in gzip.open(tmp_path / "wdc2012_0.jsonl.gz", "rt")]
+    assert [(r["url"], r["node"], r["timestamp"]) for r in rows] == [
+        ("http://0---0.com/", "0", "20120127000000"),
+        ("http://flickr.com/", "1", "20120127000000"),
+    ]
+    assert json.loads((tmp_path / "wdc2012.receipt").read_text())["bytes"] == len(body)
+    assert "wdc2012" not in cw.todo()
+    body = b"not gzip at all"  # a corrupt stream strikes and stays to do
+    (tmp_path / "wdc2012.receipt").unlink()
+    assert cw.read("wdc2012").startswith("wdc2012: not booked")
+    assert cw.failures("wdc2012") == 1 and "wdc2012" in cw.todo()
 
 
 def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monkeypatch):

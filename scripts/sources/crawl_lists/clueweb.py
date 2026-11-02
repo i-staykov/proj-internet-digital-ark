@@ -1,15 +1,19 @@
-"""Read the ClueWeb crawl lists whole into 2009 and 2012 hostname journals.
+"""Read the crawl lists whole into 2009 and 2012 hostname journals: ClueWeb09, ClueWeb12, WDC 2012.
 
 A dated crawl list is a class on two conditions (#286): the dataset documents a crawl inside one
-calendar year and its nodes are fetched pages. Both hold for the two lists in `LISTS`
+calendar year and its nodes are fetched pages, or the hosts of fetched pages as the dataset
+documents (#467). Both hold for the three lists in `LISTS`
 (`ark.hostnames.CRAWL_LISTS`): the first 357,226,562 bytes of ClueWeb09's url-docid map
 (`ir.nist.gov`, bz2) as its 2016 Wayback capture serves them (the capture is itself a prefix, so
 the receipted range is the artifact, fleet #215),
 every page fetched in January and February 2009 as
 `<url> <docid>`, sorted by URL inside segments of some 20,000 pages, the segments in crawl
 order; and LAW's ClueWeb12 URL list (13.9 GB gzip), every page fetched from 2012-02-10 to 05-10
-in crawl order, one URL a line, its node id the URL's ordinal since LAW publishes no docid. A
-node dates its exact host in the list's
+in crawl order, one URL a line, its node id the URL's ordinal since LAW publishes no docid; and
+the Web Data Commons 2012 Hyperlink Graph's host index (`sd-index.gz`, 872 MB gzip), "extracted
+from a Web corpus gathered in the first half of 2012" keeping "every hyperlink pointing to another
+crawled HTML page" (WDC's own words), so every host there had a page fetched, one host and its
+index a line (`0---0.com	0`), sorted by name. A node dates its exact host in the list's
 year (`crawl_list_node`), status-less, since a crawl list carries no response code. One row per
 host among the last four million seen, `{url, timestamp, node}`, the stamp carrying the year
 alone (`LISTS`), into `data/raw/extended/crawl_lists/<list>_<n>.jsonl.gz`,
@@ -18,11 +22,11 @@ the row's node id, each part's sha256 in the export manifest and the artifact's 
 `<artifact>.receipt` (the list, or list.prefixbytes).
 
 A list streams through `scripts/harness/fetch.py --to -`, the one download path, and never
-touches the disk; its parts land together, only when the whole stream, or exactly the prefix with
-its sha256, arrived and decoded, so a cut stream books nothing and the list is read again, three
-times at most (`.<tag>.failed`, the tag naming the artifact). Each
-list left, the hold read between: the tick starts it after the bank as its own user unit,
-`ark-clueweb`, so it outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`).
+touches the disk; its journals land together, only when the whole stream, or exactly the prefix
+with its sha256, arrived and decoded, so a cut stream books nothing and the list is read again,
+three times at most (`.<tag>.failed`, the tag naming the artifact). Each list left, the hold read
+between: the tick starts it after the bank as its own user unit, `ark-clueweb`, so it outlives
+the tick and never runs twice (`scripts/harness/scheduled_sync.sh`).
 
     uv run python scripts/sources/crawl_lists/clueweb.py
 """
@@ -60,6 +64,7 @@ LISTS = {
         "05e3c7b154539a9376b6aa91c5630f54d7a6a3f4b30c9c2655a0456350a9e744",
     ),
     "clueweb12": ("20120210000000", "gzip", None, None),
+    "wdc2012": ("20120127000000", "gzip", None, None),  # CC-MAIN-2012: 2012-01-27 to 06-05
 }
 
 
@@ -96,18 +101,23 @@ def lines(stream, codec: str = "bz2", whole: bool = True):
             chunk = dec.unused_data if dec.eof else b""
             *done, tail = tail.split(b"\n")
             yield from done
-    if whole and (tail or not dec.eof):
-        raise ValueError("the stream ends inside a member or a line")
+    if whole and not dec.eof:
+        raise ValueError("the stream ends inside a member")
+    if whole and tail:  # a last line without its newline
+        yield tail
 
 
 def runs(raw_lines, recent: int = RECENT):
     """(url, node) once per host among the last `recent` seen, the host valid by his rules; a
-    line is `<url> <node>`, or a URL alone whose node is its ordinal."""
+    line is `<url> <node>`, `<host>\t<node>`, or a URL alone whose node is its ordinal."""
     seen: OrderedDict = OrderedDict()
     for n, line in enumerate(raw_lines):
-        url, _, node = line.rpartition(b" ")
-        if not url:
-            url, node = node, str(n).encode()
+        fields = line.split()
+        if not fields:
+            continue
+        url, node = fields[0], fields[-1] if len(fields) > 1 else str(n).encode()
+        if b"://" not in url:  # a host list: the host's root is its URL
+            url = b"http://" + url + b"/"
         site = url.split(b"://", 1)[-1].split(b"/", 1)[0]
         if site in seen:
             seen.move_to_end(site)
@@ -142,13 +152,13 @@ def tag(name: str) -> str:
 
 
 def read(name: str) -> str:
-    """One line for the log; the parts and the receipt land only on a whole, decoded stream, or
-    on exactly the prefix with its sha256, whatever the fetch's own exit says of the rest."""
+    """One line for the log; the journals and the receipt land only on a whole, decoded stream,
+    or on exactly the prefix with its sha256, whatever the fetch's own exit says of the rest."""
     stamp, codec, prefix, sha = LISTS[name]
     OUT.mkdir(parents=True, exist_ok=True)
-    for stale in OUT.glob(f".{name}_*.tmp"):  # a killed run's parts
+    for stale in OUT.glob(f".{name}_*.tmp"):  # a killed run's journals
         stale.unlink()
-    for old in OUT.glob(f".{name}*.failed"):  # a redefined artifact's strikes
+    for old in OUT.glob(f".{name}*.failed"):  # a redefined prefix's strikes
         if old.name != f".{tag(name)}.failed":
             old.unlink()
     t0, proc = time.time(), fetch(CRAWL_LISTS[name])
@@ -156,7 +166,7 @@ def read(name: str) -> str:
     try:
         parts = write_parts(runs(lines(stream, codec, whole=prefix is None)), OUT, name, stamp)
         why = None
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, zlib.error) as exc:  # a cut, a refused fetch, a corrupt byte
         parts, why = sorted(OUT.glob(f".{name}_*.tmp")), str(exc)
     if why or prefix:
         proc.kill()
