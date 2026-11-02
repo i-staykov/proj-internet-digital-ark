@@ -377,8 +377,8 @@ def test_a_list_in_parts_reads_each_part_as_its_own_receipted_unit(tmp_path, mon
     assert cw.read("wdc2012", 3).startswith(f"wdc2012_00003\t{len(body)}\t")
     rows = [json.loads(ln) for ln in gzip.open(tmp_path / "wdc2012_00003_0.jsonl.gz", "rt")]
     assert [(r["url"], r["node"], r["timestamp"]) for r in rows] == [
-        ("http://flickr.com/", "0", "20120101000000"),
-        ("http://a.com/x", "2", "20120101000000"),
+        ("http://flickr.com/", "0", "20120127000000"),
+        ("http://a.com/x", "2", "20120127000000"),
     ]
     assert json.loads((tmp_path / "wdc2012.00003.receipt").read_text())["bytes"] == len(body)
     assert ("wdc2012", 3) not in cw.todo() and ("wdc2012", 4) in cw.todo()
