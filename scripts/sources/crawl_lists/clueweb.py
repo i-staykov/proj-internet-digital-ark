@@ -9,10 +9,10 @@ every page fetched in January and February 2009 as
 `<url> <docid>`, sorted by URL inside segments of some 20,000 pages, the segments in crawl
 order; and LAW's ClueWeb12 URL list (13.9 GB gzip), every page fetched from 2012-02-10 to 05-10
 in crawl order, one URL a line, its node id the URL's ordinal since LAW publishes no docid; and
-the Web Data Commons 2012 Hyperlink Graph's page index (83 parts, 45 GB gzip, `PARTS`), every
-HTML page of the Common Crawl 2012 corpus as `<url>\t<node id>` (`http://flickr.com/\t0`),
-grouped by host, since WDC kept only links to another crawled page, so each host there had a
-page fetched. A node dates its exact host in the list's
+the Web Data Commons 2012 Hyperlink Graph's page index (83 gzip parts, `PARTS`), "extracted
+from a Web corpus gathered in the first half of 2012" with "every hyperlink pointing to another
+crawled HTML page" (WDC's own words), every page as `<url>\t<node id>` (`http://flickr.com/\t0`),
+grouped by host, so each host there had a page fetched. A node dates its exact host in the list's
 year (`crawl_list_node`), status-less, since a crawl list carries no response code. One row per
 host among the last four million seen, `{url, timestamp, node}`, the stamp carrying the year
 alone (`LISTS`), into `data/raw/extended/crawl_lists/<list>_<n>.jsonl.gz`,
@@ -108,8 +108,10 @@ def lines(stream, codec: str = "bz2", whole: bool = True):
             chunk = dec.unused_data if dec.eof else b""
             *done, tail = tail.split(b"\n")
             yield from done
-    if whole and (tail or not dec.eof):
-        raise ValueError("the stream ends inside a member or a line")
+    if whole and not dec.eof:
+        raise ValueError("the stream ends inside a member")
+    if whole and tail:  # a last line without its newline
+        yield tail
 
 
 def runs(raw_lines, recent: int = RECENT):
@@ -176,7 +178,7 @@ def read(name: str, part: int | None = None) -> str:
     try:
         parts = write_parts(runs(lines(stream, codec, whole=prefix is None)), OUT, stem, stamp)
         why = None
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, zlib.error) as exc:  # a cut, a refused fetch, a corrupt byte
         parts, why = sorted(OUT.glob(f".{stem}_*.tmp")), str(exc)
     if why or prefix:
         proc.kill()

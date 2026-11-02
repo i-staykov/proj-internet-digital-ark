@@ -382,3 +382,11 @@ def test_a_list_in_parts_reads_each_part_as_its_own_receipted_unit(tmp_path, mon
     ]
     assert json.loads((tmp_path / "wdc2012.00003.receipt").read_text())["bytes"] == len(body)
     assert ("wdc2012", 3) not in cw.todo() and ("wdc2012", 4) in cw.todo()
+    tail = gzip.compress(b"http://b.com/\t7")  # no final newline: still the last line
+    assert list(cw.runs(cw.lines(io.BytesIO(tail), "gzip"))) == [("http://b.com/", "7")]
+    # a corrupt part strikes, stays to do, and leaves a sibling part's work alone
+    body = b"not gzip at all"
+    (tmp_path / ".wdc2012_00004_0.tmp").write_bytes(b"sibling")
+    assert cw.read("wdc2012", 5).startswith("wdc2012_00005: not booked")
+    assert cw.failures("wdc2012", 5) == 1 and ("wdc2012", 5) in cw.todo()
+    assert (tmp_path / ".wdc2012_00004_0.tmp").read_bytes() == b"sibling"
