@@ -110,8 +110,14 @@ def test_only_his_same_year_complement_ships_and_each_by_its_own_year(exported):
     assert source["sha256"] == hashlib.sha256(journal.read_bytes()).hexdigest()
     assert source["replay"] == "https://web.archive.org/web/{ts}/{url}"
     assert ext.stale(out) == []
+    added = journal.with_name("b.jsonl.gz")
+    added.write_bytes(_journal(ROWS[:1]))
+    assert ext.stale(out), "an added input makes the bank export again"
+    assert ext.stale(out, allow_added=True) == [], "and is no reason for the packager to refuse"
+    added.unlink()
     journal.write_bytes(_journal(ROWS[:2]))
     assert ext.stale(out), "a changed input makes the export stale"
+    assert ext.stale(out, allow_added=True), "for the packager too"
 
 
 def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch):

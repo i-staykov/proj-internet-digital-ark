@@ -239,7 +239,7 @@ cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null
 # report and manifest. His 2002 to 2013 files do not ship back to him; manifest.json names their sha256.
 EXT=output/extended_years
 if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
-    uv run python scripts/round/extended_export.py --check \
+    uv run python scripts/round/extended_export.py --check --allow-added \
         || { echo "refusing to package: $EXT is stale" >&2; exit 1; }
     mkdir -p "$STAGE/extended_years"
     cp "$EXT"/additions/*.txt "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" \
