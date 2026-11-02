@@ -549,7 +549,8 @@ if report is None or not figures.is_file():
     print(f"{'report figures':<46} SKIP  no report.md or audit/report_figures.json")
     sys.exit(0)
 text = report.read_text(encoding="utf-8")
-missing = [k for k, v in json.loads(figures.read_text(encoding="utf-8")).items() if v not in text]
+# ROUND is the packaging host's label, not a figure; the report takes the project's.
+missing = [k for k, v in json.loads(figures.read_text(encoding="utf-8")).items() if k != "ROUND" and v not in text]
 if missing:
     print(f"{'report figures':<46} FAIL  {report} lacks {', '.join(missing)}")
     sys.exit(1)
