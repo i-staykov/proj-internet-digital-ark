@@ -1,4 +1,4 @@
-"""Read the HTTP Archive items whole into 2002 to 2013 hostname journals, 2010 to 2013.
+"""Read the HTTP Archive items of 2010 to 2013 whole into hostname journals.
 
 Each zip of an archive.org item (`httparchive_2012`: 112 zips, 651 GB) is a stored zip of
 WebPageTest test zips; a test holds `<run>_IEWTR.txt.gz`, the agent's own tab-separated log of
@@ -13,13 +13,11 @@ so a cut stream books nothing. A zip with a journal is done, a failed one is ret
 others, three times at most (`.har_<zip>.failed`); a test zip that does not open is skipped and
 counted. Every zip left, back to back in crawl order, item after item in `items()`: every crawl
 in a year visits the same URL list, so a year's first item pays nearly all its hosts and the rest
-saturate (2012: hosts new to the year 100% in its first zip, 7% by its 17th); the order is
-therefore one year's first item before any year's second, smallest first, so the three years not
-yet read (2013's smallest per-crawl item, then `httparchive_2011`, then `httparchive_2010`) come
-before 2012's remaining zips and 2013's other 153 items, smallest first and the monthlies last,
-found by archive.org's search. The hold is read between zips: the tick starts it after the bank
-as its own user unit, `ark-har`, so it
-outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`). Each zip logs its
+saturate (laws); the order is one year's first item before any year's second, smallest first,
+the monthlies last, 2013's items found by archive.org's search. A crawl zip that two items list
+(a 2013 monthly holds its per-crawl zips) is read once, from the first item, and its strikes
+carry. The hold is read between zips: the tick starts it after the bank as its own user unit,
+`ark-har`, so it outlives the tick and never runs twice (`scripts/harness/scheduled_sync.sh`). Each zip logs its
 bytes and host-years, and how many hosts are new to its year: a saturation count, not EE, which
 is priced on the journals.
 
@@ -53,7 +51,7 @@ SEARCH = (
 )
 # The first items, in order: 2013's smallest per-crawl item (one zip, 130919_0.zip), then the
 # per-year items of 2011 (107 zips, 110104 to 111215) and 2010 (3 zips, 1010 to 1012), then 2012
-# (112 zips, 120101 on; its first 100 read). A zip's name starts with its year's two digits.
+# (112 zips, 120101 on). A zip's name starts with its year's two digits.
 FIRST = (
     ("httparchive_2013_09_19_0", 2013),
     ("httparchive_2011", 2011),
