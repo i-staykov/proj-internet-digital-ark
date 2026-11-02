@@ -318,16 +318,22 @@ class Lane:
     def budget(self, now: float) -> bool:
         """One start budget for the address: fewer than `--starts-a-minute` starts across every
         lane here in the last minute, booked in the lanes' shared `starts` file under its lock."""
-        with open(self.a.state_dir.parent / "starts", "a+") as fh:
-            fcntl.flock(fh, fcntl.LOCK_EX)
-            fh.seek(0)
-            recent = [t for t in map(float, fh.read().split()) if t > now - 60]
-            if len(recent) >= self.a.starts_a_minute:
-                return False
-            fh.seek(0)
-            fh.truncate()
-            fh.write("".join(f"{t}\n" for t in [*recent, now]))
-            return True
+        try:
+            with open(self.a.state_dir.parent / "starts", "a+") as fh:
+                fcntl.flock(fh, fcntl.LOCK_EX)
+                fh.seek(0)
+                try:
+                    recent = [t for t in map(float, fh.read().split()) if t > now - 60]
+                except ValueError:  # a torn write: the file is empty, not fatal
+                    recent = []
+                if len(recent) >= self.a.starts_a_minute:
+                    return False
+                fh.seek(0)
+                fh.truncate()
+                fh.write("".join(f"{t}\n" for t in [*recent, now]))
+        except OSError:  # no shared file: the lane walks on without the budget
+            pass
+        return True
 
     def count_missing(self, missing: list[str]) -> None:
         """Count the suffixes pages.json lacks, one a minute, while the lane walks."""
@@ -468,7 +474,9 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=1, help="requests at once in this client")
     ap.add_argument("--max-local", type=int, default=2, help="CDX clients allowed here")
     ap.add_argument("--min-interval", type=float, default=10.0, help="seconds between starts")
-    ap.add_argument("--starts-a-minute", type=float, default=4.0, help="across the lanes here")
+    ap.add_argument(
+        "--starts-a-minute", type=float, default=4.0, help="starts a minute across the lanes here"
+    )
     ap.add_argument("--connect-timeout", type=float, default=20)
     ap.add_argument("--max-transient", type=int, default=8, help="dropped connects before a pause")
     ap.add_argument("--timeout", type=float, default=70, help="per read; the gateway 504s at 60 s")

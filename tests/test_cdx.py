@@ -467,3 +467,6 @@ def test_the_lanes_share_one_start_budget_for_the_address(tmp_path):
     assert [lanes[i % 2].budget(now + i) for i in range(4)] == [True, True, True, False]
     assert lanes[1].budget(now + 59) is False, "the fourth start in a minute waits, whichever lane"
     assert lanes[0].budget(now + 61) is True, "a minute on, the first start has aged out"
+    (tmp_path / "starts").write_text("torn\n")
+    assert lanes[0].budget(now + 62) is True, "an unparseable file counts as empty"
+    assert (tmp_path / "starts").read_text() == f"{now + 62}\n"
