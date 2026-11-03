@@ -199,6 +199,13 @@ def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported,
     (his / "2002.txt").write_bytes(text(HIS[2002] + ["zzz.com"]))
     done = run(check, tmp_path / "stage", HIS=str(his))
     assert "is not the file manifest.json names" in done.stdout, done.stdout
+    # a sort that quits before reading his file (more than a pipe holds) FAILs with a reason
+    sort = '#!/bin/sh\ncase "$*" in *-S*) exit 2;; esac\nexec /usr/bin/sort "$@"\n'
+    (tmp_path / "bin/sort").write_text(sort)
+    (tmp_path / "bin/sort").chmod(0o755)
+    (his / "2003.txt").write_bytes(text([f"h{i}.com" for i in range(30000)]))
+    done = run(check, tmp_path / "stage", HIS=str(his))
+    assert "could not be compared" in done.stdout and "Traceback" not in done.stderr, done.stderr
 
 
 def test_the_end_of_term_reader_keeps_the_earliest_capture_a_host_year_in_the_window():

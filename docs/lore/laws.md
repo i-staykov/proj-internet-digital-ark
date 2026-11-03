@@ -247,5 +247,5 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - VPS corpus bytes go only to `$ARK_PROBE_DIR`, a RAM tmpfs private to one run, since `/tmp` sits on the root disk agentless scanning images (ark-fleet `.github/workflows/leg.yaml`).
 - A sweep of the guessed globs `/tmp/ark_probe*` and `/tmp/ark_run_*` missed `/tmp/arkrun` (ark-fleet `.github/workflows/leg.yaml`).
 - Killed legs left 2.4 GiB of a 3.9 GiB tmpfs (ark-fleet `host/cleanup.sh`).
-- A ship over 115M extended additions: his calculator takes 20 min a pass, so the round state waits an hour for it, and the delivery's extended-years check holds his 2012 file and ours in memory, which the 15 GB VM kills, so it runs on the laptop (`scripts/round/build_round_state.py`, `scripts/round/verify_delivery.sh`).
+- A ship over 115M extended additions: his calculator takes 20 min a pass, so the round state waits an hour for it; the delivery's extended-years check streams round 13 in 320 s at a 1.77 GB peak on the laptop, all of it sort, python under 0.05 GB (`scripts/round/build_round_state.py`, `scripts/round/verify_delivery.sh`).
 - The hook gate's suite, cut to the tests that fail when a shipped file, the Channel rule, a deletion or a decided figure is wrong: 614 tests to 530, and `cat tests/test_*.py | wc -l` 10,723 to 9,468 over 31 to 29 files (`hooks/pre-commit`, `tests/`).
