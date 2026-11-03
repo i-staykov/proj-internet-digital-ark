@@ -29,9 +29,6 @@ set -uo pipefail
 cd "${1:-$(dirname "$0")}"
 
 fail=0
-# The labelled verdicts a full archive prints. Packaging refuses a README that names
-# another count, and tests/test_orq.py counts the labels in this file against it.
-VERDICTS=16
 say() { printf '%-46s %s\n' "$1" "$2"; }
 
 # --- 1. file integrity -------------------------------------------------------
