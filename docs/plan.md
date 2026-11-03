@@ -5,7 +5,7 @@ finishes a line deletes it.** Rules live in `AGENTS.md`, measured facts in `docs
 round state in `docs/ROUND.md`, owner decisions in `needs-owner` issues; this page repeats none of
 them. Nothing else accumulates: no handoff, audit or progress files.
 
-Aim: round 13 by his priorities, 1996 to 2001 first, 2002 to 2013 along the way. The lane's
+Aim: round 14 by his priorities, 1996 to 2001 first, 2002 to 2013 along the way. The lane's
 queue is at its tail (under one row a page), so the round's EE comes from the lane's idle time,
 the pool questions, the unpriced suffixes and whole custodian reads; every PR net negative
 unless it adds a capability the round needs.
@@ -24,19 +24,18 @@ unless it adds a capability the round needs.
 
 ## First (master and owner)
 
-- Asks: #412 a link graph's target side; #393 the terms sentence for the two candidate-grain
-  finds; ark-fleet #215 ClueWeb09 whole.
+- #467 is ruled and built (#469): close it.
 - `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
   measured whether they banked, then folded or deleted.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
 - #397 no page restates another.
-- #406 the laptop keeps no copy of the VM's data and intake runs on the VM; #408 the next VM ship
-  times the export and the merge against the Kill.
+- #406 the laptop keeps no copy of the VM's data and intake runs on the VM.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
+- #393 a candidate-grain find is decided on its candidate figure.
 - ark-fleet #208: 56 legs banked 0 EE because its candidate figures were hostname grain (244,532
   headline, 42,116 registrable; fixed by #263 and #444); the one measured annual signal is HTTP
   Archive 2010 to 2013 at candidate grain (price legs 114 to 11,510 decided EE a sample);
