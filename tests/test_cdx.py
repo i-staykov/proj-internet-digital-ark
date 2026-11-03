@@ -376,8 +376,9 @@ def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
         "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
     }
     units = [tuple(u.split()) for u in prices]
-    priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, 2, 10.0)
+    priced, exploring, waiting, early = extended.rank(units, prices, {("on.ca", "all"): 0}, 2, 10)
     assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all"), ("co.nz", "all")]
+    assert early == [("co.uk", "p1"), ("com.pk", "all")], "1996 to 2001 alone, a second"
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
@@ -385,8 +386,9 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     prices = {"me.uk all": {"p2": 11156.0, "s": 300}, "co.nz all": {"p2": 0.5, "s": 50}}
     prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}, "ask-x ask": {"n": 3000}}
     units = [tuple(u.split()) for u in [*prices, "ask-gap ask"]]
-    priced, exploring, waiting = extended.rank(units, prices, {}, 2, 10.0)
+    priced, exploring, waiting, early = extended.rank(units, prices, {}, 2, 10.0)
     want = [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask"), ("co.nz", "all")]
+    assert early == [("ask-gap", "ask"), ("ask-edge", "ask")], "pages paying 2002 on never lead"
     assert priced == want and exploring == [], "laws price at the 10 s floor: 0.125, 0.026 a s"
     assert waiting == [("ask-x", "ask")], "a tier at nothing waits, never explores; pool drops"
 
