@@ -64,6 +64,7 @@ PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
 ASKED = {"ask-gap": 1.249, "ask-edge": 0.2645, "ask-pool": 0.18}  # EE a question, laws.md
+EARLY = 1  # starts of every four, owed subpages or not, that the 1996 to 2001 order takes, 0 to 3
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
@@ -109,27 +110,33 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
-def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, list, list]:
-    """(priced, exploring, waiting): every priced unit by its EE a second over both windows,
+def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, ...]:
+    """(priced, exploring, waiting, early): every priced unit by its EE a second over both windows,
     every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
     question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
     3% on either window; no request costs less than `floor`, the start interval. The unpriced
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
-    waiting for a price. A unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
-    priced, exploring, waiting = [], [], []
+    waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
+    `EARLY` starts of four take ahead of owed subpages, since a gap question pays several times
+    a page's 1996 to 2001 EE a request and the both-window order never reached one (laws). A
+    unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
+    priced, exploring, waiting, early = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
             price = {"p1": ASKED.get(u[0], 0.0), "s": ASK_SECONDS}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
         seconds = max(price.get("s") or PAGE_SECONDS, floor)
+        if p1 > 0:
+            early.append((-p1 / seconds, u))
         if total > 0:
             priced.append(((-total / seconds, -p1), u))
         elif price.get("n", 0) < DROP_AFTER * scale:
             done = u[1] == "ask" or asked.get(u, 0) >= explore * scale  # a tier never explores
             (waiting if done else exploring).append(u)
     priced.sort(key=lambda k: k[0])
-    return [u for _, u in priced], exploring, waiting
+    early.sort(key=lambda k: k[0])
+    return [u for _, u in priced], exploring, waiting, [u for _, u in early]
 
 
 def fetch(task, a, sink):
@@ -226,6 +233,7 @@ class Lane:
                 self.meta[task] = meta
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
+        self.starts = 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = 0.0
         self.throttled = self.refused = self.transient = 0
@@ -268,7 +276,7 @@ class Lane:
             except (OSError, ValueError):
                 pass
         if force:
-            self.ranked, self.exploring, self.waiting = rank(
+            self.ranked, self.exploring, self.waiting, self.early = rank(
                 self.pages, self.order, self.asked, 2, self.a.min_interval
             )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
@@ -294,6 +302,9 @@ class Lane:
     def take(self):
         with self.lock:
             self.rerank()
+            self.starts += 1
+            if self.starts % 4 < EARLY and (task := self.pop(self.early)):
+                return task
             while self.subq:
                 task = self.subq.pop(0)
                 if key_of(task) not in self.done:
@@ -302,15 +313,19 @@ class Lane:
                 self.meta.pop(task, None)
             self.taken += 1
             first = self.exploring if self.taken % 4 == 0 else self.ranked
-            for u in first + self.ranked + self.exploring + self.waiting:
-                if self.pages[u]:
-                    task = self.pages[u].pop(0)
-                    self.asked[u] += 1
-                    if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
-                        self.rerank(force=True)
-                    self.inflight.add(task)
-                    return task
-            return None
+            return self.pop(first + self.ranked + self.exploring + self.waiting)
+
+    def pop(self, units: list):
+        """The next task of the first unit with one left, under the lane lock."""
+        for u in units:
+            if self.pages[u]:
+                task = self.pages[u].pop(0)
+                self.asked[u] += 1
+                if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
+                    self.rerank(force=True)
+                self.inflight.add(task)
+                return task
+        return None
 
     def gate(self) -> bool:
         """Wait for the pause and the start interval; False once the lane is stopping."""
