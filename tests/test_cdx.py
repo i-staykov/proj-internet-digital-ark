@@ -376,8 +376,9 @@ def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
         "on.ca all": {"p1": 0.0, "p2": 0.0, "n": 1},
     }
     units = [tuple(u.split()) for u in prices]
-    priced, exploring, waiting = extended.rank(units, prices, {("on.ca", "all"): 0}, 2, 10.0)
+    priced, exploring, waiting, early = extended.rank(units, prices, {("on.ca", "all"): 0}, 2, 10)
     assert priced == [("me.uk", "all"), ("co.uk", "p1"), ("com.pk", "all"), ("co.nz", "all")]
+    assert early == [("co.uk", "p1"), ("com.pk", "all")], "1996 to 2001 alone, a second"
     assert exploring == [("on.ca", "all")] and waiting == []
 
 
@@ -385,10 +386,28 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     prices = {"me.uk all": {"p2": 11156.0, "s": 300}, "co.nz all": {"p2": 0.5, "s": 50}}
     prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}, "ask-x ask": {"n": 3000}}
     units = [tuple(u.split()) for u in [*prices, "ask-gap ask"]]
-    priced, exploring, waiting = extended.rank(units, prices, {}, 2, 10.0)
+    priced, exploring, waiting, early = extended.rank(units, prices, {}, 2, 10.0)
     want = [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask"), ("co.nz", "all")]
+    assert early == [("ask-gap", "ask"), ("ask-edge", "ask")], "pages paying 2002 on never lead"
     assert priced == want and exploring == [], "laws price at the 10 s floor: 0.125, 0.026 a s"
     assert waiting == [("ask-x", "ask")], "a tier at nothing waits, never explores; pool drops"
+
+
+def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_subpages(
+    tmp_path,
+):
+    (tmp_path / "o.json").write_text('{"units": {"me.uk all": {"p2": 900.0, "s": 60, "n": 9}}}')
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    a.questions, a.min_interval = True, 10
+    lane = extended.Lane(a)
+    asks = [("ask-gap", 1, f"d{n}.com", 1996, 2013, "ask") for n in range(9)]
+    pages = [("me.uk", 1000, n, 1996, 2013, "all") for n in range(9)]
+    lane.pages = {("ask-gap", "ask"): asks, ("me.uk", "all"): pages}
+    lane.asked = dict.fromkeys(lane.pages, 0)
+    lane.rerank(force=True)
+    lane.subq = [("co.uk", 100, n, 1996, 2013, "all") for n in range(9)]
+    kinds = [lane.take()[5] for _ in range(8)]
+    assert kinds.count("ask") == 2 * extended.EARLY and "all" in kinds, kinds
 
 
 def test_walk_order_charges_a_unit_every_second_over_its_answers():
