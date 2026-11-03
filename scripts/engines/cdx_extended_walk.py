@@ -117,9 +117,8 @@ def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[l
     3% on either window; no request costs less than `floor`, the start interval. The unpriced
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
     waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
-    `EARLY` starts of four take ahead of owed subpages, since a gap question pays several times
-    a page's 1996 to 2001 EE a request and the both-window order never reached one (laws). A
-    unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
+    `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
+    `DROP_AFTER` answered requests is dropped."""
     priced, exploring, waiting, early = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
