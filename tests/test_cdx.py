@@ -387,10 +387,10 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     prices |= {"ask-edge ask": {"n": 1999}, "ask-pool ask": {"n": 5000}, "ask-x ask": {"n": 3000}}
     units = [tuple(u.split()) for u in [*prices, "ask-gap ask"]]
     priced, exploring, waiting, early = extended.rank(units, prices, {}, 2, 10.0)
-    want = [("me.uk", "all"), ("ask-gap", "ask"), ("ask-edge", "ask"), ("co.nz", "all")]
-    assert early == [("ask-gap", "ask"), ("ask-edge", "ask")], "pages paying 2002 on never lead"
-    assert priced == want and exploring == [], "laws price at the 10 s floor: 0.125, 0.026 a s"
-    assert waiting == [("ask-x", "ask")], "a tier at nothing waits, never explores; pool drops"
+    want = [("me.uk", "all"), ("ask-gap", "ask"), ("co.nz", "all")]
+    assert early == [("ask-gap", "ask")], "pages paying 2002 on never lead"
+    assert priced == want and exploring == [], "laws price at the 10 s floor: 0.23 a s"
+    assert waiting == [("ask-edge", "ask"), ("ask-x", "ask")], "an unpriced tier waits; pool drops"
 
 
 def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_subpages(
