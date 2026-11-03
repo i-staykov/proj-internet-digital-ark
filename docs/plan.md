@@ -24,7 +24,7 @@ unless it adds a capability the round needs.
 
 ## First (master and owner)
 
-- Asks: #393 the terms sentence for the two candidate-grain finds.
+- #467 is ruled and built (#469): close it.
 - `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
   measured whether they banked, then folded or deleted.
 
@@ -35,6 +35,7 @@ unless it adds a capability the round needs.
 
 ## B. Harness (owns ark-fleet, scripts/pricing, standing_rule, the pricer agent and skills)
 
+- #393 a candidate-grain find is decided on its candidate figure.
 - ark-fleet #208: 56 legs banked 0 EE because its candidate figures were hostname grain (244,532
   headline, 42,116 registrable; fixed by #263 and #444); the one measured annual signal is HTTP
   Archive 2010 to 2013 at candidate grain (price legs 114 to 11,510 decided EE a sample);
