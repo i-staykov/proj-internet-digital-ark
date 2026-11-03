@@ -277,11 +277,14 @@ for year, entry in sorted(manifest["years"].items()):
     run = ["bash", "-o", "pipefail", "-c", sh, "_", tmp, str(adds)]
     run = subprocess.Popen(run, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
     # The read that hashes his file feeds its lines, CRs dropped, to the sort.
-    digest = sha256(his, lambda chunk: run.stdin.write(chunk.replace(b"\r", b"")))
+    try:  # a sort that quits early is the FAIL below, not a traceback
+        digest = sha256(his, lambda chunk: run.stdin.write(chunk.replace(b"\r", b"")))
+    except BrokenPipeError:
+        digest = None
     repeats = int(run.communicate()[0] or 0)
-    if run.returncode:
+    if run.returncode or digest is None:
         problems.append(f"{his} could not be compared with {adds}")
-    if digest != entry["baseline_sha256"]:
+    if digest not in (None, entry["baseline_sha256"]):
         problems.append(f"{his} is not the file manifest.json names")
     if repeats:
         problems.append(f"{adds} repeats {repeats} lines of {his}")
