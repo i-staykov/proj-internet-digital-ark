@@ -150,7 +150,7 @@ labelled `needs-owner`, opens.
 2. `just ship all` takes the sync lock, banks if anything arrived, exports in full, runs `ark check`,
    packages our additions alone (a stale or wrong export stamp refuses it), verifies as a reviewer would,
    re-scores with his calculator, puts the archive, its `.sha256` and `MANIFEST.txt` in
-   `gdrive:ark-submissions/<release>/` (`just ship drive`), closes the gate issue, and only then
+   `gdrive:ark-offsite/submissions/phase-N/` (`just ship drive`), closes the gate issue, and only then
    uploads and prunes verified round copies. It refuses while `just hold status` lists
    `ark-sync.timer`. `just ship --help` prints the chain; `just ship orq` prints Word's page count.
    Away from a session, the owner labels an open ark-fleet issue `ship-now` and the next tick
@@ -158,7 +158,7 @@ labelled `needs-owner`, opens.
 3. `ship all` ran the README's checksum and `verify.sh` on a fresh extraction; follow the rest
    through tier 2, cold, outside the repository (`docs/round/delivery_readme.md`). `just ship report
    <archive.7z>` writes the report, its `.docx` and the mail draft with the Drive link; the edited
-   `.docx` joins the archive by `rclone copy docs/report.docx gdrive:ark-submissions/<release>/`.
+   `.docx` joins the archive by `rclone copy docs/report.docx gdrive:ark-offsite/submissions/phase-N/`.
    Then send, once the round cleanup `ship all` runs last exited zero (else `just ship verify`
    until it does).
 

@@ -965,13 +965,16 @@ ship stage="all" *args:
         just prune --round --write
     }
 
-    # The newest archive, its .sha256 and MANIFEST.txt into one Drive folder, each checked by its
-    # sha256 there after at most two copies, and the folder's link printed for `ship report`.
+    # The newest archive, .sha256 and MANIFEST.txt into its offsite phase-N folder, the reviewer's,
+    # each sha256-checked after two copies at most; the link as folders/<ID>, since open?id= fails.
     stage_drive() {
-        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: nothing on Drive"; return 0; fi
+        if ! rclone config show gdrive 2>/dev/null | grep -x 'scope = drive' >/dev/null; then
+            echo "no whole-drive gdrive remote here: nothing on Drive"; return 0
+        fi
         local archive dest f want got
         archive=$(ls -t submissions/*/*.7z | head -1)
-        dest="gdrive:ark-submissions/$(basename "$archive" .7z)"
+        [ -n "$archive" ] || { echo "ship drive: no archive under submissions/" >&2; return 1; }
+        dest="gdrive:ark-offsite/${archive%/*}"
         for f in "$archive" "$archive.sha256" "$(dirname "$archive")/MANIFEST.txt"; do
             want=$(shasum -a 256 "$f" | cut -d' ' -f1) got=""
             for _ in 1 2; do
@@ -983,7 +986,7 @@ ship stage="all" *args:
             done
             if [ "$got" != "$want" ]; then echo "ship drive: $f is not on Drive with sha256 $want after two copies" >&2; return 1; fi
         done
-        echo "ship drive: $dest, $(rclone link "$dest")"
+        echo "ship drive: $dest, https://drive.google.com/drive/folders/$(rclone link "$dest" | sed 's/.*id=//')"
     }
 
     # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
@@ -1114,7 +1117,7 @@ ship stage="all" *args:
     calculator) uv run python scripts/round/round_figures.py --verify ;;
     report)
         # On the laptop, from the archive's figures alone: the report, its .docx and the mail
-        # draft, with the Drive folder's link when the archive is there.
+        # draft, with the link of the Drive folder its .sha256 in submissions/ names, when there.
         if [ $# -lt 1 ]; then echo "ship report ARCHIVE.7z" >&2; exit 2; fi
         set -e
         fresh=$(mktemp -d)
@@ -1124,8 +1127,9 @@ ship stage="all" *args:
         uv run python scripts/round/build_report_docx.py docs/report.md
         uv run python scripts/round/ship_mail.py --write --archive "$1"
         draft=$(ls -t private/emails/drafts/*.md | head -1)
-        if link=$(rclone link "gdrive:ark-submissions/$(basename "$1" .7z)" 2>/dev/null); then
-            printf '\nArchive: %s\n' "$link" >> "$draft"
+        if sum=$(ls submissions/*/"$(basename "$1")".sha256 2>/dev/null) \
+                && id=$(rclone link "gdrive:ark-offsite/${sum%/*}" 2>/dev/null | sed 's/.*id=//'); then
+            printf '\nArchive: https://drive.google.com/drive/folders/%s\n' "$id" >> "$draft"
         else
             echo "no Drive folder for $1: the draft carries no link"
         fi
