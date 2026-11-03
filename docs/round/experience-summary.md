@@ -49,7 +49,7 @@ first 12 MB named 56,244 hosts new to 2009 in 1.0 s (`scripts/sources/crawl_list
 4. **Re-price at the shipping grain, on the live store:** 180 suffix journals priced 0 at
    registrable grain, 301,650 EE at hostname grain; a header projection of 10,889 EE delivered
    1,038.4 after another ingest.
-5. **A stream can end early on every read:** UKWA's host-linkage file stops at 2 GiB of 20.9 GB,
+5. **A stream can end early on every read:** UKWA's host-linkage file stops at 2 GiB,
    ClueWeb09's Wayback capture at 357 MB of 10.2 GB, so a download is checked against its stated
    size.
 
