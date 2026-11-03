@@ -965,14 +965,32 @@ ship stage="all" *args:
         just prune --round --write
     }
 
-    # The newest archive, its .sha256 and MANIFEST.txt into one Drive folder, each checked by its
-    # sha256 there after at most two copies, and the folder's link printed for `ship report`.
+    # Round folder $1's link as folders/<ID>, the ID read from a listing so its sharing stays
+    # untouched; none when no ID is listed.
+    folder_link() {
+        local id
+        id=$(rclone lsjson --dirs-only --max-depth 1 gdrive:ark-offsite/submissions 2>/dev/null | python3 -c \
+            'import json, sys; print(next((d.get("ID", "") for d in json.load(sys.stdin) if d["Name"] == sys.argv[1]), ""))' "$1") \
+            && [ -n "$id" ] && echo "https://drive.google.com/drive/folders/$id"
+    }
+
+    # The newest archive, its .sha256 and MANIFEST.txt into the reviewer's Drive folder named as
+    # their local one, ark-offsite/submissions/phase-N, which only a whole-drive remote sees; each
+    # checked by its sha256 there after at most two copies, and the folder's link printed. A folder
+    # holding another archive is refused, since deleting on Drive stays a person's.
     stage_drive() {
-        if ! command -v rclone >/dev/null; then echo "no rclone on PATH: nothing on Drive"; return 0; fi
-        local archive dest f want got
-        archive=$(ls -t submissions/*/*.7z | head -1)
-        dest="gdrive:ark-submissions/$(basename "$archive" .7z)"
-        for f in "$archive" "$archive.sha256" "$(dirname "$archive")/MANIFEST.txt"; do
+        if ! rclone config show gdrive 2>/dev/null | grep -x 'scope = drive' >/dev/null; then
+            echo "ship drive: no whole-drive gdrive remote here, so nothing reached the reviewer's folder" >&2; return 1
+        fi
+        local archive files dest f want got other
+        archive=$(ls -t submissions/*/*.7z 2>/dev/null | head -1) || true
+        files=("${archive:-submissions/*/*.7z}" "$archive.sha256" "$(dirname "$archive")/MANIFEST.txt")
+        for f in "${files[@]}"; do [ -f "$f" ] || { echo "ship drive: no $f" >&2; return 1; }; done
+        dest="gdrive:ark-offsite/submissions/$(basename "$(dirname "$archive")")"
+        other=$(rclone lsf --max-depth 1 --files-only --include '*.7z' "$dest" 2>/dev/null \
+            | grep -vxF "$(basename "$archive")" | head -1) || true
+        if [ -n "$other" ]; then echo "ship drive: $dest already holds another archive, $other, so nothing was copied" >&2; return 1; fi
+        for f in "${files[@]}"; do
             want=$(shasum -a 256 "$f" | cut -d' ' -f1) got=""
             for _ in 1 2; do
                 rclone copy --checksum "$f" "$dest/" || true
@@ -983,7 +1001,7 @@ ship stage="all" *args:
             done
             if [ "$got" != "$want" ]; then echo "ship drive: $f is not on Drive with sha256 $want after two copies" >&2; return 1; fi
         done
-        echo "ship drive: $dest, $(rclone link "$dest")"
+        echo "ship drive: $dest, $(folder_link "${dest##*/}" || echo 'no link: no folder ID listed')"
     }
 
     # Taken once and held to exit, so no tick banks between the bank, the checks and the package.
@@ -1124,7 +1142,9 @@ ship stage="all" *args:
         uv run python scripts/round/build_report_docx.py docs/report.md
         uv run python scripts/round/ship_mail.py --write --archive "$1"
         draft=$(ls -t private/emails/drafts/*.md | head -1)
-        if link=$(rclone link "gdrive:ark-submissions/$(basename "$1" .7z)" 2>/dev/null); then
+        if hit=$(rclone lsf -R --max-depth 2 --files-only --include "/*/$(basename "$1")" \
+                    gdrive:ark-offsite/submissions 2>/dev/null | sed -n 1p) && [ -n "$hit" ] \
+                && link=$(folder_link "${hit%/*}"); then
             printf '\nArchive: %s\n' "$link" >> "$draft"
         else
             echo "no Drive folder for $1: the draft carries no link"

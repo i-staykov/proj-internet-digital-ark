@@ -32,9 +32,9 @@ fi
 [ ! -f ~/.config/rclone/rclone.conf ] || chmod 600 ~/.config/rclone/rclone.conf
 rclone listremotes 2> /dev/null | grep -qx gdrive: || cat << 'STEP'
 no gdrive remote. The owner, once: on the laptop
-    rclone authorize "drive" '{"scope":"drive.file"}'
+    rclone authorize "drive" '{"scope":"drive"}'
 then here, with the JSON it prints
-    rclone config create gdrive drive scope=drive.file config_is_local=false config_token='<json>'
+    rclone config create gdrive drive scope=drive config_is_local=false config_token='<json>'
 STEP
 
 [ -d ~/ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ~/ark
