@@ -121,13 +121,15 @@ ALLOWED_TYPES = (
     "application/cdxj",
     "application/x-cdxj",
 )
-# A zip, and a body whose type the server will not name. Both are readable in-stream, and
-# both are exactly the shape the download backlog exists for, so they are admitted only
+# A zip, a bzip2 and a body whose type the server will not name. All are readable in-stream,
+# and all are exactly the shape the download backlog exists for, so they are admitted only
 # when a human has already said yes: either the payload goes to a pipe, or the destination
 # root is the one `fetch.yaml` sets after a `download` PR merged.
 RISKY_TYPES = (
     "application/zip",
     "application/x-zip-compressed",
+    "application/x-bzip2",
+    "application/x-bzip",
     "application/octet-stream",
     "binary/octet-stream",
     "",

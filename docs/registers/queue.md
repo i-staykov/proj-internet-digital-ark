@@ -7,7 +7,7 @@ the store after reading the artifact. One yes unlocks everything under its headi
 
 ## The send
 
-Nothing to send: Round 12 stands at 0.0190% of 1996-2001 against `merge261016`, under the 3% gate, 2,169,830 EE short.
+Not known here: `data/brief.json` is missing or carries no gate figure.
 
 ## New evidence classes, biggest first
 

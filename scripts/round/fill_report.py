@@ -307,6 +307,8 @@ def main() -> None:
 
     if args.figures:
         subs = json.loads(args.figures.read_text(encoding="utf-8"))
+        # The project's numbering names the round; the archive's copy is the packaging host's.
+        subs["ROUND"] = CURRENT_ROUND_LABEL
     else:
         conn = connect_read_only_patiently(DB)
         subs = substitutions(figures(conn))
