@@ -25,8 +25,6 @@ unless it adds a capability the round needs.
 ## First (master and owner)
 
 - #467 is ruled and built (#469): close it.
-- `data/raw/usenet_header_items` keeps its 21 shards in subfolders the pool fold never globs:
-  measured whether they banked, then folded or deleted.
 
 ## A. Lean (owns justfile, docs/round, scripts/harness, scripts/agents, hooks, sources-closed.md, intake.py, package_delivery.sh, verify_delivery.sh, extended_export.py, the hostnames ingest)
 
