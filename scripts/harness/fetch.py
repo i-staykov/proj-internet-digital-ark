@@ -362,11 +362,11 @@ def robots_verdict(text: str, path: str) -> tuple[str, float, str]:
 def _robots_file(url: str, timeout: float) -> tuple[str | None, str]:
     """The host's robots.txt as text, or None with the reason there is none to read.
 
-    A 4xx is a host with no rules: RFC 9309 section 2.3.1.3 calls a robots.txt that answers
-    any 4xx "unavailable" and lets the crawler fetch, and an S3 bucket that denies listing
-    answers 403 for the missing key, the bucket's answer, not a webmaster's. A 5xx, a wrong
-    body or a dead host is fatal, not permissive: the rule is to read the terms before the
-    first request, and a guess is not a read.
+    A 4xx is a host with no rules: RFC 9309 calls a robots.txt that answers any 4xx
+    "unavailable" and lets the crawler fetch, and an S3 bucket that denies listing answers
+    403 for the missing key, the bucket's answer, not a webmaster's. A 429 is the host
+    asking to back off, so it, a 5xx, a wrong body or a dead host is fatal, not permissive:
+    the rule is to read the terms before the first request, and a guess is not a read.
     """
     parts = urllib.parse.urlsplit(url)
     robots = urllib.parse.urlunsplit((parts.scheme, parts.netloc, "/robots.txt", "", ""))
@@ -376,7 +376,7 @@ def _robots_file(url: str, timeout: float) -> tuple[str | None, str]:
             payload = body.read(512 * 1024).decode("utf-8", "replace")
     except (OSError, http.client.HTTPException) as exc:
         return None, f"robots.txt could not be read: {exc}"
-    if 400 <= status < 500:
+    if 400 <= status < 500 and status != 429:
         return "", f"the host serves no robots.txt ({status})"
     if status != 200:
         return None, f"robots.txt answered {status}"
