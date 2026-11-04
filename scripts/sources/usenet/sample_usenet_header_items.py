@@ -60,23 +60,61 @@ def items(cache: Path) -> list[dict]:
     return json.loads(cache.read_text())
 
 
-def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
-    pool = work / "pool"
-    pool.mkdir(parents=True, exist_ok=True)
+def unread(work: Path, seen_path: Path) -> list[str]:
+    """Items with a size that are neither a read group nor a parent of one."""
     seen = {
         ".".join(g.split(".")[: i + 1])
         for g in json.loads(seen_path.read_text())
         for i in range(g.count(".") + 1)
     }
-    unread = [
+    return [
         x["identifier"][7:]
         for x in items(work / "items.json")
         if x.get("item_size") and x["identifier"][7:] not in seen
     ]
+
+
+def fetch(url: str, dst: Path, size: int) -> str:
+    """The HTTP code, or "cut" when a 200 did not come whole; the file is kept only when it did."""
+    while shutil.disk_usage("/").free < 70 * 2**30 + 2 * size:
+        time.sleep(60)
+    r = subprocess.run(
+        ["curl", "-sSL", "-A", UA, "-o", dst, "-w", "%{http_code}", url],
+        capture_output=True,
+        text=True,
+    )
+    code = r.stdout.strip()
+    if code == "200" and (r.returncode or not dst.exists() or dst.stat().st_size != size):
+        code = "cut"
+    if code != "200":
+        dst.unlink(missing_ok=True)
+    return code
+
+
+def build(pool: Path, out: Path) -> int:
+    """The extractor's exit code over every zip in `pool`."""
+    cmd = ["nice", sys.executable, BUILD, pool, out, "1"]
+    return subprocess.run(cmd, capture_output=True).returncode
+
+
+def write_items(shards: list[Path], path: Path) -> None:
+    """{host, year} items from header journals, through the ingest's own reader."""
+    with open(path, "w") as fh:
+        for shard in shards:
+            for host, _parent, year, _value, _url in usenet_item_rows(
+                shard, Counter(), USENET_HEADER_FAMILY
+            ):
+                fh.write(json.dumps({"host": host, "year": year}) + "\n")
+
+
+def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
+    pool = work / "pool"
+    pool.mkdir(parents=True, exist_ok=True)
+    todo_all = unread(work, seen_path)
     rng = random.Random(20261104)
     with open(work / "log.tsv", "a") as log:
         for bucket, tops in buckets.items():
-            todo = [i for i in unread if i.split(".")[0] in tops]
+            todo = [i for i in todo_all if i.split(".")[0] in tops]
             rng.shuffle(todo)
             budget = 4e8
             for item in todo:
@@ -91,18 +129,11 @@ def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
                     if budget <= 0:
                         break
                     size, zip_path = int(f["size"]), pool / f["name"]
-                    while shutil.disk_usage("/").free < 70 * 2**30 + 2 * size:
-                        time.sleep(60)
                     t0 = time.time()
                     url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(f['name'])}"
-                    code = subprocess.run(
-                        ["curl", "-sSL", "-A", UA, "-o", zip_path, "-w", "%{http_code}", url],
-                        capture_output=True,
-                        text=True,
-                    ).stdout
+                    code = fetch(url, zip_path, size)
                     t1 = time.time()
                     if code != "200":
-                        zip_path.unlink(missing_ok=True)
                         print(
                             bucket, item, f["name"], f"http {code}", sep="\t", file=log, flush=True
                         )
@@ -110,9 +141,7 @@ def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
                             return
                         continue
                     out = work / "out" / bucket / f["name"].removesuffix(".mbox.zip")
-                    built = subprocess.run(
-                        ["nice", sys.executable, BUILD, pool, out, "1"], capture_output=True
-                    ).returncode
+                    built = build(pool, out)
                     zip_path.unlink()
                     if not built:  # a failed extract is logged, not charged
                         budget -= size
@@ -130,12 +159,9 @@ def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
                     time.sleep(1)
                 if budget <= 0:
                     break
-            with open(work / f"{bucket}.items.jsonl", "w") as fh:
-                for shard in sorted((work / "out" / bucket).glob("*/*.jsonl.gz")):
-                    for host, _parent, year, _value, _url in usenet_item_rows(
-                        shard, Counter(), USENET_HEADER_FAMILY
-                    ):
-                        fh.write(json.dumps({"host": host, "year": year}) + "\n")
+            write_items(
+                sorted((work / "out" / bucket).glob("*/*.jsonl.gz")), work / f"{bucket}.items.jsonl"
+            )
 
 
 if __name__ == "__main__":

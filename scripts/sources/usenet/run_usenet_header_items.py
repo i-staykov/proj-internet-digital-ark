@@ -1,13 +1,14 @@
 """Header lane over whole usenet-* items outside the group catalogue, by top in a given order.
 
 The run behind a `sample_usenet_header_items.py` price: for each named top, every unread item
-under it, every `.mbox.zip` it holds, one download at a time with `/` kept 70 GiB free, about
-1 GB per batch and one top per batch, extracted by `build_usenet_header_pool.py` into
-`data/raw/usenet_header_items/<prefix>_NNN/`, which the bank folds, the zips deleted. After each
-batch its journals are priced on the candidate track through the ingest's own reader; a top whose
-batch pays under 300 EE per GB is dropped. A 429 ends the run, any other failure is retried once
-after 120 s and three failed files in a row end it; no batch starts at or after `--until` (UTC
-HH:MM, the next one). `log.tsv` in WORKDIR keeps every file read, so a restart skips them.
+under it, every `.mbox.zip` it holds, one download at a time with `/` kept 70 GiB free and a file
+kept only when it came whole, about 1 GB per batch and one top per batch, extracted by
+`build_usenet_header_pool.py` into `data/raw/usenet_header_items/<prefix>_NNN/`, which the bank
+folds, the zips deleted. After each batch its journals are priced on the candidate track through
+the ingest's own reader; a top whose batch pays under 300 EE per GB is dropped. A 429 ends the
+run, any other failure is retried once after 120 s and three failed files in a row end it; no top
+or batch starts at or after `--until` (UTC HH:MM, the next one). `log.tsv` in WORKDIR keeps every
+file read, so a restart skips them.
 
     uv run python scripts/sources/usenet/run_usenet_header_items.py WORKDIR SEEN.json a_v \\
         netscape,sybase,gnu --until 06:45
@@ -17,42 +18,21 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
-from collections import Counter
 from pathlib import Path
 
-from sample_usenet_header_items import BUILD, UA, get, items
-
-from ark.hostnames import USENET_HEADER_FAMILY, usenet_item_rows
+from sample_usenet_header_items import build, fetch, get, unread, write_items
 
 FLOOR = 300
-
-
-def fetch(url: str, dst: Path) -> str:
-    """The HTTP code; the file is removed unless it came whole."""
-    code = subprocess.run(
-        ["curl", "-sSL", "-A", UA, "-o", dst, "-w", "%{http_code}", url],
-        capture_output=True,
-        text=True,
-    ).stdout
-    if code != "200":
-        dst.unlink(missing_ok=True)
-    return code
 
 
 def price(work: Path, out: Path) -> float:
     """Candidate EE of one batch's journals against the fleet snapshot."""
     path = work / "batch.items.jsonl"
-    with open(path, "w") as fh:
-        for shard in sorted(out.glob("*.jsonl.gz")):
-            for host, _parent, year, _value, _url in usenet_item_rows(
-                shard, Counter(), USENET_HEADER_FAMILY
-            ):
-                fh.write(json.dumps({"host": host, "year": year}) + "\n")
+    write_items(sorted(out.glob("*.jsonl.gz")), path)
     ark = Path(sys.executable).with_name("ark")
     cmd = [
         ark,
@@ -81,28 +61,21 @@ def main() -> None:
     a = ap.parse_args()
     pool = a.work / "pool"
     pool.mkdir(parents=True, exist_ok=True)
-    seen = {
-        ".".join(g.split(".")[: i + 1])
-        for g in json.loads(a.seen.read_text())
-        for i in range(g.count(".") + 1)
-    }
-    unread = [
-        x["identifier"][7:]
-        for x in items(a.work / "items.json")
-        if x.get("item_size") and x["identifier"][7:] not in seen
-    ]
+    todo = unread(a.work, a.seen)
     logp = a.work / "log.tsv"
     rows = [line.rstrip("\n").split("\t") for line in open(logp)] if logp.exists() else []
-    done = {r[3] for r in rows if r[0].startswith(a.prefix)}
-    batch = len({r[0] for r in rows if r[0].startswith(a.prefix)})
+    ours = [r for r in rows if r[0].startswith(a.prefix + "_")]
+    done, batch = {r[3] for r in ours}, len({r[0] for r in ours})
     now, (hh, mm) = time.time(), (int(x) for x in a.until.split(":"))
     deadline = now - now % 86400 + hh * 3600 + mm * 60
     deadline += 86400 if deadline <= now else 0  # an hour already past today means tomorrow's
     fails, stop = 0, False
     with open(logp, "a") as log:
         for top in a.tops.split(","):
+            if time.time() >= deadline:
+                break
             files = []
-            for item in sorted(i for i in unread if i.split(".")[0] == top):
+            for item in sorted(i for i in todo if i.split(".")[0] == top):
                 try:
                     meta = get(f"https://archive.org/metadata/usenet-{item}/files").get(
                         "result", []
@@ -127,13 +100,11 @@ def main() -> None:
                 name, size, names, t0 = f"{a.prefix}_{batch:03d}", 0, [], time.time()
                 while files and size < 1e9:
                     item, fname, fsize = files.pop(0)
-                    while shutil.disk_usage("/").free < 70 * 2**30 + 2 * fsize:
-                        time.sleep(60)
                     url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(fname)}"
-                    code = fetch(url, pool / fname)
+                    code = fetch(url, pool / fname, fsize)
                     if code not in ("200", "429"):
                         time.sleep(120)
-                        code = fetch(url, pool / fname)
+                        code = fetch(url, pool / fname, fsize)
                     if code != "200":
                         fails += 1
                         print(
@@ -158,19 +129,15 @@ def main() -> None:
                     break
                 out = Path("data/raw/usenet_header_items") / name
                 t1 = time.time()
-                built = subprocess.run(
-                    ["nice", sys.executable, BUILD, pool, out, "1"], capture_output=True
-                )
+                built = build(pool, out)
                 for _item, fname in names:
                     (pool / fname).unlink()
-                if (
-                    built.returncode
-                ):  # the batch is not charged as read, and a human looks before more
+                if built:  # the batch is not charged as read, and a human looks before more
                     print(
                         "stop",
                         top,
                         name,
-                        f"build {built.returncode}",
+                        f"build {built}",
                         sep="\t",
                         file=log,
                         flush=True,
