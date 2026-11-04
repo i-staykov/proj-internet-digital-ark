@@ -169,6 +169,11 @@ def test_a_refusal_in_any_of_our_groups_refuses_the_path():
 
 def test_no_robots_is_allowed_and_an_unreadable_or_dead_one_fails_closed(leg):
     assert get(f"{leg.serve({'/x.txt': page()}, robots=None).base}/x.txt")[0] == fetch.OK
+    denied = leg.serve({"/robots.txt": (403, {}, b"AccessDenied\n"), "/x.txt": page()})
+    assert get(f"{denied.base}/x.txt")[0] == fetch.OK, "a 4xx robots.txt is unavailable, RFC 9309"
+    assert denied.asked[0] == "/robots.txt"
+    limited = leg.serve({"/robots.txt": (429, {}, b""), "/x.txt": page()})
+    assert get(f"{limited.base}/x.txt")[0] == fetch.ROBOTS_UNREADABLE, "a 429 is the host asking"
     broken = leg.serve({"/robots.txt": (500, {}, b"oops\n"), "/x.txt": page()})
     code, receipt, *_ = run(f"{broken.base}/x.txt")
     assert (code, receipt["robots"]) == (fetch.ROBOTS_UNREADABLE, "unknown")
