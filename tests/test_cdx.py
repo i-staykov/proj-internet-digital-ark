@@ -473,6 +473,25 @@ def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     assert not any(release.holds(2001, h) for h in ("a.co", "b.co.ukx", "c.co.uk", "zzz"))
 
 
+def test_a_sibling_lane_answer_ends_only_the_refusal_pause(tmp_path):
+    lanes = []
+    for i in range(2):
+        a = SimpleNamespace(state_dir=tmp_path / f"lane{i}", order=tmp_path / "o.json")
+        a.data, a.questions, a.min_interval, a.max_transient = tmp_path, False, 10, 0
+        a.state_dir.mkdir()
+        lanes.append(extended.Lane(a))
+    now = time.time()
+    lanes[0].refused, lanes[0].refusal_at, lanes[0].refusal_end = 3, now - 1, now + 900
+    lanes[0].pause_until = now + 60  # a 503's pause running beside the refusal's
+    (tmp_path / "lane0/answered").touch()  # its own answer is not a sibling's
+    assert lanes[0].eased() is False
+    (tmp_path / "lane1/answered").touch()
+    assert lanes[0].eased() is True
+    lanes[0].refusal_at = now + 1  # a refusal after that answer: the ladder holds
+    assert lanes[0].eased() is False
+    assert lanes[0].pause_until == now + 60, "easing never touches the throttle's pause"
+
+
 def test_a_refused_connection_ladder_caps_at_two_minutes_and_a_wall_at_fifteen():
     coin = [extended.refusal_pause(n, "ConnectionRefusedError") for n in range(1, 7)]
     assert coin == [30, 60, 120, 120, 120, 120]
