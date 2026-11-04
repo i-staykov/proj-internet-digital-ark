@@ -327,6 +327,12 @@ bank *args:
                 C_RAN="$C_RAN $pool"
                 uv run ark ingest-usenet-hostnames "$pool" | tail -1 || C_FAIL="$C_FAIL $pool"
             done
+            # The header lane writes one subfolder per batch, which the glob above never reads.
+            if fold "data/raw/usenet_header_items/*/*.jsonl.gz"; then
+                C_RAN="$C_RAN usenet_header_items"
+                uv run ark ingest-usenet-header-hostnames data/raw/usenet_header_items/*/ | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_header_items"
+            fi
             if fold "data/raw/maillists_items/*.jsonl.gz"; then
                 C_RAN="$C_RAN maillists_items"
                 uv run ark ingest-maillist-hostnames data/raw/maillists_items | tail -1 \
