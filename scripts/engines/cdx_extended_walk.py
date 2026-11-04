@@ -17,8 +17,8 @@ must be anchored; IA's filter is a search, so an unanchored `\\)/` matches every
 **One row per (host, year)**, the earliest 2xx or 3xx capture, as `{url, timestamp, status}` in
 `walk_<suffix>_ps<P>_p<N>_<years>.jsonl.gz`, 1996 to 2001 under `<data>/raw/cdx_suffix/` (the
 hostname ingest prices it) and 2002 to 2013 under `<data>/raw/extended/ia_cdx_hostnames/` (the
-extended exporter), written under a dot name and renamed whole. The host is read from
-`original`, never from the urlkey, which folds `www.` into the apex.
+extended exporter), written under a dot name and renamed whole. The host
+is read from `original`, never from the urlkey, which folds `www.` into the apex.
 
 **Failures cost time, never rows.** A page streams for up to minutes, and the server can cut a
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
@@ -26,11 +26,12 @@ its ten exact 1/10 subpages, last first, stopping at the subpage that starts bef
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
 subpages 0 and 5 probed, the other eight asked only if a probe has rows; a 100-block one is asked
 as its ten 10-block subpages at once; a 10-block one again at once, booked after its fourth. Any
-other answer marks nothing done: a 503 with no `Retry-After` rests the worker that got it and its
-task a minute while the others stream on; a 429 or `Retry-After` pauses the lane that long or a
-minute, flat, and ten in a row with nothing booked between 15 minutes; a refusal, `ENETDOWN` or
-403 from 30 s doubling to 15 min, eased only by an answer; and requests start `--min-interval`
-apart, since a burst earns a block of the address.
+other answer marks nothing done: a 429 or 503 pauses the lane for `Retry-After` or a minute,
+flat, since it is the server's state and a retry answers, and 15 minutes only after ten in a row
+with nothing booked between; a refused connection from 30 s doubling to 2 min, a per-connection
+coin under the lane-wide pause (laws), not a wall; a 403 or a bare `OSError`, our link down,
+which are walls, from 30 s doubling to 15 min; each eased only by an answer; and requests start
+`--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -62,10 +63,15 @@ ROOT = r"^[^/]*\)/$"
 PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
-ASKED = {"ask-gap": 1.249, "ask-edge": 0.2645, "ask-pool": 0.18}  # EE a question, laws.md
+ASKED = {"ask-gap": {"p1": 0.013, "p2": 2.3}}  # EE a question, laws.md; edge, pool unmeasured
+EARLY = 0  # starts of every four, owed subpages or not, that the 1996 to 2001 order takes, 0 to 3
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
+WALLS = {
+    "HTTP403",
+    "OSError",
+}  # a 403, or a bare OSError, our link down: a wall, not a dropped connection
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
@@ -105,27 +111,32 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
-def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, list, list]:
-    """(priced, exploring, waiting): every priced unit by its EE a second over both windows,
+def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, ...]:
+    """(priced, exploring, waiting, early): every priced unit by its EE a second over both windows,
     every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
     question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
     3% on either window; no request costs less than `floor`, the start interval. The unpriced
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
-    waiting for a price. A unit priced at nothing over `DROP_AFTER` answered requests is dropped."""
-    priced, exploring, waiting = [], [], []
+    waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
+    `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
+    `DROP_AFTER` answered requests is dropped."""
+    priced, exploring, waiting, early = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
-            price = {"p1": ASKED.get(u[0], 0.0), "s": ASK_SECONDS}
+            price = {**ASKED.get(u[0], {}), "s": ASK_SECONDS}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
         seconds = max(price.get("s") or PAGE_SECONDS, floor)
+        if p1 > 0:
+            early.append((-p1 / seconds, u))
         if total > 0:
             priced.append(((-total / seconds, -p1), u))
         elif price.get("n", 0) < DROP_AFTER * scale:
             done = u[1] == "ask" or asked.get(u, 0) >= explore * scale  # a tier never explores
             (waiting if done else exploring).append(u)
     priced.sort(key=lambda k: k[0])
-    return [u for _, u in priced], exploring, waiting
+    early.sort(key=lambda k: k[0])
+    return [u for _, u in priced], exploring, waiting, [u for _, u in early]
 
 
 def fetch(task, a, sink):
@@ -202,6 +213,11 @@ def decode(line: str) -> tuple[tuple, tuple]:
     return (s, int(z), int(p), int(f), int(la), k), tuple(meta)
 
 
+def refusal_pause(refused: int, status: str) -> float:
+    """The n-th refusal in a row: 30 s doubling, to 15 min for a wall, to 2 min otherwise."""
+    return min(900.0 if status in WALLS else 120.0, 30.0 * 2 ** min(refused - 1, 5))
+
+
 class Lane:
     """The queue, the done set and the log of one lane, shared by its workers under a lock."""
 
@@ -217,8 +233,9 @@ class Lane:
                 self.meta[task] = meta
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
+        self.starts = 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
-        self.pause_until, self.next_start, self.rest = 0.0, 0.0, {}  # a worker's or task's pause
+        self.pause_until = self.next_start = 0.0
         self.throttled = self.refused = self.transient = 0
 
     def add_pages(self, sfx: str, n: int) -> None:
@@ -259,7 +276,7 @@ class Lane:
             except (OSError, ValueError):
                 pass
         if force:
-            self.ranked, self.exploring, self.waiting = rank(
+            self.ranked, self.exploring, self.waiting, self.early = rank(
                 self.pages, self.order, self.asked, 2, self.a.min_interval
             )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
@@ -271,8 +288,8 @@ class Lane:
         os.replace(tmp, self.pending)
 
     def requeue(self, task: tuple, front: bool) -> None:
-        """Put an unanswered task back: a subpage at the head, a page at the front or the back of
-        its unit; `take` passes over it while it rests."""
+        """Put an unanswered task back: a subpage at the head (the pause does the waiting), a
+        page at the front or the back of its unit."""
         self.inflight.discard(task)
         if task in self.meta:
             self.subq.insert(0, task)
@@ -285,32 +302,37 @@ class Lane:
     def take(self):
         with self.lock:
             self.rerank()
-            now = time.time()
-            for task in [t for t in self.subq if self.rest.get(t, 0) <= now]:
-                self.subq.remove(task)
+            self.starts += 1
+            if self.starts % 4 < EARLY and (task := self.pop(self.early)):
+                return task
+            while self.subq:
+                task = self.subq.pop(0)
                 if key_of(task) not in self.done:
                     self.inflight.add(task)
                     return task
                 self.meta.pop(task, None)
             self.taken += 1
             first = self.exploring if self.taken % 4 == 0 else self.ranked
-            for u in first + self.ranked + self.exploring + self.waiting:
-                if self.pages[u] and self.rest.get(self.pages[u][0], 0) <= now:
-                    task = self.pages[u].pop(0)
-                    self.asked[u] += 1
-                    if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
-                        self.rerank(force=True)
-                    self.inflight.add(task)
-                    return task
-            return None
+            return self.pop(first + self.ranked + self.exploring + self.waiting)
+
+    def pop(self, units: list):
+        """The next task of the first unit with one left, under the lane lock."""
+        for u in units:
+            if self.pages[u]:
+                task = self.pages[u].pop(0)
+                self.asked[u] += 1
+                if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
+                    self.rerank(force=True)
+                self.inflight.add(task)
+                return task
+        return None
 
     def gate(self) -> bool:
         """Wait for the pause and the start interval; False once the lane is stopping."""
         while not STOP.is_set():
             with self.lock:
                 now = time.time()
-                until = max(self.pause_until, self.rest.get(threading.get_ident(), 0))
-                held = _platform.PAUSE_FLAG.exists() or now < until
+                held = _platform.PAUSE_FLAG.exists() or now < self.pause_until
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
@@ -388,13 +410,10 @@ class Lane:
         row.append(len(ext))
         return status, complete, rows[0], edge, after, row
 
-    def back_off(self, task: tuple, seconds: float, why: str, worker: bool = False) -> None:
+    def back_off(self, task: tuple, seconds: float, why: str) -> None:
         self.requeue(task, front=False)
-        if worker:
-            self.rest[threading.get_ident()] = self.rest[task] = time.time() + seconds
-        else:
-            self.pause_until = max(self.pause_until, time.time() + seconds)
-        self.log.write(f"# {'rest' if worker else 'pause'} {round(seconds)} s: {why}\n")
+        self.pause_until = max(self.pause_until, time.time() + seconds)
+        self.log.write(f"# pause {round(seconds)} s: {why}\n")
 
     def settle(self, task, status, complete, rows, edge, after, row) -> None:
         """Book one answer under the lane lock."""
@@ -413,23 +432,20 @@ class Lane:
             elif status == "HTTP504":  # the page's silence, not the address's: no pause
                 self.requeue(task, front=True)
             elif status in THROTTLES:
-                self.throttled += 1
-                block = self.throttled >= 10  # ten, nothing booked between: an address block
-                one = status == "HTTP503" and not after and not block  # asked of one connection
-                self.back_off(task, 900.0 if block else after or 60.0, status, worker=one)
+                self.throttled += 1  # ten, nothing booked between: an address block
+                self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
             elif status in FAST and self.transient < self.a.max_transient:
                 self.transient += 1
                 self.requeue(task, front=True)
                 self.pause_until = max(self.pause_until, time.time() + 5)
             else:
                 self.refused, self.transient = self.refused + 1, 0
-                self.back_off(task, min(900, 30 * 2 ** min(self.refused - 1, 5)), status)
+                self.back_off(task, refusal_pause(self.refused, status), status)
             return
         self.throttled = 0
         if status == "200":  # only an answer eases the refusal back-off
             self.refused = self.transient = 0
         self.inflight.discard(task)
-        self.rest.pop(task, None)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
             at = task[1] * task[2]  # in blocks, so a split child's 10-blocks compare too

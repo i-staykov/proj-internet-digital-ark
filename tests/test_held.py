@@ -407,16 +407,15 @@ def _his_zip(tmp_path: Path, name: str = "Task_0903.zip", note: str | None = Non
 
 
 def _bench(tmp_path: Path) -> Path:
-    """A release beside his zip, one without, a blank page, round 7 unwritten; his zip."""
+    """A release beside his zip, one without, a blank page, a rounds table (none ships); his zip."""
     ding = tmp_path / "ding"
     _zip(_tree_on_disk(ding / PHASE7), ding / ZIP7, "Domain_Data_Collection_Task 3/")
     (ding / "feedback-phase-7/note.docx").write_bytes(b"not a release")
     _tree_on_disk(ding / "feedback-phase-4/merged260810")
     blank = releases.render_table([releases.blank_row(m) for m in releases.RELEASES])
     (tmp_path / "releases.md").write_text(f"{releases.BEGIN}\n{blank}\n{releases.END}\n")
-    for copy, tracked in (("baseline.json", "data"), ("rounds.md", "docs/registers")):
-        lines = (ROOT / tracked / copy).read_text(encoding="utf-8").splitlines(keepends=True)
-        (tmp_path / copy).write_text("".join(x for x in lines if not x.startswith("| 7 |")))
+    shutil.copy(ROOT / "data/baseline.json", tmp_path)
+    (tmp_path / "rounds.md").write_text("| round | credited EE |\n|---|---|\n")
     (tmp_path / "ee.py").write_text(CALCULATOR)
     return _his_zip(tmp_path)
 

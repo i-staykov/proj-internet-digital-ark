@@ -1,0 +1,10 @@
+round        phase-12
+built        2026-11-02T19:36:51Z
+commit       792d4c85bd6fed8c119934da7c8c354ff8c7fd62
+baseline     merge261016
+archive      KnowledgeDiscoveryCompetition_Submission_202611021910_IvayloStaykov.7z
+sha256       bf5cf887841430c3cdaf0c4f43b9ff940ace1ed727825944d56138597391e09c
+bytes        4256549931
+files        20877
+netnew_pairs 17935
+netnew_hostnames 113339
