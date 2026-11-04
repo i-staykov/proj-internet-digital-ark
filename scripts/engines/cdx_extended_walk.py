@@ -44,6 +44,7 @@ rate is always charged with its waits and failures.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import http.client
 import importlib.util
@@ -346,9 +347,10 @@ class Lane:
         """Whether a sibling lane answered since this lane's last refusal: the address is not
         blocked, so the refusal pause and its ladder are this lane's alone and end."""
         for mark in self.a.state_dir.parent.glob("lane*/answered"):
-            if mark.parent != self.a.state_dir and mark.stat().st_mtime > self.refusal_at:
-                self.log.write(f"# eased: {mark.parent.name} answered\n")
-                return True
+            with contextlib.suppress(OSError):  # a sibling may have cleaned up meanwhile
+                if mark.parent != self.a.state_dir and mark.stat().st_mtime > self.refusal_at:
+                    self.log.write(f"# eased: {mark.parent.name} answered\n")
+                    return True
         return False
 
     def count_missing(self, missing: list[str]) -> None:
@@ -454,10 +456,11 @@ class Lane:
                 self.pause_until = max(self.pause_until, time.time() + 5)
             else:
                 self.refused, self.transient, self.refusal_at = self.refused + 1, 0, time.time()
-                self.refusal_end = self.back_off(task, refusal_pause(self.refused, status), status)
+                end = self.back_off(task, refusal_pause(self.refused, status), status)
+                self.refusal_end = max(self.refusal_end, end)
             return
         self.throttled = 0
-        if status == "200":  # only an answer eases the refusal back-off, a sibling's too
+        if status == "200":
             self.refused = self.transient = 0
             (self.a.state_dir / "answered").touch()
         self.inflight.discard(task)
