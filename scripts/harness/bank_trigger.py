@@ -55,6 +55,7 @@ FOLD = (
     "data/raw/cdx_suffix/*.jsonl.gz",
     "data/raw/usenet_*_items/*.jsonl.gz",
     "data/raw/usenet_*_items/*.jsonl",
+    "data/raw/usenet_header_items/*/*.jsonl.gz",
     "data/raw/maillists_items/*.jsonl.gz",
     "data/raw/maillists_items/*.jsonl",
     "data/raw/enron_items/*.jsonl.gz",
