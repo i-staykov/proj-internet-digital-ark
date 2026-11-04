@@ -52,8 +52,8 @@ def sub(key: str, k: int) -> str:
 
 def done() -> None:
     """Give each lane folder with a log but no done set one, booked as the walker books, or less:
-    a complete 200, a subpage's 400 or its fourth 504 in a row; a cut 200 or a 1,000-block 504
-    only once the subpages it owes are booked, so a page is at worst asked again."""
+    a complete 200, a subpage's 400 or its fourth 504 in a row; a cut 200 or a 504 of 100 blocks
+    or more only once the subpages it owes are booked, so a page is at worst asked again."""
     for lane in sorted((DATA / "raw/cdx_walk").glob("lane*")):
         if (lane / "done.txt").exists() or not (lane / "log.tsv").exists():
             continue
@@ -67,12 +67,15 @@ def done() -> None:
             whole = status == "200" and row[8] == "1"
             if whole or size < 1000 and (status == "HTTP400" or streak[key] >= 4):
                 booked.add(key)
-            elif status == "200" and int(row[11]) > 0 or status == "HTTP504" and size >= 1000:
+            elif status == "200" and int(row[11]) > 0 or status == "HTTP504" and size >= 100:
                 owing[key] = status
         for key, status in sorted(owing.items(), key=lambda o: int(o[0].split()[1])):
-            # the finest first; probes 0 and 5, all ten once one has rows
+            # the finest first; a 1,000-block 504 probes 0 and 5, all ten once a probe, or a
+            # 10-block of a 504'd probe, has rows
             probes = [sub(key, 0), sub(key, 5)]
-            wanted = probes if status != "200" and not any(rows.get(p) for p in probes) else None
+            found = any(rows.get(k) for p in probes for k in [p, *(sub(p, j) for j in range(10))])
+            wanted = probes if status != "200" and int(key.split()[1]) >= 1000 else None
+            wanted = None if found else wanted
             if all(k in booked for k in wanted or [sub(key, k) for k in range(10)]):
                 booked.add(key)
         (lane / "done.txt").write_text("".join(k + "\n" for k in sorted(booked)))
