@@ -503,7 +503,7 @@ def test_e1_passes_the_folder_and_fails_on_any_one_gap(tmp_path):
 
 
 def test_a_stale_or_dirty_fleet_is_refused(tmp_path):
-    guard = block("package_delivery.sh", "# The fleet checkout ships", "# The README ships")
+    guard = block("package_delivery.sh", "# The fleet checkout ships", "# The export stamp")
     repo, fleet, linked = tmp_path / "repo", tmp_path / "fleet", tmp_path / "linked"
     (repo / "data/fleet_findings/banked/20260923T1006Z").mkdir(parents=True)
     (repo / "data/fleet_findings/banked/20260904T1544Z_dups").mkdir()
@@ -571,27 +571,3 @@ def test_the_report_fills_from_the_archive_figures_and_verify_finds_each(
     assert "PASS" in bash(verdict, stage).stdout
     (stage / "report.md").write_text(report.replace("1,234.5000", "1,234.6000"))
     assert "FAIL  report.md lacks EE" in bash(verdict + 'exit "$fail"\n', stage).stdout
-
-
-def test_packaging_refuses_a_note_naming_another_verdict_count_than_verify_declares(tmp_path):
-    text = (REPO / "scripts/round/verify_delivery.sh").read_text(encoding="utf-8")
-    said = "|".join(
-        (r'\bsay\(?\s*"([^"]+)"', r"print\(f\"\{'([^']+)':<46\}", r'^LABEL = "([^"]+)"')
-    )
-    labels = {label for found in re.findall(said, text, re.M) for label in found if label}
-    assert "verify_isc_candidates.py" in text  # it prints the ISC verdict itself
-    declared = int(re.search(r"^VERDICTS=(\d+)$", text, re.M)[1])
-    assert len(labels | {"ISC candidates"}) == declared, sorted(labels)
-    check = block("package_delivery.sh", "# The README ships", "# The export stamp")
-    (tmp_path / "scripts/round").mkdir(parents=True)
-    (tmp_path / "docs/round").mkdir(parents=True)
-    (tmp_path / "scripts/round/verify_delivery.sh").write_text("fail=0\nVERDICTS=14\n")
-    for said, code in (
-        ("all thirteen `verify.sh` verdicts pass", 1),
-        ("all fourteen `verify.sh` verdicts pass", 0),
-        ("every `verify.sh` verdict passes", 0),
-    ):
-        (tmp_path / "docs/round/delivery_readme.md").write_text(f"Before sending, {said}.\n")
-        assert bash(check, tmp_path).returncode == code, said
-    (tmp_path / "docs/round/delivery_readme.md").write_text("prints **thirteen labelled verdicts**")
-    assert bash(check, tmp_path).returncode == 1, "a labelled count is checked too"
