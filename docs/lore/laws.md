@@ -147,6 +147,8 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - An archived GET lookup form leaves one in-window capture per endpoint, the bare CGI with no records (5 hosts); its parameters were crawled from about 2004. POST is dead; `just find new_net_thirdlevel_hosts_2001`.
 - A census keyed on an IP address emits no names however large or well dated: the IOS Counter's 1,465,124 hosts and RIPE's 4,965,839 `.de` hosts gave 0; 54 artifacts, 2.1 EE; `just find OCLC`.
 - Breadth pays and depth does not: 13 Usenet hierarchies read once union to 127,616 of 158,841 EE, while more `alt.*` was 90.5% held at 40 EE per GB; `just find usenet_alt`.
+- The header lane over groups it never read, seeded samples of about 0.45 GB, candidate track: rec 424 EE per GB, comp 307, uk 201, misc 200, sci 148, soc 128, biz 33; one archive.org stream reads about 16 GB an hour (`scripts/sources/usenet/build_usenet_header_pool.py`).
+- `ukwa_link_source` read its host link graph from the first 2,147,483,648 of 20,928,588,915 B (10.3%), all of it held at hostname grain; the rest survives only as a 2020 Wayback capture; `just find ukwa_link_source`.
 - 42.1% of `alt.*` messages fall in 1996 to 2001, and the share ignores size: 0.0% to 85.2% at 70 to 155 MB; `just find usenet_alt`.
 - Ordering a Usenet fetch by in-window share about doubles EE per GB; `scripts/sources/usenet/fetch_usenet_hierarchies.sh` orders largest first within a hierarchy instead.
 - The first 200 KB does not date an mbox archive, which runs in donation batches: first `Date:` 2013 at 0% in window, 2008 at 85% (`scripts/sources/usenet/fetch_usenet_hierarchies.sh`).
