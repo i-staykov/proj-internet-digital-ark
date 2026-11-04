@@ -29,9 +29,6 @@ set -uo pipefail
 cd "${1:-$(dirname "$0")}"
 
 fail=0
-# The labelled verdicts a full archive prints. Packaging refuses a README that names
-# another count, and tests/test_orq.py counts the labels in this file against it.
-VERDICTS=16
 say() { printf '%-46s %s\n' "$1" "$2"; }
 
 # --- 1. file integrity -------------------------------------------------------
@@ -221,7 +218,7 @@ fi
 
 # --- the extended years: additions none of his 2002 to 2013 files holds ----------
 # With HIS, each of his year files must hash to the sha256 manifest.json records and share no
-# line with our additions for that year; without it, only our side is checked.
+# line with our additions for that year; without it, only our side is checked. All streamed.
 python3 - <<'PY' || fail=1
 import csv
 import hashlib
@@ -229,7 +226,18 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
+
+
+def sha256(path, each=lambda chunk: None):
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 22):
+            digest.update(chunk)
+            each(chunk)
+    return digest.hexdigest()
+
 
 root = Path("extended_years")
 if not (root / "manifest.json").is_file():
@@ -237,11 +245,13 @@ if not (root / "manifest.json").is_file():
     sys.exit(0)
 his_dir = os.environ.get("HIS")
 env = {**os.environ, "LC_ALL": "C"}
+tmp = os.environ.get("TMPDIR") or ".."  # where sort spills: beside the archive, not a RAM /tmp
 manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-ledger = {}
+rows, hosts = Counter(), defaultdict(hashlib.sha256)  # a year's ledger rows, sha256 of its hosts
 with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
     for row in csv.DictReader(fh):
-        ledger.setdefault(row["year"], []).append(row["host"])
+        rows[row["year"]] += 1
+        hosts[row["year"]].update(f"{row['host']}\n".encode())
 problems, shipped = [], 0
 for year, entry in sorted(manifest["years"].items()):
     adds = root / f"{year}.txt"
@@ -251,29 +261,30 @@ for year, entry in sorted(manifest["years"].items()):
         continue
     if subprocess.run(["sort", "-c", "-u", str(adds)], env=env, capture_output=True).returncode:
         problems.append(f"{adds} is not sorted and unique")
-    names = adds.read_text(encoding="utf-8").splitlines()
-    if names != ledger.get(year, []) or len(names) != entry["accepted_new"]:
+    if sha256(adds) != hosts[year].hexdigest() or rows[year] != entry["accepted_new"]:
         problems.append(f"{adds}, its ledger rows and the manifest disagree")
-    shipped += len(names)
+    shipped += rows[year]
     if not his_dir:
         continue
     his = Path(his_dir) / f"{year}.txt"
     if not his.is_file():
         problems.append(f"{his} is missing")
         continue
-    ours = {n.encode() for n in names}
-    digest, repeats, carry = hashlib.sha256(), set(), b""
-    with his.open("rb") as fh:
-        while chunk := fh.read(1 << 22):
-            digest.update(chunk)
-            lines = (carry + chunk).replace(b"\r", b"").split(b"\n")
-            carry = lines.pop()
-            repeats |= ours.intersection(lines)
-    repeats |= ours.intersection([carry])
-    if digest.hexdigest() != entry["baseline_sha256"]:
+    sh = 'sort -u -S 256M -T "$1" | comm -12 - "$2" | wc -l'
+    run = ["bash", "-o", "pipefail", "-c", sh, "_", tmp, str(adds)]
+    run = subprocess.Popen(run, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=env)
+    # The read that hashes his file feeds its lines, CRs dropped, to the sort.
+    try:  # a sort that quits early is the FAIL below, not a traceback
+        digest = sha256(his, lambda chunk: run.stdin.write(chunk.replace(b"\r", b"")))
+    except BrokenPipeError:
+        digest = None
+    repeats = int(run.communicate()[0] or 0)
+    if run.returncode or digest is None:
+        problems.append(f"{his} could not be compared with {adds}")
+    if digest not in (None, entry["baseline_sha256"]):
         problems.append(f"{his} is not the file manifest.json names")
     if repeats:
-        problems.append(f"{adds} repeats {len(repeats)} lines of {his}")
+        problems.append(f"{adds} repeats {repeats} lines of {his}")
 if problems:
     print(f"{'extended years':<46} FAIL  {'; '.join(problems[:5])}")
     sys.exit(1)
@@ -549,7 +560,8 @@ if report is None or not figures.is_file():
     print(f"{'report figures':<46} SKIP  no report.md or audit/report_figures.json")
     sys.exit(0)
 text = report.read_text(encoding="utf-8")
-missing = [k for k, v in json.loads(figures.read_text(encoding="utf-8")).items() if v not in text]
+# ROUND is the packaging host's label, not a figure; the report takes the project's.
+missing = [k for k, v in json.loads(figures.read_text(encoding="utf-8")).items() if k != "ROUND" and v not in text]
 if missing:
     print(f"{'report figures':<46} FAIL  {report} lacks {', '.join(missing)}")
     sys.exit(1)

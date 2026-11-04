@@ -413,8 +413,12 @@ def export(globs: dict[str, str], out: Path) -> dict:
 INPUTS_MOVED = "an input was added, changed or removed since the export"
 
 
-def stale(out: Path) -> list[str]:
-    """Why `out` no longer describes the release and the inputs it was written from."""
+def stale(out: Path, allow_added: bool = False) -> list[str]:
+    """Why `out` no longer describes the release and the inputs it was written from.
+
+    An input added since is a reason for the bank to export again and none for the packager
+    to refuse: the export describes its own inputs exactly, and the new part ships next round.
+    """
     path = out / "manifest.json"
     if not path.is_file():
         # Nothing to export and nothing written is current: the GATE lines price no addition.
@@ -425,9 +429,10 @@ def stale(out: Path) -> list[str]:
         problems.append(f"written against {manifest['baseline']}, not {CURRENT_BASELINE_MARKER}")
     if any(int(year) not in EXTENDED_YEARS for year in manifest.get("years", {})):
         problems.append("holds a year outside 2002 to 2013")
-    recorded = [(i["path"], i["size"], i["mtime_ns"]) for i in manifest["inputs"]]
-    now = [(rel(p), *stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])]
-    if recorded != now:
+    recorded = {i["path"]: (i["size"], i["mtime_ns"]) for i in manifest["inputs"]}
+    now = {rel(p): tuple(stat_of(p).values()) for _, p in resolve_inputs(manifest["globs"])}
+    moved = any(now.get(path) != facts for path, facts in recorded.items())
+    if moved or (not allow_added and now.keys() != recorded.keys()):
         problems.append(INPUTS_MOVED)
     ledger = out / "evidence_ledger.csv"
     if ledger.is_file():
@@ -442,9 +447,12 @@ def main() -> None:
     ap.add_argument("--in", dest="given", action="append", default=[], metavar="SOURCE=GLOB")
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--check", action="store_true", help="exit 1 if the output is stale")
+    ap.add_argument(
+        "--allow-added", action="store_true", help="with --check: an input added since is current"
+    )
     args = ap.parse_args()
     if args.check:
-        problems = stale(args.out)
+        problems = stale(args.out, allow_added=args.allow_added)
         for problem in problems:
             print(f"  {problem}")
         if problems:

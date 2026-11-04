@@ -215,9 +215,11 @@ def build(full: bool = False) -> tuple[str, dict]:
     # Producers run after the store connection is closed, because under --full they open it
     # themselves and DuckDB allows many readers only when no writer is waiting.
     problem = export_problem()
+    # His calculator over a hundred million additions takes twenty minutes; a timeout under that
+    # writes the state without its gate lines and fails the ship.
     figures = problem or run(
         ["uv", "run", "python", "scripts/round/round_figures.py", *(["--full"] if full else [])],
-        timeout=900,
+        timeout=3600,
     )
     as_of = None if problem else export_as_of()
     if as_of:
