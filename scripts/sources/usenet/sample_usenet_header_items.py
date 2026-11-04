@@ -1,14 +1,15 @@
 """Seeded header-lane sample of the usenet-* items on archive.org the lane has not read, by bucket.
 
-The group catalogue (`data/raw/usenet_catalog.json`) lists the big hierarchies only; archive.org
-holds 26,352 usenet-* items. This lists them all through the scrape API, keeps an item when a
+The group catalogue (`data/raw/usenet_catalog.json`) lists the big hierarchies only. This lists
+every usenet-* item on archive.org through the scrape API, keeps an item when a
 bucket names its top-level hierarchy and no group in `seen` (a JSON list of group names already
 read) is it or under it, and per bucket reads about 0.4 GB of groups of 1 to 300 MB, at most
 three per item, from items in seeded random order. One download at a time, `/` kept 70 GiB free,
 each zip extracted by `build_usenet_header_pool.py` and deleted, a 429 ends the run. Each
 bucket's journals are then written as {host, year} items through the ingest's own reader, a
 `text` holding several names included, for `just price --items <workdir>/<bucket>.items.jsonl
---track candidate`. `log.tsv` keeps bytes and download and extract seconds per group.
+--track candidate`. `log.tsv` keeps bytes (or the build's failing code) and download and
+extract seconds per group.
 
     uv run python scripts/sources/usenet/sample_usenet_header_items.py WORKDIR SEEN.json \\
         us=ba,nyc,tx vendor=gnu,perl
@@ -109,16 +110,17 @@ def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
                             return
                         continue
                     out = work / "out" / bucket / f["name"].removesuffix(".mbox.zip")
-                    subprocess.run(
+                    built = subprocess.run(
                         ["nice", sys.executable, BUILD, pool, out, "1"], capture_output=True
-                    )
+                    ).returncode
                     zip_path.unlink()
-                    budget -= size
+                    if not built:  # a failed extract is logged, not charged
+                        budget -= size
                     print(
                         bucket,
                         item,
                         f["name"],
-                        size,
+                        size if not built else f"build {built}",
                         round(t1 - t0, 1),
                         round(time.time() - t1, 1),
                         sep="\t",
