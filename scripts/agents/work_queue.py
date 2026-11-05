@@ -12,6 +12,7 @@ run; the file is replaced whole, never written in place.
     python3 scripts/agents/work_queue.py start ID                one more attempt, printed
     python3 scripts/agents/work_queue.py note ID TEXT | session ID SID
     python3 scripts/agents/work_queue.py done ID | park ID REASON | list
+    python3 scripts/agents/work_queue.py queue-umbrella N [--body-file F]   the next open issue of N
 
 Standard library only; `ARK_AGENT_QUEUE` moves the file, for the tests.
 """
@@ -23,6 +24,7 @@ import datetime as dt
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -105,6 +107,61 @@ def add(a) -> None:
     print(item_id)
 
 
+def umbrella_issues(number: str, body_file: str | None) -> list[str]:
+    """The issue numbers an umbrella's numbered list names, in its order."""
+    if body_file:
+        body = open(body_file, encoding="utf-8").read()
+    else:
+        out = subprocess.run(
+            ["gh", "issue", "view", number, "--json", "body", "--jq", ".body"],
+            capture_output=True,
+            text=True,
+        )
+        body = out.stdout if out.returncode == 0 else ""
+    seen: list[str] = []
+    for line in body.splitlines():
+        m = re.match(r"\s*\d+\.\s+#(\d+)", line)
+        if m and m.group(1) not in seen:
+            seen.append(m.group(1))
+    return seen
+
+
+def issue_open(number: str) -> bool:
+    out = subprocess.run(
+        ["gh", "issue", "view", number, "--json", "state", "--jq", ".state"],
+        capture_output=True,
+        text=True,
+    )
+    return out.returncode == 0 and out.stdout.strip() == "OPEN"
+
+
+def queue_umbrella(number: str, body_file: str | None, is_open=issue_open) -> str | None:
+    """Queue the umbrella's first open issue no item names yet; its id, or None."""
+    items = load()
+    named = {re.sub(r"\D", "", i["id"].rsplit("-", 1)[-1]) for i in items if i["kind"] == "issue"}
+    for n in umbrella_issues(number, body_file):
+        if n in named or not is_open(n):
+            continue
+        items.append(
+            {
+                "id": f"issue-{n}",
+                "kind": "issue",
+                "priority": PRIORITY["issue"],
+                "title": f"issue #{n} of #{number}",
+                "evidence": f"gh issue view {n}",
+                "note": "",
+                "session": "",
+                "attempts": 0,
+                "state": "open",
+                "created": now(),
+                "updated": now(),
+            }
+        )
+        save(items)
+        return f"issue-{n}"
+    return None
+
+
 def top(items: list[dict]) -> dict | None:
     open_items = [i for i in items if i.get("state") == "open"]
     return (
@@ -136,7 +193,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("id")
     p.add_argument("reason")
     sub.add_parser("list")
+    p = sub.add_parser("queue-umbrella")
+    p.add_argument("number")
+    p.add_argument("--body-file")
     a = ap.parse_args(argv)
+    if a.cmd == "queue-umbrella":
+        queued = queue_umbrella(a.number, a.body_file)
+        print(queued or "")
+        return 0 if queued else 1
     if a.cmd == "add":
         add(a)
         return 0
