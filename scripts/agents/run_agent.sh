@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # One run of the resident agent: `ark-agent.timer` calls it at :38 every hour as `auto`,
 # `just agent <mode>` runs one by hand. Each run is a fresh `claude -p` on the mode's prompt
-# (`agent/prompts/<mode>.md`) inside the mode's caps (`agent/policy.json`), and ends as one
+# (`agent/prompts/common.md` then `<mode>.md`) inside the mode's caps (`agent/policy.json`), and ends as one
 # row of `data/logs/agent_runs.tsv` whatever happened, so the heartbeat reads the ledger and
 # never the stream.
 #
@@ -12,6 +12,9 @@
 # no tools proves the token answers and reads the account's windows, which the row carries and
 # `pacer.py` judges: at the five-hour stop, over the seven-day pace line or inside a back-off
 # the run ends as a `paced` row, no model call.
+# A work run takes the queue's top item (`work_queue.py`), one attempt; parked after three. A
+# run that hit its cap keeps its session on the item, and the next work run resumes it once,
+# then starts fresh from the item's note.
 # A failed step is a row with its reason, not a silent hour. The token is in the environment
 # of every child the run spawns, so the rails (#521) refuse printing it, and the streams stay
 # under data/, unshipped.
@@ -66,6 +69,17 @@ export GIT_AUTHOR_NAME=ark-agent GIT_COMMITTER_NAME=ark-agent
 export GIT_AUTHOR_EMAIL=ark-agent@invalid GIT_COMMITTER_EMAIL=ark-agent@invalid
 
 [ -f "agent/prompts/$MODE.md" ] || { row no-prompt; exit 2; }
+RESUME=""; ITEM=""
+if [ "$MODE" = work ]; then
+    ITEM=$(python3 scripts/agents/work_queue.py top --field id 2>/dev/null) || { row no-item; exit 0; }
+    ATTEMPTS=$(python3 scripts/agents/work_queue.py start "$ITEM")
+    if [ "$ATTEMPTS" -gt 3 ]; then
+        python3 scripts/agents/work_queue.py park "$ITEM" "parked after three attempts" > /dev/null
+        row "parked:$ITEM"; exit 0
+    fi
+    SESSION=$(python3 scripts/agents/work_queue.py top --field session)
+    [ -z "$SESSION" ] || RESUME="--resume $SESSION"
+fi
 VARS=$(python3 - "$POLICY" "$MODE" <<'PY'
 import json, shlex, sys
 p = json.load(open(sys.argv[1])); m = p["modes"][sys.argv[2]]
@@ -97,7 +111,7 @@ fi
 pace
 
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
-bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode auto \
+bound 60 "$WALL" claude -p "$(cat agent/prompts/common.md "agent/prompts/$MODE.md")" $RESUME --permission-mode auto \
     --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$BUDGET" \
     --disallowedTools "$DISALLOWED" --output-format stream-json --verbose \
     > "$STREAM" 2> "$STREAM.err" 9>&-
@@ -107,6 +121,16 @@ RC=$?
 OUT=$(python3 scripts/agents/agent_ledger.py subtype "$STREAM")
 case "$RC" in 124 | 137) OUT=timeout ;; *) [ "$OUT" != none ] || OUT="failed:$RC" ;; esac
 if BACK=$(python3 scripts/agents/pacer.py backoff "$STREAM") && [ -n "$BACK" ]; then OUT="rate-limited:$BACK"; fi
+# The session: kept once after a cap, cleared after its one resume.
+if [ -n "$ITEM" ]; then
+    if [ -n "$RESUME" ]; then
+        python3 scripts/agents/work_queue.py session "$ITEM" ""
+    else
+        case "$OUT" in error_max_turns* | error_max_budget* | timeout*)
+            python3 scripts/agents/work_queue.py session "$ITEM" "$(python3 scripts/agents/agent_ledger.py session "$STREAM")" ;;
+        esac
+    fi
+fi
 row "$OUT" "$STREAM" "$PRE"
 # The streams are a noticeboard: the ledger is the record.
 ls -t "$LOG_DIR" | tail -n +601 | sed "s|^|$LOG_DIR/|" | xargs -r rm -f
