@@ -77,15 +77,24 @@ PY
 eval "$VARS"
 
 PRE="$LOG_DIR/$STAMP.preflight.jsonl"
+# A back-off is read before any call; the windows after the pre-flight.
+pace() {
+    WHY=$(python3 scripts/agents/pacer.py check "$PRE" --mode "$MODE")
+    local rc=$?
+    [ "$rc" = 0 ] && return 0
+    [ "$rc" = 3 ] || { row pacer-failed "$PRE" "$PRE"; exit 1; }
+    row "paced:$WHY" "$PRE" "$PRE"; exit 0
+}
+pace
 bound 10 120 claude -p "reply with the single word ok" --tools "" --model "$PRE_MODEL" \
     --output-format stream-json --verbose > "$PRE" 2> "$PRE.err" 9>&-
 if ! python3 scripts/agents/agent_ledger.py ok "$PRE"; then
+    if BACK=$(python3 scripts/agents/pacer.py backoff "$PRE") && [ -n "$BACK" ]; then
+        row "rate-limited:$BACK" "$PRE" "$PRE"; exit 0
+    fi
     row "preflight-failed:$(tail -c 120 "$PRE.err" | tr '\n\t' '  ')" "$PRE" "$PRE"; exit 1
 fi
-if WHY=$(python3 scripts/agents/pacer.py check "$PRE"); then :; else
-    [ $? = 3 ] || WHY="pacer failed"
-    row "paced:$WHY" "$PRE" "$PRE"; exit 0
-fi
+pace
 
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
 bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode auto \
@@ -93,10 +102,11 @@ bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode a
     --disallowedTools "$DISALLOWED" --output-format stream-json --verbose \
     > "$STREAM" 2> "$STREAM.err" 9>&-
 RC=$?
-# The result's subtype names a cap that ended the run; the exit code alone would not.
+# The result's subtype names a cap that ended the run; the exit code alone would not; a
+# refusal for the limit outranks both.
 OUT=$(python3 scripts/agents/agent_ledger.py subtype "$STREAM")
-if BACK=$(python3 scripts/agents/pacer.py backoff "$STREAM") && [ -n "$BACK" ]; then OUT="rate-limited:$BACK"; fi
 case "$RC" in 124 | 137) OUT=timeout ;; *) [ "$OUT" != none ] || OUT="failed:$RC" ;; esac
+if BACK=$(python3 scripts/agents/pacer.py backoff "$STREAM") && [ -n "$BACK" ]; then OUT="rate-limited:$BACK"; fi
 row "$OUT" "$STREAM" "$PRE"
 # The streams are a noticeboard: the ledger is the record.
 ls -t "$LOG_DIR" | tail -n +601 | sed "s|^|$LOG_DIR/|" | xargs -r rm -f

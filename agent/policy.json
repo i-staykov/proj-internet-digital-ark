@@ -1,12 +1,12 @@
 {
-  "version": 2,
+  "version": 1,
   "preflight_model": "claude-haiku-4-5-20251001",
   "disallowed_tools": "ScheduleWakeup,Monitor,CronCreate,CronDelete,RemoteTrigger,PushNotification,Workflow,SendMessage",
   "pacing": {"five_hour_stop": 40, "seven_day_ceiling": 50, "pace_days": 7},
   "modes": {
     "triage": {"model": "claude-sonnet-5", "max_turns": 25, "max_budget_usd": 2.0, "max_tokens": 200000, "timeout_seconds": 900},
-    "work": {"model": "claude-opus-5-5", "max_turns": 150, "max_budget_usd": 15.0, "max_tokens": 2000000, "timeout_seconds": 10800},
+    "work": {"model": "claude-opus-5-5", "five_hour_stop": 25, "max_turns": 150, "max_budget_usd": 15.0, "max_tokens": 2000000, "timeout_seconds": 10800},
     "review": {"model": "claude-sonnet-5", "max_turns": 40, "max_budget_usd": 4.0, "max_tokens": 400000, "timeout_seconds": 1800},
-    "hunt": {"model": "claude-opus-5-5", "max_turns": 100, "max_budget_usd": 10.0, "max_tokens": 1500000, "timeout_seconds": 7200}
+    "hunt": {"model": "claude-opus-5-5", "five_hour_stop": 25, "max_turns": 100, "max_budget_usd": 10.0, "max_tokens": 1500000, "timeout_seconds": 7200}
   }
 }
