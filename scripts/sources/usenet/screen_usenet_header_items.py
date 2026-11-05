@@ -4,7 +4,7 @@ For each named top: its two largest unread items, the three largest `.mbox.zip` 
 hold, at most 30 MB, extracted by `build_usenet_header_pool.py` into WORKDIR (outside the bank)
 and written as {host, year} items for `just price --items WORKDIR/<top>.items.jsonl --track
 candidate`. `log.tsv` keeps bytes, seconds, posts, posts dated 1996 to 2001 and those with a
-host. A 429 ends the run; any other failed listing skips its item.
+host, or the extractor's failing code. A 429 ends the run; any other failed listing skips its item.
 
     uv run python scripts/sources/usenet/screen_usenet_header_items.py WORKDIR SEEN.json \\
         creative,opera,ucb
@@ -73,15 +73,12 @@ def main(work: Path, seen: Path, tops: list[str]) -> None:
             st = totals[-1] if totals else {}
             for z in pool.glob("*.zip"):
                 z.unlink()
+            secs = round(time.time() - t0)
+            if r.returncode:  # a failed extract is logged and its top left unpriced
+                print(top, got, secs, f"build {r.returncode}", sep="\t", file=log, flush=True)
+                continue
             write_items(sorted(out.glob("*.jsonl.gz")), work / f"{top}.items.jsonl")
-            row = (
-                top,
-                got,
-                round(time.time() - t0),
-                st.get("posts"),
-                st.get("in_window"),
-                st.get("with_hosts"),
-            )
+            row = (top, got, secs, st.get("posts"), st.get("in_window"), st.get("with_hosts"))
             print(*row, sep="\t", file=log, flush=True)
 
 
