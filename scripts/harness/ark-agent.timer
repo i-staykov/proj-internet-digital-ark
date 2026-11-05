@@ -1,0 +1,7 @@
+[Unit]
+Description=The ark's agent at 38 past every hour: inside the merge window, after the tick
+[Timer]
+OnCalendar=*-*-* *:38:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target
