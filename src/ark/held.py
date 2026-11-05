@@ -68,11 +68,13 @@ def his_dir() -> Path:
 # **Every line of a file of his, as every diff reads it.** No dialect sniffing, which refuses a
 # file whose line endings are mixed, and no quote, escape or comment character, so no line of
 # his is ever parsed away; a carriage return is dropped from the name, and a blank line reads
-# as NULL, which matches nothing.
+# as NULL, which matches nothing. A line of any length is read whole: merge261104's ISC file
+# carries 1,011 lines over 2,000 bytes, one of 8.8 MB, and the default 2 MB cap refused the file.
 def _read(source: str) -> str:
     return (
         f"read_csv({source}, header=false, delim='\x01', quote='', escape='', auto_detect=false, "
-        "strict_mode=false, new_line='\\n', columns={'column0': 'VARCHAR'})"
+        "strict_mode=false, new_line='\\n', max_line_size=67108864, "
+        "columns={'column0': 'VARCHAR'})"
     )
 
 
