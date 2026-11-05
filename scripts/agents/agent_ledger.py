@@ -5,7 +5,9 @@ is kept beside it only as a noticeboard. A row carries the stamp, the mode, the 
 turns, the tokens in (prompt, cache writes and cache reads) and out, the estimated cost, the
 account's five-hour and seven-day window percent, the seconds and the outcome. The windows
 come from the stream's `rate_limit_event` lines, merged per window so the row carries the
-latest reading of each, by default from the pre-flight stream, which is fresh. A run killed
+latest reading of each: the pre-flight stream's, then the run's own. A run past the mode's
+`--max-tokens` cap gets `:over-cap` on its outcome, since no `claude -p` flag caps tokens. A
+run killed
 mid-write can end a stream inside a character; one bad line never loses the rest.
 
     python3 scripts/agents/agent_ledger.py row LEDGER --stamp S --mode M --model X \\
@@ -104,7 +106,8 @@ def usage(path: str | None) -> tuple[int, int, int, float]:
 
 def row(a) -> None:
     turns, tin, tout, cost = usage(a.stream)
-    raw = windows(a.windows or a.stream)
+    raw = windows(a.windows) | windows(a.stream)  # the run's own later readings win
+    outcome = a.outcome + (":over-cap" if a.max_tokens and tin + tout > a.max_tokens else "")
     values = (
         a.stamp,
         a.mode,
@@ -116,7 +119,7 @@ def row(a) -> None:
         pct(raw, "five_hour"),
         pct(raw, "seven_day"),
         a.seconds,
-        a.outcome,
+        outcome,
     )
     path = Path(a.ledger)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -146,6 +149,9 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--seconds", type=int, required=True)
     r.add_argument("--stream")
     r.add_argument("--windows")
+    r.add_argument(
+        "--max-tokens", type=int, default=0, help="the mode's cap; over it, the outcome says so"
+    )
     sub.add_parser("ok").add_argument("stream")
     sub.add_parser("subtype").add_argument("stream")
     sub.add_parser("last").add_argument("ledger")

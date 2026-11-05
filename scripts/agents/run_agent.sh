@@ -10,7 +10,9 @@
 # credential the run inherits (every other ANTHROPIC_* and CLAUDE_* variable is dropped, and
 # `billing_guard.py` refuses a settings file that could bill another); a pre-flight call with
 # no tools proves the token answers and reads the account's windows, which the row carries.
-# A failed step is a row with its reason, not a silent hour.
+# A failed step is a row with its reason, not a silent hour. The token is in the environment
+# of every child the run spawns, so the rails (#521) refuse printing it, and the streams stay
+# under data/, unshipped.
 #
 # Usage: bash scripts/agents/run_agent.sh [auto|triage|work|review|hunt]
 set -uo pipefail
@@ -27,16 +29,21 @@ mkdir -p "$LOG_DIR" "$(dirname "$LEDGER")"
 MODEL=$(python3 -c "import json,sys; print(json.load(open('$POLICY'))['modes'][sys.argv[1]]['model'])" "$MODE" 2>/dev/null) \
     || { echo "run_agent: $POLICY has no mode $MODE" >&2; exit 2; }
 
+MAXTOK=0
 row() {  # row OUTCOME [STREAM] [WINDOWS]
     python3 scripts/agents/agent_ledger.py row "$LEDGER" --stamp "$STAMP" --mode "$MODE" \
-        --model "$MODEL" --seconds $(( $(date +%s) - T0 )) --outcome "$1" \
+        --model "$MODEL" --seconds $(( $(date +%s) - T0 )) --outcome "$1" --max-tokens "$MAXTOK" \
         ${2:+--stream "$2"} ${3:+--windows "$3"}
 }
 
+# A ceiling is a ceiling: TERM, then KILL $1 s later; macOS has no `timeout` and runs no agent.
+bound() { if command -v timeout > /dev/null; then timeout -k "$1" "$2" "${@:3}"; else "${@:3}"; fi; }
+
 if bash scripts/harness/hold.sh holds ark-sync.timer; then row held; exit 0; fi
 
+# Descriptor 9 is the lock; both claude runs close it (9>&-) so no child keeps it past the run.
 exec 9> "$LOG_DIR/.lock"
-if ! flock -n 9; then row busy; exit 0; fi
+if command -v flock > /dev/null && ! flock -n 9; then row busy; exit 0; fi  # no flock on macOS, where no agent runs
 
 # The token, and nothing else that Claude Code reads a credential or a provider from.
 OAUTH="${CLAUDE_CODE_OAUTH_TOKEN:-}"
@@ -56,29 +63,33 @@ command -v claude > /dev/null || { row no-claude; exit 1; }
 export GIT_AUTHOR_NAME=ark-agent GIT_COMMITTER_NAME=ark-agent
 export GIT_AUTHOR_EMAIL=ark-agent@invalid GIT_COMMITTER_EMAIL=ark-agent@invalid
 
-eval "$(python3 - "$POLICY" "$MODE" <<'PY'
+[ -f "agent/prompts/$MODE.md" ] || { row no-prompt; exit 2; }
+VARS=$(python3 - "$POLICY" "$MODE" <<'PY'
 import json, shlex, sys
 p = json.load(open(sys.argv[1])); m = p["modes"][sys.argv[2]]
 print(f"PRE_MODEL={shlex.quote(p['preflight_model'])}")
 print(f"TURNS={int(m['max_turns'])} BUDGET={float(m['max_budget_usd'])} WALL={int(m['timeout_seconds'])}")
-print(f"DISALLOWED={shlex.quote(p['disallowed_tools'])}")
+print(f"MAXTOK={int(m['max_tokens'])} DISALLOWED={shlex.quote(p['disallowed_tools'])}")
 PY
-)"
+) || { row bad-policy; exit 2; }
+eval "$VARS"
 
 PRE="$LOG_DIR/$STAMP.preflight.jsonl"
-timeout -k 10 120 claude -p "reply with the single word ok" --tools "" --model "$PRE_MODEL" \
-    --output-format stream-json --verbose > "$PRE" 2> "$PRE.err"
+bound 10 120 claude -p "reply with the single word ok" --tools "" --model "$PRE_MODEL" \
+    --output-format stream-json --verbose > "$PRE" 2> "$PRE.err" 9>&-
 if ! python3 scripts/agents/agent_ledger.py ok "$PRE"; then
     row "preflight-failed:$(tail -c 120 "$PRE.err" | tr '\n\t' '  ')" "$PRE" "$PRE"; exit 1
 fi
 
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
-timeout -k 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode auto \
+bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode auto \
     --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$BUDGET" \
     --disallowedTools "$DISALLOWED" --output-format stream-json --verbose \
-    > "$STREAM" 2> "$STREAM.err"
+    > "$STREAM" 2> "$STREAM.err" 9>&-
 RC=$?
-case "$RC" in 0) OUT=$(python3 scripts/agents/agent_ledger.py subtype "$STREAM") ;; 124 | 137) OUT=timeout ;; *) OUT="failed:$RC" ;; esac
+# The result's subtype names a cap that ended the run; the exit code alone would not.
+OUT=$(python3 scripts/agents/agent_ledger.py subtype "$STREAM")
+case "$RC" in 124 | 137) OUT=timeout ;; *) [ "$OUT" != none ] || OUT="failed:$RC" ;; esac
 row "$OUT" "$STREAM" "$PRE"
 # The streams are a noticeboard: the ledger is the record.
 ls -t "$LOG_DIR" | tail -n +601 | sed "s|^|$LOG_DIR/|" | xargs -r rm -f

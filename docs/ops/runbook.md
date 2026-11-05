@@ -81,10 +81,8 @@ pushes `live` and the snapshot, and writes each lead's fate to the fleet. A red 
 and the red says so. Every tick then prints `BANK RED`. Read the red, run the lock block's export
 and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
 
-**The agent** (`ark-agent.timer` at :38, `scripts/agents/run_agent.sh`; `just agent <mode>` by hand) runs one
-`claude -p` on `agent/prompts/<mode>.md` inside `agent/policy.json`'s caps, on the token in
-`~/.config/ark/agent.env` alone, after the billing guard and a pre-flight call; every run is one row of
-`data/logs/agent_runs.tsv`, and the tick's hold holds it (`held` rows).
+**The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
+`scripts/agents/run_agent.sh`, whose header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
 `scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the

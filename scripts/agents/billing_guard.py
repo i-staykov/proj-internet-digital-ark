@@ -6,7 +6,8 @@ Claude Code applies `apiKeyHelper` and the `env` block of its settings files aft
 starts, so dropping variables before `claude` cannot remove what they set. This reads every
 settings file a run's `claude` loads: the user's, including `.claude/.config.json`, each
 working directory's, and the managed `managed-settings.json` with every `managed-settings.d/*.json`
-beside it. A file carrying `apiKeyHelper`, or an `env` key naming an API key, a provider
+beside it. A file carrying `apiKeyHelper` or a stored `primaryApiKey`, or an `env` key naming
+an API key, a provider
 switch or a cloud credential, fails. So does a file or drop-in folder that exists and cannot
 be read: what the guard cannot read cannot be vouched for. A missing file is fine.
 `--managed` points the managed read at another folder or file, for tests only.
@@ -80,6 +81,8 @@ def problems(path: str) -> list[str]:
     if not isinstance(data, dict):
         return [f"FAIL {path} is not a JSON object, so it cannot be vouched for"]
     bad = []
+    if "primaryApiKey" in data:
+        bad.append(f"FAIL {path} stores primaryApiKey, a stored key the CLI would bill")
     if HELPER in data:
         bad.append(f"FAIL {path} sets {HELPER}, which answers in place of the OAuth token")
     env = data.get("env")
