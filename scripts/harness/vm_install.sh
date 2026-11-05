@@ -48,7 +48,7 @@ if gh auth status > /dev/null 2>&1; then
 else
     echo "gh: not logged in; the tick drains nothing and pushes nothing until 'gh auth login'"
 fi
-(cd ~/ark && uv sync -q && mkdir -p data/logs && just walk install)
+(cd ~/ark && uv sync -q && mkdir -p data/logs && just hooks > /dev/null && just walk install)
 
 cp ~/ark/scripts/harness/ark-sync.service ~/ark/scripts/harness/ark-sync.timer \
     ~/ark/scripts/harness/ark-agent.service ~/ark/scripts/harness/ark-agent.timer ~/.config/systemd/user/
@@ -62,6 +62,10 @@ systemctl --user enable --now ark-sync.timer
 [ -f ~/.config/ark/agent.env ] || echo "no agent token: write ~/.config/ark/agent.env (mode 600), the timer waits on it"
 # The agent's profile: its deny list and the rails hook, the login's own Claude settings.
 mkdir -p ~/.claude && cp ~/ark/agent/settings.json ~/.claude/settings.json
+mkdir -p ~/ark-agent
+# The alerts' label, once; the agent's parked items and the triage file under it.
+gh label create vm-alert -R i-staykov/ark-fleet --color D93F0B --description "the VM's agent asks for a reader" > /dev/null 2>&1 || true
+systemctl --user enable --now ark-agent.timer
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
 

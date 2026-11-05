@@ -82,6 +82,12 @@ _RULES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     ("host login", re.compile(r"[A-Za-z0-9._-]+@(?:[0-9]{1,3}\.){3}[0-9]{1,3}"), False),
     # No em or en dash in any file the scan reads: quote a 1999 artifact with a hyphen.
     ("dash", re.compile(r"[\u2013\u2014]"), True),
+    # spelt in two halves, so this file does not match itself
+    (
+        "ai attribution",
+        re.compile(r"Co-Authored-By: Cl" + r"aude|Generated with \[?Cl" + r"aude Code"),
+        True,
+    ),
     # A rule is cited by its words or a pointer, never a decision number.
     ("decision number", re.compile(r"\bC-\d{1,3}\b|ADR-\d+"), True),
 )
