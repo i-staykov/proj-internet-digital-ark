@@ -1,0 +1,17 @@
+[Unit]
+Description=The ark's resident agent: one run
+After=network-online.target
+Wants=network-online.target
+# The token file is the owner's, written once; no file, no run.
+ConditionPathExists=%h/.config/ark/agent.env
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ark
+EnvironmentFile=%h/.config/ark/agent.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/bash %h/ark/scripts/agents/run_agent.sh auto
+# The longest mode's wall clock plus the pre-flight; the fleet's leg ceiling for memory.
+TimeoutStartSec=4h
+MemoryMax=3G
+Nice=10
+UMask=0077
