@@ -6,6 +6,7 @@ replaces its row.
 
 | source | date | measured | reason | link |
 |---|---|---|---|---|
+| usenet_regional_english_hierarchies | 2026-11-04 | 191 EE per GB (2026-11-04) | CLOSED. Seeded samples on the candidate track, US metro tops 191 EE per GB (0.45 GB) and Canadian and NZ 81 (0.62 GB), both under the 300 floor (`docs/lore/laws.md`) | <https://archive.org/download/usenet-za/za.politics.mbox.zip> |
 | archivebot-2013-go-item-cdx-capture-hosts / bulk_cdx_file | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. | <https://archive.org/download/archiveteam_archivebot_go_001/archiveteam_archivebot_go_001.cdx.gz> |
 | httparchive-2011-may-rerun-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. Seven unread `httparchive_2011` partitions, 110505, 110506, 110507, 110508, 110510 | <https://archive.org/download/httparchive_2011/110506.zip> <http://www.google.it/> |
 | httparchive-2012-09-wpt-tail-partitions-request-hosts / httparchive_har_entry | 2026-10-25, fleet 20261025T1206Z | not priced | CLOSED. the program measured 0.0 EE against the 5,000 floor | <https://archive.org/download/httparchive_2012_09/120919_0.zip> <https://archive.org/about/terms.php> |
