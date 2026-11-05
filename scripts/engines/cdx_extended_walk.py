@@ -30,8 +30,8 @@ lane for `Retry-After` or a minute, flat, since it is the server's state and a r
 and 15 minutes only after ten in a row with nothing booked between; a refused connection from
 30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
 or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
-only by an answer; and requests start
-`--min-interval` apart, since a burst earns a block of the address.
+only by an answer, this lane's or a sibling's, which shows the address is not blocked; and
+requests start `--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
 refuses to start beside `--max-local` other CDX clients here, and idles while
@@ -44,6 +44,7 @@ rate is always charged with its waits and failures.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import http.client
 import importlib.util
@@ -234,7 +235,7 @@ class Lane:
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
         self.starts = 0
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
-        self.pause_until = self.next_start = 0.0
+        self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
 
     def add_pages(self, sfx: str, n: int) -> None:
@@ -331,11 +332,25 @@ class Lane:
         while not STOP.is_set():
             with self.lock:
                 now = time.time()
-                held = _platform.PAUSE_FLAG.exists() or now < self.pause_until
+                if now < self.refusal_end and self.eased():
+                    self.refusal_end = self.refused = 0
+                held = _platform.PAUSE_FLAG.exists() or now < max(
+                    self.pause_until, self.refusal_end
+                )
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
             time.sleep(1)
+        return False
+
+    def eased(self) -> bool:
+        """Whether a sibling lane answered since this lane's last refusal: the address is not
+        blocked, so the refusal pause and its ladder are this lane's alone and end."""
+        for mark in self.a.state_dir.parent.glob("lane*/answered"):
+            with contextlib.suppress(OSError):  # a sibling may have cleaned up meanwhile
+                if mark.parent != self.a.state_dir and mark.stat().st_mtime > self.refusal_at:
+                    self.log.write(f"# eased: {mark.parent.name} answered\n")
+                    return True
         return False
 
     def count_missing(self, missing: list[str]) -> None:
@@ -409,10 +424,11 @@ class Lane:
         row.append(len(ext))
         return status, complete, rows[0], edge, after, row
 
-    def back_off(self, task: tuple, seconds: float, why: str) -> None:
+    def back_off(self, task: tuple, seconds: float, why: str) -> float:
+        """Requeue the task and return the pause's end, a refusal's kept apart from a throttle's."""
         self.requeue(task, front=False)
-        self.pause_until = max(self.pause_until, time.time() + seconds)
         self.log.write(f"# pause {round(seconds)} s: {why}\n")
+        return time.time() + seconds
 
     def settle(self, task, status, complete, rows, edge, after, row) -> None:
         """Book one answer under the lane lock."""
@@ -432,18 +448,21 @@ class Lane:
                 self.requeue(task, front=True)
             elif status in THROTTLES:
                 self.throttled += 1  # ten, nothing booked between: an address block
-                self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
+                end = self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
+                self.pause_until = max(self.pause_until, end)
             elif status in FAST and self.transient < self.a.max_transient:
                 self.transient += 1
                 self.requeue(task, front=True)
                 self.pause_until = max(self.pause_until, time.time() + 5)
             else:
-                self.refused, self.transient = self.refused + 1, 0
-                self.back_off(task, refusal_pause(self.refused, status), status)
+                self.refused, self.transient, self.refusal_at = self.refused + 1, 0, time.time()
+                end = self.back_off(task, refusal_pause(self.refused, status), status)
+                self.refusal_end = max(self.refusal_end, end)
             return
         self.throttled = 0
-        if status == "200":  # only an answer eases the refusal back-off
+        if status == "200":
             self.refused = self.transient = 0
+            (self.a.state_dir / "answered").touch()
         self.inflight.discard(task)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
