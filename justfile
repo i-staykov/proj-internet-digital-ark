@@ -919,13 +919,15 @@ releases *args:
     uv run python scripts/round/releases.py {{args}}
 
 # take one reviewer release: verify, extract, remeasure, record, publish the snapshot
+[positional-arguments]
 intake *args:
     #!/usr/bin/env bash
     set -euo pipefail
     release() { python3 -c 'import json; print(json.load(open("data/baseline.json"))["current"]["directory"])'; }
     PREV=$(release)
-    uv run python scripts/round/intake.py {{args}}
-    case "{{args}}" in *--dry-run*) exit 0 ;; esac
+    # "$@", not {{args}}: interpolation splits a quoted --received "YYYY-MM-DD HH:MM" in two
+    uv run python scripts/round/intake.py "$@"
+    case "$*" in *--dry-run*) exit 0 ;; esac
     uv run ark intake
     # One release on the bank host: the one replaced goes once the held sets are rebuilt.
     NEW=$(release)
