@@ -23,7 +23,20 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 MODE="${1:-auto}"
-[ "$MODE" = auto ] && MODE=triage  # the clock table comes with the review and the hunt
+# `auto`, the timer's: work when the queue holds an item and the last run was not work (the
+# umbrella's next open issue is queued when it is empty), else triage; the review and the hunt
+# take their hours with their own issues.
+UMBRELLA="${ARK_AGENT_UMBRELLA:-517}"
+if [ "$MODE" = auto ]; then
+    MODE=triage
+    python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
+        || python3 scripts/agents/work_queue.py queue-umbrella "$UMBRELLA" > /dev/null 2>&1 || true
+    if python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
+        && [ "$(python3 scripts/agents/agent_ledger.py last "${ARK_AGENT_LEDGER:-data/logs/agent_runs.tsv}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")" != work ]; then
+        MODE=work
+    fi
+fi
 POLICY=agent/policy.json
 LEDGER="${ARK_AGENT_LEDGER:-data/logs/agent_runs.tsv}"
 LOG_DIR="${ARK_AGENT_LOG_DIR:-data/logs/agent}"

@@ -48,7 +48,7 @@ if gh auth status > /dev/null 2>&1; then
 else
     echo "gh: not logged in; the tick drains nothing and pushes nothing until 'gh auth login'"
 fi
-(cd ~/ark && uv sync -q && mkdir -p data/logs && just walk install)
+(cd ~/ark && uv sync -q && mkdir -p data/logs && just hooks > /dev/null && just walk install)
 
 cp ~/ark/scripts/harness/ark-sync.service ~/ark/scripts/harness/ark-sync.timer \
     ~/ark/scripts/harness/ark-agent.service ~/ark/scripts/harness/ark-agent.timer ~/.config/systemd/user/
