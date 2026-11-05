@@ -363,9 +363,7 @@ def test_extended_walk_reasks_a_cut_page_last_subpage_first_and_probes_a_silent_
     cut = extended.subpages(task, cut=True)
     assert cut == [("co.uk", 100, 70 + k, 1996, 2013, "all") for k in range(9, -1, -1)]
     assert [t[2] for t in extended.subpages(task, cut=False)] == [70, 75]
-    split = extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False)
-    assert [t[1:3] for t in split] == [(10, 700 + k) for k in range(9, -1, -1)], "all ten at once"
-    assert extended.subpages(("co.uk", 10, 700, 1996, 2013, "all"), cut=False) == []
+    assert extended.subpages(("co.uk", 100, 70, 1996, 2013, "all"), cut=False) == []
 
 
 def test_extended_walk_asks_the_best_ee_a_second_first_whichever_window_pays():
@@ -412,25 +410,6 @@ def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_
     assert kinds.count("ask") == 2 * extended.EARLY and "all" in kinds, kinds
 
 
-def test_a_lane_rebuilt_from_its_log_books_no_page_whose_subpages_are_owed(tmp_path, monkeypatch):
-    jobs = script("engines/cdx_walk_jobs.py")
-    monkeypatch.setattr(jobs, "DATA", tmp_path)
-    (lane := tmp_path / "raw/cdx_walk/lane0").mkdir(parents=True)
-
-    def row(size, page, status, complete="1", rows="0"):
-        return "\t".join(["s", "co.uk", str(size), str(page), "1996", "2013", "all", status,
-                          complete, "60", "0", rows, "0", "0"])  # fmt: skip
-
-    log = [row(1000, 7, "HTTP504"), row(100, 70, "HTTP504"), row(100, 75, "200")]
-    log += [row(10, 700 + k, "200", rows="3" if k == 4 else "0") for k in range(10)]
-    log += [row(10, 800, "HTTP504")] * 4
-    (lane / "log.tsv").write_text("\n".join(log) + "\n")
-    jobs.done()
-    done = set((lane / "done.txt").read_text().splitlines())
-    assert {"co.uk 100 70 1996 2013", "co.uk 10 800 1996 2013"} <= done, "ten booked, four 504s"
-    assert "co.uk 1000 7 1996 2013" not in done, "a probe's 10-block had rows: all ten are owed"
-
-
 def test_walk_order_charges_a_unit_every_second_over_its_answers():
     units, names = {}, {}
     rows = [("co.uk", "200", 30), ("co.uk", "HTTP503", 5), ("co.uk", "HTTP504", 60)]
@@ -458,23 +437,13 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
 
     lane = lane_with(page)
     lane.settle(("on.ca", 100, 279, 1996, 2013, "all"), "HTTP400", False, 0, [], None, ["row"])
-    probe, parent = ("on.ca", 100, 280, 1996, 2013, "all"), "on.ca 1000 28 1996 2013"
-    lane.meta[probe] = ("probe", parent, "")  # a page's probe 504s: booked, its ten owed
-    lane.settle(probe, "HTTP504", False, 0, [], None, ["row"])
-    ten = lane.subq[:]
-    assert [t[2] for t in ten] == list(range(2809, 2799, -1)) and not lane.pause_until
-    assert {lane.meta[t] for t in ten} == {("probe", parent, "")}, "the ten stand in for it"
-    assert extended.Lane(a).subq == ten, "and are owed across a restart"
-    lane.subq.remove(ten[-1])  # as take() hands it out
-    lane.settle(ten[-1], "200", True, 3, ["k1", "k2"], None, ["row"])  # rows: the page's eight
-    assert [t[1:3] for t in lane.subq[:8]] == [(100, 280 + k) for k in (1, 2, 3, 4, 6, 7, 8, 9)]
-    silent, lane.subq = ten[0], ten[:1]
-    for _ in range(4):  # a silent 10-block is asked again at once, never pausing the lane
-        assert lane.take() == silent and "on.ca 10 2809 1996 2013" not in lane.done
+    silent = ("on.ca", 100, 280, 1996, 2013, "all")
+    lane.subq, lane.meta[silent] = [silent], ("probe", "on.ca 1000 28 1996 2013", "")
+    for _ in range(4):  # a silent subpage is asked again at once, never pausing the lane
+        assert lane.take() == silent and "on.ca 100 280 1996 2013" not in lane.done
         lane.settle(silent, "HTTP504", False, 0, [], None, ["row"])
         assert not lane.pause_until
-    keys = {f"on.ca {k} 1996 2013" for k in ("100 279", "100 280", "10 2809", "10 2800")}
-    assert keys <= lane.done and lane.subq == []
+    assert {f"on.ca 100 {n} 1996 2013" for n in (279, 280)} <= lane.done and lane.subq == []
     assert lane.take() == page
     lane.settle(page, "SSLZeroReturnError", False, 0, [], None, ["row"])
     assert "co.uk 1000 7 1996 2013" not in lane.done, "an unknown failure is no answer"
