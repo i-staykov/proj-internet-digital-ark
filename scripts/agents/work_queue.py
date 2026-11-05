@@ -3,13 +3,14 @@
 What persists between runs is here, in the repo's docs and in the run ledger; a run's own
 context does not. An item is an alert to fix (priority 1), an issue of the umbrella (2) or an
 improvement the review filed (3), with its evidence and a resume note the run that could not
-finish leaves for the next, which resumes that session once at most. Done items leave the file
-after 30 days, so it stays small enough to read whole at the start of every run.
+finish leaves for the next, which resumes that session once at most. Done and parked items
+leave the file after 30 days, so it stays small enough to read whole at the start of every
+run; the file is replaced whole, never written in place.
 
     python3 scripts/agents/work_queue.py add KIND TITLE [--evidence E] [--priority N] [--id ID]
     python3 scripts/agents/work_queue.py top [--field NAME]      the next open item, as JSON
-    python3 scripts/agents/work_queue.py start ID                one more attempt
-    python3 scripts/agents/work_queue.py note ID TEXT [--session S]
+    python3 scripts/agents/work_queue.py start ID                one more attempt, printed
+    python3 scripts/agents/work_queue.py note ID TEXT | session ID SID
     python3 scripts/agents/work_queue.py done ID | park ID REASON | list
 
 Standard library only; `ARK_AGENT_QUEUE` moves the file, for the tests.
@@ -53,13 +54,19 @@ def save(items: list[dict]) -> None:
     cutoff = (dt.datetime.now(dt.UTC) - dt.timedelta(days=KEEP_DONE_DAYS)).strftime(
         "%Y-%m-%dT%H:%MZ"
     )
-    items = [i for i in items if not (i.get("state") == "done" and i.get("updated", "") < cutoff)]
+    items = [
+        i
+        for i in items
+        if not (i.get("state") in ("done", "parked") and i.get("updated", "") < cutoff)
+    ]
     text = "".join(json.dumps(i, sort_keys=True) + "\n" for i in items)
     while len(text.encode()) > MAX_BYTES and any(i.get("state") == "done" for i in items):
         items.remove(next(i for i in items if i.get("state") == "done"))
         text = "".join(json.dumps(i, sort_keys=True) + "\n" for i in items)
     QUEUE.parent.mkdir(parents=True, exist_ok=True)
-    QUEUE.write_text(text, encoding="utf-8")
+    tmp = QUEUE.with_suffix(".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, QUEUE)
 
 
 def slug(title: str) -> str:
@@ -67,7 +74,7 @@ def slug(title: str) -> str:
 
 
 def find(items: list[dict], item_id: str) -> dict:
-    for i in items:
+    for i in reversed(items):  # a recurring id's newest row
         if i["id"] == item_id:
             return i
     raise SystemExit(f"no item {item_id}")
@@ -121,7 +128,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("note")
     p.add_argument("id")
     p.add_argument("text")
-    p.add_argument("--session", default="")
+    p = sub.add_parser("session")
+    p.add_argument("id")
+    p.add_argument("sid")
     sub.add_parser("done").add_argument("id")
     p = sub.add_parser("park")
     p.add_argument("id")
@@ -145,12 +154,16 @@ def main(argv: list[str] | None = None) -> int:
     item = find(items, a.id)
     if a.cmd == "start":
         item["attempts"] = item.get("attempts", 0) + 1
+        print(item["attempts"])
     elif a.cmd == "note":
-        item["note"], item["session"] = a.text[:2000], a.session
+        item["note"] = a.text[:2000]
+    elif a.cmd == "session":
+        item["session"] = a.sid
     elif a.cmd == "done":
         item["state"] = "done"
     elif a.cmd == "park":
-        item["state"], item["note"] = "parked", a.reason[:2000]
+        item["state"] = "parked"
+        item["note"] = (item.get("note", "") + " | parked: " + a.reason)[-2000:]
     item["updated"] = now()
     save(items)
     return 0
