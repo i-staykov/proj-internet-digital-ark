@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(reboot*)",
+      "Bash(shutdown*)",
+      "Bash(just hold off*)",
+      "Bash(just ship*)",
+      "Bash(just prune*)",
+      "Bash(claude setup-token*)",
+      "Bash(claude login*)",
+      "Bash(printenv*)",
+      "Read(./data/held/**)",
+      "Read(./ding/**)",
+      "Read(./private/**)",
+      "Read(./local.env)",
+      "Read(~/.config/ark/**)",
+      "Edit(./agent/**)",
+      "Edit(./.claude/**)",
+      "Edit(./hooks/**)",
+      "Edit(./.github/**)",
+      "Edit(./AGENTS.md)",
+      "Edit(./src/ark/hygiene.py)",
+      "Edit(./scripts/harness/hold.sh)",
+      "Edit(./scripts/harness/sync_lock.sh)",
+      "Edit(./scripts/agents/rails.py)",
+      "Write(./agent/**)",
+      "Write(./.claude/**)",
+      "Write(./hooks/**)",
+      "Write(./.github/**)",
+      "Write(./AGENTS.md)",
+      "Write(./data/held/**)",
+      "Write(./ding/**)",
+      "Write(./submissions/**)",
+      "Write(./private/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/scripts/agents/rails.py\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
