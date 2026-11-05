@@ -23,7 +23,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 MODE="${1:-auto}"
-[ "$MODE" = auto ] && MODE=triage  # the clock table comes with the review and the hunt
+export ARK_AGENT_QUEUE="${ARK_AGENT_QUEUE:-$PWD/data/queue/agent_work.jsonl}"
+export ARK_AGENT_LEDGER="${ARK_AGENT_LEDGER:-$PWD/data/logs/agent_runs.tsv}"
+export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$PWD/.venv}"
 POLICY=agent/policy.json
 LEDGER="${ARK_AGENT_LEDGER:-data/logs/agent_runs.tsv}"
 LOG_DIR="${ARK_AGENT_LOG_DIR:-data/logs/agent}"
@@ -31,8 +33,11 @@ STAMP=$(date -u +%Y%m%dT%H%MZ)
 T0=$(date +%s)
 mkdir -p "$LOG_DIR" "$(dirname "$LEDGER")"
 
-MODEL=$(python3 -c "import json,sys; print(json.load(open('$POLICY'))['modes'][sys.argv[1]]['model'])" "$MODE" 2>/dev/null) \
-    || { echo "run_agent: $POLICY has no mode $MODE" >&2; exit 2; }
+model_of() { python3 -c "import json,sys; print(json.load(open('$POLICY'))['modes'][sys.argv[1]]['model'])" "$1"; }
+MODEL=auto  # a held or busy row before `auto` picked its mode
+if [ "$MODE" != auto ]; then
+    MODEL=$(model_of "$MODE" 2>/dev/null) || { echo "run_agent: $POLICY has no mode $MODE" >&2; exit 2; }
+fi
 
 MAXTOK=0
 row() {  # row OUTCOME [STREAM] [WINDOWS]
@@ -49,6 +54,22 @@ if bash scripts/harness/hold.sh holds ark-sync.timer; then row held; exit 0; fi
 # Descriptor 9 is the lock; both claude runs close it (9>&-) so no child keeps it past the run.
 exec 9> "$LOG_DIR/.lock"
 if command -v flock > /dev/null && ! flock -n 9; then row busy; exit 0; fi  # no flock on macOS, where no agent runs
+
+# `auto`, the timer's: work when the queue holds an item and the last run was not work (the
+# umbrella's next open issue after its own `ARK_AGENT_UMBRELLA_AFTER` line is queued when it is
+# empty), else triage; the review and the hunt take their hours with their own issues.
+if [ "$MODE" = auto ]; then
+    MODE=triage
+    python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
+        || python3 scripts/agents/work_queue.py queue-umbrella "${ARK_AGENT_UMBRELLA:-517}" \
+            --after "${ARK_AGENT_UMBRELLA_AFTER:-524}" > /dev/null 2>&1 || true
+    if python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
+        && [ "$(python3 scripts/agents/agent_ledger.py last "$ARK_AGENT_LEDGER" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")" != work ]; then
+        MODE=work
+    fi
+    MODEL=$(model_of "$MODE")
+fi
 
 # The token, and nothing else that Claude Code reads a credential or a provider from.
 OAUTH="${CLAUDE_CODE_OAUTH_TOKEN:-}"
@@ -72,14 +93,21 @@ export GIT_AUTHOR_EMAIL=ark-agent@invalid GIT_COMMITTER_EMAIL=ark-agent@invalid
 RESUME=""; ITEM=""
 if [ "$MODE" = work ]; then
     ITEM=$(python3 scripts/agents/work_queue.py top --field id 2>/dev/null) || { row no-item; exit 0; }
-    ATTEMPTS=$(python3 scripts/agents/work_queue.py start "$ITEM")
-    if [ "$ATTEMPTS" -gt 3 ]; then
-        python3 scripts/agents/work_queue.py park "$ITEM" "parked after three attempts" > /dev/null
-        row "parked:$ITEM"; exit 0
-    fi
     SESSION=$(python3 scripts/agents/work_queue.py top --field session)
     [ -z "$SESSION" ] || RESUME="--resume $SESSION"
 fi
+# An item parks on its fourth attempt, with one alert the triage reads; the worktree goes.
+park() {
+    local note
+    note=$(python3 scripts/agents/work_queue.py top --field note)
+    python3 scripts/agents/work_queue.py park "$ITEM" "parked after three attempts" > /dev/null
+    git worktree remove --force "$HOME/ark-agent/$ITEM" > /dev/null 2>&1 || true
+    printf '%s\n' "$note" > "$LOG_DIR/.park_note"
+    if ! uv run python -m ark.hygiene "$LOG_DIR/.park_note" > /dev/null 2>&1; then note="(the note failed the public scan)"; fi
+    gh issue create -R i-staykov/ark-fleet --label vm-alert --title "parked: $ITEM after three attempts" \
+        --body "$note" > /dev/null 2>&1 || true
+    row "parked:$ITEM"; exit 0
+}
 VARS=$(python3 - "$POLICY" "$MODE" <<'PY'
 import json, shlex, sys
 p = json.load(open(sys.argv[1])); m = p["modes"][sys.argv[2]]
@@ -109,6 +137,7 @@ if ! python3 scripts/agents/agent_ledger.py ok "$PRE"; then
     row "preflight-failed:$(tail -c 120 "$PRE.err" | tr '\n\t' '  ')" "$PRE" "$PRE"; exit 1
 fi
 pace
+if [ -n "$ITEM" ] && [ "$(python3 scripts/agents/work_queue.py start "$ITEM")" -gt 3 ]; then park; fi
 
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
 bound 60 "$WALL" claude -p "$(cat agent/prompts/common.md "agent/prompts/$MODE.md")" $RESUME --permission-mode auto \
