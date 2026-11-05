@@ -12,7 +12,7 @@ run; the file is replaced whole, never written in place.
     python3 scripts/agents/work_queue.py start ID                one more attempt, printed
     python3 scripts/agents/work_queue.py note ID TEXT | session ID SID
     python3 scripts/agents/work_queue.py done ID | park ID REASON | list
-    python3 scripts/agents/work_queue.py queue-umbrella N [--body-file F]   the next open issue of N
+    python3 scripts/agents/work_queue.py queue-umbrella N [--after M] [--body-file F]
 
 Standard library only; `ARK_AGENT_QUEUE` moves the file, for the tests.
 """
@@ -135,11 +135,17 @@ def issue_open(number: str) -> bool:
     return out.returncode == 0 and out.stdout.strip() == "OPEN"
 
 
-def queue_umbrella(number: str, body_file: str | None, is_open=issue_open) -> str | None:
-    """Queue the umbrella's first open issue no item names yet; its id, or None."""
+def queue_umbrella(
+    number: str, body_file: str | None, after: str = "", is_open=issue_open
+) -> str | None:
+    """Queue the umbrella's first open issue after its `after` line that no item names yet, parked
+    ones included (a parked issue is the owner's to read, the list goes on); its id, or None."""
     items = load()
     named = {re.sub(r"\D", "", i["id"].rsplit("-", 1)[-1]) for i in items if i["kind"] == "issue"}
-    for n in umbrella_issues(number, body_file):
+    listed = umbrella_issues(number, body_file)
+    if after in listed:
+        listed = listed[listed.index(after) + 1 :]
+    for n in listed:
         if n in named or not is_open(n):
             continue
         items.append(
@@ -196,9 +202,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("queue-umbrella")
     p.add_argument("number")
     p.add_argument("--body-file")
+    p.add_argument("--after", default="")
     a = ap.parse_args(argv)
     if a.cmd == "queue-umbrella":
-        queued = queue_umbrella(a.number, a.body_file)
+        queued = queue_umbrella(a.number, a.body_file, a.after)
         print(queued or "")
         return 0 if queued else 1
     if a.cmd == "add":
