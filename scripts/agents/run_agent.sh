@@ -9,7 +9,9 @@
 # run at a time under a lock; the OAuth token in `~/.config/ark/agent.env` is the only
 # credential the run inherits (every other ANTHROPIC_* and CLAUDE_* variable is dropped, and
 # `billing_guard.py` refuses a settings file that could bill another); a pre-flight call with
-# no tools proves the token answers and reads the account's windows, which the row carries.
+# no tools proves the token answers and reads the account's windows, which the row carries and
+# `pacer.py` judges: at the five-hour stop, over the seven-day pace line or inside a back-off
+# the run ends as a `paced` row, no model call.
 # A failed step is a row with its reason, not a silent hour. The token is in the environment
 # of every child the run spawns, so the rails (#521) refuse printing it, and the streams stay
 # under data/, unshipped.
@@ -80,6 +82,10 @@ bound 10 120 claude -p "reply with the single word ok" --tools "" --model "$PRE_
 if ! python3 scripts/agents/agent_ledger.py ok "$PRE"; then
     row "preflight-failed:$(tail -c 120 "$PRE.err" | tr '\n\t' '  ')" "$PRE" "$PRE"; exit 1
 fi
+if WHY=$(python3 scripts/agents/pacer.py check "$PRE"); then :; else
+    [ $? = 3 ] || WHY="pacer failed"
+    row "paced:$WHY" "$PRE" "$PRE"; exit 0
+fi
 
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
 bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode auto \
@@ -89,6 +95,7 @@ bound 60 "$WALL" claude -p "$(cat "agent/prompts/$MODE.md")" --permission-mode a
 RC=$?
 # The result's subtype names a cap that ended the run; the exit code alone would not.
 OUT=$(python3 scripts/agents/agent_ledger.py subtype "$STREAM")
+if BACK=$(python3 scripts/agents/pacer.py backoff "$STREAM") && [ -n "$BACK" ]; then OUT="rate-limited:$BACK"; fi
 case "$RC" in 124 | 137) OUT=timeout ;; *) [ "$OUT" != none ] || OUT="failed:$RC" ;; esac
 row "$OUT" "$STREAM" "$PRE"
 # The streams are a noticeboard: the ledger is the record.

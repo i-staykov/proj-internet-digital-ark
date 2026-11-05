@@ -16,7 +16,7 @@ RUN = ROOT / "scripts/agents/run_agent.sh"
 RATE = {
     "type": "rate_limit_event",
     "rate_limit_info": {
-        "unifiedWindows": {"five_hour": {"utilization": 0.123}, "seven_day": {"utilization": 0.5}}
+        "unifiedWindows": {"five_hour": {"utilization": 0.123}, "seven_day": {"utilization": 0.2}}
     },
 }
 RESULT = {
@@ -53,7 +53,7 @@ def test_row_reads_turns_tokens_cost_and_the_windows_of_the_preflight(tmp_path):
     subprocess.run([*cmd, "--outcome", "success", "--max-tokens", "100"], check=True)
     assert ledger.read_text().splitlines()[0].split("\t")[:3] == ["stamp", "mode", "model"]
     first, second = rows(ledger)
-    assert first == ["s", "triage", "m", "3", "100", "5", "0.0421", "12.3", "50.0", "7", "success"]
+    assert first == ["s", "triage", "m", "3", "100", "5", "0.0421", "12.3", "20.0", "7", "success"]
     assert second[-1] == "success:over-cap"
     last = json.loads(subprocess.check_output(["python3", LEDGER, "last", ledger]))
     assert (last["turns"], last["five_hour_pct"]) == ("3", "12.3")
@@ -108,7 +108,7 @@ def test_a_fake_claude_yields_a_success_row_with_the_preflight_windows(tmp_path)
     assert out.returncode == 0, out.stderr
     (row,) = rows(ledger)
     assert row[1:3] == ["triage", "claude-sonnet-5"]
-    assert (row[3], row[7], row[8], row[10]) == ("3", "12.3", "50.0", "success")
+    assert (row[3], row[7], row[8], row[10]) == ("3", "12.3", "20.0", "success")
     assert (
         not (tmp_path / "logs" / ".lock").exists() or True
     )  # the lock file stays; the lock is released
