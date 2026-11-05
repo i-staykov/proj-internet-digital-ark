@@ -1237,6 +1237,10 @@ ship stage="all" *args:
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
+# one run of the resident agent by hand: auto (default, the timer's) triage work review hunt
+agent mode="auto":
+    bash scripts/agents/run_agent.sh {{mode}}
+
 # the CDX walk's lanes on the bank host: status (default) install done remove
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}

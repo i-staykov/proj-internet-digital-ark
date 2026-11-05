@@ -11,6 +11,8 @@ root() { echo "REFUSED: sudo asks a password; as root first: $1" >&2; exit 1; }
 command -v uv > /dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -q
 command -v just > /dev/null ||
     curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to ~/.local/bin
+# The agent's Claude CLI, its own binary under ~/.local/bin; no Node.
+command -v claude > /dev/null || curl -fsSL https://claude.ai/install.sh | bash > /dev/null
 if ! command -v gh > /dev/null; then
     v=$(curl -sI https://github.com/cli/cli/releases/latest | sed -n 's#^location:.*/v\([0-9.]*\).*#\1#ip')
     name="gh_${v}_linux_$(dpkg --print-architecture)"
@@ -48,13 +50,18 @@ else
 fi
 (cd ~/ark && uv sync -q && mkdir -p data/logs && just walk install)
 
-cp ~/ark/scripts/harness/ark-sync.service ~/ark/scripts/harness/ark-sync.timer ~/.config/systemd/user/
+cp ~/ark/scripts/harness/ark-sync.service ~/ark/scripts/harness/ark-sync.timer \
+    ~/ark/scripts/harness/ark-agent.service ~/ark/scripts/harness/ark-agent.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
 [ "$(loginctl show-user "$(id -un)" -p Linger --value 2> /dev/null)" = yes ] ||
     loginctl enable-linger 2> /dev/null || sudo -n loginctl enable-linger "$(id -un)" ||
     root "loginctl enable-linger $(id -un)"
 systemctl --user enable --now ark-sync.timer
-systemctl --user list-timers ark-sync.timer --no-pager --no-legend
+# The agent runs once its token file is there: the owner writes ~/.config/ark/agent.env, one line,
+# CLAUDE_CODE_OAUTH_TOKEN=<the token>, mode 600; the unit's condition is that file.
+[ -f ~/.config/ark/agent.env ] || echo "no agent token: write ~/.config/ark/agent.env (mode 600), the timer waits on it"
+systemctl --user enable --now ark-agent.timer
+systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
 
 # The fleet user reads output/fleet_snapshot and output/journal_acks.tsv by path and nothing
 # else of this clone, and new files follow umask 077; `just vm install` then runs ark-fleet's
