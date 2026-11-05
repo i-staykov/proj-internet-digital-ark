@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -40,3 +42,8 @@ jobs:
       # Unit tests only: network is mocked, no archives hit, no legacy data needed.
       - name: Tests (pytest)
         run: uv run pytest
+
+      # An ark-agent commit changes no rail file (AGENTS.md, Git); a session's PR does.
+      - name: Rails
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/agents/rails.py --ci ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}
