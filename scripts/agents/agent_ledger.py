@@ -166,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "subtype":
         print(result(a.stream).get("subtype") or "none")
     elif a.cmd == "session":
-        print(result(a.stream).get("session_id") or "")
+        # a run killed on its wall clock ends with no result event; the first event names it
+        print(next((d["session_id"] for d in events(a.stream) if d.get("session_id")), ""))
     else:
         print(json.dumps(last(a.ledger)))
     return 0

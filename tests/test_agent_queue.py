@@ -31,7 +31,8 @@ def test_top_is_the_highest_priority_then_the_oldest_and_a_note_carries_the_sess
     )
     assert q(tmp_path, "top", "--field", "id")[1] == "alert-red"
     assert q(tmp_path, "start", "alert-red")[0] == 0
-    assert q(tmp_path, "note", "alert-red", "export done, check next", "--session", "s-1")[0] == 0
+    assert q(tmp_path, "note", "alert-red", "export done, check next")[0] == 0
+    assert q(tmp_path, "session", "alert-red", "s-1")[0] == 0
     top = json.loads(q(tmp_path, "top")[1])
     assert (top["attempts"], top["session"], top["note"]) == (1, "s-1", "export done, check next")
     assert q(tmp_path, "done", "alert-red")[0] == 0
@@ -52,8 +53,9 @@ def test_the_file_stays_under_20_kb(tmp_path):
 
 def test_each_prompt_is_short_and_names_the_persistent_files():
     common = (ROOT / "agent/prompts/common.md").read_text()
-    for name in ("agent_work.jsonl", "auto-memory", "agent_runs.tsv", "subagent", "resume"):
+    for name in ("agent_work.jsonl", "auto-memory", "agent_runs.tsv", "subagent"):
         assert name in common, name
+    assert "resume" in (ROOT / "agent/prompts/work.md").read_text()
     for prompt in (ROOT / "agent/prompts").glob("*.md"):
         lines = len(prompt.read_text().splitlines())
         assert lines + len(common.splitlines()) <= 60, prompt.name
