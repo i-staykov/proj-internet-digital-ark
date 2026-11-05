@@ -14,6 +14,7 @@ mid-write can end a stream inside a character; one bad line never loses the rest
         --seconds N --outcome O [--stream RUN.jsonl] [--windows PREFLIGHT.jsonl]
     python3 scripts/agents/agent_ledger.py ok STREAM        exit 0 when its result succeeded
     python3 scripts/agents/agent_ledger.py subtype STREAM   the result's subtype, or none
+    python3 scripts/agents/agent_ledger.py session STREAM   the result's session id, or nothing
     python3 scripts/agents/agent_ledger.py last LEDGER      the last row as JSON
 
 Standard library only: the timer's shell calls it with the system python.
@@ -154,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub.add_parser("ok").add_argument("stream")
     sub.add_parser("subtype").add_argument("stream")
+    sub.add_parser("session").add_argument("stream")
     sub.add_parser("last").add_argument("ledger")
     a = ap.parse_args(argv)
     if a.cmd == "row":
@@ -163,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if res.get("subtype") == "success" and not res.get("is_error") else 1
     elif a.cmd == "subtype":
         print(result(a.stream).get("subtype") or "none")
+    elif a.cmd == "session":
+        print(result(a.stream).get("session_id") or "")
     else:
         print(json.dumps(last(a.ledger)))
     return 0
