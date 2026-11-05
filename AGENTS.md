@@ -17,9 +17,12 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
   a machine address, login, token value, local path, mail text or personal context. Nothing carries
   AI attribution, `private/` never ships, big data never reaches git, VPN config and keys live in
   neither repo.
-- **Git.** `live` moves by PR, merged by the owner or, inside the tunable surface, the fleet's
-  guard; only the tick and the round recipes push their generated files to it directly. Work in
-  your own worktree, never switching or editing a shared clone.
+- **Git.** `live` moves by PR: a session's is merged by the master session, one authored by
+  `ark-agent` by the agent (squash, CI green, a skeptic's verdict in the body, :36 to :04 UTC,
+  never a policy knob and a code change in one), the fleet's inside its tunable surface by its
+  guard; only the tick and the round recipes push their generated files to it directly. A rail
+  file (`scripts/agents/rails.py` `RAILS`) changes only by a session's PR. Work in your own
+  worktree, never switching or editing a shared clone.
 - **The owner decides** a new evidence class and packages and sends every round. Asks are
   `needs-owner` issues, read only once the pending asks together reach the gate.
 - **The window.** A host-year ships only by its own evidence, as an addition to his file for that

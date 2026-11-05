@@ -60,6 +60,8 @@ systemctl --user enable --now ark-sync.timer
 # The agent runs once its token file is there: the owner writes ~/.config/ark/agent.env, one line,
 # CLAUDE_CODE_OAUTH_TOKEN=<the token>, mode 600; the unit's condition is that file.
 [ -f ~/.config/ark/agent.env ] || echo "no agent token: write ~/.config/ark/agent.env (mode 600), the timer waits on it"
+# The agent's profile: its deny list and the rails hook, the login's own Claude settings.
+mkdir -p ~/.claude && cp ~/ark/agent/settings.json ~/.claude/settings.json
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
 
