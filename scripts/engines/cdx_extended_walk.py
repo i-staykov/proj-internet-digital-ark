@@ -24,13 +24,13 @@ is read from `original`, never from the urlkey, which folds `www.` into the apex
 long sparse scan. A cut page keeps what arrived (`_cut_<stamp>` journal) and is asked again as
 its ten exact 1/10 subpages, last first, stopping at the subpage that starts before the cut
 row. A page silent for 60 s answers 504 and never pauses the lane: a 1,000-block one has its
-subpages 0 and 5 probed, the other eight asked only if a probe has rows; a 100-block one is asked
-as its ten 10-block subpages at once; a 10-block one again at once, booked after its fourth. Any
-other answer marks nothing done: a 429 or 503 pauses the lane for `Retry-After` or a minute,
-flat, since it is the server's state and a retry answers, and 15 minutes only after ten in a row
-with nothing booked between; a refused connection from 30 s doubling to 2 min, a per-connection
-coin under the lane-wide pause (laws), not a wall; a 403 or a bare `OSError`, our link down,
-which are walls, from 30 s doubling to 15 min; each eased only by an answer; and requests start
+subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpage is asked again
+at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
+lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
+and 15 minutes only after ten in a row with nothing booked between; a refused connection from
+30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
+or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
+only by an answer; and requests start
 `--min-interval` apart, since a burst earns a block of the address.
 
 `--workers` requests run at once in this one client; the channel rule counts clients, so this
@@ -101,13 +101,12 @@ def suffixes() -> list[str]:
 
 
 def subpages(task: tuple, cut: bool) -> list[tuple]:
-    """The 1/10 subpages to ask after a failed page: all ten last first after a cut or a
-    100-block page's 504, the 0 and 5 probes after a 1,000-block one's. A 10-block page is not
-    split again on a 504."""
+    """The 1/10 subpages to ask after a failed page: all ten last first after a cut, or the
+    0 and 5 probes after a silent 504. A 100-block page is not split again on a 504."""
     sfx, size, page, *rest = task
-    if size < 10 or (not cut and size < PAGE // 10):
+    if size < 10 or (not cut and size < PAGE):
         return []
-    ks = (0, 5) if not cut and size >= PAGE else range(9, -1, -1)
+    ks = range(9, -1, -1) if cut else (0, 5)
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
@@ -420,7 +419,7 @@ class Lane:
         key = key_of(task)
         self.log.write("\t".join(map(str, row)) + "\n")
         tries = self.fails.get(key, 0)
-        silent = status == "HTTP504" and (task[1] >= PAGE // 10 or tries >= 3)
+        silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
         silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
@@ -448,22 +447,19 @@ class Lane:
         self.inflight.discard(task)
         role, parent, stop = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
-            at = task[1] * task[2]  # in blocks, so a split child's 10-blocks compare too
-            sib = {t for t in self.subq if self.meta[t][1] == parent and t[1] * t[2] < at}
+            sib = {t for t in self.subq if self.meta[t][1] == parent and t[2] < task[2]}
             self.subq = [t for t in self.subq if t not in sib]
         if role == "probe" and edge and parent not in self.opened:
             self.opened.add(parent)
-            sfx, size, page = parent.split()[:3]  # the page probed, whichever child had rows
-            rest = [(sfx, int(size) // 10, int(page) * 10 + k, *task[3:]) for k in range(10)]
-            rest = [t for t in rest if t[2] % 10 not in (0, 5)]
+            base = (task[2] // 10) * 10
+            rest = [(task[0], task[1], base + k, *task[3:]) for k in range(10) if k not in (0, 5)]
             self.meta.update({t: ("rest", parent, "") for t in rest})
             self.subq[0:0] = rest
         if not (status == "200" and complete):
-            subs = subpages(task, cut=bool(edge)) if status != "HTTP400" else []  # past the end
-            # a 504'd subpage's ten stand in for it: its role, parent and cut row
-            owed = ("probe", key, "") if task[1] >= PAGE else (role, parent, stop)
-            owed = owed if owed[0] else ("rest", key, "")
-            self.meta.update({t: ("cut", key, edge[-1]) if edge else owed for t in subs})
+            subs = subpages(task, cut=bool(edge))
+            self.meta.update(
+                {t: ("cut", key, edge[-1]) if edge else ("probe", key, "") for t in subs}
+            )
             self.subq[0:0] = subs
             if not subs:
                 self.log.write(f"# skipped {status} {key}\n")
