@@ -37,8 +37,10 @@ def test_queue_umbrella_takes_the_first_open_issue_no_item_names(tmp_path, monke
     assert first == "issue-522"
     second = work_queue.queue_umbrella("517", str(body), is_open=lambda n: n not in closed)
     assert second == "issue-503"  # 522 is named by an item already, open or not
+    after = work_queue.queue_umbrella("517", str(body), after="503", is_open=lambda n: True)
+    assert after == "issue-504"  # only the lines after the umbrella's own
     ids = [i["id"] for i in work_queue.load()]
-    assert ids == ["issue-522", "issue-503"]
+    assert ids == ["issue-522", "issue-503", "issue-504"]
     assert work_queue.top(work_queue.load())["id"] == "issue-522"
 
 

@@ -60,6 +60,9 @@ systemctl --user enable --now ark-sync.timer
 # The agent runs once its token file is there: the owner writes ~/.config/ark/agent.env, one line,
 # CLAUDE_CODE_OAUTH_TOKEN=<the token>, mode 600; the unit's condition is that file.
 [ -f ~/.config/ark/agent.env ] || echo "no agent token: write ~/.config/ark/agent.env (mode 600), the timer waits on it"
+mkdir -p ~/ark-agent
+# The alerts' label, once; the agent's parked items and the triage file under it.
+gh label create vm-alert -R i-staykov/ark-fleet --color D93F0B --description "the VM's agent asks for a reader" > /dev/null 2>&1 || true
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
 
