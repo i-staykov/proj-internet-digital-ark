@@ -45,10 +45,13 @@ def test_an_unmeasured_window_runs_and_a_backoff_holds():
     assert "backing off until" in pacer.decide(raw(0.1, 0.1), K, NOW, backoff_until=NOW + 10)
 
 
-def test_a_mode_names_its_own_five_hour_stop():
+def test_a_mode_names_its_own_five_hour_stop_and_seven_day_ceiling():
     policy = str(ROOT / "agent/policy.json")
     assert pacer.knobs("work", policy)["five_hour_stop"] == 25
     assert pacer.knobs("triage", policy)["five_hour_stop"] == 40
+    assert pacer.knobs("work", policy)["seven_day_ceiling"] == 40
+    assert pacer.knobs("scout", policy)["seven_day_ceiling"] == 50
+    assert pacer.knobs("", policy)["seven_day_ceiling"] == 50  # pacing's default
 
 
 def event(status, resets=NOW + 500):

@@ -83,7 +83,7 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then 
 go through `scripts/agents/triage.py`, whose header names their guards.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
-`scripts/agents/run_agent.sh`, whose header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
+`scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` Tuesday and Saturday at 03 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
 `scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the

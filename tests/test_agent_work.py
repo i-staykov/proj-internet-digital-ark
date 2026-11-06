@@ -1,7 +1,9 @@
-"""Work mode (`agent/prompts/work.md`, the `auto` selector in `run_agent.sh`, `work_queue.py
-queue-umbrella`): the umbrella's first open issue no item names is queued in the umbrella's
-order, and `auto` runs work when the queue holds an item and the last run was not work."""
+"""The `auto` selector in `run_agent.sh` and `work_queue.py queue-umbrella`: the umbrella's first
+open issue no item names is queued in the umbrella's order; `auto` runs work when the queue holds
+an item, the last run was not work and the next hour is not scheduled; a scheduled mode runs at
+its hour, or at the next free one after a busy lock; every run's probe directory goes with it."""
 
+import datetime as dt
 import json
 import os
 import subprocess
@@ -65,41 +67,49 @@ def fake_claude(tmp_path):
     prompt = tmp_path / "prompt.txt"
     script = (
         f"case \"$*\" in *'single word ok'*) cat '{pre}' ;; *) "
-        f"printf '%s' \"$2\" > '{prompt}'; cat '{run}' ;; esac"
+        f"printf '%s' \"$2\" > '{prompt}'; cat '{run}'; "
+        f"[ -d \"$ARK_PROBE_DIR\" ] && printf '%s' \"$ARK_PROBE_DIR\" > '{tmp_path}/probe' ;; esac"
     )
     (fake / "claude").write_text("#!/usr/bin/env bash\n" + script + "\n")
     (fake / "claude").chmod(0o755)
     return fake, prompt
 
 
-def test_auto_runs_work_when_the_queue_holds_an_item_and_the_last_run_was_not_work(tmp_path):
+def runner(tmp_path):
+    """`run_agent.sh auto` against a fake `claude`, at the UTC time the test names: the mode of
+    the row it wrote, and the prompt the fake saw."""
     home = tmp_path / "home"
     (home / ".config/ark").mkdir(parents=True)
     (home / ".config/ark/agent.env").write_text("CLAUDE_CODE_OAUTH_TOKEN=" + "sk-ant-oat-fake\n")
     fake, prompt = fake_claude(tmp_path)
     ledger = tmp_path / "runs.tsv"
-    queue = tmp_path / "q.jsonl"
     env = os.environ | {
         "ARK_STATE_DIR": str(tmp_path),
         "ARK_AGENT_LEDGER": str(ledger),
         "ARK_AGENT_LOG_DIR": str(tmp_path / "logs"),
-        "ARK_AGENT_QUEUE": str(queue),
+        "ARK_AGENT_QUEUE": str(tmp_path / "q.jsonl"),
         "ARK_AGENT_UMBRELLA": "0",
         "HOME": str(home),
         "PATH": f"{fake}:{os.environ['PATH']}",
     }
     env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
 
-    def run():
+    def run(day="2026-11-11", hour=10):  # a Wednesday, nobody's hour
+        at = dt.datetime.fromisoformat(f"{day}T{hour:02d}:38:00+00:00")
         out = subprocess.run(
             ["bash", ROOT / "scripts/agents/run_agent.sh", "auto"],
-            env=env,
+            env=env | {"ARK_AGENT_NOW": str(int(at.timestamp()))},
             capture_output=True,
             text=True,
         )
         assert out.returncode == 0, out.stderr
         return ledger.read_text().splitlines()[-1].split("\t")[1]
 
+    return run, env, prompt
+
+
+def test_auto_runs_work_when_the_queue_holds_an_item_and_the_last_run_was_not_work(tmp_path):
+    run, env, prompt = runner(tmp_path)
     assert run() == "triage"  # an empty queue, and umbrella 0 has no body
     subprocess.run(
         ["python3", ROOT / "scripts/agents/work_queue.py", "add", "issue", "x", "--id", "issue-1"],
@@ -110,3 +120,35 @@ def test_auto_runs_work_when_the_queue_holds_an_item_and_the_last_run_was_not_wo
     assert "A work run" in prompt.read_text() and "What persists" in prompt.read_text()
     assert run() == "triage"  # never two work runs in a row
     assert run() == "work"
+    assert run(hour=5) == "triage"  # 06 is the cdx run's hour: no work the hour before
+    assert run("2026-11-10", 2) == "triage"  # Tuesday 03 is a scout's
+    assert run("2026-11-11", 2) == "work"  # Wednesday 03 is nobody's
+
+
+def test_a_scheduled_mode_runs_at_its_hour_or_at_the_next_free_one_after_a_busy_lock(tmp_path):
+    run, env, prompt = runner(tmp_path)
+    assert run(hour=6) == "cdx"
+    assert "A cdx run" in prompt.read_text()
+    assert run("2026-11-11", 3) == "triage"  # Wednesday
+    assert run("2026-11-10", 3) == "scout"  # Tuesday
+    assert run("2026-11-14", 3) == "scout"  # Saturday
+    assert "A scout run" in prompt.read_text()
+    flock = Path(env["PATH"].split(":")[0]) / "flock"
+    flock.write_text("#!/usr/bin/env bash\nexit 1\n")
+    flock.chmod(0o755)
+    assert run("2026-11-10", 3) == "auto"  # the busy row, before a mode was picked
+    assert (tmp_path / "runs.tsv").read_text().splitlines()[-1].endswith("\tbusy")
+    marker = tmp_path / "logs/.due-scout"
+    assert marker.exists()
+    flock.unlink()
+    assert run() == "scout"  # the next free hour
+    assert not marker.exists()
+    assert run() == "triage"
+
+
+def test_every_run_has_its_own_probe_directory_and_it_goes_with_the_run(tmp_path):
+    run, env, prompt = runner(tmp_path)
+    assert run() == "triage"
+    probe = Path((tmp_path / "probe").read_text())
+    assert probe.name.startswith("probe-") and not probe.exists()
+    assert probe.parent == Path("/dev/shm") or probe.parent == tmp_path / "logs"
