@@ -24,7 +24,7 @@ hooks:
 run *args:
     uv run ark {{args}}
 
-# validate: all (default) code data lint fmt test scan
+# validate: all (default) code data lint fmt test scan unattended
 check what="all":
     #!/usr/bin/env bash
     set -euo pipefail
@@ -34,6 +34,7 @@ check what="all":
     test) uv run pytest ;;
     scan) uv run python -m ark.hygiene ;;
     data) uv run ark check ;;
+    unattended) uv run python scripts/harness/check_unattended.py ;;
     code)
         uv run ruff check .
         uv run ruff format --check .
@@ -45,7 +46,7 @@ check what="all":
         uv run pytest
         uv run ark check
         ;;
-    *) echo "check: all code data lint fmt test scan" >&2; exit 2 ;;
+    *) echo "check: all code data lint fmt test scan unattended" >&2; exit 2 ;;
     esac
 
 # prove what is on disk: raw trees delivery offsite
