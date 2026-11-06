@@ -95,12 +95,15 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
         ["com.sg", "100", "5", "1996", "2013", "all", "200", "1", "1.0", "9", "9", "1", "0"]
     )
     old = stamp(now - dt.timedelta(hours=7)).replace("Z", "00Z")
-    (lane / "log.tsv").write_text(f"# order 0 priced (), 0 exploring\n{old}\t{row}\n")
+    (lane / "log.tsv").write_text(f"{old}\t{row}\n# exit {old} pending=0\n")
     assert hb.lane(0, now, {"walk_com.sg_ps100_p5_1996-2013": [2.5, 1.0]}) == (
         False,
         "lane0: 1 pages, 2.5 EE 1996-2001, 1.0 EE 2002-2013 in 24 h",
     )
     (lane / "pending.txt").write_text("task\n")
+    assert hb.lane(0, now, {})[0] is True
+    (lane / "pending.txt").write_text("")
+    (lane / "log.tsv").write_text(f"{old}\t{row}\n")  # no exit row: still walking
     assert hb.lane(0, now, {})[0] is True
     (tmp_path / "state").mkdir()
     (tmp_path / "state/pause-platform").write_text("")
@@ -112,14 +115,15 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     now = dt.datetime.now(dt.UTC)
     free = shutil.disk_usage(tmp_path / "data").free / GIB
     earlier = stamp(now - dt.timedelta(days=2))
-    hb.TICKS.write_text(f"{earlier}\trefused\t1\tsync exit 1\t{free + 1e6:.1f}\n")
+    torn = "2026-11-0\tidle\t1\tx\tnot a number\n"
+    hb.TICKS.write_text(f"{torn}{earlier}\trefused\t1\tsync exit 1\t{free + 1e6:.1f}\n")
     (tmp_path / "data/logs/bank_red.json").write_text("{}")
     lane = tmp_path / "data/raw/cdx_walk/lane2"
     lane.mkdir(parents=True)
     (lane / "log.tsv").write_text("")
     (lane / "pending.txt").write_text("task\n")
     hb.expiry = (now + dt.timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S UTC")
-    at = now.strftime("%Y%m%dT0905Z")
+    at = now.strftime("%Y%m%dT0505Z")
     run(hb, tmp_path, at, 1, 1, sync="bank: BANK RED since x", check="FAIL lane1: stopped")
     titles = made(hb, "create")
     assert sorted(titles) == sorted(
@@ -160,13 +164,13 @@ def test_heartbeat_once_at_six(hb, tmp_path):
                 "2.0",
                 "33.0",
                 "9",
-                "success",
+                "success:over-cap",
             ]
         )
         + "\n"
     )
     now = dt.datetime.now(dt.UTC)
-    run(hb, tmp_path, now.strftime("%Y%m%dT0905Z"))
+    run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
     assert not [c for c in hb.calls if c[:2] == ("issue", "create")]
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))
     body = next(c for c in hb.calls if c[:2] == ("issue", "create"))

@@ -9,10 +9,12 @@
 - Each cause on opens one `vm-alert` issue on ark-fleet titled `vm-alert: <cause>`, reopens a
   closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
-  subpages or a priced order) and no answered page in 6 h, no successful agent run in 24 h, under
-  14 days of disk or gh token. The triage reads them; the owner is asked nothing.
-- The 06 UTC tick, once a day, comments the heartbeat on the open `VM heartbeat` issue, so its
-  last comment says where the VM stands. A watchdog on ark-fleet alerts when that goes quiet.
+  subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
+  successful agent run in 24 h, under 14 days of disk or gh token. The triage reads them; the
+  owner is asked nothing.
+- The first tick from 06 UTC, once a day, comments the heartbeat on the open `VM heartbeat`
+  issue, so its last comment says where the VM stands. A watchdog on ark-fleet alerts when that
+  goes quiet.
 
 Every body is written to a file and passes `ark.hygiene` first, else a fixed line replaces it.
 """
@@ -82,7 +84,14 @@ def verdict(sync_rc: int, sync_out: str, start: float) -> tuple[str, str]:
 def rows() -> list[list[str]]:
     if not TICKS.exists():
         return []
-    return [r.split("\t") for r in TICKS.read_text().splitlines() if r.count("\t") >= 4]
+    out = []
+    for r in (ln.split("\t") for ln in TICKS.read_text().splitlines()):
+        try:
+            if len(r) >= 5 and utc(r[0]) and float(r[4]) >= 0:
+                out.append(r)
+        except ValueError:
+            continue  # a torn or hand-edited row
+    return out
 
 
 def append(row: list[str], now: dt.datetime) -> list[list[str]]:
@@ -148,11 +157,9 @@ def lane(n: int, now: dt.datetime, ee: dict[str, list[float]]) -> tuple[bool | N
     if not log.exists():
         return None, f"lane{n}: not walked here"
     day, stall = now - dt.timedelta(hours=24), now - dt.timedelta(hours=STALL_H)
-    pages, recent, names, order = 0, 0, set(), ""
+    pages, recent, names, last = 0, 0, set(), ""
     for ln in log.read_text(errors="replace").splitlines():
-        if ln.startswith("# order "):
-            order = ln
-            continue
+        last = ln or last
         r = ln.split("\t")
         if len(r) < 14 or r[7] != "200":
             continue
@@ -166,9 +173,10 @@ def lane(n: int, now: dt.datetime, ee: dict[str, list[float]]) -> tuple[bool | N
             names.add(f"walk_{r[1]}_ps{r[2]}_p{r[3]}_{r[4]}-{r[5]}{cut}")
         recent += at >= stall
     pending = folder / "pending.txt"
-    queued = (pending.exists() and pending.read_text().strip() != "") or bool(
-        re.search(r"^# order [1-9]|, [1-9]\d* exploring", order)
-    )
+    # A finished lane's last row is its `# exit ... pending=0`, written again at each cron restart;
+    # a killed one that never restarts is the check's stale-log FAIL.
+    finished = last.startswith("# exit ") and last.rstrip().endswith("pending=0")
+    queued = (pending.exists() and pending.read_text().strip() != "") or not finished
     paused = (STATE / "pause-platform").exists()
     stalled = None if paused else queued and recent == 0
     p1, p2 = (sum(ee.get(x, [0.0, 0.0])[i] for x in names) for i in (0, 1))
@@ -188,7 +196,7 @@ def agent(now: dt.datetime) -> tuple[bool, str]:
                 runs.append(r)
         except ValueError:
             continue
-    ok = sum(r[10] == "success" for r in runs)
+    ok = sum(r[10].startswith("success") for r in runs)
     windows = f", windows {runs[-1][7]}% of 5 h and {runs[-1][8]}% of 7 d" if runs else ""
     return ok > 0, f"agent: {len(runs)} runs, {ok} succeeded{windows}; review: none yet (#526)"
 
@@ -228,11 +236,11 @@ def alert(causes: dict[str, str]) -> None:
         have = known.get(title)
         if have is None:
             labelled = ("-R", FLEET, "--label", "vm-alert")
-            gh("issue", "create", *labelled, "--title", title, "--body", body)
-            print(f"alert opened: {cause}")
+            rc, _ = gh("issue", "create", *labelled, "--title", title, "--body", body)
+            print(f"alert {'opened' if rc == 0 else 'not opened, gh refused'}: {cause}")
         elif have["state"] != "OPEN":
-            gh("issue", "reopen", str(have["number"]), "-R", FLEET, "--comment", body)
-            print(f"alert reopened: {cause}")
+            rc, _ = gh("issue", "reopen", str(have["number"]), "-R", FLEET, "--comment", body)
+            print(f"alert {'reopened' if rc == 0 else 'not reopened, gh refused'}: {cause}")
 
 
 def heartbeat(lines: list[str]) -> None:
@@ -292,7 +300,8 @@ def main(argv: list[str]) -> int:
     today = now.strftime("%Y-%m-%d")
     day_file = LOGS / ".heartbeat_day"
     posted = day_file.read_text().strip() if day_file.exists() else ""
-    if utc(stamp).hour == HEARTBEAT_HOUR and posted != today:
+    # from 06 on, so a 05:05 tick running past 06:05 delays the day's post, never drops it
+    if utc(stamp).hour >= HEARTBEAT_HOUR and posted != today:
         round_md = ROOT / "docs/ROUND.md"
         text = round_md.read_text() if round_md.exists() else ""
         gate = [ln for ln in text.splitlines() if ln.startswith("GATE.")] or ["GATE: no ROUND.md"]
