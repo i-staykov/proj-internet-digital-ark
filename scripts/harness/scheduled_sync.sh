@@ -30,6 +30,9 @@ FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs
 LOG="data/logs/scheduled_sync.log"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
+START=$(date +%s)
+# what the sync and the check said, for the tick row and the alerts (heartbeat.py)
+SYNC_OUT=data/logs/.tick_sync.out CHECK_OUT=data/logs/.tick_check.out
 
 # The walk follows its code: once the walker or its cron changed since the last install, the
 # cron is reinstalled and the walkers stopped (SIGTERM saves what they owe); cron restarts them.
@@ -67,7 +70,8 @@ ship_now() {
     echo "$login, token expiry: ${expiry:-no expiry header}"
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
-    just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]'
+    just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]' \
+        | tee "$SYNC_OUT"
     sync_rc=${PIPESTATUS[0]}
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
@@ -89,11 +93,15 @@ if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
 fi
 
 # The tick's status is the sync's, else the check's (scripts/harness/check_unattended.py), so a
-# failed tick fails its unit; its last line says which.
+# failed tick fails its unit; its last line says which. Before it, the tick's row in ticks.tsv,
+# the alerts and, at 06 UTC, the heartbeat (scripts/harness/heartbeat.py).
 {
     printf -- '----- check unattended -----\n'
-    just check unattended 2>&1
-    check_rc=$?
+    just check unattended 2>&1 | tee "$CHECK_OUT"
+    check_rc=${PIPESTATUS[0]}
+    printf -- '----- heartbeat -----\n'
+    uv run python scripts/harness/heartbeat.py "$STAMP" "$START" "$sync_rc" "$check_rc" \
+        "$SYNC_OUT" "$CHECK_OUT" 2>&1 | tail -20
     echo "tick $STAMP sync=$sync_rc check=$check_rc"
 } >> "$LOG"
 
