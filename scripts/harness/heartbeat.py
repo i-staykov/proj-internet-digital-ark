@@ -1,0 +1,327 @@
+"""The tick's own row, the VM's alerts and the daily heartbeat, run last by every tick.
+
+    python3 scripts/harness/heartbeat.py STAMP START SYNC_RC CHECK_RC SYNC_OUT CHECK_OUT
+
+- `data/logs/ticks.tsv` gains one row: stamp, verdict, seconds, banked or why not, free GiB
+  (the disk's 7-day rate needs its own history). Rows past 90 days go. The verdict is `red` while
+  `bank_red.json` stands, `held` when the recipe printed it, `refused` when the lock refused or the
+  sync failed, `banked` when the bank wrote its stamp since START, else `idle`.
+- Each cause on opens one `vm-alert` issue on ark-fleet titled `vm-alert: <cause>`, reopens a
+  closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
+  mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
+  subpages or a priced order) and no answered page in 6 h, no successful agent run in 24 h, under
+  14 days of disk or gh token. The triage reads them; the owner is asked nothing.
+- The 06 UTC tick, once a day, comments the heartbeat on the open `VM heartbeat` issue, so its
+  last comment says where the VM stands. A watchdog on ark-fleet alerts when that goes quiet.
+
+Every body is written to a file and passes `ark.hygiene` first, else a fixed line replaces it.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import importlib.util
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+
+from ark.db import space  # noqa: E402
+from ark.hygiene import local_hosts, scan  # noqa: E402
+
+FLEET = "i-staykov/ark-fleet"
+LOGS = ROOT / "data/logs"
+TICKS = LOGS / "ticks.tsv"
+KEEP_DAYS = 90
+LANES = 3
+STALL_H = 6
+FLOOR_DAYS = 14
+HEARTBEAT_TITLE = "VM heartbeat"
+HEARTBEAT_HOUR = 6
+STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
+GIB = 1024**3
+
+
+def utc(stamp: str) -> dt.datetime:
+    """A `20261106T2005Z` or `20261106T200501Z` stamp as UTC."""
+    fmt = "%Y%m%dT%H%M%SZ" if len(stamp) == 16 else "%Y%m%dT%H%MZ"
+    return dt.datetime.strptime(stamp, fmt).replace(tzinfo=dt.UTC)
+
+
+def gh(*args: str) -> tuple[int, str]:
+    try:
+        p = subprocess.run(["gh", *args], capture_output=True, text=True, cwd=ROOT, timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 127, str(e)
+    return p.returncode, p.stdout.strip()
+
+
+def verdict(sync_rc: int, sync_out: str, start: float) -> tuple[str, str]:
+    lines = [ln.strip() for ln in sync_out.splitlines() if ln.strip()]
+    bank = next((ln for ln in reversed(lines) if ln.startswith("bank: ")), "")
+    if (LOGS / "bank_red.json").exists():
+        return "red", bank or "BANK RED stands"
+    if "held" in lines:
+        return "held", "the hold holds ark-sync.timer"
+    if any("This one stops" in ln for ln in lines):
+        return "refused", "a sync already held the lock"
+    if sync_rc:
+        return "refused", f"sync exit {sync_rc}: " + (lines[-1] if lines else "no output")
+    stamp = LOGS / "bank_stamp.json"
+    if stamp.exists() and stamp.stat().st_mtime >= start:
+        return "banked", "banked"
+    return "idle", bank or (lines[-1] if lines else "no output")
+
+
+def rows() -> list[list[str]]:
+    if not TICKS.exists():
+        return []
+    return [r.split("\t") for r in TICKS.read_text().splitlines() if r.count("\t") >= 4]
+
+
+def append(row: list[str], now: dt.datetime) -> list[list[str]]:
+    """Add the row, keep KEEP_DAYS, return what is kept."""
+    cut = now - dt.timedelta(days=KEEP_DAYS)
+    kept = [r for r in rows() if utc(r[0]) >= cut] + [row]
+    TICKS.parent.mkdir(parents=True, exist_ok=True)
+    tmp = TICKS.with_suffix(".tmp")
+    tmp.write_text("".join("\t".join(r) + "\n" for r in kept))
+    tmp.replace(TICKS)
+    return kept
+
+
+def disk(kept: list[list[str]], now: dt.datetime) -> tuple[float | None, str]:
+    """Days to the floor at the 7-day rate, and its line."""
+    rc, lines = space(root=ROOT)
+    m = re.search(r"([\d.]+) GiB free, need ([\d.]+) GiB", lines[0])
+    if not m:
+        return None, f"disk: {lines[0]}"
+    free, need = float(m[1]), float(m[2])
+    week = [r for r in kept if utc(r[0]) >= now - dt.timedelta(days=7)]
+    days = (utc(week[-1][0]) - utc(week[0][0])).total_seconds() / 86400
+    rate = (float(week[0][4]) - float(week[-1][4])) / days if days >= 1 else 0.0
+    if rate <= 0:
+        return None, f"disk: {free:.1f} GiB free, need {need:.1f}, not shrinking over 7 days"
+    left = (free - need) / rate
+    return (
+        left,
+        f"disk: {free:.1f} GiB free, need {need:.1f}, {rate:.1f} GiB a day, {left:.0f} days left",
+    )
+
+
+def token(now: dt.datetime) -> tuple[float | None, str]:
+    rc, out = gh("api", "-i", "user")
+    m = re.search(r"^github-authentication-token-expiration: (.+?)\s*$", out, re.M | re.I)
+    if rc or not m:
+        return None, "gh token: " + ("no expiry" if not rc else "unreadable")
+    try:
+        at = dt.datetime.strptime(m[1].replace(" UTC", ""), "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None, f"gh token: expiry {m[1]} unreadable"
+    left = (at.replace(tzinfo=dt.UTC) - now).total_seconds() / 86400
+    return left, f"gh token: {left:.0f} days to expiry"
+
+
+def priced() -> dict[str, list[float]]:
+    """Journal name to its EE in 1996-2001 and 2002-2013, from the walk order's cache."""
+    try:
+        cache = json.loads((ROOT / "data/queue/cdx_order.priced.json").read_text())["journals"]
+    except (OSError, ValueError, KeyError):
+        return {}
+    out: dict[str, list[float]] = {}
+    for key, ee in cache.items():
+        part = 0 if key.startswith("raw/cdx_suffix/") else 1
+        out.setdefault(Path(key).name.removesuffix(".jsonl.gz"), [0.0, 0.0])[part] += float(ee)
+    return out
+
+
+def lane(n: int, now: dt.datetime, ee: dict[str, list[float]]) -> tuple[bool | None, str]:
+    """(stalled, line): stalled is None where the lane does not walk here or is paused."""
+    folder = ROOT / f"data/raw/cdx_walk/lane{n}"
+    log = folder / "log.tsv"
+    if not log.exists():
+        return None, f"lane{n}: not walked here"
+    day, stall = now - dt.timedelta(hours=24), now - dt.timedelta(hours=STALL_H)
+    pages, recent, names, order = 0, 0, set(), ""
+    for ln in log.read_text(errors="replace").splitlines():
+        if ln.startswith("# order "):
+            order = ln
+            continue
+        r = ln.split("\t")
+        if len(r) < 14 or r[7] != "200":
+            continue
+        try:
+            at = utc(r[0])
+        except ValueError:
+            continue
+        if at >= day:
+            pages += 1
+            cut = "" if r[8] == "1" else f"_cut_{r[0]}"
+            names.add(f"walk_{r[1]}_ps{r[2]}_p{r[3]}_{r[4]}-{r[5]}{cut}")
+        recent += at >= stall
+    pending = folder / "pending.txt"
+    queued = (pending.exists() and pending.read_text().strip() != "") or bool(
+        re.search(r"^# order [1-9]|, [1-9]\d* exploring", order)
+    )
+    paused = (STATE / "pause-platform").exists()
+    stalled = None if paused else queued and recent == 0
+    p1, p2 = (sum(ee.get(x, [0.0, 0.0])[i] for x in names) for i in (0, 1))
+    line = f"lane{n}: {pages} pages, {p1:.1f} EE 1996-2001, {p2:.1f} EE 2002-2013 in 24 h"
+    return stalled, line + (", paused" if paused else "")
+
+
+def agent(now: dt.datetime) -> tuple[bool, str]:
+    """(a success in 24 h, line): runs, the windows spent, the review's decision."""
+    path = LOGS / "agent_runs.tsv"
+    day = now - dt.timedelta(hours=24)
+    runs = []
+    for ln in path.read_text().splitlines() if path.exists() else []:
+        r = ln.split("\t")
+        try:
+            if len(r) >= 11 and utc(r[0]) >= day:
+                runs.append(r)
+        except ValueError:
+            continue
+    ok = sum(r[10] == "success" for r in runs)
+    windows = f", windows {runs[-1][7]}% of 5 h and {runs[-1][8]}% of 7 d" if runs else ""
+    return ok > 0, f"agent: {len(runs)} runs, {ok} succeeded{windows}; review: none yet (#526)"
+
+
+def readers() -> list[str]:
+    path = ROOT / "scripts/harness/check_unattended.py"
+    spec = importlib.util.spec_from_file_location("check_unattended", path)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        return [f"{name}: {why}" for name, _ok, why in mod.readers()]
+    except Exception as e:  # noqa: BLE001 - a reader's import must not cost the heartbeat
+        return [f"readers: unreadable, {type(e).__name__}"]
+
+
+def clean(body: str, name: str) -> str:
+    """The body if it passes the public scan, else a fixed line."""
+    path = LOGS / f".{name}_body"
+    path.write_text(body)
+    if scan([path], local_hosts(ROOT / "local.env")):
+        return "(the body failed the public scan; data/logs/scheduled_sync.log on the VM holds it)"
+    return body
+
+
+def alert(causes: dict[str, str]) -> None:
+    """One `vm-alert` issue per cause: opened, reopened, never duplicated."""
+    if not causes:
+        return
+    listed = ["issue", "list", "-R", FLEET, "--label", "vm-alert", "--state", "all"]
+    rc, out = gh(*listed, "--limit", "500", "--json", "number,title,state")
+    if rc:
+        print(f"alerts: gh could not list, {len(causes)} wait for the next tick")
+        return
+    known = {i["title"]: i for i in json.loads(out or "[]")}
+    for cause, body in causes.items():
+        title, body = f"vm-alert: {cause}", clean(body, "vm_alert")
+        have = known.get(title)
+        if have is None:
+            labelled = ("-R", FLEET, "--label", "vm-alert")
+            gh("issue", "create", *labelled, "--title", title, "--body", body)
+            print(f"alert opened: {cause}")
+        elif have["state"] != "OPEN":
+            gh("issue", "reopen", str(have["number"]), "-R", FLEET, "--comment", body)
+            print(f"alert reopened: {cause}")
+
+
+def heartbeat(lines: list[str]) -> None:
+    rc, out = gh(
+        "issue", "list", "-R", FLEET, "--state", "open",
+        "--search", f'in:title "{HEARTBEAT_TITLE}"', "--json", "number,title",
+    )  # fmt: skip
+    if rc:
+        print("heartbeat: gh could not list, posted next day")
+        return
+    found = [i["number"] for i in json.loads(out or "[]") if i["title"] == HEARTBEAT_TITLE]
+    body = clean("\n".join(lines), "heartbeat")
+    if found:
+        rc, _ = gh("issue", "comment", str(found[0]), "-R", FLEET, "--body", body)
+    else:
+        rc, _ = gh("issue", "create", "-R", FLEET, "--title", HEARTBEAT_TITLE, "--body", body)
+    print("heartbeat: posted" if rc == 0 else "heartbeat: gh refused the post")
+    if rc == 0:
+        (LOGS / ".heartbeat_day").write_text(lines[0].split()[-1])
+
+
+def main(argv: list[str]) -> int:
+    stamp, start, sync_rc, check_rc, sync_out, check_out = argv
+    now = dt.datetime.now(dt.UTC)
+    sync_text = Path(sync_out).read_text(errors="replace") if Path(sync_out).exists() else ""
+    check_text = Path(check_out).read_text(errors="replace") if Path(check_out).exists() else ""
+    word, why = verdict(int(sync_rc), sync_text, float(start))
+    free = shutil.disk_usage(ROOT / "data").free / GIB
+    secs = f"{now.timestamp() - float(start):.0f}"
+    kept = append([stamp, word, secs, why.replace("\t", " ")[:200], f"{free:.1f}"], now)
+    print(f"tick row: {word}, {why}")
+
+    causes: dict[str, str] = {}
+    for ln in check_text.splitlines():
+        if ln.startswith("FAIL "):
+            causes[f"check {ln[5:].split(':')[0]}"] = f"`just check unattended` at {stamp}: {ln}"
+    if word == "red":
+        causes["BANK RED"] = f"The tick at {stamp} found the bank red: {why}"
+    if len(kept) >= 2 and kept[-1][1] == kept[-2][1] == "refused":
+        causes["two refused ticks"] = f"Ticks {kept[-2][0]} and {stamp} refused: {why}"
+    ee = priced()
+    lanes = [lane(n, now, ee) for n in range(LANES)]
+    for n, (stalled, line) in enumerate(lanes):
+        if stalled:
+            causes[f"lane{n} stalled"] = f"{line}; work queued and no answered page in {STALL_H} h"
+    agent_ok, agent_line = agent(now)
+    if not agent_ok:
+        causes["no agent success in 24 h"] = agent_line
+    disk_days, disk_line = disk(kept, now)
+    if disk_days is not None and disk_days < FLOOR_DAYS:
+        causes["disk under 14 days"] = disk_line
+    token_days, token_line = token(now)
+    if token_days is not None and token_days < FLOOR_DAYS:
+        causes["gh token under 14 days"] = token_line
+    alert(causes)
+
+    today = now.strftime("%Y-%m-%d")
+    day_file = LOGS / ".heartbeat_day"
+    posted = day_file.read_text().strip() if day_file.exists() else ""
+    if utc(stamp).hour == HEARTBEAT_HOUR and posted != today:
+        round_md = ROOT / "docs/ROUND.md"
+        text = round_md.read_text() if round_md.exists() else ""
+        gate = [ln for ln in text.splitlines() if ln.startswith("GATE.")] or ["GATE: no ROUND.md"]
+        last = [r for r in kept if utc(r[0]) >= now - dt.timedelta(hours=24)]
+        counts = {w: sum(r[1] == w for r in last) for w in ("banked", "refused", "held", "red")}
+        check_last = check_text.strip().splitlines()[-1] if check_text.strip() else "no output"
+        hold = STATE / "hold"
+        held = (
+            (" ".join(hold.read_text().splitlines()[2:]) or "nothing named")
+            if hold.exists()
+            else "none"
+        )
+        heartbeat(
+            [
+                f"heartbeat {today}",
+                *gate,
+                check_last,
+                disk_line,
+                "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
+                *(line for _s, line in lanes),
+                "header lane: no unit yet, not measured",
+                *readers(),
+                token_line,
+                f"hold: {held}",
+                agent_line,
+            ]
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
