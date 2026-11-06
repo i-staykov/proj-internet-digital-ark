@@ -68,13 +68,10 @@ ship_now() {
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
     just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]'
+    sync_rc=${PIPESTATUS[0]}
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
 } >> "$LOG"
-
-# Keep the log readable rather than complete: the ledger and the store are the
-# record, this is a noticeboard.
-tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
 
 # The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
 # every part left after the bank, each its own unit so it outlives this one, never two at once
@@ -90,3 +87,18 @@ if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
         bash -c 'uv run python scripts/sources/crawl_lists/clueweb.py >> data/logs/clueweb.log 2>&1' \
         >/dev/null 2>&1 || true
 fi
+
+# The tick's status is the sync's, else the check's (scripts/harness/check_unattended.py), so a
+# failed tick fails its unit; its last line says which.
+{
+    printf -- '----- check unattended -----\n'
+    just check unattended 2>&1
+    check_rc=$?
+    echo "tick $STAMP sync=$sync_rc check=$check_rc"
+} >> "$LOG"
+
+# Keep the log readable rather than complete: the ledger and the store are the
+# record, this is a noticeboard.
+tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
+[ "$sync_rc" -ne 0 ] && exit "$sync_rc"
+exit "$check_rc"
