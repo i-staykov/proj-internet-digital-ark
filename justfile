@@ -1237,6 +1237,19 @@ ship stage="all" *args:
 hold what="on" name="":
     bash scripts/harness/hold.sh {{what}} {{name}}
 
+# clear BANK RED only on green: the sync lock, the export, the check, then the clear
+red-clear:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    [ -f data/logs/bank_red.json ] || { echo "red-clear: no BANK RED"; exit 0; }
+    L=scripts/harness/sync_lock.sh
+    bash $L take $$ || exit
+    trap "bash $L drop" EXIT; set -e
+    if [ -f local.env ]; then set -a; . ./local.env; set +a; fi
+    just run export
+    just check data
+    uv run python scripts/harness/bank_trigger.py clear
+
 # one run of the resident agent by hand: auto (default, the timer's) triage work review hunt
 agent mode="auto":
     bash scripts/agents/run_agent.sh {{mode}}
