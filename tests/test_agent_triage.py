@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import shutil
@@ -27,12 +28,20 @@ def fake_bin(tmp_path, **scripts):
 
 
 def timer(last, nxt):
-    """A fake systemctl printing the tick's two stamps as systemd does, in the caller's zone."""
-    fmt = "'+%a %Y-%m-%d %H:%M:%S %Z'"
-    return (
-        f"echo LastTriggerUSec={last and f'$(date -d {last!r} {fmt})'}; "
-        f"echo NextElapseUSecRealtime={nxt and f'$(date -d {nxt!r} {fmt})'}"
-    )
+    """A fake systemctl printing the tick's two stamps as systemd does under TZ=UTC, and a fake
+    date answering `-d STAMP +%s` for them: BSD date has no -d, so neither fake calls date."""
+    now = dt.datetime.now(dt.UTC).replace(microsecond=0)
+    stamps = {}
+    for key, offset in (("LastTriggerUSec", last), ("NextElapseUSecRealtime", nxt)):
+        if offset:
+            at = now + dt.timedelta(minutes=int(offset.split()[0]))
+            stamps[key] = (at.strftime("%a %Y-%m-%d %H:%M:%S UTC"), int(at.timestamp()))
+    lines = [
+        f"echo '{k}={stamps[k][0] if k in stamps else ''}'"
+        for k in ("LastTriggerUSec", "NextElapseUSecRealtime")
+    ]
+    cases = " ".join(f"'{s}') echo {e} ;;" for s, e in stamps.values())
+    return {"systemctl": "; ".join(lines), "date": f'case "$2" in {cases} esac'}
 
 
 def triage(tmp_path, env, *args):
@@ -78,14 +87,14 @@ def test_a_failed_restart_counts_against_the_day(tmp_path):
     ],
 )
 def test_the_walk_refuses_near_a_tick_or_when_it_cannot_tell(tmp_path, last, nxt, code):
-    env = fake_bin(tmp_path, systemctl=timer(last, nxt), just="exit 0")
+    env = fake_bin(tmp_path, **timer(last, nxt), just="exit 0")
     env["TZ"] = "Europe/Paris"
     assert triage(tmp_path, env, "walk") == code
     assert ("just walk install" in (tmp_path / "calls").read_text()) == (code == 0)
 
 
 def test_the_walk_refuses_while_the_sync_lock_is_held(tmp_path):
-    env = fake_bin(tmp_path, systemctl=timer("-30 min", "+30 min"), just="exit 0")
+    env = fake_bin(tmp_path, **timer("-30 min", "+30 min"), just="exit 0")
     (tmp_path / "lock").mkdir()
     (tmp_path / "lock/pid").write_text(str(os.getpid()))
     assert triage(tmp_path, env, "walk") == 3
