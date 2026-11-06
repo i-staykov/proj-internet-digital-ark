@@ -11,8 +11,9 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
   present).
 - login: `gh auth status` succeeds.
 - space: free space clears the bank's floor plus its write budget (`ark.db.space`).
-- lanes: a lane with work left and no pause flag runs, or ran within cron's restart period; its
-  last `# exit ... pending=0` row means its queue is empty.
+- lanes: a lane under no pause flag runs, or wrote its log within cron's restart period. Its
+  `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
+  cron restarts a finished lane, which writes that row again, every period.
 - readers, only where `local.env` ARK_HOSTS runs here: End of Term and ClueWeb09 with parts left
   and no hold are active units. The HTTP Archive reader's queue needs archive.org's search, and
   the header lane has no unit yet, so both are reported, never judged.
@@ -103,13 +104,6 @@ def disk() -> tuple[bool, str]:
     return rc == 0, lines[0] if rc == 0 else "; ".join(lines)
 
 
-def last_row(path: Path) -> str:
-    with path.open("rb") as f:
-        f.seek(max(0, path.stat().st_size - 4096))
-        rows = f.read().decode(errors="replace").splitlines()
-    return rows[-1] if rows else ""
-
-
 def lane(n: int) -> tuple[bool, str]:
     if (STATE / "pause-platform").exists():
         return True, "paused"
@@ -118,10 +112,8 @@ def lane(n: int) -> tuple[bool, str]:
     log = ROOT / f"data/raw/cdx_walk/lane{n}/log.tsv"
     if not log.exists():
         return False, "stopped, never ran"
-    if last_row(log).startswith("# exit") and last_row(log).endswith("pending=0"):
-        return True, "queue empty"
     idle = time.time() - log.stat().st_mtime
-    return idle < RESTART_S, f"stopped {idle / 60:.0f} min with work left"
+    return idle < RESTART_S, f"last wrote {idle / 60:.0f} min ago"
 
 
 def module(path: str):

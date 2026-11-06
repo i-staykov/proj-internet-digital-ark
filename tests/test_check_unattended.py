@@ -48,14 +48,14 @@ def clone(tmp_path):
     # clone as bare. No git variable reaches the temp clone.
     clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     files = subprocess.run(
-        ["git", "ls-files", "-co", "--exclude-standard"],
+        ["git", "ls-files", "-z", "-co", "--exclude-standard"],
         cwd=ROOT,
         env=clean,
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.split()
-    for rel in files:
+    ).stdout.split("\0")
+    for rel in filter(None, files):
         if (ROOT / rel).is_file():
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, repo / rel)
