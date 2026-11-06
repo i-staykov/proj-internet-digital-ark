@@ -78,8 +78,9 @@ store; ingests what was approved or decided and gates again; rebuilds `docs/ROUN
 pushes `live` and the snapshot, and writes each lead's fate to the fleet. A red writes
 `data/logs/bank_red.json`, and after an approved ingest takes those rows out with
 `scripts/harness/unbank_source.py`, except a source that held rows before the bank: its rows stay
-and the red says so. Every tick then prints `BANK RED`. Read the red, run the lock block's export
-and check, fix, then `uv run python scripts/harness/bank_trigger.py clear`.
+and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then `just red-clear`
+(the lock, the export, the check, and the clear only on green). Triage restarts a reader or
+installs the lanes only through `scripts/agents/triage.py`.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
 `scripts/agents/run_agent.sh`, whose header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
