@@ -1251,7 +1251,7 @@ red-clear:
     just check data
     uv run python scripts/harness/bank_trigger.py clear
 
-# one run of the resident agent by hand: auto (default, the timer's) triage work review hunt
+# one run of the resident agent by hand: auto (default, the timer's) triage work scout cdx
 agent mode="auto":
     bash scripts/agents/run_agent.sh {{mode}}
 
