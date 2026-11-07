@@ -3,15 +3,16 @@
 The owner works on the same account, so the windows are the account's total, whoever spent
 it, and the pre-flight's fresh reading decides each run: nothing starts at or over the mode's
 `five_hour_stop` percent of the five-hour window (a mode names its own under `modes`, else
-`pacing`'s), nor above the seven-day pace line `ceiling * min(1, elapsed / (pace_days *
-86400))`, the ceiling being the mode's `seven_day_stop`, else `pacing`'s `seven_day_ceiling`
-(work and triage stop lower than scout and cdx, so the scouts keep a reserve), elapsed being
-the window's age (seven days less the time to its `resetsAt`); the account's other half is the
-owner's whatever the agent does. A window the stream did not report is unmeasured and does not
-stop a run. A call the server refused for its limit (`rate_limit_info.status` `rejected`;
-`allowed_warning` is a warning) backs the agent off to that window's reset in
-`data/logs/agent/.backoff_until`, read before the pre-flight, so a back-off costs no call. The
-knobs are `pacing` in `agent/policy.json`.
+`pacing`'s), nor above the seven-day pace line `seven_day_ceiling * min(1, elapsed /
+(pace_days * 86400))`, elapsed being the window's age (seven days less the time to its
+`resetsAt`); a mode with its own `seven_day_stop` stops flat at that percent of the seven-day
+window instead: scout and cdx run flat up to the ceiling while work and triage follow the
+pace line, so the scouts keep a reserve when the owner has spent the window. The account's
+other half is the owner's whatever the agent does. A window the stream did not report is
+unmeasured and does not stop a run. A call the server refused for its limit
+(`rate_limit_info.status` `rejected`; `allowed_warning` is a warning) backs the agent off to
+that window's reset in `data/logs/agent/.backoff_until`, read before the pre-flight, so a
+back-off costs no call. The knobs are `pacing` in `agent/policy.json`.
 
     python3 scripts/agents/pacer.py check PREFLIGHT.jsonl [--mode M]   0 run, 3 with the reason
     python3 scripts/agents/pacer.py backoff RUN.jsonl       the back-off, when the run was refused
@@ -39,12 +40,9 @@ def knobs(mode: str = "", policy: str = POLICY) -> dict:
     p = json.load(open(policy))
     k = dict(p["pacing"])
     own = p.get("modes", {}).get(mode, {})
-    for knob, name in (
-        ("five_hour_stop", "five_hour_stop"),
-        ("seven_day_ceiling", "seven_day_stop"),
-    ):
+    for name in ("five_hour_stop", "seven_day_stop"):
         if own.get(name) is not None:
-            k[knob] = own[name]
+            k[name] = own[name]
     return k
 
 
@@ -64,6 +62,9 @@ def decide(raw: dict, k: dict, now: float, backoff_until: float = 0) -> str | No
     if not seven:
         return None
     used = round((seven.get("utilization") or 0) * 100, 1)
+    stop = k.get("seven_day_stop")
+    if stop is not None:
+        return f"seven-day window at {used:.0f}%, stop at {stop}%" if used >= stop else None
     resets = float(seven.get("resetsAt") or 0)
     elapsed = max(0.0, WEEK - (resets - now)) if resets else WEEK
     target = round(k["seven_day_ceiling"] * min(1.0, elapsed / (k["pace_days"] * 86400)), 1)
