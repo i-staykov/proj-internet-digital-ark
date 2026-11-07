@@ -74,7 +74,7 @@ the last bank could not fetch, or moved journals; the last two alone wait `ARK_B
 
 **The bank** folds journals, exports the claim and gates; re-prices each confirmed FIND on the
 store; ingests what was approved or decided and gates again; rebuilds `docs/ROUND.md`, commits,
-pushes `live`, stages `output/fleet_snapshot`, and writes each lead's fate to the fleet. A red writes
+pushes `live`, rebuilds `output/fleet_snapshot` for `just price`, and writes each lead's fate to the fleet. A red writes
 `data/logs/bank_red.json`, and after an approved ingest takes those rows out with
 `scripts/harness/unbank_source.py`, except a source that held rows before the bank: its rows stay
 and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then `just red-clear`
