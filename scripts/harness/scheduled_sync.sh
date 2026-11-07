@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One unattended sync, for the hourly timer (`ark-sync.timer`) to call.
 #
-# `just sync` is the tick that moves the round without a session open: it books the
-# fleet's findings and calls `just bank` when approvals, a confirmed FIND, a baseline or
+# `just sync` is the tick that moves the round without a session open: it brings the
+# lanes' journals home and calls `just bank` when approvals, a confirmed FIND, a baseline or
 # journals arrived. It is idempotent, takes the sync lock and refuses a dirty or diverged
 # clone, so all this adds is a log and the one channel that lets a phone ask for a package.
 #
