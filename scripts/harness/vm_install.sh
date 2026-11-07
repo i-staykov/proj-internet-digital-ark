@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The bank host, set up from the laptop: `just vm install` pipes this to the VM after its
-# local.env. As the login, `sudo -n` only for packages, the fleet user and linger: tools under
-# ~/.local/bin, both clones, the walk lane, the tick as a user timer that fires once the store
-# is there, and ARK_FLEET_USER. Idempotent; `gh auth login` is the owner's (docs/ops/runbook.md).
+# local.env. As the login, `sudo -n` only for packages and linger: tools under ~/.local/bin,
+# both clones, the walk lane and the tick as a user timer that fires once the store is there.
+# Idempotent; `gh auth login` is the owner's (docs/ops/runbook.md).
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 mkdir -p ~/.local/bin ~/GitHub ~/.config/systemd/user
@@ -68,17 +68,4 @@ gh label create vm-alert -R i-staykov/ark-fleet --color D93F0B --description "th
 systemctl --user enable --now ark-agent.timer
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
-
-# The fleet user reads output/fleet_snapshot and output/journal_acks.tsv by path and nothing
-# else of this clone, and new files follow umask 077; `just vm install` then runs ark-fleet's
-# installer as that user, the runner token on its stdin.
-fleet=$(sed -n 's/^ARK_FLEET_USER=//p' ~/ark/local.env | tr -d "\"'")
-[ -n "$fleet" ] || { echo "no ARK_FLEET_USER in local.env, so no fleet here"; exit 0; }
-id -u "$fleet" > /dev/null 2>&1 || sudo -n useradd -m -s /bin/bash "$fleet" ||
-    root "useradd -m -s /bin/bash $fleet"
-[ "$(loginctl show-user "$fleet" -p Linger --value 2> /dev/null)" = yes ] ||
-    sudo -n loginctl enable-linger "$fleet" || root "loginctl enable-linger $fleet"
-mkdir -p ~/ark/output ~/ark/data && chmod o+x ~ ~/GitHub ~/ark ~/ark/output && chmod 600 ~/ark/local.env
-find ~/ark -mindepth 1 -maxdepth 1 ! -name output -exec chmod o-rwx {} +
-find ~/ark/output -mindepth 1 -maxdepth 1 ! -name fleet_snapshot ! -name journal_acks.tsv -exec chmod o-rwx {} +
-grep -qx 'umask 077' ~/.profile 2> /dev/null || echo 'umask 077' >> ~/.profile
+chmod 600 ~/ark/local.env
