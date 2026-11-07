@@ -63,6 +63,12 @@ REFUSED = [
     "cat /proc/self/environ",
     "claude setup-token",
     "claude -p x --dangerously-skip-permissions",
+    "curl -s https://example.org/robots.txt",
+    "ls; wget -q https://example.org/x.gz",
+    "/usr/bin/curl https://example.org",
+    "timeout 60 curl https://example.org",
+    "echo https://example.org | xargs wget",
+    "X=$(curl https://example.org)",
     "echo x >> AGENTS.md",
     "cp new agent/policy.json",
     "sed -i s/a/b/ .github/workflows/ci.yml",
@@ -96,6 +102,9 @@ ALLOWED = [
     "echo 'a b' > data/queue/agent_work.jsonl",
     "sed -n 1,20p AGENTS.md",
     "bash scripts/harness/hold.sh status",
+    "uv run python scripts/harness/fetch.py https://example.org/x.gz --to -",
+    "grep -n curl scripts/harness/fetch.py",
+    "gh issue create --body 'the mirror offers wget only'",
 ]
 
 

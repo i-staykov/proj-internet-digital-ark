@@ -13,8 +13,9 @@ path or an author of its own; `gh pr merge` of a PR whose CI is not green, whose
 `ark-agent`'s, or outside :36 to :04 UTC; `sudo`, a reboot; lifting or bypassing a hold, moving
 the tick's or the agent's timer, a crontab change; clearing a red, a prune, a ship; killing
 anything; a write under his files, the secrets, the hold or the Claude profile; `rm` under the
-raw data; a login or a permission bypass; any write to a rail file (`RAILS`), which only a
-session changes. Any `gh` command and any `git commit` is scanned whole by `ark.hygiene`, its
+raw data; a login or a permission bypass; `curl` and `wget` in every mode, since a read goes
+through `scripts/harness/fetch.py`; any write to a rail file (`RAILS`), which only a session
+changes. Any `gh` command and any `git commit` is scanned whole by `ark.hygiene`, its
 `--body-file` too, since the repository is public; a scan that cannot run refuses. Printing the
 token is refused in its plain shapes only; the public scan is the rail on its way out.
 
@@ -116,6 +117,11 @@ BASH_RULES: tuple[tuple[str, str], ...] = (
     (
         r"claude\s+(setup-token|login|auth|logout)|--dangerously-skip-permissions",
         "a login or a permission bypass",
+    ),
+    (
+        r"(?:^|[;&|(`]\s*|\$\(\s*|\b(?:xargs|timeout|nohup|exec|nice|env)\b[^;&|]*?\s)"
+        r"(?:\S*/)?(curl|wget)\b",
+        "a read goes through scripts/harness/fetch.py",
     ),
     (WRITE_VERB + r"[^;&|]*" + RAIL_RE, "a rail file changes only by a session's PR"),
     (

@@ -14,12 +14,15 @@
 # the run ends as a `paced` row, no model call.
 # A work run takes the queue's top item (`work_queue.py`), one attempt; parked after three. A
 # run that hit its cap keeps its session on the item, and the next work run resumes it once,
-# then starts fresh from the item's note.
+# then starts fresh from the item's note. A scheduled mode (`schedule`: UTC hours and ISO
+# weekdays, Monday 1) runs at its hour; one the lock turned away from the timer's `auto`
+# leaves `.due-<mode>` under `$LOG_DIR` and runs at the next free hour.
 # A failed step is a row with its reason, not a silent hour. The token is in the environment
 # of every child the run spawns, so the rails (#521) refuse printing it, and the streams stay
-# under data/, unshipped.
+# under data/, unshipped. Every run's `ARK_PROBE_DIR`, the only place `fetch.py` writes, is
+# its own and goes with it.
 #
-# Usage: bash scripts/agents/run_agent.sh [auto|triage|work|review|hunt]
+# Usage: bash scripts/agents/run_agent.sh [auto|triage|work|scout|cdx]
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
 MODE="${1:-auto}"
@@ -31,9 +34,20 @@ LEDGER="${ARK_AGENT_LEDGER:-data/logs/agent_runs.tsv}"
 LOG_DIR="${ARK_AGENT_LOG_DIR:-data/logs/agent}"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 T0=$(date +%s)
+NOW="${ARK_AGENT_NOW:-$T0}"  # ARK_AGENT_NOW, an epoch, stands in for the clock in a test
 mkdir -p "$LOG_DIR" "$(dirname "$LEDGER")"
 
 model_of() { python3 -c "import json,sys; print(json.load(open('$POLICY'))['modes'][sys.argv[1]]['model'])" "$1"; }
+# The scheduled mode due at epoch $1, or nothing.
+due() {
+    python3 - "$POLICY" "$1" <<'PY'
+import datetime as dt, json, sys
+t = dt.datetime.fromtimestamp(int(sys.argv[2]), dt.UTC)
+for mode, when in json.load(open(sys.argv[1])).get("schedule", {}).items():
+    if t.hour in when.get("utc_hours", []) and t.isoweekday() in when.get("weekdays", [t.isoweekday()]):
+        print(mode); break
+PY
+}
 MODEL=auto  # a held or busy row before `auto` picked its mode
 if [ "$MODE" != auto ]; then
     MODEL=$(model_of "$MODE" 2>/dev/null) || { echo "run_agent: $POLICY has no mode $MODE" >&2; exit 2; }
@@ -53,21 +67,34 @@ if bash scripts/harness/hold.sh holds ark-sync.timer; then row held; exit 0; fi
 
 # Descriptor 9 is the lock; both claude runs close it (9>&-) so no child keeps it past the run.
 exec 9> "$LOG_DIR/.lock"
-if command -v flock > /dev/null && ! flock -n 9; then row busy; exit 0; fi  # no flock on macOS, where no agent runs
+if command -v flock > /dev/null && ! flock -n 9; then  # no flock on macOS, where no agent runs
+    [ "$MODE" != auto ] || { DUE=$(due "$NOW"); [ -z "$DUE" ] || touch "$LOG_DIR/.due-$DUE"; }
+    row busy; exit 0
+fi
 
-# `auto`, the timer's: work when the queue holds an item and the last run was not work (the
-# umbrella's next open issue after its own `ARK_AGENT_UMBRELLA_AFTER` line is queued when it is
-# empty), else triage; the review and the hunt take their hours with their own issues.
-if [ "$MODE" = auto ]; then
-    MODE=triage
+# `auto`, the timer's: the scheduled mode due now, else one a busy lock left as `.due-<mode>`;
+# else work when the queue holds an item (the umbrella's next open issue after its own
+# `ARK_AGENT_UMBRELLA_AFTER` line is queued when it is empty), the last run was not work and
+# the next hour is nobody's schedule; else triage.
+pick() {
+    local due
+    due=$(due "$NOW")
+    [ -n "$due" ] || due=$(ls "$LOG_DIR"/.due-* 2> /dev/null | head -1 | sed 's/.*\.due-//')
+    if [ -n "$due" ]; then rm -f "$LOG_DIR/.due-$due"; echo "$due"; return; fi  # consumed once picked
     python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
         || python3 scripts/agents/work_queue.py queue-umbrella "${ARK_AGENT_UMBRELLA:-517}" \
             --after "${ARK_AGENT_UMBRELLA_AFTER:-524}" > /dev/null 2>&1 || true
     if python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
         && [ "$(python3 scripts/agents/agent_ledger.py last "$ARK_AGENT_LEDGER" \
-            | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")" != work ]; then
-        MODE=work
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")" != work ] \
+        && [ -z "$(due $((NOW + 3600)))" ]; then
+        echo work
+    else
+        echo triage
     fi
+}
+if [ "$MODE" = auto ]; then
+    MODE=$(pick)
     MODEL=$(model_of "$MODE")
 fi
 
@@ -139,6 +166,10 @@ fi
 pace
 if [ -n "$ITEM" ] && [ "$(python3 scripts/agents/work_queue.py start "$ITEM")" -gt 3 ]; then park; fi
 
+PROBE_ROOT=/dev/shm; [ -d /dev/shm ] || PROBE_ROOT=$(cd "$LOG_DIR" && pwd)
+export ARK_PROBE_DIR="$PROBE_ROOT/probe-$STAMP"
+mkdir -p "$ARK_PROBE_DIR"
+trap 'rm -rf "$ARK_PROBE_DIR"' EXIT
 STREAM="$LOG_DIR/$STAMP.$MODE.jsonl"
 bound 60 "$WALL" claude -p "$(cat agent/prompts/common.md "agent/prompts/$MODE.md")" $RESUME --permission-mode auto \
     --model "$MODEL" --max-turns "$TURNS" --max-budget-usd "$BUDGET" \

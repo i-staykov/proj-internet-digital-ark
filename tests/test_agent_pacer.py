@@ -45,10 +45,20 @@ def test_an_unmeasured_window_runs_and_a_backoff_holds():
     assert "backing off until" in pacer.decide(raw(0.1, 0.1), K, NOW, backoff_until=NOW + 10)
 
 
-def test_a_mode_names_its_own_five_hour_stop():
+def test_a_mode_names_its_own_five_hour_stop_and_a_flat_seven_day_stop():
     policy = str(ROOT / "agent/policy.json")
     assert pacer.knobs("work", policy)["five_hour_stop"] == 25
     assert pacer.knobs("triage", policy)["five_hour_stop"] == 40
+    assert "seven_day_stop" not in pacer.knobs("work", policy)  # the pace line
+    scout = pacer.knobs("scout", policy)
+    assert scout["seven_day_stop"] == 50
+    # 5.2 days in, the line is at 37.1%: a window at 40% paces work and lets a scout run
+    spent = raw(0.1, 0.40, resets_in=int(1.8 * 86400))
+    assert "pace line at 37.1%" in pacer.decide(spent, K, NOW)
+    assert pacer.decide(spent, scout, NOW) is None
+    over = raw(0.1, 0.51, resets_in=int(1.8 * 86400))
+    assert "pace line" in pacer.decide(over, K, NOW)
+    assert pacer.decide(over, scout, NOW) == "seven-day window at 51%, stop at 50%"
 
 
 def event(status, resets=NOW + 500):
