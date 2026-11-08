@@ -274,6 +274,35 @@ def reboot(now: dt.datetime) -> tuple[bool, str]:
     return now - since >= dt.timedelta(hours=24), f"reboot: pending since {since:%F %H:%M}, {boot}"
 
 
+def scout(today: dt.date) -> str:
+    """The scout runs in 7 days and the last one's date, lens, verdict and EE on its sample, from
+    the untracked log agent/prompts/scout.md appends to. A torn row is skipped or shown with its
+    control bytes blanked (a NUL in a `gh` argument raises); one failing the public scan costs
+    this line, not the body."""
+    try:
+        text = (LOGS / "agent/scouts.tsv").read_text(errors="replace")
+        runs = [ln.split("\t") for ln in text.splitlines() if ln.strip()]
+        if not runs:
+            return "scout: no scout yet"
+        week = 0
+        for r in runs:
+            digits = re.sub(r"\D", "", r[0])[:8]  # a 2026-11-08 date or a 20261108T0305Z stamp
+            try:
+                week += 0 <= (today - dt.datetime.strptime(digits, "%Y%m%d").date()).days < 7
+            except ValueError:
+                continue
+        date, lens, word, ee = ([f.strip() for f in runs[-1]] + ["?"] * 4)[:4]
+        line = f"scout: {week} in 7 days, last {date} {lens}, {word}, {ee} EE on the sample"
+        line = re.sub(r"[\x00-\x1f\x7f]", " ", line)  # scanned whole, so no cut hides a secret
+        if clean(line, "scout") != line:
+            return "scout: the last row fails the public scan"
+        return line[:200]
+    except FileNotFoundError:
+        return "scout: no scout yet"
+    except Exception as e:  # noqa: BLE001 - a torn log must not cost the heartbeat
+        return f"scout: unreadable, {type(e).__name__}"
+
+
 def load(rel: str):
     spec = importlib.util.spec_from_file_location(Path(rel).stem, ROOT / rel)
     mod = importlib.util.module_from_spec(spec)
@@ -440,6 +469,7 @@ def main(argv: list[str]) -> int:
                 reboot_line,
                 f"hold: {held}",
                 agent_line,
+                scout(now.date()),
             ]
         )
     return 0
