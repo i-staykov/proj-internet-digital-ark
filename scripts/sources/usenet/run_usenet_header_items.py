@@ -30,7 +30,7 @@ FLOOR = 300
 
 
 def price(work: Path, out: Path) -> float:
-    """Candidate EE of one batch's journals against the fleet snapshot."""
+    """Candidate EE of one batch's journals against the price snapshot."""
     path = work / "batch.items.jsonl"
     write_items(sorted(out.glob("*.jsonl.gz")), path)
     ark = Path(sys.executable).with_name("ark")
@@ -38,7 +38,7 @@ def price(work: Path, out: Path) -> float:
         ark,
         "price-snapshot",
         "--snapshot",
-        "output/fleet_snapshot",
+        "output/price_snapshot",
         "--items",
         path,
         "--track",

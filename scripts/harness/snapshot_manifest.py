@@ -1,8 +1,8 @@
-"""Stage the pricing snapshot the fleet prices against, and write its manifest.
+"""Stage the pricing snapshot `just price` reads, and write its manifest.
 
-The legs read what this stages, through a link into `output/fleet_snapshot`. The staging
-directory is built with hard links, so pointing at a 1.5 GB baseline and a 300 MB candidate
-export costs no disk and no copy time, and the bytes the manifest hashes are the bytes read.
+The staging directory is built with hard links, so pointing at a 1.5 GB baseline and a
+300 MB candidate export costs no disk and no copy time, and the bytes the manifest hashes
+are the bytes read.
 
 What lands, and why each piece is there:
 
@@ -31,7 +31,7 @@ year, which is `-ISC` (`1998-ISC.txt` is zero lines today because the survey dat
 in 1998) and the candidate exports. Nothing is silently dropped: every absent and every
 empty entry is printed.
 
-    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
+    uv run python scripts/harness/snapshot_manifest.py --out output/price_snapshot
 """
 
 from __future__ import annotations
@@ -68,8 +68,6 @@ EXPORT_CANDIDATES = REPO / "output/candidate_unverified.txt"
 EXPORT_EXTENDED = REPO / "output/extended_years"
 # calculator_path() is relative to the working directory; anchored like every path here.
 CALCULATOR = REPO / calculator_path()
-# The fleet's record of the claim the pushed snapshot carries, which every leg checks.
-EXPECTED = "snapshot.json"
 # **Both of these must exist for every year, or the build is refused.** They are the two
 # units we ship, registrables and the hostnames beneath them, so a missing one
 # means `output/netnew` is stale or half-written, and every
@@ -152,21 +150,6 @@ def claim_of(files: dict[str, Path]) -> set[str]:
     return {rel for rel, path in files.items() if path in claim}
 
 
-def publish_expected(stage: Path, fleet: Path) -> int:
-    """Write the fleet's `snapshot.json` from the staged manifest, building nothing, so it
-    names the claim the stage holds."""
-    manifest = json.loads((stage / MANIFEST_NAME).read_text(encoding="utf-8"))
-    claim = manifest.get("claim_sha256")
-    if not claim or not fleet.is_dir():
-        why = f"{fleet} is not a directory" if claim else "the staged manifest has no claim_sha256"
-        print(f"snapshot_manifest: nothing published, {why}", file=sys.stderr)
-        return 1
-    expected = {"marker": manifest["marker"], "claim_sha256": claim}
-    (fleet / EXPECTED).write_text(json.dumps(expected, indent=2) + "\n", encoding="utf-8")
-    print(f"snapshot_manifest: {EXPECTED} expects {manifest['marker']} claim_sha256 {claim}")
-    return 0
-
-
 def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
     """Hard-link every manifest file into `out`, keep a link that already names its file, and
     write the manifest last.
@@ -193,27 +176,12 @@ def stage(out: Path, files: dict[str, Path], manifest: dict) -> None:
             # A different filesystem, or a link limit. Copying is slower and correct.
             shutil.copy2(files[rel], target)
     (out / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    # The legs read the stage as another user, by path: readable as a fact, not an umask.
-    for root, dirs, names in os.walk(out):
-        for d in dirs:
-            os.chmod(Path(root) / d, 0o755)
-        for n in names:
-            os.chmod(Path(root) / n, 0o644)
-    out.chmod(0o755)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True, help="staging directory to build")
-    parser.add_argument(
-        "--publish-expected",
-        type=Path,
-        metavar="FLEET",
-        help="write FLEET/snapshot.json from the manifest already at --out, and build nothing",
-    )
     args = parser.parse_args()
-    if args.publish_expected:
-        return publish_expected(args.out, args.publish_expected.expanduser())
 
     current = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))["current"]
     marker, baseline = current["marker"], REPO / current["directory"]

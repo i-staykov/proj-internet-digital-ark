@@ -402,7 +402,7 @@ def test_a_file_that_kept_its_stat_is_neither_hashed_nor_rebuilt(tmp_path, monke
 
 
 def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, monkeypatch) -> None:
-    """What is hashed is what is pushed, each unit we ship is there for all six years, and a
+    """What is hashed is what is staged, each unit we ship is there for all six years, and a
     zero-line file refuses the build unless it may be left out."""
     baseline, netnew = tmp_path / "baseline", tmp_path / "netnew"
     calculator = _write(tmp_path / "calculator" / "equivalent_english_domains.py", ["pass"])
@@ -446,13 +446,10 @@ def test_the_snapshot_stages_his_files_our_claim_and_his_calculator(tmp_path, mo
     assert (out / MARKER / "1996.txt").read_text() == "his.com\n"
     assert (out / "netnew/2005.txt").read_text() == "more.com\n", "ours for 2005 are the additions"
     assert manifest["files"][ps.ATTESTED]["sorted"] is True
-    assert sm.publish_expected(out, tmp_path) == 0, "the fleet is told the claim"
-    want = {"marker": MARKER, "claim_sha256": manifest["claim_sha256"]}
-    assert json.loads((tmp_path / "snapshot.json").read_text()) == want
     _write(baseline / "1996.txt", ["his.com", "more.com"])
-    assert claim()[0]["claim_sha256"] == want["claim_sha256"], "his files are not the claim"
+    assert claim()[0]["claim_sha256"] == manifest["claim_sha256"], "his files are not the claim"
     _write(netnew / "candidate_additions.txt", ["cand.com", "more.com"])
-    assert claim()[0]["claim_sha256"] != want["claim_sha256"], "ours are"
+    assert claim()[0]["claim_sha256"] != manifest["claim_sha256"], "ours are"
     (netnew / "1999_hostnames.txt").unlink()
     (netnew / "attested_registrables.txt").unlink()
     absent = sm.sources(baseline, MARKER)[2]
