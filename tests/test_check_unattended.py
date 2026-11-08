@@ -187,6 +187,7 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
 def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, monkeypatch):
     check = script("harness/check_unattended.py")
     monkeypatch.setattr(check, "ROOT", tmp_path)
+    monkeypatch.setattr(check, "STATE", tmp_path / "state")
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
     monkeypatch.setattr(check, "left", {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0}.get)

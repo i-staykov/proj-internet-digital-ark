@@ -9,17 +9,17 @@ row per (host, year), the earliest, as `{url, timestamp, status}` in
 
 A zip streams through `scripts/harness/fetch.py --to -`, the one download path, and never
 touches the disk; its journal lands only when the stream's sha1 is the item's own for that file,
-so a cut stream books nothing. A zip with a journal is done. A zip whose sha1 is not the item's,
-or that is not a stored zip, is a strike: retried after the others, three times at most
-(`.har_<zip>.failed`). A dead host, a 5xx or a cut transfer (fetch's exits `OUTAGE`) is no
-strike: the reader pauses `PAUSE` seconds and asks for the same zip again. A test zip that does
-not open is skipped and counted. Every zip left, back to back in crawl order, item after item in
-`items()`: every crawl in a year visits the same URL list, so a year's first item pays nearly all
-its hosts and the rest saturate (laws); the order is one year's first item before any year's
-second, smallest first, the monthlies last, 2013's items found by archive.org's search. The
-search's answer and each item's file list are kept beside the journals (`.har_items.json`,
-`.har_<item>.zips.json`), so `left()` counts what is left without a request and the tick starts
-the unit only while that is not zero. A crawl zip that two items list (a 2013 monthly holds its
+so a cut stream books nothing. A zip with a journal is done; one whose sha1 is not the item's,
+that is not a stored zip, or that the server answers 4xx is a strike, retried after the others,
+three times at most (`.har_<zip>.failed`); a dead host, a 5xx or a cut transfer is no strike,
+the reader pauses and asks for the same zip again. A test zip that does not open is skipped and
+counted. Every zip left, back to back in crawl order, item after item in `items()`: every crawl
+in a year visits the same URL list, so a year's first item pays nearly all its hosts and the rest
+saturate (laws); the order is one year's first item before any year's second, smallest first,
+the monthlies last, 2013's items found by archive.org's search. The search's answer and each
+item's file list are kept beside the journals (`.har_items.json`, `.har_<item>.zips.json`), so
+`left()` counts what is left without a request and the tick starts the unit only while that is
+not zero. A crawl zip that two items list (a 2013 monthly holds its
 per-crawl zips) is read once, from the first item, and its strikes carry. The hold is read
 between zips: the tick starts it after the bank as its own user unit, `ark-har`, so it outlives
 the tick and never runs twice (`scripts/harness/scheduled_sync.sh`). Each zip logs its bytes and
@@ -41,6 +41,7 @@ import re
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -64,15 +65,24 @@ FIRST = (
     ("httparchive_2012", 2012),
 )
 OUTAGE = {4, 7}  # fetch's exits for a robots.txt it could not read, a dead host, a 5xx, a cut
+OWN = re.compile(r"the server answered 4\d\d")  # fetch's receipt when the zip's own answer is 4xx
 PAUSE = 300
 LOCAL = struct.Struct("<4sHHHHHIIIHH")  # a zip member's local header
 WHEN = re.compile(r"(\d\d)/(\d\d)/(\d{4})\t(\d\d):(\d\d):(\d\d)")
 YES = re.compile(r"[23]\d\d")
 
 
-def fetch(url: str, max_bytes: str = "1G") -> subprocess.Popen:
+def fetch(url: str, max_bytes: str = "1G", err=None) -> subprocess.Popen:
     cmd = [sys.executable, str(REPO / "scripts/harness/fetch.py"), url, "--to", "-"]
-    return subprocess.Popen([*cmd, "--max-bytes", max_bytes], stdout=subprocess.PIPE)
+    return subprocess.Popen([*cmd, "--max-bytes", max_bytes], stdout=subprocess.PIPE, stderr=err)
+
+
+def keep_json(path: Path, obj) -> None:
+    """A cache file beside the journals, whole or absent."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj))
+    os.replace(tmp, path)
 
 
 def members(stream):
@@ -125,27 +135,38 @@ class Hashed:
 def read(item: str, year: int, name: str, size: int, sha1: str) -> tuple[str, dict]:
     """One zip's line for the log, and its (host, year) rows once booked."""
     part, t0 = name.removesuffix(".zip"), time.time()
-    proc = fetch(ITEM.format(what="download", item=item) + "/" + name, str(size))
-    stream, keep, broken, bad = Hashed(proc.stdout), {}, 0, ""
-    try:
-        for _, test in members(stream):
-            try:
-                earliest(requests(test), keep, str(year))
-            except Exception:  # noqa: BLE001  one bad test zip never stops the read
-                broken += 1
-        while stream.read(1 << 20):  # the central directory, hashed with the rest
-            pass
-    except (ValueError, OSError) as exc:
-        proc.kill()  # nothing once the stream ended on its own: fetch's exit then says why
-        bad = str(exc)
-    proc.wait()
+    with tempfile.TemporaryFile() as err:
+        proc = fetch(ITEM.format(what="download", item=item) + "/" + name, str(size), err)
+        stream, keep, broken, bad = Hashed(proc.stdout), {}, 0, ""
+        try:
+            for _, test in members(stream):
+                try:
+                    earliest(requests(test), keep, str(year))
+                except Exception:  # noqa: BLE001  one bad test zip never stops the read
+                    broken += 1
+            while stream.read(1 << 20):  # the central directory, hashed with the rest
+                pass
+        except (ValueError, OSError) as exc:
+            bad = str(exc)
+            try:  # a stream that ended on its own: fetch's exit says why, once it is out
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        proc.wait()
+        err.seek(0)
+        try:
+            receipt = json.loads((err.read().decode().strip().splitlines() or ["{}"])[-1])
+        except ValueError:  # killed before its receipt
+            receipt = {}
+    reason = receipt.get("reason", "")
     OUT.mkdir(parents=True, exist_ok=True)
-    if proc.returncode in OUTAGE:
+    if proc.returncode in OUTAGE and not OWN.match(reason):
         time.sleep(PAUSE)
-        return f"{part}: not booked, fetch exit {proc.returncode}, asked again after {PAUSE} s", {}
+        why = f"{part}: not booked, fetch exit {proc.returncode}, {reason}, asked again after"
+        return f"{why} {PAUSE} s", {}
     if proc.returncode or bad or stream.sha1.hexdigest() != sha1:
         why = f"{part}: not booked, fetch exit {proc.returncode}, sha1 {stream.sha1.hexdigest()}"
-        why += f", {bad}" if bad else ""
+        why += "".join(f", {w}" for w in (reason, bad) if w)
         with open(OUT / f".har_{part}.failed", "a") as fh:
             fh.write(why + "\n")
         return why, {}
@@ -201,14 +222,14 @@ def items(search: bool = True) -> list[tuple[str, int]]:
     )
     found = [*FIRST, *((d["identifier"], 2013) for d in rest)]
     if docs:
-        OUT.mkdir(parents=True, exist_ok=True)
-        kept.write_text(json.dumps(found))
+        keep_json(kept, found)
     return found
 
 
 def zips(item: str, ask: bool = True) -> dict | None:
-    """name -> (size, sha1) of the item's zips, from its file list once, kept in
-    `.har_<item>.zips.json`; None while unlisted and not asked, or when the list does not arrive."""
+    """name -> (size, sha1) of the item's zips, from its file list, kept in `.har_<item>.zips.json`
+    once it names a zip (archive.org answers `{}` for an item dark at that moment); None while
+    unlisted and not asked, or when the list does not arrive."""
     kept = OUT / f".har_{item}.zips.json"
     if kept.exists():
         return {name: tuple(v) for name, v in json.loads(kept.read_text()).items()}
@@ -223,16 +244,21 @@ def zips(item: str, ask: bool = True) -> dict | None:
         for f in files
         if f["name"].endswith(".zip") and int(f["size"])
     }
-    OUT.mkdir(parents=True, exist_ok=True)
-    kept.write_text(json.dumps(found))
+    if found:
+        keep_json(kept, found)
     return found
 
 
 def left() -> int:
-    """Zips under three strikes without a journal, over the items as far as they are listed here,
-    nothing asked of archive.org; an item not yet listed counts one."""
-    listed = ((zips(item, ask=False), item) for item, _ in items(search=False))
-    return sum(1 if z is None else len(todo(z)) for z, _ in listed)
+    """Zips under three strikes without a journal, over the items listed here, nothing asked of
+    archive.org; an item not yet listed counts one, and so does the search until it answers."""
+    names, unlisted = set(), int(not (OUT / ".har_items.json").exists())
+    for item, _ in items(search=False):
+        if (listed := zips(item, ask=False)) is None:
+            unlisted += 1
+        else:
+            names.update(todo(listed))
+    return len(names) + unlisted
 
 
 def read_item(item: str, year: int) -> bool:

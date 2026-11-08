@@ -306,20 +306,25 @@ def test_a_status_less_crawl_list_row_ships_through_the_export_with_its_node_id(
     assert manifest["inputs"][0]["replay"].endswith("clueweb.urls-docid.bz2")
 
 
+class _Fetch:
+    """A fetch that hands over `body`, writes `reason` as its receipt to `err` and exits `rc`."""
+
+    def __init__(self, body: bytes, rc: int, reason: str = "", err=None):
+        self.stdout, self.returncode = io.BytesIO(body), rc
+        if err is not None:
+            err.write(json.dumps({"reason": reason}).encode())
+
+    def kill(self):
+        pass
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+
 def test_a_failed_fetch_counts_a_strike_and_leaves_no_part(tmp_path, monkeypatch):
     cw = script("sources/crawl_lists/clueweb.py")
     monkeypatch.setattr(cw, "OUT", tmp_path)
-
-    class Refused:
-        stdout, returncode = io.BytesIO(b""), 6
-
-        def kill(self):
-            pass
-
-        def wait(self):
-            return self.returncode
-
-    monkeypatch.setattr(cw, "fetch", lambda url, max_bytes="14G": Refused())
+    monkeypatch.setattr(cw, "fetch", lambda *a: _Fetch(b"", 6))
     (tmp_path / ".clueweb09_0.tmp").write_bytes(b"stale")
     assert cw.read("clueweb09").startswith("clueweb09: not booked, fetch exit 6")
     assert (tmp_path / ".clueweb09.357226562.failed").read_text().count("\n") == 1
@@ -425,26 +430,14 @@ def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monk
     ]
 
 
-class _Fetch:
-    """A fetch that hands over `body` and exits `rc`."""
-
-    def __init__(self, body: bytes, rc: int):
-        self.stdout, self.returncode = io.BytesIO(body), rc
-
-    def kill(self):
-        pass
-
-    def wait(self):
-        return self.returncode
-
-
 def test_the_http_archive_reader_counts_what_is_left_offline_and_strikes_no_outage(
     tmp_path, monkeypatch
 ):
     har = script("sources/httparchive/har_year.py")
     monkeypatch.setattr(har, "OUT", tmp_path)
     monkeypatch.setattr(har, "PAUSE", 0)
-    assert har.left() == len(har.FIRST)  # nothing listed yet: each first item counts one
+    # nothing listed yet: each first item counts one, and so does the unanswered search
+    assert har.left() == len(har.FIRST) + 1
     (tmp_path / ".har_items.json").write_text(
         '[["httparchive_2010", 2010], ["httparchive_2011", 2011]]'
     )
@@ -458,21 +451,30 @@ def test_the_http_archive_reader_counts_what_is_left_offline_and_strikes_no_outa
     assert har.left() == 0
     # a dead host or a 5xx: fetch exits 4 or 7, the zip is asked again and strikes nothing
     sha = hashlib.sha1(b"PK\x03\x04").hexdigest()
-    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(b"PK\x03\x04", 7))
+    cut = "the transfer failed: reset"
+    monkeypatch.setattr(har, "fetch", lambda u, m, err: _Fetch(b"PK\x03\x04", 7, cut, err))
     line, keep = har.read("httparchive_2010", 2010, "1012.zip", 4, sha)
-    assert line.endswith("fetch exit 7, asked again after 0 s") and keep == {}
+    assert line.endswith(f"fetch exit 7, {cut}, asked again after 0 s") and keep == {}
     assert har.failures("1012") == 0 and not list(tmp_path.glob("*1012*"))
+    # the zip's own 4xx is the same exit and strikes
+    gone = "the server answered 404"
+    monkeypatch.setattr(har, "fetch", lambda u, m, err: _Fetch(b"", 7, gone, err))
+    line, _ = har.read("httparchive_2010", 2010, "1012.zip", 4, sha)
+    assert line.startswith("1012: not booked") and gone in line and har.failures("1012") == 1
     # a whole stream whose sha1 is not the item's strikes
-    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(b"PK\x05\x06", 0))
+    monkeypatch.setattr(har, "fetch", lambda u, m, err: _Fetch(b"PK\x05\x06", 0, "", err))
     line, _ = har.read("httparchive_2010", 2010, "1012.zip", 4, "not it")
-    assert line.startswith("1012: not booked") and har.failures("1012") == 1
+    assert line.startswith("1012: not booked") and har.failures("1012") == 2
     # a stream that is not a stored zip strikes, whatever fetch says of it
     compressed = har.LOCAL.pack(b"PK\x03\x04", 20, 0, 8, 0, 0, 0, 1, 1, 1, 0) + b"xx"
-    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(compressed, 0))
+    monkeypatch.setattr(har, "fetch", lambda u, m, err: _Fetch(compressed, 0, "", err))
     line, _ = har.read(
         "httparchive_2010", 2010, "1012.zip", 4, hashlib.sha1(compressed).hexdigest()
     )
-    assert "not stored with its size" in line and har.failures("1012") == 2
+    assert "not stored with its size" in line and har.failures("1012") == 3
+    # an item's empty file list is answered, never kept: it is asked again next run
+    monkeypatch.setattr(har, "fetch", lambda *a: _Fetch(b'{"files": []}', 0))
+    assert har.zips("httparchive_2012") == {} and har.zips("httparchive_2012", ask=False) is None
 
 
 def test_the_end_of_term_reader_counts_what_is_left_by_its_journals_and_strikes(

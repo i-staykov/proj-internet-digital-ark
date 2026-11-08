@@ -42,4 +42,5 @@ unless it adds a capability the round needs.
 ## D. Collectors and the VM (owns collector deployment, sync)
 
 - Throughput: #392 the worker count that measures best.
-- Readers: the walker's refusal counter climbs on a 200 cut before its first row.
+- Readers: `eot_cdxj.py` and `clueweb.py` strike a part on any failed fetch (moot while every
+  part is read); the walker's refusal counter climbs on a 200 cut before its first row.
