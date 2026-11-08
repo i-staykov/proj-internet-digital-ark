@@ -51,9 +51,17 @@ no gdrive remote. The owner, once: on the laptop
 then here, with the JSON it prints
     rclone config create gdrive drive scope=drive config_is_local=false config_token='<json>'
 STEP
+# His calculator over his largest year file outgrows the RAM (docs/lore/laws.md, Harness), so
+# the tick's intake (drive_intake.sh) waits on swap. Root's one step, printed until it holds.
+[ "$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)" -ge 16000000 ] || cat << 'STEP'
+swap: under 16 GiB. As root, once:
+    fallocate -l 16G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+STEP
 
 [ -d ~/ark/.git ] || git clone -q -b live https://github.com/i-staykov/proj-internet-digital-ark ~/ark
 git -C ~/ark pull -q --ff-only
+# Every commit the clone makes goes public: it names the tick, never a login or a machine.
+git -C ~/ark config user.name ark-tick && git -C ~/ark config user.email ark-tick@invalid
 [ -f ~/ark-local.env ] && mv ~/ark-local.env ~/ark/local.env
 if gh auth status > /dev/null 2>&1; then
     gh auth setup-git
