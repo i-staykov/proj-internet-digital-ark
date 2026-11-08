@@ -15,15 +15,19 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
   `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
   cron restarts a finished lane, which writes that row again, every period.
 - readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
-  three strikes left and no hold is an active unit; with none left it reads `finished`, and
-  `check_unattended.py left <unit>` prints the count, which the tick reads before starting the
-  unit. The header lane has no unit yet, so it is reported, never judged.
+  three strikes left and no hold is an active unit, unless the tick has yet to start it (no
+  log, its script changed in the last two hours) or its log's last line says it waits until a
+  later UTC stamp or was held within the hour, and never one whose own `stalled()` names where
+  it stalls; with none left it reads `finished`, and `check_unattended.py left <unit>` prints
+  the count, which the tick reads before starting the unit.
 """
 
 from __future__ import annotations
 
+import calendar
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 import time
@@ -41,11 +45,14 @@ LANES = 3
 # cron starts a stopped lane every 10 minutes; one more for the start itself
 RESTART_S = 11 * 60
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
-READERS = {  # the tick's transient units and their readers (scheduled_sync.sh)
-    "ark-eot": "scripts/sources/eot/eot_cdxj.py",
-    "ark-har": "scripts/sources/httparchive/har_year.py",
-    "ark-clueweb": "scripts/sources/crawl_lists/clueweb.py",
+READERS = {  # the tick's transient units, their readers and logs (scheduled_sync.sh)
+    "ark-eot": ("scripts/sources/eot/eot_cdxj.py", "eot_cdxj"),
+    "ark-har": ("scripts/sources/httparchive/har_year.py", "har"),
+    "ark-clueweb": ("scripts/sources/crawl_lists/clueweb.py", "clueweb"),
+    "ark-header": ("scripts/sources/usenet/run_usenet_header_items.py", "usenet_header"),
 }
+START_S = 2 * 3600
+WAITS = re.compile(r"waits until (\d{8}T\d{6}Z)")
 
 
 def run(*cmd: str) -> tuple[int, str]:
@@ -136,7 +143,13 @@ def module(path: str):
 
 def left(unit: str) -> int:
     """Parts under three strikes the unit's reader has not read, from its own files alone."""
-    return module(READERS[unit]).left()
+    return module(READERS[unit][0]).left()
+
+
+def stalled(unit: str) -> str:
+    """Where the unit's reader says it made no progress, if it keeps such a word."""
+    word = getattr(module(READERS[unit][0]), "stalled", None)
+    return word() if word else ""
 
 
 def reader(unit: str) -> tuple[bool, str]:
@@ -144,7 +157,26 @@ def reader(unit: str) -> tuple[bool, str]:
         return True, "finished"
     state = run("systemctl", "--user", "is-active", unit)[1] or "unknown"
     held = hold_names() is not None
-    return state == "active" or held, f"{state}, {parts} parts left" + (", held" if held else "")
+    why = f"{state}, {parts} parts left" + (", held" if held else "")
+    log = ROOT / f"data/logs/{READERS[unit][1]}.log"
+    if held:
+        return True, why
+    if stall := stalled(unit):
+        return False, f"{state}, {parts} parts left, {stall}"
+    if state == "active":
+        return True, why
+    if not log.exists():  # the tick starts a reader within the hour its code arrived
+        new = time.time() - (ROOT / READERS[unit][0]).stat().st_mtime < START_S
+        return new, f"not started yet, {parts} parts left"
+    with open(log, "rb") as fh:
+        fh.seek(max(0, log.stat().st_size - 4096))
+        last = (fh.read().decode(errors="replace").strip().splitlines() or [""])[-1]
+    now = time.time()
+    if (m := WAITS.search(last)) and calendar.timegm(time.strptime(m[1], "%Y%m%dT%H%M%SZ")) > now:
+        return True, f"{state}, {parts} parts left, {m[0]}"
+    if last.endswith("held") and now - log.stat().st_mtime < 3600:
+        return True, f"{state}, {parts} parts left, held within the hour"
+    return False, why
 
 
 def readers() -> list[tuple[str, bool, str]]:
@@ -167,7 +199,6 @@ def main(argv: list[str]) -> int:
         ("space", *disk()),
         *((f"lane{n}", *lane(n)) for n in range(LANES)),
         *readers(),
-        ("header lane", True, "no unit yet, not judged"),
     ]
     failed = [name for name, ok, _ in checks if not ok]
     for name, ok, why in checks:
