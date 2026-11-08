@@ -38,6 +38,7 @@ import functools
 import glob
 import gzip
 import hashlib
+import importlib.metadata
 import importlib.util
 import json
 import os
@@ -46,6 +47,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zlib
 from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -54,7 +56,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from ark import approvals, canonical, held  # noqa: E402
+from ark import approvals, canonical, delegation, held  # noqa: E402
 from ark import hostnames as hn  # noqa: E402
 from ark.baseline import (  # noqa: E402
     CURRENT_BASELINE_MARKER,
@@ -161,137 +163,27 @@ def stat_of(path: Path) -> dict:
     return {"size": st.st_size, "mtime_ns": st.st_mtime_ns}
 
 
-# What a cache entry was made by: these functions' statements, followed through every name
-# they reach in this file and in `ark`, with each reached module's import-time statements and
-# any function there that rebinds or mutates a reached name. An edit the screen never runs (an
-# ingest, a log line, a docstring, a comment) leaves the entries be.
-ROOTS = ("screened", "his_file")
-_DEFS = ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
-_DYNAMIC = {"eval", "exec", "getattr", "setattr", "delattr", "globals", "vars", "locals"}
-_MUTATORS = {"append", "extend", "insert", "remove", "pop", "clear", "update", "add", "discard"}
-_MUTATORS |= {"setdefault", "popitem", "sort", "reverse", "__setitem__", "__delitem__"}
-
-
-def _source(module: str) -> str:
-    """An `ark` module's source, or this file's for ""."""
-    path = importlib.util.find_spec(module).origin if module else __file__
-    return Path(path).read_text(encoding="utf-8")
-
-
-def _is_module(name: str) -> bool:
-    try:
-        return name.split(".")[0] == "ark" and importlib.util.find_spec(name) is not None
-    except ModuleNotFoundError:
-        return False
-
-
-def _root(node: ast.AST) -> ast.AST:
-    """`x` of `x.a[0].b()`."""
-    while isinstance(node, ast.Attribute | ast.Subscript | ast.Call):
-        node = node.func if isinstance(node, ast.Call) else node.value
-    return node
-
-
-def _imported(stmt: ast.Import | ast.ImportFrom) -> dict[str, tuple[str, str]]:
-    """Each name an import binds, as (module, name), name "" for a whole module."""
-    if isinstance(stmt, ast.Import):
-        return {
-            a.asname or a.name.split(".")[0]: (a.name if a.asname else a.name.split(".")[0], "")
-            for a in stmt.names
-        }
-    base = ".".join(["ark"] * bool(stmt.level) + [stmt.module] * bool(stmt.module))
-    return {
-        a.asname or a.name: (f"{base}.{a.name}", "")
-        if _is_module(f"{base}.{a.name}")
-        else (base, a.name)
-        for a in stmt.names
-    }
-
-
-@functools.cache
-def _bindings(module: str) -> tuple[dict[str, list], dict[str, tuple[str, str]]]:
-    """A module's top-level statements by each name they bind or mutate ("": the ones run on
-    import), docstrings dropped; and each import as (module, name), name "" for a module."""
-    tree = ast.parse(_source(module))
+def code_of(source: str) -> str:
+    """A module's code: its ast without docstrings, so a comment, a docstring or formatting
+    leaves it be and any other edit, a log line's included, changes it."""
+    tree = ast.parse(source)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Module | _DEFS) and ast.get_docstring(node, clean=False):
+        kinds = ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+        if isinstance(node, kinds) and ast.get_docstring(node, clean=False) is not None:
             node.body = node.body[1:]
-    binds: dict[str, list] = {}
-    imports: dict[str, tuple[str, str]] = {}
-    for stmt in tree.body:
-        names = [""]
-        if isinstance(stmt, ast.Import | ast.ImportFrom):
-            imports |= _imported(stmt)
-            names = list(_imported(stmt))
-        elif isinstance(stmt, _DEFS):
-            names = [stmt.name]
-        elif isinstance(stmt, ast.Assign | ast.AnnAssign):
-            targets = stmt.targets if isinstance(stmt, ast.Assign) else [stmt.target]
-            targets = [e for t in targets for e in (t.elts if isinstance(t, ast.Tuple) else [t])]
-            if all(isinstance(t, ast.Name) for t in targets):
-                names = [t.id for t in targets]
-        elif isinstance(stmt, ast.If) and ast.unparse(stmt.test) == "__name__ == '__main__'":
-            continue
-        for name in names:
-            binds.setdefault(name, []).append(stmt)
-    for stmt in (s for s in tree.body if isinstance(s, _DEFS)):
-        for node in ast.walk(stmt):
-            if isinstance(node, ast.Global):
-                for name in node.names:
-                    binds.setdefault(name, []).append(stmt)
-                continue
-            if isinstance(node, ast.Attribute | ast.Subscript):
-                root = None if isinstance(node.ctx, ast.Load) else _root(node.value)
-            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                root = _root(node.func.value) if node.func.attr in _MUTATORS else None
-            else:
-                continue
-            if isinstance(root, ast.Name) and root.id in binds:
-                binds[root.id].append(stmt)
-    return binds, imports
+    return ast.dump(tree)
 
 
 @functools.cache
 def code_of_screen() -> str:
-    """What a cached entry was made by: the window, the PSL and the code `ROOTS` reach."""
-    todo, seen, reached = [("", root) for root in ROOTS], set(), {}
-    while todo:
-        module, name = ref = todo.pop()
-        if ref in seen or module and module.split(".")[0] != "ark":
-            continue
-        seen.add(ref)
-        binds, imports = _bindings(module)
-        if name not in binds and name not in ("", "*"):  # a submodule, else the module whole
-            sub = f"{module}.{name}"
-            todo.append((sub, "*") if _is_module(sub) else (module, "*"))
-            continue
-        todo.append((module, ""))
-        for stmt in sum(binds.values(), []) if name == "*" else binds.get(name, []):
-            if id(stmt) in reached:
-                continue
-            reached[id(stmt)] = (module, stmt)
-            based = set()
-            for node in ast.walk(stmt):  # a parent before its children
-                if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-                    target = imports.get(node.value.id, ("", "-"))
-                    if not target[1]:
-                        todo.append((target[0], node.attr))
-                        based.add(id(node.value))
-                elif isinstance(node, ast.Name):
-                    if node.id in binds:
-                        todo.append((module, node.id))
-                    if node.id in _DYNAMIC:
-                        todo.append((module, "*"))
-                    if node.id in imports and id(node) not in based:
-                        todo.append((imports[node.id][0], imports[node.id][1] or "*"))
-                elif isinstance(node, ast.Import | ast.ImportFrom) and node is not stmt:
-                    todo += [(m, n or "*") for m, n in _imported(node).values()]
+    """What a cached entry was made by: the window, the code it runs, the PSL, the one data file
+    that code reads, and the libraries `to_registrable` calls."""
     digest = hashlib.sha256(repr(sorted(EXTENDED_YEARS)).encode())
-    digest.update(Path(canonical.PSL_PATH).read_bytes())
-    for module, stmt in sorted(
-        reached.values(), key=lambda r: (r[0], r[1].lineno, r[1].col_offset)
-    ):
-        digest.update(f"{module}\n{ast.dump(stmt)}\n".encode())
+    for part in (__file__, hn.__file__, canonical.__file__, delegation.__file__, held.__file__):
+        digest.update(code_of(Path(part).read_text(encoding="utf-8")).encode())
+    digest.update(canonical.PSL_PATH.read_bytes())
+    for library in ("tldextract", "idna"):
+        digest.update(importlib.metadata.version(library).encode())
     return digest.hexdigest()
 
 
@@ -313,7 +205,7 @@ def cached(path: Path, key: bytes) -> tuple[dict, bytes] | None:
                 return None
             head, _, rows = gzip.decompress(fh.read()).partition(b"\n")
         return json.loads(head), rows
-    except (OSError, EOFError, ValueError):
+    except (OSError, EOFError, ValueError, zlib.error):
         return None
 
 
