@@ -11,7 +11,7 @@ them, `data/queue/cdx_order.priced.json`), ee_per_client_second (ee over the lan
 in the date, first start to last end, pauses included, one client whatever its workers: a lane
 idle part of the day is rated over the part it walked), band_low and band_high (that ee a second
 over the lane's previous seven rows of the kind and window, blank under three). `LEVERS` is the
-policy file the cdx run may pull from.
+levers file the cdx run may pull from.
 """
 
 from __future__ import annotations
