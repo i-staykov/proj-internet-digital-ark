@@ -1,29 +1,15 @@
-"""Flatten, validate and re-price the findings the hourly tick drains out of the fleet.
+"""Re-price the confirmed FINDs `just bank` finds in `data/fleet_findings/incoming`.
 
 **A fleet figure never reaches the register alone.** The leg that measured a corpus priced
-it against the pushed snapshot, which is a copy of the store's exports and his baseline and
-not the store; it can be hours stale, and it was produced by the same agent that wants the
-answer to be large. So a FIND its own verify lane confirmed is priced a second time HERE, by
-`price_items.py` or `price_hostnames.py`, against the live store, and the scribe books both
-numbers side by side. The program a leg runs prices the same items against the snapshot the
-last push staged, and how far it agrees with the store goes beside them in `store_price.json`.
+it against a snapshot, a copy of the store's exports and his baseline that can be hours
+stale, and it was produced by the same agent that wants the answer to be large. So a
+confirmed FIND is priced a second time HERE, by `price_items.py` or `price_hostnames.py`,
+against the live store, and the scribe books both numbers side by side. The program prices
+the same items against the snapshot the last bank staged, and how far it agrees with the
+store goes beside them in `store_price.json`.
 A FIND that ships no items cannot be re-priced, and that says so in the register.
 
-Four subcommands, in order: the tick runs drain and validate, `just bank` runs reprice and,
-once its commit has landed, outcome over this drain and every drain banked before it.
-
-    drain     the downloaded run directories become one directory per lead
-    validate  every sidecar against the fleet's own schema, via the fleet's own validator
-    reprice   every confirmed FIND against the live store and by the program
-    outcome   one fleet ledger line per confirmed FIND: both figures, the decision, banked
-
-    uv run python scripts/harness/fleet_findings.py drain data/fleet_findings/incoming \\
-        --fleet ~/GitHub/ark-fleet
-    uv run python scripts/harness/fleet_findings.py validate data/fleet_findings/incoming \\
-        --fleet ~/GitHub/ark-fleet
     uv run python scripts/harness/fleet_findings.py reprice data/fleet_findings/incoming
-    uv run python scripts/harness/fleet_findings.py outcome data/fleet_findings/incoming \\
-        data/fleet_findings/banked/*/ --fleet ~/GitHub/ark-fleet [--register R] [--db D]
 """
 
 from __future__ import annotations
@@ -31,7 +17,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import math
 import os
 import pwd
 import re
@@ -48,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fleet_ledger  # noqa: E402
 
 SIDECAR = "finding.json"
-PROSE = "finding.md"
 LEAD = "lead.json"
 STORE_PRICE = "store_price.json"
 # Where a price leg leaves the `{host, year}` lines it measured: `items/` under the fleet
@@ -59,9 +43,9 @@ FLEET_DATA = "ark-data"
 # What the leg has to leave beside its finding for the bank to be able to check it. Both
 # pricers read this shape: one JSON object per line, `{"item", "year", "text"}`.
 ITEM_FILES = ("items.jsonl.gz", "items.jsonl")
-# What the program prices against: the snapshot the last bank staged, which the legs read
-# through a link. Relative to REPO, so no local path reaches store_price.json.
-SNAPSHOT = Path("output/fleet_snapshot")
+# What the program prices against: the snapshot the last bank staged. Relative to REPO,
+# so no local path reaches store_price.json.
+SNAPSHOT = Path("output/price_snapshot")
 # A corpus `read.yaml` read whole: its journal parts and `receipt.json` under `journals/`
 # in the fleet's data, pulled here per lead. The pull is the gate: only a complete read whose
 # every part matches the sha256 the receipt lists lands, so what the bank ingests is exactly
@@ -70,10 +54,6 @@ FLEET_READ = REPO / "data/raw/fleet_read"
 READ = "read.json"
 # A part's name as `read.py` writes it and `ark.hostnames.FLEETREAD` reads it: never a path.
 PART = re.compile(r"fleetread_[a-z0-9]+(?:_[a-z0-9]+)*__[a-z0-9][a-z0-9-]*_\d{4}\.jsonl\.gz")
-# The store whose ingested files say which sources are banked, read only, under the bank's lock.
-DB = REPO / "data/ark.duckdb"
-# The decisions that let a source's rows into the store at all.
-INGESTIBLE = frozenset({"master", "candidate-only"})
 
 # The figure `price_items.py` says to quote: after the split, or with `--no-split` the whole
 # net-new set, which a lead of a no-split class is priced on.
@@ -98,154 +78,6 @@ def load(path: Path) -> dict:
     except (OSError, ValueError):
         return {}
     return doc if isinstance(doc, dict) else {}
-
-
-# --- drain --------------------------------------------------------------------
-
-
-def freshness(lead: Path) -> tuple[int, int]:
-    """How settled a copy of a lead is: a second opinion first, then the run that wrote it.
-
-    Two unprocessed runs can carry the same slug, because a price wave and the verify wave
-    that answers it are drained together. The price copy says `verify.status: pending` and
-    the verify copy says `confirmed`, so keeping whichever arrived first threw away the only
-    copy a re-price and the standing rule will act on.
-    """
-    finding = load(lead / SIDECAR)
-    settled = (finding.get("verify") or {}).get("status", "pending") != "pending"
-    run_id = str(finding.get("run_id") or "")
-    return (1 if settled else 0, int(run_id) if run_id.isdigit() else 0)
-
-
-def drain(incoming: Path) -> int:
-    """One directory per lead at the top, whatever shape the artifact arrived in.
-
-    An S3 artifact is `leads/<slug>.json` beside `leads/<slug>/{finding.json,finding.md,
-    extract.py,verify.json}`; the waves before it uploaded `findings/*.md` and nothing else.
-    Both end up where the scribe and the pricer look. The lead directory moves WHOLE and the
-    lead file moves INTO it as `lead.json`, because the grain and the dating stamp are read
-    from the lead and the fleet clone here is never pulled, so the artifact's copy is the
-    only one that is certainly the one the leg saw.
-
-    **A scout lead takes the same path.** A lead closed at filing ships `leads/<slug>/scout.md`
-    and its lead file, and no `finding.json`. Moved by bare name, every `scout.md` would
-    collide on `incoming/scout.md`, and the negative would be booked under the word `scout`
-    or not at all. It scores the lowest freshness, so it never replaces a copy with a
-    finding, and a second scout copy of the same slug is dropped. What `.md` is left after
-    that is loose prose with a name of its own, such as `_scout/`'s lead-less negatives.
-    """
-    moved = leads = 0
-    for run in sorted(p for p in incoming.iterdir() if p.is_dir() and p.name.startswith("run_")):
-        for lead in sorted(p for p in run.rglob("*") if p.is_dir() and _lead_dir(p)):
-            # **The slug in the sidecar names the directory, never the directory's own name.**
-            # A leg artifact's root directory is called `findings`, so keyed on that name a copy
-            # of one banks beside its lead directory as a second lead, and the same finding
-            # enters the register twice under the same slug. Keying on the slug makes the two
-            # collide, and the collision is then resolved on which copy is more settled.
-            slug = str(load(lead / SIDECAR).get("slug") or lead.name)
-            target = incoming / slug
-            side = lead.parent / f"{slug}.json"
-            if side.is_file() and not (lead / LEAD).exists():
-                shutil.move(str(side), str(lead / LEAD))
-            if target.exists():
-                if freshness(lead) <= freshness(target):
-                    print(f"drain: {slug} is already here in a copy at least as settled")
-                    shutil.rmtree(lead, ignore_errors=True)
-                    continue
-                print(f"drain: {slug} arrives more settled than the copy here, replacing it")
-                shutil.rmtree(target)
-            shutil.move(str(lead), str(target))
-            leads += 1
-        for prose in sorted(run.rglob("*.md")):
-            target = incoming / prose.name
-            if target.exists():
-                continue
-            shutil.move(str(prose), str(target))
-            moved += 1
-        keep_leftovers(incoming, run)
-        shutil.rmtree(run, ignore_errors=True)
-    print(f"drain: {leads} lead directories, {moved} loose findings")
-    return 0
-
-
-def _lead_dir(path: Path) -> bool:
-    """A directory holding a finding, or a scout lead's directory holding only its prose."""
-    if (path / SIDECAR).is_file():
-        return True
-    return path.parent.name == "leads" and (path / "scout.md").is_file()
-
-
-def keep_leftovers(incoming: Path, run: Path) -> None:
-    """Anything the drain did not recognise, kept where a human can find it.
-
-    The run directory is removed once it is drained, so a file no rule matched (a rejected
-    lead, a leg's extractor, a shape a later wave invents) would go with it silently. They
-    are few and small, and a corpus nobody can re-read is the failure this whole lane exists
-    to avoid, so they move rather than vanish. The run's `telemetry.json` is not one: the
-    fleet ledger's leg lines hold each leg's spend, so it dies with the run.
-    """
-    left = [p for p in run.rglob("*") if p.is_file() and p.name != "telemetry.json"]
-    if not left:
-        return
-    keep = incoming / "_unread" / run.name
-    for path in left:
-        target = keep / path.relative_to(run)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(path), str(target))
-    print(f"drain: {len(left)} unrecognised files from {run.name} kept in {keep}")
-
-
-# --- validate -----------------------------------------------------------------
-
-
-def validate(incoming: Path, fleet: Path) -> int:
-    """Every sidecar against the fleet's schema, using the fleet's own validator.
-
-    Not a second implementation: the schema and the subset of JSON Schema it is written in
-    both live in the fleet, and a copy here would drift the week the schema changes. A
-    sidecar that fails is kept as `finding.json.rejected` and replaced by the contract's own
-    BLOCKED fallback, which is what the fleet would have written had it caught it itself.
-    """
-    contract = fleet / "scripts/contract.py"
-    if not contract.is_file():
-        print(f"validate: no validator at {contract}, nothing checked", file=sys.stderr)
-        return 1
-    bad = 0
-    for path in sidecars(incoming):
-        done = subprocess.run(
-            [sys.executable, str(contract), "validate", str(path), "--schema", "finding"],
-            capture_output=True,
-            text=True,
-        )
-        if done.returncode == 0:
-            continue
-        bad += 1
-        print(f"validate: {path.parent.name} does not validate")
-        for line in done.stdout.splitlines():
-            print(f"  {line}")
-        rejected = path.with_suffix(".json.rejected")
-        shutil.copyfile(path, rejected)
-        subprocess.run(
-            [
-                sys.executable,
-                str(contract),
-                "fallback",
-                str(path),
-                "--lane",
-                str(load(rejected).get("lane") or "price"),
-                "--run-id",
-                str(load(rejected).get("run_id") or "unknown"),
-                "--reason",
-                "schema",
-                "--from",
-                str(rejected),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    print(f"validate: {len(sidecars(incoming))} sidecars, {bad} replaced by a BLOCKED fallback")
-    return 0
 
 
 # --- reprice ------------------------------------------------------------------
@@ -578,165 +410,16 @@ def reprice(incoming: Path) -> int:
     return 0
 
 
-# --- outcome ------------------------------------------------------------------
-
-
-def _figure(value) -> float | None:
-    """A figure as JSON can carry it: a finite number, else None."""
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value) if math.isfinite(value) else None
-
-
-def decision_of(decided: dict, source: str, etype) -> str:
-    """The register's decision for a find's source and class, or `pending` while no block
-    exists. A lead that names no class takes its source's block."""
-    if (source, etype) in decided:
-        return decided[(source, etype)].decision
-    if not etype:
-        for (name, _), approval in decided.items():
-            if name == source:
-                return approval.decision
-    return "pending"
-
-
-def ingested(db: Path) -> set[str] | None:
-    """Every source name the store's ingest wrote, or None when the store cannot be read.
-    Read only and capped through `ark.db`: `just bank` holds the lock that keeps any writer out."""
-    try:
-        from ark.db import connect_read_only_patiently
-
-        conn = connect_read_only_patiently(db, patience_s=60)
-    except Exception as exc:
-        print(f"outcome: the store could not be opened ({exc}), so nothing is banked")
-        return None
-    try:
-        rows = conn.execute("SELECT DISTINCT source_name FROM ingested_file").fetchall()
-    except Exception as exc:
-        print(f"outcome: the store's ingested files could not be read ({exc}), nothing is banked")
-        return None
-    finally:
-        conn.close()
-    return {str(name) for (name,) in rows if name}
-
-
-def outcome(roots: list[Path], fleet: Path, register: Path | None, db: Path = DB) -> int:
-    """One outcome line per confirmed FIND with a store price under `roots`, in one append.
-
-    The line carries both figures and how far they agree, so the streak that hands the
-    decision to the program's figure is read from the fleet ledger and not from a count kept
-    here. **`banked` is the store's say, not the bank's**: true only once the source the
-    register block names is among the store's ingested files under a decision that admits
-    rows. A standing-rule master over a source with no ingest spec banks nothing, and a
-    master a previous bank committed and ingested is banked whenever this runs next. It is a
-    JSON bool: the fleet keys a line on slug, decision and banked, and the string `"true"`
-    would key as another line.
-
-    The bank passes this drain and every drain banked before it, so a find the owner
-    approves later, or one ingested later, gains its banked line then; a line the ledger
-    holds already is kept, not added. A slug under several roots is booked from its most
-    settled copy. Exits 1 when the lines did not land, so the bank keeps its drain.
-    """
-    # Imported here: the register is read through the store package, which the drain the
-    # tick runs every hour has no need of.
-    import fleet_request
-
-    from ark import approvals
-
-    decided = approvals.load(register or fleet_request.REGISTER)
-    finds: dict[str, Path] = {}
-    for root in roots:
-        for path in sidecars(root):
-            finding = load(path)
-            lead = path.parent
-            if finding.get("verdict") != "FIND":
-                continue
-            if (finding.get("verify") or {}).get("status") != "confirmed":
-                continue
-            if not (lead / STORE_PRICE).is_file():
-                continue
-            if lead.name not in finds or freshness(lead) > freshness(finds[lead.name]):
-                finds[lead.name] = lead
-    if not finds:
-        print("outcome: no confirmed FIND with a store price, nothing to book")
-        return 0
-    # Source and class as the request block names them: a whole read's block is its own
-    # hostname source in the capture class, whatever class the scout recorded.
-    classes = {
-        slug: fleet_request.request_class(lead, load(lead / LEAD)) for slug, lead in finds.items()
-    }
-    sources = {slug: source for slug, (source, _) in classes.items()}
-    decisions = {slug: decision_of(decided, *classes[slug]) for slug in finds}
-    held: set[str] = set()
-    if INGESTIBLE & set(decisions.values()):
-        held = {fleet_request.source_key(name) for name in ingested(db) or ()}
-    rows = []
-    for slug, lead in finds.items():
-        store = load(lead / STORE_PRICE)
-        store_ee = _figure(store.get("ee"))
-        program_ee = _figure(store.get("fleet_program_ee"))
-        rows.append(
-            {
-                "slug": slug,
-                "store_ee": store_ee,
-                "program_ee": program_ee,
-                "agreement_pct": fleet_ledger.agreement_pct(store_ee, program_ee),
-                "decision": decisions[slug],
-                "banked": decisions[slug] in INGESTIBLE and sources[slug] in held,
-            }
-        )
-    ok, said = fleet_ledger.append(fleet, "outcome", rows)
-    banked = sum(row["banked"] for row in rows)
-    said = said if ok else f"not booked: {said}"
-    print(f"outcome: {len(rows)} confirmed finds, {banked} banked in the store, {said}")
-    return 0 if ok else 1
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("command", choices=["drain", "validate", "reprice", "outcome"])
-    ap.add_argument(
-        "incoming",
-        type=Path,
-        nargs="+",
-        help="the drain; outcome also takes the drains banked before it",
-    )
-    ap.add_argument(
-        "--fleet",
-        type=Path,
-        help="the fleet clone: its ledger for outcome, its schema for validate",
-    )
-    ap.add_argument(
-        "--register",
-        type=Path,
-        help="outcome: the approvals register, by default docs/registers/approved-sources-list.md",
-    )
-    ap.add_argument(
-        "--db",
-        type=Path,
-        default=DB,
-        help="outcome: the store whose ingested files say what is banked, read only",
-    )
+    ap.add_argument("command", choices=["reprice"])
+    ap.add_argument("incoming", type=Path, help="the drain")
     args = ap.parse_args(argv)
-
-    roots = [root.expanduser() for root in args.incoming]
-    if args.command != "outcome" and len(roots) > 1:
-        ap.error(f"{args.command} takes one directory")
-    incoming = roots[0]
+    incoming = args.incoming.expanduser()
     if not incoming.is_dir():
         print(f"{incoming} is not a directory", file=sys.stderr)
         return 1
-    fleet = args.fleet.expanduser() if args.fleet is not None else None
-    if args.command == "drain":
-        return drain(incoming)
-    if args.command == "reprice":
-        return reprice(incoming)
-    if fleet is None:
-        ap.error(f"{args.command} needs --fleet")
-    if args.command == "outcome":
-        # An unmatched glob of banked drains arrives as its own pattern: nothing to book there.
-        return outcome([root for root in roots if root.is_dir()], fleet, args.register, args.db)
-    return validate(incoming, fleet)
+    return reprice(incoming)
 
 
 if __name__ == "__main__":
