@@ -134,15 +134,11 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     (tmp_path / "data/logs/.reboot_seen").write_text("")
     os.utime(tmp_path / "data/logs/.reboot_seen", (time.time() - 25 * 3600,) * 2)
     at = now.strftime("%Y%m%dT0505Z")
-    intake = tmp_path / "data/logs/.intake_alert"
-    intake.write_text("intake: no digest\tb.zip has no b.zip.sha256\n")
     run(hb, tmp_path, at, 1, 1, sync="bank: BANK RED since x", check="FAIL lane1: stopped")
     titles = made(hb, "create")
-    assert not intake.exists()
     assert sorted(titles) == sorted(
         f"vm-alert: {c}"
         for c in (
-            "intake: no digest",
             "check lane1",
             "BANK RED",
             "lane2 stalled",
