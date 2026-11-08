@@ -19,7 +19,8 @@ from ark import cli
 from ark.bulk import ingest_files
 from ark.checks import collect_checks
 from ark.cli import app
-from ark.db import GIB, init_db
+from ark.db import init_db
+from ark.disk import GIB
 from ark.hostnames import fleet_read_registrables_tag
 
 runner = CliRunner()

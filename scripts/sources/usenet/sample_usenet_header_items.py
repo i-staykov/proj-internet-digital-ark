@@ -4,8 +4,9 @@ The group catalogue (`data/raw/usenet_catalog.json`) lists the big hierarchies o
 every usenet-* item on archive.org through the scrape API, keeps an item when a
 bucket names its top-level hierarchy and no group in `seen` (a JSON list of group names already
 read) is it or under it, and per bucket reads about 0.4 GB of groups of 1 to 300 MB, at most
-three per item, from items in seeded random order. One download at a time, `/` kept 70 GiB free,
-each zip extracted by `build_usenet_header_pool.py` and deleted, a 429 ends the run. Each
+three per item, from items in seeded random order. One download at a time above the
+collectors' floor (`ark.disk`), each zip extracted by `build_usenet_header_pool.py` and
+deleted, a 429 ends the run. Each
 bucket's journals are then written as {host, year} items through the ingest's own reader, a
 `text` holding several names included, for `just price --items <workdir>/<bucket>.items.jsonl
 --track candidate`. `log.tsv` keeps bytes (or the build's failing code) and download and
@@ -19,7 +20,6 @@ from __future__ import annotations
 
 import json
 import random
-import shutil
 import subprocess
 import sys
 import time
@@ -28,6 +28,7 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
+from ark.disk import below_floor
 from ark.hostnames import USENET_HEADER_FAMILY, usenet_item_rows
 
 UA = "ark-research (header-lane measurement)"
@@ -76,7 +77,7 @@ def unread(work: Path, seen_path: Path) -> list[str]:
 
 def fetch(url: str, dst: Path, size: int) -> str:
     """The HTTP code, or "cut" when a 200 did not come whole; the file is kept only when it did."""
-    while shutil.disk_usage("/").free < 70 * 2**30 + 2 * size:
+    while below_floor(dst.parent, 2 * size):
         time.sleep(60)
     r = subprocess.run(
         ["curl", "-sSL", "-A", UA, "-o", dst, "-w", "%{http_code}", url],
