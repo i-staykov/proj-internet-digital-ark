@@ -7,6 +7,7 @@ recipe's shebang body from the justfile.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -293,3 +294,81 @@ def test_the_tick_pulls_only_under_the_lock(clone):
     head = git_out(repo, env, "rev-parse", "HEAD")
     tick(repo, env)  # the fixture's lock is held: the sync stops before its preflight
     assert git_out(repo, env, "rev-parse", "HEAD") == head
+
+
+# `just intake`: c.zip is taken; d.zip moves the marker and fails before its held sets
+INTAKE = """import json, pathlib, sys
+marker = "merge261121" if sys.argv[1].endswith("d.zip") else "merge261120"
+p = pathlib.Path("data/baseline.json")
+d = json.loads(p.read_text())
+d["current"]["marker"] = marker
+p.write_text(json.dumps(d))
+if marker == "merge261121":
+    sys.exit("ark intake failed")
+pathlib.Path(f"data/held/{marker}").mkdir(parents=True)
+pathlib.Path(f"data/held/{marker}/held.json").touch()
+with open("docs/registers/releases.md", "a") as f:
+    f.write(f"| {sys.argv[2]} |\\n")
+"""
+
+
+def test_a_drive_release_is_taken_once_and_each_fault_alerted_once(clone, tmp_path):
+    """One upload a tick, oldest first: a wrong digest, a zip two ticks without one and a failed
+    intake alert once each, the failure's pages back at HEAD; the good one is taken once and
+    pushed over a merge that moved `live` meanwhile."""
+    repo, env = clone
+    drive, bin_dir = tmp_path / "drive", tmp_path / "bin"
+    drive.mkdir()
+    sums = {}
+    for name in ("a.zip", "b.zip", "c.zip", "d.zip"):
+        (drive / name).write_bytes(name.encode())
+        sums[name] = hashlib.sha256(name.encode()).hexdigest()
+    (drive / "a.zip.sha256").write_text("0" * 64 + "  a.zip\n")
+    for name in ("c.zip", "d.zip"):
+        (drive / f"{name}.sha256").write_text(sums[name].upper() + f"  {name}\n")
+    stub(
+        bin_dir,
+        "rclone",
+        'case "$1" in lsf) for f in "${@: -1}"/*; do echo "${f##*/}|2026-11-08 10:00:00"; done ;;'
+        ' cat) cat "$2" ;; copyto) cp "$2" "$3" ;; esac',
+    )
+    (tmp_path / "intake.py").write_text(INTAKE)
+    stub(
+        bin_dir,
+        "just",
+        f'echo "just $*" >> "$ARK_TEST_CALLS"; exec python3 {tmp_path}/intake.py "$2" "$4"',
+    )
+    for key, value in (("user.name", "t"), ("user.email", "t@t")):
+        subprocess.run(["git", "config", key, value], cwd=repo, env=env, check=True)
+    env = {**env, "ARK_RELEASES": str(drive)}
+
+    def intake() -> None:
+        subprocess.run(["bash", "scripts/harness/drive_intake.sh"], cwd=repo, env=env, check=True)
+
+    intake()  # a.zip: copied, refused on its digest
+    page = repo / "docs/registers/questions.md"
+    page.write_text(page.read_text() + "\nmerged\n")
+    subprocess.run([*GIT, "commit", "-qam", "a merged PR"], cwd=repo, env=env, check=True)
+    subprocess.run([*GIT, "push", "-q", "origin", "HEAD:live"], cwd=repo, env=env, check=True)
+    subprocess.run([*GIT, "reset", "-q", "--hard", "HEAD~1"], cwd=repo, env=env, check=True)
+    intake()  # b.zip first seen, c.zip taken and pushed over the merge
+    intake()  # b.zip alerted, d.zip failed
+    intake()  # nothing left
+    c, d = sums["c.zip"][:12], sums["d.zip"][:12]
+    assert (tmp_path / "calls").read_text().splitlines() == [
+        f"just intake ding/{c}/c.zip --sha256 {sums['c.zip']} --into ding/{c}",
+        f"just intake ding/{d}/d.zip --sha256 {sums['d.zip']} --into ding/{d}",
+    ]
+    alerts = (repo / "data/logs/.intake_alert").read_text().splitlines()
+    assert [a.split("\t")[0] for a in alerts] == [
+        "intake: a.zip 000000000000: digest mismatch",
+        "intake: b.zip: no digest",
+        f"intake: d.zip {d}: failed",
+    ]
+    origin = ["--git-dir", str(tmp_path / "origin.git")]
+    assert git_out(repo, env, *origin, "log", "--format=%s", "-2", "live").splitlines() == [
+        "Intake merge261120: his release c.zip from Drive",
+        "a merged PR",
+    ]
+    assert git_out(repo, env, "status", "--porcelain") == ""
+    assert (repo / f"ding/{c}/c.zip").exists() and not (repo / f"ding/{d}").exists()

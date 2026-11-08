@@ -136,6 +136,10 @@ sync fleet="~/GitHub/ark-fleet":
     fi
     # 3. The gate issue, once per crossing, read off the brief the last bank wrote.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
+    # 4. His release from Drive on the bank host, after a green bank, so the next one re-exports.
+    if [ "$BANK_RC" -eq 0 ] && [ ! -e data/logs/bank_red.json ] && grep -q 'local:' <<<"$ARK_HOSTS"; then
+        bash scripts/harness/drive_intake.sh || true
+    fi
     exit "$BANK_RC"
 
 # bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless

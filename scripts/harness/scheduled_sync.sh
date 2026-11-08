@@ -29,6 +29,9 @@ cd "$(dirname "$0")/../.." || exit 1
 # child environments.
 [ -f local.env ] && . ./local.env
 [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+# The tick's commits go public, so they name the tick, never a login or a machine (AGENTS.md).
+export GIT_AUTHOR_NAME=ark-tick GIT_COMMITTER_NAME=ark-tick
+export GIT_AUTHOR_EMAIL=ark-tick@invalid GIT_COMMITTER_EMAIL=ark-tick@invalid
 
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs

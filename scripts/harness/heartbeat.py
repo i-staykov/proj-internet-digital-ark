@@ -11,7 +11,8 @@
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
   subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
   successful agent run, no Claude pre-flight answered or no listing of the offsite remote in
-  24 h, under 14 days of disk or gh token. The triage reads them; the owner is asked nothing.
+  24 h, under 14 days of disk or gh token, and each line drive_intake.sh left in `.intake_alert`,
+  once. The triage reads them; the owner is asked nothing.
 - The first tick from 06 UTC, once a day, comments the heartbeat on the open `VM heartbeat`
   issue, so its last comment says where the VM stands. A watchdog on ark-fleet alerts when that
   goes quiet.
@@ -255,16 +256,17 @@ def clean(body: str, name: str) -> str:
     return body
 
 
-def alert(causes: dict[str, str]) -> None:
-    """One `vm-alert` issue per cause: opened, reopened, never duplicated."""
+def alert(causes: dict[str, str]) -> bool:
+    """One `vm-alert` issue per cause: opened, reopened, never duplicated. False when gh
+    refused any of it."""
     if not causes:
-        return
+        return True
     listed = ["issue", "list", "-R", FLEET, "--label", "vm-alert", "--state", "all"]
     rc, out = gh(*listed, "--limit", "500", "--json", "number,title,state")
     if rc:
         print(f"alerts: gh could not list, {len(causes)} wait for the next tick")
-        return
-    known = {i["title"]: i for i in json.loads(out or "[]")}
+        return False
+    known, sent = {i["title"]: i for i in json.loads(out or "[]")}, True
     for cause, body in causes.items():
         title, body = f"vm-alert: {cause}", clean(body, "vm_alert")
         have = known.get(title)
@@ -272,9 +274,12 @@ def alert(causes: dict[str, str]) -> None:
             labelled = ("-R", FLEET, "--label", "vm-alert")
             rc, _ = gh("issue", "create", *labelled, "--title", title, "--body", body)
             print(f"alert {'opened' if rc == 0 else 'not opened, gh refused'}: {cause}")
+            sent &= rc == 0
         elif have["state"] != "OPEN":
             rc, _ = gh("issue", "reopen", str(have["number"]), "-R", FLEET, "--comment", body)
             print(f"alert {'reopened' if rc == 0 else 'not reopened, gh refused'}: {cause}")
+            sent &= rc == 0
+    return sent
 
 
 def heartbeat(lines: list[str]) -> None:
@@ -335,7 +340,11 @@ def main(argv: list[str]) -> int:
     off_ok, off_line = offsite(now)
     if not off_ok:
         causes["no offsite listing in 24 h"] = off_line
-    alert(causes)
+    intake = LOGS / ".intake_alert"
+    lines = intake.read_text().splitlines() if intake.exists() else []
+    causes.update(ln.split("\t", 1) for ln in lines if "\t" in ln)
+    if alert(causes):
+        intake.unlink(missing_ok=True)
 
     today = now.strftime("%Y-%m-%d")
     day_file = LOGS / ".heartbeat_day"
