@@ -4,7 +4,12 @@
 # `just sync` is the tick that moves the round without a session open: it brings the
 # lanes' journals home and calls `just bank` when approvals, a confirmed FIND, a baseline or
 # journals arrived. It is idempotent, takes the sync lock and refuses a dirty or diverged
-# clone, so all this adds is a log and the one channel that lets a phone ask for a package.
+# clone, so all this adds is a log and the two labels that let a phone ask for a hold or a
+# package.
+#
+# The `hold` label on any open ark-fleet issue is `just hold` (scripts/harness/hold.sh): the
+# hold file and the flags go, the timer stays, so this runs hourly, `just sync` exiting `held`,
+# and lifts the hold once the label is gone. While gh does not answer, nothing moves.
 #
 # The `ship-now` label on any open ark-fleet issue (the gate issue is the natural one)
 # runs `just ship all` once: sync, report, package, verify, the mail draft, and stop.
@@ -45,6 +50,17 @@ fi
 
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
+hold_label() {  # on: before the sync, so it exits held; off: after, so the forced bank has the lock
+    local n
+    n=$(gh issue list --repo "$FLEET_REPO" --state open --label hold \
+        --json number --jq '.[0].number // empty' 2>/dev/null) || return 0
+    if [ "$1" = on ] && [ -n "$n" ]; then
+        bash scripts/harness/hold.sh holds || bash scripts/harness/hold.sh on label
+    elif [ "$1" = off ] && [ -z "$n" ] && bash scripts/harness/hold.sh holds; then
+        bash scripts/harness/hold.sh off label
+    fi
+}
+
 ship_now() {
     local n body
     n=$(gh issue list --repo "$FLEET_REPO" --state open --label ship-now \
@@ -68,28 +84,40 @@ ship_now() {
     login="login ok" && gh auth status > /dev/null 2>&1 || login="LOGIN DEAD"
     expiry=$(gh api -i user 2> /dev/null | tr -d '\r' | sed -n 's/^github-authentication-token-expiration: //Ip')
     echo "$login, token expiry: ${expiry:-no expiry header}"
+    # the remote's last successful listing, for the heartbeat
+    rclone lsf --max-depth 1 gdrive:ark-offsite > /dev/null 2>&1 && echo "$STAMP" > data/logs/.offsite_listed || echo "offsite: listing failed"
+    hold_label on 2>&1
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
     just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]' \
         | tee "$SYNC_OUT"
     sync_rc=${PIPESTATUS[0]}
+    hold_label off 2>&1
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
 } >> "$LOG"
 
+# Yesterday's productivity rows (scripts/agents/lane_yield.py), once a day after the 06 UTC
+# bank, the heartbeat's condition; a failure is one line here, never the tick's.
+if [ "${STAMP:9:2}" -ge 6 ] && [ "$(cat data/logs/.yield_day 2>/dev/null)" != "${STAMP:0:8}" ]; then
+    if uv run python scripts/agents/lane_yield.py >> "$LOG" 2>&1; then echo "${STAMP:0:8}" > data/logs/.yield_day
+    else echo "lane yield: failed, its error is above" >> "$LOG"; fi
+fi
+
 # The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
-# every part left after the bank, each its own unit so it outlives this one, never two at once
-# (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb.py).
+# every part left after the bank, each its own unit so it outlives this one, never two at once,
+# and started only while its reader has a part under three strikes left, so a finished reader
+# costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
+# crawl_lists/clueweb.py; the count is check_unattended.py's).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
-    systemd-run --user --unit ark-eot --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/eot/eot_cdxj.py >> data/logs/eot_cdxj.log 2>&1' \
-        >/dev/null 2>&1 || true
-    systemd-run --user --unit ark-har --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/httparchive/har_year.py >> data/logs/har.log 2>&1' \
-        >/dev/null 2>&1 || true
-    systemd-run --user --unit ark-clueweb --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/crawl_lists/clueweb.py >> data/logs/clueweb.log 2>&1' \
-        >/dev/null 2>&1 || true
+    for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
+        clueweb:crawl_lists/clueweb.py:clueweb; do
+        IFS=: read -r name script log <<<"$reader"  # unit, script, log
+        [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>> "$LOG")" = 0 ] && continue
+        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" \
+            bash -c "uv run python scripts/sources/$script >> data/logs/$log.log 2>&1" \
+            >/dev/null 2>&1 || true
+    done
 fi
 
 # The tick's status is the sync's, else the check's (scripts/harness/check_unattended.py), so a

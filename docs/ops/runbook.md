@@ -82,7 +82,7 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then 
 go through `scripts/agents/triage.py`, whose header names their guards.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
-`scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` Tuesday and Saturday at 03 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
+`scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` four times a day at 03, 09, 15 and 21 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
 `scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the
@@ -92,22 +92,25 @@ the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 **The VM** (`ARK_VM` in `local.env`, over the VPN) is set up from the laptop by `just vm install`,
 `sudo -n` for the packages and linger, printing the root command it needs when
 refused; it refuses while the tick is held. `just vm status|log` read it, status with the modes of
-`hosts.yml` and `local.env`. This checkout only pulls; it keeps no copy of the VM's data.
+`hosts.yml` and `local.env`. `just vm token gh|claude` installs a token from stdin there and prints
+the gh expiry or the agent pre-flight's answer. This checkout only pulls; it keeps no copy of the VM's data.
 
 | on the VM | what |
 |---|---|
 | the login | `ark-sync.timer`: the tick and the bank from `~/ark`, once `data/ark.duckdb` is there; its lane is the `local` entry of `ARK_HOSTS`; `ark-agent.timer` once `~/.config/ark/agent.env` is there |
-| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from the owner's one `gh auth login` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories |
+| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories |
 | an AV alert | hash the flagged file; a hit in a downloaded corpus is content and is kept; the detail goes under `private/security/` |
 
-**The hold.** `just hold` disables the VM's `ark-sync.timer`, writes `pause-platform` here and on
-each host, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
-status` shows each name and `just hold off <name>` lifts one, or drops a name it does not know.
-It survives a reboot; while it lists `ark-sync.timer` the tick and the bank exit `held`. A dry
-run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run. Right
-after `just hold off ark-sync.timer`, run `just bank --force` by hand: with
-no `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass
-takes about an hour.
+**The hold.** `just hold`, on the VM or from the laptop over `ARK_VM`, disables `ark-sync.timer`,
+writes `pause-platform` here and on each host, and disables the fleet's `leg.yaml`, `read.yaml`
+and `improver.yaml`; a `hold` label on an open ark-fleet issue does the same through the tick, the
+timer left enabled so the tick reads the label's removal. `just hold status` shows each name and
+`just hold off <name>` lifts one, or drops a name it does not know; `just hold off`, or the label
+removed, lifts them all and starts `just bank --force` as `ark-bank-force` on the bank host (a
+label still on holds again at the next tick). It
+survives a reboot; while it lists `ark-sync.timer` the tick, the bank and the agent exit `held`,
+and every collector stops asking within a page or a file. A dry run's hand tick passes it as
+`ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run.
 
 ## Commands
 

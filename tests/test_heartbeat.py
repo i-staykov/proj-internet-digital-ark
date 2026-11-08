@@ -96,9 +96,9 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
     )
     old = stamp(now - dt.timedelta(hours=7)).replace("Z", "00Z")
     (lane / "log.tsv").write_text(f"{old}\t{row}\n# exit {old} pending=0\n")
-    assert hb.lane(0, now, {"walk_com.sg_ps100_p5_1996-2013": [2.5, 1.0]}) == (
+    assert hb.lane(0, now, {"lane0": "2026-11-07: page 1 of 1 answered"}) == (
         False,
-        "lane0: 1 pages, 2.5 EE 1996-2001, 1.0 EE 2002-2013 in 24 h",
+        "lane0: 2026-11-07: page 1 of 1 answered",
     )
     (lane / "pending.txt").write_text("task\n")
     assert hb.lane(0, now, {})[0] is True
@@ -135,6 +135,8 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
             "no agent success in 24 h",
             "disk under 14 days",
             "gh token under 14 days",
+            "no Claude pre-flight ok in 24 h",
+            "no offsite listing in 24 h",
         )
     )
     # the red gone and a refused tick before: open ones stay single, a closed one reopens
@@ -146,6 +148,50 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     run(hb, tmp_path, at, 1, 1, sync="boom", check="FAIL lane1: stopped")
     assert made(hb, "create") == ["vm-alert: two refused ticks"]
     assert made(hb, "reopen") == ["0"]
+
+
+def ledger_row(at: dt.datetime, outcome: str, five="0.0", seven="0.0") -> str:
+    return "\t".join([stamp(at), "work", "m", "1", "1", "1", "0.1", five, seven, "9", outcome])
+
+
+def test_preflight_and_offsite_read_their_records(hb, tmp_path):
+    now = dt.datetime.now(dt.UTC)
+    ledger = tmp_path / "data/logs/agent_runs.tsv"
+    assert hb.preflight(now) == (False, "claude token: no pre-flight ok")
+    old, fresh = now - dt.timedelta(hours=25), now - dt.timedelta(hours=2)
+    rows = [
+        "stamp\tmode\tmodel\tturns\ttokens_in\ttokens_out\tcost_usd\tfive_hour_pct\tseven_day_pct\tseconds\toutcome",
+        ledger_row(old, "success:over-cap", "2.0", "33.0"),
+        ledger_row(fresh, "paced:backing off until x"),  # before the pre-flight: no windows
+        ledger_row(fresh, "preflight-failed:401"),
+        "torn\trow",
+        ledger_row(now, "held"),
+    ]
+    ledger.write_text("\n".join(rows) + "\n")
+    ok, line = hb.preflight(now)
+    assert (ok, line) == (False, f"claude token: pre-flight ok at {stamp(old)}")
+    answered = ("paced:seven-day window at 40%", "rate-limited:x", "error_max_turns", "failed:1")
+    for outcome in answered:
+        rows.insert(-1, ledger_row(fresh, outcome, "0.0", "40.0"))
+        ledger.write_text("\n".join(rows) + "\n")
+        assert hb.preflight(now) == (True, f"claude token: pre-flight ok at {stamp(fresh)}")
+        rows.pop(-2)
+    ledger.write_text("\n".join(rows[:1] + rows[2:]) + "\n")
+    assert hb.preflight(now) == (False, "claude token: no pre-flight ok, last row held")
+
+    listed = tmp_path / "data/logs/.offsite_listed"
+    assert hb.offsite(now) == (False, "offsite: never listed")
+    listed.write_text("not a stamp\n")
+    assert hb.offsite(now) == (False, "offsite: never listed")
+    listed.write_text(stamp(old) + "\n")
+    assert hb.offsite(now) == (False, f"offsite: listed at {stamp(old)}")
+    listed.write_text(stamp(fresh) + "\n")
+    assert hb.offsite(now) == (True, f"offsite: listed at {stamp(fresh)}")
+
+    ledger.write_text("\n".join(rows) + "\n")
+    run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
+    assert "vm-alert: no Claude pre-flight ok in 24 h" in made(hb, "create")
+    assert "vm-alert: no offsite listing in 24 h" not in made(hb, "create")
 
 
 def test_heartbeat_once_at_six(hb, tmp_path):
@@ -170,6 +216,7 @@ def test_heartbeat_once_at_six(hb, tmp_path):
         + "\n"
     )
     now = dt.datetime.now(dt.UTC)
+    (tmp_path / "data/logs/.offsite_listed").write_text(stamp(now) + "\n")
     run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
     assert not [c for c in hb.calls if c[:2] == ("issue", "create")]
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))

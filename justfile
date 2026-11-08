@@ -1155,21 +1155,21 @@ agent mode="auto":
 walk what="status":
     uv run python scripts/engines/cdx_walk_jobs.py {{what}}
 
-# the bank host ARK_VM, over the VPN: status (default) install log
-vm what="status":
+# the bank host ARK_VM, over the VPN: status (default) install log, token gh|claude (stdin)
+vm what="status" which="":
     #!/usr/bin/env bash
     set -euo pipefail
     [ -f local.env ] && . ./local.env
     : "${ARK_VM:?set ARK_VM in local.env}"
     SSH="ssh -o ConnectTimeout=15 -o BatchMode=yes $ARK_VM"
-    # rsync gets the VM's home spelt out: macOS rsync sends nothing to a relative remote
-    # path and still exits 0.
-    VMHOME=$($SSH 'echo $HOME')
     case "{{what}}" in
     install)
         if bash scripts/harness/hold.sh holds ark-sync.timer; then
             echo "vm install: the tick is held; the VM's timer would lift it, 'just hold off' first" >&2; exit 1
         fi
+        # rsync gets the VM's home spelt out: macOS rsync sends nothing to a relative remote
+        # path and still exits 0.
+        VMHOME=$($SSH 'echo $HOME')
         # Its local.env is this one with its own lane local, no ARK_VM and the store limit
         # measured for the VM (docs/lore/laws.md); the install script moves it into the clone.
         env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
@@ -1185,9 +1185,24 @@ vm what="status":
         rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:$VMHOME/ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
         ;;
+    token)
+        # The token rides stdin to ssh and into the file there: no argument, log or history
+        # carries it. gh prints the expiry the tick's `login ok` line reads; claude runs the
+        # agent's pre-flight (scripts/agents/run_agent.sh) and prints its answer.
+        [ ! -t 0 ] || echo "the token on stdin, then ctrl-d" >&2
+        case "{{which}}" in
+        gh) $SSH 'gh auth login --with-token && gh api -i user | tr -d "\r" | sed -n "s/^github-authentication-token-expiration: /token expiry: /Ip"' ;;
+        claude) $SSH 't=$(tr -d "[:space:]"); [ -n "$t" ] || { echo "vm token: nothing on stdin" >&2; exit 2; }
+            umask 077; mkdir -p .config/ark; printf "CLAUDE_CODE_OAUTH_TOKEN=%s\n" "$t" > .config/ark/agent.env; chmod 600 .config/ark/agent.env
+            cd ark || exit 1; export PATH="$HOME/.local/bin:$PATH"
+            m=$(python3 -c "import json; print(json.load(open(\"agent/policy.json\"))[\"preflight_model\"])")
+            echo "pre-flight: $(CLAUDE_CODE_OAUTH_TOKEN=$(sed -n "s/^CLAUDE_CODE_OAUTH_TOKEN=//p" ~/.config/ark/agent.env) \
+                claude -p "reply with the single word ok" --tools "" --model "$m" < /dev/null 2>&1 | tail -c 300)"' ;;
+        *) echo "vm token: gh claude" >&2; exit 2 ;;
+        esac ;;
     status) $SSH 'systemctl --user list-timers ark-sync.timer --no-pager --no-legend;
         stat -c "%a %n" .config/gh/hosts.yml ark/local.env;
         grep -E "^(===== scheduled|login ok|LOGIN DEAD)" ark/data/logs/scheduled_sync.log 2>/dev/null | tail -4' ;;
     log) $SSH 'tail -40 ark/data/logs/scheduled_sync.log' ;;
-    *) echo "vm: install status log" >&2; exit 2 ;;
+    *) echo "vm: install status log token" >&2; exit 2 ;;
     esac

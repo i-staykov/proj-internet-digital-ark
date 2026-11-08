@@ -7,16 +7,17 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - walk: the crontab holds six `# ark-walk` lines, each `cd` here and running the walker, and
   `data/logs/.walk_code` names HEAD's walker blobs, so the lanes run HEAD's code.
 - lock: the sync lock is free or its holder's pid is alive.
-- hold: each unit or flag the hold file names is off (the timer not enabled, the flag file
-  present).
+- hold: each unit or flag the hold file names is off (the timer not enabled unless the label
+  holds it, the flag file present).
 - login: `gh auth status` succeeds.
 - space: free space clears the bank's floor plus its write budget (`ark.db.space`).
 - lanes: a lane under no pause flag runs, or wrote its log within cron's restart period. Its
   `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
   cron restarts a finished lane, which writes that row again, every period.
-- readers, only where `local.env` ARK_HOSTS runs here: End of Term and ClueWeb09 with parts left
-  and no hold are active units. The HTTP Archive reader's queue needs archive.org's search, and
-  the header lane has no unit yet, so both are reported, never judged.
+- readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
+  three strikes left and no hold is an active unit; with none left it reads `finished`, and
+  `check_unattended.py left <unit>` prints the count, which the tick reads before starting the
+  unit. The header lane has no unit yet, so it is reported, never judged.
 """
 
 from __future__ import annotations
@@ -40,6 +41,11 @@ LANES = 3
 # cron starts a stopped lane every 10 minutes; one more for the start itself
 RESTART_S = 11 * 60
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
+READERS = {  # the tick's transient units and their readers (scheduled_sync.sh)
+    "ark-eot": "scripts/sources/eot/eot_cdxj.py",
+    "ark-har": "scripts/sources/httparchive/har_year.py",
+    "ark-clueweb": "scripts/sources/crawl_lists/clueweb.py",
+}
 
 
 def run(*cmd: str) -> tuple[int, str]:
@@ -85,9 +91,14 @@ def hold() -> tuple[bool, str]:
     names = hold_names()
     if names is None:
         return True, "no hold"
+    by_label = (STATE / "hold").read_text().startswith("label\n")
     bad = []
     for name in names:
-        if name == TIMER and run("systemctl", "--user", "is-enabled", TIMER)[1] == "enabled":
+        if (
+            name == TIMER
+            and not by_label
+            and run("systemctl", "--user", "is-enabled", TIMER)[1] == "enabled"
+        ):
             bad.append(f"{TIMER} still enabled")
         elif name == "pause-platform" and not (STATE / name).exists():
             bad.append("pause-platform flag missing")
@@ -123,31 +134,30 @@ def module(path: str):
     return mod
 
 
-def reader(unit: str, left: int) -> tuple[bool, str]:
+def left(unit: str) -> int:
+    """Parts under three strikes the unit's reader has not read, from its own files alone."""
+    return module(READERS[unit]).left()
+
+
+def reader(unit: str) -> tuple[bool, str]:
+    if not (parts := left(unit)):
+        return True, "finished"
     state = run("systemctl", "--user", "is-active", unit)[1] or "unknown"
     held = hold_names() is not None
-    ok = state == "active" or not left or held
-    return ok, f"{state}, {left} parts left" + (", held" if held else "")
+    return state == "active" or held, f"{state}, {parts} parts left" + (", held" if held else "")
 
 
 def readers() -> list[tuple[str, bool, str]]:
     env = ROOT / "local.env"
     if "local:" not in (env.read_text() if env.exists() else ""):
         return [("readers", True, "not run here")]
-    eot = module("scripts/sources/eot/eot_cdxj.py")
-    eot_left = [
-        p for p in eot.PARTS if not (eot.OUT / f"eot_{p}.jsonl.gz").exists() and eot.failures(p) < 3
-    ]
-    clueweb = module("scripts/sources/crawl_lists/clueweb.py")
-    har = run("systemctl", "--user", "is-active", "ark-har")[1] or "unknown"
-    return [
-        ("ark-eot", *reader("ark-eot", len(eot_left))),
-        ("ark-clueweb", *reader("ark-clueweb", len(clueweb.todo()))),
-        ("ark-har", True, f"{har}, queue needs archive.org's search, not judged"),
-    ]
+    return [(unit, *reader(unit)) for unit in READERS]
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
+    if argv[:1] == ["left"]:
+        print(left(argv[1]))
+        return 0
     checks = [
         ("timer", *timer()),
         ("walk", *walk()),
@@ -167,4 +177,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

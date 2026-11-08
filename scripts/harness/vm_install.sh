@@ -2,7 +2,7 @@
 # The bank host, set up from the laptop: `just vm install` pipes this to the VM after its
 # local.env. As the login, `sudo -n` only for packages and linger: tools under ~/.local/bin,
 # both clones, the walk lane and the tick as a user timer that fires once the store is there.
-# Idempotent; `gh auth login` is the owner's (docs/ops/runbook.md).
+# Idempotent; the gh token comes by `just vm token gh` (docs/ops/runbook.md).
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 mkdir -p ~/.local/bin ~/GitHub ~/.config/systemd/user
@@ -46,7 +46,7 @@ if gh auth status > /dev/null 2>&1; then
     gh auth setup-git
     [ -d ~/GitHub/ark-fleet/.git ] || gh repo clone i-staykov/ark-fleet ~/GitHub/ark-fleet -- -q
 else
-    echo "gh: not logged in; the tick drains nothing and pushes nothing until 'gh auth login'"
+    echo "gh: not logged in; the tick drains nothing and pushes nothing until 'just vm token gh'"
 fi
 (cd ~/ark && uv sync -q && mkdir -p data/logs && just hooks > /dev/null && just walk install)
 
@@ -57,14 +57,16 @@ systemctl --user daemon-reload
     loginctl enable-linger 2> /dev/null || sudo -n loginctl enable-linger "$(id -un)" ||
     root "loginctl enable-linger $(id -un)"
 systemctl --user enable --now ark-sync.timer
-# The agent runs once its token file is there: the owner writes ~/.config/ark/agent.env, one line,
-# CLAUDE_CODE_OAUTH_TOKEN=<the token>, mode 600; the unit's condition is that file.
-[ -f ~/.config/ark/agent.env ] || echo "no agent token: write ~/.config/ark/agent.env (mode 600), the timer waits on it"
+# The agent runs once its token file is there: `just vm token claude` writes ~/.config/ark/agent.env,
+# one line, CLAUDE_CODE_OAUTH_TOKEN=<the token>, mode 600; the unit's condition is that file.
+[ -f ~/.config/ark/agent.env ] || echo "no agent token: 'just vm token claude' from the laptop, the timer waits on it"
 # The agent's profile: its deny list and the rails hook, the login's own Claude settings.
 mkdir -p ~/.claude && cp ~/ark/agent/settings.json ~/.claude/settings.json
 mkdir -p ~/ark-agent
-# The alerts' label, once; the agent's parked items and the triage file under it.
+# The alerts' label, once; the agent's parked items and the triage file under it. The hold's
+# label, which the tick reads (scripts/harness/hold.sh).
 gh label create vm-alert -R i-staykov/ark-fleet --color D93F0B --description "the VM's agent asks for a reader" > /dev/null 2>&1 || true
+gh label create hold -R i-staykov/ark-fleet --color 000000 --description "just hold, through the tick" > /dev/null 2>&1 || true
 systemctl --user enable --now ark-agent.timer
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend
