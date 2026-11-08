@@ -263,6 +263,7 @@ def test_a_conflicting_rebase_aborts_and_the_tick_names_the_divergence(clone):
     assert git_out(repo, env, "rev-parse", "HEAD") == head
     assert not (repo / ".git/rebase-merge").exists()
     assert "the clone has diverged" in (repo / "data/logs/ticks.tsv").read_text()
+    assert "rebase aborted" in (repo / "data/logs/scheduled_sync.log").read_text()
 
 
 @pytest.mark.parametrize("dirty", [False, True])
