@@ -88,12 +88,25 @@ def clone(tmp_path):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     cron = f"cd {repo} && /usr/bin/python3 scripts/engines/cdx_extended_walk.py # ark-walk"
-    stub(bin_dir, "gh", 'echo "gh $*" >> "$ARK_TEST_CALLS"; exit "${ARK_TEST_GH_RC:-0}"')
+    # gh answers the hold label's listing with ARK_TEST_HOLD_LABEL and names every workflow active
+    stub(
+        bin_dir,
+        "gh",
+        'echo "gh $*" >> "$ARK_TEST_CALLS"; case "$*" in'
+        ' *"--label hold "*) echo "${ARK_TEST_HOLD_LABEL:-}" ;; *workflows/*) echo active ;;'
+        ' esac; exit "${ARK_TEST_GH_RC:-0}"',
+    )
     for name in ("ssh", "rsync", "curl", "wget"):
         stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"; exit 1')
-    for name in ("systemd-run", "pkill", "pgrep"):
+    for name in ("pkill", "pgrep"):
         stub(bin_dir, name, "exit 0")
-    stub(bin_dir, "systemctl", 'case "$*" in *is-enabled*) echo enabled ;; *) echo active ;; esac')
+    stub(bin_dir, "systemd-run", 'echo "systemd-run $*" >> "$ARK_TEST_CALLS"')
+    stub(
+        bin_dir,
+        "systemctl",
+        'echo "systemctl $*" >> "$ARK_TEST_CALLS";'
+        ' case "$*" in *is-enabled*) echo enabled ;; *) echo active ;; esac',
+    )
     stub(bin_dir, "crontab", f"for i in 1 2 3 4 5 6; do echo '{cron}'; done")
     stub(
         bin_dir,
@@ -150,3 +163,21 @@ def test_a_failed_sync_is_the_ticks_status(clone):
     subprocess.run(["git", "checkout", "-q", "-b", "main"], cwd=repo, env=env, check=True)
     rc, last = tick(repo, env)
     assert rc != 0 and last.split()[2:] == [f"sync={rc}", "check=0"], last
+
+
+def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
+    repo, env = clone
+    state, calls = Path(env["ARK_STATE_DIR"]), Path(env["ARK_TEST_CALLS"])
+    rc, last = tick(repo, {**env, "ARK_TEST_HOLD_LABEL": "7"})
+    assert (rc, last.split()[2:]) == (0, ["sync=0", "check=0"]), last
+    assert (state / "hold").read_text().startswith("label\n") and (
+        state / "pause-platform"
+    ).exists()
+    assert "disable --now ark-sync.timer" not in calls.read_text()
+    assert "\nheld\n" in (repo / "data/logs/scheduled_sync.log").read_text()  # this sync too
+    calls.unlink()
+    rc, last = tick(repo, env)
+    assert (rc, last.split()[2:]) == (0, ["sync=0", "check=0"]), last
+    assert "bank: forced" in (repo / "data/logs/scheduled_sync.log").read_text()
+    assert not (state / "hold").exists() and not (state / "pause-platform").exists()
+    assert "systemd-run --user --unit ark-bank-force" in calls.read_text()

@@ -1,21 +1,25 @@
 #!/usr/bin/env bash
 # The hold: the bank host's hourly timer, the walkers' `pause-platform` flag and the fleet's Leg,
 # Read and Improver workflows stop, stay stopped across a reboot, and start again only when a
-# human lifts them. `just hold` is the interface.
+# human lifts them. `just hold` is the interface; a `hold` label on an open ark-fleet issue is
+# the same hold through the tick (`scheduled_sync.sh`), the timer left enabled so the tick reads
+# the label's removal and lifts it. Lifting the timer also runs `just bank --force` on the bank
+# host as the unit `ark-bank-force`, so the first tick after a hold finds the store banked.
 #
 # `systemctl --user disable --now` persists across a reboot and lets a tick in flight finish. The
-# hold file names what is held, one name per line under `human` and a UTC stamp. While it lists
-# `ark-sync.timer`, `just sync` and `just bank` exit `held` unless one hand run sets
-# `ARK_HOLD_BYPASS=dry-run` inline. A listed name this script does not know is NOT HELD, and
-# `off` only drops its line.
+# hold file names what is held, one name per line under who holds, `human` or `label`, and a UTC
+# stamp. While it lists `ark-sync.timer`, `just sync` and `just bank` exit `held` unless one hand
+# run sets `ARK_HOLD_BYPASS=dry-run` inline. A listed name this script does not know is NOT
+# HELD, and `off` only drops its line.
 #
 # The bank host (ARK_VM, or this machine where local.env names none), the collector hosts and
 # GitHub are asked, never relied on: without them the file and the local flag still go, and
 # what could not be confirmed is printed, not fatal.
 #
 # Usage:
-#   bash scripts/harness/hold.sh on             hold every name
-#   bash scripts/harness/hold.sh off [name]     lift one name, or all of them and the file
+#   bash scripts/harness/hold.sh on [label]     hold every name; `label`: the timer stays enabled
+#   bash scripts/harness/hold.sh off [name]     lift one name, or all of them and the file;
+#                                               `label`: all of them, only while the label holds
 #   bash scripts/harness/hold.sh status         HELD or NOT HELD, one line per name
 #   bash scripts/harness/hold.sh holds [name]   exit 0 while the file lists the name, or exists
 set -uo pipefail
@@ -29,6 +33,9 @@ HOLD="$STATE_DIR/hold"
 TIMER="ark-sync.timer"
 FLAGS="pause-platform"
 WORKFLOWS="leg.yaml read.yaml improver.yaml"
+# The bank host's clone is ~/ark (vm_install.sh); the forced bank is its own unit there, so it
+# outlives this call and the tick that lifts a label.
+FORCE_BANK='systemd-run --user --unit ark-bank-force --collect --working-directory="$HOME/ark" -E PATH="$HOME/.local/bin:$PATH" bash -c "just bank --force >> data/logs/bank_force.log 2>&1"'
 # The fleet repo is named once, where the hourly job reads it.
 FLEET_REPO=$(sed -n 's/^FLEET_REPO="\(.*\)"$/\1/p' scripts/harness/scheduled_sync.sh)
 # On a host the flag follows that machine's own ARK_STATE_DIR.
@@ -37,6 +44,8 @@ REMOTE_DIR='d="${ARK_STATE_DIR:-$HOME/ark/state}"; mkdir -p "$d"'
 in_list() { case " $2 " in *" $1 "*) return 0 ;; esac; return 1; }
 
 names() { sed -n '3,$p' "$HOLD" 2>/dev/null; }
+
+by_label() { [ "$(head -1 "$HOLD" 2>/dev/null)" = label ]; }
 
 listed() { names | grep -x -- "$1" > /dev/null; }
 
@@ -78,17 +87,19 @@ wf_state() {
 }
 
 cmd_on() {
-    local rc=0 f wf
+    local by=${1:-human} rc=0 f wf
     mkdir -p "$STATE_DIR" || exit 1
     # The file goes first, so a tick that starts while this runs already reads it, and the
     # flag next, so the walkers idle after the page in flight.
-    { printf 'human\n%s\n' "$STAMP"; printf '%s\n' $TIMER $FLAGS $WORKFLOWS; } > "$HOLD" || exit 1
+    { printf '%s\n%s\n' "$by" "$STAMP"; printf '%s\n' $TIMER $FLAGS $WORKFLOWS; } > "$HOLD" || exit 1
     echo "hold: $HOLD written"
     for f in $FLAGS; do
         printf 'human\n%s\n' "$STAMP" > "$STATE_DIR/$f" || rc=1
     done
     echo "flags: $FLAGS written here"
-    if vm_timer "disable --now"; then
+    if [ "$by" = label ]; then
+        echo "$TIMER: left enabled, the tick reads the label"
+    elif vm_timer "disable --now"; then
         echo "$TIMER: disabled"
     else
         echo "$TIMER: unconfirmed, the bank host did not answer; its tick may still run"
@@ -123,6 +134,11 @@ lift() {
     if [ "$name" = "$TIMER" ]; then
         vm_timer "enable --now" || { echo "$TIMER: unconfirmed, the bank host did not answer"; return 1; }
         echo "$TIMER: enabled"
+        if [ "$(vm "$FORCE_BANK && echo done")" = done ]; then
+            echo "bank: forced, the unit ark-bank-force on the bank host"
+        else
+            echo "bank: not forced, the bank host did not start it; 'just bank --force' there"
+        fi
     elif in_list "$name" "$FLAGS"; then
         rm -f "$STATE_DIR/$name"
         local rc=0
@@ -154,7 +170,10 @@ lift() {
 cmd_off() {
     local todo name rc=0
     [ -f "$HOLD" ] || { echo "hold: nothing is held"; return 0; }
-    if [ -n "${1:-}" ]; then
+    if [ "${1:-}" = label ]; then
+        by_label || { echo "hold: not the label's"; return 0; }
+        todo=$(names)
+    elif [ -n "${1:-}" ]; then
         if ! in_list "$1" "$TIMER $FLAGS $WORKFLOWS" && ! listed "$1"; then
             echo "hold: no such name $1, one of: $TIMER $FLAGS $WORKFLOWS" >&2
             return 2
@@ -192,7 +211,7 @@ cmd_status() {
         if ! listed "$name"; then
             why="not in the hold file"
         elif [ "$name" = "$TIMER" ]; then
-            case "$(vm "systemctl --user is-enabled $TIMER 2>/dev/null; echo answered")" in
+            by_label || case "$(vm "systemctl --user is-enabled $TIMER 2>/dev/null; echo answered")" in
             enabled*) why="enabled on the bank host" ;;
             *answered*) ;;
             *) why="the bank host did not answer" ;;
@@ -232,7 +251,7 @@ cmd_status() {
 
 STAMP=$(date -u '+%FT%TZ')
 case "${1:-status}" in
-on) cmd_on ;;
+on) cmd_on "${2:-}" ;;
 off) cmd_off "${2:-}" ;;
 status) cmd_status ;;
 holds) if [ -n "${2:-}" ]; then listed "$2"; else [ -f "$HOLD" ]; fi ;;
