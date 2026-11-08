@@ -26,6 +26,9 @@ lines = open("justfile").read().splitlines()
 start = next(i for i, ln in enumerate(lines) if re.match(rf"{recipe}( |:)", ln))
 params = re.findall(r'(\w+)="([^"]*)"', lines[start])
 values = {k: (args[n] if n < len(args) else v) for n, (k, v) in enumerate(params)}
+star = re.search(r"\*(\w+)", lines[start])
+if star:
+    values[star[1]] = " ".join(args[len(params) :])
 body = []
 for ln in lines[start + 1 :]:
     if ln and not ln.startswith("    "):
