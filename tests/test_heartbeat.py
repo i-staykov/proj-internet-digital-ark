@@ -26,6 +26,9 @@ def hb(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "TICKS", tmp_path / "data/logs/ticks.tsv")
     monkeypatch.setattr(mod, "DISK", tmp_path / "data/logs/disk.tsv")
     monkeypatch.setattr(mod, "STATE", tmp_path / "state")
+    monkeypatch.setattr(mod, "REBOOT", tmp_path / "reboot-required")
+    (tmp_path / "uptime").write_text("600.00 1.00\n")  # booted ten minutes ago
+    monkeypatch.setattr(mod, "UPTIME", tmp_path / "uptime")
     monkeypatch.setenv("ARK_FREE_SPACE_GIB", "0.001")
     monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "0.001")
     mod.issues, mod.calls, mod.expiry = [], [], "2099-01-01 00:00:00 UTC"
@@ -123,6 +126,9 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     (lane / "log.tsv").write_text("")
     (lane / "pending.txt").write_text("task\n")
     hb.expiry = (now + dt.timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S UTC")
+    hb.REBOOT.write_text("")
+    (tmp_path / "data/logs/.reboot_seen").write_text("")
+    os.utime(tmp_path / "data/logs/.reboot_seen", (time.time() - 25 * 3600,) * 2)
     at = now.strftime("%Y%m%dT0505Z")
     run(hb, tmp_path, at, 1, 1, sync="bank: BANK RED since x", check="FAIL lane1: stopped")
     titles = made(hb, "create")
@@ -137,6 +143,7 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
             "gh token under 14 days",
             "no Claude pre-flight ok in 24 h",
             "no offsite listing in 24 h",
+            "reboot pending 24 h",
         )
     )
     # the red gone and a refused tick before: open ones stay single, a closed one reopens
@@ -148,6 +155,12 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     run(hb, tmp_path, at, 1, 1, sync="boom", check="FAIL lane1: stopped")
     assert made(hb, "create") == ["vm-alert: two refused ticks"]
     assert made(hb, "reopen") == ["0"]
+    # the flag gone in a boot's first hour: the seen file stays, so a loop alerts; later it goes
+    seen = tmp_path / "data/logs/.reboot_seen"
+    hb.REBOOT.unlink()
+    assert hb.reboot(now)[0] is False and seen.exists()
+    hb.UPTIME.write_text("7200.00 1.00\n")
+    assert hb.reboot(now)[0] is False and not seen.exists()
 
 
 def ledger_row(at: dt.datetime, outcome: str, five="0.0", seven="0.0") -> str:
