@@ -96,9 +96,9 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
     )
     old = stamp(now - dt.timedelta(hours=7)).replace("Z", "00Z")
     (lane / "log.tsv").write_text(f"{old}\t{row}\n# exit {old} pending=0\n")
-    assert hb.lane(0, now, {"walk_com.sg_ps100_p5_1996-2013": [2.5, 1.0]}) == (
+    assert hb.lane(0, now, {"lane0": "2026-11-07: page 1 of 1 answered"}) == (
         False,
-        "lane0: 1 pages, 2.5 EE 1996-2001, 1.0 EE 2002-2013 in 24 h",
+        "lane0: 2026-11-07: page 1 of 1 answered",
     )
     (lane / "pending.txt").write_text("task\n")
     assert hb.lane(0, now, {})[0] is True
