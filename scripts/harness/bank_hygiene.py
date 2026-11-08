@@ -9,7 +9,8 @@ them. So their failures are the quiet kind:
 2. **A diverged clone.** Approvals now arrive as pull requests merged from a phone,
    so `live` moves without this machine. A fast-forward-only pull takes the merge and
    refuses to invent one; a clone ahead only by the tick's own register commits rebases
-   them, and a conflict aborts the rebase and refuses.
+   them, and a conflict aborts the rebase and refuses. Either way a commit it would push signed
+   outside the identity allowlist refuses.
 3. **A second notification for the same crossing.** The gate issue says the round
    is over 3%. Opened once it is information; opened hourly it is noise, and the
    latch is deliberately two independent checks, a local ledger and the open-issue
@@ -196,12 +197,12 @@ def preflight(
     code, out = run(["pull", "--ff-only", remote, branch], root)
     if code == 0:
         lines.append(f"fast-forwarded from {remote}/{branch}")
-        return 0, lines
+        return signed(root, f"{remote}/{branch}", lines)
     if code != 124 and not unreachable(out) and own_commits(root, f"{remote}/{branch}", run):
         code, out = run(["rebase", "--autostash", f"{remote}/{branch}"], root)
         if code == 0:
             lines.append(f"rebased the tick's own commits onto {remote}/{branch}")
-            return 0, lines
+            return signed(root, f"{remote}/{branch}", lines)
         run(["rebase", "--abort"], root)
         lines.append(f"REFUSED: rebasing the tick's own commits onto {remote}/{branch} conflicts")
         lines.append("  rebase aborted, the clone has diverged. Reconcile by hand.")
@@ -213,6 +214,17 @@ def preflight(
     else:
         lines.append("  the clone has diverged. Reconcile by hand; the bank never force-pushes.")
     return 2, lines
+
+
+def signed(root: Path, upstream: str, lines: list[str]) -> tuple[int, list[str]]:
+    """0, or 2 when a commit only this clone holds (a rebase re-signs each) is signed outside the
+    identity allowlist: the bank pushes them to public `live`, the pre-push hook or not."""
+    from ark.hygiene import REFUSED_IDENTITY, refused_identities
+
+    refused = refused_identities(f"{upstream}..HEAD", cwd=root)
+    if not refused:
+        return 0, lines
+    return 2, [*lines, f"REFUSED: {', '.join(refused)} {REFUSED_IDENTITY}, nothing is pushed"]
 
 
 def own_commits(root: Path, upstream: str, run: Callable) -> bool:

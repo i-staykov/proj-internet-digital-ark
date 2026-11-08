@@ -10,8 +10,9 @@
   line's days to the floor is the 7-day rate over those readings.
 - Each cause on opens one `vm-alert` issue on ark-fleet titled `vm-alert: <cause>`, reopens a
   closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
-  mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
-  subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
+  mid-item among them), BANK RED, a commit identity the sync refused, two refused ticks in a
+  row, a lane with work queued (pending subpages, or a last row other than its `pending=0`
+  exit) and no answered page in 6 h, no
   successful agent run, no Claude pre-flight answered or no listing of the offsite remote in
   24 h, a reboot pending 24 h (the tick reboots, scheduled_sync.sh), under 14 days of disk or
   gh token, and each line drive_intake.sh left in `.intake_alert`, once. The triage reads them;
@@ -39,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ark.disk import space  # noqa: E402
-from ark.hygiene import local_hosts, scan  # noqa: E402
+from ark.hygiene import REFUSED_IDENTITY, local_hosts, scan  # noqa: E402
 
 FLEET = "i-staykov/ark-fleet"
 LOGS = ROOT / "data/logs"
@@ -409,6 +410,9 @@ def main(argv: list[str]) -> int:
             causes[f"check {ln[5:].split(':')[0]}"] = f"`just check unattended` at {stamp}: {ln}"
     if word == "red":
         causes["BANK RED"] = f"The tick at {stamp} found the bank red: {why}"
+    for ln in sync_text.splitlines():
+        if REFUSED_IDENTITY in ln:
+            causes["a commit identity"] = f"The tick at {stamp} pushed nothing: {ln.strip()}"
     if len(kept) >= 2 and kept[-1][1] == kept[-2][1] == "refused":
         causes["two refused ticks"] = f"Ticks {kept[-2][0]} and {stamp} refused: {why}"
     rows_of = yields()

@@ -7,7 +7,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # a push to live is never cancelled: its run alone checks the identities it added
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -38,6 +39,14 @@ jobs:
       # and local paths out of bytes anyone can read.
       - name: Security scan
         run: uv run python -m ark.hygiene
+
+      # Commit metadata is public too: every commit a PR or a push to live adds is signed
+      # inside the identity allowlist (src/ark/hygiene.py).
+      - name: Commit identities
+        env:
+          FROM: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TO: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: uv run python -m ark.hygiene --commits "$FROM..$TO"
 
       # Unit tests only: network is mocked, no archives hit, no legacy data needed.
       - name: Tests (pytest)

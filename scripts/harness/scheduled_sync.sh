@@ -52,6 +52,8 @@ if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install
     # a draining walker still owns its lane's pending subpages: none restarts beside it
     for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
 fi
+# The hooks follow their code too: one added since the install guards the next push.
+just hooks > /dev/null 2>&1 || true
 
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
