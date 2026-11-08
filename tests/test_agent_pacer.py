@@ -47,18 +47,18 @@ def test_an_unmeasured_window_runs_and_a_backoff_holds():
 
 def test_a_mode_names_its_own_five_hour_stop_and_a_flat_seven_day_stop():
     policy = str(ROOT / "agent/policy.json")
-    assert pacer.knobs("work", policy)["five_hour_stop"] == 25
-    assert pacer.knobs("triage", policy)["five_hour_stop"] == 40
-    assert "seven_day_stop" not in pacer.knobs("work", policy)  # the pace line
+    assert pacer.knobs("work", policy)["five_hour_stop"] == 60
+    assert pacer.knobs("triage", policy)["five_hour_stop"] == 70
+    for mode in ("triage", "work", "scout", "cdx"):
+        assert pacer.knobs(mode, policy)["seven_day_stop"] == 90  # flat: no mode paces
     scout = pacer.knobs("scout", policy)
-    assert scout["seven_day_stop"] == 50
-    # 5.2 days in, the line is at 37.1%: a window at 40% paces work and lets a scout run
+    # 5.2 days in, the line is at 37.1%: a window at 40% paces the pace-line knobs, not a mode
     spent = raw(0.1, 0.40, resets_in=int(1.8 * 86400))
     assert "pace line at 37.1%" in pacer.decide(spent, K, NOW)
     assert pacer.decide(spent, scout, NOW) is None
-    over = raw(0.1, 0.51, resets_in=int(1.8 * 86400))
+    over = raw(0.1, 0.91, resets_in=int(1.8 * 86400))
     assert "pace line" in pacer.decide(over, K, NOW)
-    assert pacer.decide(over, scout, NOW) == "seven-day window at 51%, stop at 50%"
+    assert pacer.decide(over, scout, NOW) == "seven-day window at 91%, stop at 90%"
 
 
 def event(status, resets=NOW + 500):
@@ -116,7 +116,7 @@ def last_row(tmp_path):
 
 
 def test_the_runner_writes_a_paced_row_and_calls_no_model(tmp_path):
-    info = {"unifiedWindows": raw(0.5, 0.1)}
+    info = {"unifiedWindows": raw(0.8, 0.1)}
     windows = json.dumps({"type": "rate_limit_event", "rate_limit_info": info})
     success = json.dumps({"type": "result", "subtype": "success"})
     fake, calls = fake_claude(tmp_path, windows + "\n" + success + "\n")
@@ -125,7 +125,7 @@ def test_the_runner_writes_a_paced_row_and_calls_no_model(tmp_path):
     )
     assert out.returncode == 0, out.stderr
     row = last_row(tmp_path)
-    assert row[-1].startswith("paced:five-hour window at 50%") and row[7] == "50.0"
+    assert row[-1].startswith("paced:five-hour window at 80%") and row[7] == "80.0"
     assert calls.read_text().count("1") == 1  # the pre-flight alone
 
 
