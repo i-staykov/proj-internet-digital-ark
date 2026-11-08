@@ -809,7 +809,7 @@ collect source="" *args:
 releases *args:
     uv run python scripts/round/releases.py {{args}}
 
-# take one reviewer release: verify, extract, remeasure, record, publish the snapshot
+# take one reviewer release: verify, extract, remeasure, record, stage the price snapshot
 [positional-arguments]
 intake *args:
     #!/usr/bin/env bash

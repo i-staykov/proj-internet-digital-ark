@@ -316,7 +316,7 @@ def _program(
 
 
 def program_price(lead: Path, finding: dict, items: Path) -> dict:
-    """The items priced again by the command a leg runs, against the snapshot the last push
+    """The items priced again by the command a leg runs, against the snapshot the last bank
     staged, with the program's own split. `fleet_program_ee` is the figure on the track the
     finding claims, the one the store's is set against: the annual track's in the store's unit
     (on hostname grain its hostname years), or for a candidate claim the candidate track's
