@@ -56,7 +56,33 @@ def test_a_429_backs_off_across_starts_and_an_outage_strikes_nothing(lane, monke
     m.main()
     assert not any(m.struck(r) for r in m.rows("log.tsv")) and m.left() == 2
     outage = sys.modules["sample_usenet_header_items"].outage
-    assert [outage(c) for c in ("000", "cut", "503", "URLError", "404")] == [1, 1, 1, 1, 0]
+    codes = ("000", "cut", "503", "URLError", "404", "size")
+    assert [outage(c) for c in codes] == [1, 1, 1, 1, 0, 0]
+
+
+def test_a_429_mid_batch_backs_off_though_the_batch_drops_its_top(lane, monkeypatch):
+    m, work, _ = lane
+    (work / "seen.json").write_text("[]")
+    (work / "tops.txt").write_text("a\nb\n")
+    (work / "screen.tsv").write_text("a\t30000000\t9\t1\t1\t1\t90.0\n")
+    End = sys.modules["sample_usenet_header_items"].End
+    files = [{"name": f"{n}.mbox.zip", "size": "10"} for n in "gh"]
+    monkeypatch.setattr(m, "listing", lambda item, held: files)
+    asked = []
+
+    def fetch(url, dst, size, held):
+        asked.append(url)
+        if len(asked) > 1:
+            raise End("429")
+        return "200"
+
+    monkeypatch.setattr(m, "fetch", fetch)
+    monkeypatch.setattr(m, "build", lambda pool, out: out.mkdir(parents=True) or 0)
+    monkeypatch.setattr(m, "price", lambda work, out: 0.0)
+    monkeypatch.setattr(m, "screen", lambda *a: pytest.fail("screened past a 429"))
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    m.main()
+    assert len(asked) == 2 and [r[0] for r in m.rows("log.tsv")][-2:] == ["drop", "backoff"]
 
 
 def test_a_failed_screen_extract_is_a_strike_and_an_empty_pool_a_row(lane, monkeypatch):

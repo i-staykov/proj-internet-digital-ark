@@ -195,9 +195,12 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
     left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-header": 5}
     monkeypatch.setattr(check, "left", left.get)
-    # har stopped mid-item, clueweb never started, the header lane inside its back-off
+    # har stopped mid-item, clueweb new and not started yet, the header lane inside its back-off
     logs = tmp_path / "data/logs"
     logs.mkdir(parents=True)
+    clueweb = tmp_path / "scripts/sources/crawl_lists/clueweb.py"
+    clueweb.parent.mkdir(parents=True)
+    clueweb.write_text("")
     (logs / "har.log").write_text("har httparchive_2010: read\n")
     (logs / "usenet_header.log").write_text("header: 429 in x, waits until 29991231T000000Z\n")
     assert check.readers() == [
@@ -208,7 +211,8 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     ]
     (logs / "usenet_header.log").write_text("header: 429 in x, waits until 20001231T000000Z\n")
     (logs / "har.log").write_text("har: held\n")
-    assert [ok for _u, ok, _w in check.readers()] == [True, True, True, False]
+    os.utime(clueweb, (0, 0))  # its code arrived long ago, and the tick never started it
+    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, False]
     # the tick: eot and har with every part read, clueweb with its lists left, the header lane
     # with its list and every top screened, one under the floor and one run out
     repo, env = clone

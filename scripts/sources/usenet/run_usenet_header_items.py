@@ -16,10 +16,11 @@ and deletes an unlogged one, and no zip outlives its extract.
 
 The hold is read before every request. A failed request is asked once more after 120 s. A 429
 backs the lane off for an hour or its Retry-After, whichever is longer, and an outage (no
-answer, a 5xx, a cut or stalled transfer) for half an hour, striking nothing; a start inside a
-back-off exits at once. A 4xx file three times in a row, a failed extract or a failed price is a
-strike on its top (a 4xx listing only skips its item) and backs off as an outage does, three
-strikes giving the top up. The next start resumes from `log.tsv`, skipping every file read.
+answer, a 5xx, a cut or stalled transfer, a price snapshot it cannot read) for half an hour,
+striking nothing; a start inside a back-off exits at once. Three failed files in a row (any other
+code, or a whole file of the wrong size), a failed extract or a failed price is a strike on its
+top (a failed listing only skips its item) and backs off as an outage does, three strikes giving
+the top up. The next start resumes from `log.tsv`, skipping every file read.
 
 The tick starts it after the bank as its own user unit, `ark-header`, while `left()` counts a
 top (`scripts/harness/scheduled_sync.sh`); it stops itself once no unscreened or above-floor top
@@ -31,6 +32,7 @@ is left. Its last line, `waits until <UTC stamp>` or `held`, is what the unatten
 from __future__ import annotations
 
 import calendar
+import json
 import math
 import os
 import shutil
@@ -79,10 +81,11 @@ def pays(row: list[str]) -> bool:
 
 
 def struck(row: list[str]) -> bool:
-    """A `stop` row that strikes its top: a 4xx but a 429, a failed extract or a failed price."""
+    """A `stop` row that strikes its top: any HTTP code but a 429 (fetch returns no outage's),
+    a download of the wrong size, a failed extract or a failed price."""
     code = row[-1]
     return row[0] == "stop" and (
-        code.startswith(("build", "price")) or (code.isdigit() and code[0] == "4" and code != "429")
+        code.startswith(("build", "price", "size")) or (code.isdigit() and code != "429")
     )
 
 
@@ -151,7 +154,9 @@ def run(top: str, todo_items: list[str]) -> None:
         files += [
             (item, f["name"], int(f.get("size", 0)))
             for f in meta
-            if f["name"].endswith(".mbox.zip") and f["name"] not in done
+            if f["name"].endswith(".mbox.zip")
+            and 0 < int(f.get("size", 0))
+            and f["name"] not in done
         ]
         time.sleep(1)
     queued: set[str] = set()  # a group sits in its hierarchy's item and its own: read once
@@ -159,7 +164,7 @@ def run(top: str, todo_items: list[str]) -> None:
     fails = 0
     while files:
         name = f"hl_{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}"  # a run id, never a counter
-        size, names, t0, end = 0, [], time.time(), None
+        size, names, t0, end, low = 0, [], time.time(), None, False
         try:
             while files and size < 1e9:
                 item, fname, fsize = files.pop(0)
@@ -188,7 +193,10 @@ def run(top: str, todo_items: list[str]) -> None:
                 shutil.rmtree(tmp, ignore_errors=True)
                 note("stop", top, name, f"build {built}")
                 raise end or End("strike")
-            ee, secs = price(WORK, tmp), (round(t1 - t0), round(time.time() - t1))
+            try:
+                ee, secs = price(WORK, tmp), (round(t1 - t0), round(time.time() - t1))
+            except End as e:  # unlogged, so the next start deletes it and reads it again
+                raise (end or e) from e
             for item, fname in names:
                 note(name, top, item, fname, size, *secs, round(ee, 1))
             low = ee < FLOOR * size / 1e9
@@ -198,10 +206,10 @@ def run(top: str, todo_items: list[str]) -> None:
             if math.isnan(ee):
                 note("stop", top, name, "price")
                 raise end or End("strike")
-            if low:
-                return
-        if end:
+        if end:  # before a drop's return, so a 429 still backs off
             raise end
+        if low:
+            return
     note("ran", top)
 
 
@@ -215,6 +223,7 @@ def main() -> None:
     trim(LOG)
     if not (WORK / "seen.json").exists():
         return say("not seeded, no data/queue/usenet_header/seen.json")
+    read = json.loads((WORK / "seen.json").read_text())  # malformed: a crash, not an outage
     if (until := waits()) > time.time():
         return say(f"backing off, waits until {time.strftime(STAMP, time.gmtime(until))}")
     shutil.rmtree(WORK / "out", ignore_errors=True)  # a killed run's zips and extracts
@@ -232,11 +241,11 @@ def main() -> None:
         if held():
             raise End("held")
         try:
-            todo_items = unread(WORK, WORK / "seen.json")
+            todo_items = unread(WORK, read, held)
         except FAILED as exc:
             why = failure(exc)
             raise why if isinstance(why, End) else End(why) from exc
-        listed = items(WORK / "items.json")
+        listed = items(WORK / "items.json", held)
         size = {x["identifier"][7:]: int(x["item_size"]) for x in listed if x.get("item_size")}
         if not (WORK / "tops.txt").exists():
             by_top = Counter()

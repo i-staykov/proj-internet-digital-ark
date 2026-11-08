@@ -15,10 +15,11 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
   `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
   cron restarts a finished lane, which writes that row again, every period.
 - readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
-  three strikes left and no hold is an active unit, unless the tick never started it (no log
-  yet) or its log's last line says it waits until a later UTC stamp or was held within the hour;
-  with none left it reads `finished`, and `check_unattended.py left <unit>` prints the count,
-  which the tick reads before starting the unit.
+  three strikes left and no hold is an active unit, unless the tick has yet to start it (no
+  log, its script changed in the last two hours) or its log's last line says it waits until a
+  later UTC stamp or was held within the hour; with none left it reads `finished`, and
+  `check_unattended.py left <unit>` prints the count, which the tick reads before starting the
+  unit.
 """
 
 from __future__ import annotations
@@ -50,6 +51,7 @@ READERS = {  # the tick's transient units, their readers and logs (scheduled_syn
     "ark-clueweb": ("scripts/sources/crawl_lists/clueweb.py", "clueweb"),
     "ark-header": ("scripts/sources/usenet/run_usenet_header_items.py", "usenet_header"),
 }
+START_S = 2 * 3600
 WAITS = re.compile(r"waits until (\d{8}T\d{6}Z)")
 
 
@@ -151,8 +153,11 @@ def reader(unit: str) -> tuple[bool, str]:
     held = hold_names() is not None
     why = f"{state}, {parts} parts left" + (", held" if held else "")
     log = ROOT / f"data/logs/{READERS[unit][1]}.log"
-    if state == "active" or held or not log.exists():
-        return True, why if log.exists() else f"not started yet, {parts} parts left"
+    if state == "active" or held:
+        return True, why
+    if not log.exists():  # the tick starts a reader within the hour its code arrived
+        new = time.time() - (ROOT / READERS[unit][0]).stat().st_mtime < START_S
+        return new, f"not started yet, {parts} parts left"
     with open(log, "rb") as fh:
         fh.seek(max(0, log.stat().st_size - 4096))
         last = (fh.read().decode(errors="replace").strip().splitlines() or [""])[-1]
