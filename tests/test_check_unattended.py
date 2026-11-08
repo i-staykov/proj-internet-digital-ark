@@ -193,14 +193,22 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "STATE", tmp_path / "state")
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
-    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0, "ark-header": 0}
+    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-header": 5}
     monkeypatch.setattr(check, "left", left.get)
+    # har stopped mid-item, clueweb never started, the header lane inside its back-off
+    logs = tmp_path / "data/logs"
+    logs.mkdir(parents=True)
+    (logs / "har.log").write_text("har httparchive_2010: read\n")
+    (logs / "usenet_header.log").write_text("header: 429 in x, waits until 29991231T000000Z\n")
     assert check.readers() == [
         ("ark-eot", True, "finished"),
         ("ark-har", False, "inactive, 3 parts left"),
-        ("ark-clueweb", True, "finished"),
-        ("ark-header", True, "finished"),
+        ("ark-clueweb", True, "not started yet, 2 parts left"),
+        ("ark-header", True, "inactive, 5 parts left, waits until 29991231T000000Z"),
     ]
+    (logs / "usenet_header.log").write_text("header: 429 in x, waits until 20001231T000000Z\n")
+    (logs / "har.log").write_text("har: held\n")
+    assert [ok for _u, ok, _w in check.readers()] == [True, True, True, False]
     # the tick: eot and har with every part read, clueweb with its lists left, the header lane
     # with its list and every top screened, one under the floor and one run out
     repo, env = clone

@@ -3,10 +3,13 @@
 Only a reader (`READERS`) restarts here: the tick and the agent are rails, and restarting the
 tick would take the sync lock. A reader restarted twice in a day is a cause no restart fixes,
 so a second attempt within 24 h, failed or not, needs an open work item naming the reader
-(`--item ID`), which is where the cause gets fixed. A lane reinstalled near a tick races the
-tick for the lanes' files, so `just walk install` refuses within 10 minutes of the tick's last
-or next trigger, while the sync lock is held, and whenever either time cannot be read. Each
-attempt appends one row to `data/logs/triage_acts.tsv` (stamp, act, unit, item, exit).
+(`--item ID`), which is where the cause gets fixed, and each item buys one. A reader that has
+exited is no loaded unit (the tick's are collected): systemctl's not-found exit, 5, is logged
+but spends nothing, since the tick starts that reader while it has parts left. A lane
+reinstalled near a tick races the tick for the lanes' files, so `just walk install` refuses
+within 10 minutes of the tick's last or next trigger, while the sync lock is held, and whenever
+either time cannot be read. Each attempt appends one row to `data/logs/triage_acts.tsv`
+(stamp, act, unit, item, exit).
 
     python3 scripts/agents/triage.py restart READER [--item ID]
     python3 scripts/agents/triage.py walk
@@ -32,6 +35,7 @@ READERS = ("ark-eot", "ark-har", "ark-clueweb", "ark-header")
 TICK_TIMER = "ark-sync.timer"
 DAY = dt.timedelta(hours=24)
 NEAR_TICK = dt.timedelta(minutes=10)
+NOT_LOADED = "5"  # systemctl's exit for a unit it does not know
 STAMP = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -45,12 +49,16 @@ def log(act: str, unit: str, item: str, code: int) -> None:
         f.write(f"{now().strftime(STAMP)}\t{act}\t{unit}\t{item}\t{code}\n")
 
 
+def restarts() -> list[list[str]]:
+    """The restart rows that spent something: every one but a not-found unit's."""
+    lines = ACTS.read_text().splitlines() if ACTS.exists() else []
+    rows = [line.split("\t") for line in lines]
+    return [r for r in rows if len(r) >= 3 and r[1] == "restart" and r[4:5] != [NOT_LOADED]]
+
+
 def restarted_today(unit: str, at: dt.datetime) -> bool:
-    if not ACTS.exists():
-        return False
-    for line in ACTS.read_text().splitlines():
-        row = line.split("\t")
-        if len(row) >= 3 and row[1] == "restart" and row[2] == unit:
+    for row in restarts():
+        if row[2] == unit:
             try:
                 stamp = dt.datetime.strptime(row[0], STAMP).replace(tzinfo=dt.UTC)
             except ValueError:
@@ -107,9 +115,14 @@ def restart(unit: str, item: str) -> int:
     if restarted_today(unit, now()) and not item_names(item, unit):
         print(f"refused: {unit} was restarted within 24 h; queue an item naming it, --item ID")
         return 3
-    code = 1 if subprocess.run(["systemctl", "--user", "restart", unit]).returncode else 0
+    if item and any(r[3:4] == [item] for r in restarts()):
+        print(f"refused: item {item} already bought a restart; queue a new item")
+        return 3
+    code = subprocess.run(["systemctl", "--user", "restart", unit]).returncode
     log("restart", unit, item, code)
-    return code
+    if str(code) == NOT_LOADED:
+        print(f"{unit} is not loaded: the tick starts it while it has parts left")
+    return 1 if code else 0
 
 
 def walk() -> int:

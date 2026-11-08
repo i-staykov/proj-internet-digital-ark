@@ -3,15 +3,16 @@
 Its two largest unread items, the three largest `.mbox.zip` under 20 MB they hold, at most
 30 MB, extracted by `build_usenet_header_pool.py` into WORKDIR/out (outside the bank), priced on
 the candidate track through the ingest's own reader, then deleted. The row keeps bytes, seconds,
-posts, posts dated 1996 to 2001, those with a host and the EE, or the extractor's failing code.
-A 429 or the hold ends the screen; any other failed listing skips its item, and a screen
-that read nothing for a failure returns it, unwritten. The header lane
-(`run_usenet_header_items.py`) calls it for each top it has not screened.
+posts, posts dated 1996 to 2001, those with a host and the EE; a top with no such file reads the
+extractor's code over an empty pool. A 429, an outage or the hold raises `End`; a 4xx that left
+nothing read, a failed extract or a failed price is returned as the failure, never a row. The
+header lane (`run_usenet_header_items.py`) calls it for each top it has not screened.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 import sys
@@ -25,16 +26,12 @@ from sample_usenet_header_items import BUILD, fetch, listing, price
 
 def screen(
     work: Path, top: str, todo: list[str], size: dict[str, int], held: Callable[[], bool]
-) -> list | str | None:
-    """The top's row; None when a 429 or the hold ended it, the failure when nothing came."""
+) -> list | str:
+    """The top's row, or the failure that strikes it."""
     files, failed = [], ""
     for item in sorted((i for i in todo if i.split(".")[0] == top), key=lambda i: -size[i])[:2]:
-        if held():
-            return None
-        if (meta := listing(item)) == "429":
-            return None
-        if isinstance(meta, str):  # the item is skipped
-            failed = f"meta {meta}"
+        if isinstance(meta := listing(item, held), str):  # a 4xx: the item is skipped
+            failed = meta
             continue
         files += [
             (item, f["name"], int(f.get("size", 0)))
@@ -49,29 +46,30 @@ def screen(
             total += f[2]
     pool, out, t0, got = work / "pool", work / "out" / top, time.time(), 0
     pool.mkdir(parents=True, exist_ok=True)
-    for item, name, fsize in pick:
-        url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(name)}"
-        code = "held" if held() else fetch(url, pool / name, fsize)
-        if code in ("429", "held"):
-            return None
-        got += fsize if code == "200" else 0
-        failed = failed if code == "200" else code
-        time.sleep(1)
-    if failed and not got:  # an outage is no screen
-        return failed
-    r = subprocess.run(
-        ["nice", sys.executable, BUILD, pool, out, "1"], capture_output=True, text=True
-    )
-    totals = [json.loads(line[6:]) for line in r.stdout.splitlines() if line.startswith("TOTAL ")]
-    st = totals[-1] if totals else {}
-    for z in pool.glob("*.zip"):
-        z.unlink()
+    try:
+        for item, name, fsize in pick:
+            url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(name)}"
+            code = fetch(url, pool / name, fsize, held)
+            got += fsize if code == "200" else 0
+            failed = failed if code == "200" else code
+            time.sleep(1)
+        if failed and not got:
+            return failed
+        cmd = ["nice", sys.executable, BUILD, pool, out, "1"]
+        r = subprocess.run(cmd, capture_output=True, text=True)
+    finally:
+        for z in pool.glob("*.zip"):
+            z.unlink()
     secs = round(time.time() - t0)
-    if r.returncode:  # a failed extract is logged and its top left unpriced
+    if r.returncode:
         shutil.rmtree(out, ignore_errors=True)
-        return [top, got, secs, f"build {r.returncode}"]
+        return f"build {r.returncode}" if got else [top, got, secs, f"build {r.returncode}"]
     ee = price(work, out) if got else 0.0
     shutil.rmtree(out, ignore_errors=True)
+    if math.isnan(ee):
+        return "price"
+    totals = [json.loads(line[6:]) for line in r.stdout.splitlines() if line.startswith("TOTAL ")]
+    st = totals[-1] if totals else {}
     return [
         top,
         got,
