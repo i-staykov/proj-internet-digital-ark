@@ -480,6 +480,26 @@ def test_a_200_cut_before_its_first_row_is_a_dropped_connection_until_the_cap(tm
     assert lane.refused == 1 and round(lane.refusal_end - time.time()) == 30
 
 
+def test_a_parked_subpage_is_asked_on_the_next_start_until_its_third_park(tmp_path):
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    a.questions, a.min_interval = False, 10
+    sub, meta = ("ac.mz", 100, 1, 1996, 2013, "all"), ("rest", "ac.mz 1000 0 1996 2013", "")
+    (tmp_path / "pending.txt").write_text(extended.encode(sub, meta) + "\n")
+    for parks in range(1, extended.PARKS + 1):  # each start asks it nine times, then parks it
+        lane = extended.Lane(a)
+        for _ in range(9):
+            assert lane.take() == sub
+            lane.settle(sub, "HTTP502", False, 0, [], None, ["row"])
+        assert lane.take() is None, "parked: not asked again this start"
+        kept = "" if parks == extended.PARKS else extended.encode(sub, (*meta, str(parks))) + "\n"
+        assert (tmp_path / "pending.txt").read_text() == kept, "kept with its count, then dropped"
+    (tmp_path / "pending.txt").write_text(extended.encode(sub, (*meta, "1")) + "\n")
+    lane = extended.Lane(a)
+    assert lane.take() == sub
+    lane.settle(sub, "200", True, 3, ["k1", "k2"], None, ["row"])
+    assert "ac.mz 100 1 1996 2013" in lane.done and lane.take() is None
+
+
 def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     f = tmp_path / "2001.txt"
     f.write_bytes(b"a.co.uk\nb-c.co.uk\nb.co.uk\nzz.com.au\n")
