@@ -4,7 +4,12 @@
 # `just sync` is the tick that moves the round without a session open: it brings the
 # lanes' journals home and calls `just bank` when approvals, a confirmed FIND, a baseline or
 # journals arrived. It is idempotent, takes the sync lock and refuses a dirty or diverged
-# clone, so all this adds is a log and the one channel that lets a phone ask for a package.
+# clone, so all this adds is a log and the two labels that let a phone ask for a hold or a
+# package.
+#
+# The `hold` label on any open ark-fleet issue is `just hold` (scripts/harness/hold.sh): the
+# hold file and the flags go, the timer stays, so this runs hourly, `just sync` exiting `held`,
+# and lifts the hold once the label is gone. While gh does not answer, nothing moves.
 #
 # The `ship-now` label on any open ark-fleet issue (the gate issue is the natural one)
 # runs `just ship all` once: sync, report, package, verify, the mail draft, and stop.
@@ -45,6 +50,17 @@ fi
 
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
+hold_label() {  # on: before the sync, so it exits held; off: after, so the forced bank has the lock
+    local n
+    n=$(gh issue list --repo "$FLEET_REPO" --state open --label hold \
+        --json number --jq '.[0].number // empty' 2>/dev/null) || return 0
+    if [ "$1" = on ] && [ -n "$n" ]; then
+        bash scripts/harness/hold.sh holds || bash scripts/harness/hold.sh on label
+    elif [ "$1" = off ] && [ -z "$n" ] && bash scripts/harness/hold.sh holds; then
+        bash scripts/harness/hold.sh off label
+    fi
+}
+
 ship_now() {
     local n body
     n=$(gh issue list --repo "$FLEET_REPO" --state open --label ship-now \
@@ -70,11 +86,13 @@ ship_now() {
     echo "$login, token expiry: ${expiry:-no expiry header}"
     # the remote's last successful listing, for the heartbeat
     rclone lsf --max-depth 1 gdrive:ark-offsite > /dev/null 2>&1 && echo "$STAMP" > data/logs/.offsite_listed || echo "offsite: listing failed"
+    hold_label on 2>&1
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
     just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]' \
         | tee "$SYNC_OUT"
     sync_rc=${PIPESTATUS[0]}
+    hold_label off 2>&1
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
 } >> "$LOG"
