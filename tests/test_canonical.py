@@ -1,4 +1,5 @@
-"""The funnel every name passes: one case per reduction and per refusal, on the vendored PSL."""
+"""`src/ark/canonical.py`, the funnel every name passes: one case per reduction and per refusal, on
+the vendored PSL."""
 
 import pytest
 

@@ -1,6 +1,7 @@
-"""Exports: the annual files, the candidate claim and the ISC collection, each net of his files
-by exact name. One store holds every case, exported as the bank's claim, in full, and in full
-again with its rows laid down in reverse; each test reads those files."""
+"""`ark export`, the bank's claim and the ship's full one (`src/ark/export.py`): the annual files,
+the candidate claim and the ISC collection, each net of his files by exact name. One store holds
+every case, exported as the bank's claim, in full, and in full again with its rows laid down in
+reverse; each test reads those files."""
 
 import csv
 import hashlib

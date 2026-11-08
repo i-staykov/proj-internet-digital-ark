@@ -1,4 +1,4 @@
-"""The baseline, the calculator and the English-share table the score is made of. A
+"""His frozen files, his calculator and the English-share table (`src/ark/baseline.py`). A
 delivery's reader links his release at `baseline/<marker>/` beside `source/`, since `git archive`
 cannot carry the git-ignored repository path. His calculator decides every figure quoted to him
 and ours ranks candidates in a loop, so the two tables must agree, and his brief freezes his."""

@@ -1,5 +1,6 @@
-"""The provenance export: the archive's answer to "why is this domain in this year?", the
-authority the store is rebuilt from, and `trace.py`, the copy the reviewer runs blind."""
+"""The ship's provenance export (`src/ark/provenance.py`): the archive's answer to "why is this
+domain in this year?", the authority the store is rebuilt from, and `trace.py`, the copy the
+reviewer runs blind."""
 
 import runpy
 import sys

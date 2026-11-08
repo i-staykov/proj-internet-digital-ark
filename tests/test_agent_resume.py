@@ -1,5 +1,6 @@
-"""A work run cut by its cap keeps its session on the item, the next work run resumes it once
-with `--resume`, and the one after starts fresh; the fourth attempt parks the item."""
+"""`run_agent.sh`: a work run cut by its cap keeps its session on the item, the next work run
+resumes it once with `--resume`, and the one after starts fresh; the fourth attempt parks the
+item."""
 
 import json
 import os

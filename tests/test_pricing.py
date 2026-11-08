@@ -1,5 +1,7 @@
-"""The pricers hold a pair that is ours or his by exact name in that year, date nothing by an
-error capture, refuse a snapshot off its manifest, and quote his calculator's EE."""
+"""The pricers the bank's re-price and the agent's `just price` run (`price_items.py`,
+`price_hostnames.py`, `ark.price_snapshot`, `request_approval.py`, the bank's
+`snapshot_manifest.py`): they hold a pair that is ours or his by exact name in that year, date
+nothing by an error capture, refuse a snapshot off its manifest, and quote his calculator's EE."""
 
 import gzip
 import json
@@ -7,7 +9,6 @@ import os
 import shutil
 import subprocess
 import sys
-from collections import Counter
 from decimal import Decimal
 from functools import partial
 from pathlib import Path
@@ -25,8 +26,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts/harness"))
 import snapshot_manifest as sm  # noqa: E402
 
-ph, probe = script("pricing/price_hostnames.py"), script("pricing/probe_source.py")
-texts, price_items = script("pricing/probe_texts_corpus.py"), script("pricing/price_items.py")
+ph, price_items = script("pricing/price_hostnames.py"), script("pricing/price_items.py")
+texts = script("pricing/probe_texts_corpus.py")
 
 # In 1998: ours.com is ours and already-his.com is his; fresh.com is ours in another year;
 # seeded.com is a candidate of ours with no row; no file of his holds his-filed.com or rolled.com;
@@ -36,8 +37,8 @@ NAMES += "lonely.com ourss.com already-hiss.com rolled.com"
 
 
 def test_the_pricers_hold_by_exact_name(tmp_path: Path, his_files: Path, monkeypatch, capsys):
-    """price_items, probe_texts_corpus and request_approval ask `held`, against one store. The
-    typo bound asks the one-edit neighbourhood of a name, never the name itself."""
+    """price_items and request_approval ask `held`, against one store. The typo bound asks the
+    one-edit neighbourhood of a name, never the name itself."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir()
     conn = connect(store := tmp_path / "data/ark.duckdb")
@@ -67,13 +68,6 @@ def test_the_pricers_hold_by_exact_name(tmp_path: Path, his_files: Path, monkeyp
     variants = price_items.one_edit_variants("ab.com")
     assert "ab.com" not in variants and "ba.com" not in variants  # a transposition is two edits
     assert {"a.com", "abc.com", "ax.com", "b.com", "aab.com"} <= variants
-
-    monkeypatch.setattr(texts, "search", lambda query, rows: [{"identifier": "i1", "year": 1998}])
-    monkeypatch.setattr(texts, "full_text", lambda identifier, cache: NAMES)
-    out = run(texts, "--query", "q", "--cache", str(tmp_path / "c"))
-    assert "net-new pairs        8\nnet-new domains      7\n" in out
-    assert "corroborated (domain already in an annual file): 1\n" in out
-    assert "never seen at all (not even a candidate): 5\n" in out
 
     approval = script("harness/request_approval.py")
     register = tmp_path / "approvals.md"
@@ -469,6 +463,8 @@ EXTRACTED = {
     "label-inside-a-host": (NARROW, "host tuvok.au.af.mil answered", {"af.mil"}),
     "filenames": (NARROW, "files foo.org.html, archive.zip, lib.so and doc.ps on disk", set()),
     "prose": (NARROW, PROSE, {"foo.com", "bar.org", "bbc.co.uk", "unimelb.edu.au"}),
+    "address": (NARROW, "mail bob@foo.com", {"foo.com"}),
+    "sentence-punctuation": (NARROW, "the sentence end.Company said so", set()),
     "wide": (WIDE, LIST, {"uni-koeln.de", "sony.co.jp", "nctu.edu.tw", "baz.dk"}),
 }
 
@@ -478,73 +474,8 @@ def test_the_extractors_find_exactly_these_names(extract, prose, found) -> None:
     assert extract(prose) == found
 
 
-def test_an_items_own_host_field_is_a_name_and_an_ocr_file_is_named_by_its_metadata(monkeypatch):
-    """The `host` and `domain` fields are read as names; prose in `text` is not. A scan may be
-    named freely, so the djvu text's name is read from the item's metadata."""
+def test_an_items_own_host_field_is_a_name_and_prose_in_text_is_not() -> None:
     record = {"host": "0---0-animal.dk", "year": 2001, "text": "DK Zonen header 20010413"}
     assert price_items.field_names(record) == {"0---0-animal.dk"}
     assert price_items.field_names({"text": "just prose"}) == set()
     assert price_items.field_names({"domain": "www.example.co.uk"}) == {"example.co.uk"}
-    calls, name = [], "Internet Magazine 031 [1997-06]"
-    files = [{"name": f"{name}.pdf"}, {"name": f"{name}_djvu.txt", "format": "DjVuTXT"}]
-    reply = json.dumps({"files": files}).encode()
-    monkeypatch.setattr(texts, "fetch", lambda url: calls.append(url) or reply)
-    assert texts.djvu_name("internet-magazine-031-1997-06") == f"{name}_djvu.txt"
-    assert calls == ["https://archive.org/metadata/internet-magazine-031-1997-06"]
-
-
-# **The declarative probe** counts every row it drops under a reason and never guesses a column.
-
-HOST = r"(?i)\b([a-z0-9][a-z0-9\-]{0,62}(?:\.[a-z0-9][a-z0-9\-]{0,62})*\.[a-z]{2,6})\b"
-TABLE = {"kind": "html_table", "domain_column": 1, "date_column": 0}
-
-
-def _table(*rows: tuple[str, ...]) -> str:
-    cells = ("".join(f"<td>{cell}</td>" for cell in row) for row in rows)
-    return "<table>" + "".join(f"<tr>{row}</tr>" for row in cells) + "</table>"
-
-
-def test_a_table_counts_every_row_it_drops_and_splits_a_cell_of_several_names() -> None:
-    """The UDRP dockets put every disputed name of a case in one cell."""
-    got = list(probe.pairs_from(TABLE, _table(("1998-04-02", "example.com")), Counter()))
-    assert got == [("row 0", "example.com", "1998-04-02", "1998-04-02 | example.com")]
-    spec, stats = {**TABLE, "domain_pattern": HOST, "header_rows": 1}, Counter()
-    cells = [("Date", "Domain"), ("2000-01-05", "one.com, two.net and three.org")]
-    page = _table(*cells, ("1998",), ("1999", "none"))
-    names = [name for _i, name, _d, _w in probe.pairs_from(spec, page, stats)]
-    assert names == ["one.com", "two.net", "three.org"]
-    # the header row is skipped, not counted as seen or refused
-    assert stats == {"rows_seen": 3, "refused_short_row": 1, "refused_no_hostname_in_cell": 1}
-    for bad, match in (({"kind": "html_table"}, "not guess"), ({**TABLE, "table": 3}, "index 3")):
-        with pytest.raises(SystemExit, match=match):
-            list(probe.pairs_from(bad, _table(("a", "b")), Counter()))
-
-
-def test_lines_take_group_1_of_the_date_and_a_year_outside_the_window_is_refused() -> None:
-    page = "1996-11-30  widgets.co.uk  some description\nnothing useful here\n"
-    for date, when in (
-        (r"\b(\d{4})-\d{2}-\d{2}\b", "1996"),
-        (r"\b\d{4}-\d{2}-\d{2}\b", "1996-11-30"),
-    ):
-        spec, stats = {"kind": "lines", "domain_pattern": HOST, "date_pattern": date}, Counter()
-        got = [(name, w) for _i, name, w, _r in probe.pairs_from(spec, page, stats)]
-        assert got == [("widgets.co.uk", when)] and probe.year_of(spec, when, Counter()) == 1996
-        assert stats == {"rows_seen": 2, "refused_no_hostname_match": 1}
-    stats = Counter()
-    assert probe.year_of({}, "2004-01-01", stats) is probe.year_of({}, "no date", stats) is None
-    assert (stats["refused_year_out_of_window"], stats["refused_no_date"]) == (1, 1)
-    assert probe.year_of({"year": 1997}, "", Counter()) == 1997
-    assert probe.year_of({"year": 2005}, "", Counter()) is None
-
-
-def test_jsonl_reads_a_dotted_path_and_bad_json_is_not_a_missing_field() -> None:
-    spec = {"kind": "jsonl", "domain_field": "ldhName", "date_field": "events.0.eventDate"}
-    page = 'not json at all\n{"other": "x"}\n'
-    page += '{"ldhName": "thing.org", "events": [{"eventDate": "1999-02-01"}]}\n'
-    stats = Counter()
-    got = [(name, when) for _i, name, when, _w in probe.pairs_from(spec, page, stats)]
-    assert got == [("thing.org", "1999-02-01")]
-    assert stats == {"rows_seen": 3, "refused_unparseable_json": 1, "refused_field_absent": 1}
-    record = {"a": [{"b": 1}]}
-    assert probe.dotted(record, "a.0.b") == 1
-    assert [probe.dotted(record, path) for path in ("a.9.b", "a.0.missing", "a.b")] == [None] * 3

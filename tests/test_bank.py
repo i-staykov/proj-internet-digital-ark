@@ -1,4 +1,5 @@
-"""The bank: only a `master` class banks, a red gate takes back only this bank's rows, a red bank
+"""`just bank` (`bank_approved.py`, `unbank_source.py`, `bank_hygiene.py`, `bank_trigger.py`):
+only a `master` class banks, a red gate takes back only this bank's rows, a red bank
 blocks every reason until cleared, and the preflight refuses a clone it must not write in."""
 
 import io

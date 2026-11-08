@@ -1,4 +1,5 @@
-"""The shipped saturation ledger, byte for byte the register, and the unparsed pool."""
+"""What packaging ships from `saturation_ledger.py`, byte for byte the register, and
+`unparsed_pool.py`."""
 
 import os
 import sys

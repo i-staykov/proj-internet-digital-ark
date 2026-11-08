@@ -1,5 +1,7 @@
-"""The 2002 to 2013 additions: only his same-year file's complement, only by a capture stamped
-in that year, and a package of ours alone that verify proves disjoint from his files."""
+"""`extended_export.py` and the readers the tick starts (`eot_cdxj.py`, `har_year.py`,
+`clueweb.py`): the 2002 to 2013 additions are only his same-year file's complement, only by a
+capture stamped in that year, and a package of ours alone that verify proves disjoint from his
+files."""
 
 import bz2
 import csv

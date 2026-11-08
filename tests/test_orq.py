@@ -1,5 +1,6 @@
-"""orq.py on a fixture fleet and release: Q1 membership, labels, cost, refusals, a build that
-reads neither the store nor private/, and the stage's checks in verify.sh and packaging."""
+"""Packaging's `orq.py` on a fixture fleet and release: Q1 membership, labels, cost, refusals, a
+build that reads neither the store nor private/, and the stage's checks in verify.sh and
+packaging."""
 
 import csv
 import gzip

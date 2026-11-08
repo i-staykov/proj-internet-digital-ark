@@ -1,4 +1,5 @@
-"""The collectors' floor sits above the bank's by the export's dip; a writer's log stays bounded."""
+"""`src/ark/disk.py`: the collectors' floor sits above the bank's by the export's dip; a writer's
+log stays bounded."""
 
 import pytest
 from conftest import script

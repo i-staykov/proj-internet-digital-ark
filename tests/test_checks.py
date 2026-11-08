@@ -1,4 +1,5 @@
-"""Integrity checks: a clean store passes; a planted violation is caught."""
+"""`ark check`, the bank's gate (`src/ark/checks.py`): a clean store passes; a planted
+violation is caught."""
 
 from pathlib import Path
 

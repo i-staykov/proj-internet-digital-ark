@@ -1,5 +1,5 @@
-"""What the bank takes from the fleet: a read only when it matches its receipt, and the ack the
-fleet frees a part by, which names the part's bytes only once the store's ingest holds them."""
+"""What the bank's re-price takes from a confirmed FIND (`harness/fleet_findings.py`): a read only
+when it matches its receipt, whose parts `bank_approved.py` then banks under the read's source."""
 
 import gzip
 import hashlib
@@ -15,7 +15,6 @@ from ark.db import init_db
 from ark.hostnames import ingest_hostname_journal
 
 findings = script("harness/fleet_findings.py", "fleet_findings")
-ack = script("harness/ack_journals.py", "ack_journals")
 
 
 @pytest.fixture(autouse=True)
@@ -25,13 +24,6 @@ def _no_real_box(tmp_path, monkeypatch):
     monkeypatch.setenv("ARK_TELEMETRY_DIR", "/nonexistent")
     monkeypatch.delenv("ARK_READ_REMOTE", raising=False)
     monkeypatch.setattr(findings, "FLEET_READ", tmp_path / "fleet_read")
-
-
-def store(path: Path) -> Path:
-    conn = duckdb.connect(str(path))
-    init_db(conn)
-    conn.close()
-    return path
 
 
 def remote_read(root: Path, complete=True, tamper=False, extra="", rename="") -> Path:
@@ -63,7 +55,7 @@ BAD_READS = [
 HOSTNAMES = "## Decided\n\n### fleet_a_lead_hostnames / cdx_timestamp\n\nDecision: master\n"
 
 
-def test_only_a_read_matching_its_receipt_is_pulled_and_its_ingest_acks_it(
+def test_only_a_read_matching_its_receipt_is_pulled_and_its_parts_bank(
     tmp_path, monkeypatch, capsys
 ):
     lead = tmp_path / "incoming/a-lead"
@@ -77,7 +69,7 @@ def test_only_a_read_matching_its_receipt_is_pulled_and_its_ingest_acks_it(
     assert names == [f"fleetread_bulk_cdx_file__a-lead_000{n}.jsonl.gz" for n in (1, 2)]
     (register := tmp_path / "approved.md").write_text(HOSTNAMES, encoding="utf-8")
     monkeypatch.setattr(approvals, "DEFAULT_APPROVALS_PATH", register)
-    conn, part = duckdb.connect(str(db := store(tmp_path / "store.duckdb"))), got / names[0]
+    init_db(conn := duckdb.connect())
+    part = got / names[0]
     assert ingest_hostname_journal(conn, part)["hostname_year_rows"] == 1
     conn.close()
-    assert ack.acks(db) == [(part.name, hashlib.sha256(part.read_bytes()).hexdigest())]

@@ -1,5 +1,5 @@
-"""`python -m ark.hygiene`, the scan the pre-commit hook and CI run, still catches each shape
-planted in a scratch file, and the list of paths the fleet runs and the local layout stay honest."""
+"""The public hygiene scan (`python -m ark.hygiene`, on the pre-commit hook and in CI) still catches
+each shape planted in a scratch file, and the local layout stays out of git."""
 
 import shutil
 import subprocess

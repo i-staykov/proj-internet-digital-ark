@@ -1,4 +1,5 @@
-"""The scoreboard, the contribution tables and the round figures count what the export ships, net
+"""The round state, the ship's figures and report (`build_round_state.py`, `round_figures.py`,
+`report_figures.py`, `fill_report.py`, `ark.stats`) count what the export ships, net
 of his files by exact name; corroboration counts distinct master sources of distinct lineages;
 his quoted scores reproduce to the digit. One store is scored and exported once per module."""
 

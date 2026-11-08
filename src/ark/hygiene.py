@@ -37,24 +37,15 @@ DOCUMENTATION_RANGES = ("192.0.2.", "198.51.100.", "203.0.113.")
 # one fails until somebody reads it and adds it here, which is the point of the rule.
 KNOWN_ADDRESSES = frozenset(
     {
-        # fixture rows in tests/test_hostnames.py (the ISC survey, RIPE and zone fixtures)
-        "1.0.0.2",
-        "1.125.2.7",
-        "1.125.2.8",
-        "1.3.3.1",
-        "1.3.3.2",
-        "1.3.3.3",
+        # the RIPE fixture rows in tests/test_hostnames.py and tests/test_sources.py
         "128.214.4.29",
-        "1.2.3.4",
+        "193.166.0.0",
+        "193.166.255.255",
         "8.8.8.8",
         "66.199.183.26",
         "78.47.242.83",
         "130.217.250.15",
         "192.149.252.21",
-        "193.166.0.0",
-        "193.166.255.255",
-        "198.41.0.4",
-        "204.96.208.1",
         "207.36.205.194",
     }
 )

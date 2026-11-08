@@ -1,4 +1,5 @@
-"""Triage acts: a red clears on green, a reader restarts once a day, a lane never near a tick."""
+"""`scripts/agents/triage.py`: a red clears on green, a reader restarts once a day, a lane never
+near a tick."""
 
 from __future__ import annotations
 

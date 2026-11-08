@@ -1,5 +1,5 @@
-"""Nothing private, addressed to a person or unwritten reaches the delivery: it ships the code
-as `git archive`, so every tracked file not marked `export-ignore` goes in front of the
+"""Nothing private, addressed to a person or unwritten reaches the delivery: packaging ships the
+code as `git archive`, so every tracked file not marked `export-ignore` goes in front of the
 reviewer. The shape is tested, not filenames: a rule written as a filename leaked three times."""
 
 import io

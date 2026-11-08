@@ -1,4 +1,5 @@
-"""Retention: what goes off-site, what a deletion needs, and what nothing may delete.
+"""The ship's and the tick's round cleanup (`offsite.py`, `prune.py`, `verify_raw.py`): what
+goes off-site, what a deletion needs, and what nothing may delete.
 
 Temporary trees only: Drive is the folder tmp_path/remote, archive.org a dict.
 """

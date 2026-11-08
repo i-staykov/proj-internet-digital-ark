@@ -1,5 +1,5 @@
-"""The annual claim is website evidence: the method decides it, an error capture never does, and
-a record's row captures exactly the name it dates."""
+"""His rule XIV in the ingest and `ark check`: the annual claim is website evidence, the method
+decides it, an error capture never does, and a record's row captures exactly the name it dates."""
 
 import gzip
 import json

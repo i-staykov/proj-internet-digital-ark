@@ -1,10 +1,9 @@
-"""His release in, held by exact name: intake takes a release once, `prepare` reads every line
-of his and writes none, `minus` and `intersect` are `LC_ALL=C comm` set arithmetic, every module
-asking whether a name is dated asks `held`, and a seed queues only what nothing dates."""
+"""His frozen files and `just intake` (`scripts/round/intake.py`, `ark intake`, `ark.held`): intake
+takes a release once, `prepare` reads every line of his and writes none, `minus` and `intersect`
+are `LC_ALL=C comm` set arithmetic, and every module asking whether a name is dated asks `held`."""
 
 import ast
 import contextlib
-import csv
 import json
 import os
 import re
@@ -24,14 +23,9 @@ from his_release import HIS_CANDIDATES, HIS_YEARS, MARKER, WEB_METHOD, capture, 
 from typer.testing import CliRunner
 
 from ark import held
-from ark import work_queue as wq
-from ark.audit import write_audit
-from ark.bulk import BulkRecord, SourceSpec
 from ark.cli import app
 from ark.db import add_candidate, assign_year, connect, ensure_source, init_db, record_evidence
 from ark.ingest import YEARS
-from ark.seed import seed_from_file
-from ark.seed_pool import combine_parts, write_source_part
 
 ROOT = Path(__file__).resolve().parents[1]
 # CRLF, a blank line, padding, upper case, a duplicate, a quote, a tab, and one not a host at all
@@ -161,19 +155,6 @@ def test_ark_intake_writes_the_held_sets_even_from_a_dot(tmp_path: Path, monkeyp
     his = held.load(Path("."))
     assert his.dir == held.HELD_ROOT / MARKER
     assert read(his.all) == sorted({name for names in HIS_YEARS.values() for name in names})
-
-
-def test_the_audit_rows_each_line_of_his_corrected_or_dropped(tmp_path: Path) -> None:
-    for year in YEARS:
-        extra = "www.corrected.com\n$garbage$\n" if year == 1996 else ""
-        (tmp_path / f"{year}.txt").write_text(f"clean.com\n{extra}", encoding="utf-8")
-    stats = write_audit(tmp_path, tmp_path / "audit.csv")
-    assert stats == {"lines": 8, "unchanged": 6, "corrected": 1, "dropped": 1}
-    corrected, dropped = csv.DictReader((tmp_path / "audit.csv").open(encoding="utf-8"))
-    want = ["www.corrected.com", "corrected.com", "www prefix removed", "valid", "1996.txt", "1996"]
-    assert list(corrected.values()) == want
-    assert dropped["original"] == "$garbage$" and dropped["normalized"] == ""
-    assert dropped["result"] == "dropped" and dropped["reason"]
 
 
 def _ours(conn, domain: str, year: int, host: str | None = None, assign: bool = True) -> None:
@@ -341,24 +322,6 @@ def test_no_lane_asks_the_tables_whether_a_name_is_dated() -> None:
     for rel, key in LANE_STATEMENTS_EXEMPT:  # each exemption covers one statement rule B sees
         (statement,) = [value for _, value in strings(rel) if key in value]
         assert MEMBERSHIP.search(statement), f"{rel}: {key!r} needs no exemption"
-
-
-def test_split_chastity_dates_what_we_or_his_files_date(tmp_path, his_files, monkeypatch) -> None:
-    """The scan cannot see which question a lane asks. already-his.com is dated by his files
-    alone, his www.rolled.com dates no rolled.com, and cand.org, only listed by us, is undated."""
-    lane = script("sources/blocklists/split_chastity.py")
-    conn = _store()
-    _ours(conn, "ours.com", 2001)
-    add_candidate(conn, "cand.org", ensure_source(conn, "links", "candidate_only"))
-    (src := tmp_path / "db" / "adult").mkdir(parents=True)
-    (src / "domains").write_text("ours.com\nalready-his.com\nrolled.com\ncand.org\nnovel.net\n")
-    monkeypatch.setattr(lane, "SRC", src.parent)
-    monkeypatch.setattr(lane, "connect_read_only_patiently", lambda _path: conn)
-    monkeypatch.setattr(sys, "argv", ["split_chastity.py", "--write", "--out", str(tmp_path)])
-    assert lane.main() == 0
-    cand, dated = (p.read_text().split() for p in sorted(tmp_path.glob("chastity-*.txt")))
-    assert dated == ["already-his.com", "ours.com"]
-    assert cand == ["cand.org", "novel.net", "rolled.com"]
 
 
 # **Intake** takes a release in one command; `releases.py` fills its table from disk, keeps every
@@ -566,63 +529,3 @@ def test_a_7z_release_goes_in_like_a_zip(run, tmp_path):
     assert (current["directory"], current["reviewer_pairs"]) == (str(tree), sum(LINES.values()))
     assert _rows(tmp_path)[staged.name]["artifact"] == his.name
     assert releases.verify_trees({tree.name: [tree]}, {tree.name: [tmp_path / "ding" / his.name]})
-
-
-# **Seeding.** `ark seed` queues only the names nothing dates, `ark seed-pool` ships the raw
-# hostnames and URLs held evidence names, and the work queue hands out what was queued.
-
-
-def test_seed_queues_all_but_a_name_ours_or_his_already_date(tmp_path, his_files) -> None:
-    """ours.com is dated by our evidence and already-his.com by his files alone; known.com is
-    on file but undated, so it is queued; his www.rolled.com dates no rolled.com."""
-    conn = _store()
-    sid = ensure_source(conn, "wayback_cdx", "timestamped")
-    for name in ("ours.com", "known.com"):
-        add_candidate(conn, name, sid)
-    assign_year(conn, record_evidence(conn, "ours.com", sid, 1997, "cdx_timestamp", "x"))
-    seeds, queue = tmp_path / "seeds.txt", wq.connect_queue(":memory:")
-    names = "already-his.com ours.com known.com fresh.org www.fresh.org rolled.com $garbage$ x.net"
-    seeds.write_text("\n".join(names.split()) + "\n", encoding="utf-8")
-    stats = seed_from_file(conn, queue, seeds, limit=7)
-    assert (stats["lines"], stats["invalid"], stats["already_candidate"]) == (7, 1, 1)
-    assert (stats["already_confirmed_baseline"], stats["already_confirmed_own_evidence"]) == (1, 1)
-    assert (stats["new_candidates"], stats["enqueued"]) == (2, 3)
-    queued = sorted(row["key"] for row in queue.execute("SELECT key FROM fetch_state"))
-    assert queued == ["fresh.org", "known.com", "rolled.com"]
-    assert conn.execute("SELECT count(*) FROM domain_year").fetchone()[0] == 1
-
-
-def _pool(tmp_path: Path, key: str, *records: str | tuple[str, int], conn=None) -> tuple:
-    """Write source `key`'s part from its records, a raw value or (raw, year), then combine."""
-    pairs = [(r, 1998) if isinstance(r, str) else r for r in records]
-    rows = [BulkRecord(raw=r, year=y, evidence_value=f"{y}0101000000") for r, y in pairs]
-    spec = SourceSpec(key, key, "cdx_timestamp", "test", lambda _path, _stats: iter(rows))
-    stats = write_source_part(spec, [tmp_path / "input"], parts_dir=tmp_path / "parts")
-    return stats, combine_parts(conn, seed_dir=tmp_path / "seeds", parts_dir=tmp_path / "parts")
-
-
-def test_the_pool_ships_each_in_window_raw_name_beneath_a_domain(tmp_path, his_files) -> None:
-    """A raw value that is its domain adds nothing; a URL keeps its commas; a rerun replaces
-    only its own source's rows. The pool counts the
-    domains his files lack by exact name, and never one ours could not be."""
-    url = "http://books.example.co.uk/news/0,6109,393333,00.html"
-    early, late = ("a.ex.com", 1995), ("c.ex.com", 2002)
-    www = [("www.example.com", 1997), ("www.example.com", 2000)]
-    stats, result = _pool(tmp_path, "first", "example.com", early, *www, late, url)
-    assert (stats["no_extra_granularity"], stats["seeds"], result["seeds"]) == (1, 3, 2)
-    table = f"read_csv_auto('{tmp_path / 'seeds' / 'download_seeds.csv'}')"
-    rows = duckdb.connect().execute(f"SELECT seed, domain, year, source FROM {table}").fetchall()
-    want = [(url, "example.co.uk", 1998, "first")]
-    assert rows == want + [(seed, "example.com", year, "first") for seed, year in www]
-    _pool(tmp_path, "second", "b.ex.org")
-    _, result = _pool(tmp_path, "first", "c.ex.net")
-    seeds = duckdb.connect().execute(f"SELECT seed FROM {table} ORDER BY 1").fetchall()
-    assert seeds == [("b.ex.org",), ("c.ex.net",)]
-    assert result["parts"] == 2
-    empty = combine_parts(seed_dir=tmp_path / "s", parts_dir=tmp_path / "p")
-    assert empty == {"parts": 0, "seeds": 0} and not (tmp_path / "s").exists()
-    # his 1999 file holds `www.rolled.com`, not `rolled.com`
-    (tmp_path / "parts" / "odd.csv").write_text("seed,domain,year\nx.Odd.com,Odd.com,1998\n")
-    records = ("www.already-his.com", "www.rolled.com")
-    _, result = _pool(tmp_path, "third", *records, conn=duckdb.connect())
-    assert (result["domains"], result["domains_not_in_his_files"]) == (5, 3)

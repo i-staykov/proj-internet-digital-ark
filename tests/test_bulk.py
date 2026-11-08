@@ -1,4 +1,5 @@
-"""Bulk loader: evidence routing per type, one row per subject, year and class, audit rows."""
+"""The bulk loader `just bank` and `bank_approved.py` ingest through (`src/ark/bulk.py`): evidence
+routing per type, one row per subject, year and class, audit rows."""
 
 import csv
 import gzip

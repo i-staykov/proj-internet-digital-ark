@@ -1,4 +1,5 @@
-"""The header lane unattended: seeding, back-off, strikes and a kill between log and bank."""
+"""The header lane the tick starts (`run_usenet_header_items.py`): seeding, back-off, strikes and a
+kill between log and bank."""
 
 from __future__ import annotations
 

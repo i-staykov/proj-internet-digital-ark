@@ -1,6 +1,7 @@
-"""fetch.py on loopback hosts that log each request: a robots refusal costs the artifact zero
-requests, the cap holds when `Content-Length` lies, and no Wayback CDX url is ever asked.
-The subprocess runs are the exit-code guards; the rest call `fetch.fetch` in process."""
+"""`scripts/harness/fetch.py`, the readers' and the scout's one download path, on loopback hosts
+that log each request: a robots refusal costs the artifact zero requests, the cap holds when
+`Content-Length` lies, and no Wayback CDX url is ever asked. The subprocess runs are the exit-code
+guards; the rest call `fetch.fetch` in process."""
 
 import hashlib
 import io

@@ -1,7 +1,7 @@
-"""The standing rule and the gate it writes for: a clause missing or not held, a lead with no
-standing admission or a class new to master parks a decision, a lead inside every bound is
-written master citing the figure that decided, and `approvals.check`, which conftest stubs
-everywhere else, refuses a master class nobody decided master."""
+"""The bank's standing rule (`standing_rule.py`) and the gate it writes for: a clause missing or not
+held, a lead with no standing admission or a class new to master parks a decision, a lead inside
+every bound is written master citing the figure that decided, and `approvals.check`, which conftest
+stubs everywhere else, refuses a master class nobody decided master."""
 
 import json
 from pathlib import Path
