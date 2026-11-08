@@ -174,7 +174,8 @@ def token(now: dt.datetime) -> tuple[float | None, str]:
 
 def lane(n: int, now: dt.datetime, yields: dict[str, str]) -> tuple[bool | None, str]:
     """(stalled, line): stalled is None where the lane does not walk here or is paused; the
-    line is the lane's last productivity row (scripts/agents/lane_yield.py)."""
+    line is the lane's last productivity row (scripts/agents/lane_yield.py), `idle` once it exits
+    with nothing queued over its floors."""
     folder = ROOT / f"data/raw/cdx_walk/lane{n}"
     log = folder / "log.tsv"
     if not log.exists():
@@ -199,7 +200,7 @@ def lane(n: int, now: dt.datetime, yields: dict[str, str]) -> tuple[bool | None,
     paused = (STATE / "pause-platform").exists()
     stalled = None if paused else queued and recent == 0
     line = f"lane{n}: " + yields.get(f"lane{n}", "no productivity row")
-    return stalled, line + (", paused" if paused else "")
+    return stalled, line + (", paused" if paused else "" if queued else ", idle")
 
 
 def ledger() -> list[list[str]]:

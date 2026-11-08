@@ -98,7 +98,7 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
     (lane / "log.tsv").write_text(f"{old}\t{row}\n# exit {old} pending=0\n")
     assert hb.lane(0, now, {"lane0": "2026-11-07: page 1 of 1 answered"}) == (
         False,
-        "lane0: 2026-11-07: page 1 of 1 answered",
+        "lane0: 2026-11-07: page 1 of 1 answered, idle",
     )
     (lane / "pending.txt").write_text("task\n")
     assert hb.lane(0, now, {})[0] is True

@@ -50,6 +50,7 @@ import http.client
 import importlib.util
 import io
 import json
+import math
 import os
 import random
 import signal
@@ -118,7 +119,7 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
 
 
 def rank(
-    units, order: dict, asked: dict, explore: int, floor: float, floor_1996: float | None = None
+    units, order: dict, asked: dict, explore: int, floor: float, floors: dict | None = None
 ) -> tuple[list, ...]:
     """(priced, exploring, waiting, early): every priced unit by its EE a second over both windows,
     every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
@@ -127,23 +128,28 @@ def rank(
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
     waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
     `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
-    `DROP_AFTER` answered requests is dropped. `ask-edge-2002` pays 1996 to 2001 alone and stops
-    itself under `floor_1996`, the window's floor in EE an answered request when
-    `cdx_order.json` carries one (`floor`); none, no stop."""
+    `DROP_AFTER` answered requests is dropped; under `floors` (`cdx_order.json` `floor`, EE an
+    answered request by window, a window without one taking any pay), one paying no window at or
+    above its floor is dropped once `explore` answers measure it, a thousand times that for a
+    tier. A tier at its laws price has no answers counted, so the 2002 edge's 0.26 runs to its
+    measurement."""
+    floors = floors or {}
+    bar = explore if floors else DROP_AFTER
     priced, exploring, waiting, early = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
             price = {**ASKED.get(u[0], {}), "s": ASK_SECONDS}
-        p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
-        if u[0] == "ask-edge-2002" and floor_1996 is not None and p1 < floor_1996:
+        p1, p2 = price.get("p1", 0), price.get("p2", 0)
+        pays = ((w, p) for w, p in (("1996-2001", p1), ("2002-2013", p2)) if p > 0)
+        if price.get("n", 0) >= bar * scale and all(p < floors.get(w, 0) for w, p in pays):
             continue
-        seconds = max(price.get("s") or PAGE_SECONDS, floor)
+        seconds, total = max(price.get("s") or PAGE_SECONDS, floor), p1 + p2
         if p1 > 0:
             early.append((-p1 / seconds, u))
         if total > 0:
             priced.append(((-total / seconds, -p1), u))
-        elif price.get("n", 0) < DROP_AFTER * scale:
+        else:
             done = u[1] == "ask" or asked.get(u, 0) >= explore * scale  # a tier never explores
             (waiting if done else exploring).append(u)
     priced.sort(key=lambda k: k[0])
@@ -249,7 +255,7 @@ class Lane:
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
-        self.unreadable = False
+        self.unreadable, self.counter = False, threading.Thread()  # main's count_missing
 
     def add_pages(self, sfx: str, n: int) -> None:
         """Queue this lane's share of a suffix's pages, those not answered yet, shuffled."""
@@ -285,10 +291,15 @@ class Lane:
         if mtime != self.order_mtime:
             try:
                 doc = json.loads(self.a.order.read_text()) if mtime else {}
-                self.order, self.floors = doc.get("units", {}), doc.get("floor", {})
+                self.order, self.floors = doc.get("units", {}), {}
                 self.order_mtime, force = mtime, True
-            except (OSError, ValueError):
-                pass
+                floors = {w: float(f) for w, f in (doc.get("floor") or {}).items()}
+                if not all(0 <= f < math.inf for f in floors.values()):
+                    raise ValueError("a floor is not a finite number at or above 0")
+                self.floors = floors
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
+                if self.order_mtime == mtime:  # the units read, the floor not: no floor
+                    self.log.write(f"# floor unread, none: {exc}\n")
         if force:
             self.ranked, self.exploring, self.waiting, self.early = rank(
                 self.pages,
@@ -296,7 +307,7 @@ class Lane:
                 self.asked,
                 2,
                 self.a.min_interval,
-                self.floors.get("1996-2001"),
+                self.floors,
             )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
 
@@ -386,7 +397,8 @@ class Lane:
         return False
 
     def count_missing(self, missing: list[str]) -> None:
-        """Count the suffixes pages.json lacks, one a minute, while the lane walks."""
+        """Count the suffixes pages.json lacks, one a minute, while the lane walks; a lane with
+        nothing else to ask waits for them."""
         path, ask = self.a.state_dir / "pages.json", {"matchType": "domain", "showNumPages": "true"}
         for sfx in missing:
             if STOP.wait(60) or not self.gate():
@@ -410,7 +422,7 @@ class Lane:
                 task = self.take()
                 if task is None:
                     with self.lock:
-                        if not self.subq and not self.inflight:
+                        if not (self.subq or self.inflight or self.counter.is_alive()):
                             return
                     time.sleep(30)
                     continue
@@ -557,7 +569,8 @@ def main() -> None:
         lane.add_pages(sfx, counts.get(sfx, 0))
     lane.rerank(force=True)
     missing = [s for s in wanted if s not in counts]
-    threading.Thread(target=lane.count_missing, args=(missing,), daemon=True).start()
+    lane.counter = threading.Thread(target=lane.count_missing, args=(missing,), daemon=True)
+    lane.counter.start()
     threads = [threading.Thread(target=lane.work) for _ in range(a.workers)]
     for i, t in enumerate(threads):
         t.start()
