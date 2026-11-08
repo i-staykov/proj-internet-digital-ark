@@ -335,7 +335,7 @@ def main(argv: list[str]) -> int:
     # from 06 on, so a 05:05 tick running past 06:05 delays the day's post, never drops it
     daily = utc(stamp).hour >= HEARTBEAT_HOUR and posted != today
     if daily:
-        record(now.date(), shutil.disk_usage(ROOT / "data").free / GIB)
+        record(utc(stamp).date(), shutil.disk_usage(ROOT / "data").free / GIB)
 
     causes: dict[str, str] = {}
     for ln in check_text.splitlines():

@@ -19,8 +19,7 @@ STORE = Path("data/ark.duckdb")
 GIB = 1024**3
 # Headroom above the guard under which a write says so before it refuses.
 WARN_GIB = 50
-# The full export's free-space dip under the bank's floor plus its budget: laws.md "full export
-# dip", measured on the VM; 0 until it is.
+# The full export's free-space dip under the bank's floor plus its budget: unmeasured, so 0.
 EXPORT_DIP_GIB = 0.0
 LOG_LIMIT = 50 * 2**20
 LOG_KEEP = 25 * 2**20

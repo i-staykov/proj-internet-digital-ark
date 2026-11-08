@@ -249,6 +249,7 @@ class Lane:
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
+        self.unreadable = False
 
     def add_pages(self, sfx: str, n: int) -> None:
         """Queue this lane's share of a suffix's pages, those not answered yet, shuffled."""
@@ -355,13 +356,24 @@ class Lane:
                 held = (
                     _platform.PAUSE_FLAG.exists()
                     or now < max(self.pause_until, self.refusal_end)
-                    or bool(_disk.below_floor(self.a.data, root=self.a.data.parent))
+                    or self.low()
                 )
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
             time.sleep(1)
         return False
+
+    def low(self) -> bool:
+        """Whether free space is under the collectors' floor. An unreadable floor holds no lane,
+        since the bank's own space check refuses a bad setting loudly; said once a run."""
+        try:
+            return bool(_disk.below_floor(self.a.data, root=self.a.data.parent))
+        except (OSError, ValueError) as exc:
+            if not self.unreadable:
+                self.log.write(f"# floor unreadable {exc}\n")
+            self.unreadable = True
+            return False
 
     def eased(self) -> bool:
         """Whether a sibling lane answered since this lane's last refusal: the address is not

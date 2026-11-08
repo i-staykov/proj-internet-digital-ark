@@ -117,7 +117,7 @@ if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
         clueweb:crawl_lists/clueweb.py:clueweb; do
         IFS=: read -r name script log <<<"$reader"  # unit, script, log
         [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>> "$LOG")" = 0 ] && continue
-        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" "${FLOOR[@]}" \
+        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" ${FLOOR[@]+"${FLOOR[@]}"} \
             bash -c "uv run python scripts/sources/$script >> data/logs/$log.log 2>&1" \
             >/dev/null 2>&1 || true
     done

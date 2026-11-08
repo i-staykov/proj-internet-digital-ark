@@ -243,8 +243,9 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     now = dt.datetime.now(dt.UTC)
     (tmp_path / "data/logs/.offsite_listed").write_text(stamp(now) + "\n")
     run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
-    assert not [c for c in hb.calls if c[:2] == ("issue", "create")]
+    assert not [c for c in hb.calls if c[:2] == ("issue", "create")] and not hb.DISK.exists()
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))
+    assert hb.DISK.read_text().startswith(f"{now.date()}\t")
     body = next(c for c in hb.calls if c[:2] == ("issue", "create"))
     text = body[body.index("--body") + 1]
     lines = text.splitlines()
