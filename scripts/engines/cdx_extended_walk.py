@@ -355,7 +355,7 @@ class Lane:
                 held = (
                     _platform.PAUSE_FLAG.exists()
                     or now < max(self.pause_until, self.refusal_end)
-                    or bool(_disk.below_floor(self.a.data))
+                    or bool(_disk.below_floor(self.a.data, root=self.a.data.parent))
                 )
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
@@ -454,8 +454,6 @@ class Lane:
         """Book one answer under the lane lock."""
         key = key_of(task)
         self.log.write("\t".join(map(str, row)) + "\n")
-        if self.log.tell() > _disk.LOG_LIMIT:  # cut in place: the handle appends past the cut
-            _disk.trim(Path(self.log.name))
         tries = self.fails.get(key, 0)
         silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
         silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end

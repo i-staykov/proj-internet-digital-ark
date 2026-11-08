@@ -12,9 +12,9 @@ seen.
 A red bank writes `data/logs/bank_red.json`, and nothing banks until someone reads it and runs
 `clear`. Stdlib only, so the tick never imports `ark`.
 
-`prune` runs `just prune --round --write` once per round credited in `data/baseline.json`, under
-the tick's lock after the gate, and prints its one line; `data/logs/prune_round` names the
-round it last ran for, so a held or empty prune waits for the next credited round.
+`prune` runs `just prune --round --write` once a round credited in `data/baseline.json` is
+newer than `data/logs/prune_round`, under the tick's lock after the gate, and prints its one
+line; the mark is written by a prune that held nothing, so a held one is tried again next tick.
 
     uv run python scripts/harness/bank_trigger.py check [--find]   exit 0 names why, 1 nothing
     uv run python scripts/harness/bank_trigger.py stamp            after a green bank
@@ -266,16 +266,18 @@ def credited(root: Path = ROOT) -> str:
 
 
 def prune(root: Path = ROOT, run=subprocess.run) -> str:
-    """The prune's one line once a round credited since the last run lets it go, else ""."""
+    """The prune's one line once a round credited since the last clean run lets it go, else ""."""
     newest, mark = credited(root), root / PRUNED
     done = mark.read_text(encoding="utf-8").strip() if mark.exists() else ""
     if not newest or newest <= done:
         return ""
     p = run(["just", "prune", "--round", "--write"], cwd=root, capture_output=True, text=True)
-    mark.parent.mkdir(parents=True, exist_ok=True)
-    mark.write_text(newest + "\n", encoding="utf-8")
-    said = [ln.strip() for ln in p.stdout.splitlines() if ln.strip()] or [f"exit {p.returncode}"]
-    return f"prune: round {newest}: " + "; ".join(said)
+    if p.returncode == 0:
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        mark.write_text(newest + "\n", encoding="utf-8")
+    # the prune's own lines; `ark check` prints its report into the same stdout
+    said = [ln for ln in p.stdout.splitlines() if ln.startswith(("removed", "HELD", "round "))]
+    return f"prune: round {newest}: " + "; ".join(said or [f"exit {p.returncode}"])
 
 
 def main(argv: list[str] | None = None, root: Path = ROOT) -> int:

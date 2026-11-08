@@ -127,7 +127,7 @@ def main() -> None:
     while subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode:
         if not (queue := todo()):
             return print("eot: every part read or given up", flush=True)
-        if why := below_floor(OUT):
+        if why := below_floor(OUT, root=REPO):
             return print(f"eot: {why}", flush=True)
         print(read(min(queue, key=failures)), flush=True)
     print("eot: held", flush=True)

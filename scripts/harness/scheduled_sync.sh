@@ -28,10 +28,11 @@ cd "$(dirname "$0")/../.." || exit 1
 # cap, and the floor the collectors read is the bank's (src/ark/disk.py). It assigns without
 # `export`, so those values are exported and the hosts stay out of child environments.
 [ -f local.env ] && . ./local.env
+FLOOR=()  # the reader units' share of them
 for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do
-    [ -n "${!v:-}" ] && export "$v"
+    [ -n "${!v:-}" ] || continue
+    export "$v"; [ "$v" = ARK_DB_MEMORY_LIMIT ] || FLOOR+=(-E "$v=${!v}")
 done
-FLOOR=(-E "ARK_FREE_SPACE_GIB=${ARK_FREE_SPACE_GIB:-}" -E "ARK_WRITE_BUDGET_GIB=${ARK_WRITE_BUDGET_GIB:-}")
 
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs

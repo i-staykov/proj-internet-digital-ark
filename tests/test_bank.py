@@ -304,12 +304,15 @@ def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     assert bt.clear(root) == "bank: nothing to clear"
 
 
-def test_the_prune_runs_once_per_credited_round(tmp_path):
-    root, calls = _tree(tmp_path), []
+def test_the_prune_runs_until_clean_once_per_credited_round(tmp_path):
+    root, calls, rc = _tree(tmp_path), [], 1
 
     def run(cmd, **_):
         calls.append(cmd)
-        return Mock(stdout="removed: data/ark.duckdb.pre-a.bak\nHELD x: why\n", returncode=1)
+        out = "ok: a check line\nremoved: data/ark.duckdb.pre-a.bak\n" + (
+            "HELD x: why\n" if rc else ""
+        )
+        return Mock(stdout=out, returncode=rc)
 
     rounds = [{"date": "2026-09-05", "awarded_percent": "18.7"}]
     baseline = root / bt.BASELINE
@@ -317,11 +320,13 @@ def test_the_prune_runs_once_per_credited_round(tmp_path):
     assert bt.prune(root, run) == (
         "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak; HELD x: why"
     )
-    assert bt.prune(root, run) == "" and len(calls) == 1  # held or not, once a round
+    rc = 0  # a held prune is tried again; a clean one marks the round
+    assert bt.prune(root, run) == "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak"
+    assert bt.prune(root, run) == "" and len(calls) == 2
     rounds.append({"date": "2026-10-15", "awarded_percent": ""})  # not credited
     baseline.write_text(json.dumps({"rounds": rounds}))
     assert bt.prune(root, run) == ""
     rounds.append({"date": "2026-10-15", "awarded_percent": "0.03"})
     baseline.write_text(json.dumps({"rounds": rounds}))
-    assert bt.prune(root, run).startswith("prune: round 2026-10-15: ") and len(calls) == 2
+    assert bt.prune(root, run).startswith("prune: round 2026-10-15: ") and len(calls) == 3
     assert calls[-1] == ["just", "prune", "--round", "--write"]

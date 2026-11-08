@@ -212,10 +212,11 @@ def test_days_to_floor_from_the_daily_readings(hb):
     assert hb.disk(today) == (None, "disk: 100.0 GiB free, need 70.0, not shrinking")
     hb.DISK.write_text(f"{today}\t100.0\n")
     assert hb.disk(today)[1].endswith("1 reading, no 7-day rate yet")
-    # the day's reading lands once, at the heartbeat tick
+    # the day's reading is its first tick's
+    hb.DISK.unlink()
     hb.record(today, 99.0)
     hb.record(today, 98.0)
-    assert hb.DISK.read_text() == f"{today}\t98.0\n"
+    assert hb.DISK.read_text() == f"{today}\t99.0\n"
 
 
 def test_heartbeat_once_at_six(hb, tmp_path):

@@ -11,7 +11,6 @@ lane (AGENTS.md, Channel).
 
 from __future__ import annotations
 
-import os
 import shlex
 import subprocess
 import sys
@@ -25,11 +24,15 @@ LANES, WORKERS = 3, 3  # the Channel's three clients here, requests at once in e
 FLOOR_ENV = ("ARK_FREE_SPACE_GIB", "ARK_WRITE_BUDGET_GIB")  # src/ark/disk.py
 
 
+def local_env(name: str) -> str:
+    """One name's value in local.env, which assigns without export."""
+    env = ["bash", "-c", f". ./local.env 2>/dev/null; echo ${name}"]
+    return subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.strip()
+
+
 def here() -> bool:
     """Whether this machine walks: a `local` entry in its ARK_HOSTS."""
-    env = ["bash", "-c", ". ./local.env; echo $ARK_HOSTS"]
-    hosts = subprocess.run(env, cwd=CODE, capture_output=True, text=True).stdout.split()
-    return any(h.rpartition(":")[0] == "local" for h in hosts)
+    return any(h.rpartition(":")[0] == "local" for h in local_env("ARK_HOSTS").split())
 
 
 def sh(cmd: str) -> str:
@@ -38,8 +41,8 @@ def sh(cmd: str) -> str:
 
 
 def cron(lane: int) -> str:
-    # cron inherits no local.env: the bank's floor, as the tick exported it, travels in the line
-    floor = "".join(f"{k}={os.environ[k]} " for k in FLOOR_ENV if os.environ.get(k))
+    # cron inherits no local.env: the bank's floor travels in the line
+    floor = "".join(f"{k}={v} " for k in FLOOR_ENV if (v := local_env(k)))
     return (
         f"cd {CODE} && {floor}flock -n {DATA}/lane{lane}.lock /usr/bin/python3 "
         f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {LANES} "

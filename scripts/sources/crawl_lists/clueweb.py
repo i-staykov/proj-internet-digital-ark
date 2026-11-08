@@ -207,7 +207,7 @@ def main() -> None:
     while queue := todo():
         if subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode == 0:
             return print("clueweb: held", flush=True)
-        if why := below_floor(OUT):
+        if why := below_floor(OUT, root=REPO):
             return print(f"clueweb: {why}", flush=True)
         print(read(min(queue, key=failures)), flush=True)
     print("clueweb: every list read or given up", flush=True)

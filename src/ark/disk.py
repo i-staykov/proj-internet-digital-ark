@@ -28,8 +28,8 @@ LOG_KEEP = 25 * 2**20
 
 def settings() -> tuple[float, float]:
     """The floor and the write budget in GiB; a setting not finite and positive is a ValueError."""
-    floor = float(os.environ.get("ARK_FREE_SPACE_GIB") or 50)
-    budget = float(os.environ.get("ARK_WRITE_BUDGET_GIB") or 20)
+    floor = float(os.environ.get("ARK_FREE_SPACE_GIB", "50"))
+    budget = float(os.environ.get("ARK_WRITE_BUDGET_GIB", "20"))
     if not all(math.isfinite(n) and n > 0 for n in (floor, budget)):
         raise ValueError("space settings must be finite positive GiB values")
     return floor, budget
@@ -42,28 +42,33 @@ def free(path: Path) -> int:
     return shutil.disk_usage(path).free
 
 
+def required(root: Path) -> tuple[float, int]:
+    """The floor in GiB and the write budget in bytes, never under the store's own size."""
+    floor, budget = settings()
+    store = root / STORE
+    return floor, max(int(budget * GIB), store.stat().st_size if store.exists() else 0)
+
+
 def space(*, root: Path = Path(".")) -> tuple[int, list[str]]:
     """Require the free-space floor plus a write budget on both destination filesystems."""
     try:
-        floor, budget = settings()
-        store = root / STORE
-        budget_bytes = max(int(budget * GIB), store.stat().st_size if store.exists() else 0)
-        required = int(floor * GIB) + budget_bytes
+        floor, budget_bytes = required(root)
+        required_bytes = int(floor * GIB) + budget_bytes
         lines = []
         for destination in (root / "data", root / "output"):
             have = free(destination)
             lines.append(
                 f"space {destination.name}: {have / GIB:.1f} GiB free, "
-                f"need {required / GIB:.1f} GiB "
+                f"need {required_bytes / GIB:.1f} GiB "
                 f"({floor:g} floor + {budget_bytes / GIB:.1f} write budget)"
             )
-            if have < required:
+            if have < required_bytes:
                 return 2, [
                     *lines,
                     "REFUSED: insufficient free space; no ingest or export started. "
                     "Use verified off-site cleanup or increase capacity.",
                 ]
-            if have < required + int(WARN_GIB * GIB):
+            if have < required_bytes + int(WARN_GIB * GIB):
                 lines.append(
                     f"WARNING: within {WARN_GIB} GiB of the guard; "
                     "`just prune --disk` lists what can go"
@@ -73,15 +78,15 @@ def space(*, root: Path = Path(".")) -> tuple[int, list[str]]:
         return 2, [f"REFUSED: cannot establish free space: {exc}"]
 
 
-def collector_floor() -> int:
-    """The bytes a collector leaves free: the bank's floor, its budget and the export's dip."""
-    floor, budget = settings()
-    return int((floor + budget + EXPORT_DIP_GIB) * GIB)
+def collector_floor(root: Path = Path(".")) -> int:
+    """The bytes a collector leaves free: what `space` requires of `root`, plus the dip."""
+    floor, budget_bytes = required(root)
+    return int((floor + EXPORT_DIP_GIB) * GIB) + budget_bytes
 
 
-def below_floor(path: Path, more: int = 0) -> str:
+def below_floor(path: Path, more: int = 0, *, root: Path = Path(".")) -> str:
     """Why a collector writing `more` bytes at `path` must wait, or "" when it may write."""
-    have, floor = free(path), collector_floor() + more
+    have, floor = free(path), collector_floor(root) + more
     if have >= floor:
         return ""
     return f"{have / GIB:.1f} GiB free, under the collectors' floor of {floor / GIB:.1f}"

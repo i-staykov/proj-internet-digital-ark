@@ -280,7 +280,7 @@ def read_item(item: str, year: int) -> bool:
         if not (queue := todo(listed)):
             print(f"har {item}: every zip read or given up", flush=True)
             return True
-        if why := below_floor(OUT):
+        if why := below_floor(OUT, root=REPO):
             print(f"har {item}: {why}", flush=True)
             return False
         name = min(queue, key=lambda n: (failures(n[:-4]), n))  # crawl order, failures last

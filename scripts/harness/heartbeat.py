@@ -132,9 +132,11 @@ def readings() -> list[tuple[dt.date, float]]:
 
 
 def record(today: dt.date, free: float) -> None:
-    """The day's reading, once; readings past KEEP_DAYS go."""
-    cut = today - dt.timedelta(days=KEEP_DAYS)
-    kept = [(d, f) for d, f in readings() if d >= cut and d != today] + [(today, free)]
+    """The day's reading, its first; readings past KEEP_DAYS go."""
+    had = readings()
+    if any(d == today for d, _ in had):
+        return
+    kept = [(d, f) for d, f in had if d >= today - dt.timedelta(days=KEEP_DAYS)] + [(today, free)]
     DISK.parent.mkdir(parents=True, exist_ok=True)
     DISK.write_text("".join(f"{d}\t{f:.1f}\n" for d, f in kept))
 
