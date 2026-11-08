@@ -255,7 +255,8 @@ class Lane:
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
-        self.unreadable, self.counter = False, threading.Thread()  # main's count_missing
+        self.unreadable = self.drained = False  # drained: a worker found nothing left
+        self.counter = threading.Thread()  # main's count_missing
 
     def add_pages(self, sfx: str, n: int) -> None:
         """Queue this lane's share of a suffix's pages, those not answered yet, shuffled."""
@@ -297,7 +298,7 @@ class Lane:
                 if not all(0 <= f < math.inf for f in floors.values()):
                     raise ValueError("a floor is not a finite number at or above 0")
                 self.floors = floors
-            except (OSError, ValueError, TypeError, AttributeError) as exc:
+            except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
                 if self.order_mtime == mtime:  # the units read, the floor not: no floor
                     self.log.write(f"# floor unread, none: {exc}\n")
         if force:
@@ -423,6 +424,7 @@ class Lane:
                 if task is None:
                     with self.lock:
                         if not (self.subq or self.inflight or self.counter.is_alive()):
+                            self.drained = True
                             return
                     time.sleep(30)
                     continue
@@ -577,9 +579,9 @@ def main() -> None:
         time.sleep(5 if i < a.workers - 1 else 0)
     for t in threads:
         t.join()
-    lane.log.write(
-        f"# exit {time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())} pending={len(lane.subq)}\n"
-    )
+    idle = " idle" if lane.drained and not STOP.is_set() else ""  # a stop is no empty queue
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    lane.log.write(f"# exit {stamp}{idle} pending={len(lane.subq)}\n")
 
 
 if __name__ == "__main__":

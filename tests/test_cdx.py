@@ -597,6 +597,6 @@ def test_a_unit_measured_under_both_floors_drops_and_the_2002_edge_runs_to_its_m
         return lane.take()
 
     assert lane_asks() is None, "the floor is read from cdx_order.json"
-    for bad in (1, {"1996-2001": "inf"}):
+    for bad in (1, {"1996-2001": "inf"}, {"2002-2013": 10**309}):
         a.order.write_text(json.dumps({"units": prices, "floor": bad}))
-        assert lane_asks(), "a bare-number or infinite floor is unread, the units read"
+        assert lane_asks(), "a bare-number, infinite or overflowing floor is unread, units read"

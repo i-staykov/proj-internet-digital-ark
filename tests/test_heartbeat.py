@@ -95,11 +95,15 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
         ["com.sg", "100", "5", "1996", "2013", "all", "200", "1", "1.0", "9", "9", "1", "0"]
     )
     old = stamp(now - dt.timedelta(hours=7)).replace("Z", "00Z")
-    (lane / "log.tsv").write_text(f"{old}\t{row}\n# exit {old} pending=0\n")
-    assert hb.lane(0, now, {"lane0": "2026-11-07: page 1 of 1 answered"}) == (
-        False,
-        "lane0: 2026-11-07: page 1 of 1 answered, idle",
-    )
+    for exit_row, label in (
+        (f"# exit {old} pending=0", ""),
+        (f"# exit {old} idle pending=0", ", idle"),
+    ):
+        (lane / "log.tsv").write_text(f"{old}\t{row}\n{exit_row}\n")  # a stop, then a drained exit
+        assert hb.lane(0, now, {"lane0": "2026-11-07: page 1 of 1 answered"}) == (
+            False,
+            "lane0: 2026-11-07: page 1 of 1 answered" + label,
+        )
     (lane / "pending.txt").write_text("task\n")
     assert hb.lane(0, now, {})[0] is True
     (lane / "pending.txt").write_text("")
