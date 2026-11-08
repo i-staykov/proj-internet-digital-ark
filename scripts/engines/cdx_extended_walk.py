@@ -38,6 +38,11 @@ refuses to start beside `--max-local` other CDX clients here, and idles while
 `<state home>/pause-platform` exists. Every request is a `log.tsv` row in its state folder, so a
 rate is always charged with its waits and failures.
 
+**Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file's pages alone, nothing
+counted or asked besides, and stops at its first 15 minute pause, since the address is refused.
+The pages lent to the runners, and the ones they answered, are `runner/lent.txt` beside the lane
+folders, reread by mtime, so a running lane drops and regains them without a restart.
+
     python3 scripts/engines/cdx_extended_walk.py --lane 0 --lanes 3 [--workers 2] [--data DIR]
 """
 
@@ -242,8 +247,9 @@ class Lane:
 
     def __init__(self, a: argparse.Namespace):
         self.a, self.lock, self.pages, self.asked = a, threading.Lock(), {}, {}
-        done = sorted(a.state_dir.parent.glob("lane*/done.txt"))  # every lane's: none re-asks
+        done = sorted(a.state_dir.parent.glob("*/done.txt"))  # every lane's, the runners' too
         self.done = {" ".join(ln.split()[:5]) for f in done for ln in f.read_text().splitlines()}
+        self.lent, self.lent_mtime, self.missing = set(), -1.0, []
         self.pending, self.subq, self.meta = a.state_dir / "pending.txt", [], {}
         for ln in self.pending.read_text().splitlines() if self.pending.exists() else []:
             task, meta = decode(ln)
@@ -290,6 +296,12 @@ class Lane:
         if not self.a.questions and (self.a.data / "queue/pool_questions.tsv").exists():
             self.add_questions()
             force = True
+        lent = self.a.state_dir.parent / "runner/lent.txt"
+        mtime = lent.stat().st_mtime if lent.exists() else 0.0
+        if mtime != self.lent_mtime:
+            lines = lent.read_text().splitlines() if mtime else []
+            self.lent = {" ".join(ln.split()[:5]) for ln in lines if ln[:1] != "#"}
+            self.lent_mtime = mtime
         mtime = self.a.order.stat().st_mtime if self.a.order.exists() else 0.0
         if mtime != self.order_mtime:
             try:
@@ -349,10 +361,12 @@ class Lane:
             return self.pop(first + self.ranked + self.exploring + self.waiting)
 
     def pop(self, units: list):
-        """The next task of the first unit with one left, under the lane lock."""
+        """The next task of the first unit with one left that is not lent, under the lane lock."""
         for u in units:
-            if self.pages[u]:
-                task = self.pages[u].pop(0)
+            for i, task in enumerate(self.pages[u]):
+                if key_of(task) in self.lent:
+                    continue
+                del self.pages[u][i]
                 self.asked[u] += 1
                 if self.asked[u] == 2 * (PAGE if u[1] == "ask" else 1):
                     self.rerank(force=True)
@@ -473,9 +487,12 @@ class Lane:
         return status, complete, rows[0], edge, after, row
 
     def back_off(self, task: tuple, seconds: float, why: str) -> float:
-        """Requeue the task and return the pause's end, a refusal's kept apart from a throttle's."""
+        """Requeue the task and return the pause's end, a refusal's kept apart from a throttle's.
+        A slice ends at its first 15 minute pause: the runner's address is refused."""
         self.requeue(task, front=False)
         self.log.write(f"# pause {round(seconds)} s: {why}\n")
+        if seconds >= 900 and getattr(self.a, "slice", None):
+            STOP.set()
         return time.time() + seconds
 
     def settle(self, task, status, complete, rows, edge, after, row) -> None:
@@ -543,11 +560,42 @@ class Lane:
             fh.write(key + "\n")
 
 
+def load(a: argparse.Namespace) -> Lane:
+    """The lane with its queue: a slice's pages alone, or this lane's share of every suffix's
+    pages, the counted ones first (`lane*/pages.json`, a suffix one lane counted is counted for
+    all) and `missing` the suffixes still to count."""
+    a.order, walked = a.data / "queue/cdx_order.json", a.data / "queue/cdx_walked.txt"
+    a.walked = (
+        {tuple(ln.split()[:2]) for ln in walked.read_text().splitlines()}
+        if walked.exists()
+        else set()
+    )
+    lane = Lane(a)
+    if a.slice:
+        for ln in a.slice.read_text().splitlines():
+            if ln[:1] != "#" and ln.strip():
+                task = decode(ln)[0]
+                if key_of(task) not in lane.done:
+                    lane.pages.setdefault((task[0], task[5]), []).append(task)
+                    lane.asked.setdefault((task[0], task[5]), 0)
+    else:
+        counts = {}
+        for f in sorted(a.state_dir.parent.glob("lane*/pages.json")):
+            counts.update(json.loads(f.read_text()))
+        wanted = sorted(suffixes(), key=lambda s: -counts.get(s, 0))
+        for sfx in wanted:
+            lane.add_pages(sfx, counts.get(sfx, 0))
+        lane.missing = [s for s in wanted if s not in counts]
+    lane.rerank(force=True)
+    return lane
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--lane", type=int, required=True)
     ap.add_argument("--lanes", type=int, default=1)
     ap.add_argument("--data", type=Path, default=os.environ.get("ARK_WALK_DATA", REPO / "data"))
+    ap.add_argument("--slice", type=Path, help="walk this file's pages alone, a runner's job")
     ap.add_argument("--workers", type=int, default=1, help="requests at once in this client")
     ap.add_argument("--max-local", type=int, default=2, help="CDX clients allowed here")
     ap.add_argument("--min-interval", type=float, default=10.0, help="seconds between starts")
@@ -564,24 +612,13 @@ def main() -> None:
     a.state_dir = a.data / f"raw/cdx_walk/lane{a.lane}"
     a.state_dir.mkdir(parents=True, exist_ok=True)
     _disk.trim(a.data / f"logs/lane{a.lane}.log")  # the cron line's `>>`
-    a.order, walked = a.data / "queue/cdx_order.json", a.data / "queue/cdx_walked.txt"
-    a.walked = (
-        {tuple(ln.split()[:2]) for ln in walked.read_text().splitlines()}
-        if walked.exists()
-        else set()
-    )
-    counts = {}  # every lane's: a suffix one lane counted is counted for all
-    for f in sorted(a.state_dir.parent.glob("lane*/pages.json")):
-        counts.update(json.loads(f.read_text()))
-    wanted = sorted(suffixes(), key=lambda s: -counts.get(s, 0))
-    a.questions = False
-    lane = Lane(a)
-    for sfx in wanted:
-        lane.add_pages(sfx, counts.get(sfx, 0))
-    lane.rerank(force=True)
-    missing = [s for s in wanted if s not in counts]
-    lane.counter = threading.Thread(target=lane.count_missing, args=(missing,), daemon=True)
-    lane.counter.start()
+    a.questions = bool(a.slice)  # a slice asks no pool question
+    lane = load(a)
+    if not a.slice:
+        lane.counter = threading.Thread(
+            target=lane.count_missing, args=(lane.missing,), daemon=True
+        )
+        lane.counter.start()
     threads = [threading.Thread(target=lane.work) for _ in range(a.workers)]
     for i, t in enumerate(threads):
         t.start()

@@ -415,6 +415,7 @@ def main(argv: list[str]) -> int:
     for n, (stalled, line) in enumerate(lanes):
         if stalled:
             causes[f"lane{n} stalled"] = f"{line}; work queued and no answered page in {STALL_H} h"
+    runners = [f"{r}: {rows_of[r]}" for r in sorted(rows_of) if r.startswith("runner")]
     agent_ok, agent_line = agent(now)
     if not agent_ok:
         causes["no agent success in 24 h"] = agent_line
@@ -456,6 +457,7 @@ def main(argv: list[str]) -> int:
                 disk_line,
                 "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
                 *(line for _s, line in lanes),
+                *runners,
                 header(),
                 *readers(),
                 token_line,

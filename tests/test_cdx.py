@@ -4,6 +4,7 @@ injected, so nothing here asks the archive anything."""
 import email.utils
 import gzip
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -518,6 +519,29 @@ def test_a_low_disk_holds_the_lane_and_an_unreadable_floor_does_not(tmp_path, mo
     monkeypatch.setenv("ARK_FREE_SPACE_GIB", "fifty")
     assert lane.low() is False and lane.low() is False
     assert (a.state_dir / "log.tsv").read_text().count("# floor unreadable") == 1
+
+
+def test_a_slice_walks_its_pages_alone_and_a_lent_page_returns_when_the_file_shrinks(tmp_path):
+    (tmp_path / "lane0").mkdir()
+    (tmp_path / "runner").mkdir()
+    p1, p2 = ("co.uk", 1000, 1, 1996, 2013, "all"), ("co.uk", 1000, 2, 1996, 2013, "p1")
+    slice_ = tmp_path / "slice_x.txt"
+    slice_.write_text("# runner_slices\nco.uk 1000 1 1996 2013 all\nco.uk 1000 2 1996 2013 p1\n")
+    a = SimpleNamespace(lane=0, lanes=1, data=tmp_path, state_dir=tmp_path / "lane0", slice=slice_)
+    a.questions, a.min_interval, a.max_transient = True, 10, 0
+    lane = extended.load(a)
+    assert lane.pages == {("co.uk", "all"): [p1], ("co.uk", "p1"): [p2]} and lane.missing == []
+    lent = tmp_path / "runner/lent.txt"
+    lent.write_text("# runner_slices\nco.uk 1000 1 1996 2013\n")
+    assert lane.take() == p2, "the lent page is skipped, not dropped"
+    lane.settle(p2, "200", True, 3, ["k1", "k2"], None, ["row"])  # no subpage meta: still booked
+    assert "co.uk 1000 2 1996 2013" in lane.done and lane.take() is None
+    lent.write_text("# runner_slices\n")
+    os.utime(lent, (time.time() + 2, time.time() + 2))  # a later mtime, whatever the clock
+    assert lane.take() == p1
+    lane.back_off(p1, 900.0, "HTTP503")  # a slice ends at its first 15 minute pause
+    assert extended.STOP.is_set()
+    extended.STOP.clear()
 
 
 def test_a_sibling_lane_answer_ends_only_the_refusal_pause(tmp_path, monkeypatch):
