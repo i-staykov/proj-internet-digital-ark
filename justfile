@@ -94,7 +94,7 @@ sync fleet="~/GitHub/ark-fleet":
     # ARK_HOSTS for the journals below, and the store's memory limit, which local.env assigns
     # without `export` and the bank's children need.
     [ -f local.env ] && . ./local.env
-    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+    for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do [ -n "${!v:-}" ] && export "$v"; done
     FLEET=$(eval echo {{fleet}})
     mkdir -p data/logs
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
@@ -136,6 +136,8 @@ sync fleet="~/GitHub/ark-fleet":
     fi
     # 3. The gate issue, once per crossing, read off the brief the last bank wrote.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
+    # 4. Round cleanup, once per round credited in data/baseline.json (scripts/round/prune.py).
+    uv run python scripts/harness/bank_trigger.py prune || true
     exit "$BANK_RC"
 
 # bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
@@ -158,7 +160,7 @@ bank *args:
         trap 'bash scripts/harness/sync_lock.sh drop' EXIT
     fi
     [ -f local.env ] && . ./local.env
-    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+    for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do [ -n "${!v:-}" ] && export "$v"; done
     FORCE=no
     for a in {{args}}; do
         case "$a" in
@@ -841,7 +843,7 @@ ship stage="all" *args:
     set -- {{args}}
     # The store's memory limit, as the bank has it, for the full export and the round state.
     [ -f local.env ] && . ./local.env
-    [ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+    for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do [ -n "${!v:-}" ] && export "$v"; done
 
     newest_stage() { ls -d output/KnowledgeDiscoveryCompetition_Submission_*_IvayloStaykov 2>/dev/null | sort | tail -1; }
     # His release on disk, so verify runs the checks against his files that the archive leaves out.

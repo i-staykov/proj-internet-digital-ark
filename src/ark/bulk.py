@@ -324,7 +324,7 @@ def ingest_file(
                 f"{marker}: ledgered with different content (sha256 mismatch); "
                 "rename the file or clear its ledger row before re-ingesting"
             )
-        logger.info(f"{marker}: already ingested, skipping")
+        logger.debug(f"{marker}: already ingested, skipping")
         return {"file": marker, "skipped": True}
 
     stats: Counter = Counter()
@@ -460,7 +460,8 @@ def ingest_files(
                         if isinstance(v, int) and not isinstance(v, bool)
                     }
                 )
-            logger.info(f"[{index}/{len(ordered)}] {result}")
+            said = logger.debug if result["skipped"] else logger.info
+            said(f"[{index}/{len(ordered)}] {result}")
     # runs after every pass, even an all-skipped one, so a crash between a
     # file's commit and this point is repaired by simply re-running
     if spec.is_candidate_only and queue_conn is not None:

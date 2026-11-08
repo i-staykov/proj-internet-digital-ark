@@ -473,6 +473,18 @@ def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     assert not any(release.holds(2001, h) for h in ("a.co", "b.co.ukx", "c.co.uk", "zzz"))
 
 
+def test_a_low_disk_holds_the_lane_and_an_unreadable_floor_does_not(tmp_path, monkeypatch):
+    a = SimpleNamespace(state_dir=tmp_path / "lane0", order=tmp_path / "o.json")
+    a.data, a.questions, a.min_interval, a.max_transient = tmp_path, False, 10, 0
+    a.state_dir.mkdir()
+    lane = extended.Lane(a)
+    monkeypatch.setattr(extended._disk, "free", lambda p: 0)
+    assert lane.low() is True
+    monkeypatch.setenv("ARK_FREE_SPACE_GIB", "fifty")
+    assert lane.low() is False and lane.low() is False
+    assert (a.state_dir / "log.tsv").read_text().count("# floor unreadable") == 1
+
+
 def test_a_sibling_lane_answer_ends_only_the_refusal_pause(tmp_path, monkeypatch):
     monkeypatch.setattr(extended._platform, "PAUSE_FLAG", tmp_path / "pause-platform")
     monkeypatch.setattr(extended.time, "sleep", lambda _: extended.STOP.set())  # one gate pass
