@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Refuses a push adding a commit whose author or committer is outside the identity allowlist
+# (src/ark/hygiene.py): a rebase or a clone without an identity signs one the commit hook never
+# saw. New means on no remote-tracking ref. Install with `just hooks`.
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# shellcheck disable=SC2207
+known=($(git for-each-ref --format='^%(objectname)' refs/remotes))
+while read -r _ sha _ remote; do
+    [ "$sha" = 0000000000000000000000000000000000000000 ] && continue  # a delete
+    git cat-file -e "$remote" 2> /dev/null && known+=("^$remote")
+    uv run python -m ark.hygiene --commits "$sha" ${known[@]+"${known[@]}"} < /dev/null >&2 ||
+        { echo "pre-push: REFUSED. Nothing was pushed." >&2; exit 1; }
+done

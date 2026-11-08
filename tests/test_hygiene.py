@@ -1,13 +1,15 @@
 """`python -m ark.hygiene`, the scan the pre-commit hook and CI run, still catches each shape
 planted in a scratch file, and the list of paths the fleet runs and the local layout stay honest."""
 
+import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from ark.hygiene import local_hosts, scan
+from ark.hygiene import local_hosts, refused_identities, scan
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,3 +67,35 @@ def test_the_machines_local_env_names_are_refused(tmp_path) -> None:
     )
     found = scan([probe], local_hosts(env), hosts_only=True)
     assert [(f.line, f.rule) for f in found] == [(n, "local host") for n in (1, 2, 3)]
+
+
+@needs_git
+def test_a_commit_signed_by_a_machine_is_refused_by_both_hooks(tmp_path, monkeypatch) -> None:
+    """As git signs without an identity, `login@hostname`: the pre-push hook refuses the commit
+    by its sha, never its address, and pushes an allowlisted one; pre-commit refuses it first.
+    No git variable reaches a git here: under the hook gate a GIT_DIR turns `git init` on the
+    shared clone, making it bare."""
+    clean = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    uv = tmp_path / "uv"  # `uv run python ARGS` is this test's python
+    uv.write_text(f'#!/usr/bin/env bash\nshift 2; exec {sys.executable} "$@"\n')
+    uv.chmod(0o755)
+    env = {**clean, "PATH": f"{tmp_path}:{clean['PATH']}"}
+    repo, machine = tmp_path / "repo", "ops" + "@box.cloud.example.org"
+
+    def git(*args: str, email: str = "t@invalid") -> subprocess.CompletedProcess:
+        ident = ["-c", "user.name=t", "-c", f"user.email={email}"]
+        return subprocess.run(["git", *ident, *args], cwd=repo, env=env, capture_output=True)
+
+    for init in (["--bare", str(tmp_path / "origin.git")], ["-b", "live", str(repo)]):
+        subprocess.run(["git", "init", "-q", *init], env=env, check=True)
+    git("remote", "add", "origin", str(tmp_path / "origin.git"))
+    (repo / ".git/hooks/pre-push").symlink_to(ROOT / "hooks/pre-push")
+    git("commit", "-q", "--allow-empty", "-m", "ok")
+    assert git("push", "-q", "origin", "live").returncode == 0
+    git("commit", "-q", "--allow-empty", "-m", "leak", email=machine)
+    pushed = git("push", "-q", "origin", "live")
+    assert pushed.returncode and b"REFUSED" in pushed.stderr and b"box" not in pushed.stderr
+    for who, email in (("AUTHOR", machine), ("COMMITTER", "t@invalid")):
+        monkeypatch.setenv(f"GIT_{who}_NAME", "t")
+        monkeypatch.setenv(f"GIT_{who}_EMAIL", email)
+    assert refused_identities(cwd=repo) == ["next author"]

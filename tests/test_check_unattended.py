@@ -18,7 +18,7 @@ import pytest
 from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
-GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=live"]
+GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@invalid", "-c", "init.defaultBranch=live"]
 
 JUST_SHIM = r"""
 import re, subprocess, sys
@@ -290,7 +290,7 @@ def diverge(repo: Path, env: dict, subject: str, clash: bool = False) -> str:
     subprocess.run([*GIT, "push", "-q", "origin", "HEAD:live"], cwd=repo, env=env, check=True)
     subprocess.run([*GIT, "reset", "-q", "--hard", "HEAD~1"], cwd=repo, env=env, check=True)
     commit(("ours\n" + base) if clash else (base + "ours\n"), subject)
-    for key, value in (("user.name", "t"), ("user.email", "t@t")):
+    for key, value in (("user.name", "t"), ("user.email", "t@invalid")):
         subprocess.run(["git", "config", key, value], cwd=repo, env=env, check=True)
     (repo / "data/logs/.sync.lock/pid").unlink()
     (repo / "data/logs/.sync.lock").rmdir()
@@ -340,6 +340,21 @@ def test_a_hand_commit_or_a_dirty_tree_still_refuses(clone, dirty):
     assert git_out(repo, env, "rev-parse", "HEAD") == head
     why = "the clone is dirty" if dirty else "Reconcile by hand; the bank never force-pushes"
     assert why in (repo / "data/logs/scheduled_sync.log").read_text()
+
+
+def test_a_commit_signed_by_a_machine_is_never_pushed_and_alerts(clone):
+    """The clone's own commit, signed `login@hostname` as git signs without an identity, rebases
+    but refuses the tick before its bank pushes, with a vm-alert naming no address."""
+    repo, env = clone
+    machine = {**env, "GIT_AUTHOR_EMAIL": "ops" + "@box.cloud.example.org"}
+    diverge(repo, machine, "Sync fleet findings round 9")
+    rc, last = tick(repo, env)
+    assert rc == 2 and last.split()[2] == "sync=2", last
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert "outside the commit identity allowlist" in log and "alert opened: a commit" in log, log
+    assert "box.cloud" not in log
+    origin = ["--git-dir", str(repo.parent / "origin.git")]
+    assert git_out(repo, env, *origin, "log", "-1", "--format=%s", "live") == "a merged PR"
 
 
 def test_the_tick_pulls_only_under_the_lock(clone):
@@ -396,7 +411,7 @@ def test_a_drive_release_is_taken_once_and_each_fault_alerted_once(clone, tmp_pa
         "just",
         f'echo "just $*" >> "$ARK_TEST_CALLS"; exec python3 {tmp_path}/intake.py "$2" "$4"',
     )
-    for key, value in (("user.name", "t"), ("user.email", "t@t")):
+    for key, value in (("user.name", "t"), ("user.email", "t@invalid")):
         subprocess.run(["git", "config", key, value], cwd=repo, env=env, check=True)
     env = {**env, "ARK_RELEASES": str(drive)}
 

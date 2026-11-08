@@ -13,6 +13,7 @@ fail() {
     exit 1
 }
 
+uv run python -m ark.hygiene --commits || fail "this commit would be signed outside the allowlist"
 uv run ruff check . || fail "ruff found problems"
 uv run ruff format --check . >/dev/null || fail "formatting is not clean, run 'just check fmt'"
 uv run python -m ark.hygiene || fail "the security scan found something, read each hit in context"

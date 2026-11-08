@@ -6,6 +6,8 @@ those and the house bans on em and en dashes and on decision numbers; `tests/tes
 proves it catches each, and the pre-commit hook and CI run it as `uv run python -m ark.hygiene`.
 It does not catch `private/` text or big data. The machines `local.env` names are refused by
 their own strings, read from there and resolved through `ssh -G`, so no fixture can spell them.
+Commit metadata is no file: `--commits` checks each author and committer against the identity
+allowlist below, for CI, the pre-commit and pre-push hooks and the tick's preflight.
 
 The rules are deliberately narrow, each matching a shape with no legitimate reason to sit
 in this repository. A hit is either a real leak, fixed and never committed, or a fixture or
@@ -14,6 +16,7 @@ public host, which goes on the allowlist below with a comment saying why.
 
 import argparse
 import ipaddress
+import os
 import re
 import shlex
 import shutil
@@ -100,6 +103,20 @@ FROZEN = "submissions"
 # is this machine.
 HOST_KEYS = ("ARK_HOSTS", "ARK_VM", "ARK_VPS")
 _ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?([A-Z_]+)=(.*)$")
+
+# The commit identities a push may publish. A clone with none of its own signs `login@hostname`,
+# naming the machine in metadata no file scan reads, so only these pass: GitHub's own and its
+# no-reply addresses, the reserved `.invalid` the tick and the agent sign with, and the owner's
+# mail addresses already on `live`. A new one joins by a session's PR.
+IDENTITIES = frozenset(
+    {
+        "noreply@github.com",
+        "ivaylo.staykov@taktile.com",
+        "ivaylo.staykov@student.hpi.uni-potsdam.de",
+    }
+)
+IDENTITY_DOMAINS = ("users.noreply.github.com", "invalid")
+REFUSED_IDENTITY = "outside the commit identity allowlist"
 
 # Every pattern above is written so that its own source line does not match it, which is
 # why the separators sit outside the character classes. Keep that true when editing one.
@@ -202,6 +219,36 @@ def scan(
     return findings
 
 
+def identity_ok(email: str) -> bool:
+    email = email.strip().lower()
+    return email in IDENTITIES or email.rpartition("@")[2] in IDENTITY_DOMAINS
+
+
+def refused_identities(*revs: str, cwd: Path | None = None) -> list[str]:
+    """`<sha> author` or `<sha> committer` for each commit `git log revs` lists signed outside
+    the allowlist; no `revs`, `next author` or `next committer` for the identity the next commit
+    takes (a hook sees `--author` and an amend's author too). No address is printed: CI logs
+    are public. A hook's GIT_DIR would point git at the hook's repository whatever `cwd` says."""
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_INDEX_FILE")}
+    if revs:
+        # a replace ref would show the check an identity the push does not send
+        cmd = ["git", "--no-replace-objects", "log", "--format=%h%x00%ae%x00%ce", *revs]
+        done = subprocess.run(cmd, cwd=cwd, env=env, check=True, capture_output=True, text=True)
+        return [
+            f"{sha} {who}"
+            for sha, *emails in (ln.split("\0") for ln in done.stdout.splitlines() if ln)
+            for who, email in zip(("author", "committer"), emails, strict=False)
+            if not identity_ok(email)
+        ]
+    refused = []
+    for who in ("author", "committer"):
+        cmd = ["git", "var", f"GIT_{who.upper()}_IDENT"]
+        done = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True)
+        if done.returncode or not identity_ok(done.stdout.partition("<")[2].partition(">")[0]):
+            refused.append(f"next {who}")
+    return refused
+
+
 def tracked_files(root: Path) -> list[Path]:
     """Every tracked file, the kept submissions included."""
     out = subprocess.run(
@@ -218,7 +265,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("files", nargs="*", type=Path, help="scan these, not the tracked tree")
     parser.add_argument("--env", type=Path, help="local.env of another checkout")
     parser.add_argument("--hosts-only", action="store_true", help="only the local.env machines")
+    parser.add_argument("--commits", nargs="*", metavar="REV", help="their identities; none: next")
     args = parser.parse_args(argv)
+    if args.commits is not None:
+        refused = refused_identities(*args.commits)
+        if refused:
+            print(f"REFUSED: {', '.join(refused)} {REFUSED_IDENTITY} in src/ark/hygiene.py.")
+        return 1 if refused else 0
     git = ["git", "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"]
     out = subprocess.run(git, check=True, capture_output=True, text=True).stdout.split("\n")
     root, common = Path(out[0]), Path(out[1])
