@@ -268,7 +268,7 @@ def _check_file(path: Path, rel: str, expected: dict) -> None:
 
 
 def class_head(evidence_class: str | None) -> str:
-    """A scout's free-text evidence class by its first word, the way `lead_queue.py` reads it."""
+    """A scout's free-text evidence class by its first word."""
     words = (evidence_class or "").split("(")[0].split()
     return words[0].strip(",:").lower() if words else ""
 

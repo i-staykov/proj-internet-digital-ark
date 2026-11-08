@@ -283,17 +283,10 @@ def _tree(root: Path) -> Path:
     return root
 
 
-def _drained(root: Path, slug: str, name: str, doc: dict) -> None:
-    (lead := root / bt.INCOMING / slug).mkdir(parents=True)
-    (lead / name).write_text(json.dumps(doc))
-
-
 def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     """The red leaves the stamp alone, so what arrived before it still counts after `clear`."""
     root = _tree(tmp_path)
-    _drained(
-        root, "good-lead", "finding.json", {"verdict": "FIND", "verify": {"status": "confirmed"}}
-    )
+    (root / bt.APPROVALS).write_text("### a / cdx_snapshot\nDecision: rejected\n")
     (root / "data/raw/cdx/cdx_b.jsonl.gz").write_bytes(b"two!")
     stamp_before = (root / bt.STAMP).read_bytes()
     log = tmp_path / "check.log"
@@ -305,13 +298,11 @@ def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     assert (root / bt.STAMP).read_bytes() == stamp_before
     code, text = bt.check(root)
     assert code == 1 and text.startswith("bank: BANK RED since ") and "step b" in text
-    # The tick still splits its findings branch while the bank is red.
-    assert bt.check(root, find_only=True) == (0, "bank: find good-lead")
     capsys.readouterr()
     assert bt.main(["clear"], root=root) == 0
     assert "step b" in capsys.readouterr().out and not (root / bt.RED).exists()
     moved = "bank: journals data/raw/cdx/cdx_*.jsonl.gz (+1 files, +4 bytes)"
-    assert bt.check(root) == (0, f"bank: find good-lead\n{moved}")
+    assert bt.check(root) == (0, f"bank: approvals changed\n{moved}")
     assert bt.clear(root) == "bank: nothing to clear"
 
 

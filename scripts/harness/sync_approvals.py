@@ -11,8 +11,8 @@ else, because the project repository is public. The measurement, the condition t
 the terms question go in the private fleet issue that links to it.
 
 **The gate is the bar, not a source.** Nothing is filed until the pending asks' `- potential:`,
-deciding EE as `standing_rule.py` prices it (part 1 plus part 2 at the gate ratio), together
-reach the 1996 to 2001 gate; below it the register blocks are the record, at it every ask files.
+deciding EE (part 1 plus part 2 at the gate ratio), together reach the 1996 to 2001 gate;
+below it the register blocks are the record, at it every ask files.
 
     uv run python scripts/harness/sync_approvals.py [--dry-run]
 """
@@ -43,8 +43,6 @@ FLEET = "i-staykov/ark-fleet"
 LABEL = "needs-owner"
 _TITLE = re.compile(r"^Approve (.+)\? [\d,]+ EE$")
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
-# The reasons `fleet_request.py` writes into a block the standing rule parks.
-_PARKED = re.compile(r"^-\s*parked:\s*(.+)$", re.M)
 # Which of the four conditions of the standing rule a human can actually settle. 1 is the
 # evidence class and 3 is the terms: both are judgements only the owner makes. 2 is a missing stamp
 # and 4 is a missing ingest, which are WORK, and an issue asking him to approve work he has
@@ -108,7 +106,6 @@ def requests() -> list[Request]:
         if not potential:
             continue
         reason = _FAILED.search(block)
-        parked = _PARKED.search(block)
         numbers = failed_conditions(block)
         if numbers and not numbers & set(HUMAN_CONDITIONS):
             continue
@@ -118,13 +115,7 @@ def requests() -> list[Request]:
                 etype=approval.evidence_type,
                 line=approval.line,
                 potential=potential,
-                failed=(
-                    f"parked by the standing rule: {parked.group(1).strip()}"
-                    if parked
-                    else reason.group(0).strip(" *")
-                    if reason
-                    else "not stated in the block"
-                ),
+                failed=reason.group(0).strip(" *") if reason else "not stated in the block",
                 block=block,
             )
         )
