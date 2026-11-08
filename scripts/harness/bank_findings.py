@@ -536,7 +536,7 @@ def read_note(f: dict) -> str:
 def ee_cell(f: dict) -> str:
     """The figure, and where it came from.
 
-    A fleet leg prices against the pushed snapshot, so its number is a measurement made
+    A fleet leg prices against the staged snapshot, so its number is a measurement made
     somewhere else against a copy. When the laptop has re-priced the same items on the live
     store the two sit side by side and a reader can see the gap; when it has not, the cell
     says why in words. Neither is allowed to look like the other.

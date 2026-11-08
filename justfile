@@ -365,16 +365,6 @@ bank *args:
     if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
         uv run python scripts/harness/sync_approvals.py || true
     fi
-    # Every confirmed FIND's outcome into the fleet's ledger, this drain's and every drain
-    # banked before it: a find the owner approved since, or the store ingested since, gains its
-    # banked line here, and a line the ledger holds adds nothing. `banked` is the store's
-    # ingested files. Then each lead's fate into the fleet's queue, pushed together.
-    # Every bank books the outcome of every drain, banked ones included, so lines that did not
-    # land this time land on a later bank and never hold a drain in `incoming/`.
-    uv run python scripts/harness/fleet_findings.py outcome "$IN" data/fleet_findings/banked/*/ \
-        --fleet "$FLEET" || echo "the outcome lines did not land; the next bank books them"
-    uv run python scripts/harness/fleet_leads.py "$IN" --fleet "$FLEET" --write
-    bash scripts/harness/push_fleet.sh "$FLEET" "$LABEL"
     # A drain leaves `incoming/` only once its rows are committed.
     if [ "$RAN_A" = yes ]; then
         if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
@@ -383,9 +373,9 @@ bank *args:
             echo "nothing was committed, so the drain stays in $IN"
         fi
     fi
-    # e. The snapshot `just price` reads, when this bank exported one.
-    if [ "$EXPORTED" = yes ]; then
-        uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot \
+    # e. The snapshot `just price` reads, when this bank exported one or none is staged.
+    if [ "$EXPORTED" = yes ] || [ ! -f output/price_snapshot/manifest.json ]; then
+        uv run python scripts/harness/snapshot_manifest.py --out output/price_snapshot \
             || echo "snapshot: not restaged, so just price reads the last one"
     fi
 
@@ -403,7 +393,7 @@ probe spec *args:
 
 # price any dated corpus on both parts, writing nothing
 price *args:
-    uv run ark price-snapshot --snapshot output/fleet_snapshot {{args}}
+    uv run ark price-snapshot --snapshot output/price_snapshot {{args}}
 
 # price a corpus at hostname grain against the live store, writing nothing
 price-hosts *args:
@@ -819,7 +809,7 @@ collect source="" *args:
 releases *args:
     uv run python scripts/round/releases.py {{args}}
 
-# take one reviewer release: verify, extract, remeasure, record, publish the snapshot
+# take one reviewer release: verify, extract, remeasure, record, stage the price snapshot
 [positional-arguments]
 intake *args:
     #!/usr/bin/env bash
@@ -834,7 +824,7 @@ intake *args:
     NEW=$(release)
     if [ -n "$NEW" ] && [ "$NEW" != "$PREV" ] && [[ "$PREV" == ding/* ]]; then rm -rf "$PREV"; fi
     # a new baseline `just price` cannot see prices every corpus against a stale ceiling
-    uv run python scripts/harness/snapshot_manifest.py --out output/fleet_snapshot
+    uv run python scripts/harness/snapshot_manifest.py --out output/price_snapshot
 
 # write a round's row in docs/registers/rounds.md from his verdict mail
 rounds *args:

@@ -247,7 +247,6 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     audit_residual = script("harness/audit_residual.py")
     price_items = script("pricing/price_items.py")
     ack_journals = script("harness/ack_journals.py")
-    fleet_findings = script("harness/fleet_findings.py")
     # Each script gets the tmp store: its own STORE sits under the live data/.
     monkeypatch.setattr(price_items, "STORE", store)
 
@@ -257,7 +256,6 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     audit_residual.read_only_store(store).close()
     price_items.read_only_store().close()
     assert ack_journals.acks(store) == []
-    assert fleet_findings.ingested(store) == set()
 
     st = store.stat()
     before = (st.st_size, st.st_mtime_ns)
@@ -269,7 +267,7 @@ def test_every_store_opener_is_capped_and_ark_check_writes_nothing(tmp_path, mon
     assert reader.execute("SELECT command FROM run_metrics").fetchall() == [("seed",)]
     reader.close()
 
-    assert len(seen) == 8 and set(seen) == {expected}, seen
+    assert len(seen) == 7 and set(seen) == {expected}, seen
     for rel in (
         "harness/audit_residual.py",
         "harness/ack_journals.py",

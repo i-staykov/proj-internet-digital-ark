@@ -835,9 +835,9 @@ def price_snapshot_cmd(
     ] = None,
     out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
 ) -> None:
-    """Price items against a pushed snapshot and print one JSON object.
+    """Price items against a staged snapshot and print one JSON object.
 
-    The only price a fleet leg may quote. Reads no store, writes only `--out`, and refuses a
+    Reads no store, writes only `--out`, and refuses a
     snapshot whose files disagree with its manifest, so the figure is reproducible from
     the marker and `built_at` it carries.
     """
