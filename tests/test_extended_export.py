@@ -134,6 +134,39 @@ def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch)
     assert ext.export(globs, out)["years"] == manifest["years"]
     journal.write_bytes(_journal(ROWS[:1]))
     assert ext.export(globs, out)["years"] != manifest["years"]
+    monkeypatch.setattr(ext, "code_of_screen", lambda: "another screen")
+    monkeypatch.setattr(gzip, "decompress", None)  # a stale entry is read no further than its key
+    assert ext.cached(journal, ext.entry_key(journal)) is None
+
+
+def test_the_cache_key_is_the_code_the_screen_runs(monkeypatch):
+    ext = script("round/extended_export.py")
+    real = ext._source
+
+    def key(module: str = "", old: str = "", new: str = "") -> str:
+        assert old in real(module)
+        edited = {module: real(module).replace(old, new, 1)}
+        monkeypatch.setattr(ext, "_source", lambda m: edited.get(m) or real(m))
+        ext._bindings.cache_clear()
+        ext.code_of_screen.cache_clear()
+        return ext.code_of_screen()
+
+    base = key()
+    skip = 'logger.debug(f"{path.name}: already ingested, skipping")'
+    for edit in (
+        (skip, skip.replace("debug", "info")),  # a log level
+        ("def host_of(", "# a comment\ndef host_of("),
+        ('"""The hostname of a capture URL', '"""A docstring'),
+        ('ZONE_METHOD = "internic_zone_ns_target"', 'ZONE_METHOD = "ns"'),  # code it never runs
+    ):
+        assert key("ark.hostnames", *edit) == base, edit
+    for module, *edit in (
+        ("ark.hostnames", "[a-z]{2,63}$", "[a-z]{2,62}$"),  # a regex host_of matches
+        ("ark.canonical", "_canonicalize(raw)[0]", "_canonicalize(raw)[1]"),  # a return value
+        ("ark.delegation", "def existed", "def late():\n    RETIRED['zr'] = 2002\n\n\ndef existed"),
+        ("", 'return "blank", None', 'return "empty", None'),
+    ):
+        assert key(module, *edit) != base, edit
 
 
 def test_a_decided_fleet_read_joins_and_an_undecided_one_waits(exported, monkeypatch):
