@@ -94,7 +94,7 @@ def runner(tmp_path):
     }
     env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
 
-    def run(day="2026-11-11", hour=10):  # nobody's hour, any day
+    def run(day="2026-11-11", hour=12):  # nobody's hour, any day
         at = dt.datetime.fromisoformat(f"{day}T{hour:02d}:38:00+00:00")
         out = subprocess.run(
             ["bash", ROOT / "scripts/agents/run_agent.sh", "auto"],
@@ -121,7 +121,6 @@ def test_auto_runs_work_when_the_queue_holds_an_item_and_the_last_run_was_not_wo
     assert run() == "triage"  # never two work runs in a row
     assert run() == "work"
     assert run(hour=5) == "triage"  # 06 is the cdx run's hour: no work the hour before
-    assert run(hour=2) == "triage"  # 03 is a scout's, every day
     assert run(hour=4) == "work"  # 05 is nobody's
 
 
@@ -131,7 +130,7 @@ def test_a_scheduled_mode_runs_at_its_hour_or_at_the_next_free_one_after_a_busy_
     assert "A cdx run" in prompt.read_text()
     assert run(hour=4) == "triage"  # nobody's hour
     assert run(hour=3) == "scout"
-    assert run(hour=21) == "scout"  # four times a day
+    assert run(hour=23) == "scout"  # an hour after each cdx run
     assert "A scout run" in prompt.read_text()
     flock = Path(env["PATH"].split(":")[0]) / "flock"
     flock.write_text("#!/usr/bin/env bash\nexit 1\n")

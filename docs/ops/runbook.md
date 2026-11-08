@@ -81,7 +81,7 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then 
 go through `scripts/agents/triage.py`, whose header names their guards.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
-`scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` four times a day at 03, 09, 15 and 21 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
+`scripts/agents/run_agent.sh` in one of four modes: `cdx` every 4 hours from 02 UTC, `scout` an hour after each, `work` in a free hour before a free hour when the queue holds an item, else `triage` (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Asks.** `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per
 pending block once the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
