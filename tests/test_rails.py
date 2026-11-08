@@ -1,13 +1,15 @@
 """The agent's rails (`scripts/agents/rails.py`): one refused command per rule, the allowed shapes
-pass, a git state change is refused on live and allowed on a branch, a write to a rail, a guarded
-or the profile path is refused, a public body with an address is refused, a merge is refused
-outside the window, and CI fails an ark-agent commit that touches a rail file."""
+pass, a long command checks in linear time, a git state change is refused on live and allowed on
+a branch, a write to a rail, a guarded or the profile path is refused, a public body with an
+address is refused, a merge is refused outside the window, and CI fails an ark-agent commit that
+touches a rail file."""
 
 import datetime as dt
 import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -39,9 +41,18 @@ REFUSED = [
     "systemctl --user enable --now ark-sync.timer",
     "systemctl --user stop ark-agent.timer",
     "crontab -r",
-    "cd ~/ark && systemctl --user restart ark-har",
-    "cd ~/ark\njust walk install",
+    "if true; then systemctl --user restart ark-har; fi",
+    "{ systemctl --user try-restart ark-har; }",
+    "bash -lc 'systemctl restart --user ark-{eot,har}'",
+    "U=ark-har; systemctl --user restart $U",
+    "systemctl --user stop 'ark-*'",
+    "bash -euo pipefail -c 'just walk install'",
+    "just -f justfile walk install",
+    "python3 'scripts/engines/cdx_walk_jobs.py' remove",
     "bash scripts/harness/sync_lock.sh take $$",
+    'L=scripts/harness/sync_lock.sh; bash "$L" drop',
+    "rm -rf data/logs/.sync*",
+    "find data/logs -name '.sync*' -delete",
     "uv run python scripts/harness/bank_trigger.py clear",
     "just prune --round --write",
     "just ship all",
@@ -69,7 +80,11 @@ REFUSED = [
     "curl -s https://example.org/robots.txt",
     "ls; wget -q https://example.org/x.gz",
     "/usr/bin/curl https://example.org",
-    "timeout -s KILL 60 curl https://example.org",
+    "timeout 60 curl https://example.org",
+    "nice -n 19 ionice -c3 curl x",
+    "nohup setsid wget x",
+    "timeout 60 stdbuf -oL curl x",
+    "env A='x y' curl x",
     "echo https://example.org | xargs wget",
     "X=$(curl https://example.org)",
     "echo x >> AGENTS.md",
@@ -92,9 +107,12 @@ ALLOWED = [
     "python3 scripts/agents/triage.py restart ark-har --item a1",
     "python3 scripts/agents/triage.py walk",
     "systemctl --user status ark-har",
+    "systemctl --user show ark-har -p ActiveState,ExecMainStartTimestamp",
+    "systemctl --user is-active ark-har",
+    "systemctl --user list-timers ark-sync.timer --no-pager",
     "just red-clear",
+    "just walk status",
     "bash scripts/harness/sync_lock.sh holder",
-    "grep -n 'sync_lock.sh take' justfile",
     "cat data/logs/ticks.tsv | tail",
     "cp data/logs/agent/x.jsonl /tmp/",
     "echo x > data/logs/agent/note",
@@ -123,6 +141,13 @@ def test_refused(command):
 @pytest.mark.parametrize("command", ALLOWED)
 def test_allowed(command):
     assert rails.refuse_bash(command) is None, command
+
+
+def test_a_long_command_checks_in_linear_time():
+    for command in ("timeout" + " -k 1" * 200, "systemctl" + " -q ark-x" * 200, "just -f x" * 200):
+        start = time.perf_counter()
+        rails.refuse_bash(command)
+        assert time.perf_counter() - start < 0.05, command[:30]
 
 
 def test_write_paths(monkeypatch):
