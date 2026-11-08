@@ -102,14 +102,18 @@ def clone(tmp_path):
     )
     for name in ("ssh", "rsync", "curl", "wget"):
         stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"; exit 1')
-    for name in ("pkill", "pgrep"):
-        stub(bin_dir, name, "exit 0")
-    stub(bin_dir, "systemd-run", 'echo "systemd-run $*" >> "$ARK_TEST_CALLS"')
+    stub(bin_dir, "pkill", "exit 0")
+    stub(bin_dir, "pgrep", 'case "$*" in *Runner.Worker*|*dpkg*) exit 1 ;; esac')
+    stub(bin_dir, "loginctl", "exit 0")
+    for name in ("systemd-run", "sudo"):
+        stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"')
     stub(
         bin_dir,
         "systemctl",
         'echo "systemctl $*" >> "$ARK_TEST_CALLS";'
-        ' case "$*" in *is-enabled*) echo enabled ;; *) echo active ;; esac',
+        ' case "$*" in *is-enabled*) echo enabled ;; *bank-force*) exit 3 ;;'
+        ' *apt-daily*) echo inactive; echo "${ARK_TEST_APT:-inactive}"; exit 3 ;;'
+        " *) echo active ;; esac",
     )
     stub(bin_dir, "crontab", f"for i in 1 2 3 4 5 6; do echo '{cron}'; done")
     stub(
@@ -128,7 +132,10 @@ def clone(tmp_path):
         "ARK_FREE_SPACE_GIB": "0.001",
         "ARK_WRITE_BUDGET_GIB": "0.001",
         "ARK_TEST_CALLS": str(tmp_path / "calls"),
+        "ARK_REBOOT_FLAG": str(tmp_path / "reboot-required"),
+        "ARK_UPTIME": str(tmp_path / "uptime"),
     }
+    (tmp_path / "uptime").write_text("864000.00 1.00\n")  # up ten days
     for key in ("ARK_HOSTS", "ARK_SYNC_LOCK", "ARK_LOCK_HELD", "ARK_HOLD_BYPASS"):
         env.pop(key, None)
     return repo, env
@@ -187,19 +194,62 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
     assert "systemd-run --user --unit ark-bank-force" in calls.read_text()
 
 
+@pytest.mark.parametrize("busy", ["", "a sync", "an apt run", "up under an hour"])
+def test_a_pending_reboot_waits_only_on_what_it_would_cut(clone, tmp_path, busy):
+    """A tick that banked (its `just sync` stamps the bank) reboots unless the fixture's lock is
+    this boot's live sync, apt runs or the boot is under an hour old; that lock from an earlier
+    boot is stale."""
+    repo, env = clone
+    Path(env["ARK_REBOOT_FLAG"]).write_text("*** System restart required ***\n")
+    if busy != "a sync":
+        (repo / "data/logs/.sync.lock/boot").write_text("an earlier boot")
+    if busy == "up under an hour":
+        Path(env["ARK_UPTIME"]).write_text("600.00 1.00\n")
+    (tmp_path / "bin2").mkdir()
+    just = shutil.which("just", path=env["PATH"])
+    banks = '[ "$1" = sync ] && { touch data/logs/bank_stamp.json; echo bank: banked; exit 0; }'
+    stub(tmp_path / "bin2", "just", f'{banks}; exec {just} "$@"')
+    env = {**env, "PATH": f"{tmp_path / 'bin2'}:{env['PATH']}"}
+    tick(repo, {**env, "ARK_TEST_APT": "activating"} if busy == "an apt run" else env)
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert "\tbanked\t" in (repo / "data/logs/ticks.tsv").read_text(), log
+    assert (f"reboot pending, not now: {busy}\n" in log) == bool(busy), log
+    assert ("sudo -n /usr/sbin/reboot" in Path(env["ARK_TEST_CALLS"]).read_text()) == (not busy)
+
+
 def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, monkeypatch):
     check = script("harness/check_unattended.py")
     monkeypatch.setattr(check, "ROOT", tmp_path)
     monkeypatch.setattr(check, "STATE", tmp_path / "state")
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
-    monkeypatch.setattr(check, "left", {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0}.get)
+    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-header": 5}
+    monkeypatch.setattr(check, "left", left.get)
+    stalls = {}
+    monkeypatch.setattr(check, "stalled", lambda unit: stalls.get(unit, ""))
+    # har stopped mid-item, clueweb new and not started yet, the header lane inside its back-off
+    logs = tmp_path / "data/logs"
+    logs.mkdir(parents=True)
+    clueweb = tmp_path / "scripts/sources/crawl_lists/clueweb.py"
+    clueweb.parent.mkdir(parents=True)
+    clueweb.write_text("")
+    (logs / "har.log").write_text("har httparchive_2010: read\n")
+    (logs / "usenet_header.log").write_text("header: 429 in x, waits until 29991231T000000Z\n")
     assert check.readers() == [
         ("ark-eot", True, "finished"),
         ("ark-har", False, "inactive, 3 parts left"),
-        ("ark-clueweb", True, "finished"),
+        ("ark-clueweb", True, "not started yet, 2 parts left"),
+        ("ark-header", True, "inactive, 5 parts left, waits until 29991231T000000Z"),
     ]
-    # the tick: eot and har with every part read, clueweb with its lists left
+    (logs / "usenet_header.log").write_text("header: 429 in x, waits until 20001231T000000Z\n")
+    (logs / "har.log").write_text("har: held\n")
+    os.utime(clueweb, (0, 0))  # its code arrived long ago, and the tick never started it
+    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, False]
+    stalls["ark-header"] = "stalled at a"  # a day without progress fails even an active unit
+    monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
+    assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")
+    # the tick: eot and har with every part read, clueweb with its lists left, the header lane
+    # with its list and every top screened, one under the floor and one run out
     repo, env = clone
     (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
     eot = repo / "data/raw/extended/eot_cdxj"
@@ -210,11 +260,19 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     har.mkdir(parents=True)
     (har / ".har_items.json").write_text('[["httparchive_2010", 2010]]')
     (har / ".har_httparchive_2010.zips.json").write_text("{}")
+    header = repo / "data/queue/usenet_header"
+    header.mkdir(parents=True)
+    (header / "seen.json").write_text("[]")
+    (header / "tops.txt").write_text("cheap\nrich\n")
+    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 8.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
+    (header / "screen.tsv").write_text("".join("\t".join(map(str, r)) + "\n" for r in screens))
+    (header / "log.tsv").write_text("ran\trich\n")
     rc, last = tick(repo, env)
     started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
     assert rc == 0 and [ln.split()[3] for ln in started] == ["ark-clueweb"], (last, started)
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
+    assert "ok   ark-header: finished" in log, log
 
 
 def diverge(repo: Path, env: dict, subject: str, clash: bool = False) -> str:

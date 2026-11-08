@@ -465,6 +465,21 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
     assert restarted.subq == [], "the subpages below the cut row were received before it"
 
 
+def test_a_200_cut_before_its_first_row_is_a_dropped_connection_until_the_cap(tmp_path):
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", max_transient=1)
+    a.data, a.questions, a.min_interval = tmp_path, False, 10
+    lane = extended.Lane(a)
+    pages = [("co.uk", 1000, n, 1996, 2013, "all") for n in (7, 8)]
+    lane.pages, lane.asked = {("co.uk", "all"): pages}, {("co.uk", "all"): 0}
+    lane.rerank(force=True)
+    page = lane.take()
+    lane.settle(page, "200", False, 0, [], None, ["row"])
+    assert lane.take() == page and round(lane.pause_until - time.time()) == 5
+    assert lane.refused == lane.refusal_end == 0, "no refusal and no refusal pause"
+    lane.settle(page, "200", False, 0, [], None, ["row"])  # past the cap: the refusal's ladder
+    assert lane.refused == 1 and round(lane.refusal_end - time.time()) == 30
+
+
 def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     f = tmp_path / "2001.txt"
     f.write_bytes(b"a.co.uk\nb-c.co.uk\nb.co.uk\nzz.com.au\n")
@@ -565,23 +580,38 @@ def test_pool_questions_bracket_the_2001_edge_by_his_2002_file(tmp_path, monkeyp
     assert "'edge-2002': 2" in capsys.readouterr().out, "the tier's size is the laws row"
 
 
-def test_extended_walk_starts_the_2002_edge_at_the_edge_price_and_stops_under_the_floor(tmp_path):
-    prices = {"co.nz all": {"p2": 0.5, "s": 50}}
-    units = [("co.nz", "all"), ("ask-edge-2002", "ask"), ("ask-edge", "ask")]
+def test_a_unit_measured_under_both_floors_drops_and_the_2002_edge_runs_to_its_measurement(
+    tmp_path, monkeypatch
+):
+    floors = {"1996-2001": 1.0, "2002-2013": 100.0}
+    prices = {
+        "co.nz all": {"p1": 0.5, "p2": 90.0, "n": 5, "s": 50},
+        "co.nz p1": {"p1": 0.5, "p2": 90.0, "n": 1, "s": 50},
+        "me.uk all": {"p1": 0.0, "p2": 1354.0, "n": 9, "s": 300},
+    }
     edge = ("ask-edge-2002", "ask")
-    priced, _, waiting, early = extended.rank(units, prices, {}, 2, 10.0)
-    assert priced == [edge, ("co.nz", "all")] and early == [edge], "0.26 EE at the 10 s floor"
-    assert waiting == [("ask-edge", "ask")]
-    priced, _, waiting, early = extended.rank(units, prices, {}, 2, 10.0, floor_1996=1.0)
-    assert edge not in priced + waiting + early, "under #511's 1996 to 2001 floor it stops"
-    prices["ask-edge-2002 ask"] = {"p1": 1.2, "n": 2000, "s": 4.0}
-    priced, *_ = extended.rank(units, prices, {}, 2, 10.0, floor_1996=1.0)
-    assert priced[0] == edge, "measured above the floor it goes on"
-    (tmp_path / "o.json").write_text('{"units": {}, "floor": {"1996-2001": 1}}')
-    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    units = [*(tuple(u.split()) for u in prices), edge]
+    priced, _, waiting, early = extended.rank(units, prices, {}, 2, 10.0, floors)
+    assert priced == [("me.uk", "all"), ("co.nz", "p1"), edge], "unmeasured, the edge at 0.26"
+    prices["ask-edge-2002 ask"] = {"p1": 0.2645, "p2": 0.0, "n": 2000, "s": 4.0}
+    assert edge not in sum(extended.rank(units, prices, {}, 2, 10.0, floors), [])
+    assert edge in extended.rank(units, prices, {}, 2, 10.0)[0], "no floor, no stop"
+    (tmp_path / "queue").mkdir()
+    (tmp_path / "baseline.json").write_text('{"current": {"directory": "his", "marker": "m"}}')
+    (tmp_path / "queue/cdx_order.json").write_text(json.dumps({"units": prices, "floor": floors}))
+    monkeypatch.setattr(order, "DATA", tmp_path)
+    order.main()  # re-priced, the floor kept
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "queue/cdx_order.json", data=tmp_path)
     a.questions, a.min_interval = True, 10
-    lane = extended.Lane(a)
-    lane.pages = {edge: [("ask-edge-2002", 1, "edge.com", 1996, 2013, "ask")]}
-    lane.asked = {edge: 0}
-    lane.rerank(force=True)
-    assert lane.take() is None, "the floor is read from cdx_order.json"
+
+    def lane_asks() -> tuple | None:
+        lane = extended.Lane(a)
+        lane.pages = {edge: [("ask-edge-2002", 1, "e.com", 1996, 2013, "ask")]}
+        lane.asked = {edge: 0}
+        lane.rerank(force=True)
+        return lane.take()
+
+    assert lane_asks() is None, "the floor is read from cdx_order.json"
+    for bad in (1, {"1996-2001": "inf"}, {"2002-2013": 10**309}):
+        a.order.write_text(json.dumps({"units": prices, "floor": bad}))
+        assert lane_asks(), "a bare-number, infinite or overflowing floor is unread, units read"

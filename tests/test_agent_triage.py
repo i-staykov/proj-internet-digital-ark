@@ -67,13 +67,16 @@ def test_only_a_reader_restarts_and_a_second_in_a_day_needs_an_item_naming_it(tm
     (tmp_path / "q.jsonl").write_text(json.dumps(item) + "\n" + json.dumps(other) + "\n")
     assert triage(tmp_path, env, "restart", "ark-har", "--item", "a2") == 3
     assert triage(tmp_path, env, "restart", "ark-har", "--item", "a1") == 0
+    assert triage(tmp_path, env, "restart", "ark-har", "--item", "a1") == 3  # one an item
     assert (tmp_path / "calls").read_text().count("restart ark-har") == 2
 
 
-def test_a_failed_restart_counts_against_the_day(tmp_path):
+def test_a_failed_restart_counts_against_the_day_unless_the_unit_is_not_loaded(tmp_path):
+    env = fake_bin(tmp_path, systemctl="exit 5")
+    assert triage(tmp_path, env, "restart", "ark-header") == 1
     env = fake_bin(tmp_path, systemctl="exit 1")
-    assert triage(tmp_path, env, "restart", "ark-har") == 1
-    assert triage(tmp_path, env, "restart", "ark-har") == 3
+    assert triage(tmp_path, env, "restart", "ark-header") == 1
+    assert triage(tmp_path, env, "restart", "ark-header") == 3
 
 
 @pytest.mark.parametrize(

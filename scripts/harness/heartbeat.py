@@ -13,7 +13,8 @@
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
   subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
   successful agent run, no Claude pre-flight answered or no listing of the offsite remote in
-  24 h, under 14 days of disk or gh token. The triage reads them; the owner is asked nothing.
+  24 h, a reboot pending 24 h (the tick reboots, scheduled_sync.sh), under 14 days of disk or
+  gh token. The triage reads them; the owner is asked nothing.
 - The first tick from 06 UTC, once a day, comments the heartbeat on the open `VM heartbeat`
   issue, so its last comment says where the VM stands. A watchdog on ark-fleet alerts when that
   goes quiet.
@@ -50,6 +51,8 @@ FLOOR_DAYS = 14
 HEARTBEAT_TITLE = "VM heartbeat"
 HEARTBEAT_HOUR = 6
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
+REBOOT = Path(os.environ.get("ARK_REBOOT_FLAG", "/var/run/reboot-required"))
+UPTIME = Path(os.environ.get("ARK_UPTIME", "/proc/uptime"))
 GIB = 1024**3
 # run_agent.sh's rows before the pre-flight and its refusal; a rate limit, the pre-flight's
 # or the run's, answered the token
@@ -174,7 +177,9 @@ def token(now: dt.datetime) -> tuple[float | None, str]:
 
 def lane(n: int, now: dt.datetime, yields: dict[str, str]) -> tuple[bool | None, str]:
     """(stalled, line): stalled is None where the lane does not walk here or is paused; the
-    line is the lane's last productivity row (scripts/agents/lane_yield.py)."""
+    line is the lane's last productivity row (scripts/agents/lane_yield.py), `idle` only on the
+    walker's `# exit ... idle` row, an unstopped exit with nothing left over its floors: a bare
+    `pending=0` exit is no proof of an empty queue, since a stopped lane writes it too."""
     folder = ROOT / f"data/raw/cdx_walk/lane{n}"
     log = folder / "log.tsv"
     if not log.exists():
@@ -199,7 +204,8 @@ def lane(n: int, now: dt.datetime, yields: dict[str, str]) -> tuple[bool | None,
     paused = (STATE / "pause-platform").exists()
     stalled = None if paused else queued and recent == 0
     line = f"lane{n}: " + yields.get(f"lane{n}", "no productivity row")
-    return stalled, line + (", paused" if paused else "")
+    idle = not queued and " idle " in last
+    return stalled, line + (", paused" if paused else ", idle" if idle else "")
 
 
 def ledger() -> list[list[str]]:
@@ -248,6 +254,25 @@ def offsite(now: dt.datetime) -> tuple[bool, str]:
     return listed >= now - dt.timedelta(hours=24), f"offsite: listed at {at}"
 
 
+def reboot(now: dt.datetime) -> tuple[bool, str]:
+    """(pending 24 h, line): unattended-upgrades' flag, first seen by a tick, and the last boot."""
+    seen = LOGS / ".reboot_seen"
+    try:
+        up = float(UPTIME.read_text().split()[0])
+        boot = f"up since {now - dt.timedelta(seconds=up):%F %H:%M} UTC"
+    except (OSError, ValueError, IndexError):
+        up, boot = None, "boot time unknown"
+    if not REBOOT.exists():
+        # kept through a boot's first hour, when the tick never reboots, so a loop alerts
+        if up is None or up >= 3600:
+            seen.unlink(missing_ok=True)
+        return False, f"reboot: none pending, {boot}"
+    if not seen.exists():
+        seen.touch()
+    since = dt.datetime.fromtimestamp(seen.stat().st_mtime, dt.UTC)
+    return now - since >= dt.timedelta(hours=24), f"reboot: pending since {since:%F %H:%M}, {boot}"
+
+
 def load(rel: str):
     spec = importlib.util.spec_from_file_location(Path(rel).stem, ROOT / rel)
     mod = importlib.util.module_from_spec(spec)
@@ -268,6 +293,13 @@ def readers() -> list[str]:
         return [f"{name}: {why}" for name, _ok, why in mod.readers()]
     except Exception as e:  # noqa: BLE001 - a reader's import must not cost the heartbeat
         return [f"readers: unreadable, {type(e).__name__}"]
+
+
+def header() -> str:
+    try:
+        return load("scripts/sources/usenet/run_usenet_header_items.py").summary()
+    except Exception as e:  # noqa: BLE001 - the lane's import must not cost the heartbeat
+        return f"header lane: unreadable, {type(e).__name__}"
 
 
 def clean(body: str, name: str) -> str:
@@ -365,6 +397,9 @@ def main(argv: list[str]) -> int:
     off_ok, off_line = offsite(now)
     if not off_ok:
         causes["no offsite listing in 24 h"] = off_line
+    stuck, reboot_line = reboot(now)
+    if stuck:
+        causes["reboot pending 24 h"] = f"{reboot_line}; data/logs/scheduled_sync.log says why"
     alert(causes)
 
     if daily:
@@ -388,11 +423,12 @@ def main(argv: list[str]) -> int:
                 disk_line,
                 "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
                 *(line for _s, line in lanes),
-                "header lane: no unit yet, not measured",
+                header(),
                 *readers(),
                 token_line,
                 pre_line,
                 off_line,
+                reboot_line,
                 f"hold: {held}",
                 agent_line,
             ]

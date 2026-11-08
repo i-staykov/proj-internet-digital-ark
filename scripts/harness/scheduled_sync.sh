@@ -107,14 +107,15 @@ if [ "${STAMP:9:2}" -ge 6 ] && [ "$(cat data/logs/.yield_day 2>/dev/null)" != "$
     else echo "lane yield: failed, its error is above" >> "$LOG"; fi
 fi
 
-# The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
-# every part left after the bank, each its own unit so it outlives this one, never two at once,
-# and started only while its reader has a part under three strikes left, so a finished reader
-# costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
-# crawl_lists/clueweb.py; the count is check_unattended.py's).
+# The End of Term indexes, an HTTP Archive year, the ClueWeb09 map where the lanes walk and the
+# Usenet header lane, every part left after the bank, each its own unit so it outlives this one,
+# never two at once, and started only while its reader has a part under three strikes left, so a
+# finished reader costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
+# crawl_lists/clueweb.py, usenet/run_usenet_header_items.py; the count is check_unattended.py's).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
     for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
-        clueweb:crawl_lists/clueweb.py:clueweb; do
+        clueweb:crawl_lists/clueweb.py:clueweb \
+        header:usenet/run_usenet_header_items.py:usenet_header; do
         IFS=: read -r name script log <<<"$reader"  # unit, script, log
         [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>> "$LOG")" = 0 ] && continue
         systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" ${FLOOR[@]+"${FLOOR[@]}"} \
@@ -139,5 +140,34 @@ fi
 # Keep the log readable rather than complete: the ledger and the store are the
 # record, this is a noticeboard.
 tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
+
+# unattended-upgrades installs and leaves the flag, never rebooting itself: the tick reboots, last,
+# once nothing a reboot would cut runs (its own bank is done by then). Walkers and readers keep
+# what they wrote; cron's @reboot brings the walkers back at once, the next :05 tick the readers,
+# the sync lock stale in the new boot (sync_lock.sh). Never in a boot's first hour, so a flag that
+# comes back at once cannot loop. A tick that waits says why, for the heartbeat's 24 h alert.
+FLAG="${ARK_REBOOT_FLAG:-/var/run/reboot-required}"
+busy() {
+    [ "$(cut -d. -f1 "${ARK_UPTIME:-/proc/uptime}" 2> /dev/null || echo 0)" -ge 3600 ] ||
+        echo "up under an hour"
+    bash scripts/harness/sync_lock.sh holder > /dev/null && echo "a sync"
+    systemctl --user is-active -q ark-bank-force && echo "the forced bank"
+    [ ! -e data/logs/agent/.lock ] || flock -n data/logs/agent/.lock true || echo "an agent run"
+    { grep -qx 'activ.*' <<< "$(systemctl show -P ActiveState apt-daily.service \
+        apt-daily-upgrade.service 2> /dev/null)" || pgrep -x dpkg > /dev/null; } && echo "an apt run"
+    # an ssh login, not a user manager's own session (systemd 256 on)
+    loginctl list-sessions --no-legend 2> /dev/null | grep -qvwE 'manager(-early)?' && echo "a login"
+    pgrep -f Runner.Worker > /dev/null && echo "a fleet job"
+}
+if [ -f "$FLAG" ] && [ "$(tail -n 1 data/logs/ticks.tsv 2> /dev/null | cut -f1)" = "$STAMP" ]; then
+    why=$(busy | paste -sd , -)
+    if [ -n "$why" ]; then
+        echo "tick $STAMP: reboot pending, not now: $why" >> "$LOG"
+    else
+        echo "tick $STAMP: rebooting" >> "$LOG"
+        sudo -n /usr/sbin/reboot >> "$LOG" 2>&1 ||
+            echo "reboot refused: sudo asks a password; 'just vm install' prints the line" >> "$LOG"
+    fi
+fi
 [ "$sync_rc" -ne 0 ] && exit "$sync_rc"
 exit "$check_rc"
