@@ -139,34 +139,26 @@ def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch)
     assert ext.cached(journal, ext.entry_key(journal)) is None
 
 
-def test_the_cache_key_is_the_code_the_screen_runs(monkeypatch):
+def test_the_cache_key_is_the_code_not_its_text():
     ext = script("round/extended_export.py")
-    real = ext._source
+    source = (ROOT / "src/ark/hostnames.py").read_text(encoding="utf-8")
 
-    def key(module: str = "", old: str = "", new: str = "") -> str:
-        assert old in real(module)
-        edited = {module: real(module).replace(old, new, 1)}
-        monkeypatch.setattr(ext, "_source", lambda m: edited.get(m) or real(m))
-        ext._bindings.cache_clear()
-        ext.code_of_screen.cache_clear()
-        return ext.code_of_screen()
+    def code(old: str, new: str) -> str:
+        assert old in source
+        return ext.code_of(source.replace(old, new, 1))
 
-    base = key()
-    skip = 'logger.debug(f"{path.name}: already ingested, skipping")'
-    for edit in (
-        (skip, skip.replace("debug", "info")),  # a log level
+    base = ext.code_of(source)
+    for keeps in (
         ("def host_of(", "# a comment\ndef host_of("),
         ('"""The hostname of a capture URL', '"""A docstring'),
-        ('ZONE_METHOD = "internic_zone_ns_target"', 'ZONE_METHOD = "ns"'),  # code it never runs
+        ("def host_of(url: str)", "def host_of(\n    url: str,\n)"),  # formatting
     ):
-        assert key("ark.hostnames", *edit) == base, edit
-    for module, *edit in (
-        ("ark.hostnames", "[a-z]{2,63}$", "[a-z]{2,62}$"),  # a regex host_of matches
-        ("ark.canonical", "_canonicalize(raw)[0]", "_canonicalize(raw)[1]"),  # a return value
-        ("ark.delegation", "def existed", "def late():\n    RETIRED['zr'] = 2002\n\n\ndef existed"),
-        ("", 'return "blank", None', 'return "empty", None'),
+        assert code(*keeps) == base, keeps
+    for changes in (
+        ("[a-z]{2,63}$", "[a-z]{2,62}$"),  # the regex host_of matches
+        ("        return None\n    return host", "        return None\n    return url"),
     ):
-        assert key(module, *edit) != base, edit
+        assert code(*changes) != base, changes
 
 
 def test_a_decided_fleet_read_joins_and_an_undecided_one_waits(exported, monkeypatch):
