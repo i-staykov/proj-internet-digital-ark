@@ -84,6 +84,9 @@ _spec = importlib.util.spec_from_file_location(
 _platform = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_platform)
 host_of = _platform.host_of
+_spec = importlib.util.spec_from_file_location("disk", REPO / "src/ark/disk.py")
+_disk = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_disk)  # one module, not the package: the lanes run bare python3
 cdx_clients = _platform.cdx_clients
 mine, UA = _platform.mine, _platform.UA
 
@@ -246,6 +249,7 @@ class Lane:
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
+        self.unreadable = False
 
     def add_pages(self, sfx: str, n: int) -> None:
         """Queue this lane's share of a suffix's pages, those not answered yet, shuffled."""
@@ -349,14 +353,27 @@ class Lane:
                 now = time.time()
                 if now < self.refusal_end and self.eased():
                     self.refusal_end = self.refused = 0
-                held = _platform.PAUSE_FLAG.exists() or now < max(
-                    self.pause_until, self.refusal_end
+                held = (
+                    _platform.PAUSE_FLAG.exists()
+                    or now < max(self.pause_until, self.refusal_end)
+                    or self.low()
                 )
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
             time.sleep(1)
         return False
+
+    def low(self) -> bool:
+        """Whether free space is under the collectors' floor. An unreadable floor holds no lane,
+        since the bank's own space check refuses a bad setting loudly; said once a run."""
+        try:
+            return bool(_disk.below_floor(self.a.data, root=self.a.data.parent))
+        except (OSError, ValueError) as exc:
+            if not self.unreadable:
+                self.log.write(f"# floor unreadable {exc}\n")
+            self.unreadable = True
+            return False
 
     def eased(self) -> bool:
         """Whether a sibling lane answered since this lane's last refusal: the address is not
@@ -523,6 +540,7 @@ def main() -> None:
     a.data = Path(a.data)
     a.state_dir = a.data / f"raw/cdx_walk/lane{a.lane}"
     a.state_dir.mkdir(parents=True, exist_ok=True)
+    _disk.trim(a.data / f"logs/lane{a.lane}.log")  # the cron line's `>>`
     a.order, walked = a.data / "queue/cdx_order.json", a.data / "queue/cdx_walked.txt"
     a.walked = (
         {tuple(ln.split()[:2]) for ln in walked.read_text().splitlines()}

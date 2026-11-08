@@ -786,7 +786,7 @@ def ingest_zone_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
-        logger.info(f"{path.name}: already ingested, skipping")
+        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     header = _internic_zone_header(path)
     if header is None or header[1] not in YEARS:
@@ -1016,7 +1016,7 @@ def ingest_blocklist_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
-        logger.info(f"{path.name}: already ingested, skipping")
+        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     approvals.check(source_name, etype)
 
@@ -1213,7 +1213,7 @@ def ingest_ripe_nserver_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
-        logger.info(f"{path.name}: already ingested, skipping")
+        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     approvals.check(RIPE_NS_SOURCE, "artifact_listing")
     counts: Counter[str] = Counter()
@@ -1324,7 +1324,7 @@ def ingest_isc_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
-        logger.info(f"{path.name}: already ingested, skipping")
+        logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     dated = _isc_survey_date(path.name)
     if dated is None or dated[0] not in YEARS:
@@ -1626,7 +1626,7 @@ def ingest_usenet_item_journal(
     ).fetchone()
     if previous is not None and previous[0] == digest:
         stats["skipped"] = True
-        logger.info(f"{file_key}: already ingested, skipping")
+        logger.debug(f"{file_key}: already ingested, skipping")
         return stats
     approvals.check(family.source, "link_source")
 
@@ -1696,7 +1696,8 @@ def ingest_usenet_item_dir(
                 totals[key] += value
             elif key == "skipped" and value:
                 totals["files_skipped"] += 1
-        logger.info(f"[{i}/{len(files)}] {path.name} done")
+        said = logger.debug if stats.get("skipped") else logger.info
+        said(f"[{i}/{len(files)}] {path.name} done")
     totals["files_seen"] = len(files)
     logger.info(f"usenet hostnames: {dict(totals)}")
     return dict(totals)

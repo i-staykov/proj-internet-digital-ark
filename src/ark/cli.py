@@ -29,8 +29,8 @@ from ark.db import (
     connect_patiently,
     connect_read_only_patiently,
     init_db,
-    space,
 )
+from ark.disk import space
 from ark.expand import answered as expand_answered
 from ark.expand import expand_page, read_seeds
 from ark.export import export_all
@@ -109,7 +109,11 @@ def _setup(
     # every run leaves its execution log, at INFO: DEBUG is the per-file skips, on --verbose; a
     # log older than 14 days is deleted when the run ends, since nothing reads one
     logger.add(
-        _LOG_FILE, level="INFO", format="{time} | {level: <7} | {message}", retention="14 days"
+        _LOG_FILE,
+        level="INFO",
+        format="{time} | {level: <7} | {message}",
+        rotation="50 MB",
+        retention="14 days",
     )
 
 
@@ -835,9 +839,9 @@ def price_snapshot_cmd(
     ] = None,
     out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
 ) -> None:
-    """Price items against a pushed snapshot and print one JSON object.
+    """Price items against a staged snapshot and print one JSON object.
 
-    The only price a fleet leg may quote. Reads no store, writes only `--out`, and refuses a
+    Reads no store, writes only `--out`, and refuses a
     snapshot whose files disagree with its manifest, so the figure is reproducible from
     the marker and `built_at` it carries.
     """

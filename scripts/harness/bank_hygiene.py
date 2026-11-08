@@ -192,7 +192,7 @@ def preflight(
         return 2, lines
     lines.append("clone is clean")
 
-    from ark.db import space
+    from ark.disk import space
 
     code, disk_lines = space(root=root)
     lines.extend(disk_lines)
@@ -227,7 +227,7 @@ def own_commits(root: Path, upstream: str, run: Callable) -> bool:
     """True when every commit only this clone holds is the tick's own: a register commit or an
     intake's.
 
-    Such a commit (the sync recipe's step d, or its step 4) touches `STAGED` and an intake's pages
+    Such a commit (the sync recipe's step d, or its step 5) touches `STAGED` and an intake's pages
     alone, so replaying it onto a `live` a merged PR moved is safe; a hand commit, a merge or a
     commit beside it is not.
     """

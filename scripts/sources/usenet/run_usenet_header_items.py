@@ -1,8 +1,9 @@
 """Header lane over whole usenet-* items outside the group catalogue, by top in a given order.
 
 The run behind a `sample_usenet_header_items.py` price: for each named top, every unread item
-under it, every `.mbox.zip` it holds, one download at a time with `/` kept 70 GiB free and a file
-kept only when it came whole, about 1 GB per batch and one top per batch, extracted by
+under it, every `.mbox.zip` it holds, one download at a time above the collectors' floor
+(`ark.disk`) and a file kept only when it came whole, about 1 GB per batch and one top per
+batch, extracted by
 `build_usenet_header_pool.py` into `data/raw/usenet_header_items/<prefix>_NNN/`, which the bank
 folds, the zips deleted. After each batch its journals are priced on the candidate track through
 the ingest's own reader; a top whose batch pays under 300 EE per GB is dropped. A 429 ends the
@@ -30,7 +31,7 @@ FLOOR = 300
 
 
 def price(work: Path, out: Path) -> float:
-    """Candidate EE of one batch's journals against the fleet snapshot."""
+    """Candidate EE of one batch's journals against the price snapshot."""
     path = work / "batch.items.jsonl"
     write_items(sorted(out.glob("*.jsonl.gz")), path)
     ark = Path(sys.executable).with_name("ark")
@@ -38,7 +39,7 @@ def price(work: Path, out: Path) -> float:
         ark,
         "price-snapshot",
         "--snapshot",
-        "output/fleet_snapshot",
+        "output/price_snapshot",
         "--items",
         path,
         "--track",
@@ -67,6 +68,8 @@ def main() -> None:
     a = ap.parse_args()
     pool = a.work / "pool"
     pool.mkdir(parents=True, exist_ok=True)
+    for zp in pool.glob("*.mbox.zip"):  # a killed run's, never extracted
+        zp.unlink()
     todo = unread(a.work, a.seen)
     logp = a.work / "log.tsv"
     rows = [line.rstrip("\n").split("\t") for line in open(logp)] if logp.exists() else []
@@ -137,9 +140,11 @@ def main() -> None:
                     break
                 out = Path("data/raw/usenet_header_items") / name
                 t1 = time.time()
-                built = build(pool, out)
-                for _item, fname in names:
-                    (pool / fname).unlink()
+                try:
+                    built = build(pool, out)
+                finally:
+                    for _item, fname in names:
+                        (pool / fname).unlink(missing_ok=True)
                 if built:  # the batch is not charged as read, and a human looks before more
                     print(
                         "stop",

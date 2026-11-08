@@ -19,7 +19,7 @@ it, and a class nobody has approved yet parks and reaches the owner through
 one. The fleet's `class` clause is a different test, of a stream's grain and web method.
 
 **Which figure decides.** The store re-price (`store_price.json` `ee`) decides until the
-program's figure on the pushed snapshot (`fleet_program_ee`) has agreed with it within 1% on
+program's figure on the staged snapshot (`fleet_program_ee`) has agreed with it within 1% on
 the last ten finds booked as outcome lines in the fleet ledger; from then the program's figure
 decides for a find that has one, and the store re-price still decides for a find that has
 none. Either adds 2002 to 2013's EE from the program's annual price beside the find, times the
@@ -60,7 +60,7 @@ REGISTER = REPO / "docs/registers/approved-sources-list.md"
 CLAUSES = ("size", "terms", "robots", "class", "window")
 # Where each figure lives in `store_price.json`, and how a line names it.
 FIELDS = {"store": "ee", "program": "fleet_program_ee"}
-FIGURES = {"store": "the store re-price", "program": "the program's figure on the pushed snapshot"}
+FIGURES = {"store": "the store re-price", "program": "the program's figure on the staged snapshot"}
 # The new-class reason, which `fleet_request.py` reads to head its ask as a class approval.
 NEW_CLASS = "no other {} source is approved as master"
 CITATION = (

@@ -313,3 +313,31 @@ def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     moved = "bank: journals data/raw/cdx/cdx_*.jsonl.gz (+1 files, +4 bytes)"
     assert bt.check(root) == (0, f"bank: find good-lead\n{moved}")
     assert bt.clear(root) == "bank: nothing to clear"
+
+
+def test_the_prune_runs_until_clean_once_per_credited_round(tmp_path):
+    root, calls, rc = _tree(tmp_path), [], 1
+
+    def run(cmd, **_):
+        calls.append(cmd)
+        out = "ok: a check line\nremoved: data/ark.duckdb.pre-a.bak\n" + (
+            "HELD x: why\n" if rc else ""
+        )
+        return Mock(stdout=out, returncode=rc)
+
+    rounds = [{"date": "2026-09-05", "awarded_percent": "18.7"}]
+    baseline = root / bt.BASELINE
+    baseline.write_text(json.dumps({"rounds": rounds}))
+    assert bt.prune(root, run) == (
+        "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak; HELD x: why"
+    )
+    rc = 0  # a held prune is tried again; a clean one marks the round
+    assert bt.prune(root, run) == "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak"
+    assert bt.prune(root, run) == "" and len(calls) == 2
+    rounds.append({"date": "2026-10-15", "awarded_percent": ""})  # not credited
+    baseline.write_text(json.dumps({"rounds": rounds}))
+    assert bt.prune(root, run) == ""
+    rounds.append({"date": "2026-10-15", "awarded_percent": "0.03"})
+    baseline.write_text(json.dumps({"rounds": rounds}))
+    assert bt.prune(root, run).startswith("prune: round 2026-10-15: ") and len(calls) == 3
+    assert calls[-1] == ["just", "prune", "--round", "--write"]
