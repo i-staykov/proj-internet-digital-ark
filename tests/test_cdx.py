@@ -465,6 +465,21 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
     assert restarted.subq == [], "the subpages below the cut row were received before it"
 
 
+def test_a_200_cut_before_its_first_row_is_a_dropped_connection_until_the_cap(tmp_path):
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", max_transient=1)
+    a.data, a.questions, a.min_interval = tmp_path, False, 10
+    lane = extended.Lane(a)
+    pages = [("co.uk", 1000, n, 1996, 2013, "all") for n in (7, 8)]
+    lane.pages, lane.asked = {("co.uk", "all"): pages}, {("co.uk", "all"): 0}
+    lane.rerank(force=True)
+    page = lane.take()
+    lane.settle(page, "200", False, 0, [], None, ["row"])
+    assert lane.take() == page and round(lane.pause_until - time.time()) == 5
+    assert lane.refused == lane.refusal_end == 0, "no refusal and no refusal pause"
+    lane.settle(page, "200", False, 0, [], None, ["row"])  # past the cap: the refusal's ladder
+    assert lane.refused == 1 and round(lane.refusal_end - time.time()) == 30
+
+
 def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
     f = tmp_path / "2001.txt"
     f.write_bytes(b"a.co.uk\nb-c.co.uk\nb.co.uk\nzz.com.au\n")

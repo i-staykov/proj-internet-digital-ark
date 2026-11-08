@@ -482,7 +482,8 @@ class Lane:
                 self.throttled += 1  # ten, nothing booked between: an address block
                 end = self.back_off(task, 900.0 if self.throttled >= 10 else after or 60.0, status)
                 self.pause_until = max(self.pause_until, end)
-            elif status in FAST and self.transient < self.a.max_transient:
+            elif status in FAST | {"200"} and self.transient < self.a.max_transient:
+                # a 200 here was cut before its first row: a dropped connection, not a refusal
                 self.transient += 1
                 self.requeue(task, front=True)
                 self.pause_until = max(self.pause_until, time.time() + 5)
