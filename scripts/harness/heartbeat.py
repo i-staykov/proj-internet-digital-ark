@@ -11,7 +11,8 @@
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
   subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
   successful agent run, no Claude pre-flight answered or no listing of the offsite remote in
-  24 h, under 14 days of disk or gh token. The triage reads them; the owner is asked nothing.
+  24 h, a reboot pending 24 h (the tick reboots, scheduled_sync.sh), under 14 days of disk or
+  gh token. The triage reads them; the owner is asked nothing.
 - The first tick from 06 UTC, once a day, comments the heartbeat on the open `VM heartbeat`
   issue, so its last comment says where the VM stands. A watchdog on ark-fleet alerts when that
   goes quiet.
@@ -47,6 +48,8 @@ FLOOR_DAYS = 14
 HEARTBEAT_TITLE = "VM heartbeat"
 HEARTBEAT_HOUR = 6
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
+REBOOT = Path(os.environ.get("ARK_REBOOT_FLAG", "/var/run/reboot-required"))
+UPTIME = Path("/proc/uptime")
 GIB = 1024**3
 # run_agent.sh's rows before the pre-flight and its refusal; a rate limit, the pre-flight's
 # or the run's, answered the token
@@ -224,6 +227,23 @@ def offsite(now: dt.datetime) -> tuple[bool, str]:
     return listed >= now - dt.timedelta(hours=24), f"offsite: listed at {at}"
 
 
+def reboot(now: dt.datetime) -> tuple[bool, str]:
+    """(pending 24 h, line): unattended-upgrades' flag, first seen by a tick, and the last boot."""
+    seen = LOGS / ".reboot_seen"
+    try:
+        booted = now - dt.timedelta(seconds=float(UPTIME.read_text().split()[0]))
+        boot = f"up since {booted:%F %H:%M} UTC"
+    except (OSError, ValueError, IndexError):
+        booted, boot = None, "boot time unknown"
+    if not REBOOT.exists():
+        seen.unlink(missing_ok=True)
+        return False, f"reboot: none pending, {boot}"
+    if not seen.exists() or booted and seen.stat().st_mtime < booted.timestamp():
+        seen.touch()  # first seen, or seen before the reboot that cleared it
+    since = dt.datetime.fromtimestamp(seen.stat().st_mtime, dt.UTC)
+    return now - since >= dt.timedelta(hours=24), f"reboot: pending since {since:%F %H:%M}, {boot}"
+
+
 def load(rel: str):
     spec = importlib.util.spec_from_file_location(Path(rel).stem, ROOT / rel)
     mod = importlib.util.module_from_spec(spec)
@@ -335,6 +355,9 @@ def main(argv: list[str]) -> int:
     off_ok, off_line = offsite(now)
     if not off_ok:
         causes["no offsite listing in 24 h"] = off_line
+    stuck, reboot_line = reboot(now)
+    if stuck:
+        causes["reboot pending 24 h"] = f"{reboot_line}; data/logs/scheduled_sync.log says why"
     alert(causes)
 
     today = now.strftime("%Y-%m-%d")
@@ -367,6 +390,7 @@ def main(argv: list[str]) -> int:
                 token_line,
                 pre_line,
                 off_line,
+                reboot_line,
                 f"hold: {held}",
                 agent_line,
             ]

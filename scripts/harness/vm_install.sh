@@ -22,6 +22,18 @@ fi
 # pandoc builds the archive's Open Research Questions.docx.
 dpkg -s p7zip-full pigz pandoc > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz pandoc ||
     root "apt-get install -y p7zip-full pigz pandoc"
+# unattended-upgrades on, never rebooting itself; the tick reboots for it (scheduled_sync.sh)
+# through sudo for /usr/sbin/reboot alone. Root's one step, printed until both hold.
+apt=$(apt-config dump 2> /dev/null || true)
+if ! sudo -n -l /usr/sbin/reboot > /dev/null 2>&1 ||
+    ! grep -q '^APT::Periodic::Unattended-Upgrade "[1-9]' <<< "$apt" ||
+    grep -qiE '^Unattended-Upgrade::Automatic-Reboot "(true|yes|on|1)"' <<< "$apt"; then
+    # sudo skips a sudoers.d name with a dot, so the line is checked before it counts
+    cat << STEP
+reboot: as root, once:
+    apt-get install -y -qq unattended-upgrades && printf '%s\n' 'APT::Periodic::Update-Package-Lists "1";' 'APT::Periodic::Unattended-Upgrade "1";' 'Unattended-Upgrade::Automatic-Reboot "false";' > /etc/apt/apt.conf.d/52ark && echo '$(id -un) ALL=(root) NOPASSWD: /usr/sbin/reboot ""' > /etc/sudoers.d/ark.new && chmod 440 /etc/sudoers.d/ark.new && visudo -cqf /etc/sudoers.d/ark.new && mv /etc/sudoers.d/ark.new /etc/sudoers.d/ark-reboot
+STEP
+fi
 # rclone from its own release, as gh above: a distribution's is too old for Drive's sha256. Its
 # remote is the owner's, once, its token made on the laptop since the VM has no browser; the
 # secret stays in ~/.config/rclone.

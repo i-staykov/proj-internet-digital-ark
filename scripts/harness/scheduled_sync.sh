@@ -135,5 +135,34 @@ fi
 # Keep the log readable rather than complete: the ledger and the store are the
 # record, this is a noticeboard.
 tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
+
+# unattended-upgrades installs and leaves the flag, never rebooting itself: the tick reboots, last,
+# once its row says it banked nothing and nothing a reboot would cut runs. Walkers and readers
+# keep what they wrote; cron, the timers and the tick three minutes after boot bring them back,
+# the sync lock stale in the new boot (sync_lock.sh). sudo is for /usr/sbin/reboot alone, the
+# line `just vm install` prints. A tick that waits says why, for the heartbeat's 24 h alert.
+FLAG="${ARK_REBOOT_FLAG:-/var/run/reboot-required}"
+busy() {
+    [ "${word:-}" != banked ] || echo "this tick banked"
+    bash scripts/harness/sync_lock.sh holder > /dev/null && echo "a sync"
+    systemctl --user is-active -q ark-bank-force && echo "the forced bank"
+    [ ! -e data/logs/agent/.lock ] || flock -n data/logs/agent/.lock true || echo "an agent run"
+    systemctl is-active apt-daily.service apt-daily-upgrade.service 2> /dev/null | grep -q '^activ' &&
+        echo "an apt run"
+    # an ssh login, not a user manager's own session (systemd 256 on)
+    loginctl list-sessions --no-legend 2> /dev/null | grep -qvwE 'manager(-early)?' && echo "a login"
+    pgrep -f Runner.Worker > /dev/null && echo "a fleet job"
+}
+IFS=$'\t' read -r at word _ < <(tail -n 1 data/logs/ticks.tsv 2> /dev/null)
+if [ -f "$FLAG" ] && [ "${at:-}" = "$STAMP" ]; then
+    why=$(busy | paste -sd , -)
+    if [ -n "$why" ]; then
+        echo "tick $STAMP: reboot pending, not now: $why" >> "$LOG"
+    else
+        echo "tick $STAMP: rebooting" >> "$LOG"
+        sudo -n /usr/sbin/reboot >> "$LOG" 2>&1 ||
+            echo "reboot refused: the sudoers line 'just vm install' prints is missing" >> "$LOG"
+    fi
+fi
 [ "$sync_rc" -ne 0 ] && exit "$sync_rc"
 exit "$check_rc"

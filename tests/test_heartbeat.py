@@ -26,6 +26,9 @@ def hb(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "LOGS", tmp_path / "data/logs")
     monkeypatch.setattr(mod, "TICKS", tmp_path / "data/logs/ticks.tsv")
     monkeypatch.setattr(mod, "STATE", tmp_path / "state")
+    monkeypatch.setattr(mod, "REBOOT", tmp_path / "reboot-required")
+    (tmp_path / "uptime").write_text("864000.00 1.00\n")  # booted ten days ago
+    monkeypatch.setattr(mod, "UPTIME", tmp_path / "uptime")
     monkeypatch.setenv("ARK_FREE_SPACE_GIB", "0.001")
     monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "0.001")
     mod.issues, mod.calls, mod.expiry = [], [], "2099-01-01 00:00:00 UTC"
@@ -123,6 +126,9 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     (lane / "log.tsv").write_text("")
     (lane / "pending.txt").write_text("task\n")
     hb.expiry = (now + dt.timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S UTC")
+    hb.REBOOT.write_text("")
+    (tmp_path / "data/logs/.reboot_seen").write_text("")
+    os.utime(tmp_path / "data/logs/.reboot_seen", (time.time() - 25 * 3600,) * 2)
     at = now.strftime("%Y%m%dT0505Z")
     run(hb, tmp_path, at, 1, 1, sync="bank: BANK RED since x", check="FAIL lane1: stopped")
     titles = made(hb, "create")
@@ -137,6 +143,7 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
             "gh token under 14 days",
             "no Claude pre-flight ok in 24 h",
             "no offsite listing in 24 h",
+            "reboot pending 24 h",
         )
     )
     # the red gone and a refused tick before: open ones stay single, a closed one reopens

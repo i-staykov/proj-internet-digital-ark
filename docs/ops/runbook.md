@@ -97,7 +97,7 @@ the gh expiry or the agent pre-flight's answer. This checkout only pulls; it kee
 
 | on the VM | what |
 |---|---|
-| the login | `ark-sync.timer`: the tick and the bank from `~/ark`, once `data/ark.duckdb` is there; its lane is the `local` entry of `ARK_HOSTS`; `ark-agent.timer` once `~/.config/ark/agent.env` is there |
+| the login | `ark-sync.timer`: the tick and the bank from `~/ark`, once `data/ark.duckdb` is there, and the reboot unattended-upgrades asks for; its lane is the `local` entry of `ARK_HOSTS`; `ark-agent.timer` once `~/.config/ark/agent.env` is there |
 | secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories |
 | an AV alert | hash the flagged file; a hit in a downloaded corpus is content and is kept; the detail goes under `private/security/` |
 

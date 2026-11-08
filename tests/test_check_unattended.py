@@ -102,14 +102,17 @@ def clone(tmp_path):
     )
     for name in ("ssh", "rsync", "curl", "wget"):
         stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"; exit 1')
-    for name in ("pkill", "pgrep"):
-        stub(bin_dir, name, "exit 0")
-    stub(bin_dir, "systemd-run", 'echo "systemd-run $*" >> "$ARK_TEST_CALLS"')
+    stub(bin_dir, "pkill", "exit 0")
+    stub(bin_dir, "pgrep", 'case "$*" in *Runner.Worker*) exit 1 ;; esac')
+    stub(bin_dir, "loginctl", "exit 0")
+    for name in ("systemd-run", "sudo"):
+        stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"')
     stub(
         bin_dir,
         "systemctl",
         'echo "systemctl $*" >> "$ARK_TEST_CALLS";'
-        ' case "$*" in *is-enabled*) echo enabled ;; *) echo active ;; esac',
+        ' case "$*" in *is-enabled*) echo enabled ;; *bank-force*) exit 3 ;;'
+        " *apt-daily*) echo inactive ;; *) echo active ;; esac",
     )
     stub(bin_dir, "crontab", f"for i in 1 2 3 4 5 6; do echo '{cron}'; done")
     stub(
@@ -128,6 +131,7 @@ def clone(tmp_path):
         "ARK_FREE_SPACE_GIB": "0.001",
         "ARK_WRITE_BUDGET_GIB": "0.001",
         "ARK_TEST_CALLS": str(tmp_path / "calls"),
+        "ARK_REBOOT_FLAG": str(tmp_path / "reboot-required"),
     }
     for key in ("ARK_HOSTS", "ARK_SYNC_LOCK", "ARK_LOCK_HELD", "ARK_HOLD_BYPASS"):
         env.pop(key, None)
@@ -185,6 +189,19 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
     assert "bank: forced" in (repo / "data/logs/scheduled_sync.log").read_text()
     assert not (state / "hold").exists() and not (state / "pause-platform").exists()
     assert "systemd-run --user --unit ark-bank-force" in calls.read_text()
+
+
+@pytest.mark.parametrize("boot", ["an earlier boot", None])
+def test_a_tick_that_banked_nothing_reboots_unless_a_sync_holds_the_lock(clone, boot):
+    repo, env = clone
+    Path(env["ARK_REBOOT_FLAG"]).write_text("*** System restart required ***\n")
+    if boot:  # the fixture's lock, its pid alive, taken before a reboot
+        (repo / "data/logs/.sync.lock/boot").write_text(boot)
+    tick(repo, env)
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert ("took over a lock left by pid" in log) == bool(boot), log
+    assert ("reboot pending, not now: a sync" in log) != bool(boot), log
+    assert ("sudo -n /usr/sbin/reboot" in Path(env["ARK_TEST_CALLS"]).read_text()) == bool(boot)
 
 
 def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, monkeypatch):
