@@ -226,7 +226,9 @@ def own_commits(root: Path, upstream: str, run: Callable) -> bool:
     Such a commit (the sync recipe's step d) touches `STAGED` alone, so replaying it onto a
     `live` a merged PR moved is safe; a hand commit, a merge or a commit beside it is not.
     """
-    code, out = run(["log", "--format=%x00%P%x01%s", "--name-only", f"{upstream}..HEAD"], root)
+    code, out = run(
+        ["log", "--no-renames", "--format=%x00%P%x01%s", "--name-only", f"{upstream}..HEAD"], root
+    )
     commits = [c for c in out.split("\0") if c.strip()]
     if code != 0 or not commits:
         return False
