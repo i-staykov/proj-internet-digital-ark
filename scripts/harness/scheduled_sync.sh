@@ -2,10 +2,9 @@
 # One unattended sync, for the hourly timer (`ark-sync.timer`) to call.
 #
 # `just sync` is the tick that moves the round without a session open: it brings the
-# lanes' journals home and calls `just bank` when approvals, a confirmed FIND, a baseline or
-# journals arrived. It is idempotent, takes the sync lock and refuses a dirty or diverged
-# clone, so all this adds is a log and the two labels that let a phone ask for a hold or a
-# package.
+# lanes' journals home and calls `just bank` when approvals, a baseline or journals arrived.
+# It is idempotent, takes the sync lock and refuses a dirty or diverged clone, so all this
+# adds is a log and the two labels that let a phone ask for a hold or a package.
 #
 # The `hold` label on any open ark-fleet issue is `just hold` (scripts/harness/hold.sh): the
 # hold file and the flags go, the timer stays, so this runs hourly, `just sync` exiting `held`,

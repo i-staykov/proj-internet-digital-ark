@@ -54,14 +54,6 @@ INTAKE_COMMIT, INTAKE_PATHS = "Intake ", ("data/baseline.json", "docs/brief/ding
 # work in progress, and each sits inside `STAGED`, so the next commit the tick or the bank
 # makes takes it.
 GENERATED = (
-    # `bank_findings.py` books every FIND in the first and every CLOSED in the second,
-    # mid-sync. A sync that dies between writing one and committing it leaves the next
-    # sync refusing a row it wrote itself.
-    "docs/registers/sources.md",
-    "docs/registers/sources-closed.md",
-    # `lead_queue.py` rewrites this in the tick and the bank, from lead files the same run
-    # pulled, so a run that stops before its commit leaves it changed.
-    "docs/registers/queue.md",
     # `verify_raw.py` regenerates this inside `just ship`, so a ship that stops before its
     # commit leaves it changed.
     "docs/registers/retention.md",

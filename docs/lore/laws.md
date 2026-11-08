@@ -95,7 +95,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A held-set export goes stale at the next ingest: a header projection of 10,889 EE delivered 1,038.4 after another ingest wrote 102,577 overlapping pairs (`scripts/pricing/price_items.py`).
 - RDAP's candidate-pool headroom measured 0.107 percentage points (6,655 EE over 149,816 names in askable TLDs with a sampled rate), not the 1.47 a pool-wide rate projects over 1.54M names; `just find RDAP`.
 - Every six- and seven-figure EE in the registers is a whole-corpus read; per-shape medians run 2.1 to 590.3 EE with 43x to 800,396x spreads, so shape sets no floor (`docs/registers/sources.md`).
-- Guessed potential does not rank: of 50 hypotheses scored 0 to 100 by judgment, 3 measured at or above 5,000 EE, all answered elsewhere; `docs/registers/queue.md` ranks by measured EE.
+- Guessed potential does not rank: of 50 hypotheses scored 0 to 100 by judgment, 3 measured at or above 5,000 EE, all answered elsewhere.
 - `probes/udrp_selftest.toml` reproduces the 186-line UDRP collector's 8,923 records exactly, so a probe's yield holds before any collector exists (`scripts/pricing/probe_source.py`).
 - Dated prose yields about 0.042 net-new post-split pairs per item (RFC 0.0416, 140 over 3,367; D-Lib 0.0420, 16 over 381): about 238,000 items per 10,000 pairs; `just find D-Lib`.
 - Density follows subject: grant records held 456,700 dated in-window items (NIH, NSF, CORDIS), 1.9x the 238,000 items the ceiling needs, and still died; `just find CORDIS`.
@@ -246,11 +246,9 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - A fleet price on a synced held-set is a ceiling: 1,180,003.5 EE re-priced on the store to about 4,850 (132 of 258,631 pairs missing) (`src/ark/price_snapshot.py`, `ark price-snapshot`).
 - Snapshot staging reuses each entry whose source keeps its size, mtime, inode and ctime, and keeps a link that already names its file, since linking moves the ctime: 0.24 s, against 55.0 to 55.9 s to hash and sort-check its 14.11 GB on the build after a release or a relink; 23.5 MB (0.17%) moves between his releases. A price takes a file whose stat matches its entry unhashed, 0.002 s against 3.92 to 4.03 s for 4.88 GB a call (`scripts/harness/snapshot_manifest.py`, `src/ark/price_snapshot.py`).
 - A fleet leg downloads only through `scripts/harness/fetch.py`: whole robots.txt on every hop, 1 GB cap by header and stream, no extraction, two write roots.
-- `standing_rule.py` parks a lead unless its `standing` block shows the fleet admitted it on all five clauses (size, terms, robots, class, window), and itself tests only the class: one with no master source in the register parks (`CLAUSES`).
-- The store re-price decides a FIND until the fleet program's figure has agreed with it within 1% on the last ten booked finds; then the program's figure decides (`scripts/harness/standing_rule.py`).
 - ark-fleet CI refuses a workflow that does not default to `CLAUDE_CODE_OAUTH_TOKEN_PRIMARY` (ark-fleet `.github/workflows/ci.yaml`).
 - Fable costs about 22x sonnet against the five-hour window: 18.7 points per million tokens against 0.85; ark-fleet `scripts/fixtures/telemetry-20260908.jsonl`.
-- A local `claude -p` bills the laptop's own Claude login at API rates, while `scripts/harness/standing_rule.py` makes the admit decision with no tokens.
+- A local `claude -p` bills the laptop's own Claude login at API rates.
 - VPS corpus bytes go only to `$ARK_PROBE_DIR`, a RAM tmpfs private to one run, since `/tmp` sits on the root disk agentless scanning images (ark-fleet `.github/workflows/leg.yaml`).
 - A sweep of the guessed globs `/tmp/ark_probe*` and `/tmp/ark_run_*` missed `/tmp/arkrun` (ark-fleet `.github/workflows/leg.yaml`).
 - Killed legs left 2.4 GiB of a 3.9 GiB tmpfs (ark-fleet `host/cleanup.sh`).

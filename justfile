@@ -79,7 +79,7 @@ cycle *args:
     uv run python scripts/harness/discover_cycle.py {{args}}
 
 # the hourly tick: bring the lanes' journals home, then bank only what arrived
-sync fleet="~/GitHub/ark-fleet":
+sync:
     #!/usr/bin/env bash
     set -euo pipefail
     if bash scripts/harness/hold.sh holds ark-sync.timer; then
@@ -95,7 +95,6 @@ sync fleet="~/GitHub/ark-fleet":
     # without `export` and the bank's children need.
     [ -f local.env ] && . ./local.env
     for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do [ -n "${!v:-}" ] && export "$v"; done
-    FLEET=$(eval echo {{fleet}})
     mkdir -p data/logs
     command -v gh >/dev/null || { echo "needs gh"; exit 1; }
     # 0. Refuse a dirty or diverged clone, then fast-forward the approvals merged from a
@@ -130,7 +129,7 @@ sync fleet="~/GitHub/ark-fleet":
     #    runs under this lock; a red bank exits 1 and so does this tick.
     BANK_RC=0
     if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
-        ARK_FLEET="$FLEET" ARK_LOCK_HELD=$$ just bank || BANK_RC=$?
+        ARK_LOCK_HELD=$$ just bank || BANK_RC=$?
     else
         echo "$WHY"
     fi
@@ -144,7 +143,7 @@ sync fleet="~/GitHub/ark-fleet":
     fi
     exit "$BANK_RC"
 
-# bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
+# bank what arrived: fold journals, gate, push; --force banks regardless
 bank *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -172,12 +171,9 @@ bank *args:
             *) echo "bank: unknown argument $a"; exit 2 ;;
         esac
     done
-    FLEET="${ARK_FLEET:-$HOME/GitHub/ark-fleet}"
-    IN=data/fleet_findings/incoming
-    mkdir -p "$IN" data/fleet_findings/banked data/logs
+    mkdir -p data/logs
     LABEL=$(date -u +%Y%m%dT%H%MZ)
-    # By hand, the clone gets the check the tick gave it: a red resets the registers to HEAD,
-    # which loses nothing only when this bank's writes are the only uncommitted ones.
+    # By hand, the clone gets the check the tick gave it.
     [ "$CALLED" = yes ] || uv run python scripts/harness/bank_hygiene.py preflight
     # A red holds even under --force: someone reads it and clears it first.
     if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
@@ -199,7 +195,7 @@ bank *args:
             || printf '%s\n' "$WHY" | grep -qF "bank: journals $1 ("
     }
     fold() { { moved "$1" || moved "${1%.gz}"; } && compgen -G "${1%.gz}*" >/dev/null; }
-    RAN_A=no; RAN_B=no; EXPORTED=no; DECIDED=0; NEW_ROWS=""
+    RAN_B=no; EXPORTED=no
     CHECK_LOG=$(mktemp)
     # c. Journals, then the export a new baseline needs too. Every ingest is keyed on its
     #    journal's sha256, so a folded journal costs a hash. A failed ingest, a full disk
@@ -273,24 +269,9 @@ bank *args:
             exit 1
         fi
     fi
-    # a. A confirmed FIND, priced a second time on the live store, booked with both figures,
-    #    decided where the standing rule covers it and asked for where the rule parks it. A
-    #    FIND is always a reason, so --force adds nothing here.
-    if has find; then
-        RAN_A=yes
-        uv run python scripts/harness/fleet_findings.py reprice "$IN"
-        SCRIBE=$(uv run python scripts/harness/bank_findings.py "$IN" --run-label "$LABEL" \
-            | tee /dev/stderr)
-        NEW_ROWS=$(printf '%s\n' "$SCRIBE" | sed -n 's/^scribe: \([0-9]*\) new rows.*/\1/p')
-        uv run python scripts/harness/fleet_request.py "$IN" --fleet "$FLEET" --write
-        DECIDED=$(uv run python scripts/harness/standing_rule.py "$IN" --fleet "$FLEET" --write \
-            | tee /dev/stderr | grep -c '^decided:' || true)
-    fi
-    # b. Approvals merged, or the standing rule just decided: ingest, export, gate. The rule's
-    #    fourth condition is `ark check` after the ingest, and a failed ingest takes the same
-    #    road as a red gate: a `Decision:` line over an ingest that did not happen reads
-    #    exactly like one that did.
-    if want approvals || [ "$DECIDED" -gt 0 ]; then
+    # b. Approvals merged: ingest, export, gate. A failed ingest takes the same road as a red gate:
+    #    a `Decision:` line over an ingest that did not happen reads exactly like one that did.
+    if want approvals; then
         RAN_B=yes
         BANK_LOG=$(mktemp)
         # A row ingested before this instant is not this bank's, so a red never takes it.
@@ -306,7 +287,7 @@ bank *args:
         if ! grep -E 'refetch FAILED|is not on this machine' "$BANK_LOG" > data/logs/bank_approvals_retry; then
             rm -f data/logs/bank_approvals_retry
         fi
-        if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ] && [ "$DECIDED" -eq 0 ]; then
+        if [ "$RC" -eq 0 ] && [ -z "$INGESTED" ]; then
             echo "bank: nothing newly approved to ingest"
         else
             if [ "$RC" -eq 0 ]; then
@@ -317,18 +298,14 @@ bank *args:
             if [ "$RC" -eq 0 ] && [ -f data/logs/bank_approvals_retry ]; then
                 echo "bank: green; an approved journal is still absent, so the next bank retries it"
             elif [ "$RC" -eq 0 ]; then
-                echo "bank: green after the ingest, so $DECIDED standing-rule decision(s) stand"
+                echo "bank: green after the ingest"
             else
-                # The rows come out, and the registers go back to HEAD rather than the index:
-                # the scribe's rows are this bank's too, and a dirty register refuses every
-                # later tick at the preflight.
-                echo "GATE RED after an approved ingest: taking the rows and the lines back"
+                echo "GATE RED after an approved ingest: taking the rows back"
                 KEPT=""
                 if [ -n "$INGESTED" ]; then
                     uv run python scripts/harness/unbank_source.py $INGESTED --write \
                         --run-start "$B_START" || KEPT=unbank
                 fi
-                git checkout HEAD -- docs/registers/
                 uv run python scripts/harness/bank_trigger.py red --step b \
                     --ingested "$INGESTED" --failed "$KEPT" --check "$CHECK_LOG"
                 uv run ark export --claim >/dev/null || true
@@ -336,7 +313,7 @@ bank *args:
                     echo "STILL RED: the unbank left rows in the store, as a source that held rows"
                     echo "  before this bank is never taken back. Read 'uv run ark check' first."
                 elif uv run ark check; then
-                    echo "the store is green again; the sources are pending and nothing was banked"
+                    echo "the store is green again; nothing was banked"
                 else
                     echo "STILL RED after the rollback, so the red was not this ingest's:"
                     echo "  read 'uv run ark check' before clearing the red."
@@ -345,11 +322,8 @@ bank *args:
             fi
         fi
     fi
-    # d. The pages the store feeds, the stamp, one commit, the fleet's queue. The round state
-    #    rewrites docs/ROUND.md, which git ignores because it names the collecting machine.
-    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
-        uv run python scripts/round/lead_queue.py --fleet "$FLEET" --write || true
-    fi
+    # d. The pages the store feeds, the stamp, one commit. The round state rewrites
+    #    docs/ROUND.md, which git ignores because it names the collecting machine.
     # The 2002 to 2013 additions, re-exported when a journal or his release changed, so the GATE
     # lines price what is on disk; an export that cannot run leaves the round state withholding them.
     uv run python scripts/round/extended_export.py --check >/dev/null \
@@ -357,27 +331,16 @@ bank *args:
     uv run python scripts/round/build_round_state.py | tail -1 || true
     uv run python scripts/harness/bank_trigger.py stamp
     git add docs/registers/
-    COMMITTED=no
     if git diff --cached --quiet; then
         echo "the registers are unchanged, so nothing is committed"
     else
         git commit -q -m "Sync fleet findings $LABEL"
-        COMMITTED=yes
     fi
     # A commit an earlier bank could not push goes with this one.
     if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
-    # Pending approvals as one issue and one mergeable pull request each, after the push, so a
-    # block this bank wrote is on live and its pull request flips one line.
-    if [ "$RAN_A" = yes ] || [ "$RAN_B" = yes ]; then
+    # Pending approvals as one issue and one mergeable pull request each.
+    if [ "$RAN_B" = yes ]; then
         uv run python scripts/harness/sync_approvals.py || true
-    fi
-    # A drain leaves `incoming/` only once its rows are committed.
-    if [ "$RAN_A" = yes ]; then
-        if [ "$COMMITTED" = yes ] || [ "${NEW_ROWS:-1}" = 0 ]; then
-            mv "$IN" "data/fleet_findings/banked/$LABEL" && mkdir -p "$IN"
-        else
-            echo "nothing was committed, so the drain stays in $IN"
-        fi
     fi
     # e. The snapshot `just price` reads, when this bank exported one or none is staged.
     if [ "$EXPORTED" = yes ] || [ ! -f output/price_snapshot/manifest.json ]; then

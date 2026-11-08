@@ -10,9 +10,8 @@ Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 3. Price what you find on both tracks, as Figures says (the brief, XIV; the `price-source` skill;
    `AGENTS.md`, The window). A candidate needs no approval: `uv run ark seed <file>` pools it.
 4. Write the source's one `docs/registers/sources.md` row: its link and what dates one item.
-   A fleet find banks through the tick and the bank; your own through
-   `just approve <spec> --journal <j>` and its
-   `Decision:` line, then a hand ingest as "The sync lock" shows.
+   It banks through `just approve <spec> --journal <j>` and its `Decision:` line, then a hand
+   ingest as "The sync lock" shows.
 5. Replace the row with the result.
 
 ## Working in the checkout
@@ -20,8 +19,8 @@ Rules: `AGENTS.md`, cited by name. Facts: `docs/lore/laws.md`. Fleet: ark-fleet 
 - The main checkout stays on `live` (`AGENTS.md`, Git).
 - The agent shell is zsh: an unquoted `$VAR` never splits; spell a list out, or use `${=VAR}`.
 - The tick and the bank commit `docs/registers/` on the branch that is out and push `live`; their
-  preflight refuses `main`, a diverged clone, any modified tracked file but `sources.md`,
-  `sources-closed.md` and `queue.md`, and an untracked file under `docs/registers/`, so leave no
+  preflight refuses `main`, a diverged clone, any modified tracked file but `retention.md`,
+  and an untracked file under `docs/registers/`, so leave no
   edit there at :05. A refused tick banks nothing that hour: clean the tree (`git pull --rebase
   origin live` for a diverged clone), then `just sync`.
 - A fresh clone has no store, so `database does not exist` or `Table with name ... does not exist`
@@ -69,11 +68,11 @@ the tick re-ranks the queue by measured EE per request, and `local.env` exports
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 pulls each lane's finished journals, and runs `just bank` when `scripts/harness/bank_trigger.py check` names what arrived: a
-confirmed FIND or a drained read, a changed approvals page, a new baseline, an approved journal
-the last bank could not fetch, or moved journals; the last two alone wait `ARK_BANK_JOURNAL_HOURS`.
+changed approvals page, a new baseline, an approved journal the last bank could not fetch, or
+moved journals; the last two alone wait `ARK_BANK_JOURNAL_HOURS`.
 
-**The bank** folds journals, exports the claim and gates; re-prices each confirmed FIND on the
-store; ingests what was approved or decided and gates again; rebuilds `docs/ROUND.md`, commits,
+**The bank** folds journals, exports the claim and gates; ingests what was approved and gates
+again; rebuilds `docs/ROUND.md`, commits,
 pushes `live` and rebuilds `output/price_snapshot` for `just price`. A red writes
 `data/logs/bank_red.json`, and after an approved ingest takes those rows out with
 `scripts/harness/unbank_source.py`, except a source that held rows before the bank: its rows stay
@@ -84,10 +83,8 @@ go through `scripts/agents/triage.py`, whose header names their guards.
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
 `scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` four times a day at 03, 09, 15 and 21 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
-**Standing admissions.** The fleet tests each ark-fleet `policy.json` `standing` clause;
-`scripts/harness/standing_rule.py` writes the `Decision:` line citing itself, or parks it naming the clause; the line stands only if `ark check` passes after the
-ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per park once
-the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
+**Asks.** `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per
+pending block once the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 
 **The VM** (`ARK_VM` in `local.env`, over the VPN) is set up from the laptop by `just vm install`,
 `sudo -n` for the packages and linger, printing the root command it needs when
@@ -135,8 +132,7 @@ are the two GATE lines beneath, each over his EE for its years: 1996 to 2001 (fi
 2013 (`output/extended_years/`). The bank re-runs `scripts/round/extended_export.py` when
 `data/raw/extended/<source>/` or his release moves, and a stale export withholds both. `just price
 --items <f.jsonl>` is the snapshot's figure on both parts, from `output/price_snapshot`, which the bank
-rebuilds; it reads no store, so the bank re-prices a FIND on the store, where
-`scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
+rebuilds; it reads no store, where `scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
 names with no database, where `grep -Fxf` over his year files pins the CPU.
 
 Draft findings into `docs/report.template.md` as they land; on the laptop, `just ship report

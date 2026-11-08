@@ -1,12 +1,9 @@
 """Take one source's rows back out of the store, for the one case that needs it.
 
-**Why this exists at all, given that nothing else in the project deletes evidence.** The
-standing rule's fourth condition is that `ark check` passes AFTER the ingest, which can only
-be tested by ingesting. Reverting the `Decision:` line on a red gate and leaving the rows
-behind is worse than not automating the decision: every later sync starts red, the preflight
-refuses, and the loop stops until someone repairs the store by hand. So the ingest that a red
-gate condemns is undone here, and the pair is atomic in the only sense available: the line and
-the rows go together.
+**Why this exists at all, given that nothing else in the project deletes evidence.** An
+approved ingest is gated by `ark check` AFTER the ingest, which can only be tested by
+ingesting. Rows a red gate leaves behind start every later sync red, and the loop stops until
+someone repairs the store by hand. So the ingest that a red gate condemns is undone here.
 
 **What it deletes, in foreign-key order**: the `hostname_year` and `domain_year` rows whose
 evidence belongs to this source, then that evidence, then the source's `ingested_file`

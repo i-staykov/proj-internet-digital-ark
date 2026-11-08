@@ -53,8 +53,7 @@ from ark.evidence_types import MASTER_TYPES  # noqa: E402
 from ark.ingest import YEARS  # noqa: E402
 from ark.sources import SOURCES  # noqa: E402
 
-# The exit when his held sets are missing or stale: nothing was refused, so `fleet_request.py`
-# writes no block and the next bank asks again.
+# The exit when his held sets are missing or stale: nothing was refused.
 NOT_NOW = 3
 
 APPROVALS = ROOT / "docs/registers/approved-sources-list.md"
@@ -251,9 +250,8 @@ def main() -> None:
         return sum((weights.get(d.rsplit(".", 1)[-1], Decimal(0)) for d, _ in rows), Decimal(0))
 
     netnew = pairs - held_pairs
-    # The deciding figure, as `standing_rule.py` weighs it: part 1, plus part 2 at the ratio
-    # of the two parts' gates, 0 when a release has no 2002 to 2013. `sync_approvals.py` files
-    # the block by it.
+    # The deciding figure: part 1, plus part 2 at the ratio of the two parts' gates, 0 when a
+    # release has no 2002 to 2013. `sync_approvals.py` files the block by it.
     late = {(d, y) for d, y in netnew if y in EXTENDED_YEARS}
     gate_two = GATE_EE["2002-2013"]
     weight = GATE_EE["1996-2001"] / gate_two if gate_two else Decimal(0)
