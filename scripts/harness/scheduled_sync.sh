@@ -68,6 +68,8 @@ ship_now() {
     login="login ok" && gh auth status > /dev/null 2>&1 || login="LOGIN DEAD"
     expiry=$(gh api -i user 2> /dev/null | tr -d '\r' | sed -n 's/^github-authentication-token-expiration: //Ip')
     echo "$login, token expiry: ${expiry:-no expiry header}"
+    # the remote's last successful listing, for the heartbeat
+    rclone lsf --max-depth 1 gdrive:ark-offsite > /dev/null 2>&1 && echo "$STAMP" > data/logs/.offsite_listed || echo "offsite: listing failed"
     # the per-file skip lines of an idempotent ingest would fill the whole log; line
     # buffering so a reader mid-run sees where the sync is, not a stale block
     just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]' \

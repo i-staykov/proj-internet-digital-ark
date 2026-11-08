@@ -10,8 +10,8 @@
   closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
   subpages, or a last row other than its `pending=0` exit) and no answered page in 6 h, no
-  successful agent run in 24 h, under 14 days of disk or gh token. The triage reads them; the
-  owner is asked nothing.
+  successful agent run, no Claude pre-flight answered or no listing of the offsite remote in
+  24 h, under 14 days of disk or gh token. The triage reads them; the owner is asked nothing.
 - The first tick from 06 UTC, once a day, comments the heartbeat on the open `VM heartbeat`
   issue, so its last comment says where the VM stands. A watchdog on ark-fleet alerts when that
   goes quiet.
@@ -48,6 +48,12 @@ HEARTBEAT_TITLE = "VM heartbeat"
 HEARTBEAT_HOUR = 6
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
 GIB = 1024**3
+# run_agent.sh's rows before the pre-flight and its refusal; a rate limit, the pre-flight's
+# or the run's, answered the token
+NO_PREFLIGHT = {
+    "held", "busy", "no-token", "billing-guard", "no-claude", "no-prompt", "no-item",
+    "bad-policy", "pacer-failed", "preflight-failed",
+}  # fmt: skip
 
 
 def utc(stamp: str) -> dt.datetime:
@@ -184,21 +190,50 @@ def lane(n: int, now: dt.datetime, ee: dict[str, list[float]]) -> tuple[bool | N
     return stalled, line + (", paused" if paused else "")
 
 
-def agent(now: dt.datetime) -> tuple[bool, str]:
-    """(a success in 24 h, line): runs, the windows spent, the review's decision."""
+def ledger() -> list[list[str]]:
+    """The agent's runs (scripts/agents/agent_ledger.py), the header and torn rows left out."""
     path = LOGS / "agent_runs.tsv"
-    day = now - dt.timedelta(hours=24)
     runs = []
     for ln in path.read_text().splitlines() if path.exists() else []:
         r = ln.split("\t")
         try:
-            if len(r) >= 11 and utc(r[0]) >= day:
+            if len(r) >= 11 and utc(r[0]) and float(r[7]) + float(r[8]) >= 0:
                 runs.append(r)
         except ValueError:
             continue
+    return runs
+
+
+def agent(now: dt.datetime) -> tuple[bool, str]:
+    """(a success in 24 h, line): runs, the windows spent, the review's decision."""
+    runs = [r for r in ledger() if utc(r[0]) >= now - dt.timedelta(hours=24)]
     ok = sum(r[10].startswith("success") for r in runs)
     windows = f", windows {runs[-1][7]}% of 5 h and {runs[-1][8]}% of 7 d" if runs else ""
     return ok > 0, f"agent: {len(runs)} runs, {ok} succeeded{windows}; review: none yet (#526)"
+
+
+def preflight(now: dt.datetime) -> tuple[bool, str]:
+    """(answered in 24 h, line): the Claude token's last pre-flight that answered, from the ledger.
+
+    Every row outside NO_PREFLIGHT comes after it answered, a `paced` one only when it carries
+    the windows the pre-flight read (a back-off is paced before it, with none)."""
+    runs = ledger()
+    for r in reversed(runs):
+        kind = r[10].split(":")[0]
+        if kind in NO_PREFLIGHT or (kind == "paced" and float(r[7]) + float(r[8]) == 0):
+            continue
+        return utc(r[0]) >= now - dt.timedelta(hours=24), f"claude token: pre-flight ok at {r[0]}"
+    return False, "claude token: no pre-flight ok" + (f", last row {runs[-1][10]}" if runs else "")
+
+
+def offsite(now: dt.datetime) -> tuple[bool, str]:
+    """(listed in 24 h, line): the tick's last successful listing of the offsite remote."""
+    try:
+        at = (LOGS / ".offsite_listed").read_text().strip()
+        listed = utc(at)
+    except (OSError, ValueError):
+        return False, "offsite: never listed"
+    return listed >= now - dt.timedelta(hours=24), f"offsite: listed at {at}"
 
 
 def readers() -> list[str]:
@@ -295,6 +330,12 @@ def main(argv: list[str]) -> int:
     token_days, token_line = token(now)
     if token_days is not None and token_days < FLOOR_DAYS:
         causes["gh token under 14 days"] = token_line
+    pre_ok, pre_line = preflight(now)
+    if not pre_ok:
+        causes["no Claude pre-flight ok in 24 h"] = pre_line
+    off_ok, off_line = offsite(now)
+    if not off_ok:
+        causes["no offsite listing in 24 h"] = off_line
     alert(causes)
 
     today = now.strftime("%Y-%m-%d")
@@ -325,6 +366,8 @@ def main(argv: list[str]) -> int:
                 "header lane: no unit yet, not measured",
                 *readers(),
                 token_line,
+                pre_line,
+                off_line,
                 f"hold: {held}",
                 agent_line,
             ]
