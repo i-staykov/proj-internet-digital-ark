@@ -49,8 +49,6 @@ LABEL = "needs-owner"
 # untracked file gets committed by a job nobody is watching.
 STAGED = ("docs/registers/",)
 TICK_COMMIT = "Sync fleet findings "  # the subject of the sync recipe's one commit
-# drive_intake.sh's commit, which may also touch these
-INTAKE_COMMIT, INTAKE_PATHS = "Intake ", ("data/baseline.json", "docs/brief/ding/")
 # **Pages a program writes mid-run, which must never refuse the bank.** Each is nobody's
 # work in progress, and each sits inside `STAGED`, so the next commit the tick or the bank
 # makes takes it.
@@ -228,12 +226,10 @@ def signed(root: Path, upstream: str, lines: list[str]) -> tuple[int, list[str]]
 
 
 def own_commits(root: Path, upstream: str, run: Callable) -> bool:
-    """True when every commit only this clone holds is the tick's own: a register commit or an
-    intake's.
+    """True when every commit only this clone holds is the tick's own register commit.
 
-    Such a commit (the sync recipe's step d, or its step 5) touches `STAGED` and an intake's pages
-    alone, so replaying it onto a `live` a merged PR moved is safe; a hand commit, a merge or a
-    commit beside it is not.
+    Such a commit (the sync recipe's step d) touches `STAGED` alone, so replaying it onto a
+    `live` a merged PR moved is safe; a hand commit, a merge or a commit beside it is not.
     """
     code, out = run(
         ["log", "--no-renames", "--format=%x00%P%x01%s", "--name-only", f"{upstream}..HEAD"], root
@@ -245,11 +241,9 @@ def own_commits(root: Path, upstream: str, run: Callable) -> bool:
         head, _, names = commit.partition("\n")
         parents, _, subject = head.partition("\x01")
         paths = [p for p in names.split("\n") if p.strip()]
-        intake = subject.startswith(INTAKE_COMMIT)
-        if " " in parents.strip() or not (intake or subject.startswith(TICK_COMMIT)):
+        if " " in parents.strip() or not subject.startswith(TICK_COMMIT):
             return False
-        allowed = STAGED + (INTAKE_PATHS if intake else ())
-        if not paths or not all(p.startswith(allowed) for p in paths):
+        if not paths or not all(p.startswith(STAGED) for p in paths):
             return False
     return True
 
