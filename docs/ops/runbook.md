@@ -90,7 +90,7 @@ ingest. `scripts/harness/sync_approvals.py` files one `needs-owner` issue and on
 the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
 
 **The VM** (`ARK_VM` in `local.env`, over the VPN) is set up from the laptop by `just vm install`,
-`sudo -n` for the packages, the fleet user and linger, printing the root command it needs when
+`sudo -n` for the packages and linger, printing the root command it needs when
 refused; it refuses while the tick is held. `just vm status|log` read it, status with the modes of
 `hosts.yml` and `local.env`. `just vm token gh|claude` installs a token from stdin there and prints
 the gh expiry or the agent pre-flight's answer. This checkout only pulls; it keeps no copy of the VM's data.
@@ -98,10 +98,7 @@ the gh expiry or the agent pre-flight's answer. This checkout only pulls; it kee
 | on the VM | what |
 |---|---|
 | the login | `ark-sync.timer`: the tick and the bank from `~/ark`, once `data/ark.duckdb` is there; its lane is the `local` entry of `ARK_HOSTS`; `ark-agent.timer` once `~/.config/ark/agent.env` is there |
-| `ARK_FLEET_USER` | two runners (`Nice=5`), `ark-diag-purge.timer` daily and `ark-disk-cleanup.timer` six-hourly, its service at `Nice=10`, ark-fleet `host/systemd`; legs read the bank's staged snapshot by path |
-| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories; the runner token on stdin only (ark-fleet `host/install.sh`) |
-| bounds | `ARK_DISK_FLOOR_GIB=10` (`host/install.sh`); probe bytes in `/dev/shm/ark-<uid>/<run id>`, removed at a run's end by the composite action (`run-ark-agent`), a killed run's after a day by `host/cleanup.sh` |
-| terms | the runner pool is fixed at install (`ARK_RUNNERS`, `host/install.sh`) and no workflow allocates compute |
+| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories |
 | an AV alert | hash the flagged file; a hit in a downloaded corpus is content and is kept; the detail goes under `private/security/` |
 
 **The hold.** `just hold`, on the VM or from the laptop over `ARK_VM`, disables `ark-sync.timer`,
