@@ -43,7 +43,7 @@ FLEET = "i-staykov/ark-fleet"
 LABEL = "needs-owner"
 _TITLE = re.compile(r"^Approve (.+)\? [\d,]+ EE$")
 _POTENTIAL = re.compile(r"^-\s*potential:\s*([\d,\.]+)", re.M)
-# Which of the four conditions of the standing rule a human can actually settle. 1 is the
+# Which of the four conditions a pending block names a human can actually settle. 1 is the
 # evidence class and 3 is the terms: both are judgements only the owner makes. 2 is a missing stamp
 # and 4 is a missing ingest, which are WORK, and an issue asking him to approve work he has
 # not been given is noise. Those stay in the register until the work is done.

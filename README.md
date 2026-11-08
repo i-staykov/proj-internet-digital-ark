@@ -35,7 +35,7 @@ just hold          # the VM's ark-sync.timer, pause-platform on each host, the f
 
 The hold survives a reboot: only `just hold off [name]` lifts it.
 
-## Take in what the fleet found
+## Bank what arrived
 
 ```bash
 just sync        # hourly under the VM's ark-sync.timer, and safe to run by hand
