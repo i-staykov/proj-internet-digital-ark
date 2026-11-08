@@ -271,7 +271,7 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     text = body[body.index("--body") + 1]
     lines = text.splitlines()
     assert lines[1:3] == ["GATE. 1996-2001 : a", "GATE. 2002-2013 : b"]
-    assert "unattended: ok" in lines and "hold: none" in lines
+    assert {"unattended: ok", "hold: none", "scout: no scout yet"} <= set(lines)
     assert any(ln.startswith("ticks in 24 h: 0 banked, 0 refused") for ln in lines)
     assert any(ln.startswith("agent: 1 runs, 1 succeeded, windows 2.0% of 5 h") for ln in lines)
     hb.issues = [{"number": 7, "title": "VM heartbeat", "state": "OPEN"}]
@@ -281,6 +281,28 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     os.remove(tmp_path / "data/logs/.heartbeat_day")
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))
     assert [c[2] for c in hb.calls if c[:2] == ("issue", "comment")] == ["7"]
+
+
+def test_scout_line_reads_the_last_run_and_never_raises(hb, tmp_path):
+    today = dt.date(2026, 11, 8)
+    log = tmp_path / "data/logs/agent/scouts.tsv"
+    log.parent.mkdir()
+    log.write_text(
+        "2026-10-01\tUMN DRUM lists\tnegative\t0\t#600\n\ntorn\n2099-01-01\tx\n"
+        "20261107T0305Z\tNCSA What's New\tpositive\t1200\t#601\n"
+    )
+    assert hb.scout(today) == (
+        "scout: 1 in 7 days, last 20261107T0305Z NCSA What's New, positive, 1200 EE on the sample"
+    )
+    log.write_bytes(b"\xff\x00torn")  # a torn last row is shown, its NUL blanked
+    assert hb.scout(today) == "scout: 0 in 7 days, last \ufffd torn ?, ?, ? EE on the sample"
+    log.write_text("2026-11-08\tNCSA " + chr(0x2014) + " 1996\tnegative\t0\t#602\n")
+    assert hb.scout(today) == "scout: the last row fails the public scan"
+    log.unlink()
+    log.mkdir()
+    assert hb.scout(today) == "scout: unreadable, IsADirectoryError"
+    log.rmdir()
+    assert hb.scout(today) == "scout: no scout yet"
 
 
 def test_a_body_failing_the_scan_is_replaced(hb):
