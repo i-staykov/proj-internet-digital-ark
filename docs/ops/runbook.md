@@ -167,24 +167,20 @@ labelled `needs-owner`, opens.
 
 ## Intake
 
-Nothing of his enters the store. Intake runs on the VM, in a worktree of `~/ark`, his archive
-copied there once; in the sync-lock script, this replaces the ingest and export lines:
-
-```bash
-just intake <his.zip>      # verify the sha256, extract, remeasure with his calculator, point baseline.json at the new marker, `ark intake`, drop the release replaced
-just reproduce deliver     # export, stats, check, then prune.py --round --write
-uv run python scripts/round/round_figures.py --verify
-uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
-```
+Nothing of his enters the store. The one step is the owner's: upload his zip or 7z and its
+`<name>.sha256` to `gdrive:ark-offsite/releases/`. The next tick on the VM, after a green bank and
+under the sync lock, copies it, checks the digest, runs `just intake` (extract, remeasure with his
+calculator, point `data/baseline.json` at the new marker, `ark intake`, drop the release replaced),
+transcribes a changed brief and pushes those pages and `releases.md` to `live`; the bank after it
+re-exports (`scripts/harness/drive_intake.sh`). A mismatch, a failure, a zip with no digest or a VM
+short of memory for his calculator is a `vm-alert`, and a failed upload waits for its line in
+`data/logs/drive_intake.tsv` to go.
 
 `ark intake` checks each of his files once and writes `data/held/<marker>/` (`all.txt`,
 `candidates.txt`, `held.json`, and a sorted copy of any file of his that is not sorted, unique and
 lowercase), about 4.3 GB, dropping the previous release's. While those are missing or stale, export,
 stats, seed and the pricers refuse and `ark check` FAILs, each naming `ark intake`. Export before
-the check: a check after a new release but before the export flags every credited name. `ark stats`
-prints the release it measured against, and `--verify` reading zero overlap proves the export diffed
-against the new one; a round diffed against a stale release counts credited work as net-new. On
-`just intake`, `--mail <file> --round <n> --received '<stamp>'` also writes his verdict's row in
-`docs/registers/rounds.md`. Run it all in a worktree and PR `data/baseline.json`, `releases.md`,
-`rounds.md` and the brief: until the checkout pulls them, its held sets name a release its JSON
-does not, so its export and pricers refuse, naming `ark intake`.
+the check: a check after a new release but before the export flags every credited name; a round
+diffed against a stale release counts credited work as net-new. His verdict's row in
+`docs/registers/rounds.md` is `uv run python scripts/round/rounds.py --mail <file> --round <n>
+--received '<stamp>'`.

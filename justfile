@@ -138,6 +138,10 @@ sync fleet="~/GitHub/ark-fleet":
     uv run python scripts/harness/bank_hygiene.py gate --write || true
     # 4. Round cleanup, once per round credited in data/baseline.json (scripts/round/prune.py).
     uv run python scripts/harness/bank_trigger.py prune || true
+    # 5. His release from Drive on the bank host, after a green bank, so the next one re-exports.
+    if [ "$BANK_RC" -eq 0 ] && [ ! -e data/logs/bank_red.json ] && grep -q 'local:' <<<"$ARK_HOSTS"; then
+        bash scripts/harness/drive_intake.sh || true
+    fi
     exit "$BANK_RC"
 
 # bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless

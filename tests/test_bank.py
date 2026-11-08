@@ -250,6 +250,17 @@ def test_the_gate_opens_one_issue_per_crossing(tmp_path, brief, listed, said, as
         assert labels == ["needs-owner,ship-now"]
 
 
+def test_an_intakes_own_commit_rebases_and_code_beside_it_does_not():
+    def log(subject, *paths):
+        return lambda args, root: (0, f"\x00p1\x01{subject}\n\n" + "\n".join(paths))
+
+    intake = "Intake merge261120: his release r.zip from Drive"
+    pages = ("data/baseline.json", "docs/registers/releases.md", "docs/brief/ding/project-brief.md")
+    assert hyg.own_commits(ROOT, "origin/live", log(intake, *pages))
+    assert not hyg.own_commits(ROOT, "origin/live", log(intake, "src/ark/db.py"))
+    assert not hyg.own_commits(ROOT, "origin/live", log("Sync fleet findings x", pages[0]))
+
+
 def test_a_brief_without_the_gate_line_is_refused(tmp_path: Path, monkeypatch, capsys) -> None:
     """A brief without the gate lines carries only the core field 5."""
     monkeypatch.setattr(hyg, "BRIEF", tmp_path / "brief.json")

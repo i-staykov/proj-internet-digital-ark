@@ -48,6 +48,8 @@ LABEL = "needs-owner"
 # untracked file gets committed by a job nobody is watching.
 STAGED = ("docs/registers/",)
 TICK_COMMIT = "Sync fleet findings "  # the subject of the sync recipe's one commit
+# drive_intake.sh's commit, which may also touch these
+INTAKE_COMMIT, INTAKE_PATHS = "Intake ", ("data/baseline.json", "docs/brief/ding/")
 # **Pages a program writes mid-run, which must never refuse the bank.** Each is nobody's
 # work in progress, and each sits inside `STAGED`, so the next commit the tick or the bank
 # makes takes it.
@@ -82,13 +84,14 @@ UNREACHABLE = (
 
 
 def clean_env() -> dict[str, str]:
-    """The environment minus git's own variables.
+    """The environment minus git's own variables but the identity the tick sets.
 
     A hook exports GIT_DIR and GIT_INDEX_FILE for the repository it runs in, and a git
     subprocess acts on that repository whatever `cwd` says. The tests here once staged
     their fixture files into the real index that way, from inside the pre-commit hook.
     """
-    return {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    who = ("GIT_AUTHOR_", "GIT_COMMITTER_")
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_") or k.startswith(who)}
 
 
 def git(args: list[str], cwd: Path = ROOT) -> tuple[int, str]:
@@ -221,10 +224,12 @@ def preflight(
 
 
 def own_commits(root: Path, upstream: str, run: Callable) -> bool:
-    """True when every commit only this clone holds is the tick's own register commit.
+    """True when every commit only this clone holds is the tick's own: a register commit or an
+    intake's.
 
-    Such a commit (the sync recipe's step d) touches `STAGED` alone, so replaying it onto a
-    `live` a merged PR moved is safe; a hand commit, a merge or a commit beside it is not.
+    Such a commit (the sync recipe's step d, or its step 5) touches `STAGED` and an intake's pages
+    alone, so replaying it onto a `live` a merged PR moved is safe; a hand commit, a merge or a
+    commit beside it is not.
     """
     code, out = run(
         ["log", "--no-renames", "--format=%x00%P%x01%s", "--name-only", f"{upstream}..HEAD"], root
@@ -236,9 +241,11 @@ def own_commits(root: Path, upstream: str, run: Callable) -> bool:
         head, _, names = commit.partition("\n")
         parents, _, subject = head.partition("\x01")
         paths = [p for p in names.split("\n") if p.strip()]
-        if " " in parents.strip() or not subject.startswith(TICK_COMMIT):
+        intake = subject.startswith(INTAKE_COMMIT)
+        if " " in parents.strip() or not (intake or subject.startswith(TICK_COMMIT)):
             return False
-        if not paths or not all(p.startswith(STAGED) for p in paths):
+        allowed = STAGED + (INTAKE_PATHS if intake else ())
+        if not paths or not all(p.startswith(allowed) for p in paths):
             return False
     return True
 

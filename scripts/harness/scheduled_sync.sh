@@ -33,6 +33,9 @@ for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do
     [ -n "${!v:-}" ] || continue
     export "$v"; [ "$v" = ARK_DB_MEMORY_LIMIT ] || FLOOR+=(-E "$v=${!v}")
 done
+# The tick's commits go public, so they name the tick, never a login or a machine (AGENTS.md).
+export GIT_AUTHOR_NAME=ark-tick GIT_COMMITTER_NAME=ark-tick
+export GIT_AUTHOR_EMAIL=ark-tick@invalid GIT_COMMITTER_EMAIL=ark-tick@invalid
 
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs
