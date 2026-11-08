@@ -7,8 +7,9 @@ them. So their failures are the quiet kind:
    wholesale `git add docs/`. A clone with uncommitted tracked edits, or with untracked
    files under the paths the bank stages, is refused BEFORE anything is written or fetched.
 2. **A diverged clone.** Approvals now arrive as pull requests merged from a phone,
-   so `live` moves without this machine. A fast-forward-only pull is the whole fix:
-   it takes the merge and refuses to invent one.
+   so `live` moves without this machine. A fast-forward-only pull takes the merge and
+   refuses to invent one; a clone ahead only by the tick's own register commits rebases
+   them, and a conflict aborts the rebase and refuses.
 3. **A second notification for the same crossing.** The gate issue says the round
    is over 3%. Opened once it is information; opened hourly it is noise, and the
    latch is deliberately two independent checks, a local ledger and the open-issue
@@ -46,6 +47,7 @@ LABEL = "needs-owner"
 # both recipes' `git add` line: widening that without widening this is how an
 # untracked file gets committed by a job nobody is watching.
 STAGED = ("docs/registers/",)
+TICK_COMMIT = "Sync fleet findings "  # the subject of the sync recipe's one commit
 # **Pages a program writes mid-run, which must never refuse the bank.** Each is nobody's
 # work in progress, and each sits inside `STAGED`, so the next commit the tick or the bank
 # makes takes it.
@@ -197,18 +199,46 @@ def preflight(
     if not pull:
         return 0, lines
     code, out = run(["pull", "--ff-only", remote, branch], root)
-    if code != 0:
-        lines.append(f"REFUSED: `git pull --ff-only {remote} {branch}` failed:")
-        lines.append(f"  {out.splitlines()[-1] if out else 'no output'}")
-        if code == 124 or unreachable(out):
-            lines.append(f"  {remote} did not answer. Nothing was fetched; the next tick retries.")
-        else:
-            lines.append(
-                "  the clone has diverged. Reconcile by hand; the bank never force-pushes."
-            )
+    if code == 0:
+        lines.append(f"fast-forwarded from {remote}/{branch}")
+        return 0, lines
+    if code != 124 and not unreachable(out) and own_commits(root, f"{remote}/{branch}", run):
+        code, out = run(["rebase", "--autostash", f"{remote}/{branch}"], root)
+        if code == 0:
+            lines.append(f"rebased the tick's own commits onto {remote}/{branch}")
+            return 0, lines
+        run(["rebase", "--abort"], root)
+        lines.append(f"REFUSED: rebasing the tick's own commits onto {remote}/{branch} conflicts")
+        lines.append("  rebase aborted, the clone has diverged. Reconcile by hand.")
         return 2, lines
-    lines.append(f"fast-forwarded from {remote}/{branch}")
-    return 0, lines
+    lines.append(f"REFUSED: `git pull --ff-only {remote} {branch}` failed:")
+    lines.append(f"  {out.splitlines()[-1] if out else 'no output'}")
+    if code == 124 or unreachable(out):
+        lines.append(f"  {remote} did not answer. Nothing was fetched; the next tick retries.")
+    else:
+        lines.append("  the clone has diverged. Reconcile by hand; the bank never force-pushes.")
+    return 2, lines
+
+
+def own_commits(root: Path, upstream: str, run: Callable) -> bool:
+    """True when every commit only this clone holds is the tick's own register commit.
+
+    Such a commit (the sync recipe's step d) touches `STAGED` alone, so replaying it onto a
+    `live` a merged PR moved is safe; a hand commit, a merge or a commit beside it is not.
+    """
+    code, out = run(["log", "--format=%x00%P%x01%s", "--name-only", f"{upstream}..HEAD"], root)
+    commits = [c for c in out.split("\0") if c.strip()]
+    if code != 0 or not commits:
+        return False
+    for commit in commits:
+        head, _, names = commit.partition("\n")
+        parents, _, subject = head.partition("\x01")
+        paths = [p for p in names.split("\n") if p.strip()]
+        if " " in parents.strip() or not subject.startswith(TICK_COMMIT):
+            return False
+        if not paths or not all(p.startswith(STAGED) for p in paths):
+            return False
+    return True
 
 
 def latched(path: Path = LATCH) -> set[tuple[str, str]]:

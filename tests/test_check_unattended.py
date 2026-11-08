@@ -212,3 +212,80 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     assert rc == 0 and [ln.split()[3] for ln in started] == ["ark-clueweb"], (last, started)
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
+
+
+def diverge(repo: Path, env: dict, subject: str, clash: bool = False) -> str:
+    """`live` moved by a PR that edits a register page, then this clone's own commit to that
+    page on the old tip, on the PR's line when `clash`; lock freed. Returns HEAD."""
+    page = repo / "docs/registers/questions.md"
+    base = page.read_text()
+
+    def commit(text: str, message: str) -> None:
+        page.write_text(text)
+        subprocess.run([*GIT, "commit", "-qam", message], cwd=repo, env=env, check=True)
+
+    commit("theirs\n" + base, "a merged PR")
+    subprocess.run([*GIT, "push", "-q", "origin", "HEAD:live"], cwd=repo, env=env, check=True)
+    subprocess.run([*GIT, "reset", "-q", "--hard", "HEAD~1"], cwd=repo, env=env, check=True)
+    commit(("ours\n" + base) if clash else (base + "ours\n"), subject)
+    for key, value in (("user.name", "t"), ("user.email", "t@t")):
+        subprocess.run(["git", "config", key, value], cwd=repo, env=env, check=True)
+    (repo / "data/logs/.sync.lock/pid").unlink()
+    (repo / "data/logs/.sync.lock").rmdir()
+    return git_out(repo, env, "rev-parse", "HEAD")
+
+
+def git_out(repo: Path, env: dict, *args: str) -> str:
+    done = subprocess.run(["git", *args], cwd=repo, env=env, capture_output=True, text=True)
+    return done.stdout.strip()
+
+
+def test_the_ticks_own_commit_rebases_onto_a_moved_live(clone):
+    repo, env = clone
+    diverge(repo, env, "Sync fleet findings round 9")
+    (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
+    tick(repo, env)
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert "rebased the tick's own commits onto origin/live" in log, log
+    assert "\nbank: " in log, log  # the bank ran; the temp clone has no store for it to fill
+    assert git_out(repo, env, "log", "--format=%s", "-2").splitlines() == [
+        "Sync fleet findings round 9",
+        "a merged PR",
+    ]
+    assert git_out(repo, env, "rev-list", "--merges", "HEAD") == ""
+
+
+def test_a_conflicting_rebase_aborts_and_the_tick_names_the_divergence(clone):
+    repo, env = clone
+    head = diverge(repo, env, "Sync fleet findings round 9", clash=True)
+    rc, last = tick(repo, env)
+    assert rc == 2 and last.split()[2] == "sync=2", last
+    assert git_out(repo, env, "rev-parse", "HEAD") == head
+    assert not (repo / ".git/rebase-merge").exists()
+    assert "the clone has diverged" in (repo / "data/logs/ticks.tsv").read_text()
+
+
+@pytest.mark.parametrize("dirty", [False, True])
+def test_a_hand_commit_or_a_dirty_tree_still_refuses(clone, dirty):
+    repo, env = clone
+    head = diverge(repo, env, "a hand edit")
+    if dirty:
+        subprocess.run([*GIT, "reset", "-q", "--soft", "HEAD~1"], cwd=repo, env=env, check=True)
+        head = git_out(repo, env, "rev-parse", "HEAD")
+    rc, last = tick(repo, env)
+    assert rc == 2 and last.split()[2] == "sync=2", last
+    assert git_out(repo, env, "rev-parse", "HEAD") == head
+    why = "the clone is dirty" if dirty else "Reconcile by hand; the bank never force-pushes"
+    assert why in (repo / "data/logs/scheduled_sync.log").read_text()
+
+
+def test_the_tick_pulls_only_under_the_lock(clone):
+    repo, env = clone
+    page = repo / "docs/registers/questions.md"
+    page.write_text(page.read_text() + "\nmerged\n")
+    subprocess.run([*GIT, "commit", "-qam", "a merged PR"], cwd=repo, env=env, check=True)
+    subprocess.run([*GIT, "push", "-q", "origin", "HEAD:live"], cwd=repo, env=env, check=True)
+    subprocess.run([*GIT, "reset", "-q", "--hard", "HEAD~1"], cwd=repo, env=env, check=True)
+    head = git_out(repo, env, "rev-parse", "HEAD")
+    tick(repo, env)  # the fixture's lock is held: the sync stops before its preflight
+    assert git_out(repo, env, "rev-parse", "HEAD") == head
