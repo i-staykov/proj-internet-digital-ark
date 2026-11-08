@@ -1,12 +1,8 @@
 [Unit]
-Description=The ark's tick at five past every hour, and three minutes after a boot
+Description=The ark's tick at five past every hour
 
 [Timer]
 OnCalendar=*-*-* *:05:00 UTC
-# After any boot, a :05 missed while down or the tick's own reboot (scheduled_sync.sh): the
-# readers and the check are back before the next :05. Not Persistent=, whose catch-up on
-# `just hold off` would race the forced bank (hold.sh).
-OnBootSec=3min
 
 [Install]
 WantedBy=timers.target

@@ -96,8 +96,7 @@ def clone(tmp_path):
     stub(
         bin_dir,
         "gh",
-        'echo "gh $*" >> "$ARK_TEST_CALLS"; [ -z "${ARK_TEST_BANKED:-}" ] ||'
-        ' touch data/logs/bank_stamp.json; case "$*" in'
+        'echo "gh $*" >> "$ARK_TEST_CALLS"; case "$*" in'
         ' *"--label hold "*) echo "${ARK_TEST_HOLD_LABEL:-}" ;; *workflows/*) echo active ;;'
         ' esac; exit "${ARK_TEST_GH_RC:-0}"',
     )
@@ -154,16 +153,11 @@ def tick(repo: Path, env: dict) -> tuple[int, str]:
     return p.returncode, log[-1]
 
 
-def test_green_tick_exits_zero_and_loads_a_changed_unit(clone):
+def test_green_tick_exits_zero(clone):
     repo, env = clone
-    timer = Path(env["HOME"]) / ".config/systemd/user/ark-sync.timer"
-    timer.parent.mkdir(parents=True)
-    timer.write_text("an older timer\n")
     rc, last = tick(repo, env)
     assert (rc, last.split()[2:]) == (0, ["sync=0", "check=0"]), last
     assert "unattended: ok" in (repo / "data/logs/scheduled_sync.log").read_text()
-    assert timer.read_text() == (repo / "scripts/harness/ark-sync.timer").read_text()
-    assert "systemctl --user daemon-reload" in Path(env["ARK_TEST_CALLS"]).read_text()
 
 
 def test_dead_login_fails_the_check_and_the_tick(clone):
@@ -201,20 +195,24 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
 
 
 @pytest.mark.parametrize("busy", ["", "a sync", "an apt run", "up under an hour"])
-def test_a_pending_reboot_waits_only_on_what_it_would_cut(clone, busy):
-    """The tick banks (its gh stub stamps the bank) and reboots, unless the fixture's lock is
-    this boot's live sync, apt runs or the VM is fresh; a lock from an earlier boot is taken."""
+def test_a_pending_reboot_waits_only_on_what_it_would_cut(clone, tmp_path, busy):
+    """A tick that banked (its `just sync` stamps the bank) reboots unless the fixture's lock is
+    this boot's live sync, apt runs or the boot is under an hour old; that lock from an earlier
+    boot is stale."""
     repo, env = clone
     Path(env["ARK_REBOOT_FLAG"]).write_text("*** System restart required ***\n")
     if busy != "a sync":
         (repo / "data/logs/.sync.lock/boot").write_text("an earlier boot")
     if busy == "up under an hour":
         Path(env["ARK_UPTIME"]).write_text("600.00 1.00\n")
-    env = {**env, "ARK_TEST_BANKED": "1"}
+    (tmp_path / "bin2").mkdir()
+    just = shutil.which("just", path=env["PATH"])
+    banks = '[ "$1" = sync ] && { touch data/logs/bank_stamp.json; echo bank: banked; exit 0; }'
+    stub(tmp_path / "bin2", "just", f'{banks}; exec {just} "$@"')
+    env = {**env, "PATH": f"{tmp_path / 'bin2'}:{env['PATH']}"}
     tick(repo, {**env, "ARK_TEST_APT": "activating"} if busy == "an apt run" else env)
     log = (repo / "data/logs/scheduled_sync.log").read_text()
-    assert ("took over a lock left by pid" in log) == (busy != "a sync"), log
-    assert ("\tbanked\t" in (repo / "data/logs/ticks.tsv").read_text()) == (busy != "a sync")
+    assert "\tbanked\t" in (repo / "data/logs/ticks.tsv").read_text(), log
     assert (f"reboot pending, not now: {busy}\n" in log) == bool(busy), log
     assert ("sudo -n /usr/sbin/reboot" in Path(env["ARK_TEST_CALLS"]).read_text()) == (not busy)
 

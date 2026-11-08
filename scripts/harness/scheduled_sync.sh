@@ -51,15 +51,6 @@ if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install
     for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
 fi
 
-# The tick's and the agent's installed units follow HEAD too: a changed file is copied and
-# loaded, which restarts no run (vm_install.sh installs them).
-reload=""
-for f in scripts/harness/ark-{sync,agent}.{service,timer}; do
-    u=~/.config/systemd/user/${f##*/}
-    [ ! -f "$u" ] || cmp -s "$f" "$u" || { cp "$f" "$u" && reload=1; }
-done
-[ -z "$reload" ] || systemctl --user daemon-reload >> "$LOG" 2>&1
-
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
 hold_label() {  # on: before the sync, so it exits held; off: after, so the forced bank has the lock
@@ -151,8 +142,8 @@ tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
 
 # unattended-upgrades installs and leaves the flag, never rebooting itself: the tick reboots, last,
 # once nothing a reboot would cut runs (its own bank is done by then). Walkers and readers keep
-# what they wrote; cron, the timers and the tick three minutes after boot bring them back, the
-# sync lock stale in the new boot (sync_lock.sh). Never in a boot's first hour, so a flag that
+# what they wrote; cron's @reboot brings the walkers back at once, the next :05 tick the readers,
+# the sync lock stale in the new boot (sync_lock.sh). Never in a boot's first hour, so a flag that
 # comes back at once cannot loop. A tick that waits says why, for the heartbeat's 24 h alert.
 FLAG="${ARK_REBOOT_FLAG:-/var/run/reboot-required}"
 busy() {

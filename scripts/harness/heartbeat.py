@@ -258,12 +258,14 @@ def reboot(now: dt.datetime) -> tuple[bool, str]:
         up = float(UPTIME.read_text().split()[0])
         boot = f"up since {now - dt.timedelta(seconds=up):%F %H:%M} UTC"
     except (OSError, ValueError, IndexError):
-        boot = "boot time unknown"
+        up, boot = None, "boot time unknown"
     if not REBOOT.exists():
-        seen.unlink(missing_ok=True)
+        # kept through a boot's first hour, when the tick never reboots, so a loop alerts
+        if up is None or up >= 3600:
+            seen.unlink(missing_ok=True)
         return False, f"reboot: none pending, {boot}"
     if not seen.exists():
-        seen.touch()  # kept across a boot, so a flag that keeps coming back alerts too
+        seen.touch()
     since = dt.datetime.fromtimestamp(seen.stat().st_mtime, dt.UTC)
     return now - since >= dt.timedelta(hours=24), f"reboot: pending since {since:%F %H:%M}, {boot}"
 
