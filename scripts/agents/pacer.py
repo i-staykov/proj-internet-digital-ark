@@ -1,18 +1,17 @@
 """Pace the agent on the subscription's windows, leaving the owner's share.
 
 The owner works on the same account, so the windows are the account's total, whoever spent
-it, and the pre-flight's fresh reading decides each run: nothing starts at or over the mode's
-`five_hour_stop` percent of the five-hour window (a mode names its own under `modes`, else
-`pacing`'s), nor above the seven-day pace line `seven_day_ceiling * min(1, elapsed /
-(pace_days * 86400))`, elapsed being the window's age (seven days less the time to its
-`resetsAt`); a mode with its own `seven_day_stop` stops flat at that percent of the seven-day
-window instead: scout and cdx run flat up to the ceiling while work and triage follow the
-pace line, so the scouts keep a reserve when the owner has spent the window. The account's
-other half is the owner's whatever the agent does. A window the stream did not report is
-unmeasured and does not stop a run. A call the server refused for its limit
-(`rate_limit_info.status` `rejected`; `allowed_warning` is a warning) backs the agent off to
-that window's reset in `data/logs/agent/.backoff_until`, read before the pre-flight, so a
-back-off costs no call. The knobs are `pacing` in `agent/policy.json`.
+it, and the pre-flight's fresh reading decides each run: a mode stops flat at its
+`five_hour_stop` percent of the five-hour window (its own under `modes`, else `pacing`'s) and
+at its `seven_day_stop` percent of the seven-day window (under `modes`). A mode without a
+`seven_day_stop` (none today) follows the pace line `seven_day_ceiling * min(1, elapsed /
+(pace_days * 86400))` instead, elapsed being the window's age (seven days less the time to
+its `resetsAt`). The account's other half is the owner's whatever the agent does. A window
+the stream did not report is unmeasured and does not stop a run. A call the server refused
+for its limit (`rate_limit_info.status` `rejected`; `allowed_warning` is a warning) backs the
+agent off to that window's reset in `data/logs/agent/.backoff_until`, read before the
+pre-flight, so a back-off costs no call. The knobs are `pacing` and the modes' stops in
+`agent/policy.json`.
 
     python3 scripts/agents/pacer.py check PREFLIGHT.jsonl [--mode M]   0 run, 3 with the reason
     python3 scripts/agents/pacer.py backoff RUN.jsonl       the back-off, when the run was refused

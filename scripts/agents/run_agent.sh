@@ -10,8 +10,8 @@
 # credential the run inherits (every other ANTHROPIC_* and CLAUDE_* variable is dropped, and
 # `billing_guard.py` refuses a settings file that could bill another); a pre-flight call with
 # no tools proves the token answers and reads the account's windows, which the row carries and
-# `pacer.py` judges: at the five-hour stop, over the seven-day pace line or inside a back-off
-# the run ends as a `paced` row, no model call.
+# `pacer.py` judges: at the mode's five-hour or seven-day stop or inside a back-off the run
+# ends as a `paced` row, no model call.
 # A work run takes the queue's top item (`work_queue.py`), one attempt; parked after three. A
 # run that hit its cap keeps its session on the item, and the next work run resumes it once,
 # then starts fresh from the item's note. A scheduled mode (`schedule`: UTC hours and ISO
