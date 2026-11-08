@@ -65,6 +65,7 @@ ROOT = r"^[^/]*\)/$"
 PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
+PARKS = 3  # starts a subpage parks on before it is dropped; its parent is done, nothing re-adds it
 ASKED = {  # EE a question, laws.md; edge, pool unmeasured
     "ask-gap": {"p1": 0.013, "p2": 2.3},
     "ask-edge-2002": {"p1": 0.26},  # the edge price, 0.17 to 0.26: priced, not measured
@@ -250,6 +251,7 @@ class Lane:
                 self.subq.append(task)
                 self.meta[task] = meta
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
+        self.parked = set()  # subpages parked this start, owed to the next one
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
         self.starts, self.floors = 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
@@ -313,7 +315,7 @@ class Lane:
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
 
     def save_pending(self) -> None:
-        owed = self.subq + sorted(self.inflight & self.meta.keys())
+        owed = self.subq + sorted(self.inflight & self.meta.keys()) + sorted(self.parked)
         tmp = self.pending.with_suffix(".tmp")
         tmp.write_text("".join(encode(t, self.meta[t]) + "\n" for t in owed))
         os.replace(tmp, self.pending)
@@ -486,10 +488,16 @@ class Lane:
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
-            if tries >= 8 and not address:
+            if tries >= 8 and not address:  # a page or question is not done: the next start has it
                 self.inflight.discard(task)
+                meta = self.meta.get(task, ())
+                parks = int(meta[3]) + 1 if len(meta) > 3 else 1  # a subpage's, kept with it
+                if meta and parks < PARKS:
+                    self.meta[task] = (*meta[:3], str(parks))
+                    self.parked.add(task)
                 self.save_pending()
-                self.log.write(f"# parked {status} {key}: asked again next start\n")
+                again = "dropped" if meta and parks >= PARKS else "asked again next start"
+                self.log.write(f"# parked {status} {key}: {again}\n")
             elif status == "HTTP504":  # the page's silence, not the address's: no pause
                 self.requeue(task, front=True)
             elif status in THROTTLES:
@@ -511,7 +519,7 @@ class Lane:
             self.refused = self.transient = 0
             (self.a.state_dir / "answered").touch()
         self.inflight.discard(task)
-        role, parent, stop = self.meta.pop(task, ("", "", ""))
+        role, parent, stop, *_ = self.meta.pop(task, ("", "", ""))
         if role == "cut" and edge and edge[0] < stop:  # the lower siblings came before the cut
             sib = {t for t in self.subq if self.meta[t][1] == parent and t[2] < task[2]}
             self.subq = [t for t in self.subq if t not in sib]
@@ -580,9 +588,10 @@ def main() -> None:
         time.sleep(5 if i < a.workers - 1 else 0)
     for t in threads:
         t.join()
-    idle = " idle" if lane.drained and not STOP.is_set() else ""  # a stop is no empty queue
+    owed = len(lane.subq) + len(lane.parked)  # a parked subpage is owed to the next start
+    idle = " idle" if lane.drained and not (owed or STOP.is_set()) else ""  # nor is a stop
     stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    lane.log.write(f"# exit {stamp}{idle} pending={len(lane.subq)}\n")
+    lane.log.write(f"# exit {stamp}{idle} pending={owed}\n")
 
 
 if __name__ == "__main__":
