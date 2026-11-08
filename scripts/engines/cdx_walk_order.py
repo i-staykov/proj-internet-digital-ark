@@ -5,7 +5,8 @@ unit. Each `walk_*` journal is priced once: its (host, year) rows absent from hi
 and from our additions banked before the walk (`data/queue/cdx_held/`), weighted by his English
 share, by binary search in the C-sorted year files. The output, `{"units": {"<suffix> <kind>":
 {"p1", "p2", "n", "s"}}}`, EE and seconds an answered request, the seconds every request of the
-unit cost, failures too, is what the lanes re-read; a unit no lane has answered keeps its price.
+unit cost, failures too, is what the lanes re-read; a unit no lane has answered keeps its price,
+and the file's `floor`, the lanes' per-window floor (`levers.json`), is kept as it stands.
 """
 
 from __future__ import annotations
@@ -109,9 +110,10 @@ def main() -> None:
                     print(f"unpriced {key}: {exc}")
                     continue
                 units[unit][part] += cache["journals"][key]
-    order = json.loads(out.read_text()).get("units", {}) if out.exists() else {}
-    order.update(prices(units))
-    for path, doc in ((out, {"marker": baseline["marker"], "units": order}), (cache_path, cache)):
+    last = json.loads(out.read_text()) if out.exists() else {}
+    order = {**last.get("units", {}), **prices(units)}
+    ranked = {**last, "marker": baseline["marker"], "units": order}  # its `floor` stays
+    for path, doc in ((out, ranked), (cache_path, cache)):
         path.with_suffix(".tmp").write_text(json.dumps(doc, indent=1))
         os.replace(path.with_suffix(".tmp"), path)
     best = max(order.items(), key=lambda kv: kv[1]["p1"] + kv[1]["p2"], default=("none", {}))
