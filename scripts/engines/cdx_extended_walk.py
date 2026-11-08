@@ -64,7 +64,10 @@ ROOT = r"^[^/]*\)/$"
 PAGE = 1000
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 DROP_AFTER = 5  # answered requests priced at nothing before a unit is dropped
-ASKED = {"ask-gap": {"p1": 0.013, "p2": 2.3}}  # EE a question, laws.md; edge, pool unmeasured
+ASKED = {  # EE a question, laws.md; edge, pool unmeasured
+    "ask-gap": {"p1": 0.013, "p2": 2.3},
+    "ask-edge-2002": {"p1": 0.26},  # the edge price, 0.17 to 0.26: priced, not measured
+}
 EARLY = 0  # starts of every four, owed subpages or not, that the 1996 to 2001 order takes, 0 to 3
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
 THROTTLES = {"HTTP429", "HTTP503"}
@@ -111,7 +114,9 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
     return [(sfx, size // 10, page * 10 + k, *rest) for k in ks]
 
 
-def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[list, ...]:
+def rank(
+    units, order: dict, asked: dict, explore: int, floor: float, floor_1996: float | None = None
+) -> tuple[list, ...]:
     """(priced, exploring, waiting, early): every priced unit by its EE a second over both windows,
     every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
     question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
@@ -119,13 +124,17 @@ def rank(units, order: dict, asked: dict, explore: int, floor: float) -> tuple[l
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
     waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
     `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
-    `DROP_AFTER` answered requests is dropped."""
+    `DROP_AFTER` answered requests is dropped. `ask-edge-2002` pays 1996 to 2001 alone and stops
+    itself under `floor_1996`, the window's floor in EE an answered request when
+    `cdx_order.json` carries one (`floor`); none, no stop."""
     priced, exploring, waiting, early = [], [], [], []
     for u in units:
         price, scale = order.get(f"{u[0]} {u[1]}") or {}, PAGE if u[1] == "ask" else 1
         if u[1] == "ask" and price.get("n", 0) < explore * scale:  # a question a thousandth page
             price = {**ASKED.get(u[0], {}), "s": ASK_SECONDS}
         p1, total = price.get("p1", 0), price.get("p1", 0) + price.get("p2", 0)
+        if u[0] == "ask-edge-2002" and floor_1996 is not None and p1 < floor_1996:
+            continue
         seconds = max(price.get("s") or PAGE_SECONDS, floor)
         if p1 > 0:
             early.append((-p1 / seconds, u))
@@ -233,7 +242,7 @@ class Lane:
                 self.meta[task] = meta
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
-        self.starts = 0
+        self.starts, self.floors = 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
@@ -271,13 +280,19 @@ class Lane:
         mtime = self.a.order.stat().st_mtime if self.a.order.exists() else 0.0
         if mtime != self.order_mtime:
             try:
-                self.order = json.loads(self.a.order.read_text()).get("units", {}) if mtime else {}
+                doc = json.loads(self.a.order.read_text()) if mtime else {}
+                self.order, self.floors = doc.get("units", {}), doc.get("floor", {})
                 self.order_mtime, force = mtime, True
             except (OSError, ValueError):
                 pass
         if force:
             self.ranked, self.exploring, self.waiting, self.early = rank(
-                self.pages, self.order, self.asked, 2, self.a.min_interval
+                self.pages,
+                self.order,
+                self.asked,
+                2,
+                self.a.min_interval,
+                self.floors.get("1996-2001"),
             )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
 
