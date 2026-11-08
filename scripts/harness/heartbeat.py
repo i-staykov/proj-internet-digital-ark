@@ -71,7 +71,12 @@ def gh(*args: str) -> tuple[int, str]:
 
 
 def verdict(sync_rc: int, sync_out: str, start: float) -> tuple[str, str]:
-    lines = [ln.strip() for ln in sync_out.splitlines() if ln.strip()]
+    # `just`'s own "error: recipe `sync` failed" line names no cause, so the line before it does
+    lines = [
+        ln.strip()
+        for ln in sync_out.splitlines()
+        if ln.strip() and not ln.startswith("error: recipe")
+    ]
     bank = next((ln for ln in reversed(lines) if ln.startswith("bank: ")), "")
     if (LOGS / "bank_red.json").exists():
         return "red", bank or "BANK RED stands"

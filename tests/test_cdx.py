@@ -507,3 +507,69 @@ def test_a_refused_connection_ladder_caps_at_two_minutes_and_a_wall_at_fifteen()
         900,
     ]
     assert extended.refusal_pause(6, "OSError") == 900, "ENETDOWN is an OSError, a wall"
+
+
+def test_pool_questions_bracket_the_2001_edge_by_his_2002_file(tmp_path, monkeypatch, capsys):
+    import duckdb
+
+    from ark import held
+
+    pq = script("engines/pool_questions.py")
+    release, data = tmp_path / "release", tmp_path / "data"
+    (data / "queue").mkdir(parents=True)
+    his_years = {1998: ["gap.com"], 2000: ["gap.com", "edge.com", "both.com", "x.com", "plain.com"]}
+    his_years[2001] = ["both.com"]
+    years = {}
+    for y in range(1996, 2002):
+        years[y] = release / f"{y}.txt"
+        years[y].parent.mkdir(exist_ok=True)
+        years[y].write_text("".join(n + "\n" for n in sorted(his_years.get(y, []))))
+    (release / "all.txt").write_text(
+        "".join(n + "\n" for n in sorted({*his_years[2000], "gap.com"}))
+    )
+    (release / "2002.txt").write_text("Edge.com\r\nours.com\nboth.com\ngap.com\npool.com\nx.com\n")
+    his = held.Held("m", release, release, years, release / "all.txt", release / "c", (), {})
+    monkeypatch.setattr(held, "load", lambda baseline=None: his)
+    monkeypatch.setattr(pq, "queried_domains", lambda *_: {"x.com"})
+    monkeypatch.setattr(pq, "english_weights", lambda: {"com": 1.0})
+    monkeypatch.setattr(pq, "DATA", data)
+    monkeypatch.setattr(pq, "OUT", data / "queue/pool_questions.tsv")
+    conn = duckdb.connect(str(data / "ark.duckdb"))
+    conn.execute("CREATE TABLE domain (domain TEXT, tld TEXT)")
+    conn.execute("CREATE TABLE domain_year (domain TEXT, assigned_year INTEGER)")
+    names = ["gap.com", "edge.com", "ours.com", "both.com", "x.com", "pool.com", "plain.com"]
+    conn.executemany("INSERT INTO domain VALUES (?, 'com')", [(n,) for n in names])
+    conn.execute("INSERT INTO domain_year VALUES ('ours.com', 2000)")  # dated by us: held
+    conn.close()
+    pq.main()
+    tiers = dict(ln.split("\t")[::-1] for ln in pq.OUT.read_text().splitlines())
+    assert tiers == {
+        "gap.com": "gap",
+        "edge.com": "edge-2002",
+        "ours.com": "edge-2002",
+        "plain.com": "edge",
+        "pool.com": "pool",
+    }, "2000 held, 2001 not, in his 2002 file; both.com holds 2001; x.com was asked"
+    assert "'edge-2002': 2" in capsys.readouterr().out, "the tier's size is the laws row"
+
+
+def test_extended_walk_starts_the_2002_edge_at_the_edge_price_and_stops_under_the_floor(tmp_path):
+    prices = {"co.nz all": {"p2": 0.5, "s": 50}}
+    units = [("co.nz", "all"), ("ask-edge-2002", "ask"), ("ask-edge", "ask")]
+    edge = ("ask-edge-2002", "ask")
+    priced, _, waiting, early = extended.rank(units, prices, {}, 2, 10.0)
+    assert priced == [edge, ("co.nz", "all")] and early == [edge], "0.26 EE at the 10 s floor"
+    assert waiting == [("ask-edge", "ask")]
+    priced, _, waiting, early = extended.rank(units, prices, {}, 2, 10.0, floor_1996=1.0)
+    assert edge not in priced + waiting + early, "under #511's 1996 to 2001 floor it stops"
+    prices["ask-edge-2002 ask"] = {"p1": 1.2, "n": 2000, "s": 4.0}
+    priced, *_ = extended.rank(units, prices, {}, 2, 10.0, floor_1996=1.0)
+    assert priced[0] == edge, "measured above the floor it goes on"
+    (tmp_path / "o.json").write_text('{"units": {}, "floor": {"1996-2001": 1}}')
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    a.questions, a.min_interval = True, 10
+    lane = extended.Lane(a)
+    lane.pages = {edge: [("ask-edge-2002", 1, "edge.com", 1996, 2013, "ask")]}
+    lane.asked = {edge: 0}
+    lane.rerank(force=True)
+    assert lane.take() is None, "the floor is read from cdx_order.json"
