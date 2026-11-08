@@ -93,18 +93,19 @@ def test_a_429_mid_batch_backs_off_and_judges_nothing(lane, monkeypatch):
     assert "drop" not in {r[0] for r in log}
 
 
-def test_one_file_cut_three_starts_running_strikes_its_top(lane, monkeypatch):
+def test_one_file_cut_three_starts_running_strikes_its_top_once(lane, monkeypatch):
     m, work, _ = lane
-    End = sys.modules["sample_usenet_header_items"].End
+    End, asked = sys.modules["sample_usenet_header_items"].End, []
 
     def fetch(url, dst, size, held):
+        asked.append(url.rsplit("/", 1)[1])
         raise End("503")
 
     monkeypatch.setattr(m, "waits", lambda: 0.0)  # each start past its back-off
-    for start in range(3):
+    for _start in range(5):
         log = running(m, work, monkeypatch, fetch)
-        assert sum(map(m.struck, log)) == (start == 2), log
     assert [r[2:] for r in log if m.struck(r)] == [["g.mbox.zip", "outage"]]
+    assert asked == ["g.mbox.zip"] * 3 + ["h.mbox.zip"] * 2  # the next file from the fourth
 
 
 def test_a_day_without_progress_reads_stalled_at_its_top(lane, monkeypatch, tmp_path):
@@ -114,7 +115,8 @@ def test_a_day_without_progress_reads_stalled_at_its_top(lane, monkeypatch, tmp_
     monkeypatch.setattr(m, "SCRIPT", work / "seen.json")
     os.utime(work / "seen.json", (0, 0))
     assert m.stalled() == "stalled at a"
-    m.progress()
+    (work / "log.tsv").write_text("backoff\ta\t429\t29991231T000000Z\t\n")
+    m.main()  # a start inside a back-off
     assert m.stalled() == ""
 
 

@@ -28,7 +28,7 @@ The tick starts it after the bank as its own user unit, `ark-header`, while `lef
 top (`scripts/harness/scheduled_sync.sh`); it stops itself once no unscreened or above-floor top
 is left. Its last line, `waits until <UTC stamp>` or `held`, is what the unattended check reads,
 and `stalled()` fails that check once a day passes with tops left and no batch, screen or `ran`
-row (`progress`, touched by each).
+row (`progress`, touched by each, by a held start and by one inside a back-off).
 
     uv run python scripts/sources/usenet/run_usenet_header_items.py
 """
@@ -165,7 +165,11 @@ def waits() -> float:
 
 def run(top: str, todo_items: list[str]) -> None:
     """One top whole, ending in its `ran` or `drop` row; a strike raises End after its row."""
-    done = {r[3] for r in rows("log.tsv") if len(r) == 8}
+    log = rows("log.tsv")
+    # every file read, and every one an outage struck, so its top takes one strike and moves on
+    done = {r[3] for r in log if len(r) == 8} | {
+        r[2] for r in log if r[0] == "stop" and r[-1] == "outage"
+    }
     files = []
     for item in sorted(i for i in todo_items if i.split(".")[0] == top):
         if isinstance(meta := listing(item, held), str):  # a 4xx: the item is skipped
@@ -250,6 +254,7 @@ def main() -> None:
         return say("not seeded, no data/queue/usenet_header/seen.json")
     read = json.loads((WORK / "seen.json").read_text())  # malformed: a crash, not an outage
     if (until := waits()) > time.time():
+        progress()  # a back-off is no stall, nor is a hold
         return say(f"backing off, waits until {time.strftime(STAMP, time.gmtime(until))}")
     shutil.rmtree(WORK / "out", ignore_errors=True)  # a killed run's zips and extracts
     shutil.rmtree(POOL, ignore_errors=True)
@@ -294,6 +299,7 @@ def main() -> None:
             screened.add(top)
     except End as e:
         if e.code == "held":
+            progress()
             return say("held")
         wait = max(RATE_S, min(e.retry, DAY_S)) if e.code == "429" else OUTAGE_S
         until = time.strftime(STAMP, time.gmtime(time.time() + wait))
