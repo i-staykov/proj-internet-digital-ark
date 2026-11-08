@@ -17,9 +17,9 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
   three strikes left and no hold is an active unit, unless the tick has yet to start it (no
   log, its script changed in the last two hours) or its log's last line says it waits until a
-  later UTC stamp or was held within the hour; with none left it reads `finished`, and
-  `check_unattended.py left <unit>` prints the count, which the tick reads before starting the
-  unit.
+  later UTC stamp or was held within the hour, and never one whose own `stalled()` names where
+  it stalls; with none left it reads `finished`, and `check_unattended.py left <unit>` prints
+  the count, which the tick reads before starting the unit.
 """
 
 from __future__ import annotations
@@ -146,6 +146,12 @@ def left(unit: str) -> int:
     return module(READERS[unit][0]).left()
 
 
+def stalled(unit: str) -> str:
+    """Where the unit's reader says it made no progress, if it keeps such a word."""
+    word = getattr(module(READERS[unit][0]), "stalled", None)
+    return word() if word else ""
+
+
 def reader(unit: str) -> tuple[bool, str]:
     if not (parts := left(unit)):
         return True, "finished"
@@ -153,7 +159,11 @@ def reader(unit: str) -> tuple[bool, str]:
     held = hold_names() is not None
     why = f"{state}, {parts} parts left" + (", held" if held else "")
     log = ROOT / f"data/logs/{READERS[unit][1]}.log"
-    if state == "active" or held:
+    if held:
+        return True, why
+    if stall := stalled(unit):
+        return False, f"{state}, {parts} parts left, {stall}"
+    if state == "active":
         return True, why
     if not log.exists():  # the tick starts a reader within the hour its code arrived
         new = time.time() - (ROOT / READERS[unit][0]).stat().st_mtime < START_S

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from types import SimpleNamespace
 
@@ -60,15 +61,25 @@ def test_a_429_backs_off_across_starts_and_an_outage_strikes_nothing(lane, monke
     assert [outage(c) for c in codes] == [1, 1, 1, 1, 0, 0]
 
 
-def test_a_429_mid_batch_backs_off_though_the_batch_drops_its_top(lane, monkeypatch):
-    m, work, _ = lane
+def running(m, work, monkeypatch, fetch) -> list[list[str]]:
+    """Top a screened above the floor with two files, each batch priced at 0 EE; the log."""
     (work / "seen.json").write_text("[]")
     (work / "tops.txt").write_text("a\nb\n")
     (work / "screen.tsv").write_text("a\t30000000\t9\t1\t1\t1\t90.0\n")
-    End = sys.modules["sample_usenet_header_items"].End
     files = [{"name": f"{n}.mbox.zip", "size": "10"} for n in "gh"]
     monkeypatch.setattr(m, "listing", lambda item, held: files)
-    asked = []
+    monkeypatch.setattr(m, "fetch", fetch)
+    monkeypatch.setattr(m, "build", lambda pool, out: out.mkdir(parents=True) or 0)
+    monkeypatch.setattr(m, "price", lambda work, out: 0.0)
+    monkeypatch.setattr(m, "screen", lambda *a: pytest.fail("screened past an End"))
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    m.main()
+    return m.rows("log.tsv")
+
+
+def test_a_429_mid_batch_backs_off_and_judges_nothing(lane, monkeypatch):
+    m, work, _ = lane
+    End, asked = sys.modules["sample_usenet_header_items"].End, []
 
     def fetch(url, dst, size, held):
         asked.append(url)
@@ -76,13 +87,35 @@ def test_a_429_mid_batch_backs_off_though_the_batch_drops_its_top(lane, monkeypa
             raise End("429")
         return "200"
 
-    monkeypatch.setattr(m, "fetch", fetch)
-    monkeypatch.setattr(m, "build", lambda pool, out: out.mkdir(parents=True) or 0)
-    monkeypatch.setattr(m, "price", lambda work, out: 0.0)
-    monkeypatch.setattr(m, "screen", lambda *a: pytest.fail("screened past a 429"))
-    monkeypatch.setattr(m.time, "sleep", lambda s: None)
-    m.main()
-    assert len(asked) == 2 and [r[0] for r in m.rows("log.tsv")][-2:] == ["drop", "backoff"]
+    log = running(m, work, monkeypatch, fetch)
+    # the partial batch lands as data, no drop row, and the 429 backs off
+    assert len(asked) == 2 and [len(log[0]), log[-1][0]] == [8, "backoff"]
+    assert "drop" not in {r[0] for r in log}
+
+
+def test_one_file_cut_three_starts_running_strikes_its_top(lane, monkeypatch):
+    m, work, _ = lane
+    End = sys.modules["sample_usenet_header_items"].End
+
+    def fetch(url, dst, size, held):
+        raise End("503")
+
+    monkeypatch.setattr(m, "waits", lambda: 0.0)  # each start past its back-off
+    for start in range(3):
+        log = running(m, work, monkeypatch, fetch)
+        assert sum(map(m.struck, log)) == (start == 2), log
+    assert [r[2:] for r in log if m.struck(r)] == [["g.mbox.zip", "outage"]]
+
+
+def test_a_day_without_progress_reads_stalled_at_its_top(lane, monkeypatch, tmp_path):
+    m, work, _ = lane
+    (work / "seen.json").write_text("[]")
+    (work / "tops.txt").write_text("a\n")
+    monkeypatch.setattr(m, "SCRIPT", work / "seen.json")
+    os.utime(work / "seen.json", (0, 0))
+    assert m.stalled() == "stalled at a"
+    m.progress()
+    assert m.stalled() == ""
 
 
 def test_a_failed_screen_extract_is_a_strike_and_an_empty_pool_a_row(lane, monkeypatch):

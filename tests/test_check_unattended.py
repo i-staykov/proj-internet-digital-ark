@@ -195,6 +195,8 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
     left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-header": 5}
     monkeypatch.setattr(check, "left", left.get)
+    stalls = {}
+    monkeypatch.setattr(check, "stalled", lambda unit: stalls.get(unit, ""))
     # har stopped mid-item, clueweb new and not started yet, the header lane inside its back-off
     logs = tmp_path / "data/logs"
     logs.mkdir(parents=True)
@@ -213,6 +215,9 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     (logs / "har.log").write_text("har: held\n")
     os.utime(clueweb, (0, 0))  # its code arrived long ago, and the tick never started it
     assert [ok for _u, ok, _w in check.readers()] == [True, True, False, False]
+    stalls["ark-header"] = "stalled at a"  # a day without progress fails even an active unit
+    monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
+    assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")
     # the tick: eot and har with every part read, clueweb with its lists left, the header lane
     # with its list and every top screened, one under the floor and one run out
     repo, env = clone

@@ -10,21 +10,25 @@ whose screen paid above FLOOR EE per GB runs whole: every unread item under it, 
 `.mbox.zip` it holds, one download at a time above the collectors' floor (`ark.disk`) and a file
 kept only when it came whole, about 1 GB a batch, extracted by `build_usenet_header_pool.py`,
 priced on the candidate track through the ingest's own reader, logged, and only then moved into
-`data/raw/usenet_header_items/hl_<UTC stamp>/`, which the hourly bank folds; a batch paying
-under FLOOR EE per GB drops its top. A start moves a logged batch a kill left behind into place
-and deletes an unlogged one, and no zip outlives its extract.
+`data/raw/usenet_header_items/hl_<UTC stamp>/`, which the hourly bank folds; a whole batch
+paying under FLOOR EE per GB drops its top, one an End cut short judges nothing. A start moves a
+logged batch a kill left behind into place and deletes an unlogged one, and no zip outlives its
+extract.
 
 The hold is read before every request. A failed request is asked once more after 120 s. A 429
-backs the lane off for an hour or its Retry-After, whichever is longer, and an outage (no
-answer, a 5xx, a cut or stalled transfer, a price snapshot it cannot read) for half an hour,
-striking nothing; a start inside a back-off exits at once. Three failed files in a row (any other
-code, or a whole file of the wrong size), a failed extract or a failed price is a strike on its
-top (a failed listing only skips its item) and backs off as an outage does, three strikes giving
-the top up. The next start resumes from `log.tsv`, skipping every file read.
+backs the lane off for an hour or its Retry-After up to a day, whichever is longer, and an
+outage (no answer, a 5xx, a cut or stalled transfer, a price snapshot it cannot read) for half
+an hour, striking nothing; a start inside a back-off exits at once. Three failed files in a row
+(any other code, or a whole file of the wrong size), a failed extract or a failed price is a
+strike on its top (a failed listing only skips its item) and backs off as an outage does, and so
+is one file cut as an outage on three starts running, three strikes giving the top up; one event
+strikes once. The next start resumes from `log.tsv`, skipping every file read.
 
 The tick starts it after the bank as its own user unit, `ark-header`, while `left()` counts a
 top (`scripts/harness/scheduled_sync.sh`); it stops itself once no unscreened or above-floor top
-is left. Its last line, `waits until <UTC stamp>` or `held`, is what the unattended check reads.
+is left. Its last line, `waits until <UTC stamp>` or `held`, is what the unattended check reads,
+and `stalled()` fails that check once a day passes with tops left and no batch, screen or `ran`
+row (`progress`, touched by each).
 
     uv run python scripts/sources/usenet/run_usenet_header_items.py
 """
@@ -66,7 +70,8 @@ POOL = WORK / "pool"
 OUT = REPO / "data/raw/usenet_header_items"
 LOG = REPO / "data/logs/usenet_header.log"  # the tick's `>>` for the unit
 FLOOR = 300
-OUTAGE_S, RATE_S = 1800, 3600
+OUTAGE_S, RATE_S, DAY_S = 1800, 3600, 86400
+SCRIPT = Path(__file__)
 STAMP = "%Y%m%dT%H%M%SZ"
 
 
@@ -82,22 +87,22 @@ def pays(row: list[str]) -> bool:
 
 def struck(row: list[str]) -> bool:
     """A `stop` row that strikes its top: any HTTP code but a 429 (fetch returns no outage's),
-    a download of the wrong size, a failed extract or a failed price."""
+    a download of the wrong size, a failed extract or price, or a file's outage three starts on."""
     code = row[-1]
     return row[0] == "stop" and (
-        code.startswith(("build", "price", "size")) or (code.isdigit() and code != "429")
+        code.startswith(("build", "price", "size", "outage")) or (code.isdigit() and code != "429")
     )
 
 
 def todo() -> list[str]:
-    """The tops left in order, none struck three times: not screened, or screened above FLOOR
-    and neither run out nor dropped."""
+    """The tops left in order, none struck three times, run out or dropped: not screened, or
+    screened above FLOOR."""
     screened = {r[0]: r for r in rows("screen.tsv")}
     log = rows("log.tsv")
     strikes = Counter(r[1] for r in log if struck(r))
     out = {r[1] for r in log if r[0] in ("ran", "drop")}
     tops = [t for t in (WORK / "tops.txt").read_text().split() if strikes[t] < 3]
-    return [t for t in tops if t not in screened or (pays(screened[t]) and t not in out)]
+    return [t for t in tops if t not in out and (t not in screened or pays(screened[t]))]
 
 
 def left() -> int:
@@ -122,6 +127,21 @@ def summary() -> str:
         f"header lane: {len(scr)} tops screened ({scr_gb:.2f} GB), {len(batches)} batches run"
         f" whole, {gb:.2f} GB, {ee:,.0f} EE candidate; {gone} tops given up, {left()} left"
     )
+
+
+def stalled() -> str:
+    """`stalled at <top>` once a day passes with tops left and no batch, screen or `ran` row
+    (`progress`), counted from the seeding or this code's arrival when later."""
+    if not left():
+        return ""
+    marks = (WORK / "progress", WORK / "seen.json", SCRIPT)
+    if time.time() - max(p.stat().st_mtime for p in marks if p.exists()) < DAY_S:
+        return ""
+    return f"stalled at {todo()[0] if (WORK / 'tops.txt').exists() else 'its listing'}"
+
+
+def progress() -> None:
+    (WORK / "progress").touch()
 
 
 def held() -> bool:
@@ -181,7 +201,7 @@ def run(top: str, todo_items: list[str]) -> None:
                 names.append((item, fname))
                 time.sleep(1)
         except End as e:  # what came is still built
-            end = e
+            e.file, end = fname, e
         if names:
             tmp, t1 = OUT / f".{name}", time.time()  # the bank's glob skips a dot directory
             try:
@@ -189,9 +209,11 @@ def run(top: str, todo_items: list[str]) -> None:
             finally:
                 for _item, fname in names:
                     (POOL / fname).unlink(missing_ok=True)
+            struck_now = end is not None and end.code == "strike"  # one event, one strike
             if built:  # the batch is not charged as read
                 shutil.rmtree(tmp, ignore_errors=True)
-                note("stop", top, name, f"build {built}")
+                if not struck_now:
+                    note("stop", top, name, f"build {built}")
                 raise end or End("strike")
             try:
                 ee, secs = price(WORK, tmp), (round(t1 - t0), round(time.time() - t1))
@@ -199,18 +221,21 @@ def run(top: str, todo_items: list[str]) -> None:
                 raise (end or e) from e
             for item, fname in names:
                 note(name, top, item, fname, size, *secs, round(ee, 1))
-            low = ee < FLOOR * size / 1e9
+            progress()
+            low = end is None and ee < FLOOR * size / 1e9  # a batch an End cut judges nothing
             if low:
                 note("drop", top, name, round(ee, 1), size)
             tmp.rename(OUT / name)  # logged first, so a kill before this lands it at the next start
             if math.isnan(ee):
-                note("stop", top, name, "price")
+                if not struck_now:
+                    note("stop", top, name, "price")
                 raise end or End("strike")
-        if end:  # before a drop's return, so a 429 still backs off
+        if end:
             raise end
         if low:
             return
     note("ran", top)
+    progress()
 
 
 def write(path: Path, text: str) -> None:
@@ -265,13 +290,20 @@ def main() -> None:
                 raise End("strike")
             with open(WORK / "screen.tsv", "a") as fh:
                 print(*row, sep="\t", file=fh, flush=True)
+            progress()
             screened.add(top)
     except End as e:
         if e.code == "held":
             return say("held")
-        wait = max(RATE_S, e.retry) if e.code == "429" else OUTAGE_S
+        wait = max(RATE_S, min(e.retry, DAY_S)) if e.code == "429" else OUTAGE_S
         until = time.strftime(STAMP, time.gmtime(time.time() + wait))
-        note("backoff", top, e.code, until)
+        note("backoff", top, e.code, until, e.file)
+        # one file cut as an outage three starts running, its listing answering each time: the
+        # site is up and the file is not, so the top takes a strike and the lane moves on
+        last = [r for r in rows("log.tsv") if r[0] == "backoff"][-3:]
+        same = [r[1] == top and r[2] != "429" and r[4:] == [e.file] for r in last]
+        if e.file and len(same) == 3 and all(same):
+            note("stop", top, e.file, "outage")
         return say(f"{e.code} in {top}, waits until {until}")
     say("every top screened and every one that pays run whole")
 

@@ -21,7 +21,7 @@ import urllib.parse
 from collections.abc import Callable
 from pathlib import Path
 
-from sample_usenet_header_items import BUILD, fetch, listing, price
+from sample_usenet_header_items import BUILD, End, fetch, listing, price
 
 
 def screen(
@@ -49,7 +49,11 @@ def screen(
     try:
         for item, name, fsize in pick:
             url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(name)}"
-            code = fetch(url, pool / name, fsize, held)
+            try:
+                code = fetch(url, pool / name, fsize, held)
+            except End as e:
+                e.file = name
+                raise
             got += fsize if code == "200" else 0
             failed = failed if code == "200" else code
             time.sleep(1)

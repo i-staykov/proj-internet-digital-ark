@@ -44,11 +44,11 @@ FAILED = (OSError, ValueError, http.client.HTTPException)
 
 class End(Exception):
     """A run's end that strikes nothing: a 429 (`retry`, its Retry-After seconds), an outage
-    (no answer, a 5xx, a cut or stalled transfer) or the hold."""
+    (no answer, a 5xx, a cut or stalled transfer) or the hold; `file`, the download it cut."""
 
     def __init__(self, code: str, retry: int = 0) -> None:
         super().__init__(code)
-        self.code, self.retry = code, retry
+        self.code, self.retry, self.file = code, retry, ""
 
 
 def never() -> bool:
