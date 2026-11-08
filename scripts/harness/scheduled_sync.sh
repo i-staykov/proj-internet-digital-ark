@@ -105,18 +105,19 @@ if [ "${STAMP:9:2}" -ge 6 ] && [ "$(cat data/logs/.yield_day 2>/dev/null)" != "$
 fi
 
 # The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
-# every part left after the bank, each its own unit so it outlives this one, never two at once
-# (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb.py).
+# every part left after the bank, each its own unit so it outlives this one, never two at once,
+# and started only while its reader has a part under three strikes left, so a finished reader
+# costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
+# crawl_lists/clueweb.py; the count is check_unattended.py's).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
-    systemd-run --user --unit ark-eot --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/eot/eot_cdxj.py >> data/logs/eot_cdxj.log 2>&1' \
-        >/dev/null 2>&1 || true
-    systemd-run --user --unit ark-har --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/httparchive/har_year.py >> data/logs/har.log 2>&1' \
-        >/dev/null 2>&1 || true
-    systemd-run --user --unit ark-clueweb --collect --working-directory="$PWD" -E PATH="$PATH" \
-        bash -c 'uv run python scripts/sources/crawl_lists/clueweb.py >> data/logs/clueweb.log 2>&1' \
-        >/dev/null 2>&1 || true
+    for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
+        clueweb:crawl_lists/clueweb.py:clueweb; do
+        IFS=: read -r name script log <<<"$reader"  # unit, script, log
+        [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>/dev/null)" = 0 ] && continue
+        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" \
+            bash -c "uv run python scripts/sources/$script >> data/logs/$log.log 2>&1" \
+            >/dev/null 2>&1 || true
+    done
 fi
 
 # The tick's status is the sync's, else the check's (scripts/harness/check_unattended.py), so a

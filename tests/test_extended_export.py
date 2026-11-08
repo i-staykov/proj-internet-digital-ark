@@ -423,3 +423,67 @@ def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monk
         "httparchive_2013_12_15_7",
         "httparchive_2013_01",
     ]
+
+
+class _Fetch:
+    """A fetch that hands over `body` and exits `rc`."""
+
+    def __init__(self, body: bytes, rc: int):
+        self.stdout, self.returncode = io.BytesIO(body), rc
+
+    def kill(self):
+        pass
+
+    def wait(self):
+        return self.returncode
+
+
+def test_the_http_archive_reader_counts_what_is_left_offline_and_strikes_no_outage(
+    tmp_path, monkeypatch
+):
+    har = script("sources/httparchive/har_year.py")
+    monkeypatch.setattr(har, "OUT", tmp_path)
+    monkeypatch.setattr(har, "PAUSE", 0)
+    assert har.left() == len(har.FIRST)  # nothing listed yet: each first item counts one
+    (tmp_path / ".har_items.json").write_text(
+        '[["httparchive_2010", 2010], ["httparchive_2011", 2011]]'
+    )
+    (tmp_path / ".har_httparchive_2010.zips.json").write_text(
+        '{"1010.zip": [3, "a"], "1011.zip": [3, "b"]}'
+    )
+    (tmp_path / "har_1010.jsonl.gz").write_bytes(b"")
+    (tmp_path / ".har_1011.failed").write_text("x\n" * 3)
+    assert har.left() == 1 and har.zips("httparchive_2011", ask=False) is None
+    (tmp_path / ".har_httparchive_2011.zips.json").write_text("{}")
+    assert har.left() == 0
+    # a dead host or a 5xx: fetch exits 4 or 7, the zip is asked again and strikes nothing
+    sha = hashlib.sha1(b"PK\x03\x04").hexdigest()
+    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(b"PK\x03\x04", 7))
+    line, keep = har.read("httparchive_2010", 2010, "1012.zip", 4, sha)
+    assert line.endswith("fetch exit 7, asked again after 0 s") and keep == {}
+    assert har.failures("1012") == 0 and not list(tmp_path.glob("*1012*"))
+    # a whole stream whose sha1 is not the item's strikes
+    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(b"PK\x05\x06", 0))
+    line, _ = har.read("httparchive_2010", 2010, "1012.zip", 4, "not it")
+    assert line.startswith("1012: not booked") and har.failures("1012") == 1
+    # a stream that is not a stored zip strikes, whatever fetch says of it
+    compressed = har.LOCAL.pack(b"PK\x03\x04", 20, 0, 8, 0, 0, 0, 1, 1, 1, 0) + b"xx"
+    monkeypatch.setattr(har, "fetch", lambda url, max_bytes="1G": _Fetch(compressed, 0))
+    line, _ = har.read(
+        "httparchive_2010", 2010, "1012.zip", 4, hashlib.sha1(compressed).hexdigest()
+    )
+    assert "not stored with its size" in line and har.failures("1012") == 2
+
+
+def test_the_end_of_term_reader_counts_what_is_left_by_its_journals_and_strikes(
+    tmp_path, monkeypatch
+):
+    eot = script("sources/eot/eot_cdxj.py")
+    monkeypatch.setattr(eot, "OUT", tmp_path)
+    for part in list(eot.PARTS)[1:]:
+        (tmp_path / f"eot_{part}.jsonl.gz").write_bytes(b"")
+    first = next(iter(eot.PARTS))
+    (tmp_path / f".eot_{first}.failed").write_text("x\n" * 2)
+    assert eot.left() == 1
+    (tmp_path / f".eot_{first}.failed").write_text("x\n" * 3)
+    assert eot.left() == 0

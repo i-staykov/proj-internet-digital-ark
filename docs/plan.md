@@ -42,6 +42,4 @@ unless it adds a capability the round needs.
 ## D. Collectors and the VM (owns collector deployment, sync)
 
 - Throughput: #392 the worker count that measures best.
-- Readers: `har_year.py` once finished still runs one search and 158 metadata reads an hour; a
-  fetch outage strikes a zip with no back-off, so one outage can give up an item; the walker's
-  refusal counter climbs on a 200 cut before its first row.
+- Readers: the walker's refusal counter climbs on a 200 cut before its first row.

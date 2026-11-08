@@ -196,11 +196,15 @@ def todo() -> list[str]:
     return [n for n in LISTS if not (OUT / f"{tag(n)}.receipt").exists() and failures(n) < 3]
 
 
+def left() -> int:
+    return len(todo())
+
+
 def main() -> None:
-    while left := todo():
+    while queue := todo():
         if subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode == 0:
             return print("clueweb: held", flush=True)
-        print(read(min(left, key=failures)), flush=True)
+        print(read(min(queue, key=failures)), flush=True)
     print("clueweb: every list read or given up", flush=True)
 
 

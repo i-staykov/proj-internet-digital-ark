@@ -112,12 +112,19 @@ def failures(part: str) -> int:
     return len(marker.read_text().splitlines()) if marker.exists() else 0
 
 
+def todo() -> list[str]:
+    return [p for p in PARTS if not (OUT / f"eot_{p}.jsonl.gz").exists() and failures(p) < 3]
+
+
+def left() -> int:
+    return len(todo())
+
+
 def main() -> None:
     while subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode:
-        todo = [p for p in PARTS if not (OUT / f"eot_{p}.jsonl.gz").exists() and failures(p) < 3]
-        if not todo:
+        if not (queue := todo()):
             return print("eot: every part read or given up", flush=True)
-        print(read(min(todo, key=failures)), flush=True)
+        print(read(min(queue, key=failures)), flush=True)
     print("eot: held", flush=True)
 
 
