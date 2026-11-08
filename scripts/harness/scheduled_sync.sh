@@ -107,14 +107,15 @@ if [ "${STAMP:9:2}" -ge 6 ] && [ "$(cat data/logs/.yield_day 2>/dev/null)" != "$
     else echo "lane yield: failed, its error is above" >> "$LOG"; fi
 fi
 
-# The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
-# every part left after the bank, each its own unit so it outlives this one, never two at once,
-# and started only while its reader has a part under three strikes left, so a finished reader
-# costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
-# crawl_lists/clueweb.py; the count is check_unattended.py's).
+# The End of Term indexes, an HTTP Archive year, the ClueWeb09 map where the lanes walk and the
+# Usenet header lane, every part left after the bank, each its own unit so it outlives this one,
+# never two at once, and started only while its reader has a part under three strikes left, so a
+# finished reader costs no request (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py,
+# crawl_lists/clueweb.py, usenet/run_usenet_header_items.py; the count is check_unattended.py's).
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
     for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
-        clueweb:crawl_lists/clueweb.py:clueweb; do
+        clueweb:crawl_lists/clueweb.py:clueweb \
+        header:usenet/run_usenet_header_items.py:usenet_header; do
         IFS=: read -r name script log <<<"$reader"  # unit, script, log
         [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>> "$LOG")" = 0 ] && continue
         systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" ${FLOOR[@]+"${FLOOR[@]}"} \
