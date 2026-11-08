@@ -4,7 +4,7 @@
   {
    "name": "the per-window floors",
    "file": "data/queue/cdx_order.json",
-   "knob": "floors",
+   "knob": "floor",
    "value": null,
    "measurement": "",
    "measured": ""
