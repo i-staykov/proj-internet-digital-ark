@@ -21,9 +21,8 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
-# The bank host follows `live`: a merged PR reaches it before the tick runs, since the
-# recipe refuses a diverged clone and nobody pulls here by hand. A dirty tree is left alone.
-git diff --quiet && git pull -q --ff-only origin live
+# No pull here: the recipe's preflight pulls under the sync lock, so a merged PR never swaps
+# scripts under a running bank.
 
 # The recipes' own `local.env`: without its ARK_DB_MEMORY_LIMIT the bank dies at DuckDB's 40%
 # cap. It assigns without `export`, so that one value is exported and the hosts stay out of
