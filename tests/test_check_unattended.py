@@ -102,14 +102,18 @@ def clone(tmp_path):
     )
     for name in ("ssh", "rsync", "curl", "wget"):
         stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"; exit 1')
-    for name in ("pkill", "pgrep"):
-        stub(bin_dir, name, "exit 0")
-    stub(bin_dir, "systemd-run", 'echo "systemd-run $*" >> "$ARK_TEST_CALLS"')
+    stub(bin_dir, "pkill", "exit 0")
+    stub(bin_dir, "pgrep", 'case "$*" in *Runner.Worker*|*dpkg*) exit 1 ;; esac')
+    stub(bin_dir, "loginctl", "exit 0")
+    for name in ("systemd-run", "sudo"):
+        stub(bin_dir, name, f'echo "{name} $*" >> "$ARK_TEST_CALLS"')
     stub(
         bin_dir,
         "systemctl",
         'echo "systemctl $*" >> "$ARK_TEST_CALLS";'
-        ' case "$*" in *is-enabled*) echo enabled ;; *) echo active ;; esac',
+        ' case "$*" in *is-enabled*) echo enabled ;; *bank-force*) exit 3 ;;'
+        ' *apt-daily*) echo inactive; echo "${ARK_TEST_APT:-inactive}"; exit 3 ;;'
+        " *) echo active ;; esac",
     )
     stub(bin_dir, "crontab", f"for i in 1 2 3 4 5 6; do echo '{cron}'; done")
     stub(
@@ -128,7 +132,10 @@ def clone(tmp_path):
         "ARK_FREE_SPACE_GIB": "0.001",
         "ARK_WRITE_BUDGET_GIB": "0.001",
         "ARK_TEST_CALLS": str(tmp_path / "calls"),
+        "ARK_REBOOT_FLAG": str(tmp_path / "reboot-required"),
+        "ARK_UPTIME": str(tmp_path / "uptime"),
     }
+    (tmp_path / "uptime").write_text("864000.00 1.00\n")  # up ten days
     for key in ("ARK_HOSTS", "ARK_SYNC_LOCK", "ARK_LOCK_HELD", "ARK_HOLD_BYPASS"):
         env.pop(key, None)
     return repo, env
@@ -185,6 +192,29 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
     assert "bank: forced" in (repo / "data/logs/scheduled_sync.log").read_text()
     assert not (state / "hold").exists() and not (state / "pause-platform").exists()
     assert "systemd-run --user --unit ark-bank-force" in calls.read_text()
+
+
+@pytest.mark.parametrize("busy", ["", "a sync", "an apt run", "up under an hour"])
+def test_a_pending_reboot_waits_only_on_what_it_would_cut(clone, tmp_path, busy):
+    """A tick that banked (its `just sync` stamps the bank) reboots unless the fixture's lock is
+    this boot's live sync, apt runs or the boot is under an hour old; that lock from an earlier
+    boot is stale."""
+    repo, env = clone
+    Path(env["ARK_REBOOT_FLAG"]).write_text("*** System restart required ***\n")
+    if busy != "a sync":
+        (repo / "data/logs/.sync.lock/boot").write_text("an earlier boot")
+    if busy == "up under an hour":
+        Path(env["ARK_UPTIME"]).write_text("600.00 1.00\n")
+    (tmp_path / "bin2").mkdir()
+    just = shutil.which("just", path=env["PATH"])
+    banks = '[ "$1" = sync ] && { touch data/logs/bank_stamp.json; echo bank: banked; exit 0; }'
+    stub(tmp_path / "bin2", "just", f'{banks}; exec {just} "$@"')
+    env = {**env, "PATH": f"{tmp_path / 'bin2'}:{env['PATH']}"}
+    tick(repo, {**env, "ARK_TEST_APT": "activating"} if busy == "an apt run" else env)
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert "\tbanked\t" in (repo / "data/logs/ticks.tsv").read_text(), log
+    assert (f"reboot pending, not now: {busy}\n" in log) == bool(busy), log
+    assert ("sudo -n /usr/sbin/reboot" in Path(env["ARK_TEST_CALLS"]).read_text()) == (not busy)
 
 
 def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, monkeypatch):

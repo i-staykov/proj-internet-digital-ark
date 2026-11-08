@@ -22,6 +22,19 @@ fi
 # pandoc builds the archive's Open Research Questions.docx.
 dpkg -s p7zip-full pigz pandoc > /dev/null 2>&1 || sudo -n apt-get install -y -qq p7zip-full pigz pandoc ||
     root "apt-get install -y p7zip-full pigz pandoc"
+# The tick reboots for unattended-upgrades (scheduled_sync.sh) through `sudo -n /usr/sbin/reboot`;
+# root's step for each half that does not hold. sudo skips a sudoers.d name with a dot, so the
+# line is checked before it counts.
+sudo -n -l /usr/sbin/reboot > /dev/null 2>&1 || cat << STEP
+reboot: sudo asks a password. As root, once:
+    echo '$(id -un) ALL=(root) NOPASSWD: /usr/sbin/reboot ""' > /etc/sudoers.d/ark.new && chmod 440 /etc/sudoers.d/ark.new && visudo -cqf /etc/sudoers.d/ark.new && mv /etc/sudoers.d/ark.new /etc/sudoers.d/ark-reboot
+STEP
+apt=$(apt-config dump 2> /dev/null || true)
+grep -q '^APT::Periodic::Unattended-Upgrade "[1-9]' <<< "$apt" &&
+    ! grep -qiE '^Unattended-Upgrade::Automatic-Reboot "(true|yes|on|1)"' <<< "$apt" || cat << 'STEP'
+unattended-upgrades: off, or rebooting by itself. As root, once, answering yes:
+    apt-get install -y -qq unattended-upgrades && dpkg-reconfigure -plow unattended-upgrades && echo 'Unattended-Upgrade::Automatic-Reboot "false";' > /etc/apt/apt.conf.d/52ark
+STEP
 # rclone from its own release, as gh above: a distribution's is too old for Drive's sha256. Its
 # remote is the owner's, once, its token made on the laptop since the VM has no browser; the
 # secret stays in ~/.config/rclone.

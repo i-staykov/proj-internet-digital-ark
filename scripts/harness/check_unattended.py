@@ -6,7 +6,7 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - timer: `ark-sync.timer` is active.
 - walk: the crontab holds six `# ark-walk` lines, each `cd` here and running the walker, and
   `data/logs/.walk_code` names HEAD's walker blobs, so the lanes run HEAD's code.
-- lock: the sync lock is free or its holder's pid is alive.
+- lock: the sync lock is free or its holder's pid is alive in this boot.
 - hold: each unit or flag the hold file names is off (the timer not enabled unless the label
   holds it, the flag file present).
 - login: `gh auth status` succeeds.
