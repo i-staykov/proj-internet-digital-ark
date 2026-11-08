@@ -1,0 +1,86 @@
+{
+ "version": 1,
+ "levers": [
+  {
+   "name": "the per-window floors",
+   "file": "data/queue/cdx_order.json",
+   "knob": "floors",
+   "value": null,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the page order by core density",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "rank: priced.sort key",
+   "value": "(-(p1 + p2) / s, -p1); pages shuffled inside a unit",
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the ask-pool share",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "ASKED[\"ask-pool\"]",
+   "value": null,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the per-parent asks",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "fetch: shape, kind ask",
+   "value": [
+    [
+     "url",
+     "<registrable>"
+    ],
+    [
+     "collapse",
+     "timestamp:4"
+    ]
+   ],
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the start interval",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "--min-interval",
+   "value": 10.0,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the early starts",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "EARLY",
+   "value": 0,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the header lane's top order",
+   "file": "data/queue",
+   "knob": null,
+   "value": null,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the reader starts",
+   "file": "scripts/harness/scheduled_sync.sh",
+   "knob": null,
+   "value": null,
+   "measurement": "",
+   "measured": ""
+  },
+  {
+   "name": "the re-rank after an intake",
+   "file": "scripts/engines/cdx_extended_walk.py",
+   "knob": "Lane.rerank",
+   "value": "mtime != self.order_mtime",
+   "measurement": "",
+   "measured": ""
+  }
+ ]
+}
