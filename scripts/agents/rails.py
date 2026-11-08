@@ -11,7 +11,8 @@ repository is on `live` or `main`, since the tick pushes the clone's `live` as i
 forced push or any push that is not `git push origin <own branch>`; `--no-verify`, `-n`, a hooks
 path or an author of its own; `gh pr merge` of a PR whose CI is not green, whose commits are not
 `ark-agent`'s, or outside :36 to :04 UTC; `sudo`, a reboot; lifting or bypassing a hold, moving
-the tick's or the agent's timer, a crontab change; clearing a red, a prune, a ship; killing
+an ark unit, the lanes or the sync lock (named anywhere, since the tick, `triage.py` and the
+recipes move them outside the hook), a crontab change; clearing a red, a prune, a ship; killing
 anything; a write under his files, the secrets, the hold or the Claude profile; `rm` under the
 raw data; a login or a permission bypass; `curl` and `wget` in every mode, since a read goes
 through `scripts/harness/fetch.py`; any write to a rail file (`RAILS`), which only a session
@@ -67,6 +68,9 @@ WRITE_VERB = (
 )
 GIT = r"git(?:\s+-[-\w=./]+(?:\s+[^\s-]\S*)?)*"  # git with its own options, `-C path` among them
 SEP = r"(?:^|[;&|(]\s*)"
+# Up to N words, each a run of non-blanks, so a long command stays linear.
+WORDS = r"(?:[ \t]+[^\s;&|]+){0,%d}?[ \t]+"
+MENTION = "; a mention goes in a file (`--body-file`, `-F`)"
 KILL = r"(?<![\w-])(pkill|killall)(?![\w-])|(?<![\w-])kill(?![\w-])(?!\s+-0\b)"
 
 BASH_RULES: tuple[tuple[str, str], ...] = (
@@ -85,10 +89,21 @@ BASH_RULES: tuple[tuple[str, str], ...] = (
     ),
     (r"hold(\.sh)?\s+off\b|just\s+hold\s+off", "lifting a hold is the owner's or a session's"),
     (r"ARK_HOLD_BYPASS", "bypassing the hold"),
+    (r"\bcrontab\b", "the lanes' cron is not the run's to move"),
     (
-        r"systemctl\s+--user\s+(start|stop|enable|disable|mask|kill|restart)\b.*ark-(sync|agent)"
-        r"|\bcrontab\b",
-        "the tick's timer, the agent's and the lanes' cron are not the run's to move",
+        r"\A(?=.*?ark-)(?=.*?systemctl" + WORDS % 8 + r"([^\s;&|]*-)?"
+        r"(start|stop|kill|restart|condrestart|enable|disable|mask|reenable)\b)",
+        "an ark unit moves only by the tick, a reader by `triage.py restart`" + MENTION,
+    ),
+    (
+        r"\bjust" + WORDS % 6 + r"[\"']?walk[\"']?[ \t]+[\"']?(install|remove)\b"
+        r"|cdx_walk_jobs\.py[\"']?[ \t]+[\"']?(install|remove)\b",
+        "the lanes reinstall only by `triage.py walk`, away from the tick" + MENTION,
+    ),
+    (
+        r"\A(?=.*?sync_lock\.sh).*?(sync_lock\.sh|\$\{?\w+\}?)[\"']?[ \t]+[\"']?(take|drop)\b"
+        r"|\A(?=.*?\.sync)(?=.*?(\b(rm|rmdir|mv)\b|\s-(delete|exec)\b))",
+        "the sync lock is taken and dropped only inside the recipes" + MENTION,
     ),
     (r"bank_trigger\.py\s+clear", "a red is cleared only through `just red-clear`"),
     (r"\bprune\b.*--write|prune\s+--round", "a prune deletes what only a session may"),
@@ -96,7 +111,7 @@ BASH_RULES: tuple[tuple[str, str], ...] = (
         r"just\s+ship\b|package_delivery\.sh|ship_mail\.py|verify_delivery\.sh",
         "a ship is the owner's",
     ),
-    (KILL, "nothing is killed; a walker restarts only by `just walk install`"),
+    (KILL, "nothing is killed; a walker restarts only by `triage.py walk`"),
     (
         r"(?i)git\s+commit\b.*--author|git\s+-c\s+user\.(name|email)"
         r"|git\s+config\b.*user\.(name|email)|GIT_(AUTHOR|COMMITTER)_",
@@ -119,7 +134,7 @@ BASH_RULES: tuple[tuple[str, str], ...] = (
         "a login or a permission bypass",
     ),
     (
-        r"(?:^|[;&|(`]\s*|\$\(\s*|\b(?:xargs|timeout|nohup|exec|nice|env)\b[^;&|]*?\s)"
+        r"(?:^|[;&|(`\n]\s*|\$\(\s*|\b(?:xargs|timeout|nohup|exec|nice|env)\b[^;&|]*?\s)"
         r"(?:\S*/)?(curl|wget)\b",
         "a read goes through scripts/harness/fetch.py",
     ),
