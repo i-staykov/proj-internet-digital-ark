@@ -1170,14 +1170,12 @@ vm what="status" which="":
         # rsync gets the VM's home spelt out: macOS rsync sends nothing to a relative remote
         # path and still exits 0.
         VMHOME=$($SSH 'echo $HOME')
-        # Its local.env is this one with its own lane local, no ARK_VM and a store limit
-        # that leaves a leg's 3 GB probe and a read's 2 GB room in the VM's 15 GB; the
-        # install script moves it into the clone. ARK_FLEET_USER names the fleet's user there.
+        # Its local.env is this one with its own lane local, no ARK_VM and the store limit
+        # measured for the VM (docs/lore/laws.md); the install script moves it into the clone.
         env=$(sed -e '/^ARK_VM=/d' -e "s|$ARK_VM:\([0-9]*\)|local:\1|" \
-            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=8GB/' local.env)
+            -e 's/^ARK_DB_MEMORY_LIMIT=.*/ARK_DB_MEMORY_LIMIT=10GiB/' local.env)
         grep -q '^ARK_HOSTS=.*local:' <<<"$env" || { echo "vm install: ARK_HOSTS has no lane for the VM" >&2; exit 1; }
-        grep -q '^ARK_FLEET_USER=.' <<<"$env" || { echo "vm install: set ARK_FLEET_USER in local.env" >&2; exit 1; }
-        printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env; rm -f ark-runner-token'
+        printf '%s\n' "$env" | $SSH 'umask 077; cat > ark-local.env'
         # Every lane's state and the queue first, into the clone, so the cron the install writes
         # walks on from every done set here rather than over it.
         N=$(sed -n 's/^ARK_HOSTS=.*local:\([0-9]*\).*/\1/p' <<<"$env")
@@ -1186,16 +1184,6 @@ vm what="status" which="":
         rsync -a --ignore-existing --timeout=120 -e "$RSH" data/raw/cdx_walk/lane* "$ARK_VM:$VMHOME/ark/data/raw/cdx_walk/"
         rsync -a --ignore-existing --timeout=120 -e "$RSH" data/queue/cdx_order.json data/queue/cdx_walked.txt "$ARK_VM:$VMHOME/ark/data/queue/"
         $SSH 'bash -s' < scripts/harness/vm_install.sh
-        # Then the fleet, as its user, the registration token on stdin and nowhere else; a
-        # refused sudo prints the one command the owner runs there, the token typed after it.
-        FLEET_USER=$(sed -n 's/^ARK_FLEET_USER=//p' <<<"$env" | tr -d "\"'")
-        if ! $SSH '[ -d ~/GitHub/ark-fleet/host ]'; then
-            echo "vm install: no fleet clone there yet ('just vm token gh', then this again)"
-        else
-            printf '%s\n' "${RUNNER_TOKEN:-}" | $SSH "cmd=\"ARK_BANK=\$HOME/ark RUNNER_TOKEN=- bash \$HOME/GitHub/ark-fleet/host/install.sh\";
-                sudo -n -u $FLEET_USER env -u SUDO_USER \$cmd || {
-                    echo \"REFUSED: sudo asks a password; as root there:  su - $FLEET_USER -c '\$cmd'  then the registration token on one line\" >&2; exit 1; }"
-        fi
         ;;
     token)
         # The token rides stdin to ssh and into the file there: no argument, log or history
