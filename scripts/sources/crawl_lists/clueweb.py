@@ -46,10 +46,12 @@ import zlib
 from collections import OrderedDict
 from pathlib import Path
 
+from ark.disk import below_floor, trim
 from ark.hostnames import CRAWL_LISTS, host_of
 
 REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/raw/extended/crawl_lists"
+LOG = REPO / "data/logs/clueweb.log"  # the tick's `>>` for the unit
 PART, RECENT = 5_000_000, 4_000_000  # the window holds about 700 MB
 # name: (the row stamp, the stream's codec, the prefix in bytes and its sha256, or None for the
 # whole file). The stamp is the crawl window's first documented day at year precision, not a
@@ -201,9 +203,12 @@ def left() -> int:
 
 
 def main() -> None:
+    trim(LOG)
     while queue := todo():
         if subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode == 0:
             return print("clueweb: held", flush=True)
+        if why := below_floor(OUT, root=REPO):
+            return print(f"clueweb: {why}", flush=True)
         print(read(min(queue, key=failures)), flush=True)
     print("clueweb: every list read or given up", flush=True)
 

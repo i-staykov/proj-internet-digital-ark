@@ -100,7 +100,7 @@ def figure_said(find: dict) -> str:
     decides = f"**{find['ee']:,.1f} EE deciding**, part 1 plus part 2 at the ratio of the gates"
     if find["figure"] == "program":
         return (
-            f"{decides}, part 1 by the program on the pushed snapshot, which agreed with the "
+            f"{decides}, part 1 by the program on the staged snapshot, which agreed with the "
             f"live store within 1% on the last {fleet_ledger.STREAK} finds"
         )
     netnew = store.get("netnew") or 0

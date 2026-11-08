@@ -6,7 +6,6 @@ import datetime as dt
 import importlib.util
 import json
 import os
-import shutil
 import time
 from pathlib import Path
 
@@ -25,6 +24,7 @@ def hb(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "ROOT", tmp_path)
     monkeypatch.setattr(mod, "LOGS", tmp_path / "data/logs")
     monkeypatch.setattr(mod, "TICKS", tmp_path / "data/logs/ticks.tsv")
+    monkeypatch.setattr(mod, "DISK", tmp_path / "data/logs/disk.tsv")
     monkeypatch.setattr(mod, "STATE", tmp_path / "state")
     monkeypatch.setattr(mod, "REBOOT", tmp_path / "reboot-required")
     (tmp_path / "uptime").write_text("864000.00 1.00\n")  # booted ten days ago
@@ -83,9 +83,9 @@ def test_verdicts(hb, tmp_path):
 
 def test_rows_kept_ninety_days(hb):
     now = dt.datetime(2026, 11, 7, 6, 5, tzinfo=dt.UTC)
-    old = [stamp(now - dt.timedelta(days=91)), "idle", "1", "x", "9.0"]
+    old = [stamp(now - dt.timedelta(days=91)), "idle", "1", "x"]
     hb.append(old, now - dt.timedelta(days=91))
-    kept = hb.append([stamp(now), "banked", "2", "banked", "9.0"], now)
+    kept = hb.append([stamp(now), "banked", "2", "banked"], now)
     assert [r[0] for r in kept] == [stamp(now)]
     assert hb.TICKS.read_text().count("\n") == 1
 
@@ -116,10 +116,10 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
 
 def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     now = dt.datetime.now(dt.UTC)
-    free = shutil.disk_usage(tmp_path / "data").free / GIB
     earlier = stamp(now - dt.timedelta(days=2))
-    torn = "2026-11-0\tidle\t1\tx\tnot a number\n"
-    hb.TICKS.write_text(f"{torn}{earlier}\trefused\t1\tsync exit 1\t{free + 1e6:.1f}\n")
+    torn = "2026-11-0\tidle\t1\n"
+    hb.TICKS.write_text(f"{torn}{earlier}\trefused\t1\tsync exit 1\n")
+    shrinking(hb, now.date(), 100.0, 3.0)
     (tmp_path / "data/logs/bank_red.json").write_text("{}")
     lane = tmp_path / "data/raw/cdx_walk/lane2"
     lane.mkdir(parents=True)
@@ -148,7 +148,7 @@ def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     )
     # the red gone and a refused tick before: open ones stay single, a closed one reopens
     (tmp_path / "data/logs/bank_red.json").unlink()
-    hb.TICKS.write_text(f"{earlier}\trefused\t1\tsync exit 1\t{free + 1e6:.1f}\n")
+    hb.TICKS.write_text(f"{earlier}\trefused\t1\tsync exit 1\n")
     hb.issues = [{"number": i, "title": t, "state": "OPEN"} for i, t in enumerate(titles)]
     hb.issues[0]["state"] = "CLOSED"
     hb.calls.clear()
@@ -201,6 +201,31 @@ def test_preflight_and_offsite_read_their_records(hb, tmp_path):
     assert "vm-alert: no offsite listing in 24 h" not in made(hb, "create")
 
 
+def shrinking(hb, today: dt.date, free: float, a_day: float) -> None:
+    """Eight daily readings ending today at `free` GiB, falling `a_day`; the floor at 70."""
+    hb.DISK.write_text(
+        "".join(
+            f"{today - dt.timedelta(days=n)}\t{free + n * a_day:.1f}\n" for n in range(7, -1, -1)
+        )
+    )
+    hb.space = lambda root: (0, [f"space data: {free:.1f} GiB free, need 70.0 GiB (50 floor)"])
+
+
+def test_days_to_floor_from_the_daily_readings(hb):
+    today = dt.date(2026, 11, 8)
+    shrinking(hb, today, 100.0, 1.0)
+    assert hb.disk(today) == (30.0, "disk: 100.0 GiB free, need 70.0, 30 days to floor")
+    shrinking(hb, today, 100.0, -1.0)
+    assert hb.disk(today) == (None, "disk: 100.0 GiB free, need 70.0, not shrinking")
+    hb.DISK.write_text(f"{today}\t100.0\n")
+    assert hb.disk(today)[1].endswith("1 reading, no 7-day rate yet")
+    # the day's reading is its first tick's
+    hb.DISK.unlink()
+    hb.record(today, 99.0)
+    hb.record(today, 98.0)
+    assert hb.DISK.read_text() == f"{today}\t99.0\n"
+
+
 def test_heartbeat_once_at_six(hb, tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs/ROUND.md").write_text("x\nGATE. 1996-2001 : a\nGATE. 2002-2013 : b\n")
@@ -225,8 +250,9 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     now = dt.datetime.now(dt.UTC)
     (tmp_path / "data/logs/.offsite_listed").write_text(stamp(now) + "\n")
     run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
-    assert not [c for c in hb.calls if c[:2] == ("issue", "create")]
+    assert not [c for c in hb.calls if c[:2] == ("issue", "create")] and not hb.DISK.exists()
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))
+    assert hb.DISK.read_text().startswith(f"{now.date()}\t")
     body = next(c for c in hb.calls if c[:2] == ("issue", "create"))
     text = body[body.index("--body") + 1]
     lines = text.splitlines()

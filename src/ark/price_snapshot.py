@@ -1,7 +1,7 @@
-"""The one price a fleet leg may quote, measured against a snapshot instead of the store.
+"""`just price`: a corpus priced against a staged snapshot instead of the store.
 
-A fleet runner has no 52 GB `data/ark.duckdb`, so it prices against a directory the laptop
-builds and stages (`scripts/harness/snapshot_manifest.py`).
+It reads no 52 GB `data/ark.duckdb`, only a directory the bank builds and stages
+(`scripts/harness/snapshot_manifest.py`).
 
 **The snapshot is name lists, his calculator and a manifest, nothing else.**
 
