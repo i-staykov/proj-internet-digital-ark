@@ -51,6 +51,15 @@ if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install
     for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
 fi
 
+# The tick's and the agent's installed units follow HEAD too: a changed file is copied and
+# loaded, which restarts no run (vm_install.sh installs them).
+reload=""
+for f in scripts/harness/ark-{sync,agent}.{service,timer}; do
+    u=~/.config/systemd/user/${f##*/}
+    [ ! -f "$u" ] || cmp -s "$f" "$u" || { cp "$f" "$u" && reload=1; }
+done
+[ -z "$reload" ] || systemctl --user daemon-reload >> "$LOG" 2>&1
+
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
 
 hold_label() {  # on: before the sync, so it exits held; off: after, so the forced bank has the lock
@@ -141,31 +150,31 @@ fi
 tail -n 2000 "$LOG" > "$LOG.trim" && mv "$LOG.trim" "$LOG"
 
 # unattended-upgrades installs and leaves the flag, never rebooting itself: the tick reboots, last,
-# once its row says it banked nothing and nothing a reboot would cut runs. Walkers and readers
-# keep what they wrote; cron, the timers and the tick three minutes after boot bring them back,
-# the sync lock stale in the new boot (sync_lock.sh). sudo is for /usr/sbin/reboot alone, the
-# line `just vm install` prints. A tick that waits says why, for the heartbeat's 24 h alert.
+# once nothing a reboot would cut runs (its own bank is done by then). Walkers and readers keep
+# what they wrote; cron, the timers and the tick three minutes after boot bring them back, the
+# sync lock stale in the new boot (sync_lock.sh). Never in a boot's first hour, so a flag that
+# comes back at once cannot loop. A tick that waits says why, for the heartbeat's 24 h alert.
 FLAG="${ARK_REBOOT_FLAG:-/var/run/reboot-required}"
 busy() {
-    [ "${word:-}" != banked ] || echo "this tick banked"
+    [ "$(cut -d. -f1 "${ARK_UPTIME:-/proc/uptime}" 2> /dev/null || echo 0)" -ge 3600 ] ||
+        echo "up under an hour"
     bash scripts/harness/sync_lock.sh holder > /dev/null && echo "a sync"
     systemctl --user is-active -q ark-bank-force && echo "the forced bank"
     [ ! -e data/logs/agent/.lock ] || flock -n data/logs/agent/.lock true || echo "an agent run"
-    systemctl is-active apt-daily.service apt-daily-upgrade.service 2> /dev/null | grep -q '^activ' &&
-        echo "an apt run"
+    { grep -qx 'activ.*' <<< "$(systemctl show -P ActiveState apt-daily.service \
+        apt-daily-upgrade.service 2> /dev/null)" || pgrep -x dpkg > /dev/null; } && echo "an apt run"
     # an ssh login, not a user manager's own session (systemd 256 on)
     loginctl list-sessions --no-legend 2> /dev/null | grep -qvwE 'manager(-early)?' && echo "a login"
     pgrep -f Runner.Worker > /dev/null && echo "a fleet job"
 }
-IFS=$'\t' read -r at word _ < <(tail -n 1 data/logs/ticks.tsv 2> /dev/null)
-if [ -f "$FLAG" ] && [ "${at:-}" = "$STAMP" ]; then
+if [ -f "$FLAG" ] && [ "$(tail -n 1 data/logs/ticks.tsv 2> /dev/null | cut -f1)" = "$STAMP" ]; then
     why=$(busy | paste -sd , -)
     if [ -n "$why" ]; then
         echo "tick $STAMP: reboot pending, not now: $why" >> "$LOG"
     else
         echo "tick $STAMP: rebooting" >> "$LOG"
         sudo -n /usr/sbin/reboot >> "$LOG" 2>&1 ||
-            echo "reboot refused: the sudoers line 'just vm install' prints is missing" >> "$LOG"
+            echo "reboot refused: sudo asks a password; 'just vm install' prints the line" >> "$LOG"
     fi
 fi
 [ "$sync_rc" -ne 0 ] && exit "$sync_rc"

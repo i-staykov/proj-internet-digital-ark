@@ -27,8 +27,6 @@ def hb(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "DISK", tmp_path / "data/logs/disk.tsv")
     monkeypatch.setattr(mod, "STATE", tmp_path / "state")
     monkeypatch.setattr(mod, "REBOOT", tmp_path / "reboot-required")
-    (tmp_path / "uptime").write_text("864000.00 1.00\n")  # booted ten days ago
-    monkeypatch.setattr(mod, "UPTIME", tmp_path / "uptime")
     monkeypatch.setenv("ARK_FREE_SPACE_GIB", "0.001")
     monkeypatch.setenv("ARK_WRITE_BUDGET_GIB", "0.001")
     mod.issues, mod.calls, mod.expiry = [], [], "2099-01-01 00:00:00 UTC"

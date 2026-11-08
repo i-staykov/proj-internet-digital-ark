@@ -52,7 +52,7 @@ HEARTBEAT_TITLE = "VM heartbeat"
 HEARTBEAT_HOUR = 6
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
 REBOOT = Path(os.environ.get("ARK_REBOOT_FLAG", "/var/run/reboot-required"))
-UPTIME = Path("/proc/uptime")
+UPTIME = Path(os.environ.get("ARK_UPTIME", "/proc/uptime"))
 GIB = 1024**3
 # run_agent.sh's rows before the pre-flight and its refusal; a rate limit, the pre-flight's
 # or the run's, answered the token
@@ -255,15 +255,15 @@ def reboot(now: dt.datetime) -> tuple[bool, str]:
     """(pending 24 h, line): unattended-upgrades' flag, first seen by a tick, and the last boot."""
     seen = LOGS / ".reboot_seen"
     try:
-        booted = now - dt.timedelta(seconds=float(UPTIME.read_text().split()[0]))
-        boot = f"up since {booted:%F %H:%M} UTC"
+        up = float(UPTIME.read_text().split()[0])
+        boot = f"up since {now - dt.timedelta(seconds=up):%F %H:%M} UTC"
     except (OSError, ValueError, IndexError):
-        booted, boot = None, "boot time unknown"
+        boot = "boot time unknown"
     if not REBOOT.exists():
         seen.unlink(missing_ok=True)
         return False, f"reboot: none pending, {boot}"
-    if not seen.exists() or booted and seen.stat().st_mtime < booted.timestamp():
-        seen.touch()  # first seen, or seen before the reboot that cleared it
+    if not seen.exists():
+        seen.touch()  # kept across a boot, so a flag that keeps coming back alerts too
     since = dt.datetime.fromtimestamp(seen.stat().st_mtime, dt.UTC)
     return now - since >= dt.timedelta(hours=24), f"reboot: pending since {since:%F %H:%M}, {boot}"
 
