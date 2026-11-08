@@ -43,7 +43,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ark.disk import trim  # noqa: E402
 from sample_usenet_header_items import (  # noqa: E402
     FAILED,
     End,
@@ -56,6 +55,8 @@ from sample_usenet_header_items import (  # noqa: E402
     unread,
 )
 from screen_usenet_header_items import screen  # noqa: E402
+
+from ark.disk import trim  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[3]
 WORK = REPO / "data/queue/usenet_header"

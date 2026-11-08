@@ -25,10 +25,14 @@ cd "$(dirname "$0")/../.." || exit 1
 # scripts under a running bank.
 
 # The recipes' own `local.env`: without its ARK_DB_MEMORY_LIMIT the bank dies at DuckDB's 40%
-# cap. It assigns without `export`, so that one value is exported and the hosts stay out of
-# child environments.
+# cap, and the floor the collectors read is the bank's (src/ark/disk.py). It assigns without
+# `export`, so those values are exported and the hosts stay out of child environments.
 [ -f local.env ] && . ./local.env
-[ -n "${ARK_DB_MEMORY_LIMIT:-}" ] && export ARK_DB_MEMORY_LIMIT
+FLOOR=()  # the reader units' share of them
+for v in ARK_DB_MEMORY_LIMIT ARK_FREE_SPACE_GIB ARK_WRITE_BUDGET_GIB; do
+    [ -n "${!v:-}" ] || continue
+    export "$v"; [ "$v" = ARK_DB_MEMORY_LIMIT ] || FLOOR+=(-E "$v=${!v}")
+done
 
 FLEET_REPO="i-staykov/ark-fleet"
 mkdir -p data/logs
@@ -86,9 +90,9 @@ ship_now() {
     # the remote's last successful listing, for the heartbeat
     rclone lsf --max-depth 1 gdrive:ark-offsite > /dev/null 2>&1 && echo "$STAMP" > data/logs/.offsite_listed || echo "offsite: listing failed"
     hold_label on 2>&1
-    # the per-file skip lines of an idempotent ingest would fill the whole log; line
-    # buffering so a reader mid-run sees where the sync is, not a stale block
-    just sync 2>&1 | grep --line-buffered -vE 'already ingested, skipping|\| INFO +\| \[[0-9]+/[0-9]+\]' \
+    # the per-file lines of an idempotent ingest would fill the whole log; line buffering so
+    # a reader mid-run sees where the sync is, not a stale block
+    just sync 2>&1 | grep --line-buffered -vE '\| INFO +\| \[[0-9]+/[0-9]+\]' \
         | tee "$SYNC_OUT"
     sync_rc=${PIPESTATUS[0]}
     hold_label off 2>&1
@@ -114,7 +118,7 @@ if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
         header:usenet/run_usenet_header_items.py:usenet_header; do
         IFS=: read -r name script log <<<"$reader"  # unit, script, log
         [ "$(uv run python scripts/harness/check_unattended.py left "ark-$name" 2>> "$LOG")" = 0 ] && continue
-        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" \
+        systemd-run --user --unit "ark-$name" --collect --working-directory="$PWD" -E PATH="$PATH" ${FLOOR[@]+"${FLOOR[@]}"} \
             bash -c "uv run python scripts/sources/$script >> data/logs/$log.log 2>&1" \
             >/dev/null 2>&1 || true
     done

@@ -29,9 +29,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from ark.disk import below_floor, trim
 from ark.hostnames import host_of
 
 REPO = Path(__file__).resolve().parents[3]
+LOG = REPO / "data/logs/eot_cdxj.log"  # the tick's `>>` for the unit
 OUT = REPO / "data/raw/extended/eot_cdxj"
 URL = "https://eotarchive.s3.amazonaws.com/eot-index/collections/EOT-20{yy}/indexes/{part}.cdxj.gz"
 PARTS = {  # each part's sha256, from the 10-18 read's receipts
@@ -121,9 +123,12 @@ def left() -> int:
 
 
 def main() -> None:
+    trim(LOG)
     while subprocess.run(["bash", str(REPO / "scripts/harness/hold.sh"), "holds"]).returncode:
         if not (queue := todo()):
             return print("eot: every part read or given up", flush=True)
+        if why := below_floor(OUT, root=REPO):
+            return print(f"eot: {why}", flush=True)
         print(read(min(queue, key=failures)), flush=True)
     print("eot: held", flush=True)
 

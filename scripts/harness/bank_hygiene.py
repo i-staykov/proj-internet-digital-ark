@@ -189,7 +189,7 @@ def preflight(
         return 2, lines
     lines.append("clone is clean")
 
-    from ark.db import space
+    from ark.disk import space
 
     code, disk_lines = space(root=root)
     lines.extend(disk_lines)

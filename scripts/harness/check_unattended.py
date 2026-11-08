@@ -10,7 +10,7 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - hold: each unit or flag the hold file names is off (the timer not enabled unless the label
   holds it, the flag file present).
 - login: `gh auth status` succeeds.
-- space: free space clears the bank's floor plus its write budget (`ark.db.space`).
+- space: free space clears the bank's floor plus its write budget (`ark.disk.space`).
 - lanes: a lane under no pause flag runs, or wrote its log within cron's restart period. Its
   `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
   cron restarts a finished lane, which writes that row again, every period.
@@ -35,7 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ark.db import space  # noqa: E402
+from ark.disk import space  # noqa: E402
 
 TIMER = "ark-sync.timer"
 WALKERS = ("scripts/engines/cdx_walk_jobs.py", "scripts/engines/cdx_extended_walk.py")

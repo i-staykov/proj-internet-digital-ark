@@ -36,7 +36,7 @@ from ark.hostnames import USENET_HEADER_FAMILY, usenet_item_rows
 
 UA = "ark-research (header-lane measurement)"
 BUILD = Path(__file__).with_name("build_usenet_header_pool.py")
-SNAPSHOT = Path(__file__).resolve().parents[3] / "output/fleet_snapshot"
+SNAPSHOT = Path(__file__).resolve().parents[3] / "output/price_snapshot"
 # every transfer bounded: no connection in 60 s, or under 1 KB/s for 300 s, is an outage
 CURL = ["curl", "-sSL", "--connect-timeout", "60", "--speed-time", "300", "--speed-limit", "1024"]
 FAILED = (OSError, ValueError, http.client.HTTPException)
@@ -194,7 +194,7 @@ def write_items(shards: list[Path], path: Path) -> None:
 
 
 def price(work: Path, out: Path) -> float:
-    """Candidate EE of one extract's journals against the fleet snapshot, nan when unpriced."""
+    """Candidate EE of one extract's journals against the price snapshot, nan when unpriced."""
     path = work / "batch.items.jsonl"
     write_items(sorted(out.glob("*.jsonl.gz")), path)
     ark = Path(sys.executable).with_name("ark")

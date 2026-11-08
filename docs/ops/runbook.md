@@ -74,7 +74,7 @@ the last bank could not fetch, or moved journals; the last two alone wait `ARK_B
 
 **The bank** folds journals, exports the claim and gates; re-prices each confirmed FIND on the
 store; ingests what was approved or decided and gates again; rebuilds `docs/ROUND.md`, commits,
-pushes `live`, rebuilds `output/fleet_snapshot` for `just price`, and writes each lead's fate to the fleet. A red writes
+pushes `live` and rebuilds `output/price_snapshot` for `just price`. A red writes
 `data/logs/bank_red.json`, and after an approved ingest takes those rows out with
 `scripts/harness/unbank_source.py`, except a source that held rows before the bank: its rows stay
 and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then `just red-clear`
@@ -124,7 +124,7 @@ and every collector stops asking within a page or a file. A dry run's hand tick 
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
 | prove what is on disk | `just verify raw`, `just verify offsite --verify`; in a worktree, whose `data/` entries are links offsite refuses and whose `submissions/` has no tarballs, `scripts/round/verify_raw.py` and `offsite.py` take `--root <checkout> --table docs/registers/retention.md`; `just vm status` for the hourly tick |
 | a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
-| retention | `just prune`; `just prune --round --write` removes only what has its proofs, a `data/ark.duckdb.pre-*.bak` once a later credited round is in `data/baseline.json`; a backup needs no Drive copy |
+| retention | `just prune`; the tick's `just prune --round --write` removes only what has proofs, a `data/ark.duckdb.pre-*.bak` once `data/baseline.json` credits a later round; backups need no Drive copy |
 | triage a VM alert | a corpus path with an era worm is content; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer: `auth.log` for non-publickey logins, `ss -tulpn`, `crontab -l` as both users, `systemctl --user list-units 'ark-*'` |
 
 ## Figures
@@ -134,7 +134,7 @@ that ship net-new against his 1996 to 2001 files, field 5 its percent of them. T
 are the two GATE lines beneath, each over his EE for its years: 1996 to 2001 (field 4) and 2002 to
 2013 (`output/extended_years/`). The bank re-runs `scripts/round/extended_export.py` when
 `data/raw/extended/<source>/` or his release moves, and a stale export withholds both. `just price
---items <f.jsonl>` is the fleet's figure on both parts, from `output/fleet_snapshot`, which the bank
+--items <f.jsonl>` is the snapshot's figure on both parts, from `output/price_snapshot`, which the bank
 rebuilds; it reads no store, so the bank re-prices a FIND on the store, where
 `scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
 names with no database, where `grep -Fxf` over his year files pins the CPU.
