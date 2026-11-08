@@ -63,8 +63,10 @@ systemctl --user enable --now ark-sync.timer
 # The agent's profile: its deny list and the rails hook, the login's own Claude settings.
 mkdir -p ~/.claude && cp ~/ark/agent/settings.json ~/.claude/settings.json
 mkdir -p ~/ark-agent
-# The alerts' label, once; the agent's parked items and the triage file under it.
+# The alerts' label, once; the agent's parked items and the triage file under it. The hold's
+# label, which the tick reads (scripts/harness/hold.sh).
 gh label create vm-alert -R i-staykov/ark-fleet --color D93F0B --description "the VM's agent asks for a reader" > /dev/null 2>&1 || true
+gh label create hold -R i-staykov/ark-fleet --color 000000 --description "just hold, through the tick" > /dev/null 2>&1 || true
 systemctl --user enable --now ark-agent.timer
 systemctl --user enable --now ark-agent.timer
 systemctl --user list-timers ark-sync.timer ark-agent.timer --no-pager --no-legend

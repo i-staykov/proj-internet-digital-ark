@@ -104,14 +104,16 @@ the gh expiry or the agent pre-flight's answer. This checkout only pulls; it kee
 | terms | the runner pool is fixed at install (`ARK_RUNNERS`, `host/install.sh`) and no workflow allocates compute |
 | an AV alert | hash the flagged file; a hit in a downloaded corpus is content and is kept; the detail goes under `private/security/` |
 
-**The hold.** `just hold` disables the VM's `ark-sync.timer`, writes `pause-platform` here and on
-each host, and disables the fleet's `leg.yaml`, `read.yaml` and `improver.yaml`; `just hold
-status` shows each name and `just hold off <name>` lifts one, or drops a name it does not know.
-It survives a reboot; while it lists `ark-sync.timer` the tick and the bank exit `held`. A dry
-run's hand tick passes it as `ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run. Right
-after `just hold off ark-sync.timer`, run `just bank --force` by hand: with
-no `data/logs/bank_stamp.json` the first tick fires every reason, and the converter's first pass
-takes about an hour.
+**The hold.** `just hold`, on the VM or from the laptop over `ARK_VM`, disables `ark-sync.timer`,
+writes `pause-platform` here and on each host, and disables the fleet's `leg.yaml`, `read.yaml`
+and `improver.yaml`; a `hold` label on an open ark-fleet issue does the same through the tick, the
+timer left enabled so the tick reads the label's removal. `just hold status` shows each name and
+`just hold off <name>` lifts one, or drops a name it does not know; `just hold off`, or the label
+removed, lifts them all and starts `just bank --force` as `ark-bank-force` on the bank host (a
+label still on holds again at the next tick). It
+survives a reboot; while it lists `ark-sync.timer` the tick, the bank and the agent exit `held`,
+and every collector stops asking within a page or a file. A dry run's hand tick passes it as
+`ARK_HOLD_BYPASS=dry-run just sync`, inline for that one run.
 
 ## Commands
 

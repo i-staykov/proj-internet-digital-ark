@@ -51,6 +51,12 @@ def price(work: Path, out: Path) -> float:
     return float(json.loads((work / "batch.c.json").read_text())["ee"])
 
 
+def over(deadline: float) -> bool:
+    """Past `--until`, or held (scripts/harness/hold.sh): read before every request."""
+    hold = ["bash", "scripts/harness/hold.sh", "holds"]
+    return time.time() >= deadline or subprocess.run(hold).returncode == 0
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("work", type=Path)
@@ -72,10 +78,12 @@ def main() -> None:
     fails, stop = 0, False
     with open(logp, "a") as log:
         for top in a.tops.split(","):
-            if time.time() >= deadline:
+            if over(deadline):
                 break
             files = []
             for item in sorted(i for i in todo if i.split(".")[0] == top):
+                if over(deadline):
+                    break
                 try:
                     meta = get(f"https://archive.org/metadata/usenet-{item}/files").get(
                         "result", []
@@ -96,9 +104,9 @@ def main() -> None:
                 time.sleep(1)
             queued: set[str] = set()  # a group sits in its hierarchy's item and its own: read once
             files = [f for f in files if f[1] not in queued and not queued.add(f[1])]
-            while files and not stop and time.time() < deadline:
+            while files and not stop and not over(deadline):
                 name, size, names, t0 = f"{a.prefix}_{batch:03d}", 0, [], time.time()
-                while files and size < 1e9:
+                while files and size < 1e9 and not over(deadline):
                     item, fname, fsize = files.pop(0)
                     url = f"https://archive.org/download/usenet-{item}/{urllib.parse.quote(fname)}"
                     code = fetch(url, pool / fname, fsize)

@@ -7,8 +7,8 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - walk: the crontab holds six `# ark-walk` lines, each `cd` here and running the walker, and
   `data/logs/.walk_code` names HEAD's walker blobs, so the lanes run HEAD's code.
 - lock: the sync lock is free or its holder's pid is alive.
-- hold: each unit or flag the hold file names is off (the timer not enabled, the flag file
-  present).
+- hold: each unit or flag the hold file names is off (the timer not enabled unless the label
+  holds it, the flag file present).
 - login: `gh auth status` succeeds.
 - space: free space clears the bank's floor plus its write budget (`ark.db.space`).
 - lanes: a lane under no pause flag runs, or wrote its log within cron's restart period. Its
@@ -85,9 +85,14 @@ def hold() -> tuple[bool, str]:
     names = hold_names()
     if names is None:
         return True, "no hold"
+    by_label = (STATE / "hold").read_text().startswith("label\n")
     bad = []
     for name in names:
-        if name == TIMER and run("systemctl", "--user", "is-enabled", TIMER)[1] == "enabled":
+        if (
+            name == TIMER
+            and not by_label
+            and run("systemctl", "--user", "is-enabled", TIMER)[1] == "enabled"
+        ):
             bad.append(f"{TIMER} still enabled")
         elif name == "pause-platform" and not (STATE / name).exists():
             bad.append("pause-platform flag missing")
