@@ -77,6 +77,13 @@ ship_now() {
     ship_now 2>&1
 } >> "$LOG"
 
+# Yesterday's productivity rows (scripts/agents/lane_yield.py), once a day after the 06 UTC
+# bank, the heartbeat's condition; a failure is one line here, never the tick's.
+if [ "${STAMP:9:2}" -ge 6 ] && [ "$(cat data/logs/.yield_day 2>/dev/null)" != "${STAMP:0:8}" ]; then
+    if uv run python scripts/agents/lane_yield.py >> "$LOG" 2>&1; then echo "${STAMP:0:8}" > data/logs/.yield_day
+    else echo "lane yield: failed, its error is above" >> "$LOG"; fi
+fi
+
 # The End of Term indexes, an HTTP Archive year and the ClueWeb09 map where the lanes walk,
 # every part left after the bank, each its own unit so it outlives this one, never two at once
 # (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb.py).
