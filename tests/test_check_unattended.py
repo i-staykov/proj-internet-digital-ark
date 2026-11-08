@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "init.defaultBranch=live"]
@@ -181,3 +182,33 @@ def test_the_hold_label_holds_through_the_tick_and_its_removal_lifts(clone):
     assert "bank: forced" in (repo / "data/logs/scheduled_sync.log").read_text()
     assert not (state / "hold").exists() and not (state / "pause-platform").exists()
     assert "systemd-run --user --unit ark-bank-force" in calls.read_text()
+
+
+def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, monkeypatch):
+    check = script("harness/check_unattended.py")
+    monkeypatch.setattr(check, "ROOT", tmp_path)
+    monkeypatch.setattr(check, "STATE", tmp_path / "state")
+    (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
+    monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
+    monkeypatch.setattr(check, "left", {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0}.get)
+    assert check.readers() == [
+        ("ark-eot", True, "finished"),
+        ("ark-har", False, "inactive, 3 parts left"),
+        ("ark-clueweb", True, "finished"),
+    ]
+    # the tick: eot and har with every part read, clueweb with its lists left
+    repo, env = clone
+    (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
+    eot = repo / "data/raw/extended/eot_cdxj"
+    eot.mkdir(parents=True)
+    for part in script("sources/eot/eot_cdxj.py").PARTS:
+        (eot / f"eot_{part}.jsonl.gz").write_bytes(b"")
+    har = repo / "data/raw/extended/httparchive_har"
+    har.mkdir(parents=True)
+    (har / ".har_items.json").write_text('[["httparchive_2010", 2010]]')
+    (har / ".har_httparchive_2010.zips.json").write_text("{}")
+    rc, last = tick(repo, env)
+    started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
+    assert rc == 0 and [ln.split()[3] for ln in started] == ["ark-clueweb"], (last, started)
+    log = (repo / "data/logs/scheduled_sync.log").read_text()
+    assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
