@@ -46,10 +46,12 @@ import time
 import zipfile
 from pathlib import Path
 
+from ark.disk import below_floor, trim
 from ark.hostnames import host_of
 
 REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/raw/extended/httparchive_har"
+LOG = REPO / "data/logs/har.log"  # the tick's `>>` for the unit
 ITEM = "https://archive.org/{what}/{item}"
 SEARCH = (
     "https://archive.org/advancedsearch.php?q=identifier%3Ahttparchive_2013*"
@@ -278,6 +280,9 @@ def read_item(item: str, year: int) -> bool:
         if not (queue := todo(listed)):
             print(f"har {item}: every zip read or given up", flush=True)
             return True
+        if why := below_floor(OUT):
+            print(f"har {item}: {why}", flush=True)
+            return False
         name = min(queue, key=lambda n: (failures(n[:-4]), n))  # crawl order, failures last
         line, keep = read(item, year, name, *listed[name])
         hosts = {host for host, _ in keep}
@@ -291,6 +296,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--item", help="one item alone (its year from its name); else items() in turn")
     one = ap.parse_args().item
+    trim(LOG)
     for item, year in [(one, int(one.split("_")[1]))] if one else items():
         if not read_item(item, year):
             break

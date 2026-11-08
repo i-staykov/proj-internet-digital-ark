@@ -2,10 +2,12 @@
 
     python3 scripts/harness/heartbeat.py STAMP START SYNC_RC CHECK_RC SYNC_OUT CHECK_OUT
 
-- `data/logs/ticks.tsv` gains one row: stamp, verdict, seconds, banked or why not, free GiB
-  (the disk's 7-day rate needs its own history). Rows past 90 days go. The verdict is `red` while
-  `bank_red.json` stands, `held` when the recipe printed it, `refused` when the lock refused or the
-  sync failed, `banked` when the bank wrote its stamp since START, else `idle`.
+- `data/logs/ticks.tsv` gains one row: stamp, verdict, seconds, banked or why not. Rows past 90
+  days go. The verdict is `red` while `bank_red.json` stands, `held` when the recipe printed it,
+  `refused` when the lock refused or the sync failed, `banked` when the bank wrote its stamp
+  since START, else `idle`.
+- `data/logs/disk.tsv` gains the day's free GiB at the heartbeat tick: date, free GiB. The disk
+  line's days to the floor is the 7-day rate over those readings.
 - Each cause on opens one `vm-alert` issue on ark-fleet titled `vm-alert: <cause>`, reopens a
   closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
   mid-item among them), BANK RED, two refused ticks in a row, a lane with work queued (pending
@@ -34,12 +36,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ark.db import space  # noqa: E402
+from ark.disk import space  # noqa: E402
 from ark.hygiene import local_hosts, scan  # noqa: E402
 
 FLEET = "i-staykov/ark-fleet"
 LOGS = ROOT / "data/logs"
 TICKS = LOGS / "ticks.tsv"
+DISK = LOGS / "disk.tsv"
 KEEP_DAYS = 90
 LANES = 3
 STALL_H = 6
@@ -98,7 +101,7 @@ def rows() -> list[list[str]]:
     out = []
     for r in (ln.split("\t") for ln in TICKS.read_text().splitlines()):
         try:
-            if len(r) >= 5 and utc(r[0]) and float(r[4]) >= 0:
+            if len(r) >= 4 and utc(r[0]):
                 out.append(r)
         except ValueError:
             continue  # a torn or hand-edited row
@@ -116,23 +119,42 @@ def append(row: list[str], now: dt.datetime) -> list[list[str]]:
     return kept
 
 
-def disk(kept: list[list[str]], now: dt.datetime) -> tuple[float | None, str]:
-    """Days to the floor at the 7-day rate, and its line."""
+def readings() -> list[tuple[dt.date, float]]:
+    """(date, free GiB) per row of disk.tsv, torn rows dropped, oldest first."""
+    out = []
+    for ln in DISK.read_text().splitlines() if DISK.exists() else []:
+        try:
+            day, free = ln.split("\t")
+            out.append((dt.date.fromisoformat(day), float(free)))
+        except ValueError:
+            continue
+    return sorted(out)
+
+
+def record(today: dt.date, free: float) -> None:
+    """The day's reading, once; readings past KEEP_DAYS go."""
+    cut = today - dt.timedelta(days=KEEP_DAYS)
+    kept = [(d, f) for d, f in readings() if d >= cut and d != today] + [(today, free)]
+    DISK.parent.mkdir(parents=True, exist_ok=True)
+    DISK.write_text("".join(f"{d}\t{f:.1f}\n" for d, f in kept))
+
+
+def disk(today: dt.date) -> tuple[float | None, str]:
+    """Days to the floor at the rate of the last 7 days' readings, and its line."""
     rc, lines = space(root=ROOT)
     m = re.search(r"([\d.]+) GiB free, need ([\d.]+) GiB", lines[0])
     if not m:
         return None, f"disk: {lines[0]}"
     free, need = float(m[1]), float(m[2])
-    week = [r for r in kept if utc(r[0]) >= now - dt.timedelta(days=7)]
-    days = (utc(week[-1][0]) - utc(week[0][0])).total_seconds() / 86400
-    rate = (float(week[0][4]) - float(week[-1][4])) / days if days >= 1 else 0.0
+    week = [(d, f) for d, f in readings() if d >= today - dt.timedelta(days=7)]
+    head = f"disk: {free:.1f} GiB free, need {need:.1f}, "
+    if len(week) < 2:
+        return None, head + f"{len(week)} reading, no 7-day rate yet"
+    rate = (week[0][1] - week[-1][1]) / (week[-1][0] - week[0][0]).days
     if rate <= 0:
-        return None, f"disk: {free:.1f} GiB free, need {need:.1f}, not shrinking over 7 days"
+        return None, head + "not shrinking"
     left = (free - need) / rate
-    return (
-        left,
-        f"disk: {free:.1f} GiB free, need {need:.1f}, {rate:.1f} GiB a day, {left:.0f} days left",
-    )
+    return left, head + f"{left:.0f} days to floor"
 
 
 def token(now: dt.datetime) -> tuple[float | None, str]:
@@ -302,10 +324,16 @@ def main(argv: list[str]) -> int:
     sync_text = Path(sync_out).read_text(errors="replace") if Path(sync_out).exists() else ""
     check_text = Path(check_out).read_text(errors="replace") if Path(check_out).exists() else ""
     word, why = verdict(int(sync_rc), sync_text, float(start))
-    free = shutil.disk_usage(ROOT / "data").free / GIB
     secs = f"{now.timestamp() - float(start):.0f}"
-    kept = append([stamp, word, secs, why.replace("\t", " ")[:200], f"{free:.1f}"], now)
+    kept = append([stamp, word, secs, why.replace("\t", " ")[:200]], now)
     print(f"tick row: {word}, {why}")
+    today = now.strftime("%Y-%m-%d")
+    day_file = LOGS / ".heartbeat_day"
+    posted = day_file.read_text().strip() if day_file.exists() else ""
+    # from 06 on, so a 05:05 tick running past 06:05 delays the day's post, never drops it
+    daily = utc(stamp).hour >= HEARTBEAT_HOUR and posted != today
+    if daily:
+        record(now.date(), shutil.disk_usage(ROOT / "data").free / GIB)
 
     causes: dict[str, str] = {}
     for ln in check_text.splitlines():
@@ -323,7 +351,7 @@ def main(argv: list[str]) -> int:
     agent_ok, agent_line = agent(now)
     if not agent_ok:
         causes["no agent success in 24 h"] = agent_line
-    disk_days, disk_line = disk(kept, now)
+    disk_days, disk_line = disk(now.date())
     if disk_days is not None and disk_days < FLOOR_DAYS:
         causes["disk under 14 days"] = disk_line
     token_days, token_line = token(now)
@@ -337,11 +365,7 @@ def main(argv: list[str]) -> int:
         causes["no offsite listing in 24 h"] = off_line
     alert(causes)
 
-    today = now.strftime("%Y-%m-%d")
-    day_file = LOGS / ".heartbeat_day"
-    posted = day_file.read_text().strip() if day_file.exists() else ""
-    # from 06 on, so a 05:05 tick running past 06:05 delays the day's post, never drops it
-    if utc(stamp).hour >= HEARTBEAT_HOUR and posted != today:
+    if daily:
         round_md = ROOT / "docs/ROUND.md"
         text = round_md.read_text() if round_md.exists() else ""
         gate = [ln for ln in text.splitlines() if ln.startswith("GATE.")] or ["GATE: no ROUND.md"]

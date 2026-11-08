@@ -11,6 +11,7 @@ lane (AGENTS.md, Channel).
 
 from __future__ import annotations
 
+import os
 import shlex
 import subprocess
 import sys
@@ -21,6 +22,7 @@ DATA = CODE / "data"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
 LANES, WORKERS = 3, 3  # the Channel's three clients here, requests at once in each
+FLOOR_ENV = ("ARK_FREE_SPACE_GIB", "ARK_WRITE_BUDGET_GIB")  # src/ark/disk.py
 
 
 def here() -> bool:
@@ -36,8 +38,10 @@ def sh(cmd: str) -> str:
 
 
 def cron(lane: int) -> str:
+    # cron inherits no local.env: the bank's floor, as the tick exported it, travels in the line
+    floor = "".join(f"{k}={os.environ[k]} " for k in FLOOR_ENV if os.environ.get(k))
     return (
-        f"cd {CODE} && flock -n {DATA}/lane{lane}.lock /usr/bin/python3 "
+        f"cd {CODE} && {floor}flock -n {DATA}/lane{lane}.lock /usr/bin/python3 "
         f"scripts/engines/cdx_extended_walk.py --lane {lane} --lanes {LANES} "
         f"--data {DATA} --workers {WORKERS} --max-local {LANES} --connect-timeout 4 "
         f"--max-transient 30 >> {DATA}/logs/lane{lane}.log 2>&1"

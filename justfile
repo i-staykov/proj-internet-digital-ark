@@ -136,6 +136,8 @@ sync fleet="~/GitHub/ark-fleet":
     fi
     # 3. The gate issue, once per crossing, read off the brief the last bank wrote.
     uv run python scripts/harness/bank_hygiene.py gate --write || true
+    # 4. Round cleanup, once per round credited in data/baseline.json (scripts/round/prune.py).
+    uv run python scripts/harness/bank_trigger.py prune || true
     exit "$BANK_RC"
 
 # bank what arrived: fold journals, re-price, decide, gate, push; --force banks regardless
