@@ -246,6 +246,13 @@ def readers() -> list[str]:
         return [f"readers: unreadable, {type(e).__name__}"]
 
 
+def header() -> str:
+    try:
+        return load("scripts/sources/usenet/run_usenet_header_items.py").summary()
+    except Exception as e:  # noqa: BLE001 - the lane's import must not cost the heartbeat
+        return f"header lane: unreadable, {type(e).__name__}"
+
+
 def clean(body: str, name: str) -> str:
     """The body if it passes the public scan, else a fixed line."""
     path = LOGS / f".{name}_body"
@@ -362,7 +369,7 @@ def main(argv: list[str]) -> int:
                 disk_line,
                 "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
                 *(line for _s, line in lanes),
-                "header lane: no unit yet, not measured",
+                header(),
                 *readers(),
                 token_line,
                 pre_line,

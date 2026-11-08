@@ -17,7 +17,7 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 - readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
   three strikes left and no hold is an active unit; with none left it reads `finished`, and
   `check_unattended.py left <unit>` prints the count, which the tick reads before starting the
-  unit. The header lane has no unit yet, so it is reported, never judged.
+  unit.
 """
 
 from __future__ import annotations
@@ -45,6 +45,7 @@ READERS = {  # the tick's transient units and their readers (scheduled_sync.sh)
     "ark-eot": "scripts/sources/eot/eot_cdxj.py",
     "ark-har": "scripts/sources/httparchive/har_year.py",
     "ark-clueweb": "scripts/sources/crawl_lists/clueweb.py",
+    "ark-header": "scripts/sources/usenet/run_usenet_header_items.py",
 }
 
 
@@ -167,7 +168,6 @@ def main(argv: list[str]) -> int:
         ("space", *disk()),
         *((f"lane{n}", *lane(n)) for n in range(LANES)),
         *readers(),
-        ("header lane", True, "no unit yet, not judged"),
     ]
     failed = [name for name, ok, _ in checks if not ok]
     for name, ok, why in checks:

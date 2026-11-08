@@ -193,13 +193,16 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "STATE", tmp_path / "state")
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
-    monkeypatch.setattr(check, "left", {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0}.get)
+    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 0, "ark-header": 0}
+    monkeypatch.setattr(check, "left", left.get)
     assert check.readers() == [
         ("ark-eot", True, "finished"),
         ("ark-har", False, "inactive, 3 parts left"),
         ("ark-clueweb", True, "finished"),
+        ("ark-header", True, "finished"),
     ]
-    # the tick: eot and har with every part read, clueweb with its lists left
+    # the tick: eot and har with every part read, clueweb with its lists left, the header lane
+    # with its list and every top screened, one under the floor and one run out
     repo, env = clone
     (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
     eot = repo / "data/raw/extended/eot_cdxj"
@@ -210,11 +213,19 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     har.mkdir(parents=True)
     (har / ".har_items.json").write_text('[["httparchive_2010", 2010]]')
     (har / ".har_httparchive_2010.zips.json").write_text("{}")
+    header = repo / "data/queue/usenet_header"
+    header.mkdir(parents=True)
+    (header / "seen.json").write_text("[]")
+    (header / "tops.txt").write_text("cheap\nrich\n")
+    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 8.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
+    (header / "screen.tsv").write_text("".join("\t".join(map(str, r)) + "\n" for r in screens))
+    (header / "log.tsv").write_text("ran\trich\n")
     rc, last = tick(repo, env)
     started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
     assert rc == 0 and [ln.split()[3] for ln in started] == ["ark-clueweb"], (last, started)
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
+    assert "ok   ark-header: finished" in log, log
 
 
 def diverge(repo: Path, env: dict, subject: str, clash: bool = False) -> str:

@@ -17,6 +17,7 @@ extract seconds per group.
 
 from __future__ import annotations
 
+import http.client
 import json
 import random
 import shutil
@@ -32,6 +33,7 @@ from ark.hostnames import USENET_HEADER_FAMILY, usenet_item_rows
 
 UA = "ark-research (header-lane measurement)"
 BUILD = Path(__file__).with_name("build_usenet_header_pool.py")
+SNAPSHOT = Path(__file__).resolve().parents[3] / "output/fleet_snapshot"
 
 
 def get(url: str) -> dict:
@@ -39,6 +41,19 @@ def get(url: str) -> dict:
         urllib.request.Request(url, headers={"User-Agent": UA}), timeout=120
     ) as r:
         return json.load(r)
+
+
+def listing(item: str) -> list[dict] | str:
+    """An item's files, or the failure's HTTP code or name; any failure but a 429 is asked
+    once more after 120 s."""
+    for wait in (120, 0):
+        try:
+            return get(f"https://archive.org/metadata/usenet-{item}/files").get("result", [])
+        except (OSError, ValueError, http.client.HTTPException) as exc:
+            code = str(getattr(exc, "code", "") or type(exc).__name__)
+            if code == "429" or not wait:
+                return code
+            time.sleep(wait)
 
 
 def items(cache: Path) -> list[dict]:
@@ -105,6 +120,18 @@ def write_items(shards: list[Path], path: Path) -> None:
                 shard, Counter(), USENET_HEADER_FAMILY
             ):
                 fh.write(json.dumps({"host": host, "year": year}) + "\n")
+
+
+def price(work: Path, out: Path) -> float:
+    """Candidate EE of one extract's journals against the fleet snapshot, nan when unpriced."""
+    path = work / "batch.items.jsonl"
+    write_items(sorted(out.glob("*.jsonl.gz")), path)
+    ark = Path(sys.executable).with_name("ark")
+    cmd = ["nice", ark, "price-snapshot", "--snapshot", SNAPSHOT, "--items", path]
+    cmd += ["--track", "candidate", "--out", work / "batch.c.json"]
+    if subprocess.run(cmd, capture_output=True).returncode:
+        return float("nan")
+    return float(json.loads((work / "batch.c.json").read_text())["ee"])
 
 
 def main(work: Path, seen_path: Path, buckets: dict[str, set[str]]) -> None:
