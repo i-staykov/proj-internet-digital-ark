@@ -134,6 +134,31 @@ def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch)
     assert ext.export(globs, out)["years"] == manifest["years"]
     journal.write_bytes(_journal(ROWS[:1]))
     assert ext.export(globs, out)["years"] != manifest["years"]
+    monkeypatch.setattr(ext, "code_of_screen", lambda: "another screen")
+    monkeypatch.setattr(gzip, "decompress", None)  # a stale entry is read no further than its key
+    assert ext.cached(journal, ext.entry_key(journal)) is None
+
+
+def test_the_cache_key_is_the_code_not_its_text():
+    ext = script("round/extended_export.py")
+    source = (ROOT / "src/ark/hostnames.py").read_text(encoding="utf-8")
+
+    def code(old: str, new: str) -> str:
+        assert old in source
+        return ext.code_of(source.replace(old, new, 1))
+
+    base = ext.code_of(source)
+    for keeps in (
+        ("def host_of(", "# a comment\ndef host_of("),
+        ('"""The hostname of a capture URL', '"""A docstring'),
+        ("def host_of(url: str)", "def host_of(\n    url: str,\n)"),  # formatting
+    ):
+        assert code(*keeps) == base, keeps
+    for changes in (
+        ("[a-z]{2,63}$", "[a-z]{2,62}$"),  # the regex host_of matches
+        ("        return None\n    return host", "        return None\n    return url"),
+    ):
+        assert code(*changes) != base, changes
 
 
 def test_a_decided_fleet_read_joins_and_an_undecided_one_waits(exported, monkeypatch):

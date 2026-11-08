@@ -32,11 +32,13 @@ merges each additions file with his (`package_delivery.sh`):
 """
 
 import argparse
+import ast
 import csv
 import functools
 import glob
 import gzip
 import hashlib
+import importlib.metadata
 import importlib.util
 import json
 import os
@@ -45,6 +47,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zlib
 from collections import Counter
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -160,13 +163,27 @@ def stat_of(path: Path) -> dict:
     return {"size": st.st_size, "mtime_ns": st.st_mtime_ns}
 
 
+def code_of(source: str) -> str:
+    """A module's code: its ast without docstrings, so a comment, a docstring or formatting
+    leaves it be and any other edit, a log line's included, changes it."""
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        kinds = ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+        if isinstance(node, kinds) and ast.get_docstring(node, clean=False) is not None:
+            node.body = node.body[1:]
+    return ast.dump(tree)
+
+
 @functools.cache
 def code_of_screen() -> str:
-    """What a cached input's rows were screened by: the window and the code and data it runs."""
+    """What a cached entry was made by: the window, the code it runs, the PSL, the one data file
+    that code reads, and the libraries `to_registrable` calls."""
     digest = hashlib.sha256(repr(sorted(EXTENDED_YEARS)).encode())
-    parts = (__file__, hn.__file__, canonical.__file__, delegation.__file__)
-    for part in (*parts, canonical.PSL_PATH):
-        digest.update(Path(part).read_bytes())
+    for part in (__file__, hn.__file__, canonical.__file__, delegation.__file__, held.__file__):
+        digest.update(code_of(Path(part).read_text(encoding="utf-8")).encode())
+    digest.update(canonical.PSL_PATH.read_bytes())
+    for library in ("tldextract", "idna"):
+        digest.update(importlib.metadata.version(library).encode())
     return digest.hexdigest()
 
 
@@ -174,23 +191,32 @@ def cache_entry(path: Path) -> Path:
     return CACHE / f"{hashlib.sha256(os.path.abspath(path).encode()).hexdigest()}.gz"
 
 
-def cached(path: Path) -> tuple[dict, bytes] | None:
+def entry_key(path: Path) -> bytes:
+    """The entry's first line: the file's size and mtime_ns, and the screen's code."""
+    return json.dumps([stat_of(path), code_of_screen()]).encode() + b"\n"
+
+
+def cached(path: Path, key: bytes) -> tuple[dict, bytes] | None:
     """A file's entry, its facts and rows, while the file and the screen are as they were; a
-    torn or foreign entry is a miss."""
+    stale entry is a miss read no further than its key, a torn or foreign one a miss."""
     try:
-        head, _, rows = gzip.decompress(cache_entry(path).read_bytes()).partition(b"\n")
-        facts = json.loads(head)
-    except (OSError, EOFError, ValueError):
+        with cache_entry(path).open("rb") as fh:
+            if fh.readline(len(key)) != key:
+                return None
+            head, _, rows = gzip.decompress(fh.read()).partition(b"\n")
+        return json.loads(head), rows
+    except (OSError, EOFError, ValueError, zlib.error):
         return None
-    return (facts, rows) if facts.get("key") == [stat_of(path), code_of_screen()] else None
 
 
-def cache(path: Path, facts: dict, rows: bytes = b"") -> dict:
-    """Write a file's entry under a temporary name and rename it in, so a reader never sees half."""
-    facts = {"key": [stat_of(path), code_of_screen()]} | facts
+def cache(path: Path, key: bytes, facts: dict, rows: bytes = b"") -> dict:
+    """Write a file's entry under a temporary name and rename it in, so a reader never sees half.
+    `key` is taken before the file is read, so a journal grown meanwhile is read again."""
+    facts = {"key": json.loads(key)} | facts
     CACHE.mkdir(parents=True, exist_ok=True)
     temp = CACHE / f".{cache_entry(path).name}.{os.getpid()}"
-    temp.write_bytes(gzip.compress(json.dumps(facts).encode() + b"\n" + rows, compresslevel=1))
+    data = json.dumps(facts).encode() + b"\n" + rows
+    temp.write_bytes(key + gzip.compress(data, compresslevel=1))
     os.replace(temp, cache_entry(path))
     return facts
 
@@ -198,7 +224,7 @@ def cache(path: Path, facts: dict, rows: bytes = b"") -> dict:
 def screened(path: Path) -> tuple[dict, bytes]:
     """What the manifest records of one input and its kept captures, `year<TAB>host<TAB>ts<SOH>
     line` lines, read again only when it moved. A refused journal keeps no row."""
-    if hit := cached(path):
+    if hit := cached(path, key := entry_key(path)):
         return hit
     seen, rows, refused = Counter(), [], None
     if hn.error_lane(path):
@@ -219,7 +245,7 @@ def screened(path: Path) -> tuple[dict, bytes]:
         rows, seen = [], Counter(journal_refused=1)
     data = "".join(rows).encode()
     facts = {"sha256": file_sha(path), "kept": seen.pop("kept", 0), "drops": dict(seen)}
-    return cache(path, facts | ({"refused": refused} if refused else {}), data), data
+    return cache(path, key, facts | ({"refused": refused} if refused else {}), data), data
 
 
 def read_rows(inputs: list[tuple[str, Path]], rows_out: Path, drops: Counter) -> list[dict]:
@@ -288,13 +314,13 @@ def his_file(year: int) -> tuple[Path, dict]:
     path = baseline_dir() / f"{year}.txt"
     if not path.is_file():
         raise SystemExit(f"{path}: he has no {year} file, so nothing can be added to it")
-    if hit := cached(path):
+    if hit := cached(path, key := entry_key(path)):
         return path, hit[0]
     held.check_sorted(path)
     found = subprocess.run(["grep", "-q", "-e", "[^a-z0-9.-]", "-e", "^$", str(path)], env=_C)
     if found.returncode != 1:
         raise SystemExit(f"{path}: a line is not a lowercase name (grep {found.returncode})")
-    return path, cache(path, {"lines": held.lines(path), "sha256": file_sha(path)})
+    return path, cache(path, key, {"lines": held.lines(path), "sha256": file_sha(path)})
 
 
 def export(globs: dict[str, str], out: Path) -> dict:
