@@ -10,16 +10,16 @@ walk seconds and stale hours.
 `write`, the bank's last step: `docs/registers/runner/<prefix>_<stamp>_<k>.txt` is the next pages
 a lane would ask (`cdx_extended_walk.load`, a throwaway lane over `data/raw/cdx_walk/runner/`
 ranking as the lanes do, their ask tier in), the runners' slices of both lanes holding at most
-`SHARE` of the pages above that tier, in pending.txt's head format; the knob (`cadence` or `long`,
-a one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane, so no job waits
-for the tick, and none without it, two for the long lane, a spare on live when a walk ends, since
-the next cut lags a walk by 1 to 2 h; a zeroed knob or STOP deletes the slices. A slice's pages are
-ceil(walk seconds x rate x `MARGIN`), at least `PAGES`, the rate the lane's answered rows a second
-over its last banked log, at most the walker's one start an `INTERVAL` (a two-row log says nothing
-faster), so a lane's first slice is `PAGES` and measures it. The runners are one more client on
-their own address, the Channel's cap being per address. A slice goes once its artifact is banked,
-or after its lane's stale hours (over the walk, the schedule's gap and the bank's hour) with none,
-its pages back to the lanes.
+`SHARE` of the pages above that tier, then questions (`asks`) once those run short, in
+pending.txt's head format; the knob (`cadence` or `long`, a one-line PR) keeps that many cut, the
+jobs an hour plus one for the hosted lane, so no job waits for the tick, and none without it, two
+for the long lane, a spare on live when a walk ends, since the next cut lags a walk by 1 to 2 h; a
+zeroed knob or STOP deletes the slices. A slice's tasks are ceil(walk seconds x rate x `MARGIN`),
+at least `PAGES`, the rate the lane's answered rows a second over its last banked log, at most the
+walker's one start an `INTERVAL` (a two-row log says nothing faster), so a lane's first slice is
+`PAGES` and measures it. The runners are one more client on their own address, the Channel's cap
+being per address. A slice goes once its artifact is banked, or after its lane's stale hours (over
+the walk, the schedule's gap and the bank's hour) with none, its pages back to the lanes.
 `runner/lent.txt` is the union of the slices present and `runner*/done.txt`, reread by the walker
 by mtime, so a running lane neither asks a lent page nor one a runner answered. Each pulled log
 is judged once: a pause of 15 minutes or more, or under `FLOOR` answered of `FLOOR_REQUESTS` or
@@ -196,11 +196,27 @@ def start_cost(walk: Path) -> float:
     return min(costs, default=walker.INTERVAL)
 
 
+def asks(data: Path, tiers: list[str], n: int, out: set[str]) -> list[tuple]:
+    """The first `n` questions of `tiers` in turn, each tier's in the pool's file order as the lanes
+    ask it, none in `out`: the file read to the first tier's `n`-th, never loaded whole."""
+    pool, got = data / "queue/pool_questions.tsv", {t: [] for t in tiers}
+    if n > 0 and got and pool.exists():
+        with open(pool) as fh:
+            for line in fh:
+                tier, domain = line.rstrip("\n").split("\t")
+                task = (f"ask-{tier}", 1, domain, walker.FIRST, walker.LAST, "ask")
+                if task[0] in got and len(got[task[0]]) < n and walker.key_of(task) not in out:
+                    got[task[0]].append(task)
+                    if len(got[tiers[0]]) == n:
+                        break
+    return [t for tier in tiers for t in got[tier]][:n]
+
+
 def cut(data: Path, runner: Path, sizes: list[int]) -> list[list[tuple]]:
     """A slice of each size in turn from the head of the lanes' ranking, the ask tiers in as empty
-    markers (the priced ones, no question loaded), both lanes' slices at most `SHARE` of the pages
-    above the first tier less the lent, none lent or done (a page a lane cut is done; its subpages
-    are that lane's own)."""
+    markers (the priced ones, no question loaded): both lanes' slices at most `SHARE` of the pages
+    above the first tier less the lent, then the priced tiers' questions, none lent or done (a page
+    a lane cut is done; its subpages are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
     a.questions, a.max_transient, a.workers = True, 0, jobs.WORKERS
     a.min_interval = start_cost(runner.parent)
@@ -214,6 +230,8 @@ def cut(data: Path, runner: Path, sizes: list[int]) -> list[list[tuple]]:
     free = [t for t in above if walker.key_of(t) not in lane.lent]
     out = len(above) - len(free)  # in a slice present already
     free = free[: max(0, int(len(above) * SHARE) - out)]
+    names = [lane.ranked[i][0] for i in tiers]
+    free += asks(data, names, sum(sizes) - len(free), lane.done | lane.lent)
     slices, at = [], 0
     for pages in sizes:
         if at >= len(free):

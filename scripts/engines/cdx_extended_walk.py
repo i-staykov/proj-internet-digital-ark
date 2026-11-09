@@ -28,8 +28,9 @@ subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpa
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
 and 15 minutes only after ten in a row with nothing booked between; a refused connection from
-30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
-or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
+30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a page's
+403 or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min (a question's
+403 is its domain's, laws, booked done until `EXCLUDED` in a row with no 200 between); each eased
 only by an answer, this lane's or a sibling's, which shows the address is not blocked; and
 requests start `--min-interval` apart, since a burst earns a block of the address.
 
@@ -38,7 +39,7 @@ refuses to start beside `--max-local` other CDX clients here, and idles while
 `<state home>/pause-platform` exists. Every request is a `log.tsv` row in its state folder, so a
 rate is always charged with its waits and failures.
 
-**Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file's pages alone, nothing
+**Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file alone, in its order, nothing
 counted or asked besides, and stops at its first 15 minute pause, since the address is refused.
 The pages lent to the runners, and the ones they answered, are `runner/lent.txt` beside the lane
 folders, reread by mtime, so a running lane drops and regains them without a restart.
@@ -84,6 +85,7 @@ WALLS = {
     "HTTP403",
     "OSError",
 }  # a 403, or a bare OSError, our link down: a wall, not a dropped connection
+EXCLUDED = 10  # questions' 403s in a row booked done, their domains': past it the address's wall
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
@@ -237,7 +239,7 @@ def encode(task: tuple, meta: tuple) -> str:
 def decode(line: str) -> tuple[tuple, tuple]:
     head, *meta = line.split("\t")
     s, z, p, f, la, k = head.split()
-    return (s, int(z), int(p), int(f), int(la), k), tuple(meta)
+    return (s, int(z), p if k == "ask" else int(p), int(f), int(la), k), tuple(meta)
 
 
 def refusal_pause(refused: int, status: str) -> float:
@@ -265,7 +267,7 @@ class Lane:
         self.starts, self.started, self.waited, self.cost, self.floors = 0, [], [], 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
-        self.throttled = self.refused = self.transient = 0
+        self.throttled = self.refused = self.transient = self.excluded = 0
         self.unreadable = self.drained = False  # drained: a worker found nothing left
         self.counter = threading.Thread()  # main's count_missing
 
@@ -331,6 +333,8 @@ class Lane:
             self.ranked, self.exploring, self.waiting, self.early = rank(
                 self.pages, self.order, self.asked, 2, self.cost, self.floors, self.a.workers
             )
+            if getattr(self.a, "slice", None):  # a slice runs in its file's order, the bank's rank
+                self.ranked, self.exploring, self.waiting, self.early = list(self.pages), [], [], []
             self.log.write(
                 f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring, "
                 f"{self.cost} s a start\n"
@@ -521,6 +525,9 @@ class Lane:
         tries = self.fails.get(key, 0)
         silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
         silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
+        excluded = status == "HTTP403" and task[5] == "ask" and self.excluded < EXCLUDED
+        self.excluded = 0 if status == "200" else self.excluded + excluded
+        silent |= excluded
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
