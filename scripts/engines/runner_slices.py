@@ -27,7 +27,7 @@ failure is one line and exit 0.
 
 `dispatch`, after the bank's push: one job while a slice is on `live`, none while STOP or a zeroed
 `cadence` holds or a run is queued or in progress; the workflow's hourly schedule, which GitHub
-delays or drops under load, is the second trigger. The token needs Actions write on the repository.
+delays or drops under load, is the second trigger.
 
     uv run python scripts/engines/runner_slices.py write|pull|dispatch [--data DIR]
 """

@@ -338,7 +338,7 @@ bank *args:
     fi
     # A commit an earlier bank could not push goes with this one.
     if [ -n "$(git rev-list origin/live..live 2>/dev/null)" ]; then git push -q origin live; fi
-    # The runners' job, asked once its slice is on live; the workflow's schedule is the second trigger.
+    # The runners' job, asked once its slice is on live.
     if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then uv run python scripts/engines/runner_slices.py dispatch || true; fi
     # Pending approvals as one issue and one mergeable pull request each.
     if [ "$RAN_B" = yes ]; then

@@ -70,9 +70,9 @@ the tick re-ranks the queue by measured EE per request, and `local.env` exports
 throttles per address, so a job on GitHub's runners walks one slice the bank cut
 (`docs/registers/runner/slice_*.txt`; `cadence`, a one-line PR, keeps that many cut, the jobs an
 hour plus one) from its own address and uploads the journals as an artifact; the tick dispatches
-the job once it has pushed a slice and no run is live (the workflow's hourly schedule, which GitHub
-delays or drops under load, is a second trigger) and banks the artifact as `runner0`, its row
-beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
+the job once it has pushed a slice and no run is live (the workflow's schedule is a second
+trigger) and banks the artifact as `runner0`, its row beside the lanes' in
+`data/logs/productivity.tsv` and the heartbeat. The
 runners are one more client on their own address, the Channel's cap being per address, beside
 the bank host's three lanes. GitHub's Additional Product Terms for Actions tie use to the
 repository's own software project, which this collection step is. Two stop signals: IA refusing,

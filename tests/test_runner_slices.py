@@ -119,7 +119,8 @@ def test_dispatch_asks_one_job_while_a_slice_waits_and_no_run_is_live(tmp_path, 
     assert rs.dispatch(register) == "runner dispatch: no slice" and calls == []
     (register / "slice_20261109T110000Z_0.txt").write_text(rs.HEAD + KEY.format(1) + " all\n")
     assert rs.dispatch(register) == "runner dispatch: a job asked"
-    assert calls[0][:2] == ("run", "list") and "--json" in calls[0]
+    listing = ("run", "list", "--repo", rs.GITHUB, "--workflow", rs.WORKFLOW, "--limit", "5")
+    assert calls[0] == (*listing, "--json", "status")
     assert calls[1] == ("workflow", "run", rs.WORKFLOW, "--repo", rs.GITHUB, "--ref", "live")
     runs.append({"status": "queued"})
     assert rs.dispatch(register) == "runner dispatch: 1 live, none asked" and len(calls) == 3
