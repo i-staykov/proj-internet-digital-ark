@@ -77,6 +77,7 @@ ASKED = {  # EE a question, laws.md; edge, pool unmeasured
 }
 EARLY = 0  # starts of every four, owed subpages or not, that the 1996 to 2001 order takes, 0 to 3
 ASK_SECONDS, PAGE_SECONDS = 4.93, 40.0  # by_host's slowest, a page's mean: a unit not yet timed
+INTERVAL = 10.0  # seconds between starts, the least a start costs until a lane measures its own
 THROTTLES = {"HTTP429", "HTTP503"}
 FAST = {"ConnectTimeout", "TimeoutError", "ConnectionResetError", "RemoteDisconnected"}
 WALLS = {
@@ -125,22 +126,22 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
 
 
 def rank(
-    units, order: dict, asked: dict, explore: int, floor: float, floors: dict | None = None
+    units, order: dict, asked: dict, explore: int, floor: float, floors=None, workers: int = 1
 ) -> tuple[list, ...]:
     """(priced, exploring, waiting, early): every priced unit by its EE a start over both windows,
-    a start costing `floor`, the seconds one takes on the lane with its pauses and refusals in,
-    since the ladder bounds a lane's starts, not its seconds (laws): a page paying more a start
-    outranks a question paying less however quick the question; a unit's own seconds (`s`, its
-    silences and failures too) when they are longer, so a long sparse page sinks; 1996 to 2001
-    the tiebreak, since the gate is 3% on either window. The unpriced
-    ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
-    waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
-    `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
-    `DROP_AFTER` answered requests is dropped; under `floors` (`cdx_order.json` `floor`, EE an
-    answered request by window, a window without one taking any pay), one paying no window at or
-    above its floor is dropped once `explore` answers measure it, a thousand times that for a
-    tier. A tier at its laws price has no answers counted, so the 2002 edge's 0.26 runs to its
-    measurement."""
+    a start costing `floor`, the lane's measured seconds between starts with its pauses and
+    refusals in, since the ladder bounds a lane's starts, not its seconds (laws), so a page paying
+    more a start outranks a question paying less however quick the question; a unit's own seconds
+    (`s`, its silences and failures too) over the `workers` streaming at once when they are
+    longer, so only a page longer than `workers` starts sinks; 1996 to 2001 the tiebreak, since
+    the gate is 3% on either window. The unpriced ones still owed `explore` pages; the explored
+    ones, and a question tier measured at nothing, waiting for a price; and the units paying 1996
+    to 2001 by that EE a start alone, which `EARLY` starts of four take ahead of owed subpages
+    (laws). A unit priced at nothing over `DROP_AFTER` answered requests is dropped; under
+    `floors` (`cdx_order.json` `floor`, EE an answered request by window, a window without one
+    taking any pay), one paying no window at or above its floor is dropped once `explore` answers
+    measure it, a thousand times that for a tier. A tier at its laws price has no answers counted,
+    so the 2002 edge's 0.26 runs to its measurement."""
     floors = floors or {}
     bar = explore if floors else DROP_AFTER
     priced, exploring, waiting, early = [], [], [], []
@@ -152,7 +153,7 @@ def rank(
         pays = ((w, p) for w, p in (("1996-2001", p1), ("2002-2013", p2)) if p > 0)
         if price.get("n", 0) >= bar * scale and all(p < floors.get(w, 0) for w, p in pays):
             continue
-        seconds, total = max(price.get("s") or PAGE_SECONDS, floor), p1 + p2
+        seconds, total = max(floor, (price.get("s") or PAGE_SECONDS) / workers), p1 + p2
         if p1 > 0:
             early.append((-p1 / seconds, u))
         if total > 0:
@@ -327,7 +328,7 @@ class Lane:
             self.cost, force = cost, True
         if force:
             self.ranked, self.exploring, self.waiting, self.early = rank(
-                self.pages, self.order, self.asked, 2, self.cost, self.floors
+                self.pages, self.order, self.asked, 2, self.cost, self.floors, self.a.workers
             )
             self.log.write(
                 f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring, "
@@ -356,18 +357,23 @@ class Lane:
         with self.lock:
             self.rerank()
             self.starts += 1
-            self.started.append(time.time())
-            if self.starts % 4 < EARLY and (task := self.pop(self.early)):
+            if (task := self.next()) is not None:
+                self.started.append(time.time())  # a start measured; an idle poll is none
+            return task
+
+    def next(self):
+        """An early unit's task on its starts, else an owed subpage, else the ranking's."""
+        if self.starts % 4 < EARLY and (task := self.pop(self.early)):
+            return task
+        while self.subq:
+            task = self.subq.pop(0)
+            if key_of(task) not in self.done:
+                self.inflight.add(task)
                 return task
-            while self.subq:
-                task = self.subq.pop(0)
-                if key_of(task) not in self.done:
-                    self.inflight.add(task)
-                    return task
-                self.meta.pop(task, None)
-            self.taken += 1
-            first = self.exploring if self.taken % 4 == 0 else self.ranked
-            return self.pop(first + self.ranked + self.exploring + self.waiting)
+            self.meta.pop(task, None)
+        self.taken += 1
+        first = self.exploring if self.taken % 4 == 0 else self.ranked
+        return self.pop(first + self.ranked + self.exploring + self.waiting)
 
     def pop(self, units: list):
         """The next task of the first unit with one left that is not lent, under the lane lock."""
@@ -607,7 +613,7 @@ def main() -> None:
     ap.add_argument("--slice", type=Path, help="walk this file's pages alone, a runner's job")
     ap.add_argument("--workers", type=int, default=1, help="requests at once in this client")
     ap.add_argument("--max-local", type=int, default=2, help="CDX clients allowed here")
-    ap.add_argument("--min-interval", type=float, default=10.0, help="seconds between starts")
+    ap.add_argument("--min-interval", type=float, default=INTERVAL, help="seconds between starts")
     ap.add_argument("--connect-timeout", type=float, default=20)
     ap.add_argument("--max-transient", type=int, default=8, help="dropped connects before a pause")
     ap.add_argument("--timeout", type=float, default=70, help="per read; the gateway 504s at 60 s")

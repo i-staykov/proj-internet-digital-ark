@@ -68,7 +68,7 @@ def test_a_slice_leaves_the_lanes_their_share_above_the_ask_tier(tmp_path, monke
     lane, runner = data / "raw/cdx_walk/lane0", data / "raw/cdx_walk/runner"
     runner.mkdir()
     (lane / "pages.json").write_text('{"co.uk": 20, "me.uk": 8}')
-    units = {"co.uk all": {"p2": 33.0, "s": 150, "n": 9}, "me.uk all": {"p2": 1.0, "s": 50, "n": 9}}
+    units = {"co.uk all": {"p2": 33.0, "s": 450, "n": 9}, "me.uk all": {"p2": 1.0, "s": 50, "n": 9}}
     units["ask-gap ask"] = {"p2": 2.8, "s": 2.0, "n": 5000}
     (data / "queue/cdx_order.json").write_text(json.dumps({"units": units}))
     assert rs.cut(data, runner, 2) == [], "unmeasured, 10 s a start: every page under ask-gap"
