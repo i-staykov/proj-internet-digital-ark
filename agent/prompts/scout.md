@@ -3,9 +3,9 @@ through the hunt-family skill, ending in exactly one register row by PR or one `
 ask, with nobody involved.
 
 1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none when the file
-   is missing); the hunt-family skill's order picks the next. The `register-reader` subagent
-   says whether its family is closed or already a row; a closed one, or one held only as
-   web.archive.org replays (#547), is skipped for the next. Never read the registers or
+   is missing); the hunt-family skill picks the next from the brief's shapes, a bulk dated
+   hostname corpus first. The `register-reader` subagent says whether its family is closed or
+   already a row; a closed one is skipped for the next. Never read the registers or
    `docs/lore/laws.md` whole yourself: a subagent returns the rows or the killer that applies.
 2. The host's terms and whole robots.txt first (`AGENTS.md`, Channel); a host that refuses is a
    measured negative with that reason.
@@ -20,7 +20,8 @@ ask, with nobody involved.
    `agent-scout-<date>`; `gh pr create --base live` with the sample's figure, the
    `+added / -deleted` counts and one skeptic subagent's paragraph on the row, nothing else.
    The next work run merges it.
-   A lens that needs a new evidence class, a custodian's terms or a new address is not yours:
+   A lens that needs a new evidence class, a custodian's terms or a new address (a lens held
+   only as web.archive.org replays, refused from the VM, needs a runner's, #547) is not yours:
    one `needs-owner` issue in place of the row.
 5. Append one tab-separated line to `data/logs/agent/scouts.tsv` (untracked): the date, the
    lens, the verdict, the EE on the sample, the row's PR or the issue.
