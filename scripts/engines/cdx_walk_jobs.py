@@ -1,12 +1,13 @@
 """Keep the extended walk running with nobody at the keyboard: `just walk install|status|remove`.
 
 The bank host walks: the machine whose `ARK_HOSTS` in local.env has a `local` entry runs `LANES`
-lanes, the Channel's clients, each `WORKERS` requests at once. Cron starts each at boot and every
-10 minutes under its own `flock`, with `--lanes` their count, so the queue splits by hash. The
-tick reinstalls the cron and stops the walkers when this file or the walker changed, and cron
-restarts them on the new code (`scripts/harness/scheduled_sync.sh`). `install` first gives every
-lane folder a done set (`done`), since each lane skips what any lane answered. The laptop runs no
-lane (AGENTS.md, Channel).
+lanes, the Channel's clients less the runners' while `docs/registers/runner/cadence` is set and
+no STOP holds (`runner_slices.py`), each `WORKERS` requests at once. Cron starts each at boot and
+every 10 minutes under its own `flock`, with `--lanes` their count, so the queue splits by hash.
+The tick reinstalls the cron and stops the walkers when this file, the walker or the lane count
+changed, and cron restarts them on the new code (`scripts/harness/scheduled_sync.sh`). `install`
+first gives every lane folder a done set (`done`), since each lane skips what any lane answered.
+The laptop runs no lane (AGENTS.md, Channel).
 """
 
 from __future__ import annotations
@@ -20,8 +21,20 @@ CODE = Path(__file__).resolve().parents[2]
 DATA = CODE / "data"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
-LANES, WORKERS = 3, 3  # the Channel's three clients here, requests at once in each
+RUNNER = CODE / "docs/registers/runner"  # the runners' cadence and STOP (runner_slices.py)
 FLOOR_ENV = ("ARK_FREE_SPACE_GIB", "ARK_WRITE_BUDGET_GIB")  # src/ark/disk.py
+
+
+def lanes() -> int:
+    """The Channel's three clients here, less the runners' while `cadence` keeps slices cut."""
+    try:
+        on = int((RUNNER / "cadence").read_text().split()[-1]) > 0
+    except (OSError, ValueError, IndexError):
+        on = False
+    return 3 - (on and not (RUNNER / "STOP").exists())
+
+
+LANES, WORKERS = lanes(), 3  # lanes here, requests at once in each
 
 
 def local_env(name: str) -> str:

@@ -44,9 +44,10 @@ START=$(date +%s)
 # what the sync and the check said, for the tick row and the alerts (heartbeat.py)
 SYNC_OUT=data/logs/.tick_sync.out CHECK_OUT=data/logs/.tick_check.out
 
-# The walk follows its code: once the walker or its cron changed since the last install, the
-# cron is reinstalled and the walkers stopped (SIGTERM saves what they owe); cron restarts them.
-WALK=$(git rev-parse HEAD:scripts/engines/cdx_walk_jobs.py HEAD:scripts/engines/cdx_extended_walk.py)
+# The walk follows its code: once the walker, its cron or the runners' cadence or STOP (its lane
+# count) changed since the last install, the cron is reinstalled and the walkers stopped (SIGTERM
+# saves what they owe); cron restarts them.
+WALK=$(git rev-parse HEAD:scripts/engines/cdx_walk_jobs.py HEAD:scripts/engines/cdx_extended_walk.py; git ls-tree HEAD docs/registers/runner/cadence docs/registers/runner/STOP)
 if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install >> "$LOG" 2>&1; then
     pkill -f '^/usr/bin/python3 .*cdx_extended_walk[.]py'; echo "$WALK" > data/logs/.walk_code
     # a draining walker still owns its lane's pending subpages: none restarts beside it

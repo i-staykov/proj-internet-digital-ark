@@ -89,7 +89,13 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
         rs.write(data, register, NOW) == "runner slices: 0 cut, 2 gone, 0 keys lent, STOP written"
     )
     stop = register / "STOP"
-    assert stop.read_text() == rs.HEAD + "2_y: 1 pauses of 15 min, 0 of 20 requests answered\n"
+    assert (
+        stop.read_text() == rs.HEAD + "2_y: 1 pauses of 15 min or more, 0 of 20 requests answered\n"
+    )
+    assert rs.blocked(["# pause 1800 s: HTTP429"]).startswith("1 pauses of 15 min or more")
+    assert rs.blocked(["# pause 60 s: HTTP503"] * 9) == "", (
+        "a Retry-After is a throttle, not a refusal"
+    )
     assert not list(register.glob("slice_*")) and rs.keys(runner / "lent.txt") == set()
     assert rs.write(data, register, NOW).endswith(", STOP"), "held until a PR lifts it"
     stop.unlink()
@@ -176,3 +182,13 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
         f"repos/{rs.GITHUB}/actions/artifacts/{i}/zip" for i in (1, 5)
     ]
     assert (runner0 / "log.tsv").read_text().splitlines() == log, "banked once"
+
+
+def test_the_runners_take_one_of_the_three_lanes_while_cadence_is_set(tmp_path, monkeypatch):
+    jobs = script("engines/cdx_walk_jobs.py")
+    monkeypatch.setattr(jobs, "RUNNER", tmp_path)
+    assert jobs.lanes() == 3
+    (tmp_path / "cadence").write_text("# slices kept cut\n2\n")
+    assert jobs.lanes() == 2
+    (tmp_path / "STOP").write_text(rs.HEAD)
+    assert jobs.lanes() == 3, "under STOP the bank host walks its third lane"

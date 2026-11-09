@@ -61,22 +61,25 @@ alone, never through a pipe, before believing a refusal.
 
 **Collection.** `just walk install` keeps one lane per archive client running (`AGENTS.md`,
 Channel): cron on the bank host, the `local` entry of its `ARK_HOSTS`, reinstalled by the tick
-when the walk's code changes (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows
-land in `data/raw/cdx_suffix/` and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`;
-the tick re-ranks the queue by measured EE per request, and `local.env` exports
+when the walk's code or lane count changes (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to
+2001 rows land in `data/raw/cdx_suffix/`, its 2002 to 2013 rows in
+`data/raw/extended/ia_cdx_hostnames/`; the tick re-ranks the queue by measured EE per request,
+and `local.env` exports
 `ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
 
 **Runner lanes** (`.github/workflows/runner-lanes.yml`, `scripts/engines/runner_slices.py`): IA
 throttles per address, so an hourly job on GitHub's runners walks one slice the bank cut
-(`docs/registers/runner/slice_*.txt`, `cadence` of them kept, the jobs an hour plus one) from
-its own address and uploads the journals as an artifact; the tick banks them as `runner0`, its
-row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. GitHub's Additional
-Product Terms for Actions tie use to the repository's own software project, which this
-collection step is. Two stop signals: IA refusing, which the bank reads off a pulled log (a 15
-minute pause, or under 10% of 20 or more requests answered) and writes as
-`docs/registers/runner/STOP`, every slice deleted and no job asking until a PR lifts it; and any
-mail from GitHub about the runners, on which the owner runs `gh workflow disable
-runner-lanes.yml`.
+(`docs/registers/runner/slice_*.txt`; `cadence`, a one-line PR, keeps that many cut, the jobs an
+hour plus one) from its own address and uploads the journals as an artifact; the tick banks them
+as `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
+runners are one of the Channel's three clients: while `cadence` is set the bank host runs two
+lanes. GitHub's Additional Product Terms for Actions tie use to the repository's own software
+project, which this collection step is. Two stop signals: IA refusing, which the bank reads off a
+pulled log (a pause of 15 minutes or more, or under 10% of 20 or more requests answered) and
+writes as `docs/registers/runner/STOP`, every slice deleted, no job asking and the third lane
+back on the bank host until a PR lifts it; and a mail from GitHub about the runners' use (a
+failed run's is not one), on which the owner runs `gh workflow disable runner-lanes.yml` and
+zeroes `cadence` by PR.
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 pulls each lane's finished journals, and runs `just bank` when `scripts/harness/bank_trigger.py check` names what arrived: a
