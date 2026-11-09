@@ -27,7 +27,7 @@ A defect, fixed in #602: collectors ranked work by EE a second, charging an inde
 streaming time but a question at least 10 s, so questions (one per domain, 2.82 EE a start)
 outranked every page (10.9 EE a request on runners), and runners' slices took every page above
 them. From 06:00 UTC on 2026-11-09 to the fix the VM asked no page. A start now costs the
-seconds its limiter held it, and slices leave each collector three fourths of its pages above the
+seconds its limiter holds one, and slices leave each collector three fourths of its pages above the
 questions.
 
 ## The numbers
@@ -48,5 +48,5 @@ EE a day in 2026 from the VM's address unless named; 11-09 to 10:05 UTC, GitHub'
 
 1996 to 2001 yields hundreds to a few thousand EE a day against a gate of 2.23M (3% of the
 reviewer's 74.25M), four times the Archive's ceiling, with 12.2k banked; 2002 to 2013 has 3.60M
-banked of a 9.45M gate. A day's EE is each journal's own price, an upper bound before
-deduplication across journals; banked is the VM heartbeat's.
+banked of a 9.45M gate. A day's EE prices each output file alone, an upper bound before
+deduplication across files; banked is the VM heartbeat's.
