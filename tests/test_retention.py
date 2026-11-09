@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from contextlib import nullcontext
 from dataclasses import replace
@@ -18,6 +19,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from _pytest.pathlib import make_numbered_dir
 from conftest import script
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -491,6 +493,77 @@ def test_usenet_new_goes_where_its_saved_ia_metadata_routes_it(tmp_path, monkeyp
     assert "kept 2 archives of data/raw/usenet_new, 17 B: no catalog lists them" in text
     assert before - files_under(new) == {new / "bit.c.mbox.zip", new / "free.a.mbox.zip"}
     assert f"free.a.mbox.zip\t4\tsha1:{sha(b'same', 'sha1')} " in (new / "DELETED.tsv").read_text()
+
+
+def test_a_zip_no_catalog_lists_goes_by_its_hierarchy_folder_or_the_saved_metadata(
+    tmp_path, monkeypatch
+):
+    """usenet_hdr2 routes a zip by the folder of its UNLISTED hierarchy, usenet_msft by
+    usenet_new's saved metadata, and only they pass at the whole-second mtime the bank host's
+    copy left; one written since its digest stays."""
+    raw = tmp_path / "data/raw"
+    file(tmp_path, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
+    hdr2 = ["demon/demon.a.mbox.zip", "demon/demon.w.mbox.zip", "demon/nz.b.mbox.zip"]
+    # off its folder, in none, too deep, a hierarchy not UNLISTED: no route
+    hdr2 += ["demon.c.mbox.zip", "demon/deep/demon.d.mbox.zip", "fido/fido.f.mbox.zip"]
+    entries = {"usenet_hdr2": hdr2, "usenet_msft": ["microsoft.e.mbox.zip"], "host_cdx": [HOST[1]]}
+    for entry, rels in entries.items():
+        for rel in rels:
+            os.utime(file(raw / entry, rel, ZIP), ns=(1, 1_700_000_000_123_456_789))
+        sums(raw / entry, rels)
+        for rel in rels:
+            os.utime(raw / entry / rel, ns=(1, 1_700_000_000_000_000_000))
+    os.utime(raw / "usenet_hdr2" / hdr2[1], ns=(1, 1_700_000_001_000_000_000))  # written since
+    served = {"name": "microsoft.e.mbox.zip", "size": "12", "sha1": sha(ZIP, "sha1")}
+    meta = {"metadata": {"identifier": "usenet-microsoft"}, "files": [served]}
+    file(raw / "usenet_new", ".meta-microsoft.json", json.dumps(meta).encode())
+    monkeypatch.setattr(prune, "ia_file", lambda *a: served)  # whatever is asked, it serves
+    before, text = files_under(raw), cleanup(tmp_path)
+    gone = {"usenet_hdr2": (hdr2[0], "usenet-demon")}
+    gone["usenet_msft"] = ("microsoft.e.mbox.zip", "usenet-microsoft")
+    assert before - files_under(raw) == {raw / entry / rel for entry, (rel, _) in gone.items()}
+    assert "kept 4 archives of data/raw/usenet_hdr2, 48 B: no catalog lists them" in text
+    for held in (SPENT, f"data/raw/usenet_hdr2/{hdr2[1]}"):
+        assert f"HELD {held}: changed since its digest was recorded" in text
+    for entry, (rel, item) in gone.items():  # where archive.org serves the same bytes again
+        line = (raw / entry / "DELETED.tsv").read_text().splitlines()[1].split("\t")
+        url = f"{prune.IA}/download/{item}/{Path(rel).name}"
+        assert line == [rel, "12", f"sha1:{sha(ZIP, 'sha1')} sha256:{sha(ZIP)}", url]
+
+
+def test_a_pytest_base_goes_an_hour_after_its_run_and_the_next_run_makes_its_own(
+    tmp_path, monkeypatch
+):
+    root, temp = tmp_path / "repo", tmp_path / "temp"
+    base = temp / "pytest-of-someone"
+    file(root, "data/baseline.json", json.dumps({"current": {"directory": CURRENT}}).encode())
+    made = ("pytest-1/test_a0/x.jsonl.gz", "pytest-2/.lock", "pytest-3/x", "pytest-4/x")
+    for rel in (*made, "pytest-x/x"):
+        file(base, rel)
+    (base / "pytest-current").symlink_to(base / "pytest-4")
+    old = time.time() - 2 * prune.SCRATCH_AGE
+    for name in ("pytest-1", "pytest-2", "pytest-4", "pytest-x"):  # pytest-3 ran within the hour
+        os.utime(base / name, (old, old))
+    before = files_under(temp)
+    text = "\n".join(prune.disk_cleanup(root, tmp=temp)[1])
+    assert "  would remove: pytest-of-*/pytest-4" in text and files_under(temp) == before
+    rmtree = shutil.rmtree
+
+    def as_a_run_starts(folder):  # in pytest-4, after the listing and before its delete
+        file(base, "pytest-4/.lock")
+        rmtree(folder)
+
+    monkeypatch.setattr(prune.shutil, "rmtree", as_a_run_starts)
+    text = "\n".join(prune.disk_cleanup(root, write=True, tmp=temp)[1])
+    assert before - files_under(temp) == {base / made[0]}
+    assert "  removed: pytest-of-*/pytest-1" in text and not (base / "pytest-1").exists()
+    for held in ("2: pytest holds its .lock", "3: moved in the last 60 minutes", "4: pytest holds"):
+        assert f"  HELD pytest-of-*/pytest-{held}" in text
+    assert "someone" not in text and str(tmp_path) not in text  # the list goes on a public issue
+    assert make_numbered_dir(base, "pytest-").name == "pytest-5"  # as pytest's next run does
+    uid = os.getuid()
+    monkeypatch.setattr(prune.os, "getuid", lambda: uid + 1)  # another user's bases
+    assert "pytest-" not in "\n".join(prune.disk_cleanup(root, write=True, tmp=temp)[1])
 
 
 def test_an_old_stage_waits_for_the_newest_tarball_on_drive(tmp_path, monkeypatch):
