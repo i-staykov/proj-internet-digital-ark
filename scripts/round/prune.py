@@ -25,8 +25,7 @@ The retention report grants no deletion permission. Round cleanup is limited to
 superseded store backups and CRC-matched reviewer zips. A backup is held until
 `data/baseline.json` lists a credited round dated after it, because that round's Parquet
 and our journals rebuild the store, and it then needs a newer quiescent store and a fresh
-`ark check`. A zip needs an unchanged local verification receipt and a current matching
-remote hash.
+`ark check`. A zip needs Drive to hold its path at the sha256 of our bytes, hashed here.
 
 **`--disk` deletes only what somebody serves again, each file behind its own proof.** It
 lists, and with `--write` deletes:
@@ -206,6 +205,25 @@ def remove_verified(root: Path, path: Path, *, write: bool = False) -> str:
     return f"{'removed' if write else 'would remove'}: {path.relative_to(root)}"
 
 
+def on_drive(root: Path, path: Path, digest: str = "") -> tuple[list[int], str]:
+    """Its stat and sha256 once Drive holds the same path at our size and sha256, hashed here
+    unless the caller passes the `digest` it hashed at the stat it compares. A reviewer zip
+    reaches Drive by hand as well as by `offsite.py --upload`, so no receipt is asked for."""
+    offsite = sibling("offsite")
+    key, stamp = path.relative_to(root).as_posix(), offsite.signature(root, path)
+    if not digest:
+        with path.open("rb") as handle:
+            digest = hashlib.file_digest(handle, "sha256").hexdigest()
+    args = ["lsjson", "--stat", "--hash", "--hash-type", "sha256", f"{offsite.REMOTE}/{key}"]
+    done = offsite.rclone(args, check=False)
+    there = {} if done.returncode else json.loads(done.stdout)
+    if there.get("Size") != stamp[2] or (there.get("Hashes") or {}).get("sha256") != digest:
+        raise ValueError(f"Drive holds no {key} at the sha256 of our bytes")
+    if offsite.signature(root, path) != stamp:
+        raise ValueError(f"changed during the Drive check: {key}")
+    return stamp, digest
+
+
 def credited_after(root: Path, mtime_ns: int) -> bool:
     """Whether `data/baseline.json` lists a round with an awarded percent dated after the day
     (UTC) of `mtime_ns`. A round's date is a day, so a round the same day does not count."""
@@ -259,8 +277,7 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
     zips = releases.find_archives(root / "ding")
     for archive in sorted({p for paths in zips.values() for p in paths}):
         try:
-            archive_stamp = offsite.signature(root, archive)
-            offsite.deletion_proof(root, archive)
+            archive_stamp, digest = on_drive(root, archive)
             inventories = {}
             for marker in sorted(releases.archive_markers(archive)):
                 if not trees.get(marker):
@@ -274,7 +291,12 @@ def round_cleanup(root: Path, *, write: bool = False) -> tuple[int, list[str]]:
                 offsite.local_files(root, tree) != before for tree, before in inventories.items()
             ):
                 raise ValueError("release changed during CRC verification")
-            lines.append(remove_verified(root, archive, write=write))
+            if write:
+                # Drive asked again; the unchanged stat stands for our bytes' hash.
+                if on_drive(root, archive, digest)[0] != archive_stamp:
+                    raise ValueError("release changed during the Drive check")
+                archive.unlink()
+            lines.append(f"{'removed' if write else 'would remove'}: {archive.relative_to(root)}")
         except (
             OSError,
             ValueError,
@@ -536,9 +558,12 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
             )
             held = ""
             listed = catalog.get(path.name) if rule is _catalogued else None
+            size, mtime = manifest.stats.get(key, (-1, -1))
             if not digest:
                 held = "no recorded digest"
-            elif manifest.stats.get(key) != (st.st_size, st.st_mtime_ns):
+            # A copy keeping whole seconds, as the bank host's data came over, is the same file;
+            # --write hashes our bytes against archive.org's before any delete.
+            elif size != st.st_size or st.st_mtime_ns not in (mtime, mtime - mtime % 10**9):
                 held = "changed since its digest was recorded"
             elif listed and listed[2] != st.st_size:
                 held = f"{st.st_size:,} B here, {listed[2]:,} B in the catalog: a partial download"

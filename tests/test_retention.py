@@ -56,6 +56,9 @@ BACKUP += ("missing-store", "store-replaced", "backup-changed")
 ZIP_FAULTS = {
     "no-receipt": lambda tree, archive: (tree.parents[2] / offsite.RECEIPT).unlink(),
     "remote": lambda tree, archive: shutil.rmtree(tree.parents[2] / "remote"),
+    "drive-differs": lambda tree, archive: (
+        d := tree.parents[2] / "remote/ding" / archive.name
+    ).write_bytes(d.read_bytes()[::-1]),
     "extra": lambda tree, archive: (tree / "unique.txt").write_text("local-only"),
     "missing": lambda tree, archive: (tree / "1996.txt").unlink(),
     "crc": lambda tree, archive: (tree / "1996.txt").write_bytes(OLD.upper().encode()),
@@ -81,6 +84,7 @@ SPENT_CASES = {
     "no-sha1": ({"sha1": ""}, HELD + "archive.org gives no sha1"),
     "absent": (None, HELD + "archive.org has no host_cdx_ia600702"),
     "changed": ({}, HELD + "changed since its digest was recorded"),
+    "whole-seconds": ({}, f"removed: {SPENT}"),  # copied to a host keeping whole seconds
     "changed-at-delete": ({}, HELD + "changed before deletion"),
     "incomplete-read": (http.client.IncompleteRead(b""), HELD + "IncompleteRead"),
     "interrupt": (KeyboardInterrupt(), f"interrupted at {SPENT}"),
@@ -313,9 +317,10 @@ def test_a_release_zip_goes_only_when_every_tree_it_holds_matches_it(tmp_path, f
     before = {p.name: p.read_bytes() for p in tree.iterdir()}
     ZIP_FAULTS.get(fault, lambda *a: None)(tree, archive)
     lines = prune.round_cleanup(tmp_path, write=fault != "dry-run")[1]
-    assert ("removed: ding/Old_Release.zip" in lines) is (fault == "ok")
-    assert archive.exists() is (fault != "ok") and all(p.exists() for p in scoped)
-    assert fault != "ok" or {p.name: p.read_bytes() for p in tree.iterdir()} == before
+    gone = fault in ("ok", "no-receipt")  # Drive's sha256 of our bytes, no receipt asked
+    assert ("removed: ding/Old_Release.zip" in lines) is gone
+    assert archive.exists() is not gone and all(p.exists() for p in scoped)
+    assert not gone or {p.name: p.read_bytes() for p in tree.iterdir()} == before
 
 
 def sums(folder: Path, files: list[str], kind: str = "SHA256SUMS") -> None:
@@ -439,12 +444,14 @@ def test_a_spent_file_goes_only_when_archive_org_serves_our_bytes(tmp_path, monk
         file(spent.parent, "SHA1SUMS", f"{'0' * 40}  ./{HOST[1]}\n".encode())
     if case == "changed":
         spent.write_bytes(b"rewritten after hashing")
+    if case == "whole-seconds":
+        os.utime(spent, ns=(0, spent.stat().st_mtime_ns // 10**9 * 10**9))
     if case == "changed-at-delete":  # moved after its DELETED.tsv line, before the unlink
         written = prune.record_deleted
         monkeypatch.setattr(prune, "record_deleted", lambda *a: written(*a) or os.utime(spent))
     assert line in cleanup(tmp_path)
-    assert spent.exists() is (case != "restricted-served")
-    wrote = case in ("restricted-served", "changed-at-delete")
+    assert spent.exists() is (case not in ("restricted-served", "whole-seconds"))
+    wrote = case in ("restricted-served", "whole-seconds", "changed-at-delete")
     assert (spent.parent / "DELETED.tsv").exists() is wrote
 
 
