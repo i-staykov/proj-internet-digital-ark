@@ -7,7 +7,9 @@ import fnmatch
 import io
 import json
 import zipfile
+from types import SimpleNamespace
 
+import pytest
 from conftest import script
 
 rs = script("engines/runner_slices.py")
@@ -105,6 +107,68 @@ def test_a_slice_leaves_the_lanes_their_share_above_the_ask_tier(tmp_path, monke
     assert [len(s) for s in slices] == [4] and {t[0] for t in slices[0]} == {"co.uk"}, (
         "a fourth of the 19 co.uk pages above the tier; me.uk sits under it; no question"
     )
+
+
+def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypatch):
+    """Pages scarce above the ask tier: the slice carries ask-gap's head, which no lane asks while
+    it is lent; the job walks it in its order, and its rows price as a lane's, kind by kind."""
+    order, yields = script("engines/cdx_walk_order.py"), script("agents/lane_yield.py")
+    data, register = stage(tmp_path)
+    monkeypatch.setattr(rs, "PAGES", 6)
+    (register / "cadence").write_text("1\n")
+    (register / "long").write_text("0\n")
+    lane0 = data / "raw/cdx_walk/lane0"
+    (lane0 / "pages.json").write_text('{"co.uk": 9}')  # 8 above the tier, a fourth lent
+    (lane0 / "done.txt").write_text(KEY.format(3) + "\nask-gap 1 q0.com 1996 2013\n")
+    (data / "queue/pool_questions.tsv").write_text("".join(f"gap\tq{n}.com\n" for n in range(10)))
+    units = json.loads((data / "queue/cdx_order.json").read_text())["units"]
+    units["ask-gap ask"] = {"p1": 0.01, "p2": 2.82, "n": 8651, "s": 2.0}  # under co.uk a start
+    (data / "queue/cdx_order.json").write_text(json.dumps({"units": units}))
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 6 keys lent"
+    slice_ = register / "slice_20261109T120000Z_0.txt"
+    tasks = [rs.walker.decode(ln)[0] for ln in rs.lines(slice_)]
+    assert [t[2] for t in tasks[2:]] == ["q1.com", "q2.com", "q3.com", "q4.com"], "q0 is done"
+    assert [t[5] for t in tasks[:2]] == ["all", "all"], "the pages first"
+
+    def answer(task, a, sink):  # a host's root, 1999 and 2005
+        host = task[2] if task[5] == "ask" else f"h{task[2]}.co.uk"
+        for ts in ("19990101000000", "20050101000000"):
+            sink(f"k {ts} http://{host}/ 200".encode())
+        return "200", True, 1.0, 1, None
+
+    def walk(a) -> list[tuple]:
+        lane, asked = rs.walker.load(a), []
+        while (task := lane.take()) is not None:
+            asked.append(task)
+            lane.settle(task, *lane.ask(task))
+        return asked
+
+    monkeypatch.setattr(rs.walker, "fetch", answer)
+    a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=lane0, slice=None, questions=False)
+    a.max_transient, a.workers, a.min_interval = 0, 3, 10
+    lent = rs.keys(data / "raw/cdx_walk/runner/lent.txt")
+    assert {rs.walker.key_of(t) for t in walk(a)}.isdisjoint(lent), "no lane asks a lent key"
+    job = tmp_path / "job/raw"
+    b = SimpleNamespace(lane=0, lanes=1, data=job.parent, state_dir=job / "cdx_walk/lane0")
+    b.slice, b.questions, b.max_transient, b.workers, b.min_interval = slice_, True, 0, 2, 10
+    b.state_dir.mkdir(parents=True)
+    assert walk(b) == tasks, "the job walks the slice in its order"
+    blob = zipped({str(p.relative_to(job)): p.read_bytes() for p in job.rglob("*") if p.is_file()})
+    listing = json.dumps({"artifacts": [art(1, "slice_20261109T120000Z_0_r0")]}).encode()
+    monkeypatch.setattr(rs, "gh", lambda *call, timeout: blob if "zip" in call[1] else listing)
+    assert rs.pull(data).startswith("runner slices: 1 artifacts banked")
+    (data / "baseline.json").write_text('{"current": {"directory": "his", "marker": "m"}}')
+    monkeypatch.setattr(order, "DATA", data)
+    order.main()
+    priced = json.loads((data / "queue/cdx_order.json").read_text())["units"]
+    assert priced["ask-gap ask"]["n"] == 9, "the job's answers price the tier beside the lane's"
+    out, hour = tmp_path / "productivity.tsv", dt.datetime.now(dt.UTC) + dt.timedelta(hours=1)
+    yields.write(out, data, f"{hour:%Y-%m-%dT%H00}", hours=48)
+    rows = {tuple(r[1:4]): (int(r[5]), float(r[7]) / int(r[5])) for r in yields.read(out)}
+    for kind, n in (("page", 2), ("ask-gap", 4)):
+        for w in yields.WINDOWS:
+            (answered, each), lane = rows["runner0", kind, w], rows["lane0", kind, w][1]
+            assert answered == n and each == pytest.approx(lane, abs=0.01) and each > 0
 
 
 def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):

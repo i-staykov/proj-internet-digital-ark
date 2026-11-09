@@ -38,7 +38,7 @@ refuses to start beside `--max-local` other CDX clients here, and idles while
 `<state home>/pause-platform` exists. Every request is a `log.tsv` row in its state folder, so a
 rate is always charged with its waits and failures.
 
-**Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file's pages alone, nothing
+**Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file alone, in its order, nothing
 counted or asked besides, and stops at its first 15 minute pause, since the address is refused.
 The pages lent to the runners, and the ones they answered, are `runner/lent.txt` beside the lane
 folders, reread by mtime, so a running lane drops and regains them without a restart.
@@ -237,7 +237,7 @@ def encode(task: tuple, meta: tuple) -> str:
 def decode(line: str) -> tuple[tuple, tuple]:
     head, *meta = line.split("\t")
     s, z, p, f, la, k = head.split()
-    return (s, int(z), int(p), int(f), int(la), k), tuple(meta)
+    return (s, int(z), p if k == "ask" else int(p), int(f), int(la), k), tuple(meta)
 
 
 def refusal_pause(refused: int, status: str) -> float:
@@ -331,6 +331,8 @@ class Lane:
             self.ranked, self.exploring, self.waiting, self.early = rank(
                 self.pages, self.order, self.asked, 2, self.cost, self.floors, self.a.workers
             )
+            if getattr(self.a, "slice", None):  # a slice runs in its file's order, the bank's rank
+                self.ranked, self.exploring, self.waiting, self.early = list(self.pages), [], [], []
             self.log.write(
                 f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring, "
                 f"{self.cost} s a start\n"
