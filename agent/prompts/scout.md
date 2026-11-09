@@ -20,9 +20,9 @@ ask, with nobody involved.
    `agent-scout-<date>`; `gh pr create --base live` with the sample's figure, the
    `+added / -deleted` counts and one skeptic subagent's paragraph on the row, nothing else.
    The next work run merges it.
-   A lens that needs a new evidence class, a custodian's terms or a new address (a lens held
-   only as web.archive.org replays, refused from the VM, needs a runner's, #547) is not yours:
-   one `needs-owner` issue in place of the row.
+   A lens that needs a new evidence class, a custodian's terms or a new address is not yours:
+   one `needs-owner` issue in place of the row. Never fetch web.archive.org from the VM: its
+   fourth client costs the lanes the archive, so a replay-held lens needs a runner's (#547).
 5. Append one tab-separated line to `data/logs/agent/scouts.tsv` (untracked): the date, the
    lens, the verdict, the EE on the sample, the row's PR or the issue.
 6. End with one line: the lens, the verdict, the EE on the sample and the PR or issue.
