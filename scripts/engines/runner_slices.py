@@ -8,15 +8,14 @@ pure scripted requests, no secret on a runner, nothing there knows the VM.
 pages one more lane would ask (`cdx_extended_walk.load`, pages only, a throwaway lane over
 `data/raw/cdx_walk/runner/`) in pending.txt's head format; `cadence`, a one-line PR, keeps that
 many cut, the jobs an hour plus one, so no job waits for the tick, and none without it; a zeroed
-`cadence` or STOP deletes every slice. The runners are one of the Channel's three clients: while
-`cadence` is set the bank host runs two lanes (`cdx_walk_jobs.py`), and no slice is cut before
-that install is current, so no job walks beside three. A slice goes once its artifact is banked,
-or after `STALE_H` hours with none, its pages back to the lanes. `runner/lent.txt` is the union
-of the slices present and `runner*/done.txt`, reread by the walker by mtime, so a running lane
-neither asks a lent page nor one a runner answered. Each pulled log is judged once: a pause of
-15 minutes or more, or under `FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA
-refusing the runners, written with its counts as `docs/registers/runner/STOP`, every slice
-deleted; a job finding STOP makes no request, and a PR lifts it.
+`cadence` or STOP deletes every slice. The runners are one more client on their own address, the
+Channel's cap being per address. A slice goes once its artifact is banked, or after `STALE_H`
+hours with none, its pages back to the lanes. `runner/lent.txt` is the union of the slices
+present and `runner*/done.txt`, reread by the walker by mtime, so a running lane neither asks a
+lent page nor one a runner answered. Each pulled log is judged once: a pause of 15 minutes or
+more, or under `FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA refusing the runners,
+written with its counts as `docs/registers/runner/STOP`, every slice deleted; a job finding STOP
+makes no request, and a PR lifts it.
 
 `pull`, the tick's first step, touches only `data/`: one artifact listing, a row of another head
 repository or branch skipped (a fork's PR run), each new zip unzipped through an allowlist into a
@@ -63,11 +62,6 @@ _spec = importlib.util.spec_from_file_location(
 )
 walker = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(walker)
-_spec = importlib.util.spec_from_file_location(
-    "cdx_walk_jobs", Path(__file__).with_name("cdx_walk_jobs.py")
-)
-jobs = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(jobs)
 
 
 def gh(*args: str, timeout: int) -> bytes:
@@ -171,7 +165,7 @@ def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None 
     lend()  # before cutting, so the throwaway lane skips what is out
     new = []
     want = cadence(register) - len(list(register.glob("slice_*.txt")))
-    if want > 0 and not off and jobs.current():
+    if want > 0 and not off:
         for k, tasks in enumerate(cut(data, runner, want)):
             name = f"slice_{now:%Y%m%dT%H%M%SZ}_{k}"
             text = HEAD + "".join(walker.encode(t, ()) + "\n" for t in tasks)

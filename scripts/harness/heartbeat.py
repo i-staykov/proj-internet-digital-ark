@@ -309,7 +309,7 @@ def load(rel: str):
     return mod
 
 
-JOBS = load("scripts/engines/cdx_walk_jobs.py")  # the lanes walking here, the runners' off
+JOBS = load("scripts/engines/cdx_walk_jobs.py")  # the lanes walking here
 
 
 def yields() -> dict[str, str]:
@@ -413,7 +413,7 @@ def main(argv: list[str]) -> int:
     if len(kept) >= 2 and kept[-1][1] == kept[-2][1] == "refused":
         causes["two refused ticks"] = f"Ticks {kept[-2][0]} and {stamp} refused: {why}"
     rows_of = yields()
-    lanes = [lane(n, now, rows_of) for n in range(JOBS.lanes())]
+    lanes = [lane(n, now, rows_of) for n in range(JOBS.LANES)]
     for n, (stalled, line) in enumerate(lanes):
         if stalled:
             causes[f"lane{n} stalled"] = f"{line}; work queued and no answered page in {STALL_H} h"

@@ -1,18 +1,21 @@
-"""The cdx run's row: a day's yield per lane, question kind and window, with its 7-day band.
+"""The cdx run's rows: a day's or some hours' yield per lane, question kind and window, banded.
 
     python3 scripts/agents/lane_yield.py [--date YYYY-MM-DD]    # default yesterday UTC
+    python3 scripts/agents/lane_yield.py --hours N              # the N hours before this hour
 
-The date's rows of every `data/raw/cdx_walk/*[0-9]/log.tsv` (`cdx_extended_walk.py`, a lane's or
-a runner's, `runner_slices.py`) become
-rows of `data/logs/productivity.tsv`, the date's earlier rows replaced: date, lane, kind
-(`page`, or an ask tier such as `ask-gap`), window (`1996-2001`, `2002-2013`), requests,
-answered (200 or 504, as `cdx_walk_order.py` counts), paused_seconds (the pauses this kind's
-answers caused, overlaps once, inside the date), ee (the window's journals as the bank priced
-them, `data/queue/cdx_order.priced.json`), ee_per_client_second (ee over the lane's wall seconds
-in the date, first start to last end, pauses included, one client whatever its workers: a lane
-idle part of the day is rated over the part it walked), band_low and band_high (that ee a second
-over the lane's previous seven rows of the kind and window, blank under three). `LEVERS` is the
-levers file the cdx run may pull from.
+The key's rows of every `data/raw/cdx_walk/*[0-9]/log.tsv` (`cdx_extended_walk.py`, a lane's or
+a runner's, `runner_slices.py`) become rows of `data/logs/productivity.tsv`, the key's earlier
+rows replaced: key (a date, or YYYY-MM-DDTHH00 for the hours before that hour, once a tick
+priced them, `unpriced()`), lane, kind (`page`, or an ask tier such as `ask-gap`), window
+(`1996-2001`, `2002-2013`), requests, answered (200 or 504, as `cdx_walk_order.py` counts),
+paused_seconds (the pauses this kind's answers caused, overlaps once, inside the span), ee (the
+window's journals as the bank priced them, `data/queue/cdx_order.priced.json`),
+ee_per_client_second (ee over the lane's wall seconds in the span, first start to last end,
+pauses included, one client whatever its workers: a lane idle part of the span is rated over the
+part it walked), band_low and band_high (that ee a second over the lane's previous seven rows of
+the kind, window and HH suffix, so hours are banded against the same hours of earlier days, blank
+under three). `lines()`, the heartbeat's, reads the daily rows. `LEVERS` is the levers file the
+cdx run may pull from.
 """
 
 from __future__ import annotations
@@ -29,7 +32,7 @@ DATA = Path(os.environ.get("ARK_WALK_DATA", ROOT / "data"))
 OUT = ROOT / "data/logs/productivity.tsv"
 LEVERS = ROOT / "scripts/engines/levers.json"
 WINDOWS = ("1996-2001", "2002-2013")
-HEADER = "date lane kind window requests answered paused_seconds ee ee_per_client_second"
+HEADER = "key lane kind window requests answered paused_seconds ee ee_per_client_second"
 HEADER = HEADER.split() + ["band_low", "band_high"]
 ANSWERED = {"200", "HTTP504"}
 PAUSE = re.compile(r"# pause (\d+) s")
@@ -62,11 +65,20 @@ def union(spans: list[tuple[float, float]]) -> float:
     return total
 
 
-def day(lines, date: str, ee: dict[str, list[float]]) -> tuple[dict[str, dict], float]:
-    """Each kind's requests, answers, EE a window and pauses in the date, and the lane's wall
+def bounds(key: str, hours: int) -> tuple[float, float]:
+    """The key's seconds: the date's day, or the `hours` before a YYYY-MM-DDTHH00 key."""
+    stamp = key.replace("-", "")
+    if hours:
+        t1 = epoch(stamp + "00Z")
+        return t1 - hours * 3600, t1
+    t0 = epoch(stamp + "T000000Z")
+    return t0, t0 + 86400
+
+
+def day(lines, span: tuple[float, float], ee: dict[str, list[float]]) -> tuple[dict, float]:
+    """Each kind's requests, answers, EE a window and pauses in the span, and the lane's wall
     seconds. A pause line is charged to the row before it, whose answer caused it."""
-    t0 = epoch(date.replace("-", "") + "T000000Z")
-    t1 = t0 + 86400
+    t0, t1 = span
     kinds: dict[str, dict] = {}
     first, last, before = t1, t0, None
 
@@ -111,22 +123,35 @@ def read(path: Path) -> list[list[str]]:
     return [r for r in rows if len(r) == len(HEADER)]
 
 
-def write(out: Path, data: Path, date: str) -> int:
-    """The date's rows, replacing earlier ones for it; how many were written."""
-    kept = [r for r in read(out) if r[0] != date]
+def unpriced(ticks: Path, key: str) -> str:
+    """Why the hours before a YYYY-MM-DDTHH00 key have unpriced journals, or empty: the last
+    tick (`heartbeat.py`'s row in `ticks.tsv`, stamp and verdict) is before the key's hour, or
+    neither banked nor idle (the sync prices journals before the bank, `just sync`). Such hours
+    get no row: one priced at 0 would sink the band for seven days."""
+    rows = ticks.read_text().splitlines() if ticks.exists() else []
+    stamp, verdict, *_ = (rows or [""])[-1].split("\t") + ["", ""]
+    if stamp[:13] >= key.replace("-", "") and verdict in ("banked", "idle"):
+        return ""
+    return f"last tick {stamp or 'none'} {verdict}".rstrip()
+
+
+def write(out: Path, data: Path, key: str, hours: int = 0) -> int:
+    """The key's rows (a date's, or the `hours` before a YYYY-MM-DDTHH00 key), replacing
+    earlier ones for it; how many were written."""
+    kept = [r for r in read(out) if r[0] != key]
     ee, new = priced(data), []
     for log in sorted(data.glob("raw/cdx_walk/*[0-9]/log.tsv")):
         lane = log.parent.name
         with open(log, errors="replace") as fh:
-            kinds, wall = day(fh, date, ee)
+            kinds, wall = day(fh, bounds(key, hours), ee)
         for kind, k in sorted(kinds.items()):
             for i, window in enumerate(WINDOWS):
                 rate = k["ee"][i] / wall if wall else 0.0
-                same = [r for r in kept if r[1:4] == [lane, kind, window] and r[0] < date]
-                band = [float(r[8]) for r in sorted(same)[-BAND:]]
+                prior = [r for r in kept if r[1:4] == [lane, kind, window] and r[0] < key]
+                band = [float(r[8]) for r in sorted(prior) if r[0][10:] == key[10:]][-BAND:]
                 low, high = (f"{min(band):.5f}", f"{max(band):.5f}") if len(band) >= 3 else ("", "")
                 counts = [k["requests"], k["answered"], round(union(k["pauses"]))]
-                row = [date, lane, kind, window, *counts, f"{k['ee'][i]:.2f}", f"{rate:.5f}"]
+                row = [key, lane, kind, window, *counts, f"{k['ee'][i]:.2f}", f"{rate:.5f}"]
                 new.append([*map(str, row), low, high])
     rows = sorted(kept + new)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -138,7 +163,7 @@ def write(out: Path, data: Path, date: str) -> int:
 
 def lines(path: Path) -> dict[str, str]:
     """Each lane's last date as one line: a kind's answers, pauses, EE and rate a window."""
-    rows = read(path)
+    rows = [r for r in read(path) if len(r[0]) == 10]
     last: dict[str, str] = {}
     for r in rows:
         last[r[1]] = max(last.get(r[1], ""), r[0])
@@ -157,11 +182,15 @@ def lines(path: Path) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    yesterday = (dt.datetime.now(dt.UTC) - dt.timedelta(days=1)).strftime("%Y-%m-%d")
-    ap.add_argument("--date", default=yesterday)
+    now = dt.datetime.now(dt.UTC)
+    ap.add_argument("--date", default=(now - dt.timedelta(days=1)).strftime("%Y-%m-%d"))
+    ap.add_argument("--hours", type=int, default=0, help="the hours before this one, keyed to it")
     a = ap.parse_args(argv)
-    dt.date.fromisoformat(a.date)
-    print(f"lane yield {a.date}: {write(OUT, DATA, a.date)} rows")
+    key = now.strftime("%Y-%m-%dT%H00") if a.hours else a.date
+    dt.date.fromisoformat(key[:10])
+    why = unpriced(OUT.parent / "ticks.tsv", key) if a.hours else ""
+    n = 0 if why else write(OUT, DATA, key, a.hours)
+    print(f"lane yield {key}: {n} rows{why and ', ' + why}")
 
 
 if __name__ == "__main__":

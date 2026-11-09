@@ -79,3 +79,32 @@ def test_a_rerun_replaces_the_date_and_the_band_is_the_previous_seven_rows(tmp_p
     out.write_text(out.read_text() + "2026-11-08\tlane1\tpage\t1996-2001\t1\t1\t0\t1\t0.5\t\t\n")
     assert yield_.lines(out)["lane0"].startswith(DATE)  # each lane's own last date
     assert yield_.LEVERS.exists() and json.loads(yield_.LEVERS.read_text())["version"] == 1
+
+
+def test_a_window_row_counts_its_hours_beside_the_date_and_bands_on_its_hour(tmp_path):
+    out = stage(tmp_path)
+    key = f"{DATE}T0100"
+    hours = (("04", "01", "0.2"), ("05", "01", "0.3"), ("06", "01", "0.4"), ("06", "05", "9"))
+    earlier = [
+        f"2026-11-{d}T{hh}00\tlane0\tpage\t2002-2013\t1\t1\t0\t1\t{r}\t\t" for d, hh, r in hours
+    ]
+    out.write_text("\t".join(yield_.HEADER) + "\n" + "\n".join(earlier) + "\n")
+    yield_.write(out, tmp_path, DATE)
+    date_rows = [ln for ln in out.read_text().splitlines() if ln.startswith(DATE + "\t")]
+    assert yield_.write(out, tmp_path, key, hours=2) == 4
+    rows = yield_.read(out)
+    # 23:00 to 01:00: the 503 row and its whole pause join the date's; wall 23:59:00 to 00:05:05
+    assert rows[-2][:9] == [key, "lane0", "page", "1996-2001", "5", "3", "96", "4.00", "0.01096"]
+    assert rows[-1][3:] == ["2002-2013", "5", "3", "96", "40.00", "0.10959", "0.20000", "0.40000"]
+    assert [ln for ln in out.read_text().splitlines() if ln.startswith(DATE + "\t")] == date_rows
+    assert yield_.write(out, tmp_path, DATE) == 4 and len(yield_.read(out)) == 12
+    assert yield_.lines(out)["lane0"].startswith(DATE + ": ")
+    assert yield_.lines(out)["lane0"].endswith("a second")  # the daily band ignores the hours
+    # the hours are priced by the tick at or after the key's hour, banked or idle; else no row
+    ticks = tmp_path / "ticks.tsv"
+    assert yield_.unpriced(ticks, key) == "last tick none"
+    for stamp, verdict in (("20261107T0005Z", "banked"), ("20261107T0105Z", "refused")):
+        ticks.write_text(f"{stamp}\t{verdict}\t9\tbanked\n")
+        assert yield_.unpriced(ticks, key) == f"last tick {stamp} {verdict}"
+    ticks.write_text("20261107T0105Z\tidle\t9\tno output\n")
+    assert yield_.unpriced(ticks, key) == ""
