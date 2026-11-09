@@ -1,53 +1,52 @@
-# For the supervising professor
+# The research on one page
 
 ## The question
 
-Prof. Xiaowei Ding's Internet Digital Ark asks for the hostnames of the web of 1996 to 2013,
-1996 to 2001 first, each with item-level evidence for its year. A submission is scored in
-equivalent-English (EE): a hostname-year counts as the English share of its top-level domain,
-net of what his files already hold. A round ships at 3% EE growth over his files in a window
-([the brief](ding/project-brief.md), [the metric](metric-explained.md)).
+The Internet Digital Ark competition asks for the web's hostnames of 1996 to 2013, 1996 to
+2001 first, each with item-level evidence for its year. A hostname-year the reviewer's files lack
+scores its top-level domain's English share, in equivalent-English (EE); a round ships at 3% EE
+growth over those files in 1996 to 2001 or 2002 to 2013 ([the metric](metric-explained.md)).
 
 ## The method
 
-The harness is the research. A source is priced against his files before it is hunted; a
-measured negative with its reason is a result; the method outranks the source. The pricing
-laws are measured facts in [docs/lore/laws.md](../lore/laws.md): a CDX page pays 1,354 EE a
-request for 2002 to 2013 and 2.4 for 1996 to 2001; a price against a synced copy of his files
-is a ceiling, not a count; a host lane gains nothing past two workers and loses the archive at
-four, so throughput is addresses (#585).
+Every source is priced against the reviewer's files before collection; a measured negative with
+its reason is a result ([the laws](../lore/laws.md)). The main source is the Internet Archive's
+capture index (CDX), whose 1996 to 2001 hosts are 85% in the reviewer's files, capping those
+years at about 0.55M EE (#588). Eight other sources scouted since 2026-11-07 closed as measured
+negatives, none above 162 EE ([register](../registers/sources-closed.md)).
 
 ## The architecture
 
-Runners collect, the VM thinks, the owner ships. Today and as planned by
-[docs/plan.md](../plan.md) and issues #585 to #588:
+The Archive throttles CDX per address, so throughput grows only with addresses (#585): the bank
+VM's, GitHub's hosted runners', and a self-hosted runner's on a free cloud VM (being joined). The
+VM lends runners slices of its ranked queue and banks their returns. An agent on the VM tunes
+collectors and scouts sources inside rails; a laptop session reviews by pull request; the owner
+alone ships rounds.
 
-- Scripted CDX collectors run unattended on a VM; addresses being the bottleneck, scheduled
-  runner jobs and free-tier cloud VMs join as runners and upload journals the VM banks.
-- A resident agent on the VM reads a yield log, tunes the collectors one lever at a time,
-  keeps them alive, merges its own reviewed changes inside rails (`scripts/agents/rails.py`),
-  and scouts new sources with fixed, priced lenses.
-- A laptop session oversees by pull request; every PR body carries an independent skeptic's
-  verdict.
-- The owner alone ships rounds.
-
-Guards: a hook gate on every commit (ruff, format, scan, pytest), a leak scan over every
-tracked byte (`src/ark/hygiene.py`), a commit identity allowlist, a merge window of :36 to :04
-UTC, and token pacing that leaves the owner's share (`scripts/agents/pacer.py`).
+A defect, fixed in #602: collectors ranked work by EE a second, charging an index page its
+streaming time but a question at least 10 s, so questions (one per domain, 2.82 EE a start)
+outranked every page (10.9 EE a request on runners), and runners' slices took every page above
+them. From 06:00 UTC on 2026-11-09 to the fix the VM asked no page. A start now costs the
+seconds its limiter holds one, and slices leave each collector three fourths of its pages above the
+questions.
 
 ## The numbers
 
-As of 2026-11-08; refreshed before presenting. Banked, daily and ceiling figures are the VM
-heartbeat's (`scripts/harness/heartbeat.py`); the gates are 3% of his EE in `data/baseline.json`.
+EE a day in 2026 from the VM's address unless named; 11-09 to 10:05 UTC, GitHub's runners from
+03:44; the cloud VM 0 so far.
 
-- 2002 to 2013: about 3.05M EE banked, about 350k EE a day from one address; gate 9.45M EE.
-- 1996 to 2001: about 12.9k EE banked; gate 2.23M EE. The Wayback CDX ceiling for these years
-  is about 0.55M EE (#588): 85% of the hosts it returns are in his files. So 1996 to 2001
-  needs sources outside Wayback.
-- Six non-Wayback sources scouted, each a measured negative under 20 EE
-  ([the closed register](../registers/sources-closed.md)).
+| Day | 1996-2001 | 2002-2013 |
+|---|---:|---:|
+| 11-03 | 3,339 | 842,754 |
+| 11-04 | 926 | 420,661 |
+| 11-05 | 3,430 | 927,169 |
+| 11-06 | 3,150 | 268,753 |
+| 11-07 | 732 | 353,317 |
+| 11-08 | 343 | 527,793 |
+| 11-09 | 169 | 53,770 |
+| 11-09, runners | 77 | 5,636 |
 
-## The owner's part
-
-Set the research goal and the rules (public repository, rails, the gate), decided every
-evidence class, shipped every round.
+1996 to 2001 yields hundreds to a few thousand EE a day against a gate of 2.23M (3% of the
+reviewer's 74.25M), four times the Archive's ceiling, with 12.2k banked; 2002 to 2013 has 3.60M
+banked of a 9.45M gate. A day's EE prices each output file alone, an upper bound before
+deduplication across files; banked is the VM heartbeat's.
