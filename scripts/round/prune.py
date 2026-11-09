@@ -28,7 +28,7 @@ and our journals rebuild the store, and it then needs a newer quiescent store an
 `ark check`. A zip needs an unchanged local verification receipt and a current matching
 remote hash.
 
-**`--disk` deletes only what somebody serves again, each file behind its own proof.** It
+**`--disk` deletes only what somebody serves or makes again, each behind its own proof.** It
 lists, and with `--write` deletes:
 
   * superseded releases: their extracted trees, their zips and `data/archive/*.tar.zst`,
@@ -41,13 +41,16 @@ lists, and with `--write` deletes:
     its bytes, that sha1 and the URL;
   * every package stage in `output/` but the newest, once the newest's archive is on
     Drive with the checksum git keeps;
+  * scratch: the extended export's temp directory and pytest's numbered bases, each read by
+    the run that made it alone and made again by the next, whole, once it has stood still
+    for SCRATCH_AGE with no lock on it;
   * with `--private`, everything in `private/` but PRIVATE_KEEP, which code or a working agent
     reads. Nothing there has a copy anywhere, so `--private --write`
     deletes only with `--owner-go`, the owner's go, which no recipe passes. Without it, it
     lists `private/` and deletes nothing at all.
 
-It never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a checksum
-sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
+Outside scratch it never touches `submissions/`, a `*_items/` directory, a `*.jsonl.gz`, a
+checksum sidecar, or an entry the classification tables call `live_input`, `keep_journal` or
 `keep_until_priced`. A write removes each folder it empties, and no other. Store backups are
 listed and never deleted here: their delete is for the agents that own the store. The dry
 run makes no network call.
@@ -62,8 +65,11 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.request
 import zipfile
 import zlib
@@ -340,6 +346,19 @@ def _catalogued(rel: str, name: str, catalog: dict) -> tuple[str, str] | None:
     return f"usenet-{hit[0]}", name
 
 
+# usenet_hdr2's hierarchies no catalog lists. archive.org's `usenet-<hierarchy>` lists every zip
+# of each (40, 58, 23, 34) at our bytes' size and sha1.
+UNLISTED = frozenset({"nz", "demon", "freeserve", "za"})
+
+
+def _foldered(rel: str, name: str, catalog: dict) -> tuple[str, str] | None:
+    """As `_catalogued`; a zip of an UNLISTED hierarchy routes by the folder named for it."""
+    top, _, rest = rel.partition("/")
+    if top in UNLISTED and rest == name and name.startswith(f"{top}."):
+        return f"usenet-{top}", name
+    return _catalogued(rel, name, catalog)
+
+
 # Each spent entry: which of its files archive.org serves again, as (item, name there).
 # Every rule was checked against one real file's name and size in archive.org's metadata.
 # A file no rule matches is never selected: logs, derived lists, markers, `.meta` files.
@@ -366,9 +385,13 @@ SPENT = {
     "usenet_bulk": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_uk": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
     "usenet_probe5": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
-    "usenet_hdr2": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
+    "usenet_hdr2": (re.compile(r"[^/]+\.mbox\.zip"), _foldered),
     "usenet_new": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),
+    "usenet_msft": (re.compile(r"[^/]+\.mbox\.zip"), _catalogued),  # in usenet_new's metadata
 }
+# Entries whose files reached the bank host by a copy that kept mtimes to the whole second: at
+# its recorded size and second a file is the one its digest was taken of.
+WHOLE_SECOND = frozenset({"usenet_hdr2", "usenet_msft"})
 # Listed so the list says why they stay: no per-file copy.
 UNPROVABLE = {
     "rtfm": "its files are members of one archive.org tar, which has no per-file copy",
@@ -535,10 +558,12 @@ def spent_selected(root: Path) -> tuple[list[Candidate], list[str]]:
                 else ""
             )
             held = ""
-            listed = catalog.get(path.name) if rule is _catalogued else None
+            listed = catalog.get(path.name)  # only a Usenet zip's name is in the catalog
+            size, mtime = manifest.stats.get(key, (-1, -1))
+            cut = mtime - mtime % 10**9 if entry in WHOLE_SECOND else mtime
             if not digest:
                 held = "no recorded digest"
-            elif manifest.stats.get(key) != (st.st_size, st.st_mtime_ns):
+            elif size != st.st_size or st.st_mtime_ns not in (mtime, cut):
                 held = "changed since its digest was recorded"
             elif listed and listed[2] != st.st_size:
                 held = f"{st.st_size:,} B here, {listed[2]:,} B in the catalog: a partial download"
@@ -585,6 +610,87 @@ def backups_listed(root: Path) -> list[Candidate]:
         Candidate("store backups", backup, backup.stat().st_size, why)
         for backup in sorted((root / "data").glob("ark.duckdb.pre-*.bak"))
     ]
+
+
+# Seconds a scratch directory stands still before it is taken for left behind.
+SCRATCH_AGE = 3600
+EXPORT_TMP = re.compile(r"tmp[a-z0-9_]{8}")  # as `tempfile` names it
+PYTEST_BASES = "pytest-of-*"
+
+
+def _pytest_base(folder: Path) -> bool:
+    return folder.parent.name.startswith("pytest-of-")
+
+
+def in_use(folder: Path, now: float) -> str:
+    """Why a scratch directory may be its run's still, or ""."""
+    try:
+        if _pytest_base(folder):
+            # pytest keeps `.lock` in its numbered base for the length of the run.
+            if (folder / ".lock").exists():
+                return "pytest holds its .lock"
+            moved = folder.lstat().st_mtime
+        else:
+            # An export writes its temp directory or the ledger beside it all through; its
+            # longest silence is one journal's screening, minutes.
+            near = (folder.parent, folder)
+            moved = max(p.lstat().st_mtime for d in near for p in (d, *d.iterdir()))
+    except OSError:
+        return "changed while it was read, so its run is going"
+    if now - moved < SCRATCH_AGE:
+        return f"moved in the last {SCRATCH_AGE // 60} minutes, so its run may be going"
+    return ""
+
+
+def scratch_selected(root: Path, tmp: Path | None, now: float) -> list[Candidate]:
+    """The directories only the run that made them reads and its next run makes again.
+
+    `output/extended_years/tmp*`: extended_export.py `export()` works in a
+    `TemporaryDirectory(dir=out)`, reads it alone and removes it at its end, and every export
+    rmtrees `out` and writes all of it again, so one standing still was left by a killed
+    export; the tick prunes under the sync lock each recipe's export holds. `pytest-of-*/pytest-N`
+    under `tmp`, ours: pytest gives each run a new numbered base (`tmp_path_factory`) and reads
+    no older one. A link, or a directory under one, is never listed, and one in use is not
+    sized."""
+    found = [
+        d for d in (root / "output/extended_years").glob("tmp*") if EXPORT_TMP.fullmatch(d.name)
+    ]
+    if tmp:
+        bases = tmp.resolve().glob(f"{PYTEST_BASES}/pytest-*")
+        found += [d for d in bases if d.name[7:].isdigit()]
+    out = []
+    for folder in sorted(found):
+        try:
+            if not folder.is_dir() or folder.resolve() != folder:
+                continue
+            if _pytest_base(folder) and folder.parent.stat().st_uid != os.getuid():
+                continue
+            held = in_use(folder, now)
+            size = 0 if held else sum(p.lstat().st_size for p in _files(folder))
+        except OSError:  # gone as it was read
+            continue
+        out.append(Candidate("scratch", folder, size, held))
+    return out
+
+
+def shown(root: Path, path: Path) -> str:
+    """`path` as the list names it: under the root, or a pytest base by its number alone, as
+    its folder carries a login and the list goes on a public issue."""
+    if _pytest_base(path):
+        return f"{PYTEST_BASES}/{path.name}"
+    return path.relative_to(root).as_posix()
+
+
+def remove_scratch(folder: Path, rel: str, *, write: bool) -> str:
+    """Delete one scratch directory whole, unless its run has moved it since it was listed."""
+    if write:
+        if why := in_use(folder, time.time()):
+            raise ValueError(why)
+        try:
+            shutil.rmtree(folder)
+        except OSError as exc:  # its text carries the whole path
+            raise ValueError(f"not removed whole: {exc.strerror}") from None
+    return f"{'removed' if write else 'would remove'}: {rel}"
 
 
 def ia_file(item: str, name: str, cache: dict) -> dict | None:
@@ -763,10 +869,15 @@ def crc_failures(root: Path, cands: list[Candidate]) -> dict[Path, str]:
 
 
 def disk_cleanup(
-    root: Path, *, write: bool = False, private: bool = False, owner_go: bool = False
+    root: Path,
+    *,
+    write: bool = False,
+    private: bool = False,
+    owner_go: bool = False,
+    tmp: Path | None = None,
 ) -> tuple[int, list[str]]:
     """List every --disk candidate by selector with its bytes and proof; with `write`,
-    delete each one whose proof holds."""
+    delete each one whose proof holds. `tmp` is the temp dir pytest's bases sit in."""
     root = root.resolve()
     if private and write and not owner_go:
         cands = private_selected(root)
@@ -784,6 +895,7 @@ def disk_cleanup(
         ("spent raw", spent),
         ("output stages", stages_selected(root)),
         ("store backups", backups_listed(root)),
+        ("scratch", scratch_selected(root, tmp, time.time())),
     ]
     if private:
         groups.append(("private", private_selected(root)))
@@ -798,9 +910,10 @@ def disk_cleanup(
     for label, cands in groups:
         size = sum(c.size for c in cands)
         listed += size
-        lines.append(f"\n{label}: {len(cands)} files, {size:,} B ({human(size)})")
+        unit = "directories" if label == "scratch" else "files"
+        lines.append(f"\n{label}: {len(cands)} {unit}, {size:,} B ({human(size)})")
         for cand in cands:
-            rel = cand.path.relative_to(root)
+            rel = shown(root, cand.path)
             held = cand.held or (stage_held if label == "output stages" else "")
             held = held or next(
                 (why for tree, why in crc_held.items() if tree in cand.path.parents), ""
@@ -820,10 +933,12 @@ def disk_cleanup(
                     line = remove_refetchable(root, cand, cache, write=write)
                 elif label == "output stages":
                     line = remove_plain(root, cand.path, under="output", write=write)
+                elif label == "scratch":
+                    line = remove_scratch(cand.path, rel, write=write)
                 else:
                     line = remove_plain(root, cand.path, under="private", write=write)
                 freed += cand.size
-                removed += [cand.path] if write else []
+                removed += [cand.path] if write and label != "scratch" else []
                 lines.append(f"  {line}")
             except (
                 OSError,
@@ -948,7 +1063,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.round or args.json:
             ap.error("--disk takes neither --round nor --json")
         code, lines = disk_cleanup(
-            args.root, write=args.write, private=args.private, owner_go=args.owner_go
+            args.root,
+            write=args.write,
+            private=args.private,
+            owner_go=args.owner_go,
+            tmp=Path(tempfile.gettempdir()),
         )
         print("\n".join(lines))
         return code

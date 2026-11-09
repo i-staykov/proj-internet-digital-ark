@@ -9,10 +9,13 @@ import io
 import json
 import os
 import subprocess
+import sys
+import tempfile
 import time
 import tracemalloc
 import zipfile
 from decimal import Decimal as D
+from pathlib import Path
 from types import SimpleNamespace
 
 import pyarrow as pa
@@ -141,6 +144,38 @@ def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch)
     monkeypatch.setattr(ext, "code_of_screen", lambda: "another screen")
     monkeypatch.setattr(gzip, "decompress", None)  # a stale entry is read no further than its key
     assert ext.cached(journal, ext.entry_key(journal)) is None
+
+
+def test_a_killed_exports_temp_directory_goes_once_still_and_the_next_export_is_whole(
+    exported, tmp_path
+):
+    ext, _, _, manifest, _, globs = exported
+    prune = sys.modules.get("prune") or script("round/prune.py", "prune")
+    root = tmp_path / "repo"
+    out = root / "output/extended_years"
+    ext.export(globs, out)
+    kept = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    orphan = Path(tempfile.mkdtemp(dir=out))  # as export() makes it
+    (orphan / "rows.tsv").write_text("left by a kill\n")
+    (out / "tmp_ours").mkdir()  # no name tempfile gives: never listed
+    (root / "data").mkdir()
+    (root / "data/baseline.json").write_text('{"current": {"directory": "ding/x"}}')
+
+    def pruned() -> str:
+        return "\n".join(prune.disk_cleanup(root, write=True)[1])
+
+    name = f"output/extended_years/{orphan.name}"
+    assert f"HELD {name}: moved in the last 60 minutes" in pruned() and orphan.exists()
+    old = time.time() - 2 * prune.SCRATCH_AGE
+    for path in (out, *out.rglob("*")):
+        os.utime(path, (old, old))
+    os.utime(out / "evidence_ledger.csv")  # an export writing its ledger holds it too
+    assert f"HELD {name}: moved" in pruned() and orphan.exists()
+    os.utime(out / "evidence_ledger.csv", (old, old))
+    text = pruned()
+    assert f"removed: {name}" in text and "tmp_ours" not in text
+    assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == kept
+    assert ext.export(globs, out)["years"] == manifest["years"]
 
 
 def test_the_cache_key_is_the_code_not_its_text():
