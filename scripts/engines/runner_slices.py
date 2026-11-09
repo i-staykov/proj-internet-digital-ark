@@ -8,9 +8,10 @@ the owner's cloud VM (`scripts/fleet/join.sh`), each with its own knob, workflow
 walk seconds and stale hours.
 
 `write`, the bank's last step: `docs/registers/runner/<prefix>_<stamp>_<k>.txt` is the next pages
-one more lane would ask (`cdx_extended_walk.load`, pages only, a throwaway lane over
-`data/raw/cdx_walk/runner/`) in pending.txt's head format; the knob (`cadence` or `long`, a
-one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane, so no job waits
+a lane would ask (`cdx_extended_walk.load`, a throwaway lane over `data/raw/cdx_walk/runner/`
+ranking as the lanes do, their ask tier in), the runners' slices of both lanes holding at most
+`SHARE` of the pages above that tier, in pending.txt's head format; the knob (`cadence` or `long`,
+a one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane, so no job waits
 for the tick, and none without it, two for the long lane, a spare on live when a walk ends, since
 the next cut lags a walk by 1 to 2 h; a zeroed knob or STOP deletes the slices. A slice's pages are
 ceil(walk seconds x rate x `MARGIN`), at least `PAGES`, the rate the lane's answered rows a second
@@ -63,11 +64,15 @@ DATA = Path(os.environ.get("ARK_WALK_DATA", REPO / "data"))
 REGISTER = REPO / "docs/registers/runner"
 GITHUB = "i-staykov/proj-internet-digital-ark"
 PAGES, MARGIN = 300, 1.25
-INTERVAL = 10.0  # the walker's --min-interval, the jobs' and the throwaway lane's
+# the runners are one client beside the bank host's three lanes (`cdx_walk_jobs.LANES`): they hold
+# at most a fourth of the pages the lanes rank above the ask tier, so lending never empties the
+# lanes' page work, which is what pays (laws)
+SHARE = 1 / 4
 FLOOR, FLOOR_REQUESTS = 0.1, 20
 HEAD = "# scripts/engines/runner_slices.py\n"
 SLICE = re.compile(r"^(slice|long)_(\d{8}T\d{6}Z)_\d+$")
 PAUSE = re.compile(r"^# pause (\d+) s")
+ORDER = re.compile(r"^# order .* (\d+) s a start$")
 ARTIFACT = re.compile(r"^((?:slice|long)_\d{8}T\d{6}Z_\d+)_r(\d+)$")
 STATE = ("cdx_walk/lane0/log.tsv", "cdx_walk/lane0/done.txt", "cdx_walk/lane0/pending.txt")
 JOURNAL = re.compile(r"^(cdx_suffix|extended/ia_cdx_hostnames)/walk_[\w.-]+\.jsonl\.gz$")
@@ -87,11 +92,15 @@ LANES = {
     "long": Lane("long", "runner-lane-long.yml", 1, 21600, 30),
 }
 
-_spec = importlib.util.spec_from_file_location(
-    "cdx_extended_walk", Path(__file__).with_name("cdx_extended_walk.py")
-)
-walker = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(walker)
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+walker, jobs = _load("cdx_extended_walk"), _load("cdx_walk_jobs")
 
 
 def gh(*args: str, timeout: int) -> bytes:
@@ -171,24 +180,46 @@ def size(log: Path, seconds: int) -> int:
     except ValueError:
         return PAGES
     answered = sum(r[7] in ("200", "HTTP504") for r in rows)
-    rate = min(answered / span, 1 / INTERVAL) if span else 0
+    rate = min(answered / span, 1 / walker.INTERVAL) if span else 0
     return max(PAGES, math.ceil(seconds * rate * MARGIN))
 
 
+def start_cost(walk: Path) -> float:
+    """The least seconds a start costs a lane here, its last `# order` line's; the interval when
+    none has one: the lane with the most starts ranks the fewest pages above the ask tier."""
+    costs = []
+    for log in walk.glob("lane[0-9]*/log.tsv"):
+        with open(log, "rb") as fh:
+            fh.seek(max(0, log.stat().st_size - (1 << 18)))
+            tail = fh.read().decode(errors="replace").splitlines()
+        costs += [float(m[1]) for ln in tail if (m := ORDER.match(ln))][-1:]
+    return min(costs, default=walker.INTERVAL)
+
+
 def cut(data: Path, runner: Path, sizes: list[int]) -> list[list[tuple]]:
-    """A slice of each size in turn, the next pages one more lane would ask, none lent or done (a
-    page a lane cut is done; its subpages are that lane's own)."""
+    """A slice of each size in turn from the head of the lanes' ranking, the ask tiers in as empty
+    markers (the priced ones, no question loaded), both lanes' slices at most `SHARE` of the pages
+    above the first tier less the lent, none lent or done (a page a lane cut is done; its subpages
+    are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
-    a.questions, a.min_interval, a.max_transient = True, INTERVAL, 0
+    a.questions, a.max_transient, a.workers = True, 0, jobs.WORKERS
+    a.min_interval = start_cost(runner.parent)
     lane = walker.load(a)
-    slices = []
+    for tier in {u.split(" ")[0] for u in lane.order if u.endswith(" ask")} | set(walker.ASKED):
+        lane.pages.setdefault((tier, "ask"), [])
+        lane.asked.setdefault((tier, "ask"), 0)
+    lane.rerank(force=True)
+    tiers = [i for i, u in enumerate(lane.ranked) if u[1] == "ask"]
+    above = [t for u in lane.ranked[: tiers[0] if tiers else None] for t in lane.pages[u]]
+    free = [t for t in above if walker.key_of(t) not in lane.lent]
+    out = len(above) - len(free)  # in a slice present already
+    free = free[: max(0, int(len(above) * SHARE) - out)]
+    slices, at = [], 0
     for pages in sizes:
-        tasks: list = []
-        while len(tasks) < pages and (t := lane.take()):
-            tasks.append(t)
-        if not tasks:
+        if at >= len(free):
             break
-        slices.append(tasks)
+        slices.append(free[at : at + pages])
+        at += pages
     return slices
 
 

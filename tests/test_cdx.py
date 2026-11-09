@@ -394,12 +394,38 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     assert waiting == [("ask-edge", "ask"), ("ask-x", "ask")], "an unpriced tier waits; pool drops"
 
 
+def test_extended_walk_ranks_by_ee_a_start_at_what_the_gate_holds_a_start_for(tmp_path):
+    units = {"co.uk all": {"p2": 33.0, "s": 450, "n": 9}, "ask-gap ask": {"p2": 2.8, "s": 2.0}}
+    units["ask-gap ask"]["n"] = 5000
+    (tmp_path / "o.json").write_text(json.dumps({"units": units}))
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    a.questions, a.min_interval, a.workers = True, 10, 3
+    lane = extended.Lane(a)
+    lane.pages = {("ask-gap", "ask"): [], ("co.uk", "all"): []}
+    lane.asked = dict.fromkeys(lane.pages, 0)
+    lane.rerank(force=True)
+    assert lane.ranked[0] == ("ask-gap", "ask"), "unmeasured, 10 s: 0.28 a s to 0.22 over 3 workers"
+    now = time.time()
+    lane.started, lane.waited = [now] * 24, [int(now) - i for i in range(60)]  # pages, no ladder
+    lane.rerank()
+    assert lane.ranked[0] == ("ask-gap", "ask") and lane.cost == 10, (
+        "24 starts an hour of 450 s pages over 3 workers hold the gate 60 s: the streaming is no "
+        "start's cost, and ask-gap pays 1,015 EE an hour to the pages' 792"
+    )
+    lane.started, lane.waited = [now] * 100, [int(now) - i for i in range(2100)]  # the ladder
+    lane.rerank()
+    assert lane.ranked[0] == ("co.uk", "all") and lane.cost == 21, "33 EE a start outranks 2.8"
+    assert lane.take() is None and len(lane.started) == 100, "an idle poll is no start"
+    lane.waited, lane.pause_until = [], time.time() + 1
+    assert lane.gate() and 1 <= len(lane.waited) <= 2, "the gate counts each held second once"
+
+
 def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_subpages(
     tmp_path,
 ):
     (tmp_path / "o.json").write_text('{"units": {"me.uk all": {"p2": 900.0, "s": 60, "n": 9}}}')
     a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
-    a.questions, a.min_interval = True, 10
+    a.questions, a.min_interval, a.workers = True, 10, 1
     lane = extended.Lane(a)
     asks = [("ask-gap", 1, f"d{n}.com", 1996, 2013, "ask") for n in range(9)]
     pages = [("me.uk", 1000, n, 1996, 2013, "all") for n in range(9)]
@@ -427,7 +453,7 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
     a = SimpleNamespace(
         state_dir=tmp_path, order=tmp_path / "o.json", max_transient=0, data=tmp_path
     )
-    a.questions, a.min_interval = False, 10
+    a.questions, a.min_interval, a.workers = False, 10, 1
     page = ("co.uk", 1000, 7, 1996, 2013, "all")
 
     def lane_with(page):
@@ -468,7 +494,7 @@ def test_extended_walk_books_only_answers_and_keeps_owed_subpages_across_a_resta
 
 def test_a_200_cut_before_its_first_row_is_a_dropped_connection_until_the_cap(tmp_path):
     a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", max_transient=1)
-    a.data, a.questions, a.min_interval = tmp_path, False, 10
+    a.data, a.questions, a.min_interval, a.workers = tmp_path, False, 10, 1
     lane = extended.Lane(a)
     pages = [("co.uk", 1000, n, 1996, 2013, "all") for n in (7, 8)]
     lane.pages, lane.asked = {("co.uk", "all"): pages}, {("co.uk", "all"): 0}
@@ -483,7 +509,7 @@ def test_a_200_cut_before_its_first_row_is_a_dropped_connection_until_the_cap(tm
 
 def test_a_parked_subpage_is_asked_on_the_next_start_until_its_third_park(tmp_path):
     a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
-    a.questions, a.min_interval = False, 10
+    a.questions, a.min_interval, a.workers = False, 10, 1
     sub, meta = ("ac.mz", 100, 1, 1996, 2013, "all"), ("rest", "ac.mz 1000 0 1996 2013", "")
     (tmp_path / "pending.txt").write_text(extended.encode(sub, meta) + "\n")
     for parks in range(1, extended.PARKS + 1):  # each start asks it nine times, then parks it
@@ -511,7 +537,7 @@ def test_walk_order_finds_a_host_in_a_c_sorted_year_file(tmp_path):
 
 def test_a_low_disk_holds_the_lane_and_an_unreadable_floor_does_not(tmp_path, monkeypatch):
     a = SimpleNamespace(state_dir=tmp_path / "lane0", order=tmp_path / "o.json")
-    a.data, a.questions, a.min_interval, a.max_transient = tmp_path, False, 10, 0
+    a.data, a.questions, a.min_interval, a.max_transient, a.workers = tmp_path, False, 10, 0, 1
     a.state_dir.mkdir()
     lane = extended.Lane(a)
     monkeypatch.setattr(extended._disk, "free", lambda p: 0)
@@ -528,7 +554,7 @@ def test_a_slice_walks_its_pages_alone_and_a_lent_page_returns_when_the_file_shr
     slice_ = tmp_path / "slice_x.txt"
     slice_.write_text("# runner_slices\nco.uk 1000 1 1996 2013 all\nco.uk 1000 2 1996 2013 p1\n")
     a = SimpleNamespace(lane=0, lanes=1, data=tmp_path, state_dir=tmp_path / "lane0", slice=slice_)
-    a.questions, a.min_interval, a.max_transient = True, 10, 0
+    a.questions, a.min_interval, a.max_transient, a.workers = True, 10, 0, 1
     lane = extended.load(a)
     assert lane.pages == {("co.uk", "all"): [p1], ("co.uk", "p1"): [p2]} and lane.missing == []
     lent = tmp_path / "runner/lent.txt"
@@ -550,7 +576,7 @@ def test_a_sibling_lane_answer_ends_only_the_refusal_pause(tmp_path, monkeypatch
     lanes = []
     for i in range(2):
         a = SimpleNamespace(state_dir=tmp_path / f"lane{i}", order=tmp_path / "o.json")
-        a.data, a.questions, a.min_interval, a.max_transient = tmp_path, False, 10, 0
+        a.data, a.questions, a.min_interval, a.max_transient, a.workers = tmp_path, False, 10, 0, 1
         a.state_dir.mkdir()
         lanes.append(extended.Lane(a))
     now = time.time()
@@ -646,7 +672,7 @@ def test_a_unit_measured_under_both_floors_drops_and_the_2002_edge_runs_to_its_m
     monkeypatch.setattr(order, "DATA", tmp_path)
     order.main()  # re-priced, the floor kept
     a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "queue/cdx_order.json", data=tmp_path)
-    a.questions, a.min_interval = True, 10
+    a.questions, a.min_interval, a.workers = True, 10, 1
 
     def lane_asks() -> tuple | None:
         lane = extended.Lane(a)
