@@ -3,7 +3,7 @@
 One paged `matchType=domain` request over a public suffix (`co.uk`, `co.nz`, `com.au`) returns
 thousands of exact (host, year) captures: every host under a 1,000-block slice of the index, with
 the years it was captured in. The suffixes are the ICANN two-label ones of every TLD he weighs
-(a bare TLD answers 403); the measured EE a second (`cdx_walk_order.py`) orders the walk.
+(a bare TLD answers 403); the measured EE a start (`cdx_walk_order.py`) orders the walk.
 
 **Pool questions** are the queue's second kind, `ask`: one exact root-key question for each
 registrable in `data/queue/pool_questions.tsv` (`pool_questions.py`), in the file's order. Each
@@ -127,10 +127,12 @@ def subpages(task: tuple, cut: bool) -> list[tuple]:
 def rank(
     units, order: dict, asked: dict, explore: int, floor: float, floors: dict | None = None
 ) -> tuple[list, ...]:
-    """(priced, exploring, waiting, early): every priced unit by its EE a second over both windows,
-    every second it cost (`s`, its silences and failures too), so a long sparse page sinks and a
-    question tier rises once pages pay less than it; 1996 to 2001 the tiebreak, since the gate is
-    3% on either window; no request costs less than `floor`, the start interval. The unpriced
+    """(priced, exploring, waiting, early): every priced unit by its EE a start over both windows,
+    a start costing `floor`, the seconds one takes on the lane with its pauses and refusals in,
+    since the ladder bounds a lane's starts, not its seconds (laws): a page paying more a start
+    outranks a question paying less however quick the question; a unit's own seconds (`s`, its
+    silences and failures too) when they are longer, so a long sparse page sinks; 1996 to 2001
+    the tiebreak, since the gate is 3% on either window. The unpriced
     ones still owed `explore` pages; the explored ones, and a question tier measured at nothing,
     waiting for a price; and the units paying 1996 to 2001 by that EE a second alone, which
     `EARLY` starts of four take ahead of owed subpages (laws). A unit priced at nothing over
@@ -259,7 +261,7 @@ class Lane:
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.parked = set()  # subpages parked this start, owed to the next one
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
-        self.starts, self.floors = 0, {}
+        self.starts, self.began, self.started, self.cost, self.floors = 0, time.time(), [], 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
@@ -315,16 +317,22 @@ class Lane:
             except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
                 if self.order_mtime == mtime:  # the units read, the floor not: no floor
                     self.log.write(f"# floor unread, none: {exc}\n")
+        # a start's cost here, measured: the last hour over its starts, pauses and refusals in,
+        # never under the interval, which alone holds until starts are measured
+        now = time.time()
+        self.started = [t for t in self.started if t > now - 3600]
+        cost = (now - max(self.began, now - 3600)) / max(len(self.started), 1)
+        cost = round(max(self.a.min_interval, cost))
+        if cost != self.cost:
+            self.cost, force = cost, True
         if force:
             self.ranked, self.exploring, self.waiting, self.early = rank(
-                self.pages,
-                self.order,
-                self.asked,
-                2,
-                self.a.min_interval,
-                self.floors,
+                self.pages, self.order, self.asked, 2, self.cost, self.floors
             )
-            self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
+            self.log.write(
+                f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring, "
+                f"{self.cost} s a start\n"
+            )
 
     def save_pending(self) -> None:
         owed = self.subq + sorted(self.inflight & self.meta.keys()) + sorted(self.parked)
@@ -348,6 +356,7 @@ class Lane:
         with self.lock:
             self.rerank()
             self.starts += 1
+            self.started.append(time.time())
             if self.starts % 4 < EARLY and (task := self.pop(self.early)):
                 return task
             while self.subq:

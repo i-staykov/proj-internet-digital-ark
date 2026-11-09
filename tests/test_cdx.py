@@ -394,6 +394,22 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     assert waiting == [("ask-edge", "ask"), ("ask-x", "ask")], "an unpriced tier waits; pool drops"
 
 
+def test_extended_walk_ranks_by_ee_a_start_once_the_lane_measures_what_a_start_costs(tmp_path):
+    units = {"co.uk all": {"p2": 33.0, "s": 150, "n": 9}, "ask-gap ask": {"p2": 2.8, "s": 2.0}}
+    units["ask-gap ask"]["n"] = 5000
+    (tmp_path / "o.json").write_text(json.dumps({"units": units}))
+    a = SimpleNamespace(state_dir=tmp_path, order=tmp_path / "o.json", data=tmp_path)
+    a.questions, a.min_interval = True, 10
+    lane = extended.Lane(a)
+    lane.pages = {("ask-gap", "ask"): [], ("co.uk", "all"): []}
+    lane.asked = dict.fromkeys(lane.pages, 0)
+    lane.rerank(force=True)
+    assert lane.ranked[0] == ("ask-gap", "ask"), "unmeasured, the 10 s interval: 0.28 a s to 0.22"
+    lane.began, lane.started = time.time() - 2100, [time.time()] * 100  # 21 s a start measured
+    lane.rerank()
+    assert lane.ranked[0] == ("co.uk", "all") and lane.cost == 21, "33 EE a start outranks 2.8"
+
+
 def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_subpages(
     tmp_path,
 ):
