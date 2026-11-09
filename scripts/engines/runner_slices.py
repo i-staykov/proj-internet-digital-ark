@@ -122,8 +122,8 @@ def judge(runner: Path) -> list[str]:
 
 
 def cut(data: Path, runner: Path, want: int) -> list[list[tuple]]:
-    """`want` slices of the next pages one more lane would ask, none lent, done or owed."""
-    owed = set().union(*(keys(p) for p in runner.parent.glob("lane*/pending.txt")))
+    """`want` slices of the next pages one more lane would ask, none lent or done (a page a lane
+    cut is done; its subpages are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
     a.questions, a.min_interval, a.max_transient = True, 10.0, 0
     lane = walker.load(a)
@@ -131,8 +131,7 @@ def cut(data: Path, runner: Path, want: int) -> list[list[tuple]]:
     for _ in range(want):
         tasks: list = []
         while len(tasks) < PAGES and (t := lane.take()):
-            if walker.key_of(t) not in owed:
-                tasks.append(t)
+            tasks.append(t)
         if not tasks:
             break
         slices.append(tasks)

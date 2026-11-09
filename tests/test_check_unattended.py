@@ -75,9 +75,8 @@ def clone(tmp_path):
         ["git", "remote", "add", "origin", str(tmp_path / "origin.git")], cwd=repo, env=clean
     )
     subprocess.run(["git", "fetch", "-q", "origin"], cwd=repo, env=clean, check=True)
-    walkers = subprocess.run(
-        ["git", "rev-parse", "HEAD:scripts/engines/cdx_walk_jobs.py"]
-        + ["HEAD:scripts/engines/cdx_extended_walk.py"],
+    code = subprocess.run(
+        [sys.executable, "scripts/engines/cdx_walk_jobs.py", "code"],
         cwd=repo,
         env=clean,
         capture_output=True,
@@ -85,7 +84,7 @@ def clone(tmp_path):
         check=True,
     ).stdout
     (repo / "data/logs").mkdir(parents=True, exist_ok=True)
-    (repo / "data/logs/.walk_code").write_text(walkers)
+    (repo / "data/logs/.walk_code").write_text(code)
     (repo / "data/logs/.sync.lock").mkdir()
     (repo / "data/logs/.sync.lock/pid").write_text(f"{os.getpid()}\n")
 

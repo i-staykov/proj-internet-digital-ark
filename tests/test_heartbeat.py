@@ -118,6 +118,20 @@ def test_lane_stalls_only_with_work_queued(hb, tmp_path):
     assert hb.lane(1, now, {}) == (None, "lane1: not walked here")
 
 
+def test_the_lane_the_runners_took_is_not_stalled(hb, tmp_path, monkeypatch):
+    lane = tmp_path / "data/raw/cdx_walk/lane2"
+    lane.mkdir(parents=True)
+    (lane / "log.tsv").write_text("# exit 20261109T000000Z pending=3\n")  # the tick stopped it
+    monkeypatch.setattr(hb.JOBS, "RUNNER", tmp_path)
+    at = stamp(dt.datetime.now(dt.UTC))
+    run(hb, tmp_path, at)
+    assert "vm-alert: lane2 stalled" in made(hb, "create")
+    hb.calls.clear()
+    (tmp_path / "cadence").write_text("2\n")
+    run(hb, tmp_path, at)
+    assert "vm-alert: lane2 stalled" not in made(hb, "create")
+
+
 def test_each_cause_opens_once_and_reopens(hb, tmp_path):
     now = dt.datetime.now(dt.UTC)
     earlier = stamp(now - dt.timedelta(days=2))

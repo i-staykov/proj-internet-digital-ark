@@ -4,10 +4,11 @@ The bank host walks: the machine whose `ARK_HOSTS` in local.env has a `local` en
 lanes, the Channel's clients less the runners' while `docs/registers/runner/cadence` is set and
 no STOP holds (`runner_slices.py`), each `WORKERS` requests at once. Cron starts each at boot and
 every 10 minutes under its own `flock`, with `--lanes` their count, so the queue splits by hash.
-The tick reinstalls the cron and stops the walkers when this file, the walker or the lane count
-changed, and cron restarts them on the new code (`scripts/harness/scheduled_sync.sh`). `install`
-first gives every lane folder a done set (`done`), since each lane skips what any lane answered.
-The laptop runs no lane (AGENTS.md, Channel).
+The tick reinstalls the cron and stops the walkers once `code` (HEAD's blobs of `WALK`: this file,
+the walker, the lane count's two files) changed since the install, and cron restarts them
+(`scripts/harness/scheduled_sync.sh`). `install` first gives every lane folder a done set
+(`done`), since each lane skips what any lane answered. The laptop runs no lane (AGENTS.md,
+Channel).
 """
 
 from __future__ import annotations
@@ -22,7 +23,18 @@ DATA = CODE / "data"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
 RUNNER = CODE / "docs/registers/runner"  # the runners' cadence and STOP (runner_slices.py)
+WALK = (  # what the installed walk follows
+    "scripts/engines/cdx_walk_jobs.py",
+    "scripts/engines/cdx_extended_walk.py",
+    "docs/registers/runner/cadence",
+    "docs/registers/runner/STOP",
+)
 FLOOR_ENV = ("ARK_FREE_SPACE_GIB", "ARK_WRITE_BUDGET_GIB")  # src/ark/disk.py
+
+
+def code() -> str:
+    """HEAD's blobs of `WALK`, what the tick keeps in `data/logs/.walk_code` and the check reads."""
+    return sh(f"git -C {CODE} ls-tree HEAD {' '.join(WALK)}")
 
 
 def lanes() -> int:
@@ -131,6 +143,8 @@ if __name__ == "__main__":
     gitdir, common = subprocess.run(git, capture_output=True, text=True).stdout.split()
     if Path(CODE, gitdir).resolve() != Path(CODE, common).resolve():
         raise SystemExit("run `just walk` from the main checkout, whose data/ the bank reads")
-    {"install": install, "done": done, "status": status, "remove": remove}[
-        (sys.argv[1:] or ["status"])[0]
-    ]()
+    what = (sys.argv[1:] or ["status"])[0]
+    if what == "code":
+        print(code())
+    else:
+        {"install": install, "done": done, "status": status, "remove": remove}[what]()

@@ -24,13 +24,12 @@ def row(page: str, status: str, size: str = "1000") -> str:
 
 
 def stage(tmp_path):
-    """A bank host's data/: one counted suffix, a done page, an owed page, a priced order."""
+    """A bank host's data/: one counted suffix, a done page, a priced order."""
     data, register = tmp_path / "data", tmp_path / "docs/registers/runner"
     lane = data / "raw/cdx_walk/lane0"
     lane.mkdir(parents=True)
     (lane / "pages.json").write_text('{"co.uk": 12}')
     (lane / "done.txt").write_text(KEY.format(3) + "\n")
-    (lane / "pending.txt").write_text(f"{KEY.format(5)} all\tprobe\t{KEY.format(5)}\t\n")
     (data / "queue").mkdir()
     order = {"units": {"co.uk all": {"p1": 1.0, "p2": 1.0, "s": 10, "n": 9}}}
     (data / "queue/cdx_order.json").write_text(json.dumps(order))
@@ -39,9 +38,7 @@ def stage(tmp_path):
     return data, register
 
 
-def test_write_cuts_a_slice_of_pages_neither_done_owed_nor_lent_and_lends_them(
-    tmp_path, monkeypatch
-):
+def test_write_cuts_a_slice_of_pages_neither_done_nor_lent_and_lends_them(tmp_path, monkeypatch):
     data, register = stage(tmp_path)
     monkeypatch.setattr(rs, "PAGES", 4)
     (register / "slice_20261109T110000Z_0.txt").write_text(rs.HEAD + KEY.format(7) + " all\n")
@@ -57,7 +54,7 @@ def test_write_cuts_a_slice_of_pages_neither_done_owed_nor_lent_and_lends_them(
         ln.startswith("co.uk 1000 ") and ln.endswith(" 1996 2013 all") for ln in rs.lines(new)
     )
     out = {int(k.split()[2]) for k in rs.keys(new)}
-    assert out.isdisjoint({3, 5, 7, 9}), "done, owed, lent and a runner's answer stay out"
+    assert out.isdisjoint({3, 7, 9}), "done, lent and a runner's answer stay out"
     lent = data / "raw/cdx_walk/runner/lent.txt"
     assert lent.read_text().startswith(rs.HEAD)
     assert rs.keys(lent) == rs.keys(new) | {KEY.format(7), KEY.format(9)}
@@ -77,7 +74,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     ):
         (register / f"slice_{stem}.txt").write_text(rs.HEAD + KEY.format(page) + " all\n")
     (runner / "judge/1_x.tsv").write_text("".join(row("1", "HTTP503") + "\n" for _ in range(5)))
-    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 2 gone, 10 keys lent"
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 2 gone, 11 keys lent"
     assert not (register / "STOP").exists(), "five requests are under the floor"
     assert not (register / "slice_20261109T050000Z_0.txt").exists(), "7 h old"
     assert not (register / "slice_20261109T110000Z_0.txt").exists(), "banked"
@@ -99,7 +96,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     assert not list(register.glob("slice_*")) and rs.keys(runner / "lent.txt") == set()
     assert rs.write(data, register, NOW).endswith(", STOP"), "held until a PR lifts it"
     stop.unlink()
-    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 10 keys lent"
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 11 keys lent"
     assert not stop.exists(), "a judged log never latches STOP again"
     assert rs.blocked([row("1", "ConnectionRefusedError")] * 18 + [row("2", "200")] * 2) == ""
     assert rs.blocked([row("1", "HTTP403")] * 19 + [row("2", "200")]) == "1 of 20 requests answered"
@@ -190,5 +187,13 @@ def test_the_runners_take_one_of_the_three_lanes_while_cadence_is_set(tmp_path, 
     assert jobs.lanes() == 3
     (tmp_path / "cadence").write_text("# slices kept cut\n2\n")
     assert jobs.lanes() == 2
+    check = script("harness/check_unattended.py")  # wants that many lanes' cron lines
+    monkeypatch.setattr(check, "ROOT", tmp_path)
+    monkeypatch.setattr(check.JOBS, "RUNNER", tmp_path)
+    cron = f"cd {tmp_path} && /usr/bin/python3 {check.WALKER} # ark-walk"
+    monkeypatch.setattr(check, "run", lambda *cmd: (0, "\n".join([cron] * 4)))
+    (tmp_path / "data/logs").mkdir(parents=True)
+    (tmp_path / "data/logs/.walk_code").write_text(check.JOBS.code())
+    assert check.walk() == (True, "4 of 4 ark-walk lines here, want 4; walk code at HEAD")
     (tmp_path / "STOP").write_text(rs.HEAD)
     assert jobs.lanes() == 3, "under STOP the bank host walks its third lane"

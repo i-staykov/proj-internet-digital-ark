@@ -4,8 +4,9 @@ Run at the end of every tick (`scheduled_sync.sh`) and by hand (`just check unat
 line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 
 - timer: `ark-sync.timer` is active.
-- walk: the crontab holds six `# ark-walk` lines, each `cd` here and running the walker, and
-  `data/logs/.walk_code` names HEAD's walker blobs, so the lanes run HEAD's code.
+- walk: the crontab holds two `# ark-walk` lines per lane (`cdx_walk_jobs.lanes`), each `cd`
+  here and running the walker, and `data/logs/.walk_code` is HEAD's walk code
+  (`cdx_walk_jobs.code`), so the lanes run HEAD's code.
 - lock: the sync lock is free or its holder's pid is alive in this boot.
 - hold: each unit or flag the hold file names is off (the timer not enabled unless the label
   holds it, the flag file present).
@@ -39,9 +40,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ark.disk import space  # noqa: E402
 
 TIMER = "ark-sync.timer"
-WALKERS = ("scripts/engines/cdx_walk_jobs.py", "scripts/engines/cdx_extended_walk.py")
 WALKER = "scripts/engines/cdx_extended_walk.py"
-LANES = 3
 # cron starts a stopped lane every 10 minutes; one more for the start itself
 RESTART_S = 11 * 60
 STATE = Path(os.environ.get("ARK_STATE_DIR", Path.home() / "ark/state"))
@@ -77,11 +76,11 @@ def walk() -> tuple[bool, str]:
     _, tab = run("crontab", "-l")
     lines = [ln for ln in tab.splitlines() if ln.rstrip().endswith("# ark-walk")]
     ours = [ln for ln in lines if f"cd {ROOT} " in ln and WALKER in ln]
-    _, head = run("git", "rev-parse", *(f"HEAD:{w}" for w in WALKERS))
     code = ROOT / "data/logs/.walk_code"
-    fresh = code.exists() and code.read_text().split() == head.split()
-    ok = len(lines) == len(ours) == 2 * LANES and fresh
-    return ok, f"{len(ours)} of {len(lines)} ark-walk lines here, want 6; walk code " + (
+    fresh = code.exists() and code.read_text().split() == JOBS.code().split()
+    want = 2 * JOBS.lanes()
+    ok = len(lines) == len(ours) == want and fresh
+    return ok, f"{len(ours)} of {len(lines)} ark-walk lines here, want {want}; walk code " + (
         "at HEAD" if fresh else "not HEAD's"
     )
 
@@ -141,6 +140,9 @@ def module(path: str):
     return mod
 
 
+JOBS = module("scripts/engines/cdx_walk_jobs.py")  # the lanes here and the code they follow
+
+
 def left(unit: str) -> int:
     """Parts under three strikes the unit's reader has not read, from its own files alone."""
     return module(READERS[unit][0]).left()
@@ -197,7 +199,7 @@ def main(argv: list[str]) -> int:
         ("hold", *hold()),
         ("login", *login()),
         ("space", *disk()),
-        *((f"lane{n}", *lane(n)) for n in range(LANES)),
+        *((f"lane{n}", *lane(n)) for n in range(JOBS.lanes())),
         *readers(),
     ]
     failed = [name for name, ok, _ in checks if not ok]
