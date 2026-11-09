@@ -5,7 +5,7 @@
 
 The key's rows of every `data/raw/cdx_walk/lane*/log.tsv` (`cdx_extended_walk.py`) become
 rows of `data/logs/productivity.tsv`, the key's earlier rows replaced: key (a date, or
-YYYY-MM-DDTHH00 for the hours before that hour, run after the :05 bank so they are priced),
+YYYY-MM-DDTHH00 for the hours before that hour, once a tick priced them, `unpriced()`),
 lane, kind (`page`, or an ask tier such as `ask-gap`), window (`1996-2001`, `2002-2013`),
 requests, answered (200 or 504, as `cdx_walk_order.py` counts), paused_seconds (the pauses this
 kind's answers caused, overlaps once, inside the span), ee (the window's journals as the bank
@@ -31,7 +31,7 @@ DATA = Path(os.environ.get("ARK_WALK_DATA", ROOT / "data"))
 OUT = ROOT / "data/logs/productivity.tsv"
 LEVERS = ROOT / "scripts/engines/levers.json"
 WINDOWS = ("1996-2001", "2002-2013")
-HEADER = "date lane kind window requests answered paused_seconds ee ee_per_client_second"
+HEADER = "key lane kind window requests answered paused_seconds ee ee_per_client_second"
 HEADER = HEADER.split() + ["band_low", "band_high"]
 ANSWERED = {"200", "HTTP504"}
 PAUSE = re.compile(r"# pause (\d+) s")
@@ -122,6 +122,18 @@ def read(path: Path) -> list[list[str]]:
     return [r for r in rows if len(r) == len(HEADER)]
 
 
+def unpriced(ticks: Path, key: str) -> str:
+    """Why the hours before a YYYY-MM-DDTHH00 key have unpriced journals, or empty: the last
+    tick (`heartbeat.py`'s row in `ticks.tsv`, stamp and verdict) is before the key's hour, or
+    neither banked nor idle (the sync prices journals before the bank, `just sync`). Such hours
+    get no row: one priced at 0 would sink the band for seven days."""
+    rows = ticks.read_text().splitlines() if ticks.exists() else []
+    stamp, verdict, *_ = (rows or [""])[-1].split("\t") + ["", ""]
+    if stamp[:13] >= key.replace("-", "") and verdict in ("banked", "idle"):
+        return ""
+    return f"last tick {stamp or 'none'} {verdict}".rstrip()
+
+
 def write(out: Path, data: Path, key: str, hours: int = 0) -> int:
     """The key's rows (a date's, or the `hours` before a YYYY-MM-DDTHH00 key), replacing
     earlier ones for it; how many were written."""
@@ -175,7 +187,9 @@ def main(argv: list[str] | None = None) -> None:
     a = ap.parse_args(argv)
     key = now.strftime("%Y-%m-%dT%H00") if a.hours else a.date
     dt.date.fromisoformat(key[:10])
-    print(f"lane yield {key}: {write(OUT, DATA, key, a.hours)} rows")
+    why = unpriced(OUT.parent / "ticks.tsv", key) if a.hours else ""
+    n = 0 if why else write(OUT, DATA, key, a.hours)
+    print(f"lane yield {key}: {n} rows{why and ', ' + why}")
 
 
 if __name__ == "__main__":

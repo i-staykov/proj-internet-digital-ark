@@ -100,3 +100,11 @@ def test_a_window_row_counts_its_hours_beside_the_date_and_bands_on_its_hour(tmp
     assert yield_.write(out, tmp_path, DATE) == 4 and len(yield_.read(out)) == 12
     assert yield_.lines(out)["lane0"].startswith(DATE + ": ")
     assert yield_.lines(out)["lane0"].endswith("a second")  # the daily band ignores the hours
+    # the hours are priced by the tick at or after the key's hour, banked or idle; else no row
+    ticks = tmp_path / "ticks.tsv"
+    assert yield_.unpriced(ticks, key) == "last tick none"
+    for stamp, verdict in (("20261107T0005Z", "banked"), ("20261107T0105Z", "refused")):
+        ticks.write_text(f"{stamp}\t{verdict}\t9\tbanked\n")
+        assert yield_.unpriced(ticks, key) == f"last tick {stamp} {verdict}"
+    ticks.write_text("20261107T0105Z\tidle\t9\tno output\n")
+    assert yield_.unpriced(ticks, key) == ""

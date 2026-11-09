@@ -5,15 +5,13 @@ with nobody involved.
    hour in `data/logs/productivity.tsv` (the four hours before it, per question kind and
    window: requests, answered, paused seconds, EE priced as banked, EE per client-second, the
    band over the same hours of the previous seven days) are the row. A file or script that
-   does not exist yet is a finding, not an error: end on it.
+   does not exist yet, or no rows (it says why), is a finding, not an error: end on it.
 2. The objective, in order: 1996 to 2001 EE per client-second, then 2002 to 2013, then requests
    per EE. Every lane inside its band needs nothing: end on the row.
 3. The levers are the `levers` list of `scripts/engines/levers.json`, each with its last
    measurement and date; pull none not listed, none when the list is absent. One lever a day,
    the one whose measurement says it moves the lane under its band; none while an agent-cdx
-   PR is open or the last pull has no laws row (step 5), none when the row's EE is 0, its band
-   is blank, or the last `data/logs/ticks.tsv` row is red or stamped before the key's hour
-   (unbanked journals price at 0).
+   PR is open or the last pull has no laws row (step 5), none when the row's EE is 0.
 4. The pull: `git worktree add ~/ark-agent/cdx-<date> -b agent-cdx-<date> origin/live`; work
    only there, every git state change naming it (`git -C ~/ark-agent/cdx-<date> ...`). The PR
    changes the knob where the lever's `file` and `knob` name it (the walker's constant or
