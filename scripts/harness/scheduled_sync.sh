@@ -96,11 +96,9 @@ ship_now() {
     ship_now 2>&1
 } >> "$LOG"
 
-# The walk follows its code: once the walker, its cron or the lane count changed since the last
-# install (`cdx_walk_jobs.py` code), the cron is reinstalled and the walkers stopped (SIGTERM
-# saves what they owe); cron restarts them. After the sync, whose pull brought the change: a
-# cadence lands, the lanes drop to two this tick, and the bank cuts the runners' first slice the
-# next, once the install is current (`runner_slices.py`), so no job walks beside three lanes.
+# The walk follows its code: once the walker or its cron changed since the last install
+# (`cdx_walk_jobs.py` code), the cron is reinstalled and the walkers stopped (SIGTERM saves what
+# they owe); cron restarts them. After the sync, whose pull brought the change.
 WALK=$(just walk code 2> /dev/null)
 if [ -n "$WALK" ] && [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install >> "$LOG" 2>&1; then
     pkill -f '^/usr/bin/python3 .*cdx_extended_walk[.]py'; echo "$WALK" > data/logs/.walk_code

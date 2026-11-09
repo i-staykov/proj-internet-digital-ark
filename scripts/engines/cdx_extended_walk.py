@@ -41,9 +41,7 @@ rate is always charged with its waits and failures.
 **Runner lanes** (`runner_slices.py`): `--slice FILE` walks that file's pages alone, nothing
 counted or asked besides, and stops at its first 15 minute pause, since the address is refused.
 The pages lent to the runners, and the ones they answered, are `runner/lent.txt` beside the lane
-folders, reread by mtime, so a running lane drops and regains them without a restart. A lane the
-count dropped (`cdx_walk_jobs.lanes`) has its pending adopted by the lane its number folds onto,
-under its cron flock, so only once its walker drained (`adopt`).
+folders, reread by mtime, so a running lane drops and regains them without a restart.
 
     python3 scripts/engines/cdx_extended_walk.py --lane 0 --lanes 3 [--workers 2] [--data DIR]
 """
@@ -52,7 +50,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import fcntl
 import gzip
 import http.client
 import importlib.util
@@ -252,7 +249,7 @@ class Lane:
         self.a, self.lock, self.pages, self.asked = a, threading.Lock(), {}, {}
         done = sorted(a.state_dir.parent.glob("*/done.txt"))  # every lane's, the runners' too
         self.done = {" ".join(ln.split()[:5]) for f in done for ln in f.read_text().splitlines()}
-        self.lent, self.lent_mtime, self.missing, self.dropped = set(), -1.0, [], []
+        self.lent, self.lent_mtime, self.missing = set(), -1.0, []
         self.pending, self.subq, self.meta = a.state_dir / "pending.txt", [], {}
         for ln in self.pending.read_text().splitlines() if self.pending.exists() else []:
             task, meta = decode(ln)
@@ -305,8 +302,6 @@ class Lane:
             lines = lent.read_text().splitlines() if mtime else []
             self.lent = {" ".join(ln.split()[:5]) for ln in lines if ln[:1] != "#"}
             self.lent_mtime = mtime
-        if self.dropped:
-            self.adopt()
         mtime = self.a.order.stat().st_mtime if self.a.order.exists() else 0.0
         if mtime != self.order_mtime:
             try:
@@ -330,30 +325,6 @@ class Lane:
                 self.floors,
             )
             self.log.write(f"# order {len(self.ranked)} priced, {len(self.exploring)} exploring\n")
-
-    def adopt(self) -> None:
-        """A dropped lane's pending, once its walker let go of its cron flock, else again at the
-        next start: nothing it owed is walked by anyone else."""
-        for folder in list(self.dropped):
-            fd = os.open(self.a.data / f"{folder.name}.lock", os.O_RDWR | os.O_CREAT, 0o644)
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                pending, n = folder / "pending.txt", 0
-                for ln in pending.read_text().splitlines() if pending.exists() else []:
-                    task, meta = decode(ln)
-                    if key_of(task) not in self.done and task not in self.meta:
-                        self.subq.append(task)
-                        self.meta[task] = meta
-                        n += 1
-                self.opened |= {m[1] for m in self.meta.values() if m[0] == "rest"}
-                self.save_pending()
-                pending.unlink(missing_ok=True)
-                self.dropped.remove(folder)
-                self.log.write(f"# adopted {n} pending of {folder.name}\n")
-            except BlockingIOError:  # its walker still drains
-                pass
-            finally:
-                os.close(fd)
 
     def save_pending(self) -> None:
         owed = self.subq + sorted(self.inflight & self.meta.keys()) + sorted(self.parked)
@@ -468,9 +439,7 @@ class Lane:
                 task = self.take()
                 if task is None:
                     with self.lock:
-                        if not (
-                            self.subq or self.inflight or self.counter.is_alive() or self.dropped
-                        ):
+                        if not (self.subq or self.inflight or self.counter.is_alive()):
                             self.drained = True
                             return
                     time.sleep(30)
@@ -602,11 +571,6 @@ def load(a: argparse.Namespace) -> Lane:
         else set()
     )
     lane = Lane(a)
-    if a.state_dir.name == f"lane{a.lane}":  # not the bank's throwaway lane (runner_slices.cut)
-        nums = {
-            d: int(d.name[4:]) for d in a.state_dir.parent.glob("lane*") if d.name[4:].isdigit()
-        }
-        lane.dropped = sorted(d for d, n in nums.items() if n >= a.lanes and n % a.lanes == a.lane)
     if a.slice:
         for ln in a.slice.read_text().splitlines():
             if ln[:1] != "#" and ln.strip():
