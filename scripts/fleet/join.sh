@@ -5,7 +5,9 @@
 # service that is back after a reboot; and the walker's needs, git, curl, tar, jq and a Python
 # 3.12 by uv (the walker is stdlib only; the system python3 stays). Idempotent: each step is
 # skipped where its result is present. Prints nothing secret: never -x, the argument never
-# echoed, the runner named by the machine id, not the hostname, since names print in public logs.
+# echoed; and since a job's public log prints the runner's name, the machine's and the workspace
+# path, the runner is named by the machine id, the hostname set to that name (kept past
+# cloud-init) and the lane, uv and its python live under /opt/ark-lane, no login in any path.
 #
 # On the laptop (the token is an admin's, one hour of life):
 #     gh api -X POST repos/i-staykov/proj-internet-digital-ark/actions/runners/registration-token -q .token
@@ -27,7 +29,10 @@ case "$(uname -m)" in
   x86_64) ARCH=x64 ;;
   *) echo "unsupported machine: $(uname -m)" >&2; exit 1 ;;
 esac
-export PATH="$HOME/.local/bin:$PATH"
+ROOT=/opt/ark-lane
+NAME="ark-lane-$(head -c 8 /etc/machine-id)"
+export PATH="$ROOT/bin:/usr/local/bin:/usr/bin:/bin"
+export UV_INSTALL_DIR="$ROOT/bin" UV_PYTHON_BIN_DIR="$ROOT/bin" UV_PYTHON_INSTALL_DIR="$ROOT/python"
 
 need=""
 for p in git curl tar jq; do command -v "$p" >/dev/null || need="$need $p"; done
@@ -37,13 +42,19 @@ if [ -n "$need" ]; then
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q $need >/dev/null
 fi
 
-if [ ! -x "$HOME/.local/bin/uv" ]; then
+sudo install -d -o "$(id -un)" "$ROOT"
+if [ "$(uname -n)" != "$NAME" ]; then
+  sudo hostnamectl set-hostname "$NAME"
+  echo "127.0.1.1 $NAME" | sudo tee -a /etc/hosts >/dev/null  # sudo resolves its host
+  [ -d /etc/cloud/cloud.cfg.d ] &&
+    echo "preserve_hostname: true" | sudo tee /etc/cloud/cloud.cfg.d/99-ark-lane.cfg >/dev/null
+fi
+if [ ! -x "$ROOT/bin/uv" ]; then
   curl -LsSf "https://astral.sh/uv/$UV/install.sh" | env UV_NO_MODIFY_PATH=1 sh >/dev/null
 fi
 uv python install "$PY" --default >/dev/null 2>&1
 
-mkdir -p "$HOME/actions-runner"
-cd "$HOME/actions-runner"
+cd "$ROOT"
 if [ "$(cat .runner_version 2>/dev/null)" != "$RUNNER" ]; then
   [ -f .service ] && sudo ./svc.sh stop >/dev/null
   tarball="actions-runner-linux-$ARCH-$RUNNER.tar.gz"
@@ -55,9 +66,9 @@ if [ "$(cat .runner_version 2>/dev/null)" != "$RUNNER" ]; then
 fi
 if [ ! -f .runner ]; then
   ./config.sh --unattended --url "$REPO" --token "$1" --labels ark-lane --replace \
-    --name "ark-lane-$(head -c 8 /etc/machine-id)" >/dev/null
+    --name "$NAME" >/dev/null
 fi
-echo "$PATH" > .path  # the job's PATH: uv's python3 first
+echo "$PATH" > .path  # the job's PATH: uv's python3 first, no login in it
 if ! sudo ./svc.sh status 2>/dev/null | grep -q "active (running)"; then
   [ -f .service ] || sudo ./svc.sh install >/dev/null
   sudo ./svc.sh start >/dev/null

@@ -75,8 +75,9 @@ slice and no run is live (the workflow's schedule is a second trigger) and banks
 `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The long
 lane (`runner-lane-long.yml`) is the same job for 23 hours on a self-hosted runner, the owner's
 cloud VM joined by `ssh VM bash -s -- TOKEN < scripts/fleet/join.sh` (the token from `gh api -X
-POST repos/<repo>/actions/runners/registration-token -q .token`, an hour's life), over
-`long_*.txt` slices the `long` knob keeps cut (1: a spare goes stale in 25 h), banked as
+POST repos/<repo>/actions/runners/registration-token -q .token`, an hour's life; the VM's hostname
+becomes the runner's name, since job logs print it), over `long_*.txt` slices the `long` knob
+keeps cut (1: a spare goes stale in 30 h), banked as
 `runner1`. The runners are one more client on their own address, the Channel's cap being per
 address, beside the bank host's three lanes. GitHub's Additional Product Terms for Actions tie use to the
 repository's own software project, which this collection step is. Two stop signals: IA refusing,

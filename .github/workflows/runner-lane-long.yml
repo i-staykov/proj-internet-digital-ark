@@ -39,8 +39,10 @@ jobs:
           persist-credentials: false
 
       # The index-th long slice no artifact is named after: one API request, read only; curl and
-      # jq, since the VM has no gh.
+      # jq, since the VM has no gh, under pipefail so a failed listing is "no listing", not an
+      # empty one that re-walks a taken slice.
       - id: pick
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

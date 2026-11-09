@@ -82,6 +82,10 @@ def test_size_scales_a_slice_by_the_lane_s_rate_over_its_last_banked_log(tmp_pat
     assert rs.size(log, 3300) == 13 and rs.size(log, 82800) == 311
     log.write_text("\n".join(["# artifact 1 a_r0", *first, "# artifact 3 c_r0", row("7", "200")]))
     assert rs.size(log, 3300) == 4, "one row spans nothing"
+    log.write_text(
+        "\n".join(["# artifact 4 d_r1", row("8", "200"), row("9", "200", at="20261109T100001Z")])
+    )
+    assert rs.size(log, 82800) == 10350, "two rows a second apart: capped at one start an INTERVAL"
 
 
 def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):
@@ -94,7 +98,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
         ("slice_20261109T110000Z_0", 2),
         ("slice_20261109T113000Z_0", 4),
         ("long_20261109T050000Z_0", 5),
-        ("long_20261108T100000Z_0", 6),
+        ("long_20261108T050000Z_0", 6),
     ):
         (register / f"{stem}.txt").write_text(rs.HEAD + KEY.format(page) + " all\n")
     (runner / "judge/1_x.tsv").write_text("".join(row("1", "HTTP503") + "\n" for _ in range(5)))
@@ -102,7 +106,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     assert not (register / "STOP").exists(), "five requests are under the floor"
     assert not (register / "slice_20261109T050000Z_0.txt").exists(), "7 h old"
     assert not (register / "slice_20261109T110000Z_0.txt").exists(), "banked"
-    assert not (register / "long_20261108T100000Z_0.txt").exists(), "26 h old"
+    assert not (register / "long_20261108T050000Z_0.txt").exists(), "31 h old"
     assert [f.name[:5] for f in rs.slices(register)] == ["long_", "slice", "slice"], "7 h, 30 m"
     assert not list((runner / "judge").glob("*")), "judged once"
     log = [row("1", "HTTP503")] * 20 + ["# pause 900 s: HTTP503"]

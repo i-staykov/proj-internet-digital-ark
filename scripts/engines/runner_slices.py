@@ -14,9 +14,11 @@ one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane,
 for the tick, and none without it, one for the long lane, whose spare would go stale waiting; a
 zeroed knob or STOP deletes the slices. A slice's pages are
 ceil(walk seconds x rate x `MARGIN`), at least `PAGES`, the rate the lane's answered rows a second
-over its last banked log, so a lane's first slice is `PAGES` and measures it. The runners are one
-more client on their own address, the Channel's cap being per address. A slice goes once its
-artifact is banked, or after its lane's stale hours with none, its pages back to the lanes.
+over its last banked log, at most the walker's one start an `INTERVAL` (a two-row log says nothing
+faster), so a lane's first slice is `PAGES` and measures it. The runners are one more client on
+their own address, the Channel's cap being per address. A slice goes once its artifact is banked,
+or after its lane's stale hours (over the walk, the schedule's gap and the bank's hour) with none,
+its pages back to the lanes.
 `runner/lent.txt` is the union of the slices present and `runner*/done.txt`, reread by the walker
 by mtime, so a running lane neither asks a lent page nor one a runner answered. Each pulled log
 is judged once: a pause of 15 minutes or more, or under `FLOOR` answered of `FLOOR_REQUESTS` or
@@ -61,6 +63,7 @@ DATA = Path(os.environ.get("ARK_WALK_DATA", REPO / "data"))
 REGISTER = REPO / "docs/registers/runner"
 GITHUB = "i-staykov/proj-internet-digital-ark"
 PAGES, MARGIN = 300, 1.25
+INTERVAL = 10.0  # the walker's --min-interval, the jobs' and the throwaway lane's
 FLOOR, FLOOR_REQUESTS = 0.1, 20
 HEAD = "# scripts/engines/runner_slices.py\n"
 SLICE = re.compile(r"^(slice|long)_(\d{8}T\d{6}Z)_\d+$")
@@ -76,12 +79,12 @@ class Lane(NamedTuple):
     workflow: str
     index: int  # the job's artifact suffix `_r<index>`, banked as runner<index>
     seconds: int  # the job's WALK_SECONDS
-    stale_h: int
+    stale_h: int  # over the walk, the schedule's gap and the bank's hour
 
 
 LANES = {
     "slice": Lane("cadence", "runner-lanes.yml", 0, 3300, 6),
-    "long": Lane("long", "runner-lane-long.yml", 1, 82800, 25),
+    "long": Lane("long", "runner-lane-long.yml", 1, 82800, 30),
 }
 
 _spec = importlib.util.spec_from_file_location(
@@ -155,7 +158,7 @@ def judge(runner: Path) -> list[str]:
 
 def size(log: Path, seconds: int) -> int:
     """A slice for `seconds` of walking at the lane's rate: its answered rows a second over the
-    rows after its log's last `# artifact` marker; `PAGES` before any."""
+    rows after its log's last `# artifact` marker, at most one an `INTERVAL`; `PAGES` before any."""
     rows: list[list[str]] = []
     for ln in log.read_text(errors="replace").splitlines() if log.exists() else []:
         if ln.startswith("# artifact "):
@@ -168,14 +171,15 @@ def size(log: Path, seconds: int) -> int:
     except ValueError:
         return PAGES
     answered = sum(r[7] in ("200", "HTTP504") for r in rows)
-    return max(PAGES, math.ceil(seconds * answered / span * MARGIN)) if span else PAGES
+    rate = min(answered / span, 1 / INTERVAL) if span else 0
+    return max(PAGES, math.ceil(seconds * rate * MARGIN))
 
 
 def cut(data: Path, runner: Path, sizes: list[int]) -> list[list[tuple]]:
     """A slice of each size in turn, the next pages one more lane would ask, none lent or done (a
     page a lane cut is done; its subpages are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
-    a.questions, a.min_interval, a.max_transient = True, 10.0, 0
+    a.questions, a.min_interval, a.max_transient = True, INTERVAL, 0
     lane = walker.load(a)
     slices = []
     for pages in sizes:
