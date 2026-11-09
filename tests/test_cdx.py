@@ -394,7 +394,7 @@ def test_extended_walk_asks_questions_once_pages_pay_less_a_second_at_their_laws
     assert waiting == [("ask-edge", "ask"), ("ask-x", "ask")], "an unpriced tier waits; pool drops"
 
 
-def test_extended_walk_ranks_by_ee_a_start_once_the_lane_measures_what_a_start_costs(tmp_path):
+def test_extended_walk_ranks_by_ee_a_start_at_what_the_gate_holds_a_start_for(tmp_path):
     units = {"co.uk all": {"p2": 33.0, "s": 450, "n": 9}, "ask-gap ask": {"p2": 2.8, "s": 2.0}}
     units["ask-gap ask"]["n"] = 5000
     (tmp_path / "o.json").write_text(json.dumps({"units": units}))
@@ -405,10 +405,19 @@ def test_extended_walk_ranks_by_ee_a_start_once_the_lane_measures_what_a_start_c
     lane.asked = dict.fromkeys(lane.pages, 0)
     lane.rerank(force=True)
     assert lane.ranked[0] == ("ask-gap", "ask"), "unmeasured, 10 s: 0.28 a s to 0.22 over 3 workers"
-    lane.began, lane.started = time.time() - 2100, [time.time()] * 100  # 21 s a start measured
+    now = time.time()
+    lane.started, lane.waited = [now] * 24, [int(now) - i for i in range(60)]  # pages, no ladder
+    lane.rerank()
+    assert lane.ranked[0] == ("ask-gap", "ask") and lane.cost == 10, (
+        "24 starts an hour of 450 s pages over 3 workers hold the gate 60 s: the streaming is no "
+        "start's cost, and ask-gap pays 1,015 EE an hour to the pages' 792"
+    )
+    lane.started, lane.waited = [now] * 100, [int(now) - i for i in range(2100)]  # the ladder
     lane.rerank()
     assert lane.ranked[0] == ("co.uk", "all") and lane.cost == 21, "33 EE a start outranks 2.8"
     assert lane.take() is None and len(lane.started) == 100, "an idle poll is no start"
+    lane.waited, lane.pause_until = [], time.time() + 1
+    assert lane.gate() and 1 <= len(lane.waited) <= 2, "the gate counts each held second once"
 
 
 def test_extended_walk_gives_early_starts_of_four_to_1996_to_2001_ahead_of_owed_subpages(

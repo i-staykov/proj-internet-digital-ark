@@ -129,19 +129,19 @@ def rank(
     units, order: dict, asked: dict, explore: int, floor: float, floors=None, workers: int = 1
 ) -> tuple[list, ...]:
     """(priced, exploring, waiting, early): every priced unit by its EE a start over both windows,
-    a start costing `floor`, the lane's measured seconds between starts with its pauses and
-    refusals in, since the ladder bounds a lane's starts, not its seconds (laws), so a page paying
-    more a start outranks a question paying less however quick the question; a unit's own seconds
-    (`s`, its silences and failures too) over the `workers` streaming at once when they are
-    longer, so only a page longer than `workers` starts sinks; 1996 to 2001 the tiebreak, since
-    the gate is 3% on either window. The unpriced ones still owed `explore` pages; the explored
-    ones, and a question tier measured at nothing, waiting for a price; and the units paying 1996
-    to 2001 by that EE a start alone, which `EARLY` starts of four take ahead of owed subpages
-    (laws). A unit priced at nothing over `DROP_AFTER` answered requests is dropped; under
-    `floors` (`cdx_order.json` `floor`, EE an answered request by window, a window without one
-    taking any pay), one paying no window at or above its floor is dropped once `explore` answers
-    measure it, a thousand times that for a tier. A tier at its laws price has no answers counted,
-    so the 2002 edge's 0.26 runs to its measurement."""
+    a start costing `floor`, the seconds the lane's gate holds one for the interval and the
+    ladder's pauses, since the ladder bounds a lane's starts, not its seconds (laws), so a page
+    paying more a start outranks a question paying less however quick the question; a unit's own
+    seconds (`s`, its silences and failures too) over the `workers` streaming at once when they
+    are longer, so only a page longer than `workers` starts sinks; 1996 to 2001 the tiebreak,
+    since the gate is 3% on either window. The unpriced ones still owed `explore` pages; the
+    explored ones, and a question tier measured at nothing, waiting for a price; and the units
+    paying 1996 to 2001 by that EE a start alone, which `EARLY` starts of four take ahead of owed
+    subpages (laws). A unit priced at nothing over `DROP_AFTER` answered requests is dropped;
+    under `floors` (`cdx_order.json` `floor`, EE an answered request by window, a window without
+    one taking any pay), one paying no window at or above its floor is dropped once `explore`
+    answers measure it, a thousand times that for a tier. A tier at its laws price has no answers
+    counted, so the 2002 edge's 0.26 runs to its measurement."""
     floors = floors or {}
     bar = explore if floors else DROP_AFTER
     priced, exploring, waiting, early = [], [], [], []
@@ -262,7 +262,7 @@ class Lane:
         self.opened = {m[1] for m in self.meta.values() if m[0] == "rest"}
         self.parked = set()  # subpages parked this start, owed to the next one
         self.inflight, self.fails, self.order, self.order_mtime, self.taken = set(), {}, {}, -1.0, 0
-        self.starts, self.began, self.started, self.cost, self.floors = 0, time.time(), [], 0, {}
+        self.starts, self.started, self.waited, self.cost, self.floors = 0, [], [], 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
         self.throttled = self.refused = self.transient = 0
@@ -318,12 +318,13 @@ class Lane:
             except (OSError, ValueError, TypeError, AttributeError, OverflowError) as exc:
                 if self.order_mtime == mtime:  # the units read, the floor not: no floor
                     self.log.write(f"# floor unread, none: {exc}\n")
-        # a start's cost here, measured: the last hour over its starts, pauses and refusals in,
-        # never under the interval, which alone holds until starts are measured
+        # a start's cost here: the seconds a worker waited at the gate this hour over the starts,
+        # never under the interval; the workers' streaming is no wait, so a slow page priced in
+        # does not price a start up and lock itself in
         now = time.time()
         self.started = [t for t in self.started if t > now - 3600]
-        cost = (now - max(self.began, now - 3600)) / max(len(self.started), 1)
-        cost = round(max(self.a.min_interval, cost))
+        self.waited = [t for t in self.waited if t > now - 3600]
+        cost = round(max(self.a.min_interval, len(self.waited) / max(len(self.started), 1)))
         if cost != self.cost:
             self.cost, force = cost, True
         if force:
@@ -390,7 +391,8 @@ class Lane:
         return None
 
     def gate(self) -> bool:
-        """Wait for the pause and the start interval; False once the lane is stopping."""
+        """Wait for the pause and the start interval, the wait a start's measured cost; False
+        once the lane is stopping."""
         while not STOP.is_set():
             with self.lock:
                 now = time.time()
@@ -404,6 +406,8 @@ class Lane:
                 if not held and now >= self.next_start:
                     self.next_start = now + self.a.min_interval
                     return True
+                if not self.waited or self.waited[-1] != int(now):
+                    self.waited.append(int(now))  # a second waited, once for every worker in it
             time.sleep(1)
         return False
 
