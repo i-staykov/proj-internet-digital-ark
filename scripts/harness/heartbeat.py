@@ -46,7 +46,6 @@ LOGS = ROOT / "data/logs"
 TICKS = LOGS / "ticks.tsv"
 DISK = LOGS / "disk.tsv"
 KEEP_DAYS = 90
-LANES = 3
 STALL_H = 6
 FLOOR_DAYS = 14
 HEARTBEAT_TITLE = "VM heartbeat"
@@ -310,6 +309,9 @@ def load(rel: str):
     return mod
 
 
+JOBS = load("scripts/engines/cdx_walk_jobs.py")  # the lanes walking here, the runners' off
+
+
 def yields() -> dict[str, str]:
     try:
         return load("scripts/agents/lane_yield.py").lines(LOGS / "productivity.tsv")
@@ -411,10 +413,11 @@ def main(argv: list[str]) -> int:
     if len(kept) >= 2 and kept[-1][1] == kept[-2][1] == "refused":
         causes["two refused ticks"] = f"Ticks {kept[-2][0]} and {stamp} refused: {why}"
     rows_of = yields()
-    lanes = [lane(n, now, rows_of) for n in range(LANES)]
+    lanes = [lane(n, now, rows_of) for n in range(JOBS.lanes())]
     for n, (stalled, line) in enumerate(lanes):
         if stalled:
             causes[f"lane{n} stalled"] = f"{line}; work queued and no answered page in {STALL_H} h"
+    runners = [f"{r}: {rows_of[r]}" for r in sorted(rows_of) if r.startswith("runner")]
     agent_ok, agent_line = agent(now)
     if not agent_ok:
         causes["no agent success in 24 h"] = agent_line
@@ -456,6 +459,7 @@ def main(argv: list[str]) -> int:
                 disk_line,
                 "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
                 *(line for _s, line in lanes),
+                *runners,
                 header(),
                 *readers(),
                 token_line,

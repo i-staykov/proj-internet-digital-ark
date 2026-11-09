@@ -2,7 +2,8 @@
 
     python3 scripts/agents/lane_yield.py [--date YYYY-MM-DD]    # default yesterday UTC
 
-The date's rows of every `data/raw/cdx_walk/lane*/log.tsv` (`cdx_extended_walk.py`) become
+The date's rows of every `data/raw/cdx_walk/*[0-9]/log.tsv` (`cdx_extended_walk.py`, a lane's or
+a runner's, `runner_slices.py`) become
 rows of `data/logs/productivity.tsv`, the date's earlier rows replaced: date, lane, kind
 (`page`, or an ask tier such as `ask-gap`), window (`1996-2001`, `2002-2013`), requests,
 answered (200 or 504, as `cdx_walk_order.py` counts), paused_seconds (the pauses this kind's
@@ -114,7 +115,7 @@ def write(out: Path, data: Path, date: str) -> int:
     """The date's rows, replacing earlier ones for it; how many were written."""
     kept = [r for r in read(out) if r[0] != date]
     ee, new = priced(data), []
-    for log in sorted(data.glob("raw/cdx_walk/lane*/log.tsv")):
+    for log in sorted(data.glob("raw/cdx_walk/*[0-9]/log.tsv")):
         lane = log.parent.name
         with open(log, errors="replace") as fh:
             kinds, wall = day(fh, date, ee)

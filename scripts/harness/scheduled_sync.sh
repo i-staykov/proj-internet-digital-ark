@@ -44,15 +44,7 @@ START=$(date +%s)
 # what the sync and the check said, for the tick row and the alerts (heartbeat.py)
 SYNC_OUT=data/logs/.tick_sync.out CHECK_OUT=data/logs/.tick_check.out
 
-# The walk follows its code: once the walker or its cron changed since the last install, the
-# cron is reinstalled and the walkers stopped (SIGTERM saves what they owe); cron restarts them.
-WALK=$(git rev-parse HEAD:scripts/engines/cdx_walk_jobs.py HEAD:scripts/engines/cdx_extended_walk.py)
-if [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install >> "$LOG" 2>&1; then
-    pkill -f '^/usr/bin/python3 .*cdx_extended_walk[.]py'; echo "$WALK" > data/logs/.walk_code
-    # a draining walker still owns its lane's pending subpages: none restarts beside it
-    for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
-fi
-# The hooks follow their code too: one added since the install guards the next push.
+# The hooks follow their code: one added since the install guards the next push.
 just hooks > /dev/null 2>&1 || true
 
 # No lock here: the recipe's `sync_lock.sh` is the one this and a hand-run `just sync` share.
@@ -103,6 +95,18 @@ ship_now() {
     printf -- '----- ship-now -----\n'
     ship_now 2>&1
 } >> "$LOG"
+
+# The walk follows its code: once the walker, its cron or the lane count changed since the last
+# install (`cdx_walk_jobs.py` code), the cron is reinstalled and the walkers stopped (SIGTERM
+# saves what they owe); cron restarts them. After the sync, whose pull brought the change: a
+# cadence lands, the lanes drop to two this tick, and the bank cuts the runners' first slice the
+# next, once the install is current (`runner_slices.py`), so no job walks beside three lanes.
+WALK=$(just walk code 2> /dev/null)
+if [ -n "$WALK" ] && [ "$WALK" != "$(cat data/logs/.walk_code 2>/dev/null)" ] && just walk install >> "$LOG" 2>&1; then
+    pkill -f '^/usr/bin/python3 .*cdx_extended_walk[.]py'; echo "$WALK" > data/logs/.walk_code
+    # a draining walker still owns its lane's pending subpages: none restarts beside it
+    for _ in $(seq 120); do pgrep -f '^/usr/bin/python3 .*cdx_extended_walk[.]py' >/dev/null || break; sleep 5; done
+fi
 
 # Yesterday's productivity rows (scripts/agents/lane_yield.py), once a day after the 06 UTC
 # bank, the heartbeat's condition; a failure is one line here, never the tick's.

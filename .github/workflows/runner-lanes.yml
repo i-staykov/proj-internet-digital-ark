@@ -1,0 +1,75 @@
+name: runner-lanes
+
+# A CDX lane slice an hour from a runner's own address (docs/ops/runbook.md, Collection): the
+# bank cuts docs/registers/runner/slice_*.txt, a job walks the first one no artifact has taken
+# and uploads its journals as an artifact the tick banks. Pure scripted requests: no model, no
+# secret, nothing here knows the VM. This rail holds the hard caps; the soft knob is
+# docs/registers/runner/cadence.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency: runner-lanes
+
+env:
+  WORKERS: 2
+  WALK_SECONDS: 3300
+  # the collectors' disk floor (src/ark/disk.py): a hosted runner has under 70 GiB
+  ARK_FREE_SPACE_GIB: 1
+  ARK_WRITE_BUDGET_GIB: 1
+
+jobs:
+  slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        index: [0]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # The index-th slice no artifact is named after: one API request, read only.
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          if [ -e docs/registers/runner/STOP ]; then echo "STOP holds"; exit 0; fi
+          taken=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | .name') || { echo "no listing"; exit 0; }
+          i=0
+          for f in docs/registers/runner/slice_*.txt; do
+            [ -e "$f" ] || break
+            s=$(basename "$f" .txt)
+            if printf '%s\n' "$taken" | grep -q "^${s}_r"; then continue; fi
+            if [ "$i" = "$INDEX" ]; then echo "slice=$s" >> "$GITHUB_OUTPUT"; echo "$s"; exit 0; fi
+            i=$((i + 1))
+          done
+          echo "no slice for index $INDEX"
+
+      # The walker's own back-off; TERM at the hour's end saves what it owes, KILL two minutes on.
+      # Its exit is in its log, never a red run: a failed run's mail is not one about the runners.
+      - if: steps.pick.outputs.slice != ''
+        env:
+          SLICE: ${{ steps.pick.outputs.slice }}
+        run: |
+          timeout -k 120 "$WALK_SECONDS" python3 scripts/engines/cdx_extended_walk.py --lane 0 --lanes 1 \
+            --workers "$WORKERS" --slice "docs/registers/runner/$SLICE.txt" --data runner-data \
+            || echo "walker exit $?"
+
+      # Named by the slice: taken. Dot files (a torn journal) are excluded by default.
+      - if: always() && steps.pick.outputs.slice != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.pick.outputs.slice }}_r${{ matrix.index }}
+          path: runner-data/raw
+          retention-days: 2
+          if-no-files-found: ignore
