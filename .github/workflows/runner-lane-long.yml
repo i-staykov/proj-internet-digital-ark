@@ -4,13 +4,13 @@ name: runner-lane-long
 # ark-lane) walks one bank-cut docs/registers/runner/long_*.txt slice for up to 6 hours from its
 # own address, the rest as runner-lanes.yml. Its own workflow, since runner-lanes' concurrency
 # group would hold the hourly slice all day and its pending job would read as a live run to the
-# tick's dispatch. WALK_SECONDS is the schedule's 6 h gap, the next run queued until this ends.
+# tick's dispatch. Hourly: a fire during a walk waits in the group; with no slice free it exits.
 # The gate on fork code reaching the VM is the repository's "require approval for all external
 # contributors" setting; the VM holds no secret and nothing that knows the bank. The soft knob is
 # docs/registers/runner/long.
 on:
   schedule:
-    - cron: "47 */6 * * *"
+    - cron: "47 * * * *"
   workflow_dispatch:
 
 permissions:
