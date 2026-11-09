@@ -1,6 +1,5 @@
 A scout run: one lens never tried for annual evidence, 1996 to 2001 first, then 2002 to 2013,
-through the hunt-family skill, ending in exactly one register row by PR or one `needs-owner`
-ask, with nobody involved.
+ending in exactly one register row by PR or one `needs-owner` ask, with nobody involved.
 
 1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none when the file
    is missing); the hunt-family skill picks the next from the brief's shapes, a bulk dated
@@ -21,8 +20,8 @@ ask, with nobody involved.
    `+added / -deleted` counts and one skeptic subagent's paragraph on the row, nothing else.
    The next work run merges it.
    A lens that needs a new evidence class, a custodian's terms or a new address is not yours:
-   one `needs-owner` issue in place of the row. Never fetch web.archive.org from the VM: its
-   fourth client costs the lanes the archive, so a replay-held lens needs a runner's (#547).
+   one `needs-owner` issue in place of the row. A lens held only as web.archive.org replays
+   needs a new address, never a VM fetch: a fourth client costs its three CDX lanes the archive.
 5. Append one tab-separated line to `data/logs/agent/scouts.tsv` (untracked): the date, the
    lens, the verdict, the EE on the sample, the row's PR or the issue.
 6. End with one line: the lens, the verdict, the EE on the sample and the PR or issue.
