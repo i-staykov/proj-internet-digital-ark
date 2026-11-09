@@ -67,10 +67,12 @@ the tick re-ranks the queue by measured EE per request, and `local.env` exports
 `ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
 
 **Runner lanes** (`.github/workflows/runner-lanes.yml`, `scripts/engines/runner_slices.py`): IA
-throttles per address, so an hourly job on GitHub's runners walks one slice the bank cut
+throttles per address, so a job on GitHub's runners walks one slice the bank cut
 (`docs/registers/runner/slice_*.txt`; `cadence`, a one-line PR, keeps that many cut, the jobs an
-hour plus one) from its own address and uploads the journals as an artifact; the tick banks them
-as `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
+hour plus one) from its own address and uploads the journals as an artifact; the tick dispatches
+the job once it has pushed a slice and no run is live (the workflow's hourly schedule, which GitHub
+delays or drops under load, is a second trigger) and banks the artifact as `runner0`, its row
+beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
 runners are one more client on their own address, the Channel's cap being per address, beside
 the bank host's three lanes. GitHub's Additional Product Terms for Actions tie use to the
 repository's own software project, which this collection step is. Two stop signals: IA refusing,
@@ -108,7 +110,7 @@ the gh expiry or the agent pre-flight's answer. This checkout only pulls; it kee
 | on the VM | what |
 |---|---|
 | the login | `ark-sync.timer`: the tick and the bank from `~/ark`, once `data/ark.duckdb` is there; its lane is the `local` entry of `ARK_HOSTS`; `ark-agent.timer` once `~/.config/ark/agent.env` is there |
-| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents and Issues read and write, Actions read, both repositories |
+| secrets | `~/ark/local.env` and `~/.config/rclone/rclone.conf` at 600 (`scripts/harness/vm_install.sh`); gh's store, from `just vm token gh` with a fine-grained token: Contents, Issues and Actions read and write, both repositories |
 | an AV alert | hash the flagged file; a hit in a downloaded corpus is content and is kept; the detail goes under `private/security/` |
 
 **The hold.** `just hold`, on the VM or from the laptop over `ARK_VM`, disables `ark-sync.timer`,

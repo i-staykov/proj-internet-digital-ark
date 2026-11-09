@@ -105,6 +105,31 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     assert rs.blocked([row("1", "HTTP403")] * 19 + [row("2", "200")]) == "1 of 20 requests answered"
 
 
+def test_dispatch_asks_one_job_while_a_slice_waits_and_no_run_is_live(tmp_path, monkeypatch):
+    register = tmp_path / "docs/registers/runner"
+    register.mkdir(parents=True)
+    (register / "cadence").write_text("1\n")
+    calls, runs = [], [{"status": "completed"}]
+
+    def gh(*args, timeout):
+        calls.append(args)
+        return json.dumps(runs).encode()
+
+    monkeypatch.setattr(rs, "gh", gh)
+    assert rs.dispatch(register) == "runner dispatch: no slice" and calls == []
+    (register / "slice_20261109T110000Z_0.txt").write_text(rs.HEAD + KEY.format(1) + " all\n")
+    assert rs.dispatch(register) == "runner dispatch: a job asked"
+    assert calls[0][:2] == ("run", "list") and "--json" in calls[0]
+    assert calls[1] == ("workflow", "run", rs.WORKFLOW, "--repo", rs.GITHUB, "--ref", "live")
+    runs.append({"status": "queued"})
+    assert rs.dispatch(register) == "runner dispatch: 1 live, none asked" and len(calls) == 3
+    (register / "STOP").write_text(rs.HEAD)
+    assert rs.dispatch(register) == "runner dispatch: off"
+    (register / "STOP").unlink()
+    (register / "cadence").write_text("0\n")
+    assert rs.dispatch(register) == "runner dispatch: off" and len(calls) == 3
+
+
 def zipped(members: dict[str, bytes]) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:

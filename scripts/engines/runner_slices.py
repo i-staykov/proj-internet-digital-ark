@@ -25,7 +25,11 @@ pending.txt still owes (a lane re-asks a page the runner cut and did not finish)
 once, under a `# artifact <id> <name>` marker. A staged folder a crash left banks first. Any
 failure is one line and exit 0.
 
-    uv run python scripts/engines/runner_slices.py write|pull [--data DIR]
+`dispatch`, after the bank's push: one job while a slice is on `live`, none while STOP or a zeroed
+`cadence` holds or a run is queued or in progress; the workflow's hourly schedule, which GitHub
+delays or drops under load, is the second trigger. The token needs Actions write on the repository.
+
+    uv run python scripts/engines/runner_slices.py write|pull|dispatch [--data DIR]
 """
 
 from __future__ import annotations
@@ -47,6 +51,7 @@ REPO = Path(__file__).resolve().parents[2]
 DATA = Path(os.environ.get("ARK_WALK_DATA", REPO / "data"))
 REGISTER = REPO / "docs/registers/runner"
 GITHUB = "i-staykov/proj-internet-digital-ark"
+WORKFLOW = "runner-lanes.yml"
 PAGES, STALE_H = 300, 6
 FLOOR, FLOOR_REQUESTS = 0.1, 20
 HEAD = "# scripts/engines/runner_slices.py\n"
@@ -262,15 +267,30 @@ def pull(data: Path = DATA) -> str:
     return f"runner slices: {n} artifacts banked, {dropped} members dropped"
 
 
+def dispatch(register: Path = REGISTER) -> str:
+    if (register / "STOP").exists() or not cadence(register):
+        return "runner dispatch: off"
+    if not any(register.glob("slice_*.txt")):
+        return "runner dispatch: no slice"
+    args = ("run", "list", "--repo", GITHUB, "--workflow", WORKFLOW, "--limit", "5")
+    runs = json.loads(gh(*args, "--json", "status", timeout=60))
+    if live := sum(r.get("status") != "completed" for r in runs):
+        return f"runner dispatch: {live} live, none asked"
+    gh("workflow", "run", WORKFLOW, "--repo", GITHUB, "--ref", "live", timeout=60)
+    return "runner dispatch: a job asked"
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("step", choices=("write", "pull"))
+    ap.add_argument("step", choices=("write", "pull", "dispatch"))
     ap.add_argument("--data", type=Path, default=DATA)
     a = ap.parse_args(argv)
+    steps = {"write": lambda: write(a.data), "pull": lambda: pull(a.data), "dispatch": dispatch}
     try:
-        print({"write": write, "pull": pull}[a.step](a.data))
+        print(steps[a.step]())
     except Exception as exc:  # noqa: BLE001  one line in the tick's log, never its exit
-        print(f"runner slices {a.step}: failed, {type(exc).__name__}: {exc}")
+        err = (getattr(exc, "stderr", None) or b"").decode(errors="replace").strip().splitlines()
+        print(f"runner {a.step}: failed, {type(exc).__name__}: {err[-1] if err else exc}")
 
 
 if __name__ == "__main__":
