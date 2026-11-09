@@ -6,6 +6,7 @@ import datetime as dt
 import fnmatch
 import io
 import json
+import threading
 import zipfile
 from types import SimpleNamespace
 
@@ -169,6 +170,47 @@ def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypat
         for w in yields.WINDOWS:
             (answered, each), lane = rows["runner0", kind, w], rows["lane0", kind, w][1]
             assert answered == n and each == pytest.approx(lane, abs=0.01) and each > 0
+
+
+def test_a_slice_s_blocked_questions_are_booked_done_and_write_no_stop(tmp_path, monkeypatch):
+    """IA answers an excluded domain's question 403 every time (laws): six in a row and one left
+    last are booked done unpaused, so the bank writes no STOP and lends none again; past
+    `EXCLUDED` in a row with no 200 between, a question's 403 is the address's wall again."""
+    data, register = stage(tmp_path)
+    names = [f"x{n}.com" for n in range(6)] + ["ok.com", "x6.com"]
+    tasks = [("ask-gap", 1, d, 1996, 2013, "ask") for d in names]
+    slice_ = register / "slice_20261109T110000Z_0.txt"
+    slice_.write_text(rs.HEAD + "".join(rs.walker.encode(t, ()) + "\n" for t in tasks))
+
+    def answer(task, a, sink):
+        if task[2] != "ok.com":
+            return "HTTP403", False, 0.5, 0, None
+        sink(b"k 20050101000000 http://ok.com/ 200")
+        return "200", True, 1.0, 1, None
+
+    monkeypatch.setattr(rs.walker, "fetch", answer)
+    monkeypatch.setattr(rs.walker, "STOP", threading.Event())
+    job = tmp_path / "job/raw"
+    b = SimpleNamespace(lane=0, lanes=1, data=job.parent, state_dir=job / "cdx_walk/lane0")
+    b.slice, b.questions, b.max_transient, b.workers, b.min_interval = slice_, True, 0, 2, 10
+    b.state_dir.mkdir(parents=True)
+    lane = rs.walker.load(b)
+    while not rs.walker.STOP.is_set() and (task := lane.take()) is not None:
+        lane.settle(task, *lane.ask(task))
+    assert not rs.walker.STOP.is_set() and lane.refusal_end == 0, "no pause"
+    assert rs.keys(b.state_dir / "done.txt") == {rs.walker.key_of(t) for t in tasks}
+    blob = zipped({str(p.relative_to(job)): p.read_bytes() for p in job.rglob("*") if p.is_file()})
+    listing = json.dumps({"artifacts": [art(1, NAME)]}).encode()
+    monkeypatch.setattr(rs, "gh", lambda *call, timeout: blob if "zip" in call[1] else listing)
+    assert rs.pull(data).startswith("runner slices: 1 artifacts banked")
+    pool = "".join(f"gap\t{d}\n" for d in [*names, "y.com"])
+    (data / "queue/pool_questions.tsv").write_text(pool)
+    assert "STOP" not in rs.write(data, register, NOW) and not (register / "STOP").exists()
+    cut = [rs.walker.decode(ln)[0] for f in rs.slices(register) for ln in rs.lines(f)]
+    assert {t[2] for t in cut if t[5] == "ask"} == {"y.com"}, "no done question is lent again"
+    lane.excluded, z = rs.walker.EXCLUDED, ("ask-gap", 1, "z.com", 1996, 2013, "ask")
+    lane.settle(z, *lane.ask(z))
+    assert lane.refusal_end > 0 and rs.walker.key_of(z) not in lane.done, "the cap's 403 is a wall"
 
 
 def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):

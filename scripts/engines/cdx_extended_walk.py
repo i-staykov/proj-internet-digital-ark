@@ -28,8 +28,9 @@ subpages 0 and 5 probed, the other eight asked only if a probe has rows; a subpa
 at once and booked after its fourth. Any other answer marks nothing done: a 429 or 503 pauses the
 lane for `Retry-After` or a minute, flat, since it is the server's state and a retry answers,
 and 15 minutes only after ten in a row with nothing booked between; a refused connection from
-30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a 403
-or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min; each eased
+30 s doubling to 2 min, a per-connection coin under the lane-wide pause (laws), not a wall; a page's
+403 or a bare `OSError`, our link down, which are walls, from 30 s doubling to 15 min (a question's
+403 is its domain's, laws, booked done until `EXCLUDED` in a row with no 200 between); each eased
 only by an answer, this lane's or a sibling's, which shows the address is not blocked; and
 requests start `--min-interval` apart, since a burst earns a block of the address.
 
@@ -84,6 +85,7 @@ WALLS = {
     "HTTP403",
     "OSError",
 }  # a 403, or a bare OSError, our link down: a wall, not a dropped connection
+EXCLUDED = 10  # questions' 403s in a row booked done, their domains': past it the address's wall
 STOP = threading.Event()
 
 _spec = importlib.util.spec_from_file_location(
@@ -265,7 +267,7 @@ class Lane:
         self.starts, self.started, self.waited, self.cost, self.floors = 0, [], [], 0, {}
         self.log = open(a.state_dir / "log.tsv", "a", buffering=1)
         self.pause_until = self.next_start = self.refusal_at = self.refusal_end = 0.0
-        self.throttled = self.refused = self.transient = 0
+        self.throttled = self.refused = self.transient = self.excluded = 0
         self.unreadable = self.drained = False  # drained: a worker found nothing left
         self.counter = threading.Thread()  # main's count_missing
 
@@ -523,6 +525,9 @@ class Lane:
         tries = self.fails.get(key, 0)
         silent = status == "HTTP504" and (task[1] >= PAGE or tries >= 3)
         silent |= status == "HTTP400" and task[1] < PAGE  # a subpage past the index's end
+        excluded = status == "HTTP403" and task[5] == "ask" and self.excluded < EXCLUDED
+        self.excluded = 0 if status == "200" else self.excluded + excluded
+        silent |= excluded
         if not (silent or (status == "200" and (complete or rows > 0))):
             self.fails[key] = tries + 1
             address = status in THROTTLES | FAST | {"ConnectionRefusedError", "OSError"}
