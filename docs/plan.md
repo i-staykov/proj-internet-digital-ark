@@ -1,9 +1,9 @@
 # The plan
 
-Aim: sustainable unattended collection with rising throughput, 1996 to 2001 first. The open work, in
-order, is the numbered list of umbrella
-[#517](https://github.com/i-staykov/proj-internet-digital-ark/issues/517) and what it leaves to a session.
+Aim: collection runs unattended from every address that pays, banked and tuned by the resident
+agent, 1996 to 2001 first; the harness is the research. The open work, in order, is #585 to #588,
+then the numbered list of umbrella [#517](https://github.com/i-staykov/proj-internet-digital-ark/issues/517).
 
-- The agent: `scripts/agents/run_agent.sh` queues the list's next open issue when its queue is empty.
-- A session: one the owner names, one whose PR changes a rail file or that the umbrella leaves to
-  a session, or one the agent's ledger (`data/logs/agent_runs.tsv`) shows it stuck on.
+- The agent: breakage (an alert, a failing check, its own open PR) and its cdx and scout runs
+  (#587, `scripts/agents/run_agent.sh`); a session: the rest by PR, and what the agent's ledger
+  (`data/logs/agent_runs.tsv`) shows it stuck on.
