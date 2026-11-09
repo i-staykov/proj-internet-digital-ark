@@ -1,17 +1,19 @@
-A scout run: one lens never tried for 1996 to 2001 annual evidence, through the hunt-family
-skill, ending in exactly one register row by PR or one `needs-owner` ask, with nobody involved.
+A scout run: one lens never tried for annual evidence, 1996 to 2001 first, then 2002 to 2013,
+through the hunt-family skill, ending in exactly one register row by PR or one `needs-owner`
+ask, with nobody involved.
 
 1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none when the file
-   is missing). The first four, one per run, in order: UMN DRUM early-web lists, NCSA What's New,
-   award and webring pages, historical rankings; after those, the hunt-family skill's order. The
-   `register-reader` subagent says whether its family is closed or already a row; a closed one
-   is skipped for the next. Never read the registers or `docs/lore/laws.md` whole yourself: a
-   subagent returns the rows or the killer that applies.
+   is missing). First FTP mirror listings (dated mirror lists naming hosts); after it, the
+   hunt-family skill's order. The `register-reader` subagent says whether its family is closed
+   or already a row; a closed one is skipped for the next. Never read the registers or
+   `docs/lore/laws.md` whole yourself: a subagent returns the rows or the killer that applies.
 2. The host's terms and whole robots.txt first (`AGENTS.md`, Channel); a host that refuses is a
    measured negative with that reason.
 3. A sample of at most 30 MB, read only through `uv run python scripts/harness/fetch.py <url>`
-   into `$ARK_PROBE_DIR` (the run's own, gone with it); never a whole corpus. The `pricer`
-   subagent prices it as the `price-source` skill says; verify its number like any other.
+   into `$ARK_PROBE_DIR` (the run's own, gone with it); never a whole corpus. A sample under
+   web.archive.org is refused (replay from the VM is, #547, #565): a lens reachable only there
+   is skipped for the next. The `pricer` subagent prices it as the `price-source` skill says;
+   verify its number like any other.
 4. `git worktree add ~/ark-agent/scout-<date> -b agent-scout-<date> origin/live`; work only
    there, every git state change naming it (`git -C ~/ark-agent/scout-<date> ...`). The one
    row: a measured negative in `docs/registers/sources-closed.md`, or a positive as a seed or
