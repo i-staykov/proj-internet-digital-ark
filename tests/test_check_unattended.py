@@ -222,7 +222,7 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "STATE", tmp_path / "state")
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
-    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-header": 5}
+    left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-fineweb": 0, "ark-header": 5}
     monkeypatch.setattr(check, "left", left.get)
     stalls = {}
     monkeypatch.setattr(check, "stalled", lambda unit: stalls.get(unit, ""))
@@ -238,17 +238,18 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
         ("ark-eot", True, "finished"),
         ("ark-har", False, "inactive, 3 parts left"),
         ("ark-clueweb", True, "not started yet, 2 parts left"),
+        ("ark-fineweb", True, "finished"),
         ("ark-header", True, "inactive, 5 parts left, waits until 29991231T000000Z"),
     ]
     (logs / "usenet_header.log").write_text("header: 429 in x, waits until 20001231T000000Z\n")
     (logs / "har.log").write_text("har: held\n")
     os.utime(clueweb, (0, 0))  # its code arrived long ago, and the tick never started it
-    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, False]
+    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, True, False]
     stalls["ark-header"] = "stalled at a"  # a day without progress fails even an active unit
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
     assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")
-    # the tick: eot and har with every part read, clueweb with its lists left, the header lane
-    # with its list and every top screened, one under the floor and one run out
+    # the tick: eot and har with every part read, clueweb and fineweb with parts left, the header
+    # lane with its list and every top screened, one under the floor and one run out
     repo, env = clone
     (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
     eot = repo / "data/raw/extended/eot_cdxj"
@@ -268,7 +269,8 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     (header / "log.tsv").write_text("ran\trich\n")
     rc, last = tick(repo, env)
     started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
-    assert rc == 0 and [ln.split()[3] for ln in started] == ["ark-clueweb"], (last, started)
+    units = [ln.split()[3] for ln in started]
+    assert rc == 0 and units == ["ark-clueweb", "ark-fineweb"], (last, started)
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
     assert "ok   ark-header: finished" in log, log

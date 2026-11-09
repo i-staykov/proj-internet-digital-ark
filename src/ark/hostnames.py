@@ -105,6 +105,9 @@ CRAWL_LISTS = {
     "clueweb09": "https://web.archive.org/web/20161228002334id_/https://ir.nist.gov/clueweb.urls-docid.bz2",
     "clueweb12": "http://data.law.di.unimi.it/webdata/clueweb12/clueweb12-nat.urls.gz",
     "wdc2012": "https://data.dws.informatik.uni-mannheim.de/hyperlinkgraph/2012-08/sd-index.gz",
+    # read by range a part at a time (`crawl_lists/fineweb.py`); a journal names its part
+    "fineweb-2013-20": "https://huggingface.co/datasets/HuggingFaceFW/fineweb/tree/main/data/CC-MAIN-2013-20",
+    "fineweb-2013-48": "https://huggingface.co/datasets/HuggingFaceFW/fineweb/tree/main/data/CC-MAIN-2013-48",
 }
 
 
