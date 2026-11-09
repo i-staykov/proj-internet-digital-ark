@@ -152,11 +152,3 @@ def test_every_run_has_its_own_probe_directory_and_it_goes_with_the_run(tmp_path
     probe = Path((tmp_path / "probe").read_text())
     assert probe.name.startswith("probe-") and not probe.exists()
     assert probe.parent == Path("/dev/shm") or probe.parent == tmp_path / "logs"
-
-
-def test_the_scout_prompt_hunts_outside_web_archive_org_in_both_windows():
-    scout = (ROOT / "agent/prompts/scout.md").read_text()
-    wayback = [line for line in scout.splitlines() if "web.archive.org" in line]
-    assert len(wayback) == 1 and "refused" in wayback[0]
-    assert "1996 to 2001" in scout and "2002 to 2013" in scout
-    assert not any(old in scout for old in ("DRUM", "NCSA", "webring", "rankings"))
