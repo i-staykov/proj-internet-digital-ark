@@ -13,13 +13,17 @@ from __future__ import annotations
 import math
 import os
 import shutil
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 STORE = Path("data/ark.duckdb")
 GIB = 1024**3
 # Headroom above the guard under which a write says so before it refuses.
 WARN_GIB = 50
-# The full export's free-space dip under the bank's floor plus its budget: unmeasured, so 0.
+# The full export's free-space dip: unmeasured, so 0, until the ship's full export appends it to
+# data/logs/export_dip.tsv (`watch`).
 EXPORT_DIP_GIB = 0.0
 LOG_LIMIT = 50 * 2**20
 LOG_KEEP = 25 * 2**20
@@ -106,3 +110,29 @@ def trim(path: Path, limit: int = LOG_LIMIT, keep: int = LOG_KEEP) -> bool:
     except OSError:
         return False
     return True
+
+
+def watch(cmd: list[str], path: Path, every: float = 1.0) -> tuple[int, int, int]:
+    """Run `cmd`, reading free space at `path` every `every` s: its exit, the start, the least."""
+    start = least = free(path)
+    proc = subprocess.Popen(cmd)
+    while proc.poll() is None:
+        least = min(least, free(path))
+        time.sleep(every)
+    return proc.returncode, start, min(least, free(path))
+
+
+if __name__ == "__main__":
+    # python3 src/ark/disk.py LOG CMD...: run CMD, append its free-space dip to LOG, exit as CMD.
+    log, cmd = Path(sys.argv[1]), sys.argv[2:]
+    rc, start, least = watch(cmd, log.parent)
+    when = time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime())
+    try:  # the export's exit wins over a log that cannot be written
+        with open(log, "a") as fh:
+            fh.write(
+                f"{when}\t{start / GIB:.2f}\t{least / GIB:.2f}\t{(start - least) / GIB:.2f}"
+                f"\t{rc}\t{' '.join(cmd)}\n"
+            )
+    except OSError as exc:
+        print(f"export dip not logged: {exc}", file=sys.stderr)
+    sys.exit(rc)

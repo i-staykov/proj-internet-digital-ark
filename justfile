@@ -922,7 +922,7 @@ ship stage="all" *args:
         mkdir -p data/exports/claim
         cp output/netnew/candidate_additions.txt output/netnew/export_stamp.json data/exports/claim/
         echo "== the full export =="
-        uv run ark export --provenance
+        python3 src/ark/disk.py data/logs/export_dip.tsv uv run ark export --provenance
         echo "== the 2002 to 2013 additions =="
         uv run python scripts/round/extended_export.py --check 2>/dev/null \
             || nice -n 10 uv run python scripts/round/extended_export.py
