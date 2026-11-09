@@ -1,11 +1,11 @@
-A triage run: read the VM, act on what a script cannot, and change nothing else.
+A triage run: merge your green pull requests, read the VM, act on what a script cannot, and
+change nothing else.
 
-First, your open pull requests (`gh pr list --search "head:agent-" --json
-number,headRefName,statusCheckRollup`). Inside :36 to :04 UTC, each whose checks are green:
-`gh pr merge M --squash --delete-branch`, then `work_queue.py done <id>` when an item's note
-names it and `git worktree remove ~/ark-agent/<id>`. A red one: `work_queue.py add alert
-"PR #M red" --evidence "<branch>: <the failing check>" --priority 1`; the work run fixes it on
-its branch, and the item parks after three attempts.
+Of `gh pr list --search "head:agent-" --json number,headRefName,statusCheckRollup`, a green one
+inside :36 to :04 UTC: `git worktree remove ~/ark-agent/<id>` (the branch is `agent-<id>`),
+`gh pr merge M --squash --delete-branch`, then `work_queue.py done` each item of
+data/queue/agent_work.jsonl whose title or note names #M. A red one: `work_queue.py add alert
+"PR #M red" --evidence "agent-<id>: <the failing check>" --priority 1`.
 
 Read, each by a subagent: the last 24 rows of data/logs/ticks.tsv; each open alert's number,
 title, newest text (comment or body) and last `triage: green`
