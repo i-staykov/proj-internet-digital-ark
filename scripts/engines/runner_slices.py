@@ -2,21 +2,30 @@
 
 IA throttles CDX per address (laws), so a job of `.github/workflows/runner-lanes.yml` walks one
 slice from a runner's own address and uploads what it wrote as an artifact named by the slice:
-pure scripted requests, no secret on a runner, nothing there knows the VM.
+pure scripted requests, no secret on a runner, nothing there knows the VM. `LANES` holds the two
+lanes: `slice_*` for the hosted hourly job, `long_*` for `runner-lane-long.yml`, a 6 h job on
+the owner's cloud VM (`scripts/fleet/join.sh`), each with its own knob, workflow, lane folder,
+walk seconds and stale hours.
 
-`write`, the bank's last step: `docs/registers/runner/slice_<stamp>_<k>.txt` is the next `PAGES`
-pages a lane would ask (`cdx_extended_walk.load`, a throwaway lane over `data/raw/cdx_walk/runner/`
-ranking as the lanes do, their ask tier in), the runners holding at most `SHARE` of the pages
-above that tier, in pending.txt's head format; `cadence`, a one-line PR, keeps that many cut, the
-jobs an hour plus one, so no job waits for the tick, and none without it; a zeroed `cadence` or
-STOP deletes every slice. The runners are one more client on their own address, the Channel's
-cap being per address. A slice goes once its artifact is banked, or after `STALE_H` hours with
-none, its pages back to the lanes. `runner/lent.txt` is the union of the slices present and
-`runner*/done.txt`, reread by the walker by mtime, so a running lane neither asks a lent page nor
-one a runner answered. Each pulled log is judged once: a pause of 15 minutes or more, or under
-`FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA refusing the runners, written with
-its counts as `docs/registers/runner/STOP`, every slice deleted; a job finding STOP makes no
-request, and a PR lifts it.
+`write`, the bank's last step: `docs/registers/runner/<prefix>_<stamp>_<k>.txt` is the next pages
+a lane would ask (`cdx_extended_walk.load`, a throwaway lane over `data/raw/cdx_walk/runner/`
+ranking as the lanes do, their ask tier in), the runners' slices of both lanes holding at most
+`SHARE` of the pages above that tier, in pending.txt's head format; the knob (`cadence` or `long`,
+a one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane, so no job waits
+for the tick, and none without it, two for the long lane, a spare on live when a walk ends, since
+the next cut lags a walk by 1 to 2 h; a zeroed knob or STOP deletes the slices. A slice's pages are
+ceil(walk seconds x rate x `MARGIN`), at least `PAGES`, the rate the lane's answered rows a second
+over its last banked log, at most the walker's one start an `INTERVAL` (a two-row log says nothing
+faster), so a lane's first slice is `PAGES` and measures it. The runners are one more client on
+their own address, the Channel's cap being per address. A slice goes once its artifact is banked,
+or after its lane's stale hours (over the walk, the schedule's gap and the bank's hour) with none,
+its pages back to the lanes.
+`runner/lent.txt` is the union of the slices present and `runner*/done.txt`, reread by the walker
+by mtime, so a running lane neither asks a lent page nor one a runner answered. Each pulled log
+is judged once: a pause of 15 minutes or more, or under `FLOOR` answered of `FLOOR_REQUESTS` or
+more requests, is IA refusing the runners, written with its counts as
+`docs/registers/runner/STOP`, every slice deleted; a job finding STOP makes no request, and a PR
+lifts it.
 
 `pull`, the tick's first step, touches only `data/`: one artifact listing, a row of another head
 repository or branch skipped (a fork's PR run), each new zip unzipped through an allowlist into a
@@ -26,9 +35,9 @@ pending.txt still owes (a lane re-asks a page the runner cut and did not finish)
 once, under a `# artifact <id> <name>` marker. A staged folder a crash left banks first. Any
 failure is one line and exit 0.
 
-`dispatch`, after the bank's push: one job while a slice is on `live`, none while STOP or a zeroed
-`cadence` holds or a run is queued or in progress; the workflow's hourly schedule, which GitHub
-delays or drops under load, is the second trigger.
+`dispatch`, after the bank's push: one run per workflow while its slice is on `live`, none while
+STOP or a zeroed knob holds or a run is queued or in progress; the workflow's schedule, which
+GitHub delays or drops under load, is the second trigger.
 
     uv run python scripts/engines/runner_slices.py write|pull|dispatch [--data DIR]
 """
@@ -39,6 +48,7 @@ import argparse
 import datetime as dt
 import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -47,26 +57,40 @@ import sys
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import NamedTuple
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = Path(os.environ.get("ARK_WALK_DATA", REPO / "data"))
 REGISTER = REPO / "docs/registers/runner"
 GITHUB = "i-staykov/proj-internet-digital-ark"
-WORKFLOW = "runner-lanes.yml"
-PAGES, STALE_H = 300, 6
+PAGES, MARGIN = 300, 1.25
 # the runners are one client beside the bank host's three lanes (`cdx_walk_jobs.LANES`): they hold
 # at most a fourth of the pages the lanes rank above the ask tier, so lending never empties the
 # lanes' page work, which is what pays (laws)
 SHARE = 1 / 4
 FLOOR, FLOOR_REQUESTS = 0.1, 20
 HEAD = "# scripts/engines/runner_slices.py\n"
-SLICE = re.compile(r"^slice_(\d{8}T\d{6}Z)_\d+$")
+SLICE = re.compile(r"^(slice|long)_(\d{8}T\d{6}Z)_\d+$")
 PAUSE = re.compile(r"^# pause (\d+) s")
 ORDER = re.compile(r"^# order .* (\d+) s a start$")
-ARTIFACT = re.compile(r"^(slice_\d{8}T\d{6}Z_\d+)_r(\d+)$")
+ARTIFACT = re.compile(r"^((?:slice|long)_\d{8}T\d{6}Z_\d+)_r(\d+)$")
 STATE = ("cdx_walk/lane0/log.tsv", "cdx_walk/lane0/done.txt", "cdx_walk/lane0/pending.txt")
 JOURNAL = re.compile(r"^(cdx_suffix|extended/ia_cdx_hostnames)/walk_[\w.-]+\.jsonl\.gz$")
 MEMBER_CAP = 64 << 20
+
+
+class Lane(NamedTuple):
+    knob: str  # docs/registers/runner/<knob>: the slices kept cut
+    workflow: str
+    index: int  # the job's artifact suffix `_r<index>`, banked as runner<index>
+    seconds: int  # the job's WALK_SECONDS
+    stale_h: int  # over the walk, the schedule's gap and the bank's hour
+
+
+LANES = {
+    "slice": Lane("cadence", "runner-lanes.yml", 0, 3300, 6),
+    "long": Lane("long", "runner-lane-long.yml", 1, 21600, 30),
+}
 
 
 def _load(name: str):
@@ -101,12 +125,17 @@ def put(path: Path, text: str) -> None:
     os.replace(tmp, path)
 
 
-def cadence(register: Path) -> int:
-    """`cadence`'s last non-`#` line: the slices kept cut; none without the file."""
+def knob(register: Path, name: str) -> int:
+    """The knob's last non-`#` line: the slices kept cut; none without the file."""
     try:
-        return int(lines(register / "cadence")[-1])
+        return int(lines(register / name)[-1])
     except (ValueError, IndexError):
         return 0
+
+
+def slices(register: Path, prefix: str = "*") -> list[Path]:
+    """The register's slice files, one lane's or every lane's."""
+    return sorted(f for f in register.glob(f"{prefix}_*.txt") if f.stem.split("_")[0] in LANES)
 
 
 def blocked(log: list[str]) -> str:
@@ -136,6 +165,25 @@ def judge(runner: Path) -> list[str]:
     return why
 
 
+def size(log: Path, seconds: int) -> int:
+    """A slice for `seconds` of walking at the lane's rate: its answered rows a second over the
+    rows after its log's last `# artifact` marker, at most one an `INTERVAL`; `PAGES` before any."""
+    rows: list[list[str]] = []
+    for ln in log.read_text(errors="replace").splitlines() if log.exists() else []:
+        if ln.startswith("# artifact "):
+            rows = []
+        elif len(r := ln.split("\t")) >= 14 and r[2].isdigit():
+            rows.append(r)
+    try:
+        at = [dt.datetime.strptime(r[0], "%Y%m%dT%H%M%SZ") for r in rows]
+        span = (max(at) - min(at)).total_seconds()
+    except ValueError:
+        return PAGES
+    answered = sum(r[7] in ("200", "HTTP504") for r in rows)
+    rate = min(answered / span, 1 / walker.INTERVAL) if span else 0
+    return max(PAGES, math.ceil(seconds * rate * MARGIN))
+
+
 def start_cost(walk: Path) -> float:
     """The least seconds a start costs a lane here, its last `# order` line's; the interval when
     none has one: the lane with the most starts ranks the fewest pages above the ask tier."""
@@ -148,10 +196,11 @@ def start_cost(walk: Path) -> float:
     return min(costs, default=walker.INTERVAL)
 
 
-def cut(data: Path, runner: Path, want: int) -> list[list[tuple]]:
-    """`want` slices from the head of the lanes' ranking, the ask tiers in as empty markers (the
-    priced ones, no question loaded), at most `SHARE` of the pages above the first tier less the
-    lent, none lent or done (a page a lane cut is done; its subpages are that lane's own)."""
+def cut(data: Path, runner: Path, sizes: list[int]) -> list[list[tuple]]:
+    """A slice of each size in turn from the head of the lanes' ranking, the ask tiers in as empty
+    markers (the priced ones, no question loaded), both lanes' slices at most `SHARE` of the pages
+    above the first tier less the lent, none lent or done (a page a lane cut is done; its subpages
+    are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
     a.questions, a.max_transient, a.workers = True, 0, jobs.WORKERS
     a.min_interval = start_cost(runner.parent)
@@ -165,7 +214,13 @@ def cut(data: Path, runner: Path, want: int) -> list[list[tuple]]:
     free = [t for t in above if walker.key_of(t) not in lane.lent]
     out = len(above) - len(free)  # in a slice present already
     free = free[: max(0, int(len(above) * SHARE) - out)]
-    return [free[i : i + PAGES] for i in range(0, min(len(free), want * PAGES), PAGES)]
+    slices, at = [], 0
+    for pages in sizes:
+        if at >= len(free):
+            break
+        slices.append(free[at : at + pages])
+        at += pages
+    return slices
 
 
 def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None = None) -> str:
@@ -175,32 +230,37 @@ def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None 
     stop = register / "STOP"
     if (why := judge(runner)) and not stop.exists():
         put(stop, HEAD + "".join(w + "\n" for w in why))
-    off = stop.exists() or not cadence(register)
+    off = {p: stop.exists() or not knob(register, lane.knob) for p, lane in LANES.items()}
     banked = runner / "banked.txt"
     taken = {m[1] for ln in lines(banked) if (m := ARTIFACT.match(ln.split("\t")[-1]))}
     gone = 0
-    for f in sorted(register.glob("slice_*.txt")):
-        m = SLICE.match(f.stem)
-        at = dt.datetime.strptime(m[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.UTC) if m else now
-        if off or not m or f.stem in taken or now - at > dt.timedelta(hours=STALE_H):
+    for f in slices(register):
+        prefix, m = f.stem.split("_")[0], SLICE.match(f.stem)
+        at = dt.datetime.strptime(m[2], "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.UTC) if m else now
+        stale = now - at > dt.timedelta(hours=LANES[prefix].stale_h)
+        if off[prefix] or not m or f.stem in taken or stale:
             f.unlink()
             gone += 1
 
     def lend() -> set[str]:
-        lent = set().union(*(keys(f) for f in register.glob("slice_*.txt")))
+        lent = set().union(*(keys(f) for f in slices(register)))
         lent |= set().union(*(keys(d) for d in runner.parent.glob("runner[0-9]*/done.txt")))
         put(runner / "lent.txt", HEAD + "".join(k + "\n" for k in sorted(lent)))
         return lent
 
     lend()  # before cutting, so the throwaway lane skips what is out
+    plan = []  # (prefix, pages) per slice wanted
+    for prefix, lane in LANES.items():
+        want = knob(register, lane.knob) - len(slices(register, prefix))
+        if want > 0 and not off[prefix]:
+            pages = size(runner.parent / f"runner{lane.index}/log.tsv", lane.seconds)
+            plan += [(prefix, pages)] * want
     new = []
-    want = cadence(register) - len(list(register.glob("slice_*.txt")))
-    if want > 0 and not off:
-        for k, tasks in enumerate(cut(data, runner, want)):
-            name = f"slice_{now:%Y%m%dT%H%M%SZ}_{k}"
-            text = HEAD + "".join(walker.encode(t, ()) + "\n" for t in tasks)
-            put(register / f"{name}.txt", text)
-            new.append(name)
+    for (prefix, _), tasks in zip(plan, cut(data, runner, [p for _, p in plan]), strict=False):
+        k = sum(n.startswith(prefix + "_") for n in new)
+        name = f"{prefix}_{now:%Y%m%dT%H%M%SZ}_{k}"
+        put(register / f"{name}.txt", HEAD + "".join(walker.encode(t, ()) + "\n" for t in tasks))
+        new.append(name)
     lent = lend()
     stopped = ", STOP" + (" written" if why else "") if stop.exists() else ""
     return f"runner slices: {len(new)} cut, {gone} gone, {len(lent)} keys lent{stopped}"
@@ -293,16 +353,21 @@ def pull(data: Path = DATA) -> str:
 
 
 def dispatch(register: Path = REGISTER) -> str:
-    if (register / "STOP").exists() or not cadence(register):
-        return "runner dispatch: off"
-    if not any(register.glob("slice_*.txt")):
-        return "runner dispatch: no slice"
-    args = ("run", "list", "--repo", GITHUB, "--workflow", WORKFLOW, "--limit", "5")
-    runs = json.loads(gh(*args, "--json", "status", timeout=60))
-    if live := sum(r.get("status") != "completed" for r in runs):
-        return f"runner dispatch: {live} live, none asked"
-    gh("workflow", "run", WORKFLOW, "--repo", GITHUB, "--ref", "live", timeout=60)
-    return "runner dispatch: a job asked"
+    said = []
+    for prefix, lane in LANES.items():
+        if (register / "STOP").exists() or not knob(register, lane.knob):
+            said.append(f"{prefix} off")
+        elif not slices(register, prefix):
+            said.append(f"{prefix} no slice")
+        else:
+            args = ("run", "list", "--repo", GITHUB, "--workflow", lane.workflow, "--limit", "5")
+            runs = json.loads(gh(*args, "--json", "status", timeout=60))
+            if live := sum(r.get("status") != "completed" for r in runs):
+                said.append(f"{prefix} {live} live")
+            else:
+                gh("workflow", "run", lane.workflow, "--repo", GITHUB, "--ref", "live", timeout=60)
+                said.append(f"{prefix} asked")
+    return "runner dispatch: " + ", ".join(said)
 
 
 def main(argv: list[str] | None = None) -> None:
