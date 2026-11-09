@@ -122,12 +122,15 @@ def test_the_lane_the_runners_took_is_not_stalled(hb, tmp_path, monkeypatch):
     lane = tmp_path / "data/raw/cdx_walk/lane2"
     lane.mkdir(parents=True)
     (lane / "log.tsv").write_text("# exit 20261109T000000Z pending=3\n")  # the tick stopped it
-    monkeypatch.setattr(hb.JOBS, "RUNNER", tmp_path)
+    register = tmp_path / "runner"
+    register.mkdir()
+    os.utime(register, (time.time() - 2 * 3600,) * 2)  # no runners' turn within the grace
+    monkeypatch.setattr(hb.JOBS, "RUNNER", register)
     at = stamp(dt.datetime.now(dt.UTC))
     run(hb, tmp_path, at)
     assert "vm-alert: lane2 stalled" in made(hb, "create")
     hb.calls.clear()
-    (tmp_path / "cadence").write_text("2\n")
+    (register / "cadence").write_text("2\n")  # lane0 adopts what lane2 owes
     run(hb, tmp_path, at)
     assert "vm-alert: lane2 stalled" not in made(hb, "create")
 

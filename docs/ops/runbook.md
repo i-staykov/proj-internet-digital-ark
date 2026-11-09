@@ -73,11 +73,13 @@ throttles per address, so an hourly job on GitHub's runners walks one slice the 
 hour plus one) from its own address and uploads the journals as an artifact; the tick banks them
 as `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
 runners are one of the Channel's three clients: while `cadence` is set the bank host runs two
-lanes. GitHub's Additional Product Terms for Actions tie use to the repository's own software
-project, which this collection step is. Two stop signals: IA refusing, which the bank reads off a
-pulled log (a pause of 15 minutes or more, or under 10% of 20 or more requests answered) and
-writes as `docs/registers/runner/STOP`, every slice deleted, no job asking and the third lane
-back on the bank host until a PR lifts it; and a mail from GitHub about the runners' use (a
+lanes, the first slice cut only once they do, and the third lane is back 90 minutes after the
+runners' turn ends, the hour a job that read live before may still walk. GitHub's Additional
+Product Terms for Actions tie use to the repository's own software project, which this
+collection step is. Two stop signals: IA refusing, which the bank reads off a pulled log (a pause
+of 15 minutes or more, or under 10% of 20 or more requests answered) and writes as
+`docs/registers/runner/STOP`, every slice deleted and no job asking until a PR lifts it; and a
+mail from GitHub about the runners' use (a
 failed run's is not one), on which the owner runs `gh workflow disable runner-lanes.yml` and
 zeroes `cadence` by PR.
 

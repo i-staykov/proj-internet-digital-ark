@@ -2,6 +2,7 @@
 injected, so nothing here asks the archive anything."""
 
 import email.utils
+import fcntl
 import gzip
 import json
 import os
@@ -542,6 +543,25 @@ def test_a_slice_walks_its_pages_alone_and_a_lent_page_returns_when_the_file_shr
     lane.back_off(p1, 900.0, "HTTP503")  # a slice ends at its first 15 minute pause
     assert extended.STOP.is_set()
     extended.STOP.clear()
+
+
+def test_a_dropped_lane_s_pending_is_adopted_under_its_cron_flock(tmp_path):
+    for n in (0, 2):
+        (tmp_path / f"lane{n}").mkdir()
+    parent, sub = "co.uk 1000 7 1996 2013", ("co.uk", 100, 79, 1996, 2013, "all")
+    (tmp_path / "lane2/done.txt").write_text(parent + "\n")  # the cut page: nothing re-asks it
+    (tmp_path / "lane2/pending.txt").write_text(extended.encode(sub, ("cut", parent, "k5")) + "\n")
+    a = SimpleNamespace(lane=0, lanes=2, data=tmp_path, state_dir=tmp_path / "lane0", slice=None)
+    a.questions, a.min_interval, a.max_transient = True, 10, 0
+    held = os.open(tmp_path / "lane2.lock", os.O_RDWR | os.O_CREAT)
+    fcntl.flock(held, fcntl.LOCK_EX)  # lane2's walker still draining
+    lane = extended.load(a)
+    assert lane.dropped == [tmp_path / "lane2"] and lane.take() is None
+    assert (tmp_path / "lane2/pending.txt").exists(), "lane2's while it holds its flock"
+    os.close(held)
+    assert lane.take() == sub and lane.meta[sub] == ("cut", parent, "k5")
+    assert not (tmp_path / "lane2/pending.txt").exists() and lane.dropped == []
+    assert extended.load(a).subq == [sub], "owed by lane0 across its restarts"
 
 
 def test_a_sibling_lane_answer_ends_only_the_refusal_pause(tmp_path, monkeypatch):

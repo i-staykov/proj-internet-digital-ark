@@ -7,15 +7,16 @@ pure scripted requests, no secret on a runner, nothing there knows the VM.
 `write`, the bank's last step: `docs/registers/runner/slice_<stamp>_<k>.txt` is the next `PAGES`
 pages one more lane would ask (`cdx_extended_walk.load`, pages only, a throwaway lane over
 `data/raw/cdx_walk/runner/`) in pending.txt's head format; `cadence`, a one-line PR, keeps that
-many cut, the jobs an hour plus one, so no job waits for the tick, and none without it. The
-runners are one of the Channel's three clients: while `cadence` is set the bank host runs two
-lanes (`cdx_walk_jobs.py`). A slice goes once its artifact is banked, or after `STALE_H` hours
-with none, its pages back to the lanes. `runner/lent.txt` is the union of the slices present and
-`runner*/done.txt`, reread by the walker by mtime, so a running lane neither asks a lent page nor
-one a runner answered. Each pulled log is judged once: a pause of 15 minutes or more, or under
-`FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA refusing the runners, written with
-its counts as `docs/registers/runner/STOP`, every slice deleted; a job finding STOP makes no
-request, and a PR lifts it.
+many cut, the jobs an hour plus one, so no job waits for the tick, and none without it; a zeroed
+`cadence` or STOP deletes every slice. The runners are one of the Channel's three clients: while
+`cadence` is set the bank host runs two lanes (`cdx_walk_jobs.py`), and no slice is cut before
+that install is current, so no job walks beside three. A slice goes once its artifact is banked,
+or after `STALE_H` hours with none, its pages back to the lanes. `runner/lent.txt` is the union
+of the slices present and `runner*/done.txt`, reread by the walker by mtime, so a running lane
+neither asks a lent page nor one a runner answered. Each pulled log is judged once: a pause of
+15 minutes or more, or under `FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA
+refusing the runners, written with its counts as `docs/registers/runner/STOP`, every slice
+deleted; a job finding STOP makes no request, and a PR lifts it.
 
 `pull`, the tick's first step, touches only `data/`: one artifact listing, a row of another head
 repository or branch skipped (a fork's PR run), each new zip unzipped through an allowlist into a
@@ -62,6 +63,11 @@ _spec = importlib.util.spec_from_file_location(
 )
 walker = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(walker)
+_spec = importlib.util.spec_from_file_location(
+    "cdx_walk_jobs", Path(__file__).with_name("cdx_walk_jobs.py")
+)
+jobs = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(jobs)
 
 
 def gh(*args: str, timeout: int) -> bytes:
@@ -142,17 +148,17 @@ def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None 
     now = now or dt.datetime.now(dt.UTC)
     runner = data / "raw/cdx_walk/runner"
     runner.mkdir(parents=True, exist_ok=True)
-    register.mkdir(parents=True, exist_ok=True)
     stop = register / "STOP"
     if (why := judge(runner)) and not stop.exists():
-        stop.write_text(HEAD + "".join(w + "\n" for w in why))
+        put(stop, HEAD + "".join(w + "\n" for w in why))
+    off = stop.exists() or not cadence(register)
     banked = runner / "banked.txt"
     taken = {m[1] for ln in lines(banked) if (m := ARTIFACT.match(ln.split("\t")[-1]))}
     gone = 0
     for f in sorted(register.glob("slice_*.txt")):
         m = SLICE.match(f.stem)
         at = dt.datetime.strptime(m[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.UTC) if m else now
-        if stop.exists() or not m or f.stem in taken or now - at > dt.timedelta(hours=STALE_H):
+        if off or not m or f.stem in taken or now - at > dt.timedelta(hours=STALE_H):
             f.unlink()
             gone += 1
 
@@ -164,12 +170,12 @@ def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None 
 
     lend()  # before cutting, so the throwaway lane skips what is out
     new = []
-    want = 0 if stop.exists() else cadence(register) - len(list(register.glob("slice_*.txt")))
-    if want > 0:
+    want = cadence(register) - len(list(register.glob("slice_*.txt")))
+    if want > 0 and not off and jobs.current():
         for k, tasks in enumerate(cut(data, runner, want)):
             name = f"slice_{now:%Y%m%dT%H%M%SZ}_{k}"
             text = HEAD + "".join(walker.encode(t, ()) + "\n" for t in tasks)
-            (register / f"{name}.txt").write_text(text)
+            put(register / f"{name}.txt", text)
             new.append(name)
     lent = lend()
     stopped = ", STOP" + (" written" if why else "") if stop.exists() else ""

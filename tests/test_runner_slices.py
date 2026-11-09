@@ -6,6 +6,8 @@ import datetime as dt
 import fnmatch
 import io
 import json
+import os
+import time
 import zipfile
 
 from conftest import script
@@ -23,8 +25,9 @@ def row(page: str, status: str, size: str = "1000") -> str:
     return "\t".join([*cols, "0", "0", "0", "0"])
 
 
-def stage(tmp_path):
-    """A bank host's data/: one counted suffix, a done page, a priced order."""
+def stage(tmp_path, monkeypatch):
+    """A bank host's data/ with its lanes installed: a counted suffix, a done page, an order."""
+    monkeypatch.setattr(rs.jobs, "current", lambda: True)
     data, register = tmp_path / "data", tmp_path / "docs/registers/runner"
     lane = data / "raw/cdx_walk/lane0"
     lane.mkdir(parents=True)
@@ -39,12 +42,15 @@ def stage(tmp_path):
 
 
 def test_write_cuts_a_slice_of_pages_neither_done_nor_lent_and_lends_them(tmp_path, monkeypatch):
-    data, register = stage(tmp_path)
+    data, register = stage(tmp_path, monkeypatch)
     monkeypatch.setattr(rs, "PAGES", 4)
     (register / "slice_20261109T110000Z_0.txt").write_text(rs.HEAD + KEY.format(7) + " all\n")
     runner0 = data / "raw/cdx_walk/runner0"
     runner0.mkdir()
     (runner0 / "done.txt").write_text(KEY.format(9) + "\n")
+    monkeypatch.setattr(rs.jobs, "current", lambda: False)
+    assert rs.write(data, register, NOW).startswith("runner slices: 0 cut"), "three lanes still"
+    monkeypatch.setattr(rs.jobs, "current", lambda: True)
     line = rs.write(data, register, NOW)
     assert line == "runner slices: 1 cut, 0 gone, 6 keys lent"
     new = register / "slice_20261109T120000Z_0.txt"
@@ -62,8 +68,10 @@ def test_write_cuts_a_slice_of_pages_neither_done_nor_lent_and_lends_them(tmp_pa
     assert rs.write(data, register, NOW).startswith("runner slices: 0 cut"), "the cadence is met"
 
 
-def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):
-    data, register = stage(tmp_path)
+def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
+    tmp_path, monkeypatch
+):
+    data, register = stage(tmp_path, monkeypatch)
     runner = data / "raw/cdx_walk/runner"
     (runner / "judge").mkdir(parents=True)
     (runner / "banked.txt").write_text(f"1\t{NAME}\n")
@@ -98,6 +106,9 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     stop.unlink()
     assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 11 keys lent"
     assert not stop.exists(), "a judged log never latches STOP again"
+    (register / "cadence").write_text("0\n")
+    assert rs.write(data, register, NOW).startswith("runner slices: 0 cut, 1 gone"), "zeroed: off"
+    assert not list(register.glob("slice_*"))
     assert rs.blocked([row("1", "ConnectionRefusedError")] * 18 + [row("2", "200")] * 2) == ""
     assert rs.blocked([row("1", "HTTP403")] * 19 + [row("2", "200")]) == "1 of 20 requests answered"
 
@@ -183,17 +194,25 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
 
 def test_the_runners_take_one_of_the_three_lanes_while_cadence_is_set(tmp_path, monkeypatch):
     jobs = script("engines/cdx_walk_jobs.py")
-    monkeypatch.setattr(jobs, "RUNNER", tmp_path)
+    register = tmp_path / "runner"
+    register.mkdir()
+    old = (time.time() - 2 * 3600,) * 2
+    os.utime(register, old)
+    monkeypatch.setattr(jobs, "RUNNER", register)
     assert jobs.lanes() == 3
-    (tmp_path / "cadence").write_text("# slices kept cut\n2\n")
+    (register / "cadence").write_text("# slices kept cut\n2\n")
     assert jobs.lanes() == 2
     check = script("harness/check_unattended.py")  # wants that many lanes' cron lines
     monkeypatch.setattr(check, "ROOT", tmp_path)
-    monkeypatch.setattr(check.JOBS, "RUNNER", tmp_path)
+    monkeypatch.setattr(check.JOBS, "RUNNER", register)
+    monkeypatch.setattr(check.JOBS, "DATA", tmp_path / "data")
     cron = f"cd {tmp_path} && /usr/bin/python3 {check.WALKER} # ark-walk"
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "\n".join([cron] * 4)))
     (tmp_path / "data/logs").mkdir(parents=True)
     (tmp_path / "data/logs/.walk_code").write_text(check.JOBS.code())
     assert check.walk() == (True, "4 of 4 ark-walk lines here, want 4; walk code at HEAD")
-    (tmp_path / "STOP").write_text(rs.HEAD)
-    assert jobs.lanes() == 3, "under STOP the bank host walks its third lane"
+    (register / "STOP").write_text(rs.HEAD)
+    assert jobs.lanes() == 2, "a job that read live before STOP walks into the next hour"
+    for p in (register, register / "cadence", register / "STOP"):
+        os.utime(p, old)
+    assert jobs.lanes() == 3 and not check.JOBS.current(), "the third lane back: reinstalled"

@@ -5,8 +5,8 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
 
 - timer: `ark-sync.timer` is active.
 - walk: the crontab holds two `# ark-walk` lines per lane (`cdx_walk_jobs.lanes`), each `cd`
-  here and running the walker, and `data/logs/.walk_code` is HEAD's walk code
-  (`cdx_walk_jobs.code`), so the lanes run HEAD's code.
+  here and running the walker, and the install is current (`cdx_walk_jobs.current`), so the
+  lanes run HEAD's code at their count.
 - lock: the sync lock is free or its holder's pid is alive in this boot.
 - hold: each unit or flag the hold file names is off (the timer not enabled unless the label
   holds it, the flag file present).
@@ -76,8 +76,7 @@ def walk() -> tuple[bool, str]:
     _, tab = run("crontab", "-l")
     lines = [ln for ln in tab.splitlines() if ln.rstrip().endswith("# ark-walk")]
     ours = [ln for ln in lines if f"cd {ROOT} " in ln and WALKER in ln]
-    code = ROOT / "data/logs/.walk_code"
-    fresh = code.exists() and code.read_text().split() == JOBS.code().split()
+    fresh = JOBS.current()
     want = 2 * JOBS.lanes()
     ok = len(lines) == len(ours) == want and fresh
     return ok, f"{len(ours)} of {len(lines)} ark-walk lines here, want {want}; walk code " + (
