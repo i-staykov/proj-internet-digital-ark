@@ -3,18 +3,19 @@
     python3 scripts/agents/lane_yield.py [--date YYYY-MM-DD]    # default yesterday UTC
     python3 scripts/agents/lane_yield.py --hours N              # the N hours before this hour
 
-The key's rows of every `data/raw/cdx_walk/lane*/log.tsv` (`cdx_extended_walk.py`) become
-rows of `data/logs/productivity.tsv`, the key's earlier rows replaced: key (a date, or
-YYYY-MM-DDTHH00 for the hours before that hour, once a tick priced them, `unpriced()`),
-lane, kind (`page`, or an ask tier such as `ask-gap`), window (`1996-2001`, `2002-2013`),
-requests, answered (200 or 504, as `cdx_walk_order.py` counts), paused_seconds (the pauses this
-kind's answers caused, overlaps once, inside the span), ee (the window's journals as the bank
-priced them, `data/queue/cdx_order.priced.json`), ee_per_client_second (ee over the lane's wall
-seconds in the span, first start to last end, pauses included, one client whatever its workers:
-a lane idle part of the span is rated over the part it walked), band_low and band_high (that ee
-a second over the lane's previous seven rows of the kind, window and HH suffix, so hours are
-banded against the same hours of earlier days, blank under three). `lines()`, the heartbeat's,
-reads the daily rows. `LEVERS` is the levers file the cdx run may pull from.
+The key's rows of every `data/raw/cdx_walk/*[0-9]/log.tsv` (`cdx_extended_walk.py`, a lane's or
+a runner's, `runner_slices.py`) become rows of `data/logs/productivity.tsv`, the key's earlier
+rows replaced: key (a date, or YYYY-MM-DDTHH00 for the hours before that hour, once a tick
+priced them, `unpriced()`), lane, kind (`page`, or an ask tier such as `ask-gap`), window
+(`1996-2001`, `2002-2013`), requests, answered (200 or 504, as `cdx_walk_order.py` counts),
+paused_seconds (the pauses this kind's answers caused, overlaps once, inside the span), ee (the
+window's journals as the bank priced them, `data/queue/cdx_order.priced.json`),
+ee_per_client_second (ee over the lane's wall seconds in the span, first start to last end,
+pauses included, one client whatever its workers: a lane idle part of the span is rated over the
+part it walked), band_low and band_high (that ee a second over the lane's previous seven rows of
+the kind, window and HH suffix, so hours are banded against the same hours of earlier days, blank
+under three). `lines()`, the heartbeat's, reads the daily rows. `LEVERS` is the levers file the
+cdx run may pull from.
 """
 
 from __future__ import annotations
@@ -139,7 +140,7 @@ def write(out: Path, data: Path, key: str, hours: int = 0) -> int:
     earlier ones for it; how many were written."""
     kept = [r for r in read(out) if r[0] != key]
     ee, new = priced(data), []
-    for log in sorted(data.glob("raw/cdx_walk/lane*/log.tsv")):
+    for log in sorted(data.glob("raw/cdx_walk/*[0-9]/log.tsv")):
         lane = log.parent.name
         with open(log, errors="replace") as fh:
             kinds, wall = day(fh, bounds(key, hours), ee)

@@ -118,6 +118,8 @@ sync:
         done
         mkdir -p data/raw/cdx_walk/lane${h##*:} && rsync -a --timeout=60 -e "$SSH" "${h%:*}:ark-walk-data/raw/cdx_walk/lane${h##*:}/log.tsv" data/raw/cdx_walk/lane${h##*:}/ || true
     done
+    # The runners' artifacts, banked here where the lanes walk, priced this tick like theirs.
+    if grep -q 'local:' <<<"$ARK_HOSTS"; then uv run python scripts/engines/runner_slices.py pull || true; fi
     # The pool's questions the lanes also ask, written once where they walk.
     if grep -q 'local:' <<<"$ARK_HOSTS"; then uv run python scripts/engines/pool_questions.py || true; fi
     uv run python scripts/engines/cdx_walk_order.py | tail -1 || true
@@ -325,6 +327,8 @@ bank *args:
     uv run python scripts/round/extended_export.py --check >/dev/null \
         || nice -n 10 uv run python scripts/round/extended_export.py || true
     uv run python scripts/round/build_round_state.py | tail -1 || true
+    # The runners' slices and STOP, cut where the lanes walk (scripts/engines/runner_slices.py).
+    if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then uv run python scripts/engines/runner_slices.py write || true; fi
     uv run python scripts/harness/bank_trigger.py stamp
     git add docs/registers/
     if git diff --cached --quiet; then

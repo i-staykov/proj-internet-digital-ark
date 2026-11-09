@@ -61,10 +61,27 @@ alone, never through a pipe, before believing a refusal.
 
 **Collection.** `just walk install` keeps one lane per archive client running (`AGENTS.md`,
 Channel): cron on the bank host, the `local` entry of its `ARK_HOSTS`, reinstalled by the tick
-when the walk's code changes (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to 2001 rows
-land in `data/raw/cdx_suffix/` and its 2002 to 2013 rows in `data/raw/extended/ia_cdx_hostnames/`;
-the tick re-ranks the queue by measured EE per request, and `local.env` exports
+when the walk's code or lane count changes (`scripts/engines/cdx_walk_jobs.py`). A page's 1996 to
+2001 rows land in `data/raw/cdx_suffix/`, its 2002 to 2013 rows in
+`data/raw/extended/ia_cdx_hostnames/`; the tick re-ranks the queue by measured EE per request,
+and `local.env` exports
 `ARK_BANK_JOURNAL_HOURS=1`, so each hour's journals bank that hour. `pause-platform` idles them.
+
+**Runner lanes** (`.github/workflows/runner-lanes.yml`, `scripts/engines/runner_slices.py`): IA
+throttles per address, so an hourly job on GitHub's runners walks one slice the bank cut
+(`docs/registers/runner/slice_*.txt`; `cadence`, a one-line PR, keeps that many cut, the jobs an
+hour plus one) from its own address and uploads the journals as an artifact; the tick banks them
+as `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The
+runners are one of the Channel's three clients: while `cadence` is set the bank host runs two
+lanes, the first slice cut only once they do, and the third lane is back 90 minutes after the
+runners' turn ends, the hour a job that read live before may still walk. GitHub's Additional
+Product Terms for Actions tie use to the repository's own software project, which this
+collection step is. Two stop signals: IA refusing, which the bank reads off a pulled log (a pause
+of 15 minutes or more, or under 10% of 20 or more requests answered) and writes as
+`docs/registers/runner/STOP`, every slice deleted and no job asking until a PR lifts it; and a
+mail from GitHub about the runners' use (a
+failed run's is not one), on which the owner runs `gh workflow disable runner-lanes.yml` and
+zeroes `cadence` by PR.
 
 **The tick** (`scripts/harness/scheduled_sync.sh`, or `just sync` by hand) opens no store. It
 pulls each lane's finished journals, and runs `just bank` when `scripts/harness/bank_trigger.py check` names what arrived: a
@@ -81,7 +98,7 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then 
 go through `scripts/agents/triage.py`, whose header names their guards.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
-`scripts/agents/run_agent.sh` in one of four modes: `triage` hourly, `work` when the queue holds an item, `cdx` daily at 06 UTC and `scout` four times a day at 03, 09, 15 and 21 UTC (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
+`scripts/agents/run_agent.sh` in one of four modes, the first that holds: `cdx` every 4 hours from 02 UTC; `work` when an alert tops the queue, the last run was not work and work's cap plus 400 s ends before the next cdx tick; `scout` an hour after each cdx (`agent/policy.json` `schedule`); else `triage`; its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Asks.** `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per
 pending block once the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.

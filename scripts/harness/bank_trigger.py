@@ -57,6 +57,8 @@ FOLD = (
     "data/raw/cdx/*.jsonl.gz.part",
     "data/raw/cdx/cdx_*.jsonl.gz",
     "data/raw/cdx_suffix/*.jsonl.gz",
+    # a runner's log pulled with no journal still banks, so `runner_slices.py write` judges it
+    "data/raw/cdx_walk/runner[0-9]*/log.tsv",
     "data/raw/usenet_*_items/*.jsonl.gz",
     "data/raw/usenet_*_items/*.jsonl",
     "data/raw/usenet_header_items/*/*.jsonl.gz",
