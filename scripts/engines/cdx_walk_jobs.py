@@ -1,17 +1,13 @@
 """Keep the extended walk running with nobody at the keyboard: `just walk install|status|remove`.
 
 The bank host walks: the machine whose `ARK_HOSTS` in local.env has a `local` entry runs `LANES`
-lanes, the Channel's clients less the runners' (`lanes`: while `docs/registers/runner/cadence`
-is set and no STOP holds, `runner_slices.py`, and `GRACE_S` past the register's last change,
-since a job that read live before STOP, or before `cadence` fell, walks into the next hour), each
-`WORKERS` requests at once. Cron starts each at boot and every 10 minutes under its own `flock`,
-with `--lanes` their count, so the queue splits by hash; a dropped lane's pending goes to the lane
-its number folds onto, under that flock (the walker's `adopt`). The tick reinstalls the cron and
-stops the walkers once `code` (HEAD's blobs of `WALK`, this file and the walker, and the lane
-count) changed since the install, and cron restarts them (`scripts/harness/scheduled_sync.sh`);
-the bank cuts the runners a slice only while the install is `current`. `install` first gives
-every lane folder a done set (`done`), since each lane skips what any lane answered. The laptop
-runs no lane (AGENTS.md, Channel).
+lanes, the Channel's clients on its address, each `WORKERS` requests at once. Cron starts each at
+boot and every 10 minutes under its own `flock`, with `--lanes` their count, so the queue splits
+by hash. The tick reinstalls the cron and stops the walkers once `code` (HEAD's blobs of `WALK`,
+this file and the walker) changed since the install, and cron restarts them
+(`scripts/harness/scheduled_sync.sh`). `install` first gives every lane folder a done set
+(`done`), since each lane skips what any lane answered. The laptop runs no lane (AGENTS.md,
+Channel).
 """
 
 from __future__ import annotations
@@ -19,23 +15,20 @@ from __future__ import annotations
 import shlex
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 CODE = Path(__file__).resolve().parents[2]
 DATA = CODE / "data"
 TAG = "# ark-walk"
 PY = "^/usr/bin/python3 .*cdx_extended_walk[.]py"  # the walker, not its shell or flock
-RUNNER = CODE / "docs/registers/runner"  # the runners' cadence and STOP (runner_slices.py)
 WALK = ("scripts/engines/cdx_walk_jobs.py", "scripts/engines/cdx_extended_walk.py")
-GRACE_S = 90 * 60  # a job starts at :17 and is killed by :14 the next hour, GitHub's delay on top
+LANES, WORKERS = 3, 3  # the Channel's three clients here, requests at once in each
 FLOOR_ENV = ("ARK_FREE_SPACE_GIB", "ARK_WRITE_BUDGET_GIB")  # src/ark/disk.py
 
 
 def code() -> str:
-    """HEAD's blobs of `WALK` and the lane count, what the tick keeps in `data/logs/.walk_code`."""
-    blobs = sh(f"git -C {CODE} ls-tree HEAD {' '.join(WALK)}")
-    return f"{blobs}\n{lanes()}"
+    """HEAD's blobs of `WALK`, what the tick keeps in `data/logs/.walk_code`."""
+    return sh(f"git -C {CODE} ls-tree HEAD {' '.join(WALK)}")
 
 
 def current() -> bool:
@@ -44,26 +37,6 @@ def current() -> bool:
         return (DATA / "logs/.walk_code").read_text().split() == code().split()
     except OSError:
         return False
-
-
-def runners() -> bool:
-    """Whether the runners are a client: `cadence` keeps slices cut and no STOP holds."""
-    try:
-        on = int((RUNNER / "cadence").read_text().split()[-1]) > 0
-    except (OSError, ValueError, IndexError):
-        on = False
-    return on and not (RUNNER / "STOP").exists()
-
-
-def lanes() -> int:
-    """The Channel's three clients here, less the runners' while they are one, and for `GRACE_S`
-    after the register last changed, since a job that read live before may still walk."""
-    files = (RUNNER, RUNNER / "cadence", RUNNER / "STOP")
-    changed = max((p.stat().st_mtime for p in files if p.exists()), default=0.0)
-    return 3 - (runners() or time.time() - changed < GRACE_S)
-
-
-LANES, WORKERS = lanes(), 3  # lanes here, requests at once in each
 
 
 def local_env(name: str) -> str:
