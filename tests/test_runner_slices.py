@@ -28,10 +28,10 @@ def stage(tmp_path):
     data, register = tmp_path / "data", tmp_path / "docs/registers/runner"
     lane = data / "raw/cdx_walk/lane0"
     lane.mkdir(parents=True)
-    (lane / "pages.json").write_text('{"co.uk": 12}')
+    (lane / "pages.json").write_text('{"co.uk": 24}')
     (lane / "done.txt").write_text(KEY.format(3) + "\n")
     (data / "queue").mkdir()
-    order = {"units": {"co.uk all": {"p1": 1.0, "p2": 1.0, "s": 10, "n": 9}}}
+    order = {"units": {"co.uk all": {"p1": 1.0, "p2": 2.0, "s": 10, "n": 9}}}  # above ask-gap
     (data / "queue/cdx_order.json").write_text(json.dumps(order))
     register.mkdir(parents=True)
     (register / "cadence").write_text("# slices kept cut\n2\n")
@@ -62,6 +62,23 @@ def test_write_cuts_a_slice_of_pages_neither_done_nor_lent_and_lends_them(tmp_pa
     assert rs.write(data, register, NOW).startswith("runner slices: 0 cut"), "the cadence is met"
 
 
+def test_a_slice_leaves_the_lanes_their_share_above_the_ask_tier(tmp_path, monkeypatch):
+    data, _register = stage(tmp_path)
+    monkeypatch.setattr(rs, "PAGES", 10)
+    lane, runner = data / "raw/cdx_walk/lane0", data / "raw/cdx_walk/runner"
+    runner.mkdir()
+    (lane / "pages.json").write_text('{"co.uk": 20, "me.uk": 8}')
+    units = {"co.uk all": {"p2": 33.0, "s": 450, "n": 9}, "me.uk all": {"p2": 1.0, "s": 50, "n": 9}}
+    units["ask-gap ask"] = {"p2": 2.8, "s": 2.0, "n": 5000}
+    (data / "queue/cdx_order.json").write_text(json.dumps({"units": units}))
+    assert rs.cut(data, runner, 2) == [], "unmeasured, 10 s a start: every page under ask-gap"
+    (lane / "log.tsv").write_text("# order 3 priced, 0 exploring, 21 s a start\n")
+    slices = rs.cut(data, runner, 2)
+    assert [len(s) for s in slices] == [4] and {t[0] for t in slices[0]} == {"co.uk"}, (
+        "a fourth of the 19 co.uk pages above the tier; me.uk sits under it; no question"
+    )
+
+
 def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):
     data, register = stage(tmp_path)
     runner = data / "raw/cdx_walk/runner"
@@ -74,7 +91,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     ):
         (register / f"slice_{stem}.txt").write_text(rs.HEAD + KEY.format(page) + " all\n")
     (runner / "judge/1_x.tsv").write_text("".join(row("1", "HTTP503") + "\n" for _ in range(5)))
-    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 2 gone, 11 keys lent"
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 2 gone, 5 keys lent"
     assert not (register / "STOP").exists(), "five requests are under the floor"
     assert not (register / "slice_20261109T050000Z_0.txt").exists(), "7 h old"
     assert not (register / "slice_20261109T110000Z_0.txt").exists(), "banked"
@@ -96,7 +113,7 @@ def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(
     assert not list(register.glob("slice_*")) and rs.keys(runner / "lent.txt") == set()
     assert rs.write(data, register, NOW).endswith(", STOP"), "held until a PR lifts it"
     stop.unlink()
-    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 11 keys lent"
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 5 keys lent"
     assert not stop.exists(), "a judged log never latches STOP again"
     (register / "cadence").write_text("0\n")
     assert rs.write(data, register, NOW).startswith("runner slices: 0 cut, 1 gone"), "zeroed: off"

@@ -5,17 +5,18 @@ slice from a runner's own address and uploads what it wrote as an artifact named
 pure scripted requests, no secret on a runner, nothing there knows the VM.
 
 `write`, the bank's last step: `docs/registers/runner/slice_<stamp>_<k>.txt` is the next `PAGES`
-pages one more lane would ask (`cdx_extended_walk.load`, pages only, a throwaway lane over
-`data/raw/cdx_walk/runner/`) in pending.txt's head format; `cadence`, a one-line PR, keeps that
-many cut, the jobs an hour plus one, so no job waits for the tick, and none without it; a zeroed
-`cadence` or STOP deletes every slice. The runners are one more client on their own address, the
-Channel's cap being per address. A slice goes once its artifact is banked, or after `STALE_H`
-hours with none, its pages back to the lanes. `runner/lent.txt` is the union of the slices
-present and `runner*/done.txt`, reread by the walker by mtime, so a running lane neither asks a
-lent page nor one a runner answered. Each pulled log is judged once: a pause of 15 minutes or
-more, or under `FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA refusing the runners,
-written with its counts as `docs/registers/runner/STOP`, every slice deleted; a job finding STOP
-makes no request, and a PR lifts it.
+pages a lane would ask (`cdx_extended_walk.load`, a throwaway lane over `data/raw/cdx_walk/runner/`
+ranking as the lanes do, their ask tier in), the runners holding at most `SHARE` of the pages
+above that tier, in pending.txt's head format; `cadence`, a one-line PR, keeps that many cut, the
+jobs an hour plus one, so no job waits for the tick, and none without it; a zeroed `cadence` or
+STOP deletes every slice. The runners are one more client on their own address, the Channel's
+cap being per address. A slice goes once its artifact is banked, or after `STALE_H` hours with
+none, its pages back to the lanes. `runner/lent.txt` is the union of the slices present and
+`runner*/done.txt`, reread by the walker by mtime, so a running lane neither asks a lent page nor
+one a runner answered. Each pulled log is judged once: a pause of 15 minutes or more, or under
+`FLOOR` answered of `FLOOR_REQUESTS` or more requests, is IA refusing the runners, written with
+its counts as `docs/registers/runner/STOP`, every slice deleted; a job finding STOP makes no
+request, and a PR lifts it.
 
 `pull`, the tick's first step, touches only `data/`: one artifact listing, a row of another head
 repository or branch skipped (a fork's PR run), each new zip unzipped through an allowlist into a
@@ -53,20 +54,29 @@ REGISTER = REPO / "docs/registers/runner"
 GITHUB = "i-staykov/proj-internet-digital-ark"
 WORKFLOW = "runner-lanes.yml"
 PAGES, STALE_H = 300, 6
+# the runners are one client beside the bank host's three lanes (`cdx_walk_jobs.LANES`): they hold
+# at most a fourth of the pages the lanes rank above the ask tier, so lending never empties the
+# lanes' page work, which is what pays (laws)
+SHARE = 1 / 4
 FLOOR, FLOOR_REQUESTS = 0.1, 20
 HEAD = "# scripts/engines/runner_slices.py\n"
 SLICE = re.compile(r"^slice_(\d{8}T\d{6}Z)_\d+$")
 PAUSE = re.compile(r"^# pause (\d+) s")
+ORDER = re.compile(r"^# order .* (\d+) s a start$")
 ARTIFACT = re.compile(r"^(slice_\d{8}T\d{6}Z_\d+)_r(\d+)$")
 STATE = ("cdx_walk/lane0/log.tsv", "cdx_walk/lane0/done.txt", "cdx_walk/lane0/pending.txt")
 JOURNAL = re.compile(r"^(cdx_suffix|extended/ia_cdx_hostnames)/walk_[\w.-]+\.jsonl\.gz$")
 MEMBER_CAP = 64 << 20
 
-_spec = importlib.util.spec_from_file_location(
-    "cdx_extended_walk", Path(__file__).with_name("cdx_extended_walk.py")
-)
-walker = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(walker)
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+walker, jobs = _load("cdx_extended_walk"), _load("cdx_walk_jobs")
 
 
 def gh(*args: str, timeout: int) -> bytes:
@@ -126,21 +136,36 @@ def judge(runner: Path) -> list[str]:
     return why
 
 
+def start_cost(walk: Path) -> float:
+    """The least seconds a start costs a lane here, its last `# order` line's; the interval when
+    none has one: the lane with the most starts ranks the fewest pages above the ask tier."""
+    costs = []
+    for log in walk.glob("lane[0-9]*/log.tsv"):
+        with open(log, "rb") as fh:
+            fh.seek(max(0, log.stat().st_size - (1 << 18)))
+            tail = fh.read().decode(errors="replace").splitlines()
+        costs += [float(m[1]) for ln in tail if (m := ORDER.match(ln))][-1:]
+    return min(costs, default=walker.INTERVAL)
+
+
 def cut(data: Path, runner: Path, want: int) -> list[list[tuple]]:
-    """`want` slices of the next pages one more lane would ask, none lent or done (a page a lane
-    cut is done; its subpages are that lane's own)."""
+    """`want` slices from the head of the lanes' ranking, the ask tiers in as empty markers (the
+    priced ones, no question loaded), at most `SHARE` of the pages above the first tier less the
+    lent, none lent or done (a page a lane cut is done; its subpages are that lane's own)."""
     a = SimpleNamespace(lane=0, lanes=1, data=data, state_dir=runner, slice=None)
-    a.questions, a.min_interval, a.max_transient = True, 10.0, 0
+    a.questions, a.max_transient, a.workers = True, 0, jobs.WORKERS
+    a.min_interval = start_cost(runner.parent)
     lane = walker.load(a)
-    slices = []
-    for _ in range(want):
-        tasks: list = []
-        while len(tasks) < PAGES and (t := lane.take()):
-            tasks.append(t)
-        if not tasks:
-            break
-        slices.append(tasks)
-    return slices
+    for tier in {u.split(" ")[0] for u in lane.order if u.endswith(" ask")} | set(walker.ASKED):
+        lane.pages.setdefault((tier, "ask"), [])
+        lane.asked.setdefault((tier, "ask"), 0)
+    lane.rerank(force=True)
+    tiers = [i for i, u in enumerate(lane.ranked) if u[1] == "ask"]
+    above = [t for u in lane.ranked[: tiers[0] if tiers else None] for t in lane.pages[u]]
+    free = [t for t in above if walker.key_of(t) not in lane.lent]
+    out = len(above) - len(free)  # in a slice present already
+    free = free[: max(0, int(len(above) * SHARE) - out)]
+    return [free[i : i + PAGES] for i in range(0, min(len(free), want * PAGES), PAGES)]
 
 
 def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None = None) -> str:
