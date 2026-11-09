@@ -73,7 +73,7 @@ hour plus one; a slice is sized by the lane's measured rate, the first 300 pages
 address and uploads the journals as an artifact; the tick dispatches the job once it has pushed a
 slice and no run is live (the workflow's schedule is a second trigger) and banks the artifact as
 `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The long
-lane (`runner-lane-long.yml`) is the same job for 23 hours on a self-hosted runner, the owner's
+lane (`runner-lane-long.yml`) is the same job for 6 hours on a self-hosted runner, the owner's
 cloud VM joined by `ssh VM bash -s -- TOKEN < scripts/fleet/join.sh` (the token from `gh api -X
 POST repos/<repo>/actions/runners/registration-token -q .token`, an hour's life; the VM's hostname
 becomes the runner's name, since job logs print it), over `long_*.txt` slices the `long` knob

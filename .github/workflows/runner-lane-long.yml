@@ -1,10 +1,10 @@
 name: runner-lane-long
 
 # The long lane: a self-hosted runner on the owner's cloud VM (scripts/fleet/join.sh, labelled
-# ark-lane) walks one bank-cut docs/registers/runner/long_*.txt slice for up to 23 hours from its
+# ark-lane) walks one bank-cut docs/registers/runner/long_*.txt slice for up to 6 hours from its
 # own address, the rest as runner-lanes.yml. Its own workflow, since runner-lanes' concurrency
 # group would hold the hourly slice all day and its pending job would read as a live run to the
-# tick's dispatch. GitHub cancels a run queued over 24 hours, so WALK_SECONDS stays under 23 h.
+# tick's dispatch. WALK_SECONDS is the schedule's 6 h gap, the next run queued until this ends.
 # The gate on fork code reaching the VM is the repository's "require approval for all external
 # contributors" setting; the VM holds no secret and nothing that knows the bank. The soft knob is
 # docs/registers/runner/long.
@@ -21,7 +21,7 @@ concurrency: runner-lane-long
 
 env:
   WORKERS: 2
-  WALK_SECONDS: 82800
+  WALK_SECONDS: 21600
   # the collectors' disk floor (src/ark/disk.py): the VM has 45 GiB
   ARK_FREE_SPACE_GIB: 1
   ARK_WRITE_BUDGET_GIB: 1
@@ -29,7 +29,7 @@ env:
 jobs:
   long:
     runs-on: [self-hosted, linux, ark-lane]
-    timeout-minutes: 1400
+    timeout-minutes: 380
     env:
       INDEX: 0
     steps:
@@ -62,7 +62,7 @@ jobs:
           echo "no slice for index $INDEX"
 
       # A self-hosted workspace persists: the last job's data goes first. The walker's own
-      # back-off; TERM at the day's end saves what it owes, KILL two minutes on. Its exit is in
+      # back-off; TERM at the walk's end saves what it owes, KILL two minutes on. Its exit is in
       # its log, never a red run.
       - if: steps.pick.outputs.slice != ''
         env:

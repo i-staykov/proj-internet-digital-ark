@@ -3,7 +3,7 @@
 IA throttles CDX per address (laws), so a job of `.github/workflows/runner-lanes.yml` walks one
 slice from a runner's own address and uploads what it wrote as an artifact named by the slice:
 pure scripted requests, no secret on a runner, nothing there knows the VM. `LANES` holds the two
-lanes: `slice_*` for the hosted hourly job, `long_*` for `runner-lane-long.yml`, a day's job on
+lanes: `slice_*` for the hosted hourly job, `long_*` for `runner-lane-long.yml`, a 6 h job on
 the owner's cloud VM (`scripts/fleet/join.sh`), each with its own knob, workflow, lane folder,
 walk seconds and stale hours.
 
@@ -84,7 +84,7 @@ class Lane(NamedTuple):
 
 LANES = {
     "slice": Lane("cadence", "runner-lanes.yml", 0, 3300, 6),
-    "long": Lane("long", "runner-lane-long.yml", 1, 82800, 30),
+    "long": Lane("long", "runner-lane-long.yml", 1, 21600, 30),
 }
 
 _spec = importlib.util.spec_from_file_location(

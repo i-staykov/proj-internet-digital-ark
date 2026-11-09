@@ -79,13 +79,13 @@ def test_size_scales_a_slice_by_the_lane_s_rate_over_its_last_banked_log(tmp_pat
     log.write_text("\n".join(["# artifact 1 a_r0", *first, "# artifact 2 b_r0", *last]) + "\n")
     assert rs.size(log, 3300) == 300, "13 at 3 answered a 1000 s: under the floor"
     monkeypatch.setattr(rs, "PAGES", 4)
-    assert rs.size(log, 3300) == 13 and rs.size(log, 82800) == 311
+    assert rs.size(log, 3300) == 13 and rs.size(log, 21600) == 81
     log.write_text("\n".join(["# artifact 1 a_r0", *first, "# artifact 3 c_r0", row("7", "200")]))
     assert rs.size(log, 3300) == 4, "one row spans nothing"
     log.write_text(
         "\n".join(["# artifact 4 d_r1", row("8", "200"), row("9", "200", at="20261109T100001Z")])
     )
-    assert rs.size(log, 82800) == 10350, "two rows a second apart: capped at one start an INTERVAL"
+    assert rs.size(log, 21600) == 2700, "two rows a second apart: capped at one start an INTERVAL"
 
 
 def test_write_drops_banked_and_stale_slices_and_stops_only_on_a_judged_refusal(tmp_path):
