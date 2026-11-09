@@ -77,7 +77,7 @@ lane (`runner-lane-long.yml`) is the same job for 6 hours on a self-hosted runne
 cloud VM joined by `ssh VM bash -s -- TOKEN < scripts/fleet/join.sh` (the token from `gh api -X
 POST repos/<repo>/actions/runners/registration-token -q .token`, an hour's life; the VM's hostname
 becomes the runner's name, since job logs print it), over `long_*.txt` slices the `long` knob
-keeps cut (1: a spare goes stale in 30 h), banked as
+keeps cut (2: a spare is on live as a walk ends, since the next cut lags it by 1 to 2 h), banked as
 `runner1`. The runners are one more client on their own address, the Channel's cap being per
 address, beside the bank host's three lanes. GitHub's Additional Product Terms for Actions tie use to the
 repository's own software project, which this collection step is. Two stop signals: IA refusing,

@@ -11,8 +11,8 @@ walk seconds and stale hours.
 one more lane would ask (`cdx_extended_walk.load`, pages only, a throwaway lane over
 `data/raw/cdx_walk/runner/`) in pending.txt's head format; the knob (`cadence` or `long`, a
 one-line PR) keeps that many cut, the jobs an hour plus one for the hosted lane, so no job waits
-for the tick, and none without it, one for the long lane, whose spare would go stale waiting; a
-zeroed knob or STOP deletes the slices. A slice's pages are
+for the tick, and none without it, two for the long lane, a spare on live when a walk ends, since
+the next cut lags a walk by 1 to 2 h; a zeroed knob or STOP deletes the slices. A slice's pages are
 ceil(walk seconds x rate x `MARGIN`), at least `PAGES`, the rate the lane's answered rows a second
 over its last banked log, at most the walker's one start an `INTERVAL` (a two-row log says nothing
 faster), so a lane's first slice is `PAGES` and measures it. The runners are one more client on
