@@ -2,9 +2,9 @@ A scout run: one lens never tried for annual evidence, 1996 to 2001 first, then 
 ending in exactly one register row by PR or one `needs-owner` ask, with nobody involved.
 
 1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none when the file
-   is missing); the hunt-family skill picks the next from the brief's shapes, a bulk dated
-   hostname corpus first. The `register-reader` subagent says whether its family is closed or
-   already a row; a closed one is skipped for the next. Never read the registers or
+   is missing); the next is an untried bulk dated hostname corpus among the brief's shapes, else
+   the hunt-family skill's pick. The `register-reader` subagent says whether its family is
+   closed or already a row; a closed one is skipped for the next. Never read the registers or
    `docs/lore/laws.md` whole yourself: a subagent returns the rows or the killer that applies.
 2. The host's terms and whole robots.txt first (`AGENTS.md`, Channel); a host that refuses is a
    measured negative with that reason.
@@ -20,8 +20,8 @@ ending in exactly one register row by PR or one `needs-owner` ask, with nobody i
    `+added / -deleted` counts and one skeptic subagent's paragraph on the row, nothing else.
    The next work run merges it.
    A lens that needs a new evidence class, a custodian's terms or a new address is not yours:
-   one `needs-owner` issue in place of the row. A lens held only as web.archive.org replays
-   needs a new address, never a VM fetch: a fourth client costs its three CDX lanes the archive.
+   one `needs-owner` issue in place of the row. Never fetch web.archive.org from the VM, whose
+   fourth client costs its three CDX lanes the archive: a replay-only lens needs a new address.
 5. Append one tab-separated line to `data/logs/agent/scouts.tsv` (untracked): the date, the
    lens, the verdict, the EE on the sample, the row's PR or the issue.
 6. End with one line: the lens, the verdict, the EE on the sample and the PR or issue.
