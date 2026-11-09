@@ -1,10 +1,9 @@
 A scout run: one lens never tried for annual evidence, 1996 to 2001 first, then 2002 to 2013,
 ending in exactly one register row by PR or one `needs-owner` ask, with nobody involved.
 
-1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none when the file
-   is missing); the next is an untried bulk dated hostname corpus among the brief's shapes, else
-   the hunt-family skill's pick. The `register-reader` subagent says whether its family is
-   closed or already a row; a closed one is skipped for the next. Never read the registers or
+1. The lens: `tail -n 8 data/logs/agent/scouts.tsv` says which are taken (none if missing);
+   the hunt-family skill picks the next. The `register-reader` subagent says whether its
+   family is closed or already a row; a closed one is skipped. Never read the registers or
    `docs/lore/laws.md` whole yourself: a subagent returns the rows or the killer that applies.
 2. The host's terms and whole robots.txt first (`AGENTS.md`, Channel); a host that refuses is a
    measured negative with that reason.
