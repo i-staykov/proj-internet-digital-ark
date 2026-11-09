@@ -47,6 +47,7 @@ READERS = {  # the tick's transient units, their readers and logs (scheduled_syn
     "ark-eot": ("scripts/sources/eot/eot_cdxj.py", "eot_cdxj"),
     "ark-har": ("scripts/sources/httparchive/har_year.py", "har"),
     "ark-clueweb": ("scripts/sources/crawl_lists/clueweb.py", "clueweb"),
+    "ark-fineweb": ("scripts/sources/crawl_lists/fineweb.py", "fineweb"),
     "ark-header": ("scripts/sources/usenet/run_usenet_header_items.py", "usenet_header"),
 }
 START_S = 2 * 3600
