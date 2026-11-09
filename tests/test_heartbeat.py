@@ -218,7 +218,7 @@ def shrinking(hb, today: dt.date, free: float, a_day: float) -> None:
             f"{today - dt.timedelta(days=n)}\t{free + n * a_day:.1f}\n" for n in range(7, -1, -1)
         )
     )
-    hb.space = lambda root: (0, [f"space data: {free:.1f} GiB free, need 70.0 GiB (50 floor)"])
+    hb.free_bytes, hb.collector_floor = lambda path: free * GIB, lambda root: 70 * GIB
 
 
 def test_days_to_floor_from_the_daily_readings(hb):
@@ -227,6 +227,10 @@ def test_days_to_floor_from_the_daily_readings(hb):
     assert hb.disk(today) == (30.0, "disk: 100.0 GiB free, need 70.0, 30 days to floor")
     shrinking(hb, today, 100.0, -1.0)
     assert hb.disk(today) == (None, "disk: 100.0 GiB free, need 70.0, not shrinking")
+    # a prune's rise hides none of the use: 1.0 a day, where the week's ends show none
+    week = enumerate((97, 96, 95, 104, 103, 102, 101, 100))
+    hb.DISK.write_text("".join(f"{today - dt.timedelta(days=7 - n)}\t{f}\n" for n, f in week))
+    assert hb.disk(today)[0] == 30.0
     hb.DISK.write_text(f"{today}\t100.0\n")
     assert hb.disk(today)[1].endswith("1 reading, no 7-day rate yet")
     # the day's reading is its first tick's
