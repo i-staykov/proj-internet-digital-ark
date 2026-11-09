@@ -15,8 +15,7 @@
 # A work run takes the queue's top item (`work_queue.py`), one attempt; parked after three. A
 # run that hit its cap keeps its session on the item, and the next work run resumes it once,
 # then starts fresh from the item's note. A scheduled mode (`schedule`: UTC hours and ISO
-# weekdays, Monday 1) runs at its hour; one the lock turned away from the timer's `auto`
-# leaves `.due-<mode>` under `$LOG_DIR` and runs at the next free hour.
+# weekdays, Monday 1) runs at its hour; one the lock turned away waits for its next.
 # A failed step is a row with its reason, not a silent hour. The token is in the environment
 # of every child the run spawns, so the rails (#521) refuse printing it, and the streams stay
 # under data/, unshipped. Every run's `ARK_PROBE_DIR`, the only place `fetch.py` writes, is
@@ -29,7 +28,7 @@ MODE="${1:-auto}"
 export ARK_AGENT_QUEUE="${ARK_AGENT_QUEUE:-$PWD/data/queue/agent_work.jsonl}"
 export ARK_AGENT_LEDGER="${ARK_AGENT_LEDGER:-$PWD/data/logs/agent_runs.tsv}"
 export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-$PWD/.venv}"
-POLICY=agent/policy.json
+POLICY="${ARK_AGENT_POLICY:-agent/policy.json}"
 LEDGER="${ARK_AGENT_LEDGER:-data/logs/agent_runs.tsv}"
 LOG_DIR="${ARK_AGENT_LOG_DIR:-data/logs/agent}"
 STAMP=$(date -u +%Y%m%dT%H%MZ)
@@ -67,30 +66,37 @@ if bash scripts/harness/hold.sh holds ark-sync.timer; then row held; exit 0; fi
 
 # Descriptor 9 is the lock; both claude runs close it (9>&-) so no child keeps it past the run.
 exec 9> "$LOG_DIR/.lock"
-if command -v flock > /dev/null && ! flock -n 9; then  # no flock on macOS, where no agent runs
-    [ "$MODE" != auto ] || { DUE=$(due "$NOW"); [ -z "$DUE" ] || touch "$LOG_DIR/.due-$DUE"; }
-    row busy; exit 0
-fi
+if command -v flock > /dev/null && ! flock -n 9; then row busy; exit 0; fi  # no flock on macOS, where no agent runs
 
-# `auto`, the timer's: the scheduled mode due now, else one a busy lock left as `.due-<mode>`;
-# else work when the queue holds an item (the umbrella's next open issue after its own
-# `ARK_AGENT_UMBRELLA_AFTER` line is queued when it is empty), the last run was not work and
-# the next hour is nobody's schedule; else triage.
+# `auto`, the timer's: cdx when due; else work when something is broken (an alert tops the
+# queue; an open `vm-alert` or `agent-` pull request is the triage's to queue, never a reason
+# here), the last run was not work and work fits, a scout's hour included; else the mode due;
+# else triage.
+broken() { [ "$(python3 scripts/agents/work_queue.py top --field kind 2> /dev/null)" = alert ]; }
+# Work's cap, its pre-flight (130 s), kill grace (60 s) and the rest, 400 s in all, end before
+# the next cdx tick, :38 of the next scheduled cdx hour.
+fits() {
+    python3 - "$POLICY" "$NOW" <<'PY'
+import datetime as dt, json, sys
+p = json.load(open(sys.argv[1])); when = p.get("schedule", {}).get("cdx", {})
+t = dt.datetime.fromtimestamp(int(sys.argv[2]), dt.UTC)
+tick = t.replace(minute=38, second=0, microsecond=0)
+for h in range(1, 24 * 8):
+    n = tick + dt.timedelta(hours=h)
+    if n.hour in when.get("utc_hours", []) and n.isoweekday() in when.get("weekdays", [n.isoweekday()]):
+        sys.exit(0 if p["modes"]["work"]["timeout_seconds"] + 400 < (n - t).total_seconds() else 1)
+PY
+}
 pick() {
     local due
     due=$(due "$NOW")
-    [ -n "$due" ] || due=$(ls "$LOG_DIR"/.due-* 2> /dev/null | head -1 | sed 's/.*\.due-//')
-    if [ -n "$due" ]; then rm -f "$LOG_DIR/.due-$due"; echo "$due"; return; fi  # consumed once picked
-    python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
-        || python3 scripts/agents/work_queue.py queue-umbrella "${ARK_AGENT_UMBRELLA:-517}" \
-            --after "${ARK_AGENT_UMBRELLA_AFTER:-524}" > /dev/null 2>&1 || true
-    if python3 scripts/agents/work_queue.py top > /dev/null 2>&1 \
-        && [ "$(python3 scripts/agents/agent_ledger.py last "$ARK_AGENT_LEDGER" \
+    if [ "$due" = cdx ]; then echo cdx; return; fi
+    if broken && [ "$(python3 scripts/agents/agent_ledger.py last "$ARK_AGENT_LEDGER" \
             | python3 -c "import json,sys; print(json.load(sys.stdin).get('mode',''))")" != work ] \
-        && [ -z "$(due $((NOW + 3600)))" ]; then
+        && fits; then
         echo work
     else
-        echo triage
+        echo "${due:-triage}"
     fi
 }
 if [ "$MODE" = auto ]; then

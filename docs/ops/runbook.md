@@ -81,7 +81,7 @@ and the red says so. Every tick then prints `BANK RED`. Read the red, fix, then 
 go through `scripts/agents/triage.py`, whose header names their guards.
 
 **The agent** (`ark-agent.timer` at :38; `just agent <mode>` by hand) is one run of
-`scripts/agents/run_agent.sh` in one of four modes: `cdx` every 4 hours from 02 UTC, `scout` an hour after each, `work` in a free hour before a free hour when the queue holds an item, else `triage` (`agent/policy.json` `schedule`); its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
+`scripts/agents/run_agent.sh` in one of four modes, the first that holds: `cdx` every 4 hours from 02 UTC; `work` when an alert tops the queue, the last run was not work and work's cap plus 400 s ends before the next cdx tick; `scout` an hour after each cdx (`agent/policy.json` `schedule`); else `triage`; its header says what a run is; its ledger is `data/logs/agent_runs.tsv`.
 
 **Asks.** `scripts/harness/sync_approvals.py` files one `needs-owner` issue and one PR per
 pending block once the asks together reach the gate; a merge (`AGENTS.md`, Git) approves one.
@@ -163,14 +163,20 @@ labelled `needs-owner`, opens.
 
 ## Intake
 
-Nothing of his enters the store. The one step is the owner's: upload his zip or 7z and its
-`<name>.sha256` to `gdrive:ark-offsite/releases/`. The next tick on the VM, after a green bank and
-under the sync lock, copies it, checks the digest, runs `just intake` (extract, remeasure with his
-calculator, point `data/baseline.json` at the new marker, `ark intake`, drop the release replaced),
-transcribes a changed brief and pushes those pages and `releases.md` to `live`; the bank after it
-re-exports (`scripts/harness/drive_intake.sh`). A mismatch, a failure, a zip with no digest or a VM
-short of memory for his calculator is a `vm-alert`, and a failed upload waits for its line in
-`data/logs/drive_intake.tsv` to go.
+Nothing of his enters the store. His release comes by his mail; the owner downloads it to the
+laptop, where intake runs, since his calculator outgrows the VM's memory (`docs/lore/laws.md`). In
+a worktree there:
+
+```bash
+just intake <his.zip> [--sha256 <digest>]   # verify, extract, remeasure with his calculator, point data/baseline.json at the new marker, `ark intake`
+uv run python scripts/round/extract_ding_docs.py --package <dir> --archive '<archive> (<date>)' --stamp <date>   # a task package only
+```
+
+then PR `data/baseline.json`, `releases.md`, `rounds.md` and the brief. A bank on a JSON whose
+held sets are missing goes red, so: `just hold`, merge the PR, copy the zip to the VM, and in `~/ark`
+there `git pull --ff-only`, the same `just intake` with the same flags (it finds his figures in the
+JSON, skips the calculator and writes only the held sets), `rm -rf` the replaced release's `ding/`
+tree, then `just hold off`.
 
 `ark intake` checks each of his files once and writes `data/held/<marker>/` (`all.txt`,
 `candidates.txt`, `held.json`, and a sorted copy of any file of his that is not sorted, unique and
