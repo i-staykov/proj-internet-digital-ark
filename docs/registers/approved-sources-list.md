@@ -778,6 +778,7 @@ Decision: master
 - measured 2026-11-01, ClueWeb12's first 60 MB (0.43%, crawl-ordered and seeds first, so the share does not scale) against merge261016 plus our 2012 additions: 4,200,249 URLs, 193,370 hosts, 97,908 net-new (50.6%), 62,141.52 EE on 2012; the whole list priced 3,396,843.10 EE against merge261007-4 on 2026-10-07 (6,025,901 valid hosts, 5,472,517 net-new)
 - measured 2026-11-02, WDC 2012's host index whole against merge261016 plus our 2012 additions: 101,717,775 lines, 101,254,307 valid hosts, 86,525,994 net-new (85%, flat by decile of the name-sorted file), 44,607,097.92 EE on 2012 by his calculator; its page index's first 60 MB held 5,157,435 URLs of 93 hosts, grouped by host
 - potential: 677,839 measured on 2009, the whole ClueWeb09 artifact; ClueWeb12 banked; WDC 2012 about 44.6 million on 2012
+- the artifact FineWeb 2013 (#612): Hugging Face `HuggingFaceFW/fineweb`, its CC-MAIN-2013-20 and CC-MAIN-2013-48 parts (205 and 212), read by range by `scripts/sources/crawl_lists/fineweb.py`, each row a page a Common Crawl 2013 crawl fetched; one row per host new to 2013, its stamp the page's own `date`, its node the CC WARC; the `fineweb_2013` row of sources.md (`just find fineweb`)
 Decision: master
 
 ## Pending requests
