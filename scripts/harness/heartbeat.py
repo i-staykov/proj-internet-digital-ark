@@ -7,7 +7,9 @@
   `refused` when the lock refused or the sync failed, `banked` when the bank wrote its stamp
   since START, else `idle`.
 - `data/logs/disk.tsv` gains the day's free GiB at the heartbeat tick: date, free GiB. The disk
-  line's days to the floor is the 7-day rate over those readings.
+  line's days to the collectors' floor are at the last 7 days' rate of use: their falls alone,
+  since a rise is a prune's and would hide the use. Alerting at 14 days, it leads the floor by 7
+  even at twice that rate.
 - Each cause on opens one `vm-alert` issue on ark-fleet titled `vm-alert: <cause>`, reopens a
   closed one, and leaves an open one alone: a failed check (one per FAIL, a reader stopped
   mid-item among them), BANK RED, a commit identity the sync refused, two refused ticks in a
@@ -33,12 +35,14 @@ import re
 import shutil
 import subprocess
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ark.disk import space  # noqa: E402
+from ark.disk import collector_floor  # noqa: E402
+from ark.disk import free as free_bytes  # noqa: E402
 from ark.hygiene import REFUSED_IDENTITY, local_hosts, scan  # noqa: E402
 
 FLEET = "i-staykov/ark-fleet"
@@ -145,20 +149,19 @@ def record(today: dt.date, free: float) -> None:
 
 
 def disk(today: dt.date) -> tuple[float | None, str]:
-    """Days to the floor at the rate of the last 7 days' readings, and its line."""
-    rc, lines = space(root=ROOT)
-    m = re.search(r"([\d.]+) GiB free, need ([\d.]+) GiB", lines[0])
-    if not m:
-        return None, f"disk: {lines[0]}"
-    free, need = float(m[1]), float(m[2])
+    """Days to the collectors' floor at the last 7 days' rate of use, and its line."""
+    try:
+        have, need = free_bytes(ROOT / "data") / GIB, collector_floor(ROOT) / GIB
+    except (OSError, ValueError) as exc:
+        return None, f"disk: cannot establish free space: {exc}"
     week = [(d, f) for d, f in readings() if d >= today - dt.timedelta(days=7)]
-    head = f"disk: {free:.1f} GiB free, need {need:.1f}, "
+    head = f"disk: {have:.1f} GiB free, need {need:.1f}, "
     if len(week) < 2:
         return None, head + f"{len(week)} reading, no 7-day rate yet"
-    rate = (week[0][1] - week[-1][1]) / (week[-1][0] - week[0][0]).days
-    if rate <= 0:
+    falls = [(a - b, (e - d).days) for (d, a), (e, b) in pairwise(week) if a > b]
+    if not falls:
         return None, head + "not shrinking"
-    left = (free - need) / rate
+    left = (have - need) / (sum(f for f, _ in falls) / sum(n for _, n in falls))
     return left, head + f"{left:.0f} days to floor"
 
 
