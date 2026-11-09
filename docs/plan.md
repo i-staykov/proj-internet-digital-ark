@@ -1,7 +1,7 @@
 # The plan
 
-IA throttles CDX per address, so throughput is addresses: collection runs unattended from every
-address that pays, 1996 to 2001 first. Where we stand: the last comment on ark-fleet's open
+IA throttles CDX per address (`docs/lore/laws.md`), so throughput is addresses. Aim: collection
+runs unattended from every address that pays, 1996 to 2001 first. Where we stand: ark-fleet's
 `VM heartbeat` issue (`scripts/harness/heartbeat.py`). The work, in order: #585 to #588, then
 [#517](https://github.com/i-staykov/proj-internet-digital-ark/issues/517)'s numbered list.
 
