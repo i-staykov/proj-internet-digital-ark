@@ -69,7 +69,7 @@ the tick re-ranks the queue by measured EE per request, and `local.env` exports
 **Runner lanes** (`.github/workflows/runner-lanes.yml`, `scripts/engines/runner_slices.py`): IA
 throttles per address, so a job on GitHub's runners walks one slice the bank cut
 (`docs/registers/runner/slice_*.txt`; `cadence`, a one-line PR, keeps that many cut, the jobs an
-hour plus one; a slice is sized by the lane's measured rate, the first 300 pages) from its own
+hour plus one; a slice, pages then questions, sized by the lane's rate, 300 at first) from its own
 address and uploads the journals as an artifact; the tick dispatches the job once it has pushed a
 slice and no run is live (the workflow's schedule is a second trigger) and banks the artifact as
 `runner0`, its row beside the lanes' in `data/logs/productivity.tsv` and the heartbeat. The long
@@ -141,7 +141,7 @@ and every collector stops asking within a page or a file. A dry run's hand tick 
 | raise a class decision | `just approve <spec> --journal <j>` writes the pending block |
 | prove what is on disk | `just verify raw`, `just verify offsite --verify`; in a worktree, whose `data/` entries are links offsite refuses and whose `submissions/` has no tarballs, `scripts/round/verify_raw.py` and `offsite.py` take `--root <checkout> --table docs/registers/retention.md`; `just vm status` for the hourly tick |
 | a bank prints APPROVED AND NOT BANKED | `uv run python scripts/harness/bank_approved.py --write` refetches and ingests them |
-| retention | `just prune`; the tick's `just prune --round --write` removes only what has proofs, a `data/ark.duckdb.pre-*.bak` once `data/baseline.json` credits a later round; backups need no Drive copy |
+| retention | `just prune`; once a UTC day the tick's `just prune --round --write` and `--disk --write` remove only what has proofs, a `data/ark.duckdb.pre-*.bak` once `data/baseline.json` credits a later round (backups need no Drive copy), and skip the rest until the next day |
 | triage a VM alert | a corpus path with an era worm is content; under `/home`, `/usr` or `/etc`, or a miner, backdoor or credential stealer: `auth.log` for non-publickey logins, `ss -tulpn`, `crontab -l` as both users, `systemctl --user list-units 'ark-*'` |
 
 ## Figures

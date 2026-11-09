@@ -10,9 +10,10 @@ anyway, because the stamp it writes afterwards records them as seen.
 A red bank writes `data/logs/bank_red.json`, and nothing banks until someone reads it and runs
 `clear`. Stdlib only, so the tick never imports `ark`.
 
-`prune` runs `just prune --round --write` once a round credited in `data/baseline.json` is
-newer than `data/logs/prune_round`, under the tick's lock after the gate, and prints its one
-line; the mark is written by a prune that held nothing, so a held one is tried again next tick.
+`prune` runs `just prune --round --write`, then `just prune --disk --write`, once a UTC day under
+the tick's lock after the gate, and prints its one line. Each deletes a file only behind its own
+proof and holds the rest, so a file waiting on its off-site receipt holds nothing else and is
+tried again the next day.
 
     uv run python scripts/harness/bank_trigger.py check            exit 0 names why, 1 nothing
     uv run python scripts/harness/bank_trigger.py stamp            after a green bank
@@ -39,7 +40,7 @@ APPROVALS = "docs/registers/approved-sources-list.md"
 BASELINE = "data/baseline.json"
 STAMP = "data/logs/bank_stamp.json"
 RED = "data/logs/bank_red.json"
-PRUNED = "data/logs/prune_round"
+PRUNED = "data/logs/prune_day"
 # What the last `check` measured. The stamp takes it for every glob but the bank's own output,
 # so a journal landing after its fold is still new to the next bank.
 SEEN = "data/logs/bank_seen.json"
@@ -229,25 +230,25 @@ def clear(root: Path = ROOT) -> str:
     return "\n".join(lines)
 
 
-def credited(root: Path = ROOT) -> str:
-    """The newest date among the rounds `data/baseline.json` lists with an awarded percent."""
-    rounds = _json(root / BASELINE).get("rounds") or []
-    return max((r.get("date") or "" for r in rounds if r.get("awarded_percent")), default="")
-
-
-def prune(root: Path = ROOT, run=subprocess.run) -> str:
-    """The prune's one line once a round credited since the last clean run lets it go, else ""."""
-    newest, mark = credited(root), root / PRUNED
-    done = mark.read_text(encoding="utf-8").strip() if mark.exists() else ""
-    if not newest or newest <= done:
+def prune(root: Path = ROOT, run=subprocess.run, today: str = "") -> str:
+    """The day's prune line, once a UTC day, else ""."""
+    today, mark = today or datetime.now(UTC).date().isoformat(), root / PRUNED
+    if mark.exists() and mark.read_text(encoding="utf-8").strip() >= today:
         return ""
-    p = run(["just", "prune", "--round", "--write"], cwd=root, capture_output=True, text=True)
-    if p.returncode == 0:
-        mark.parent.mkdir(parents=True, exist_ok=True)
-        mark.write_text(newest + "\n", encoding="utf-8")
-    # the prune's own lines; `ark check` prints its report into the same stdout
-    said = [ln for ln in p.stdout.splitlines() if ln.startswith(("removed", "HELD", "round "))]
-    return f"prune: round {newest}: " + "; ".join(said or [f"exit {p.returncode}"])
+    said = []
+    for mode in ("round", "disk"):
+        p = run(["just", "prune", f"--{mode}", "--write"], cwd=root, capture_output=True, text=True)
+        # each file's own line; `ark check` prints its report into the same stdout
+        lines = [ln.strip() for ln in p.stdout.splitlines()]
+        held = [ln for ln in lines if ln.startswith("HELD")]
+        if p.returncode and not held:
+            said.append(f"{mode} exit {p.returncode}")
+            continue
+        gone = sum(ln.startswith("removed:") for ln in lines)
+        said.append(f"{mode} {gone} removed, {len(held)} held" + (f" ({held[0]})" if held else ""))
+    mark.parent.mkdir(parents=True, exist_ok=True)
+    mark.write_text(today + "\n", encoding="utf-8")
+    return f"prune {today}: " + "; ".join(said)
 
 
 def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
@@ -261,7 +262,7 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     rd.add_argument("--failed", default="", help="failed steps, space separated")
     rd.add_argument("--check", type=Path, help="the ark check log; its tail is kept")
     sub.add_parser("clear", help="print the red and lift it")
-    sub.add_parser("prune", help="round cleanup once per credited round, one line when it ran")
+    sub.add_parser("prune", help="round and disk cleanup once a day, one line when it ran")
     args = ap.parse_args(argv)
 
     if args.cmd == "check":

@@ -295,29 +295,22 @@ def test_a_red_bank_blocks_every_reason_until_cleared(tmp_path, capsys):
     assert bt.clear(root) == "bank: nothing to clear"
 
 
-def test_the_prune_runs_until_clean_once_per_credited_round(tmp_path):
-    root, calls, rc = _tree(tmp_path), [], 1
+def test_the_prune_runs_once_a_day_and_a_held_file_holds_nothing_else(tmp_path):
+    root, calls = _tree(tmp_path), []
+    said = {
+        "--round": "ok: a check line\nremoved: data/ark.duckdb.pre-a.bak\nHELD r.zip: no receipt\n",
+        "--disk": "  removed: data/raw/x/a.zip\n  removed folder: data/raw/x\n  HELD b.zip: why\n",
+    }
 
     def run(cmd, **_):
         calls.append(cmd)
-        out = "ok: a check line\nremoved: data/ark.duckdb.pre-a.bak\n" + (
-            "HELD x: why\n" if rc else ""
-        )
-        return Mock(stdout=out, returncode=rc)
+        return Mock(stdout=said.get(cmd[2], "Traceback\n"), returncode=1)
 
-    rounds = [{"date": "2026-09-05", "awarded_percent": "18.7"}]
-    baseline = root / bt.BASELINE
-    baseline.write_text(json.dumps({"rounds": rounds}))
-    assert bt.prune(root, run) == (
-        "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak; HELD x: why"
+    assert bt.prune(root, run, "2026-11-10") == (
+        "prune 2026-11-10: round 1 removed, 1 held (HELD r.zip: no receipt); "
+        "disk 1 removed, 1 held (HELD b.zip: why)"
     )
-    rc = 0  # a held prune is tried again; a clean one marks the round
-    assert bt.prune(root, run) == "prune: round 2026-09-05: removed: data/ark.duckdb.pre-a.bak"
-    assert bt.prune(root, run) == "" and len(calls) == 2
-    rounds.append({"date": "2026-10-15", "awarded_percent": ""})  # not credited
-    baseline.write_text(json.dumps({"rounds": rounds}))
-    assert bt.prune(root, run) == ""
-    rounds.append({"date": "2026-10-15", "awarded_percent": "0.03"})
-    baseline.write_text(json.dumps({"rounds": rounds}))
-    assert bt.prune(root, run).startswith("prune: round 2026-10-15: ") and len(calls) == 3
-    assert calls[-1] == ["just", "prune", "--round", "--write"]
+    assert calls == [["just", "prune", f"--{m}", "--write"] for m in ("round", "disk")]
+    assert bt.prune(root, run, "2026-11-10") == "" and len(calls) == 2
+    said.clear()  # a crash is tried again the next day too
+    assert bt.prune(root, run, "2026-11-11") == "prune 2026-11-11: round exit 1; disk exit 1"
