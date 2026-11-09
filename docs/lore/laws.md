@@ -126,6 +126,7 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - The public IA bulk indexes we know are read (Dartmouth ARCS, the node CDX, UKWA, Early Web CDX, Arquivo.pt `IA.cdxj`); the 2,223 in-window Alexa and Inktomi deposits' CDX files are `private=true` and answer 401; `just find archiveorg_in_window_web_items_alexa_inktomi`.
 - Our IA coverage is bound by our query rate, not IA's holdings: 239,631 domains ever asked at CDX against 2.5M in the pool, at about 713 requests an hour (`src/ark/cdx.py`).
 - The UK Web Archive host link graph is IA data and ran 90.4% net-new against 46.0% pool-wide: a link graph names hosts CDX does not return as captures; `just find ukwa`.
+- A web directory's in-window link targets are already his: 211 of 211 from 21 DMOZ pages of 2000 to 2001 are in his 2000 and 2001 files, 1,141 of 1,155 (98.8%) from 17 Yahoo pages of 1997 in his 1997 file, so 60 Wayback page fetches priced at most 4.49 EE, 0.07 a request against the lanes' 0.05 on 1996 to 2001 (merge261016 snapshot).
 - Listing a name proves the artifact's date, not liveness (Netcraft, JANET); `just find Netcraft`.
 - A request-count filter fails on a period sum: a host asked twice clears it; `just find Netcraft`.
 - A trust-selected corpus holds authorities: 7.1M Usenet `Path:` hops were 4,736 domains; 126 in-window certificates held 17 hosts, all CA domains; `just find X.509`.
