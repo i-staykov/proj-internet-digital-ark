@@ -1,9 +1,9 @@
 # The plan
 
-IA throttles CDX per address (`docs/lore/laws.md`), so throughput is addresses. Aim: collection
-runs unattended from every address that pays, 1996 to 2001 first. Where we stand: ark-fleet's
-`VM heartbeat` issue (`scripts/harness/heartbeat.py`). The work, in order: #585 to #588, then
-[#517](https://github.com/i-staykov/proj-internet-digital-ark/issues/517)'s numbered list.
+Where we stand: ark-fleet's `VM heartbeat` issue. In order: #585; runner jobs ask gap questions
+before the pages run out; #506 the disk floor; #588; rebuild `data/queue/pool_questions.tsv` so the
+tick writes edge-2002, then EARLY 1 to 3 by its own `levers.json` PR; read FineWeb 2013 as a
+crawl list. The owner's asks: more free addresses, IA making its Alexa and Inktomi CDX public.
 
 - The agent: breakage and its cdx and scout runs (#587, `scripts/agents/run_agent.sh`); a session:
   the rest by PR, and what the agent's ledger (`data/logs/agent_runs.tsv`) shows it stuck on.
