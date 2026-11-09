@@ -9,14 +9,16 @@ list (#286) read as `crawl_lists` (`clueweb.py`, `ark.hostnames.CRAWL_LISTS`).
 A part is some 2.1 GB of parquet in some 1,100 row groups whose `url`, `date` and `file_path`
 chunks lie side by side: its footer is read, then one range GET a row group spans those three
 (about 62 KB), so a part costs some 68 MB and six minutes, and the text is never asked for.
-One row per host new to 2013 among the parts read, `{url, timestamp, node}`, the stamp the
-page's fetch time and the node its WARC, into
-`data/raw/extended/crawl_lists/fineweb-2013-NN_<part>.jsonl.gz`, one journal a part; a host the
-earlier crawl gave adds nothing to the year, so the later one skips it. The year's hosts so far
-are Arrow arrays rebuilt from the journals at a start, a fifth of a Python set's memory. A part
-is done once its journal landed and `fineweb.done` holds its line (its LFS sha256, which the
-hub's redirect confirmed, row groups, rows, hosts, bytes and GETs); a start deletes a journal
-without one.
+One row per host new to 2013, `{url, timestamp, node}`, the stamp the page's fetch time and
+the node its WARC, into `data/raw/extended/crawl_lists/fineweb-2013-NN_<part>.jsonl.gz`, one
+journal a part. New is in no earlier journal, his 2013 file or our 2013 additions as the bank's
+price snapshot stages them, each asked by `comm`, which never holds it (`ark.held.names_in`):
+some 95% of FineWeb's hosts are his, and the hourly extended export copies every journaled row,
+a dip that pauses the lanes. A snapshot without his 2013 file stops the run. The year's hosts
+so far are Arrow arrays rebuilt at a start a journal at a time, so a start holds one journal's
+URLs and the net-new hosts alone. A part is done once its journal landed and `fineweb.done`
+holds its line (its LFS sha256, which the hub's redirect confirmed, row groups, rows, hosts,
+bytes and GETs); a start deletes a journal without one.
 
 One client, through `scripts/harness/fetch.py`'s robots and User-Agent: the parts in order,
 PAUSE_S between them, each part's hub redirect resolved once and again when its signed URL
@@ -50,13 +52,16 @@ import pyarrow.compute as pc
 import pyarrow.json as pj
 import pyarrow.parquet as pq
 
+from ark import price_snapshot as snap
 from ark.disk import below_floor, trim
+from ark.held import HeldError, names_in
 from ark.hostnames import host_of
 
 REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/raw/extended/crawl_lists"
 LOG = REPO / "data/logs/fineweb.log"  # the tick's `>>` for the unit
 DONE, FAILED, WAIT = OUT / "fineweb.done", OUT / ".fineweb.failed", OUT / ".fineweb.wait"
+SNAPSHOT = REPO / "output/price_snapshot"  # `scripts/harness/snapshot_manifest.py` stages it
 HUB = "https://huggingface.co"
 TREE = HUB + "/api/datasets/HuggingFaceFW/fineweb/tree/main/data/{crawl}"
 PART = HUB + "/datasets/HuggingFaceFW/fineweb/resolve/main/{path}"
@@ -190,16 +195,27 @@ def journal(path: str) -> Path:
     return OUT / f"fineweb-{crawl}_{Path(path).stem}.jsonl.gz"
 
 
-def read(path: str, size: int, sha: str, seen: list) -> str:
+def held_2013() -> list[Path]:
+    """His 2013 file and, once exported, our 2013 additions, as the snapshot stages them."""
+    manifest, _ = snap.read_manifest(SNAPSHOT)
+    his, ours = f"{manifest['marker']}/2013.txt", f"{snap.NETNEW_DIR}/2013.txt"
+    if his not in manifest["files"]:
+        raise snap.SnapshotError(f"the price snapshot stages no {his}")
+    return [SNAPSHOT / rel for rel in (his, ours) if rel in manifest["files"]]
+
+
+def read(path: str, size: int, sha: str, seen: list, against: list[Path]) -> str:
     """One part: its journal, unless no host is new, and its done line; a line for the log."""
     t0, part = time.time(), Part(path, size, sha)
     found, groups, rows = firsts(part)
-    new = unseen(found, seen)
-    if len(new):
+    fresh = unseen(found, seen).to_pylist()
+    held = set().union(*(names_in(fresh, names) for names in against))
+    new = [host for host in fresh if host not in held]
+    if new:
         out = journal(path)
         tmp = out.with_name(f".{out.name}.tmp")
         with io.TextIOWrapper(gzip.GzipFile(tmp, "wb", mtime=0)) as fh:
-            for host in new.to_pylist():
+            for host in new:
                 url, stamp, node = found[host]
                 fh.write(json.dumps({"url": url, "timestamp": stamp, "node": node}) + "\n")
         os.replace(tmp, out)
@@ -207,7 +223,7 @@ def read(path: str, size: int, sha: str, seen: list) -> str:
     line |= {"new": len(new), "bytes": part.bytes, "gets": part.gets}
     with open(DONE, "a") as fh:
         fh.write(json.dumps(line) + "\n")
-    seen.append(new)
+    seen.append(pa.array(new, pa.string()))
     took = round(time.time() - t0)
     return f"{path}\t{groups}\t{rows}\t{len(found)}\t{len(new)}\t{part.bytes}\t{part.gets}\t{took}"
 
@@ -236,8 +252,12 @@ def year_so_far() -> list:
     for stray in [*OUT.glob(".fineweb-*.tmp"), *OUT.glob("fineweb-*.jsonl.gz")]:
         if stray.name not in names:
             stray.unlink()
-    urls = [pj.read_json(p).column("url").to_pylist() for p in OUT.glob("fineweb-*.jsonl.gz")]
-    return [pa.array([host_of(u) for u in some], pa.string()) for some in urls]
+    return [hosts(p) for p in sorted(OUT.glob("fineweb-*.jsonl.gz"))]
+
+
+def hosts(path: Path) -> pa.Array:
+    """A journal's hosts, its URLs dropped on return."""
+    return pa.array([host_of(u) for u in pj.read_json(path).column("url").to_pylist()], pa.string())
 
 
 def listing(crawl: str) -> list[tuple[str, int, str]]:
@@ -273,12 +293,14 @@ def main() -> None:
             if why := below_floor(OUT, root=REPO):
                 return print(f"fineweb: {why}", flush=True)
             try:
-                print(read(path, size, sha, seen), flush=True)
+                print(read(path, size, sha, seen, held_2013()), flush=True)
             except (Failed, OSError, pa.ArrowException) as exc:  # a cut, a refusal, a bad byte
                 with open(FAILED, "a") as fh:
                     fh.write(f"{path}\t{' '.join(str(exc).split())}\n")
                 raise Failed(f"{path} struck, {exc}") from exc
             time.sleep(PAUSE_S)
+    except (snap.SnapshotError, HeldError) as exc:  # the bank stages it again within the hour
+        return print(f"fineweb: {exc}", flush=True)
     except Failed as exc:
         WAIT.write_text(f"{time.time() + WAIT_S:.0f}\n")
         return print(f"fineweb: {exc}, waits until {stamp(time.time() + WAIT_S)}", flush=True)

@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import time
+import tracemalloc
 import zipfile
 from decimal import Decimal as D
 from types import SimpleNamespace
@@ -457,8 +458,19 @@ def test_the_fineweb_reader_books_by_range_each_host_new_to_2013_once(tmp_path, 
     for name in ("DONE", "FAILED", "WAIT"):
         monkeypatch.setattr(fw, name, tmp_path / getattr(fw, name).name)
     monkeypatch.setattr(fw, "below_floor", lambda *a, **k: "")
-    monkeypatch.setattr(fw.subprocess, "run", lambda *a: SimpleNamespace(returncode=1))  # no hold
+    run, no_hold = subprocess.run, SimpleNamespace(returncode=1)  # comm and sort run as they are
+    monkeypatch.setattr(
+        fw.subprocess, "run", lambda c, **k: no_hold if c[-1] == "holds" else run(c, **k)
+    )
     monkeypatch.setattr(fw, "CRAWLS", {"CC-MAIN-2013-20": 2, "CC-MAIN-2013-48": 2})
+    # the bank's price snapshot: b.com is his for 2013, d.com already ours
+    snap, files = tmp_path / "snap", {"m/2013.txt": "b.com\nzz.com\n", "netnew/2013.txt": "d.com\n"}
+    for rel, names in files.items():
+        (snap / rel).parent.mkdir(parents=True)
+        (snap / rel).write_text(names)
+    manifest = json.dumps({"marker": "m", "built_at": "x", "files": dict.fromkeys(files, {})})
+    (snap / "manifest.json").write_text(manifest)
+    monkeypatch.setattr(fw, "SNAPSHOT", snap)
     parts = {
         "data/CC-MAIN-2013-20/000_00000.parquet": ["a.com", "a.com", "under_score.com", "b.com"],
         "data/CC-MAIN-2013-20/000_00001.parquet": ["b.com", "d.com", "x.com"],  # x: no date
@@ -491,8 +503,7 @@ def test_the_fineweb_reader_books_by_range_each_host_new_to_2013_once(tmp_path, 
         for p in sorted(tmp_path.glob("fineweb-*.jsonl.gz"))
     }
     assert {n: [r["url"] for r in rs] for n, rs in rows.items()} == {
-        "fineweb-2013-20_000_00000.jsonl.gz": ["http://a.com/page", "http://b.com/page"],
-        "fineweb-2013-20_000_00001.jsonl.gz": ["http://d.com/page"],
+        "fineweb-2013-20_000_00000.jsonl.gz": ["http://a.com/page"],
         "fineweb-2013-48_000_00000.jsonl.gz": ["http://e.com/page"],
     }
     first = rows["fineweb-2013-20_000_00000.jsonl.gz"][0]
@@ -503,8 +514,8 @@ def test_the_fineweb_reader_books_by_range_each_host_new_to_2013_once(tmp_path, 
     }
     booked = [json.loads(ln) for ln in (tmp_path / "fineweb.done").read_text().splitlines()]
     assert [(b["row_groups"], b["rows"], b["hosts"], b["new"]) for b in booked] == [
-        (2, 4, 2, 2),
-        (2, 3, 2, 1),
+        (2, 4, 2, 1),
+        (2, 3, 2, 0),
         (2, 3, 2, 1),
     ]
     assert all(b["bytes"] < len(blobs[b["part"]]) / 2 for b in booked)  # the text is never asked
@@ -517,15 +528,38 @@ def test_the_fineweb_reader_books_by_range_each_host_new_to_2013_once(tmp_path, 
     # a start: a journal no done line names is a killed run's; the year rebuilt from the rest
     (tmp_path / "fineweb-2013-48_000_00001.jsonl.gz").write_bytes(_journal([first]))
     year = sorted(h for hosts in fw.year_so_far() for h in hosts.to_pylist())
-    assert year == ["a.com", "b.com", "d.com", "e.com"]
+    assert year == ["a.com", "e.com"]
     assert not (tmp_path / "fineweb-2013-48_000_00001.jsonl.gz").exists()
-    # a part the server keeps refusing takes a strike, and the reader waits out the hour
+    # a snapshot mid-restage stops the run before a part is asked, and strikes nothing
     listed["data/CC-MAIN-2013-48/000_00001.parquet"] = b"x" * 100
+    (snap / "manifest.json").unlink()
+    calls = len(asked)
+    fw.main()
+    assert len(asked) == calls + 2 and not fw.strikes()  # the two listings alone
+    # a part the server keeps refusing takes a strike, and the reader waits out the hour
+    (snap / "manifest.json").write_text(manifest)
     fw.main()
     assert fw.strikes()["data/CC-MAIN-2013-48/000_00001.parquet"] == 1 and fw.left() == 1
     calls = len(asked)
     fw.main()
     assert len(asked) == calls and float((tmp_path / ".fineweb.wait").read_text()) > time.time()
+
+
+def test_a_fineweb_start_holds_one_journals_urls_at_a_time(tmp_path, monkeypatch):
+    fw = script("sources/crawl_lists/fineweb.py")
+    monkeypatch.setattr(fw, "OUT", tmp_path)
+    monkeypatch.setattr(fw, "DONE", tmp_path / "fineweb.done")
+    parts = [f"data/CC-MAIN-2013-20/000_{n:05}.parquet" for n in range(8)]
+    for n, part in enumerate(parts):
+        rows = [{"url": f"http://h{n}x{i}.com/{'p' * 400}"} for i in range(1000)]
+        fw.journal(part).write_bytes(_journal(rows))
+    fw.DONE.write_text("".join(json.dumps({"part": p}) + "\n" for p in parts))
+    tracemalloc.start()
+    year = fw.year_so_far()
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert sum(map(len, year)) == 8000 and all(a.type == pa.string() for a in year)
+    assert peak < 8000 * 400 / 3, peak  # the year's URLs are some 3.2 MB, one journal's 0.4 MB
 
 
 def test_the_http_archive_reader_counts_new_hosts_within_one_year(tmp_path, monkeypatch):
