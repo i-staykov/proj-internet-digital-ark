@@ -232,6 +232,15 @@ if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
 else
     echo "no extended additions: packaging without extended_years/"
 fi
+# Labelled folders, data/labelled/<name>/: year evidence of a class his annual files do not take,
+# each shipped whole under its own name by the owner's ruling and never merged into additions/.
+for dir in data/labelled/*/; do
+    [ -d "$dir" ] || continue
+    name=$(basename "$dir")
+    [ -f "$dir/README.md" ] || { echo "refusing to package: $dir has no README.md" >&2; exit 1; }
+    [ -e "$STAGE/$name" ] && { echo "refusing to package: $name/ is taken in the archive" >&2; exit 1; }
+    cp -R "$dir" "$STAGE/$name"
+done
 # ISC candidates must stay separate from annual records and carry per-host provenance.
 mkdir -p "$STAGE/isc_survey_hostnames"
 cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \

@@ -91,6 +91,7 @@ release in `legacy-data/` and run `just reproduce` (needs `just`), about 50 GB. 
 | `baseline/README.txt` | your release the additions count against: the sha256 and line count of each file of it the checks read |
 | `candidate_additions.txt`, `candidate_additions_summary.json` | every candidate name we hold that is in neither your pool nor your annual files, with their count and equivalent-English |
 | `candidates.txt`, `isc_survey_hostnames/`, `server_header_hostnames/` | the candidate collections, each with provenance: names without year-specific web evidence, ISC Domain Survey hosts, and hosts named only in mail or Usenet server headers |
+| labelled folders, such as `nonweb_years/` | year evidence of a class your annual files do not take, each with a `README.md` naming the class, source and how a name was dated: `<year>.txt` in your format, never also in `additions/` |
 | `candidates_unparsed.txt` | values the parser refused, each with its reason |
 | `provenance/` | the evidence graph of every name the lists hold, as Parquet, with `trace.py` and `LOAD.sql` |
 | `audit/` | the merge against your release in your column names, `merge_stats_ark_*.csv` and `merge_audit_ark_*.json`; per-source contribution, source saturation, `year_growth.csv` and the ingest audits written this round |
