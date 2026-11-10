@@ -5,7 +5,7 @@ A name picks the item it is and every item under it (`fido7` picks `usenet-fido7
 Archive.org's scrape API lists the items; dealt largest first, every `--of`-th from `--shard`
 is this job's, and `--split files` deals files by their name's CRC instead, every job listing
 every item, for an item too large for one job. PARALLEL downloads at once, their starts 1 s
-apart as on the bank host (`run_usenet_header_items.py`), about 1 GB a batch, each batch
+apart as on the bank host (`run_usenet_header_items.py`), about 1 GB or 300 files a batch, each
 extracted by `build_usenet_header_pool.py` into `OUT/hr_<UTC stamp>_<shard>/` on every core
 while the next one downloads, and no zip outlives its extract. `OUT/read_<shard>.tsv` keeps
 each file's batch, item, name, bytes and answer, and each batch's download and extract seconds.
@@ -38,7 +38,7 @@ UA = "internet-digital-ark/1.0 (usenet header lane)"  # the tool and its version
 BUILD = Path(__file__).with_name("build_usenet_header_pool.py")
 # every transfer bounded: no connection in 60 s, or under 1 KB/s for 300 s, ends it
 CURL = ["curl", "-sSL", "--connect-timeout", "60", "--speed-time", "300", "--speed-limit", "1024"]
-PARALLEL, BATCH = 3, 1e9
+PARALLEL, BATCH, FILES = 3, 1e9, 300  # a batch: a GB, or 300 small files
 BUSY = ("429", "503")  # the host asks for a pause
 LOCK, NEXT, STOP = threading.Lock(), [0.0], threading.Event()
 
@@ -194,19 +194,19 @@ def main() -> None:
     end, reader, rows, why = time.time() + a.seconds, Reader(a.out, a.shard), [], ""
     try:
         for row in files(a, reader.note):
+            if STOP.is_set() or time.time() > end:
+                break
             if row[2] > shutil.disk_usage(a.out).free / 3:  # the zip, its batch and its extract
                 reader.note("-", *row, "disk")
                 continue
             rows.append(row)
-            if sum(r[2] for r in rows) >= BATCH:
+            if sum(r[2] for r in rows) >= BATCH or len(rows) >= FILES:
                 reader.batch(rows)
                 rows = []
-            if STOP.is_set() or time.time() > end:
-                break
         else:
-            if rows:
-                reader.batch(rows)
             why = "read out"
+        if rows and not STOP.is_set():  # what was listed is read, the deadline's margin its room
+            reader.batch(rows)
     except (OSError, ValueError) as exc:  # a listing that failed: what is built still uploads
         why = f"listing failed: {type(exc).__name__}"
     why = "asked to pause" if STOP.is_set() else why or "out of time"
