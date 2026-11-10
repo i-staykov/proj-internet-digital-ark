@@ -293,7 +293,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
 # field, `msg_<folder>__<field>`, so a new list banks without a new family.
 STAGED_MESSAGE_SOURCE = re.compile(
     r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
-    r"|news_header|lease|header_more|body_mention)$"
+    r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
@@ -1846,6 +1846,10 @@ MESSAGE_FIELDS = {
     "lease": "msg_lease_host",  # one of those that `is_ephemeral` calls a dial-up lease
     "header_more": "msg_header_more_host",  # every other header host
     "body_mention": "msg_body_mention_host",  # a `user@host` or bare `www.` name in the body
+    # a web server's usage report: the client host its own lookup named, dated by the period
+    "visitor_rdns": "msg_visitor_rdns_host",
+    # a traceroute's hop, the router name its own reverse lookup gave, dated by the run
+    "trace_hop": "msg_trace_hop_host",
 }
 STAGED_MESSAGES_APPROVAL = "staged_messages"
 _STAGED_FOLDER = re.compile(r"^[a-z0-9][a-z0-9_]*$")
