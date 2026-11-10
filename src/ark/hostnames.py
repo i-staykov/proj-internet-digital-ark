@@ -292,7 +292,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
 # The generic dated-message lane (`ingest_staged_messages`): one source per staged folder and
 # field, `msg_<folder>__<field>`, so a new list banks without a new family.
 STAGED_MESSAGE_SOURCE = re.compile(
-    r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id)$"
+    r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
+    r"|news_header|lease|header_more|body_mention)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
@@ -1840,6 +1841,11 @@ MESSAGE_FIELDS = {
     "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
     "from": "msg_from_host",  # host right of the `@` in `From:`
     "message_id": "msg_message_id_host",  # host right of the `@` in `Message-ID:`
+    # a news post's fields, as `build_usenet_header_pool.py` reads them (`USENET_FIELD_FAMILIES`)
+    "news_header": "msg_news_header_host",  # X-Trace, NNTP-Posting-Host, the final Path hop
+    "lease": "msg_lease_host",  # one of those that `is_ephemeral` calls a dial-up lease
+    "header_more": "msg_header_more_host",  # every other header host
+    "body_mention": "msg_body_mention_host",  # a `user@host` or bare `www.` name in the body
 }
 STAGED_MESSAGES_APPROVAL = "staged_messages"
 _STAGED_FOLDER = re.compile(r"^[a-z0-9][a-z0-9_]*$")
