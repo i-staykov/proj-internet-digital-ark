@@ -52,7 +52,7 @@ from ark import held
 from ark.bulk import SourceSpec, held_rows_sql
 from ark.canonical import to_registrable
 from ark.db import ensure_source
-from ark.evidence_types import ERROR_STATUS, WEB_METHODS
+from ark.evidence_types import ERROR_STATUS, WEB_METHODS, qualifies_sql
 
 SOURCE_NAME = "ia_cdx_hostnames"
 # One source row, two acquisition methods: the NYPW TimeMap parts re-emitted at hostname
@@ -610,12 +610,14 @@ def _fold_journals(
         stats["evidence_rows"] = fresh.num_rows
         stats["hostname_year_rows"] = _date_hosts(conn, fresh)
         # A 2xx or 3xx takes a host-year an earlier journal, or this batch's dating, gave to an
-        # error capture. The rows those host-years cite are read first, so the status test
-        # never scans evidence.
+        # error capture; a capture that ships takes one a non-web class dated first (a Usenet
+        # or mail header, a DNS listing), which `_date_hosts` keeps, stranding the capture in
+        # the candidates. The rows those host-years cite are read first, so the screen never
+        # scans evidence.
         conn.register("fresh_hosts", fresh)
         try:
             stats["repointed"] = conn.execute(
-                """
+                f"""
                 UPDATE hostname_year SET evidence_id = r.evidence_id
                 FROM (
                     WITH taken AS MATERIALIZED (
@@ -625,13 +627,20 @@ def _fold_journals(
                         JOIN fresh_hosts f
                           ON f.hostname = hy.hostname AND f.year = hy.assigned_year
                         WHERE NOT regexp_matches(f.evidence_value, $error)
+                          AND hy.evidence_id <> f.evidence_id
                     ), cited AS MATERIALIZED (
-                        SELECT evidence_id, evidence_value FROM evidence
+                        SELECT * FROM evidence
                         WHERE evidence_id IN (SELECT held_id FROM taken)
+                           OR evidence_id IN (SELECT evidence_id FROM taken)
                     )
-                    SELECT t.hostname, t.assigned_year, t.evidence_id
-                    FROM taken t JOIN cited c ON c.evidence_id = t.held_id
+                    SELECT t.hostname, t.assigned_year, min(t.evidence_id) AS evidence_id
+                    FROM taken t
+                    JOIN cited c ON c.evidence_id = t.held_id
+                    JOIN cited n ON n.evidence_id = t.evidence_id
                     WHERE regexp_matches(c.evidence_value, $error)
+                       OR (NOT {qualifies_sql("c", "t.hostname")}
+                           AND {qualifies_sql("n", "t.hostname")})
+                    GROUP BY 1, 2
                 ) r
                 WHERE hostname_year.hostname = r.hostname
                   AND hostname_year.assigned_year = r.assigned_year
@@ -1776,6 +1785,49 @@ OTHER_WEB_JOURNALS = tuple(
         "hostcdx_hostgrain_3xx",
     )
 )
+
+
+def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = False) -> dict:
+    """Every host-year whose row fails XIV while the store holds a row that passes it for that
+    exact host and year, by year; `write` points the host-year at the earliest such row.
+
+    A capture banked after a non-web class dated its host-year (a Usenet or mail header, a DNS
+    listing) got its own evidence row, but `_date_hosts` kept the first row, so the export
+    shipped the host as a candidate. The fold now repoints on arrival; this repairs a store
+    banked before it. Idempotent: a second run finds nothing.
+    """
+    from ark.evidence_types import exact_host_expr, web_evidence_sql
+
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE stranded AS
+        WITH weak AS MATERIALIZED (
+            SELECT hy.hostname, hy.parent_domain, hy.assigned_year
+            FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
+            WHERE NOT {qualifies_sql("e", "hy.hostname")}
+        ), web AS MATERIALIZED (
+            SELECT x.evidence_id, x.domain, x.evidence_year, {exact_host_expr("x")} AS host
+            FROM evidence x
+            WHERE x.domain IN (SELECT parent_domain FROM weak) AND {web_evidence_sql("x")}
+        )
+        SELECT w.hostname, w.assigned_year, min(v.evidence_id) AS evidence_id
+        FROM weak w JOIN web v
+          ON v.domain = w.parent_domain AND v.evidence_year = w.assigned_year
+         AND v.host = w.hostname
+        GROUP BY 1, 2
+    """)
+    stats = dict(
+        conn.execute(
+            "SELECT assigned_year, count(*) FROM stranded GROUP BY 1 ORDER BY 1"
+        ).fetchall()
+    )
+    if write:
+        conn.execute("""
+            UPDATE hostname_year SET evidence_id = s.evidence_id FROM stranded s
+            WHERE hostname_year.hostname = s.hostname
+              AND hostname_year.assigned_year = s.assigned_year
+        """)
+    conn.execute("DROP TABLE stranded")
+    return stats
 
 
 def retract_error_captures(
