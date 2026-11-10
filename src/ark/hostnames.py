@@ -1944,9 +1944,9 @@ def staged_message_rows(
             if not _VALID_HOST.match(host) or _INTERNAL_LABELS & set(labels):
                 counts["rejected_host"] += 1
                 continue
-            # the brief's quarantine: a suffix of 1 to 3 labels written twice in a row
-            # (`x.example.com.example.com`) is a mail system's misconfigured name, not a host
-            if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) > 2 * k):
+            # the brief's quarantine: 1 to 3 final labels written twice in a row, whole name
+            # too (`x.example.com.example.com`, `ph.org.ph.org`), is a misconfigured name
+            if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) >= 2 * k):
                 counts["duplicated_suffix"] += 1
                 continue
             key = (field, host, year)

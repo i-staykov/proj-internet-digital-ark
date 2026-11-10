@@ -668,7 +668,7 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
         dict(host="mx.example.org", year=2004, file=art, pos=12, field="received_by"),
         dict(host="mx.example.org", year=1998, file="/tmp/x", pos=1, field="received_by"),
         dict(host="bugs.example.org", year=2000, file="rsync://x.org/bugs/1", pos=1, field="from"),
-        dict(host="a.example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
+        dict(host="example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
         dict(host="smtp.mail.com.com", year=1998, file=art, pos=12, field="rdns"),
     ]
     folder = tmp_path / "php_list_header"
