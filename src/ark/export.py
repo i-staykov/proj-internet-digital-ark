@@ -198,19 +198,20 @@ def export_isc_hostnames(
 
 
 def _minus_his(names: Path, his: held.Held, out: Path, taken: Path | None = None) -> int:
-    """Write the lines of `names` that no candidate file and no year file of his holds, by
-    exact name, and count them. `taken` gets those his candidate files hold, which the
-    candidate summary counts, as `names` less the rest rather than another pass over his."""
+    """Write the lines of `names` that no candidate file and no annual file of his holds (1996
+    to 2013 once `ark intake` prepared `held.ANNUAL`), by exact name, and count them. `taken`
+    gets those his candidate files hold, which the candidate summary counts, as `names` less
+    the rest rather than another pass over his."""
     rest = names.with_name(f"{names.stem}_not_candidate.txt")
     held.minus(names, his.candidates, rest)
     if taken:
         held.minus(names, rest, taken)
-    return held.minus(rest, his.all, out)
+    return held.minus(rest, his.annual or his.all, out)
 
 
 # In the cache key: bumped whenever the Python of the reduction changes (`held.dump`,
 # `_minus_his`, the `comm` flags), which the key's digest of the query cannot see.
-ISC_CACHE_VERSION = 1
+ISC_CACHE_VERSION = 2
 
 
 def reduce_isc(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> Path:
