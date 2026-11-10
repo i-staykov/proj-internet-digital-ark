@@ -130,15 +130,11 @@ def is_ephemeral(host: str) -> bool:
 
 # The side journals, in the order the bank ingests them.
 SIDE = ("url", "msgid", "from", "lease", "more", "body")
-# An address munged against harvesters, or a placeholder nobody could reach, as a whole label:
-# `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`. A word inside a
-# real name stays: `spamcop.net` and `junkbusters.com` are hosts, and his files hold such names.
+# An address munged against harvesters, or a placeholder nobody could reach, the word in any
+# label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
 MUNGED = re.compile(
-    r"(^|\.)(spam|invalid|example|nowhere|bogus|fake|munged?|junk|devnull|localhost|localdomain"
-    r"|yourdomain|xxx|no|not|none|null|dont|anti|domain|somewhere)(\.|$)"
-    # and a munge phrase anywhere in the name: `sparkesnospam.demon.co.uk`, `n0spam.freeuk.net`
-    r"|n[o0]-?spam|anti-?spam|kill-?spam|hate-?spam|spam-?(block|free|trap|guard|filter)"
-    r"|no-?junk|remove-?(this|me)|delete-?this|take-?out|xxx-"
+    r"spam|invalid|example|remove|delete|nowhere|bogus|fake|munge|junk|devnull|localhost"
+    r"|localdomain|yourdomain|xxx|(^|\.)(no|not|none|null|dont|anti|domain|somewhere)\."
 )
 # The address in angle brackets where there is one (`Name <box@host>`), else the first one
 # (`box@host (Name)`); the group is the host and nothing left of the `@` is kept.
