@@ -721,3 +721,31 @@ def test_an_unmoved_shard_is_not_hashed_again(tmp_path, monkeypatch):
     monkeypatch.setattr(hn, "_sha256", lambda _: pytest.fail("an unmoved shard was hashed"))
     again = hn.ingest_usenet_item_dir(conn, path.parent, family=fam, digests=tmp_path)
     assert again["files_skipped"] == 1
+
+
+def test_a_batch_of_shards_banks_what_shard_by_shard_does(tmp_path):
+    """The first shard naming a host-year keeps it, and each shard gets its ledger row."""
+    shared, own = ("news.zetnet.co.uk", 2001), ("pcserv.demon.co.uk", 1998)
+    for name, items in (
+        ("shard_000.jsonl.gz", [("uk.comp.misc.mbox.zip#3", 2001, shared[0])]),
+        ("shard_001.jsonl.gz", [("uk.comp.misc.mbox.zip#1", 2001, shared[0]),
+                                ("demon.ip.support.pc.mbox.zip#7", 1998, own[0])]),
+    ):  # fmt: skip
+        journal(tmp_path, items, name)
+    fam, results = hn.USENET_HEADER_FAMILY, []
+    for batched in (True, False):
+        conn = store()
+        if batched:
+            hn.ingest_usenet_item_dir(conn, tmp_path / "items", family=fam)
+        else:
+            for path in sorted((tmp_path / "items").glob("*.gz")):
+                hn.ingest_usenet_item_journal(conn, path, family=fam)
+        results.append(
+            (
+                q(conn, "SELECT hostname, assigned_year, source_file, evidence_value FROM "
+                  "hostname_year JOIN evidence USING (evidence_id) ORDER BY 1"),
+                q(conn, "SELECT file_name, record_rows FROM ingested_file ORDER BY 1"),
+            )
+        )  # fmt: skip
+    assert results[0] == results[1]
+    assert results[0][1] == [("items/shard_000.jsonl.gz", 1), ("items/shard_001.jsonl.gz", 1)]
