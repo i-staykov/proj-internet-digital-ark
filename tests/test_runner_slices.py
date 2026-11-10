@@ -322,6 +322,7 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
     batch = "hr_20261110T163801_0"
     read = {
         f"{batch}/shard_000.jsonl.gz": b"h",
+        f"{batch}/shard_001.jsonl.gz": b"i",
         f"{batch}/lease/{batch}_000.jsonl.gz": b"l",
         f"{batch}/lease/other_000.jsonl.gz": b"x",
         "read_0.tsv": b"end\tread out\n",
@@ -350,11 +351,9 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
 
     monkeypatch.setattr(rs, "gh", gh)
     assert rs.pull(data) == "runner slices: 3 artifacts banked, 5 members dropped"
-    header = data / "raw/usenet_header_items" / batch
-    assert sorted(p.name for p in header.rglob("*.gz")) == [
-        f"{batch}_000.jsonl.gz",
-        "shard_000.jsonl.gz",
-    ]
+    header = data / "raw/usenet_header_items/hr_42_0"  # the job's batches as one
+    assert (header / "shard_000.jsonl.gz").read_bytes() == b"hi"
+    assert [p.name for p in header.glob("*/*")] == ["hr_42_0_000.jsonl.gz"]
     assert (data / "logs/runner_header/6_header_42_0.tsv").exists()
     assert (core / journal).read_bytes() == b"new" and (ext / journal).read_bytes() == b"kept"
     assert not (data / "raw/cdx_suffix/evil.sh").exists() and not (tmp_path / "evil.txt").exists()

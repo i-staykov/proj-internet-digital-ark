@@ -33,8 +33,9 @@ allowlist into a staging folder, its id written to `banked.txt`, then banked: jo
 `data/raw/` where the name is absent, done keys to `runner<index>/done.txt` less the parents whose
 subpages the job's pending.txt still owes (a lane re-asks a page the runner cut and did not
 finish), the log rows once, under a `# artifact <id> <name>` marker. A `runner-header.yml` job's
-artifact (`header_<run>_<index>`) banks its `hr_*` batches into `data/raw/usenet_header_items/`,
-which the bank folds, and its read log into `data/logs/runner_header/`. A staged folder a crash
+artifact (`header_<run>_<index>`) banks its `hr_*` batches as one, a file a journal family, into
+`data/raw/usenet_header_items/hr_<run>_<index>/`, which the bank folds at about 2 s a file
+whatever its size, and its read log into `data/logs/runner_header/`. A staged folder a crash
 left banks first. Any failure is one line and exit 0.
 
 `dispatch`, after the bank's push: one run per workflow while its slice is on `live`, none while
@@ -327,11 +328,17 @@ def bank(stage: Path, data: Path) -> None:
     if HEADER.match(name):
         out, logs = data / "raw/usenet_header_items", data / "logs/runner_header"
         out.mkdir(parents=True, exist_ok=True)
-        for batch in sorted(stage.glob("hr_*")):
-            if not (out / batch.name).exists():  # a dot name first: the fold's glob skips it
-                shutil.rmtree(out / f".{batch.name}", ignore_errors=True)
-                shutil.move(batch, out / f".{batch.name}")
-                os.replace(out / f".{batch.name}", out / batch.name)
+        final = out / f"hr_{name[7:]}"  # a job's batches as one: the fold costs seconds a file
+        tmp = out / f".{final.name}"  # a dot name first: the fold's glob skips it
+        shutil.rmtree(tmp, ignore_errors=True)
+        for src in [] if final.exists() else sorted(stage.glob("hr_*/**/*.jsonl.gz")):
+            side = src.parent.name if src.parent.parent != stage else ""
+            dst = tmp / side / (f"{final.name}_000.jsonl.gz" if side else "shard_000.jsonl.gz")
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            with open(src, "rb") as one, open(dst, "ab") as whole:  # gzip members concatenate
+                shutil.copyfileobj(one, whole)
+        if tmp.exists():
+            os.replace(tmp, final)
         for log in stage.glob("read_*.tsv"):
             logs.mkdir(parents=True, exist_ok=True)
             shutil.move(log, logs / f"{aid}_{name}.tsv")
