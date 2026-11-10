@@ -570,6 +570,31 @@ def ingest_ietf_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
 
 
+@app.command(name="ingest-gnome-header-hostnames")
+def ingest_gnome_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards of mail.gnome.org `by` hosts, or their directories.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated mail.gnome.org list messages.
+
+    The Apache class at a third host: the `Received: ... by <host>` clause, the item the
+    pipermail pointer `gnome/<list>__<YYYY-Month>.txt#<n>`. Idempotent per shard.
+    Example: ark ingest-gnome-header-hostnames data/raw/gnome_header_items
+    """
+    from ark.hostnames import GNOME_HEADER_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=GNOME_HEADER_FAMILY)))
+
+
 @app.command(name="ingest-usenet-header-hostnames")
 def ingest_usenet_header_hostnames_cmd(
     paths: Annotated[

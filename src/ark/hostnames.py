@@ -269,6 +269,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "apache_list_header_hostnames",
         # The same clause in the IETF mail archive (`IETF_FAMILY`).
         "ietf_list_header_hostnames",
+        # And in the mail.gnome.org month files (`GNOME_HEADER_FAMILY`).
+        "gnome_list_header_hostnames",
         # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
         # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
         # article, about itself or the machine it came from, in a transaction it completed.
@@ -1515,6 +1517,19 @@ def _ietf_url(item: str) -> str:
 
 
 IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
+
+# The Apache class at a third host: the same `by` clause in the
+# mail.gnome.org month files, which kept their full `Received:` chains where python's and
+# zope's strip them. The item is the pipermail lane's gnome pointer, so `_maillist_url`
+# resolves it; `collect_gnome_header.py` writes the shard with the Apache lane's parser.
+GNOME_HEADER_SOURCE = "gnome_list_header_hostnames"
+GNOME_HEADER_METHOD = "gnome_list_received_by"
+_GNOME_ITEM = re.compile(
+    r"^gnome/[a-z0-9][a-z0-9._+-]*__(?:199[6-9]|200[01])-[A-Z][a-z]+\.txt#\d+$"
+)
+GNOME_HEADER_FAMILY = ItemFamily(
+    GNOME_HEADER_SOURCE, GNOME_HEADER_METHOD, "list header", _GNOME_ITEM, _maillist_url
+)
 
 # The sixth member: the server-written header fields of a dated Usenet post.
 #
