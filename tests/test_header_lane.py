@@ -284,11 +284,11 @@ def test_a_runner_job_reads_its_share_once_and_names_what_it_read(tmp_path, monk
 
     monkeypatch.setattr(m, "fetch", fetch)
     monkeypatch.setattr(m, "BUILD", tmp_path / "build.py")
-    stub = "import sys, pathlib; d = pathlib.Path(sys.argv[2]); d.mkdir()"
+    stub = "import sys, pathlib; d = pathlib.Path(sys.argv[2]); d.mkdir(); sys.argv[4]"
     m.BUILD.write_text(stub + "; (d / 'shard_000.jsonl.gz').touch()")
     for shard in (0, 1):
         monkeypatch.setattr(sys, "argv", ["x", str(tmp_path / "out"), "--names", "a b.y"])
-        sys.argv += ["--shard", str(shard), "--of", "2"]
+        sys.argv += ["--shard", str(shard), "--of", "2", "--build=--keep-ephemeral"]
         m.main()
     rows = [ln.split("\t") for ln in (tmp_path / "out/read_0.tsv").read_text().splitlines()]
     # `a` and `b.y` are shard 0's items, and the group both hold is read once
