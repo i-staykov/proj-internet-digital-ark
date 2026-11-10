@@ -116,9 +116,8 @@ def fetch(item: str, name: str, size: int, pool: Path) -> str:
 class Reader:
     """Batches downloaded one after the other, each extracted while the next downloads."""
 
-    def __init__(self, out: Path, shard: int, build: list[str]) -> None:
+    def __init__(self, out: Path, shard: int) -> None:
         self.out, self.shard, self.building, self.files, self.size = out, shard, None, 0, 0
-        self.extra = build  # the extractor's own flags, passed through
         self.log = open(out / f"read_{shard}.tsv", "a")
 
     def note(self, *row) -> None:
@@ -156,7 +155,7 @@ class Reader:
             return
         cmd = [sys.executable, str(BUILD), str(pool), str(self.out / f".{name}")]
         workers = min(got, os.cpu_count() or 1)  # a shard a worker: none left empty
-        proc = subprocess.Popen([*cmd, str(workers), *self.extra], stdout=subprocess.DEVNULL)
+        proc = subprocess.Popen([*cmd, str(workers)], stdout=subprocess.DEVNULL)
         self.building = (proc, name, time.time())
 
 
@@ -192,11 +191,9 @@ def main() -> None:
     ap.add_argument("--of", type=int, default=1)
     ap.add_argument("--split", choices=("items", "files"), default="items")
     ap.add_argument("--seconds", type=int, default=19800)
-    ap.add_argument("--build", default="", help="flags for build_usenet_header_pool.py")
     a = ap.parse_args()
     a.out.mkdir(parents=True, exist_ok=True)
-    reader, rows, why = Reader(a.out, a.shard, a.build.split()), [], ""
-    end = time.time() + a.seconds
+    end, reader, rows, why = time.time() + a.seconds, Reader(a.out, a.shard), [], ""
     try:
         for row in files(a, reader.note):
             if STOP.is_set() or time.time() > end:

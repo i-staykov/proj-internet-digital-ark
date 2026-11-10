@@ -20,9 +20,6 @@ on:
       seconds:
         description: a job stops asking after this many
         default: "19800"
-      build:
-        description: flags for build_usenet_header_pool.py
-        default: ""
       runs_on:
         description: the runner label, as JSON
         default: '"ubuntu-latest"'
@@ -63,12 +60,11 @@ jobs:
           SPLIT: ${{ inputs.split }}
           SECONDS_: ${{ inputs.seconds }}
           INDEX: ${{ matrix.index }}
-          BUILD: ${{ inputs.build }}
         run: |
           rm -rf runner-out
           python3 scripts/sources/usenet/runner_header_items.py runner-out --names "$NAMES" \
             --shard "$INDEX" --of "$SHARDS" --split "$SPLIT" --seconds "$SECONDS_" \
-            --build="$BUILD" || echo "reader exit $?"
+            || echo "reader exit $?"
 
       # Dot folders (a torn extract, zips in flight) are excluded by default.
       - if: always()
