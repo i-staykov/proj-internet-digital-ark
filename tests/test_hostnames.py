@@ -745,12 +745,15 @@ def test_a_batch_of_shards_banks_what_shard_by_shard_does(tmp_path):
     ):  # fmt: skip
         journal(tmp_path, items, name)
     fam, results = hn.USENET_HEADER_FAMILY, []
-    for batched in (True, False):
+    shards = sorted((tmp_path / "items").glob("*.gz"))
+    for mode in ("folder", "list", "each"):
         conn = store()
-        if batched:
+        if mode == "folder":
             hn.ingest_usenet_item_dir(conn, tmp_path / "items", family=fam)
+        elif mode == "list":  # the bank's many batch folders, in one call
+            hn.ingest_usenet_item_dir(conn, shards, family=fam)
         else:
-            for path in sorted((tmp_path / "items").glob("*.gz")):
+            for path in shards:
                 hn.ingest_usenet_item_journal(conn, path, family=fam)
         results.append(
             (
@@ -759,5 +762,5 @@ def test_a_batch_of_shards_banks_what_shard_by_shard_does(tmp_path):
                 q(conn, "SELECT file_name, record_rows FROM ingested_file ORDER BY 1"),
             )
         )  # fmt: skip
-    assert results[0] == results[1]
+    assert results[0] == results[1] == results[2]
     assert results[0][1] == [("items/shard_000.jsonl.gz", 1), ("items/shard_001.jsonl.gz", 1)]

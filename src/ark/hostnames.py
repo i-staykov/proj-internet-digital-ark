@@ -1737,10 +1737,15 @@ def usenet_item_rows(
 
 
 def _usenet_file(
-    conn: duckdb.DuckDBPyConnection, path: Path, family: ItemFamily, digest: str | None
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    family: ItemFamily,
+    digest: str | None,
+    ledger: dict[str, tuple[str, int]] | None = None,
 ) -> tuple[dict[str, int | str | bool], tuple | None]:
     """One shard's stats and, unless the ledger holds it at this digest, its batch entry:
-    (file key, digest, rows it banked before, rows).
+    (file key, digest, rows it banked before, rows). `ledger`, the family's `ingested_file`
+    rows read once, spares a query a shard.
 
     The idempotence key carries the pool, because every pool names its shards
     `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
@@ -1752,10 +1757,13 @@ def _usenet_file(
     # write a shard once, but the IETF collector appends every month of a list to that
     # list's one shard, so a name key would mark it done at its first length and skip every
     # later month silently. Re-reading a grown shard costs one pass and adds no row it holds.
-    previous = conn.execute(
-        "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
-        [family.source, file_key],
-    ).fetchone()
+    if ledger is not None:
+        previous = ledger.get(file_key)
+    else:
+        previous = conn.execute(
+            "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
+            [family.source, file_key],
+        ).fetchone()
     if previous is not None and previous[0] == digest:
         stats["skipped"] = True
         logger.debug(f"{file_key}: already ingested, skipping")
@@ -1878,13 +1886,15 @@ _USENET_BATCH_ROWS = 500_000
 
 def ingest_usenet_item_dir(
     conn: duckdb.DuckDBPyConnection,
-    root: Path,
+    root: Path | list[Path],
     pattern: str | None = None,
     family: ItemFamily = USENET_FAMILY,
     digests: Path | None = None,
 ) -> dict[str, int]:
     """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file, banked
-    in batches of about `_USENET_BATCH_ROWS` rows (`_bank_usenet_files`).
+    in batches of about `_USENET_BATCH_ROWS` rows (`_bank_usenet_files`). `root` may be a list,
+    in its order: the header lane's hundreds of batch folders then share one ledger read, one
+    pool of readers and full batches, where a call a folder paid each of those a folder.
 
     **Both `.jsonl.gz` and plain `.jsonl` are read** unless the caller names a pattern,
     because `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory
@@ -1893,11 +1903,11 @@ def ingest_usenet_item_dir(
     `<source>.digests.tsv`, so a shard that kept both is not hashed again every bank.
     """
     totals: Counter[str] = Counter()
-    if root.is_dir():
-        patterns = [pattern] if pattern else ["*.jsonl.gz", "*.jsonl"]
-        files = sorted({p for pat in patterns for p in root.glob(pat)})
-    else:
-        files = [root]
+    patterns = [pattern] if pattern else ["*.jsonl.gz", "*.jsonl"]
+    files: list[Path] = []
+    for one in root if isinstance(root, list) else [root]:
+        files += sorted({p for pat in patterns for p in one.glob(pat)}) if one.is_dir() else [one]
+    files = list(dict.fromkeys(files))
     cache = digests / f"{family.source}.digests.tsv" if digests else None
     known: dict[str, tuple[int, int, str]] = {}
     if cache and cache.is_file():
@@ -1913,13 +1923,20 @@ def ingest_usenet_item_dir(
             logger.info(f"banked {len(batch)} shards")
             batch.clear()
 
+    ledger = {
+        name: (sha, rows)
+        for name, sha, rows in conn.execute(
+            "SELECT file_name, sha256, record_rows FROM ingested_file WHERE source_name = ?",
+            [family.source],
+        ).fetchall()
+    }
     pending: list[tuple[Path, tuple]] = []
     for path in files:
         name, st = str(path.resolve()), path.stat()
         old = known.get(name)
         digest = old[2] if old and old[:2] == (st.st_size, st.st_mtime_ns) else _sha256(path)
         known[name] = (st.st_size, st.st_mtime_ns, digest)
-        stats, entry = _usenet_file(conn, path, family, digest)
+        stats, entry = _usenet_file(conn, path, family, digest, ledger)
         if entry is None:
             totals["files_skipped"] += 1
         else:
