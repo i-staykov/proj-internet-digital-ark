@@ -278,6 +278,12 @@ bank *args:
                 uv run ark ingest-received-rdns-hostnames --lease data/raw/received_rdns_items/lease \
                     | tail -1 || C_FAIL="$C_FAIL received_rdns_lease"
             fi
+            # The dated message archives, a folder a source, moved here once their rows passed.
+            if fold "data/raw/staged_messages/*/*.jsonl.gz"; then
+                C_RAN="$C_RAN staged_messages"
+                uv run ark ingest-staged-messages data/raw/staged_messages/*/ | tail -1 \
+                    || C_FAIL="$C_FAIL staged_messages"
+            fi
         fi
         uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes

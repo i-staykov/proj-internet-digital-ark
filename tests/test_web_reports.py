@@ -82,3 +82,28 @@ def staged(tmp_path, period_capture):
 def test_an_archived_host_page_takes_its_period_only_from_a_capture_of_the_same_week(tmp_path):
     assert len(staged(tmp_path / "near", "20000112000000")) == 1
     assert staged(tmp_path / "far", "20010601000000") == []
+
+
+WUSAGE = """<html><head><title>Week of 01/14/01 to 01/20/01
+</title></head><h3>Top 50 of 2669 Documents Sorted by Access Count</h3>
+<td>index.example.org</td><td align="right">9</td>
+<a name="sites"><h3>Top 50 of 12027 Sites by Access Count</h3></a>
+<td>crawler1.bos2.fast-search.net</td><td align="right">688</td>
+<a name="referrers"><h3>Top 10 of 6028 Referring URLs by Access Count</h3></a>
+<td>www.referrer.example.com</td><td align="right">3</td>
+"""
+
+
+def test_wusage_reads_its_sites_table_alone_and_a_row_names_its_page(tmp_path):
+    site = tmp_path / "raw" / "wayback"
+    (site / "h").mkdir(parents=True)
+    (site / "h" / "10971.html").write_text(WUSAGE)
+    replay = "https://web.archive.org/web/20010701101628id_/http://h/10971.html"
+    (site / "receipts.receipts").write_text(json.dumps({"path": "h/10971.html", "replay": replay}))
+    reports._STAMPS.clear()
+    reports._URLS.clear()
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert [(r["host"], r["year"], r["file"], r["pos"], r["field"]) for r in rows] == [
+        ("crawler1.bos2.fast-search.net", 2001, replay, 5, "visitor_rdns")
+    ]

@@ -1,8 +1,9 @@
 """Held by him is the exact name in his files, tested by `LC_ALL=C comm`.
 
 `prepare` checks each file of his release once and writes `data/held/<marker>/`: a sorted
-copy of any file that is not already sorted, unique and lowercase, `all.txt` (his six years)
-and `candidates.txt` (his candidate files). His files are never written. `load` hands every
+copy of any file that is not already sorted, unique and lowercase, `all.txt` (his six years),
+`candidates.txt` (his candidate files) and, when his release has them, `annual.txt` (every
+annual file of his, 1996 to 2013). His files are never written. `load` hands every
 reader the same prepared set, and refuses one his files have moved past.
 """
 
@@ -30,6 +31,9 @@ HELD_ROOT = Path("data/held")
 STAMP = "held.json"
 ALL = "all.txt"
 CANDIDATES = "candidates.txt"
+# **His candidate rule removes a name any annual master of his holds**, his 2002 to 2013 files
+# included, so a candidate is netted against this set and never against `all.txt` alone.
+ANNUAL = "annual.txt"
 POOL = "candidate_pool.txt"
 _C = {**os.environ, "LC_ALL": "C"}
 # ours are registrables and hostnames, which `registered_domain_format` and
@@ -55,6 +59,9 @@ class Held:
     candidates: Path
     candidate_files: tuple[Path, ...]
     counts: dict[str, int]
+    annual: Path | None = (
+        None  # None until `ark intake` prepares it, then a candidate nets on `all`
+    )
 
     def year(self, year: int) -> Path:
         return self.years[year]
@@ -257,12 +264,33 @@ def prepare(baseline: Path | None = None) -> Held:
     year_files = [prepared[baseline / f"{year}.txt"] for year in YEARS]
     _merge(year_files, out / ALL)
     _merge([prepared[p] for p in files[len(YEARS) :]], out / CANDIDATES)
-    for name in (ALL, CANDIDATES):
-        stamp[name] = _stat(out / name)
+    late = [baseline / f"{y}.txt" for y in _baseline.EXTENDED_YEARS]
+    if late := [path for path in late if path.is_file()]:
+        part = out / "late.txt.part"
+        try:
+            sources = "[" + ", ".join(repr(str(path)) for path in late) + "]"
+            _copy_to(
+                conn := _connect(),
+                f"SELECT DISTINCT name FROM ({his_lines(sources)}) "
+                "WHERE coalesce(name, '') <> '' ORDER BY name",
+                part,
+            )
+            conn.close()
+            check_sorted(part)
+            _merge([out / ALL, part], out / ANNUAL)
+        finally:
+            part.unlink(missing_ok=True)
+        stamp["late"] = {path.name: _stat(path) for path in late}
+    else:
+        (out / ANNUAL).unlink(missing_ok=True)
+    for name in (ALL, CANDIDATES, ANNUAL):
+        if (out / name).is_file():
+            stamp[name] = _stat(out / name)
     stamp["counts"] = {
         **{str(year): lines(path) for year, path in zip(YEARS, year_files, strict=True)},
         "all": lines(out / ALL),
         "candidates": lines(out / CANDIDATES),
+        **({"annual": lines(out / ANNUAL)} if late else {}),
     }
     part = out / f"{STAMP}.part"
     part.write_text(json.dumps(stamp, indent=1, sort_keys=True) + "\n", encoding="utf-8")
@@ -303,9 +331,12 @@ def load(baseline: Path | None = None) -> Held:
             if not checked.is_file() or _stat(checked) != recorded:
                 raise HeldError(f"{checked} changed since {out / STAMP} was written: {fix}")
         paths[rel] = use
-    for name in (ALL, CANDIDATES):
+    for name in (ALL, CANDIDATES, *([ANNUAL] if ANNUAL in stamp else [])):
         if not (out / name).is_file() or _stat(out / name) != stamp[name]:
             raise HeldError(f"{out / name} changed since {out / STAMP} was written: {fix}")
+    for late, recorded in stamp.get("late", {}).items():
+        if not (baseline / late).is_file() or _stat(baseline / late) != recorded:
+            raise HeldError(f"{baseline / late} changed since {out / STAMP} was written: {fix}")
     held = Held(
         marker=out.name,
         baseline=baseline,
@@ -315,8 +346,9 @@ def load(baseline: Path | None = None) -> Held:
         candidates=out / CANDIDATES,
         candidate_files=tuple(files[len(YEARS) :]),
         counts=stamp["counts"],
+        annual=out / ANNUAL if ANNUAL in stamp else None,
     )
-    for path in [*held.years.values(), held.all, held.candidates]:
+    for path in [*held.years.values(), held.all, held.candidates, *filter(None, [held.annual])]:
         _mark(path)
     return held
 

@@ -626,3 +626,20 @@ def test_the_pool_ships_each_in_window_raw_name_beneath_a_domain(tmp_path, his_f
     records = ("www.already-his.com", "www.rolled.com")
     _, result = _pool(tmp_path, "third", *records, conn=duckdb.connect())
     assert (result["domains"], result["domains_not_in_his_files"]) == (5, 3)
+
+
+def test_a_candidate_his_2002_to_2013_files_hold_is_his(tmp_path) -> None:
+    """His candidate rule removes a name any annual master holds, his late files included."""
+    from ark.export import _minus_his
+
+    plain = held.prepare(stage(tmp_path / "plain"))
+    assert plain.annual is None, "a release without late files nets on his six years"
+    folder = stage(tmp_path, {"2003.txt": b"Late.Example.com\r\n", "2010.txt": b"x.org\n"})
+    his = held.prepare(folder)
+    assert read(his.annual) == sorted({*read(his.all), "late.example.com", "x.org"})
+    (names := tmp_path / "names.txt").write_text("late.example.com\nnew.example.com\nx.org\n")
+    assert _minus_his(names, his, out := tmp_path / "out.txt") == 1
+    assert read(out) == ["new.example.com"]
+    (folder / "2010.txt").write_bytes(b"x.org\ny.org\n")
+    with pytest.raises(held.HeldError, match="2010.txt changed"):
+        held.load(folder)

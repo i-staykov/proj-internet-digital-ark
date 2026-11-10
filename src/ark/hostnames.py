@@ -1705,20 +1705,15 @@ def usenet_item_rows(
     return rows
 
 
-def ingest_usenet_item_journal(
-    conn: duckdb.DuckDBPyConnection,
-    path: Path,
-    family: ItemFamily = USENET_FAMILY,
-    digest: str | None = None,
-) -> dict[str, int | str | bool]:
-    """One `{item, year, text}` shard into hostname_year, idempotently; `digest` is its sha256
-    when the caller already knows it.
+def _usenet_file(
+    conn: duckdb.DuckDBPyConnection, path: Path, family: ItemFamily, digest: str | None
+) -> tuple[dict[str, int | str | bool], tuple | None]:
+    """One shard's stats and, unless the ledger holds it at this digest, its batch entry:
+    (file key, digest, rows it banked before, rows).
 
     The idempotence key carries the pool, because every pool names its shards
     `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
     """
-    from ark import approvals
-
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     file_key = f"{path.parent.name}/{path.name}"
     digest = digest or _sha256(path)
@@ -1733,9 +1728,7 @@ def ingest_usenet_item_journal(
     if previous is not None and previous[0] == digest:
         stats["skipped"] = True
         logger.debug(f"{file_key}: already ingested, skipping")
-        return stats
-    approvals.check(family.source, "link_source")
-
+        return stats, None
     counts: Counter[str] = Counter()
     lines: dict[tuple[str, int], int] = {}
     rows = [
@@ -1744,36 +1737,83 @@ def ingest_usenet_item_journal(
     ]
     stats.update(counts)
     stats["hostname_year_candidates"] = len(rows)
-    stats["hostname_year_rows"] = 0
+    return stats, (file_key, digest, previous[1] if previous else 0, rows)
+
+
+def _bank_usenet_files(
+    conn: duckdb.DuckDBPyConnection, family: ItemFamily, entries: list[tuple]
+) -> dict[str, int]:
+    """Bank shards' rows with one staging, one insert and one dating, since each insert scans
+    `evidence` once whatever its size (about 2 s a shard on the VM). The first shard naming a
+    host-year keeps it, as shard by shard. Each shard gets its `ingested_file` row, carrying
+    what it has contributed across every reading of it, because the table is keyed on
+    (source_name, file_name) and a grown shard replaces its own row."""
+    from ark import approvals
+
+    approvals.check(family.source, "link_source")
+    staged, seen = [], set()
+    for key, _, _, rows in entries:
+        for row in rows:
+            if (row[0], row[2]) not in seen:
+                seen.add((row[0], row[2]))
+                staged.append((*row, key))
+    out = {"evidence_rows": 0, "hostname_year_rows": 0}
+    per_file: Counter[str] = Counter()
     with _one_transaction(conn):
-        if rows:
+        if staged:
             source_id = ensure_source(conn, family.source, "timestamped")
-            _stage_hosts(conn, "usenethost", rows, source_id)
+            _stage_hosts(conn, "usenethost", staged, source_id)
             fresh = _insert_host_rows(
                 conn,
                 "usenethost",
-                {
-                    "source_id": source_id,
-                    "type": "link_source",
-                    "method": family.method,
-                    "file": file_key,
-                },
+                {"source_id": source_id, "type": "link_source", "method": family.method},
                 url_sql="t.url",
+                file_sql="t.file",
             )
-            stats["evidence_rows"] = fresh.num_rows
-            stats["hostname_year_rows"] = _date_hosts(conn, fresh)
-            conn.execute("DELETE FROM usenethost")
-        # One row per file, carrying what it has contributed across every reading of it,
-        # because `ingested_file` is keyed on (source_name, file_name) and a grown shard has
-        # to replace its own row rather than collide with it.
-        banked = (previous[1] if previous else 0) + int(stats["hostname_year_rows"])
-        conn.execute(
+            out["evidence_rows"] = fresh.num_rows
+            out["hostname_year_rows"] = _date_hosts(conn, fresh)
+            conn.register("fresh_hosts", fresh)
+            try:
+                per_file.update(
+                    dict(
+                        conn.execute(
+                            "SELECT f.source_file, count(*) FROM fresh_hosts f "
+                            "JOIN hostname_year hy ON hy.evidence_id = f.evidence_id GROUP BY 1"
+                        ).fetchall()
+                    )
+                )
+            finally:
+                conn.unregister("fresh_hosts")
+            conn.execute("DROP TABLE usenethost")
+        conn.executemany(
             "INSERT OR REPLACE INTO ingested_file "
             "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
-            [family.source, file_key, digest, banked],
+            [
+                [family.source, key, digest, before + per_file[key]]
+                for key, digest, before, _ in entries
+            ],
         )
-    logger.info(str(stats))
+    return out
+
+
+def ingest_usenet_item_journal(
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    family: ItemFamily = USENET_FAMILY,
+    digest: str | None = None,
+) -> dict[str, int | str | bool]:
+    """One `{item, year, text}` shard into hostname_year, idempotently; `digest` is its sha256
+    when the caller already knows it."""
+    stats, entry = _usenet_file(conn, path, family, digest)
+    if entry is not None:
+        stats.update(_bank_usenet_files(conn, family, [entry]))
+        logger.info(str(stats))
     return stats
+
+
+# The rows a batch of shards stages before its one insert: enough to spread the insert's scan
+# of `evidence`, few enough that the tuples stay well under a GB.
+_USENET_BATCH_ROWS = 500_000
 
 
 def ingest_usenet_item_dir(
@@ -1783,7 +1823,8 @@ def ingest_usenet_item_dir(
     family: ItemFamily = USENET_FAMILY,
     digests: Path | None = None,
 ) -> dict[str, int]:
-    """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file.
+    """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file, banked
+    in batches of about `_USENET_BATCH_ROWS` rows (`_bank_usenet_files`).
 
     **Both `.jsonl.gz` and plain `.jsonl` are read** unless the caller names a pattern,
     because `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory
@@ -1804,19 +1845,32 @@ def ingest_usenet_item_dir(
             name, size, mtime, sha = (line.split("\t") + ["", "", ""])[:4]
             if size.isdigit() and mtime.isdigit() and len(sha) == 64:  # else it is hashed again
                 known[name] = (int(size), int(mtime), sha)
+    batch: list[tuple] = []
+
+    def flush() -> None:
+        if batch:
+            totals.update(_bank_usenet_files(conn, family, batch))
+            logger.info(f"banked {len(batch)} shards")
+            batch.clear()
+
     for i, path in enumerate(files, 1):
         name, st = str(path.resolve()), path.stat()
         old = known.get(name)
         digest = old[2] if old and old[:2] == (st.st_size, st.st_mtime_ns) else _sha256(path)
         known[name] = (st.st_size, st.st_mtime_ns, digest)
-        stats = ingest_usenet_item_journal(conn, path, family, digest)
+        stats, entry = _usenet_file(conn, path, family, digest)
         for key, value in stats.items():
             if isinstance(value, int) and not isinstance(value, bool):
                 totals[key] += value
             elif key == "skipped" and value:
                 totals["files_skipped"] += 1
         said = logger.debug if stats.get("skipped") else logger.info
-        said(f"[{i}/{len(files)}] {path.name} done")
+        said(f"[{i}/{len(files)}] {path.name} read")
+        if entry is not None:
+            batch.append(entry)
+            if sum(len(e[3]) for e in batch) >= _USENET_BATCH_ROWS:
+                flush()
+    flush()
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         part = cache.with_name(cache.name + ".part")
