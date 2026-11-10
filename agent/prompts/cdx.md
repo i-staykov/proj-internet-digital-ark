@@ -1,4 +1,4 @@
-A cdx run: the lanes' productivity, 1996 to 2001 first, from one row and at most one lever,
+A cdx run: the lanes' productivity on 2002 to 2013, from one row and at most one lever,
 with nobody involved.
 
 1. The row: `python3 scripts/agents/lane_yield.py --hours 4` first; the rows it keys to this
@@ -6,8 +6,8 @@ with nobody involved.
    window: requests, answered, paused seconds, EE priced as banked, EE per client-second, the
    band over the same hours of the previous seven days) are the row. A file or script that
    does not exist yet, or no rows (it says why), is a finding, not an error: end on it.
-2. The objective, in order: 1996 to 2001 EE per client-second, then 2002 to 2013, then requests
-   per EE. Every lane inside its band needs nothing: end on the row.
+2. The objective, in order: 2002 to 2013 EE per client-second, then requests per EE; a
+   1996 to 2001 row is no objective. Every lane inside its band needs nothing: end on the row.
 3. The levers are the `levers` list of `scripts/engines/levers.json`, each with its last
    measurement and date; pull none not listed, none when the list is absent. One lever a day,
    the one whose measurement says it moves the lane under its band; none while an agent-cdx

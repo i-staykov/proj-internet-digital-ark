@@ -795,15 +795,28 @@ def _parts(rows: list[tuple], calculated: dict, extended: list[int], late: Count
     return one | {"parts": parts if extended else parts | {"2002-2013": None}}
 
 
+def _in_his_extended(conn: duckdb.DuckDBPyConnection, where: str, run: _Run) -> int:
+    """How many priced candidates are, by exact name, a line of one of his 2002 to 2013 files."""
+    if not run.extended():
+        raise SnapshotError("this snapshot holds none of his 2002 to 2013 files")
+    raw = run.tmp / "priced.raw"
+    conn.execute(f"COPY (SELECT r.name FROM rec r WHERE {where}) TO '{_quote(raw)}' (HEADER false)")
+    hits = run.hits(_sort(raw, run.tmp), [run.his(year) for year in run.extended()], "his_late")
+    with hits.open("rb") as handle:
+        return sum(1 for _ in handle)
+
+
 def price(
     snapshot: Path,
     items: Path,
     track: str = "annual",
     split: str = "auto",
     evidence_class: str | None = None,
+    extended: bool = False,
 ) -> dict:
     """Price one items file against one snapshot. Reads only, and writes nothing outside a
-    temporary directory it removes."""
+    temporary directory it removes. `extended`, on the candidate track, adds
+    `counts.in_his_2002_2013`: a pass over his twelve files, so a lane leaves it off."""
     if track not in TRACKS:
         raise SnapshotError(f"track must be one of {', '.join(TRACKS)}, not {track!r}")
     if split not in SPLITS:
@@ -848,6 +861,8 @@ def price(
                 priced = _parts(rows, calculated, run.extended(), late)
             else:
                 priced = _tally(rows, calculated)
+                if extended:
+                    counts["in_his_2002_2013"] = _in_his_extended(conn, where, run)
         finally:
             conn.close()
     return {

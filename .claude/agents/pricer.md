@@ -17,8 +17,9 @@ items:         <n>
 held:          <counts.already_held> of <counts.items> items (distinct domains sampled)
 1996 to 2001:  <pairs> pairs, <ee> EE of <gate_ee>, post-split
 2002 to 2013:  <pairs> pairs, <ee> EE of <gate_ee>
+candidate:     <netnew_pairs> names, <ee> EE, <counts.in_his_2002_2013> of them in his 2002 to 2013 files
 snapshot:      <snapshot_marker>, built <snapshot_built_at>
-verdict:       admit | candidate-only | closed, with the reason in one line
+verdict:       admit | candidate | closed, with the reason in one line
 ```
 
 If a figure cannot be measured, say which and why. Never estimate one that a command could

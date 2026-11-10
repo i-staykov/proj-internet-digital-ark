@@ -289,10 +289,11 @@ def test_scout_line_reads_the_last_run_and_never_raises(hb, tmp_path):
     log.parent.mkdir()
     log.write_text(
         "2026-10-01\tUMN DRUM lists\tnegative\t0\t#600\n\ntorn\n2099-01-01\tx\n"
-        "20261107T0305Z\tNCSA What's New\tpositive\t1200\t#601\n"
+        "20261107T0305Z\tNCSA access log\tpositive\t1200 candidate\t40%\t#601\n"
     )
     assert hb.scout(today) == (
-        "scout: 1 in 7 days, last 20261107T0305Z NCSA What's New, positive, 1200 EE on the sample"
+        "scout: 1 in 7 days, last 20261107T0305Z NCSA access log, positive, "
+        "1200 candidate EE on the sample"
     )
     log.write_bytes(b"\xff\x00torn")  # a torn last row is shown, its NUL blanked
     assert hb.scout(today) == "scout: 0 in 7 days, last \ufffd torn ?, ?, ? EE on the sample"
