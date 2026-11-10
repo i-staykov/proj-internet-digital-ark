@@ -1,0 +1,79 @@
+name: runner-wayback
+
+# Report paths probed in the Wayback Machine from runners' own addresses: a dispatch names
+# hosts and the paths a usage report sat at, each job asks its share with the replay reader
+# (scripts/sources/web_reports/wayback_trees.py: never CDX, robots read, one start an
+# interval, a 429 or a 503 rests and then ends the job) and uploads the pages and receipts.
+# The names come from public lists only: a dispatch's inputs are public. No model, no secret.
+on:
+  workflow_dispatch:
+    inputs:
+      hosts:
+        description: hosts, space separated
+        required: true
+      paths:
+        description: paths asked on each host, in probe order
+        default: "/stats/ /usage/ /statistics/ /webalizer/"
+      shards:
+        description: jobs, each on its own address
+        default: "4"
+      parallel:
+        description: jobs at once
+        default: "4"
+      interval:
+        description: seconds between a job's asks
+        default: "1.0"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: echo "index=[$(seq -s, 0 $((SHARDS - 1)))]" >> "$GITHUB_OUTPUT"
+
+  probe:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # A host is a tree and its paths the probes: every path is asked, a miss costs one ask.
+      - env:
+          HOSTS: ${{ inputs.hosts }}
+          PATHS: ${{ inputs.paths }}
+          SHARDS: ${{ inputs.shards }}
+          INTERVAL: ${{ inputs.interval }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          paths = os.environ["PATHS"].split()
+          trees = {h: {"urls": [f"http://{h}{p}" for p in paths]} for h in os.environ["HOSTS"].split()}
+          json.dump(trees, open("trees.json", "w"))
+          PY
+          ARK_PROBES=99 python3 scripts/sources/web_reports/wayback_trees.py runner-out/pages trees.json 2 \
+            "$INTERVAL" "$INDEX/$SHARDS" || echo "reader exit $?"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wayback_${{ github.run_id }}_${{ matrix.index }}
+          path: runner-out
+          retention-days: 3
+          if-no-files-found: ignore
