@@ -362,11 +362,19 @@ DNS_CASES = [pytest.param(*c[:5], id=c[5]) for c in DNS]
 
 
 @pytest.mark.parametrize("ingest,file,listed,row,refused", DNS_CASES)
-def test_field_wall_and_funnel_dns_lanes(tmp_path, ingest, file, listed, row, refused) -> None:
-    """A survey line, an NS target or an `nserver:` observes a machine, not a site; a file
-    outside the window or the lane writes nothing."""
+def test_field_wall_and_funnel_dns_lanes(
+    tmp_path, monkeypatch, ingest, file, listed, row, refused
+) -> None:
+    """A survey line, an NS target or an `nserver:` observes a machine, not a site: the NS
+    and `nserver:` lanes date candidate years, a file banked before that dates them when read
+    again, and the survey writes none here (its own arm ships it); a file outside the window
+    or the lane writes nothing."""
     conn, path = store(), write(tmp_path / file[0], file[1])
+    dates = ingest is not hn.ingest_isc_hostnames
+    monkeypatch.setattr(hn, "writes_hostname_years", lambda source: False)
     assert ingest(conn, path)["hostname_year_rows"] == 0
+    monkeypatch.undo()
+    assert ingest(conn, path).get("hostname_year_rows", 0) == (len(listed) if dates else 0)
     cols = "evidence_value, domain, evidence_year, evidence_url, record_location, evidence_type"
     got = q(conn, f"SELECT {cols}, acquisition_method FROM evidence")
     assert sorted((v.rsplit(" ", 1)[1], d, y) for v, d, y, *_ in got) == listed
@@ -376,7 +384,7 @@ def test_field_wall_and_funnel_dns_lanes(tmp_path, ingest, file, listed, row, re
     assert ingest(conn, path)["skipped"] is True
     sql = "SELECT (SELECT count(*) FROM hostname_year) + (SELECT count(*) FROM domain_year), "
     sql += "(SELECT count(*) FROM evidence), (SELECT sum(record_rows) FROM ingested_file)"
-    assert q(conn, sql) == [(0, len(listed), 0)]
+    assert q(conn, sql) == [(len(listed) if dates else 0, len(listed), 0)]
     for name, text, key in refused:
         assert ingest(conn := store(), write(tmp_path / "refused" / name, text)).get(key) == 1
         assert q(conn, "SELECT count(*) FROM evidence") == [(0,)]
