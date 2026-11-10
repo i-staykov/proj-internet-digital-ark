@@ -107,3 +107,47 @@ def test_wusage_reads_its_sites_table_alone_and_a_row_names_its_page(tmp_path):
     assert [(r["host"], r["year"], r["file"], r["pos"], r["field"]) for r in rows] == [
         ("crawler1.bos2.fast-search.net", 2001, replay, 5, "visitor_rdns")
     ]
+
+
+WEEK = """<H2>Week of Sun Nov  3 00:00:00 1996
+</H2>
+<LI>2 sites accessing server most:
+<UL>
+<LI>e659229.boeing.com 632
+<LI>10.1.2.3 357
+</UL>
+<LI>8 items accessed most:
+<UL>
+<LI>index.example.org 15
+</UL>
+"""
+
+
+SPAN = """<TITLE>Access statistics for h (01/Nov/97 to 24/Nov/97)</TITLE>
+<B>Summary period: 01/Nov/97 to 24/Nov/97
+<H3>Total Transfers by Client Domain</H3>
+   8142   4.1%   4261  14.4%    133780080   5.6%   | widow.av.pa-x.dec.com
+<A HREF="http://www.netstore.de/Supply/http-analyze/">http-analyze 1.9d</A>
+"""
+
+
+def test_pages_from_an_arc_file_cite_their_replay_and_a_failed_digest_is_left(tmp_path):
+    site = tmp_path / "raw" / "arc"
+    (site / "h").mkdir(parents=True)
+    pages = {"sites1097.html": SPAN, "sites1197.html": SPAN, "week60.html": WEEK}
+    receipts = []
+    for name, text in pages.items():
+        (site / "h" / name).write_text(text)
+        replay = f"https://web.archive.org/web/19980130211959id_/http://h/{name}"
+        receipts.append({"path": f"h/{name}", "arc": "ITEM/part.arc.gz", "offset": 7, "size": 535})
+        receipts[-1].update(replay=replay, sha1_ok=name != "sites1097.html")
+    (site / "receipts.receipts").write_text("".join(json.dumps(r) + "\n" for r in receipts))
+    reports._STAMPS.clear()
+    reports._URLS.clear()
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    arc = "https://archive.org/download/ITEM/part.arc.gz"
+    assert [(r["host"], r["year"], r["file"], r["arc"], r["arc_offset"]) for r in rows] == [
+        ("widow.av.pa-x.dec.com", 1997, receipts[1]["replay"], arc, 7),
+        ("e659229.boeing.com", 1996, receipts[2]["replay"], arc, 7),
+    ]

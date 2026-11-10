@@ -100,7 +100,11 @@ def ask(url: str, rec) -> bool | None:
     while not state["stop"]:
         wait_turn()
         url, _, near = url.partition("\t")  # "<url>\t<14-digit stamp>" asks the capture nearest it
-        path = f"/web/{near or STAMP}id_/{url}"
+        path = f"/web/{near or STAMP}id_/" + re.sub(  # a byte outside ASCII goes percent-encoded
+            r"[^\x21-\x7e]",
+            lambda m: urllib.parse.quote(m.group(0).encode("latin-1", "replace")),
+            url,
+        )
         with lock:
             verdict, _, why = hf.read_robots("https://web.archive.org" + path, 60, robots_cache)
         if verdict != "allowed":
