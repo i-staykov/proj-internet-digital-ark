@@ -245,6 +245,11 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     summary = json.loads((run.root / "full/netnew/header_candidates_summary.json").read_text())
     assert (summary["candidates"], summary["hostname_years"]) == (4, 6)
     assert summary["by_source"] == {"usenet": 2, "usenet_header_fqdn_hostnames": 2}
+    # one file per class, so a declined class drops alone; these two share no host
+    assert {k: v["names"] for k, v in summary["by_class"].items()} == summary["by_source"]
+    assert all(v["exclusive_names"] == v["names"] for v in summary["by_class"].values())
+    by_class = run.root / "full/netnew/header_candidates_by_class"
+    assert sorted(n for p in by_class.glob("*.txt") for n in p.read_text().split()) == headers
     ledger = (run.root / "full/netnew/header_candidates_exclusions.csv").read_text()
     assert ledger.split(",")[:2] == ["hostname", "scope"]
     # one row per host-year and survey edition
@@ -525,3 +530,35 @@ def test_every_spec_that_dates_a_year_is_ingested_by_a_recipe_that_exists() -> N
     assert not missing, f"no justfile recipe ingests these, though they date a year: {missing}"
     unknown = sorted(documented - set(SOURCES))
     assert not unknown, f"the justfile ingests specs that are not in the registry: {unknown}"
+
+
+def test_a_suffix_written_twice_never_ships() -> None:
+    """The brief's quarantines, `x.example.com.example.com` and a bare `www.cz`, in the claim."""
+    import duckdb
+
+    from ark.delegation import shipping_filter_for
+
+    conn = duckdb.connect()
+    conn.execute("CREATE TABLE t (h VARCHAR, y INTEGER)")
+    names = ["host.example.org.example.org", "x.com.com", "a.b.co.uk.b.co.uk", "ph.org.ph.org"]
+    names += ["com.com", "a.b.c.a.b.c", "www.example.com", "example.co.uk", "www.cz"]
+    conn.executemany("INSERT INTO t VALUES (?, 1999)", [[n] for n in names])
+    kept = conn.execute(f"SELECT h FROM t WHERE {shipping_filter_for('h', 'y')} ORDER BY 1")
+    assert kept.fetchall() == [("example.co.uk",), ("www.example.com",)]
+
+
+def test_a_repoint_moves_the_store_ledger() -> None:
+    """A full export reuses the claim only on an equal ledger, and a repoint adds no row."""
+    import duckdb
+
+    from ark.db import init_db
+    from ark.export import store_ledger
+
+    init_db(conn := duckdb.connect())
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+        "VALUES ('a.example.com', 'example.com', 1999, 1)"
+    )
+    before = store_ledger(conn)
+    conn.execute("UPDATE hostname_year SET evidence_id = 2")
+    assert store_ledger(conn) != before

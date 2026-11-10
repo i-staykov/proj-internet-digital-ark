@@ -2178,6 +2178,26 @@ SOURCES: dict[str, SourceSpec] = {
         acquisition_method="registry_listing_capture",
         parse=parse_cctld_capture_split,
     ),
+    # Two machine-written lists that travelled over Usenet, as candidates only (`link_target`
+    # assigns no year): nz.net.announce's monthly "Internet Connected Organisations in New
+    # Zealand", whose text says it is "generated monthly by walking the New Zealand portion of
+    # the DNS namespace", and the CA Domain Registrar's "Recent .CA registrations" in
+    # can.domain. XIV's DNS observation and registry event; each item's text carries the
+    # posting's date, its message and its line.
+    "nz_dns_walk_candidates": SourceSpec(
+        key="nz_dns_walk_candidates",
+        source_name="nz_dns_walk_list_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_dns_walk_list",
+        parse=parse_registry_items,
+    ),
+    "ca_registrations_candidates": SourceSpec(
+        key="ca_registrations_candidates",
+        source_name="ca_registrar_registration_mention",
+        evidence_type="link_target",
+        acquisition_method="usenet_registrar_registration_list",
+        parse=parse_registry_items,
+    ),
     # MYNIC's fortnightly register change report. No split: the listing reproduces the
     # registry's own published per-day counts.
     "mynic_change_report": SourceSpec(

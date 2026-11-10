@@ -114,7 +114,9 @@ fi
 # compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
 # measured against a release he has already replaced fails loudly instead of shipping.
 echo "merging against the baseline and reconciling"
-if ! uv run python scripts/round/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
+# One read of the date: the copy below finds the merge by it, also across 00:00 UTC.
+MERGE_STAMP="$(date -u +%Y%m%d)"
+if ! uv run python scripts/round/merge_against_baseline.py --stamp "$MERGE_STAMP" \
         --out output/merge > output/merge/merge_run.log 2>&1; then
     echo "refusing to package: the merge reconciliation failed. Its log:" >&2
     cat output/merge/merge_run.log >&2
@@ -185,7 +187,6 @@ fi
 # The merge audit, produced before the report figures so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
-MERGE_STAMP="$(date -u +%Y%m%d)"
 cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
@@ -232,6 +233,44 @@ if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
 else
     echo "no extended additions: packaging without extended_years/"
 fi
+# Labelled folders, data/labelled/<name>/: year evidence of a class his annual files do not take,
+# each shipped under its own name by the owner's ruling and never merged into additions/. A name
+# additions/ or hostnames/ holds for a year is an annual record, so it leaves the folder's file
+# for that year and its provenance.csv rows (columns year, host) go with it.
+for dir in data/labelled/*/; do
+    [ -d "$dir" ] || continue
+    name=$(basename "$dir")
+    [ -f "$dir/README.md" ] || { echo "refusing to package: $dir has no README.md" >&2; exit 1; }
+    [ -e "$STAGE/$name" ] && { echo "refusing to package: $name/ is taken in the archive" >&2; exit 1; }
+    cp -R "$dir" "$STAGE/$name"
+    python3 - "$STAGE" "$name" <<'PY'
+import csv
+import sys
+from pathlib import Path
+
+stage, folder = Path(sys.argv[1]), Path(sys.argv[1]) / sys.argv[2]
+taken = {}
+for f in sorted(folder.glob("[12][0-9][0-9][0-9].txt")):
+    annual = (stage / "additions" / f.name, stage / "hostnames" / f"{f.stem}_hostnames.txt")
+    ours = {n for g in annual if g.is_file() for n in g.read_text(encoding="utf-8").splitlines()}
+    names = f.read_text(encoding="utf-8").splitlines()
+    taken[f.stem] = ours.intersection(names)
+    f.write_text("".join(n + "\n" for n in names if n not in ours), encoding="utf-8")
+prov = folder / "provenance.csv"
+if prov.is_file() and any(taken.values()):
+    with prov.open(newline="", encoding="utf-8") as fh:
+        head, *rows = fh.readlines()  # one record a line, kept byte for byte
+    cols = next(csv.reader([head]))
+    year, host = cols.index("year"), cols.index("host")
+    with prov.open("w", newline="", encoding="utf-8") as fh:
+        fh.write(head)
+        for row in rows:
+            r = next(csv.reader([row]))
+            if r[host] not in taken.get(r[year], ()):
+                fh.write(row)
+print(f"{sys.argv[2]}/: {sum(map(len, taken.values()))} names left to additions/ and hostnames/")
+PY
+done
 # ISC candidates must stay separate from annual records and carry per-host provenance.
 mkdir -p "$STAGE/isc_survey_hostnames"
 cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
@@ -248,6 +287,8 @@ mkdir -p "$STAGE/server_header_hostnames"
 cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
     output/netnew/header_candidates_summary.json output/netnew/header_candidates_exclusions.csv \
     "$STAGE/server_header_hostnames/"
+# one file per class beside them, so a class he declines drops alone
+cp -R output/netnew/header_candidates_by_class "$STAGE/server_header_hostnames/by_class"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`

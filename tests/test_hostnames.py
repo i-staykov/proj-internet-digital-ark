@@ -260,9 +260,9 @@ def test_field_chosen(reader, given, want) -> None:
 
 
 def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_path) -> None:
-    """Body URL, Message-ID, From and lease hosts leave the header pass as pools of their own,
-    named by the batch, where the header ingest's glob never looks; no mailbox, name or text
-    leaves."""
+    """Body URL, Message-ID, From, lease and host-list hosts leave the header pass as pools of
+    their own, named by the batch, where the header ingest's glob never looks; no mailbox, name
+    or text leaves but a host list's subject."""
     b, pool, out = script(USENET_HEADER), tmp_path / "pool", tmp_path / ".hl_1"
     post = [
         "From 1", "Path: feed.demon.co.uk!news.zetnet.co.uk!not-for-mail",
@@ -271,6 +271,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
         "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "mail box@Mail.Pipex.net or",
         "WWW.Zetnet.co.uk.", "",
+        "From 2", "Subject: nz walk", "Date: Thu, 02 Jan 1997 09:00:00 +0000", "",
+        *(f"h{i}.custard.co.nz. 3600 IN A" for i in range(100)), "",
     ]  # fmt: skip
     pool.mkdir()
     out.mkdir()
@@ -284,7 +286,9 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
             got[kind] = [json.loads(line)["text"] for line in fh]
     want = {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
     body = ["mail.pipex.net www.zetnet.co.uk"]
-    assert got == want | {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body}
+    walk = [" ".join(sorted(f"h{i}.custard.co.nz" for i in range(100)))]
+    side = {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body, "lists": walk}
+    assert got == want | side
 
 
 # fmt: off
@@ -362,11 +366,19 @@ DNS_CASES = [pytest.param(*c[:5], id=c[5]) for c in DNS]
 
 
 @pytest.mark.parametrize("ingest,file,listed,row,refused", DNS_CASES)
-def test_field_wall_and_funnel_dns_lanes(tmp_path, ingest, file, listed, row, refused) -> None:
-    """A survey line, an NS target or an `nserver:` observes a machine, not a site; a file
-    outside the window or the lane writes nothing."""
+def test_field_wall_and_funnel_dns_lanes(
+    tmp_path, monkeypatch, ingest, file, listed, row, refused
+) -> None:
+    """A survey line, an NS target or an `nserver:` observes a machine, not a site: the NS
+    and `nserver:` lanes date candidate years, a file banked before that dates them when read
+    again, and the survey writes none here (its own arm ships it); a file outside the window
+    or the lane writes nothing."""
     conn, path = store(), write(tmp_path / file[0], file[1])
+    dates = ingest is not hn.ingest_isc_hostnames
+    monkeypatch.setattr(hn, "writes_hostname_years", lambda source: False)
     assert ingest(conn, path)["hostname_year_rows"] == 0
+    monkeypatch.undo()
+    assert ingest(conn, path).get("hostname_year_rows", 0) == (len(listed) if dates else 0)
     cols = "evidence_value, domain, evidence_year, evidence_url, record_location, evidence_type"
     got = q(conn, f"SELECT {cols}, acquisition_method FROM evidence")
     assert sorted((v.rsplit(" ", 1)[1], d, y) for v, d, y, *_ in got) == listed
@@ -376,7 +388,7 @@ def test_field_wall_and_funnel_dns_lanes(tmp_path, ingest, file, listed, row, re
     assert ingest(conn, path)["skipped"] is True
     sql = "SELECT (SELECT count(*) FROM hostname_year) + (SELECT count(*) FROM domain_year), "
     sql += "(SELECT count(*) FROM evidence), (SELECT sum(record_rows) FROM ingested_file)"
-    assert q(conn, sql) == [(0, len(listed), 0)]
+    assert q(conn, sql) == [(len(listed) if dates else 0, len(listed), 0)]
     for name, text, key in refused:
         assert ingest(conn := store(), write(tmp_path / "refused" / name, text)).get(key) == 1
         assert q(conn, "SELECT count(*) FROM evidence") == [(0,)]
@@ -668,7 +680,7 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
         dict(host="mx.example.org", year=2004, file=art, pos=12, field="received_by"),
         dict(host="mx.example.org", year=1998, file="/tmp/x", pos=1, field="received_by"),
         dict(host="bugs.example.org", year=2000, file="rsync://x.org/bugs/1", pos=1, field="from"),
-        dict(host="a.example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
+        dict(host="example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
         dict(host="smtp.mail.com.com", year=1998, file=art, pos=12, field="rdns"),
     ]
     folder = tmp_path / "php_list_header"
@@ -733,12 +745,15 @@ def test_a_batch_of_shards_banks_what_shard_by_shard_does(tmp_path):
     ):  # fmt: skip
         journal(tmp_path, items, name)
     fam, results = hn.USENET_HEADER_FAMILY, []
-    for batched in (True, False):
+    shards = sorted((tmp_path / "items").glob("*.gz"))
+    for mode in ("folder", "list", "each"):
         conn = store()
-        if batched:
+        if mode == "folder":
             hn.ingest_usenet_item_dir(conn, tmp_path / "items", family=fam)
+        elif mode == "list":  # the bank's many batch folders, in one call
+            hn.ingest_usenet_item_dir(conn, shards, family=fam)
         else:
-            for path in sorted((tmp_path / "items").glob("*.gz")):
+            for path in shards:
                 hn.ingest_usenet_item_journal(conn, path, family=fam)
         results.append(
             (
@@ -747,5 +762,5 @@ def test_a_batch_of_shards_banks_what_shard_by_shard_does(tmp_path):
                 q(conn, "SELECT file_name, record_rows FROM ingested_file ORDER BY 1"),
             )
         )  # fmt: skip
-    assert results[0] == results[1]
+    assert results[0] == results[1] == results[2]
     assert results[0][1] == [("items/shard_000.jsonl.gz", 1), ("items/shard_001.jsonl.gz", 1)]

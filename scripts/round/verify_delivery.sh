@@ -168,6 +168,11 @@ if names - claim:
     problems.append(f"{len(names - claim)} names outside candidate_additions.txt")
 if not (d / "header_candidates_exclusions.csv").is_file():
     problems.append("no exclusion ledger")
+classes = {p.stem: {l for l in p.read_text().splitlines() if l} for p in (d / "by_class").glob("*.txt")}
+if classes.keys() != summary.get("by_class", {}).keys():
+    problems.append("by_class files and summary name other classes")
+if set().union(*classes.values()) != names:
+    problems.append("the class files do not union to the names")
 if problems:
     say("header candidates", "FAIL  " + "; ".join(problems)); sys.exit(1)
 say("header candidates", f"PASS  {len(names)} names, each with a provenance row, each in the claim")
@@ -175,6 +180,32 @@ PY
 else
     say "header candidates" "SKIP  no server_header_hostnames/ in this archive"
 fi
+
+# Labelled folders: a README and year files in your format, none of their names also an addition.
+python3 - <<'PY' || fail=1
+import re, sys
+from pathlib import Path
+host = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]+$")
+fixed = {"additions", "hostnames", "extended_years"}
+for d in sorted(p for p in Path(".").iterdir() if p.is_dir() and p.name not in fixed):
+    years = sorted(d.glob("[12][0-9][0-9][0-9].txt"))
+    if not years or not (d / "README.md").is_file():
+        continue
+    problems = []
+    for f in years:
+        names = f.read_text(encoding="utf-8").splitlines()
+        if names != sorted(set(names)):
+            problems.append(f"{f.name} is not sorted and unique")
+        if bad := [n for n in names if not host.match(n)]:
+            problems.append(f"{f.name}: {len(bad)} lines not a hostname, e.g. {bad[0]!r}")
+        ours = {n for g in (Path("additions") / f.name, Path("hostnames") / f"{f.stem}_hostnames.txt")
+                if g.is_file() for n in g.read_text(encoding="utf-8").splitlines()}
+        if both := ours & set(names):
+            problems.append(f"{f.name}: {len(both)} names also in additions/ or hostnames/")
+    print(f"{d.name + '/':<46} {'FAIL  ' + '; '.join(problems) if problems else f'PASS  {len(years)} year files'}")
+    if problems:
+        sys.exit(1)
+PY
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
 # Every check above reads the additions manifest and none reads the parquet, so a

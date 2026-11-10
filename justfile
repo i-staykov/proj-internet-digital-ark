@@ -284,6 +284,25 @@ bank *args:
                 uv run ark ingest-staged-messages data/raw/staged_messages/*/ | tail -1 \
                     || C_FAIL="$C_FAIL staged_messages"
             fi
+            # The DNS and registry lists, candidates only. A zone or RIPE file banked before
+            # its lane wrote hostname years dates the evidence it holds when read again.
+            if fold "data/raw/internic_zones/*.zone.gz"; then
+                C_RAN="$C_RAN zone_hostnames"
+                uv run ark ingest-zone-hostnames data/raw/internic_zones/*.zone.gz | tail -1 \
+                    || C_FAIL="$C_FAIL zone_hostnames"
+            fi
+            for db in data/raw/ripe_funet/ripe.db.gz data/raw/ripe_funet_split/ripe.db.domain.gz; do
+                fold "$db" || continue
+                C_RAN="$C_RAN ripe_nserver_hostnames"
+                uv run ark ingest-ripe-nserver-hostnames "$db" | tail -1 \
+                    || C_FAIL="$C_FAIL ripe_nserver_hostnames"
+            done
+            for list in nz_dns_walk:nz_dns_walk_lists ca_registrations:ca_registrar_recent_registrations; do
+                fold "data/raw/registry_lists/${list#*:}_*.jsonl" || continue
+                C_RAN="$C_RAN ${list%%:*}_candidates"
+                uv run ark ingest "${list%%:*}_candidates" data/raw/registry_lists/"${list#*:}"_*.jsonl \
+                    | tail -1 || C_FAIL="$C_FAIL ${list%%:*}_candidates"
+            done
         fi
         uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes
@@ -498,6 +517,9 @@ reproduce stage="all":
         uv run python scripts/sources/registries/split_cctld_capture.py --write
         uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
         uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
+        # A DNS walk and a registrar's notices posted to Usenet, candidates only.
+        uv run ark ingest nz_dns_walk_candidates      data/raw/registry_lists/nz_dns_walk_lists_1996_1999.jsonl
+        uv run ark ingest ca_registrations_candidates data/raw/registry_lists/ca_registrar_recent_registrations_1999_2000.jsonl
         # Neither takes the split: both are a registry reading out its own register.
         uv run python scripts/sources/registries/collect_mynic_coza.py
         uv run ark ingest mynic_change_report data/raw/mynic/*.htm

@@ -303,8 +303,19 @@ def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported,
     run = lambda body, cwd, **more: subprocess.run(  # noqa: E731
         ["bash", "-c", body], cwd=cwd, env=env | more, capture_output=True, text=True
     )
+    lab, ours = tmp_path / "data/labelled/nonweb_years", tmp_path / "stage/additions"
+    lab.mkdir(parents=True)
+    ours.mkdir(parents=True)
+    (lab / "README.md").write_text("year evidence\n")
+    (lab / "1999.txt").write_text("held.com\nours.com\n")
+    (lab / "provenance.csv").write_text("year,host,class\n1999,held.com,a\n1999,ours.com,a\n")
+    (ours / "1999.txt").write_text("ours.com\n")
     done = run(pack, tmp_path)
     assert done.returncode == 0, done.stderr
+    # a labelled name that is our addition for the year leaves the folder, with its provenance
+    assert (tmp_path / "stage/nonweb_years/1999.txt").read_text() == "held.com\n"
+    kept = (tmp_path / "stage/nonweb_years/provenance.csv").read_text()
+    assert kept == "year,host,class\n1999,held.com,a\n"
     shipped = tmp_path / "stage/extended_years"
     for f in (tmp_path / "output/extended_years/additions").glob(
         "*.txt"

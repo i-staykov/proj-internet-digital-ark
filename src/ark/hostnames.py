@@ -18,9 +18,10 @@ The evidence wall is the registrable unit's, unchanged:
   belongs to `domain_year`;
 - **the observation must show the host IN USE**, a capture of a URL on it or a URL listing
   naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
-  answered, not a site, so those lanes keep their evidence and write no hostname year.
-  Server-written headers are admitted by name: a dated message's `Received: ... by` clause
-  and its news-server twin. Spec XIV narrows what such a record may ENTER an annual file
+  answered, not a site: the NS-target and `nserver:` lanes write hostname years that only
+  ever ship as candidates, and the ISC walk ships through its own arm. Server-written
+  headers are admitted by name: a dated message's `Received: ... by` clause and its
+  news-server twin. Spec XIV narrows what such a record may ENTER an annual file
   with: only exact-host year-specific web evidence, the rest being candidates;
 - **a host dates itself, never its registrable**: `www.<parent>` and every other host below
   a registrable is its own record, so no lane here writes `domain_year`;
@@ -36,10 +37,14 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import itertools
 import json
+import multiprocessing
+import os
 import re
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Callable, Iterator
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -287,6 +292,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
         # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
+        # XIV's "DNS observations", stored as candidate assets: the 1997 zones' NS targets
+        # (`ZONE_SOURCE_NAME`) and RIPE's `nserver:` hosts (`RIPE_NS_SOURCE`). Neither method
+        # is a web method, so the claim never takes them.
+        "internic_zone_hostnames",
+        "ripe_nserver_hostnames",
     }
 )
 # The generic dated-message lane (`ingest_staged_messages`): one source per staged folder and
@@ -415,6 +425,25 @@ def _date_hosts(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> int:
         ).fetchone()[0]
     finally:
         conn.unregister("fresh_hosts")
+
+
+def _date_banked(conn: duckdb.DuckDBPyConnection, source_name: str, file_name: str) -> int:
+    """The hostname years of a file read before its lane wrote them: a lane admitted later
+    dates the evidence it holds, without reading the file again; one already held keeps its
+    row."""
+    if not writes_hostname_years(source_name):
+        return 0
+    return conn.execute(
+        """
+        INSERT OR IGNORE INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id)
+        SELECT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)), e.domain,
+               e.evidence_year, e.evidence_id
+        FROM evidence e JOIN source s ON s.source_id = e.source_id
+        WHERE s.name = ? AND e.source_file = ?
+          AND NOT EXISTS (SELECT 1 FROM hostname_year hy WHERE hy.evidence_id = e.evidence_id)
+        """,
+        [source_name, file_name],
+    ).fetchone()[0]
 
 
 def _stage_hosts(
@@ -816,11 +845,12 @@ def ingest_zone_hostnames(
 
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     already = conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name LIKE ? AND file_name = ?",
+        "SELECT min(source_name) FROM ingested_file WHERE source_name LIKE ? AND file_name = ?",
         [ZONE_SOURCE_NAME + "%", path.name],
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
+        stats["hostname_year_rows"] = _date_banked(conn, already, path.name)
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     header = _internic_zone_header(path)
@@ -1248,6 +1278,7 @@ def ingest_ripe_nserver_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
+        stats["hostname_year_rows"] = _date_banked(conn, RIPE_NS_SOURCE, path.name)
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     approvals.check(RIPE_NS_SOURCE, "artifact_listing")
@@ -1706,10 +1737,15 @@ def usenet_item_rows(
 
 
 def _usenet_file(
-    conn: duckdb.DuckDBPyConnection, path: Path, family: ItemFamily, digest: str | None
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    family: ItemFamily,
+    digest: str | None,
+    ledger: dict[str, tuple[str, int]] | None = None,
 ) -> tuple[dict[str, int | str | bool], tuple | None]:
     """One shard's stats and, unless the ledger holds it at this digest, its batch entry:
-    (file key, digest, rows it banked before, rows).
+    (file key, digest, rows it banked before, rows). `ledger`, the family's `ingested_file`
+    rows read once, spares a query a shard.
 
     The idempotence key carries the pool, because every pool names its shards
     `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
@@ -1721,23 +1757,52 @@ def _usenet_file(
     # write a shard once, but the IETF collector appends every month of a list to that
     # list's one shard, so a name key would mark it done at its first length and skip every
     # later month silently. Re-reading a grown shard costs one pass and adds no row it holds.
-    previous = conn.execute(
-        "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
-        [family.source, file_key],
-    ).fetchone()
+    if ledger is not None:
+        previous = ledger.get(file_key)
+    else:
+        previous = conn.execute(
+            "SELECT sha256, record_rows FROM ingested_file WHERE source_name = ? AND file_name = ?",
+            [family.source, file_key],
+        ).fetchone()
     if previous is not None and previous[0] == digest:
         stats["skipped"] = True
         logger.debug(f"{file_key}: already ingested, skipping")
         return stats, None
+    return stats, (file_key, digest, previous[1] if previous else 0, None)
+
+
+def _read_shard(path: Path, family: ItemFamily) -> tuple[Counter[str], list[tuple]]:
+    """A shard's counts and rows, each row's location its shard line. Top level, so a worker
+    process can run it."""
     counts: Counter[str] = Counter()
     lines: dict[tuple[str, int], int] = {}
     rows = [
         (h, p, y, v, f"line {lines[(h, y)]}", u)
         for h, p, y, v, u in usenet_item_rows(path, counts, family, lines)
     ]
-    stats.update(counts)
-    stats["hostname_year_candidates"] = len(rows)
-    return stats, (file_key, digest, previous[1] if previous else 0, rows)
+    return counts, rows
+
+
+def _read_shards(paths: list[Path], family: ItemFamily) -> Iterator[tuple[Counter[str], list]]:
+    """Each shard's `_read_shard`, in order, read by `ARK_FOLD_WORKERS` processes (4 by default):
+    one core parses a shard at about 42,000 lines a second, most of it the registrable lookup.
+    One shard a worker is read ahead, so the rows held stay near a GB. Spawned, not
+    forked, because the parent holds the store's threads."""
+    workers = int(os.environ.get("ARK_FOLD_WORKERS", "4"))
+    if workers <= 1 or len(paths) <= 1:
+        yield from (_read_shard(path, family) for path in paths)
+        return
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=min(workers, len(paths)), mp_context=context) as pool:
+        ahead: deque = deque()
+        queue = iter(paths)
+        for path in itertools.islice(queue, workers):
+            ahead.append(pool.submit(_read_shard, path, family))
+        while ahead:
+            result = ahead.popleft().result()
+            if (path := next(queue, None)) is not None:
+                ahead.append(pool.submit(_read_shard, path, family))
+            yield result
 
 
 def _bank_usenet_files(
@@ -1806,7 +1871,10 @@ def ingest_usenet_item_journal(
     when the caller already knows it."""
     stats, entry = _usenet_file(conn, path, family, digest)
     if entry is not None:
-        stats.update(_bank_usenet_files(conn, family, [entry]))
+        counts, rows = _read_shard(path, family)
+        stats.update(counts)
+        stats["hostname_year_candidates"] = len(rows)
+        stats.update(_bank_usenet_files(conn, family, [(*entry[:3], rows)]))
         logger.info(str(stats))
     return stats
 
@@ -1818,13 +1886,15 @@ _USENET_BATCH_ROWS = 500_000
 
 def ingest_usenet_item_dir(
     conn: duckdb.DuckDBPyConnection,
-    root: Path,
+    root: Path | list[Path],
     pattern: str | None = None,
     family: ItemFamily = USENET_FAMILY,
     digests: Path | None = None,
 ) -> dict[str, int]:
     """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file, banked
-    in batches of about `_USENET_BATCH_ROWS` rows (`_bank_usenet_files`).
+    in batches of about `_USENET_BATCH_ROWS` rows (`_bank_usenet_files`). `root` may be a list,
+    in its order: the header lane's hundreds of batch folders then share one ledger read, one
+    pool of readers and full batches, where a call a folder paid each of those a folder.
 
     **Both `.jsonl.gz` and plain `.jsonl` are read** unless the caller names a pattern,
     because `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory
@@ -1833,11 +1903,11 @@ def ingest_usenet_item_dir(
     `<source>.digests.tsv`, so a shard that kept both is not hashed again every bank.
     """
     totals: Counter[str] = Counter()
-    if root.is_dir():
-        patterns = [pattern] if pattern else ["*.jsonl.gz", "*.jsonl"]
-        files = sorted({p for pat in patterns for p in root.glob(pat)})
-    else:
-        files = [root]
+    patterns = [pattern] if pattern else ["*.jsonl.gz", "*.jsonl"]
+    files: list[Path] = []
+    for one in root if isinstance(root, list) else [root]:
+        files += sorted({p for pat in patterns for p in one.glob(pat)}) if one.is_dir() else [one]
+    files = list(dict.fromkeys(files))
     cache = digests / f"{family.source}.digests.tsv" if digests else None
     known: dict[str, tuple[int, int, str]] = {}
     if cache and cache.is_file():
@@ -1853,23 +1923,36 @@ def ingest_usenet_item_dir(
             logger.info(f"banked {len(batch)} shards")
             batch.clear()
 
-    for i, path in enumerate(files, 1):
+    ledger = {
+        name: (sha, rows)
+        for name, sha, rows in conn.execute(
+            "SELECT file_name, sha256, record_rows FROM ingested_file WHERE source_name = ?",
+            [family.source],
+        ).fetchall()
+    }
+    pending: list[tuple[Path, tuple]] = []
+    for path in files:
         name, st = str(path.resolve()), path.stat()
         old = known.get(name)
         digest = old[2] if old and old[:2] == (st.st_size, st.st_mtime_ns) else _sha256(path)
         known[name] = (st.st_size, st.st_mtime_ns, digest)
-        stats, entry = _usenet_file(conn, path, family, digest)
-        for key, value in stats.items():
-            if isinstance(value, int) and not isinstance(value, bool):
-                totals[key] += value
-            elif key == "skipped" and value:
-                totals["files_skipped"] += 1
-        said = logger.debug if stats.get("skipped") else logger.info
-        said(f"[{i}/{len(files)}] {path.name} read")
-        if entry is not None:
-            batch.append(entry)
-            if sum(len(e[3]) for e in batch) >= _USENET_BATCH_ROWS:
-                flush()
+        stats, entry = _usenet_file(conn, path, family, digest, ledger)
+        if entry is None:
+            totals["files_skipped"] += 1
+        else:
+            pending.append((path, entry))
+    staged = 0
+    for i, ((path, entry), (counts, rows)) in enumerate(
+        zip(pending, _read_shards([p for p, _ in pending], family), strict=True), 1
+    ):
+        totals.update(counts)
+        totals["hostname_year_candidates"] += len(rows)
+        logger.info(f"[{i}/{len(pending)}] {path.name} read")
+        batch.append((*entry[:3], rows))
+        staged += len(rows)
+        if staged >= _USENET_BATCH_ROWS:
+            flush()
+            staged = 0
     flush()
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
@@ -1944,9 +2027,9 @@ def staged_message_rows(
             if not _VALID_HOST.match(host) or _INTERNAL_LABELS & set(labels):
                 counts["rejected_host"] += 1
                 continue
-            # the brief's quarantine: a suffix of 1 to 3 labels written twice in a row
-            # (`x.example.com.example.com`) is a mail system's misconfigured name, not a host
-            if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) > 2 * k):
+            # the brief's quarantine: 1 to 3 final labels written twice in a row, whole name
+            # too (`x.example.com.example.com`, `ph.org.ph.org`), is a misconfigured name
+            if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) >= 2 * k):
                 counts["duplicated_suffix"] += 1
                 continue
             key = (field, host, year)
