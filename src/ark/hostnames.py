@@ -278,7 +278,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "usenet_message_id_hostnames",
         "usenet_from_hostnames",
         # The dial-up leases those three fields name (`USENET_FIELD_FAMILIES["lease"]`) and
-        # their mail twin (`RECEIVED_LEASE_FAMILY`): candidates, shipped only when switched in.
+        # their mail twin (`RECEIVED_LEASE_FAMILY`): candidates, `ARK_SHIP_LEASES=0` holds them.
         "usenet_header_lease_hostnames",
         "received_rdns_lease_hostnames",
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
@@ -1596,7 +1596,7 @@ RECEIVED_LEASE_FAMILY = ItemFamily(
     _RECEIVED_ITEM,
     _received_url,
 )
-# The dial-up lease families, which the export ships only with `ARK_SHIP_LEASES=1`.
+# The dial-up lease families, which the export leaves out with `ARK_SHIP_LEASES=0`.
 LEASE_SOURCES = (USENET_FIELD_FAMILIES["lease"].source, RECEIVED_LEASE_FAMILY.source)
 
 

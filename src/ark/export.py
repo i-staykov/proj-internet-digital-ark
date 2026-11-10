@@ -58,9 +58,9 @@ HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year
 
 
 def _lease_filter(evidence_id: str) -> str:
-    """TRUE unless the row is a dial-up lease (`LEASE_SOURCES`) and `ARK_SHIP_LEASES` is not
-    1: the leases are banked before the owner rules whether they ship."""
-    if os.environ.get("ARK_SHIP_LEASES") == "1":
+    """TRUE unless the row is a dial-up lease (`LEASE_SOURCES`) and `ARK_SHIP_LEASES` is 0,
+    the one switch that takes the lease families out of the claim."""
+    if os.environ.get("ARK_SHIP_LEASES", "1") != "0":
         return "TRUE"
     names = ", ".join(f"'{name}'" for name in LEASE_SOURCES)
     return f"""{evidence_id} NOT IN (SELECT ev.evidence_id FROM evidence ev

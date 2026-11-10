@@ -46,7 +46,7 @@ lease or `MUNGED`, and the ingest refuses one with no real public suffix (`.inva
 encodes its own address or announces a pool slot (`is_ephemeral`) names a lease, not a
 machine, yet his own files bank the shape: merge261104's 2001 file holds 12,224
 `dip.t-dialin.net` names. So the lane keeps each server-written lease under its own
-family, a candidate only, which the export ships only when switched in. `--keep-ephemeral`
+family, a candidate only, which `ARK_SHIP_LEASES=0` holds out of the claim. `--keep-ephemeral`
 puts them back in the header shards for a measured comparison.
 
     uv run python scripts/sources/usenet/build_usenet_header_pool.py data/raw/usenet_uk OUTDIR 8

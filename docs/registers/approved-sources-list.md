@@ -807,6 +807,20 @@ Decision: master
 - potential: 6666
 Decision: master
 
+### usenet_header_lease_hostnames / link_source
+- the artifact: the posts `usenet_header_fqdn_hostnames` reads, in the same pass: an `X-Trace`, `NNTP-Posting-Host` or final `Path` name that `is_ephemeral` calls a dial-up lease, which `build_usenet_header_pool.py` writes to its `lease/` side journal and `ark ingest-usenet-field-hostnames lease` reads
+- what dates one item: the post's own `Date:` header; the row is the pointer `<group>.mbox.zip#<n>`, the year and the host
+- **the reading: a lease name is a real hostname, written by the server that accepted the post, and a candidate source for 1996 to 2001, never an annual record.** His own files bank the shape: merge261104's 2001 file holds 12,224 `dip.t-dialin.net`, 30,955 `ipt.aol.com` and 57,026 `da.uu.net` names. Its method `usenet_header_lease_host` is outside `WEB_METHODS`; `ARK_SHIP_LEASES=0` leaves it out of the claim
+- screened out: a munged or placeholder host (`MUNGED`) and a name with no real public suffix
+- measured 2026-11-10 against merge261104, candidate track, on 441 MB of nine tops the lane had read: 20,208 EE, 3.4x the 5,932 of the header hosts on the same bytes; two samples of different tops shared 0.2% of their names
+Decision: master
+
+### received_rdns_lease_hostnames / link_source
+- the artifact: the `received_rdns_hostnames` corpus in the same pass: a reverse-DNS name `is_ephemeral` calls a lease, written by `build_received_rdns_pool.py` to `received_rdns_items/lease/` and read by `ark ingest-received-rdns-hostnames --lease`
+- what dates one item and the reading: as `received_rdns_hostnames`, a candidate source for 1996 to 2001; its method `received_from_rdns_lease` is outside `WEB_METHODS`; `ARK_SHIP_LEASES=0` leaves it out of the claim
+- measured: nowhere yet
+Decision: master
+
 ## Pending requests
 
 None.
