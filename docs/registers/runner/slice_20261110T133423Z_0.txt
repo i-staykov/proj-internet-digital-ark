@@ -1,7 +1,5 @@
 # scripts/engines/runner_slices.py
 co.uk 1000 685 1996 2013 p1
-co.uk 1000 3011 1996 2013 p1
-co.uk 1000 3070 1996 2013 p1
 co.uk 1000 2842 1996 2013 p1
 co.uk 1000 821 1996 2013 p1
 co.uk 1000 758 1996 2013 p1
@@ -133,9 +131,6 @@ co.uk 1000 3015 1996 2013 p1
 co.uk 1000 114 1996 2013 p1
 co.uk 1000 1656 1996 2013 p1
 co.uk 1000 3080 1996 2013 p1
-co.uk 1000 1767 1996 2013 p1
-co.uk 1000 1207 1996 2013 p1
-co.uk 1000 2972 1996 2013 p1
 ask-gap 1 nativitydisplays.com 1996 2013 ask
 ask-gap 1 travel-cards.com 1996 2013 ask
 ask-gap 1 wiktors.com 1996 2013 ask
@@ -299,3 +294,8 @@ ask-gap 1 unbridge.com 1996 2013 ask
 ask-gap 1 pezcandyinc.com 1996 2013 ask
 ask-gap 1 wesjax.com 1996 2013 ask
 ask-gap 1 sdom.com 1996 2013 ask
+ask-gap 1 meov.com 1996 2013 ask
+ask-gap 1 maley.com 1996 2013 ask
+ask-gap 1 plumet.com 1996 2013 ask
+ask-gap 1 iarchi.com 1996 2013 ask
+ask-gap 1 graasten-salater.com 1996 2013 ask
