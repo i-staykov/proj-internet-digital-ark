@@ -186,8 +186,11 @@ def test_the_rows_reach_the_disk_a_year_at_a_time_and_the_output_is_what_it_was(
         digest.update((out / name).read_bytes())
     was = "06234d133bc9f6febb5dd6fd1b769c3e700194ff8e42e965ecdb9ce06d352f17"
     assert digest.hexdigest() == was, "what the export wrote with its rows whole on the disk"
-    runs = turns[2002][1]
-    assert runs and (runs == {b"\x28\xb5\x2f\xfd"} or not shutil.which("zstd")), "zstd's runs"
+    # GNU's and BSD's runs stay until merged to their end; another sort may have read its own
+    version = subprocess.run(["sort", "--version"], capture_output=True, text=True).stdout
+    if shutil.which("zstd"):
+        assert turns[2002][1] <= {b"\x28\xb5\x2f\xfd"}, "a run of sort's is zstd's"
+        assert turns[2002][1] or not ("GNU" in version or sys.platform == "darwin")
     assert list(turns) == list(span)
     for year, (ours, _) in turns.items():
         assert ours == {f"ours_{year}.txt", f"ev_{year}.txt"}, "no other year's rows beside it"
