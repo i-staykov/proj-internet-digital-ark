@@ -784,11 +784,19 @@ def claim_files(
 def store_ledger(conn: duckdb.DuckDBPyConnection) -> dict[str, int | None]:
     """What moves the store under an export: a new journal adds an `ingested_file` row, a grown
     one only raises the top evidence id, a seed adds `domain` rows and an unbank deletes rows, so
-    two ledgers are compared for equality, never order."""
+    two ledgers are compared for equality, never order. A re-read or a repoint moves a year's
+    row and nothing above, so each year table is fingerprinted too, its rows hashed and XORed."""
+    one = lambda sql: conn.execute(sql).fetchone()[0]  # noqa: E731
     return {
-        "ingested_file_rows": conn.execute("SELECT count(*) FROM ingested_file").fetchone()[0],
-        "max_evidence_id": conn.execute("SELECT max(evidence_id) FROM evidence").fetchone()[0],
-        "domain_rows": conn.execute("SELECT count(*) FROM domain").fetchone()[0],
+        "ingested_file_rows": one("SELECT count(*) FROM ingested_file"),
+        "max_evidence_id": one("SELECT max(evidence_id) FROM evidence"),
+        "domain_rows": one("SELECT count(*) FROM domain"),
+        "hostname_years": one(
+            "SELECT bit_xor(hash(hostname, assigned_year, evidence_id)) FROM hostname_year"
+        ),
+        "domain_years": one(
+            "SELECT bit_xor(hash(domain, assigned_year, evidence_id)) FROM domain_year"
+        ),
     }
 
 
