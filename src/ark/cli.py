@@ -595,6 +595,31 @@ def ingest_gnome_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=GNOME_HEADER_FAMILY)))
 
 
+@app.command(name="ingest-gmane-header-hostnames")
+def ingest_gmane_header_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards of news.gmane.io `by` hosts, or their directories.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the relay hosts of dated news.gmane.io list articles.
+
+    The Apache class again: the `Original-Received: ... by <host>` clause, the item
+    `gmane/<group>#<article>`. Idempotent per shard.
+    Example: ark ingest-gmane-header-hostnames data/raw/gmane_header_items
+    """
+    from ark.hostnames import GMANE_HEADER_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=GMANE_HEADER_FAMILY)))
+
+
 @app.command(name="ingest-usenet-header-hostnames")
 def ingest_usenet_header_hostnames_cmd(
     paths: Annotated[

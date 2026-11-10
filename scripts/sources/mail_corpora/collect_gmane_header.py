@@ -1,0 +1,151 @@
+"""Relay hosts from `Received: ... by <host>` (Gmane: `Original-Received:`) of 1996-2001
+articles on news.gmane.io, one connection, HEAD commands pipelined in batches.
+
+    uv run python scripts/sources/mail_corpora/collect_gmane_header.py GROUPS OUT [GROUP ...]
+
+GROUPS is a JSONL of rows {g, n, lo, hi, y}: each group's range and its first article's year.
+
+Item: gmane/<group>#<article>, archive nntp://news.gmane.io/<group>/<article>.
+A message is dated by its own Date: header; the Apache lane's `by_hosts` reads the
+unfolded block after `Original-Received:` is renamed back to `Received:`.
+"""
+
+import importlib.util
+import json
+import socket
+import sys
+import time
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[3]
+GROUPS, OUT = Path(sys.argv[1]), Path(sys.argv[2])
+ONLY = set(sys.argv[3:])
+sys.path.insert(0, str(REPO / "src"))
+from ark.usenet import message_year  # noqa: E402
+
+_spec = importlib.util.spec_from_file_location(
+    "ap", REPO / "scripts/sources/mail_corpora/build_apache_header_pool.py"
+)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+unfold, by_hosts, IN_WINDOW = _mod.unfold, _mod.by_hosts, _mod.IN_WINDOW
+BATCH = 100
+
+
+class NNTP:
+    def __init__(self):
+        self.connect()
+
+    def connect(self):
+        self.s = socket.create_connection(("news.gmane.io", 119), timeout=120)
+        self.f = self.s.makefile("rwb")
+        self.line()
+
+    def line(self):
+        return self.f.readline().decode("latin1").rstrip("\r\n")
+
+    def send(self, cmds):
+        self.f.write("".join(c + "\r\n" for c in cmds).encode())
+        self.f.flush()
+
+    def multi(self):
+        first = self.line()
+        out = []
+        if first[:1] == "2":
+            while True:
+                row = self.line()
+                if row == ".":
+                    break
+                out.append(row[1:] if row.startswith("..") else row)
+        return first, out
+
+
+def main() -> int:
+    OUT.mkdir(parents=True, exist_ok=True)
+    groups = []
+    for raw in open(GROUPS):
+        d = json.loads(raw)
+        if d.get("y") and d["y"] < 2002 and (not ONLY or d["g"] in ONLY):
+            groups.append(d)
+    done_p = OUT / "swept.txt"
+    done = set(done_p.read_text().split()) if done_p.exists() else set()
+    st = dict.fromkeys(["articles", "in_window", "with_hosts", "no_by_host", "undated"], 0)
+    nn = NNTP()
+    shard = open(OUT / "gmane_received.jsonl", "a")
+    donef = open(done_p, "a")
+    for d in sorted(groups, key=lambda d: d["g"]):
+        g = d["g"]
+        if g in done:
+            continue
+        for attempt in range(5):
+            try:
+                nn.send([f"GROUP {g}"])
+                nn.line()
+                # overview first: only articles whose Date is in window get a HEAD
+                want = []
+                lo, hi = d["lo"], d["hi"]
+                step = 20000
+                stop = False
+                for a in range(lo, hi + 1, step):
+                    nn.send([f"OVER {a}-{min(a + step - 1, hi)}"])
+                    _, rows = nn.multi()
+                    for r in rows:
+                        p = r.split("\t")
+                        if len(p) < 4:
+                            continue
+                        y = message_year(p[3])
+                        if y in IN_WINDOW:
+                            want.append(int(p[0]))
+                        elif y and y > 2003:
+                            stop = True
+                    if stop:
+                        break
+                for i in range(0, len(want), BATCH):
+                    chunk = want[i : i + BATCH]
+                    nn.send([f"HEAD {n}" for n in chunk])
+                    for n in chunk:
+                        first, lines = nn.multi()
+                        if not first.startswith("221"):
+                            continue
+                        st["articles"] += 1
+                        block = unfold(lines)
+                        block = "\n".join(
+                            "Received:" + x[len("Original-Received:") :]
+                            if x.lower().startswith("original-received:")
+                            else x
+                            for x in block.split("\n")
+                        )
+                        year = None
+                        for x in block.split("\n"):
+                            if x[:5].lower() == "date:":
+                                year = message_year(x.split(":", 1)[1])
+                                break
+                        if year not in IN_WINDOW:
+                            st["undated"] += 1
+                            continue
+                        st["in_window"] += 1
+                        hosts = by_hosts(block)
+                        if not hosts:
+                            st["no_by_host"] += 1
+                            continue
+                        st["with_hosts"] += 1
+                        row = {
+                            "item": f"gmane/{g}#{n}",
+                            "year": year,
+                            "text": " ".join(sorted(set(hosts))),
+                        }
+                        shard.write(json.dumps(row) + "\n")
+                shard.flush()
+                donef.write(g + "\n")
+                donef.flush()
+                print(g, len(want), json.dumps(st), flush=True)
+                break
+            except (TimeoutError, OSError) as e:
+                print("retry", g, e, flush=True)
+                time.sleep(10 * (attempt + 1))
+                nn.connect()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

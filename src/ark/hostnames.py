@@ -271,6 +271,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "ietf_list_header_hostnames",
         # And in the mail.gnome.org month files (`GNOME_HEADER_FAMILY`).
         "gnome_list_header_hostnames",
+        # And in news.gmane.io's backfilled list archives (`GMANE_HEADER_FAMILY`).
+        "gmane_list_header_hostnames",
         # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
         # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
         # article, about itself or the machine it came from, in a transaction it completed.
@@ -1529,6 +1531,24 @@ _GNOME_ITEM = re.compile(
 )
 GNOME_HEADER_FAMILY = ItemFamily(
     GNOME_HEADER_SOURCE, GNOME_HEADER_METHOD, "list header", _GNOME_ITEM, _maillist_url
+)
+
+# The same clause in news.gmane.io articles, which keep each list message's chain as
+# `Original-Received:`; many groups were backfilled from list archives older than Gmane.
+# The item is `gmane/<group>#<article>`, reopened by `ARTICLE <n>` in that group.
+GMANE_HEADER_SOURCE = "gmane_list_header_hostnames"
+GMANE_HEADER_METHOD = "gmane_list_received_by"
+_GMANE_ITEM = re.compile(r"^gmane/(?P<group>gmane\.[a-z0-9][a-z0-9._+-]*)#(?P<n>\d+)$")
+
+
+def _gmane_url(item: str) -> str:
+    m = _GMANE_ITEM.match(item)
+    assert m is not None  # the caller matched it already
+    return f"nntp://news.gmane.io/{m['group']}/{m['n']}"
+
+
+GMANE_HEADER_FAMILY = ItemFamily(
+    GMANE_HEADER_SOURCE, GMANE_HEADER_METHOD, "list header", _GMANE_ITEM, _gmane_url
 )
 
 # The sixth member: the server-written header fields of a dated Usenet post.
