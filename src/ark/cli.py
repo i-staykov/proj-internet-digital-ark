@@ -591,6 +591,32 @@ def ingest_ietf_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
 
 
+@app.command(name="ingest-staged-messages")
+def ingest_staged_messages_cmd(
+    dirs: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`staged/<source>/` folders of dated message rows "
+            "`{host, year, file, pos, field}`.",
+            exists=True,
+            file_okay=False,
+        ),
+    ],
+) -> None:
+    """Bank any dated message archive (list mail, NNTP list articles) with no new code.
+
+    One standing-rule approval, `staged_messages / link_source`; each field banks under
+    `msg_<folder>__<field>` and every row is a candidate. Idempotent per file.
+    Example: ark ingest-staged-messages staged/gmane_list_header
+    """
+    from ark.hostnames import ingest_staged_messages
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in dirs:
+        typer.echo(str(ingest_staged_messages(conn, path)))
+
+
 @app.command(name="ingest-usenet-header-hostnames")
 def ingest_usenet_header_hostnames_cmd(
     paths: Annotated[

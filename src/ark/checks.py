@@ -17,7 +17,12 @@ import duckdb
 from ark import held
 from ark.bulk import names_another_host_sql
 from ark.evidence_types import CANDIDATE_ONLY_SQL, WEB_METHODS, qualifies_sql
-from ark.hostnames import AUDITED_FAMILIES, FLEETREAD_SOURCE, WEB_FACING_HOST_SOURCES
+from ark.hostnames import (
+    AUDITED_FAMILIES,
+    FLEETREAD_SOURCE,
+    STAGED_MESSAGE_SOURCE,
+    WEB_FACING_HOST_SOURCES,
+)
 from ark.ingest import YEARS
 
 # Where `ark export` writes the annual additions. A parameter rather than a
@@ -269,14 +274,16 @@ CHECKS: list[tuple[str, str, Check]] = [
         "hostname_observed_serving_web",
         "every hostname record comes from a lane whose observation shows the host IN USE that "
         "year: a capture, a URL listing, the `Received: ... by <host>` clause a receiving MTA "
-        "wrote about itself, or a fleet read whose method is a web method. DNS listings date "
-        "the parent only, because a machine answering is not a host in use. The check name "
-        "predates the wider wording and is kept so a failing gate stays greppable",
+        "wrote about itself, a staged dated message, or a fleet read whose method is a web "
+        "method. DNS listings date the parent only, because a machine answering is not a host "
+        "in use. The check name predates the wider wording and is kept so a failing gate "
+        "stays greppable",
         f"""
         SELECT count(*) FROM hostname_year hy
         JOIN evidence e ON e.evidence_id = hy.evidence_id
         JOIN source s ON s.source_id = e.source_id
         WHERE s.name NOT IN ({_WEB_FACING_LIST})
+          AND NOT regexp_matches(s.name, '{STAGED_MESSAGE_SOURCE.pattern}')
           AND NOT (regexp_matches(s.name, '{FLEETREAD_SOURCE.pattern}')
                    AND e.acquisition_method IN ({_WEB_METHOD_LIST}))
         """,

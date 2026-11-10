@@ -807,6 +807,14 @@ Decision: master
 - potential: 6666
 Decision: master
 
+### staged_messages / link_source
+- the class: dated message archives, ruled by the owner the class Usenet is: mailing-list month files, mbox exports and NNTP list articles, each message dated by its own `Date:` header as its collector checked it (against the month file it is filed under, or, with no month file, against each `Received:` line's own stamp)
+- the standing rule: any `staged/<source>/` folder of rows `{host, year, file, pos, field}` banks through `ark ingest-staged-messages` with no new code; `file` is the archive URL a reviewer fetches, `pos` the message in it; each field banks under `msg_<folder>__<field>`
+- the fields: `received_by` (the `by` clause, the relay-host rule of `apache_list_header_hostnames`), `rdns` (as `received_rdns_hostnames`), `body_url` (as `maillist_body_url_hostnames`), `from` and `message_id` (as `usenet_from_hostnames`, `usenet_message_id_hostnames`); no method is in `WEB_METHODS`, so every row is a candidate
+- hygiene at ingest: a name with no public suffix or an internal label (`localhost`, `local`, `lan`, `localdomain`, `internal`, `intranet`) is dropped, a registrable belongs to `domain_year`, a year outside 1996 to 2001 is refused
+- terms: each folder's README names its host's terms and robots reading; the collector honours them
+Decision: master
+
 ### usenet_header_lease_hostnames / link_source
 - the artifact: the posts `usenet_header_fqdn_hostnames` reads, in the same pass: an `X-Trace`, `NNTP-Posting-Host` or final `Path` name that `is_ephemeral` calls a dial-up lease, which `build_usenet_header_pool.py` writes to its `lease/` side journal and `ark ingest-usenet-field-hostnames lease` reads
 - what dates one item: the post's own `Date:` header; the row is the pointer `<group>.mbox.zip#<n>`, the year and the host
