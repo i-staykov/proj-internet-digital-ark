@@ -10,6 +10,7 @@ import filecmp
 import hashlib
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -410,6 +411,53 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
     return taken
 
 
+# **One file per class, so a class he declines drops alone** (XIV's source-specific assets): a
+# host two classes name is in both files, and `exclusive` is what dropping one class takes out.
+# A host-year keeps the one row its first class wrote, so an exclusive figure is an upper bound.
+CLASS_DIR = "header_candidates_by_class"
+
+
+def _class_files(conn: duckdb.DuckDBPyConnection, out: Path, weights: dict) -> dict[str, dict]:
+    """`out/<source>.txt` for each source of `header_provenance`, and each one's names and EE,
+    in all and alone."""
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    conn.execute("""
+        CREATE OR REPLACE TEMP TABLE header_class AS
+        SELECT c.hostname, c.source, n.k = 1 AS alone FROM (
+            SELECT DISTINCT hostname, source FROM header_provenance) c
+        JOIN (SELECT hostname, count(DISTINCT source) AS k FROM header_provenance GROUP BY 1) n
+          USING (hostname)
+    """)
+    by_class: dict[str, dict] = {}
+    for (source,) in conn.execute("SELECT DISTINCT source FROM header_class ORDER BY 1").fetchall():
+        if not re.fullmatch(r"[a-z0-9_]+", source):
+            raise ValueError(f"source {source!r} cannot name a class file")
+        names = held.dump(
+            conn,
+            f"SELECT hostname FROM header_class WHERE source = '{source}' ORDER BY 1",
+            out / f"{source}.txt",
+        )
+        ee = {"all": Decimal(0), "alone": Decimal(0)}
+        alone = 0
+        for tld, n, solo in conn.execute(
+            "SELECT regexp_extract(hostname, '[^.]+$'), count(*), count(*) FILTER (WHERE alone) "
+            "FROM header_class WHERE source = ? GROUP BY 1",
+            [source],
+        ).fetchall():
+            ee["all"] += weights.get(tld, Decimal(0)) * n
+            ee["alone"] += weights.get(tld, Decimal(0)) * solo
+            alone += solo
+        by_class[source] = {
+            "names": names,
+            "equivalent_english": str(ee["all"].quantize(Decimal("0.0001"))),
+            "exclusive_names": alone,
+            "exclusive_equivalent_english": str(ee["alone"].quantize(Decimal("0.0001"))),
+        }
+    conn.execute("DROP TABLE header_class")
+    return by_class
+
+
 def export_header_candidates(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
@@ -473,6 +521,7 @@ def export_header_candidates(
             "SELECT source, count(DISTINCT hostname) FROM header_provenance GROUP BY 1 ORDER BY 1"
         ).fetchall()
     )
+    by_class = _class_files(conn, netnew_dir / CLASS_DIR, weights)
     by_year = {
         str(year): n
         for year, n in conn.execute(
@@ -490,6 +539,7 @@ def export_header_candidates(
         "hostname_years": sum(by_year.values()),
         "by_year": by_year,
         "by_source": by_source,
+        "by_class": by_class,
         "provenance_rows": conn.execute(count_csv, [str(provenance_path)]).fetchone()[0],
         "excluded_by_integrity_gate": conn.execute(count_csv, [str(ledger_path)]).fetchone()[0],
         "promotion": "an exact-host, target-year web capture retained beside the record",
@@ -727,7 +777,8 @@ def claim_files(
         for end in (".txt", "_provenance.csv", "_exclusions.csv", "_summary.json")
     ]
     names.append(ATTESTED_NAME)
-    return [netnew_dir / name for name in names] + [candidates_path]
+    classes = sorted((netnew_dir / CLASS_DIR).glob("*.txt"))
+    return [netnew_dir / name for name in names] + classes + [candidates_path]
 
 
 def store_ledger(conn: duckdb.DuckDBPyConnection) -> dict[str, int | None]:

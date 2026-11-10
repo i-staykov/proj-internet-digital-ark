@@ -245,6 +245,11 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     summary = json.loads((run.root / "full/netnew/header_candidates_summary.json").read_text())
     assert (summary["candidates"], summary["hostname_years"]) == (4, 6)
     assert summary["by_source"] == {"usenet": 2, "usenet_header_fqdn_hostnames": 2}
+    # one file per class, so a declined class drops alone; these two share no host
+    assert {k: v["names"] for k, v in summary["by_class"].items()} == summary["by_source"]
+    assert all(v["exclusive_names"] == v["names"] for v in summary["by_class"].values())
+    by_class = run.root / "full/netnew/header_candidates_by_class"
+    assert sorted(n for p in by_class.glob("*.txt") for n in p.read_text().split()) == headers
     ledger = (run.root / "full/netnew/header_candidates_exclusions.csv").read_text()
     assert ledger.split(",")[:2] == ["hostname", "scope"]
     # one row per host-year and survey edition
