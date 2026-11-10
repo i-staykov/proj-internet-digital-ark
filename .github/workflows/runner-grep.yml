@@ -1,8 +1,8 @@
 name: runner-grep
 
 # A public index or URL list read once through a grep, on a runner's line: the lines naming a
-# web server's usage report (scripts/sources/web_reports/report_urls.ere) and nothing else are
-# kept. A plain download of a file its host publishes, as ranges on a few connections
+# web server's usage report (scripts/sources/web_reports/report_urls.ere), or matching the
+# dispatch's own pattern, and nothing else are kept. A plain download of a file its host publishes, as ranges on a few connections
 # (fetch_ranges.py); no CDX query, no model, no secret. What a long file gave so far uploads
 # after 20 and 40 minutes, and every file's hits at its end.
 on:
@@ -17,6 +17,9 @@ on:
       parallel:
         description: jobs at once
         default: "4"
+      pattern:
+        description: an ERE kept in place of report_urls.ere
+        default: ""
 
 permissions:
   contents: read
@@ -51,6 +54,7 @@ jobs:
       - env:
           URL: ${{ matrix.url }}
           CONNECTIONS: ${{ inputs.connections }}
+          PATTERN: ${{ inputs.pattern }}
         run: |
           mkdir -p out
           case "$URL" in *.gz) OPEN="gzip -dc" ;; *.bz2) OPEN="bzip2 -dc" ;; *) OPEN=cat ;; esac
