@@ -216,7 +216,7 @@ def test_a_red_gate_unbanks_only_this_banks_source(tmp_path, monkeypatch, capsys
 
 # --- bank_hygiene: the clone, the disk, the staging and the gate --------------------------
 
-BRIEF = {"gate_percent": "5.010400", "gate_pct": 3.0, "round": "8", "baseline": "m1",
+BRIEF = {"gate_percent": "5.010400", "gate_pct": 1.0, "round": "8", "baseline": "m1",
          "gate_part": "2002-2013"}  # fmt: skip
 
 
@@ -224,7 +224,7 @@ BRIEF = {"gate_percent": "5.010400", "gate_pct": 3.0, "round": "8", "baseline": 
     "brief,listed,said,asked",
     [
         ({"field5_percent": "5.3597", "gate_percent": "0.252400"}, "",
-         "at 0.252400% of 2002-2013, gate at 3%: not crossed", 0),
+         "at 0.252400% of 2002-2013, gate at 1%: not crossed", 0),
         ({}, "12", "gate issue #12 is already open: latched, not re-notifying", 1),
         ({}, "", "opened the gate issue: Round 8 at 5.010400% of 2002-2013 against m1 "
          "(released 2026-09-02) at 14:03 UTC", 2),

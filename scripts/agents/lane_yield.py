@@ -14,8 +14,11 @@ ee_per_client_second (ee over the lane's wall seconds in the span, first start t
 pauses included, one client whatever its workers: a lane idle part of the span is rated over the
 part it walked), band_low and band_high (that ee a second over the lane's previous seven rows of
 the kind, window and HH suffix, so hours are banded against the same hours of earlier days, blank
-under three). `lines()`, the heartbeat's, reads the daily rows. `LEVERS` is the levers file the
-cdx run may pull from.
+under three), candidate_ee (blank on a walk's row: the bank prices no candidate a lane). The
+Usenet header lane has one row a key, lane `header`, kind `banked`: its candidate_ee is what the
+bank's header candidates gained over the key's seconds (`gained`), its ee 0, since a header dates
+no host directly. `lines()`, the heartbeat's, reads the daily rows. `LEVERS` is the levers file
+the cdx run may pull from.
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ OUT = ROOT / "data/logs/productivity.tsv"
 LEVERS = ROOT / "scripts/engines/levers.json"
 WINDOWS = ("1996-2001", "2002-2013")
 HEADER = "key lane kind window requests answered paused_seconds ee ee_per_client_second"
-HEADER = HEADER.split() + ["band_low", "band_high"]
+HEADER = HEADER.split() + ["band_low", "band_high", "candidate_ee"]
 ANSWERED = {"200", "HTTP504"}
 PAUSE = re.compile(r"# pause (\d+) s")
 BAND = 7
@@ -120,7 +123,25 @@ def read(path: Path) -> list[list[str]]:
     if not path.exists():
         return []
     rows = (ln.split("\t") for ln in path.read_text().splitlines()[1:])
-    return [r for r in rows if len(r) == len(HEADER)]
+    # a row from before candidate_ee is one column short
+    return [r + [""] * (len(HEADER) - len(r)) for r in rows if 0 <= len(HEADER) - len(r) <= 1]
+
+
+def gained(ticks: Path, span: tuple[float, float]) -> float | None:
+    """The EE the bank's header candidates gained over the span: `heartbeat.py`'s sixth column of
+    `ticks.tsv` at the last tick within an hour past the span's end (the tick that banks its last
+    hour), less the same an hour past its start; None without both readings."""
+    at: list[float | None] = [None, None]
+    for ln in ticks.read_text().splitlines() if ticks.exists() else []:
+        r = ln.split("\t")
+        try:
+            when, ee = epoch(r[0][:-1] + "00Z"), float(r[5])
+        except (IndexError, ValueError):
+            continue
+        for i, edge in enumerate(span):
+            if when < edge + 3600:
+                at[i] = ee
+    return None if None in at else at[1] - at[0]
 
 
 def unpriced(ticks: Path, key: str) -> str:
@@ -152,7 +173,11 @@ def write(out: Path, data: Path, key: str, hours: int = 0) -> int:
                 low, high = (f"{min(band):.5f}", f"{max(band):.5f}") if len(band) >= 3 else ("", "")
                 counts = [k["requests"], k["answered"], round(union(k["pauses"]))]
                 row = [key, lane, kind, window, *counts, f"{k['ee'][i]:.2f}", f"{rate:.5f}"]
-                new.append([*map(str, row), low, high])
+                new.append([*map(str, row), low, high, ""])
+    gain = gained(out.parent / "ticks.tsv", bounds(key, hours))
+    if gain is not None:
+        blank = ["", "", "", "0.00", "", "", ""]
+        new.append([key, "header", "banked", WINDOWS[0], *blank, f"{gain:.2f}"])
     rows = sorted(kept + new)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
@@ -163,7 +188,7 @@ def write(out: Path, data: Path, key: str, hours: int = 0) -> int:
 
 def lines(path: Path) -> dict[str, str]:
     """Each lane's last date as one line: a kind's answers, pauses, EE and rate a window."""
-    rows = [r for r in read(path) if len(r[0]) == 10]
+    rows = [r for r in read(path) if len(r[0]) == 10 and r[1] != "header"]
     last: dict[str, str] = {}
     for r in rows:
         last[r[1]] = max(last.get(r[1], ""), r[0])

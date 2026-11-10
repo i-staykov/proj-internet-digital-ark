@@ -56,10 +56,18 @@ def test_a_day_is_counted_priced_by_window_and_split_by_kind(tmp_path):
     assert rows[0][:9] == [DATE, "lane0", "ask-gap", "1996-2001", "1", "1", "0", "0.01", "0.00004"]
     assert rows[2][:9] == [DATE, "lane0", "page", "1996-2001", "4", "3", "46", "4.00", "0.01311"]
     assert rows[3][:9] == [DATE, "lane0", "page", "2002-2013", "4", "3", "46", "40.00", "0.13115"]
-    assert all(r[9:] == ["", ""] for r in rows)
+    assert all(r[9:] == ["", "", ""] for r in rows)
     assert yield_.lines(out)["lane0"].startswith(
         f"{DATE}: ask-gap 1 of 1 answered, 0 s paused, 0.01 EE 1996-2001 at 0.00004 a second, "
     )
+    # the header lane's row: what the bank's header candidates gained, tick to tick
+    tick = "{}\tbanked\t9\tbanked\t300.0000\t{}\n"
+    ticks = tick.format("20261106T2305Z", "100.5") + "20261107T0005Z\tidle\t9\tno output\n"
+    ticks += tick.format("20261107T2305Z", "180.5") + tick.format("20261108T0005Z", "200.5")
+    (tmp_path / "ticks.tsv").write_text(ticks)
+    assert yield_.write(out, tmp_path, DATE) == 5
+    banked = ["header", "banked", "1996-2001", "", "", "", "0.00", "", "", "", "100.00"]
+    assert yield_.read(out)[0] == [DATE, *banked] and "header" not in yield_.lines(out)
 
 
 def test_a_rerun_replaces_the_date_and_the_band_is_the_previous_seven_rows(tmp_path):
@@ -73,8 +81,8 @@ def test_a_rerun_replaces_the_date_and_the_band_is_the_previous_seven_rows(tmp_p
     yield_.write(out, tmp_path, DATE)
     rows = yield_.read(out)
     assert [r[0] for r in rows] == [r.split("\t")[0] for r in earlier] + [DATE] * 4
-    assert rows[-1][3:] == ["2002-2013", "4", "3", "46", "40.00", "0.13115", "0.10000", "0.90000"]
-    assert rows[-2][9:] == ["", ""]  # 1996-2001 has no earlier row
+    assert rows[-1][3:-1] == ["2002-2013", "4", "3", "46", "40.00", "0.13115", "0.10000", "0.90000"]
+    assert rows[-2][9:] == ["", "", ""]  # 1996-2001 has no earlier row, a walk no candidate_ee
     assert yield_.lines(out)["lane0"].endswith("a second (band 0.10000 to 0.90000)")
     out.write_text(out.read_text() + "2026-11-08\tlane1\tpage\t1996-2001\t1\t1\t0\t1\t0.5\t\t\n")
     assert yield_.lines(out)["lane0"].startswith(DATE)  # each lane's own last date
@@ -95,7 +103,7 @@ def test_a_window_row_counts_its_hours_beside_the_date_and_bands_on_its_hour(tmp
     rows = yield_.read(out)
     # 23:00 to 01:00: the 503 row and its whole pause join the date's; wall 23:59:00 to 00:05:05
     assert rows[-2][:9] == [key, "lane0", "page", "1996-2001", "5", "3", "96", "4.00", "0.01096"]
-    assert rows[-1][3:] == ["2002-2013", "5", "3", "96", "40.00", "0.10959", "0.20000", "0.40000"]
+    assert rows[-1][3:-1] == ["2002-2013", "5", "3", "96", "40.00", "0.10959", "0.20000", "0.40000"]
     assert [ln for ln in out.read_text().splitlines() if ln.startswith(DATE + "\t")] == date_rows
     assert yield_.write(out, tmp_path, DATE) == 4 and len(yield_.read(out)) == 12
     assert yield_.lines(out)["lane0"].startswith(DATE + ": ")

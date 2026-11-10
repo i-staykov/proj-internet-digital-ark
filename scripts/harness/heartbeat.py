@@ -2,7 +2,8 @@
 
     python3 scripts/harness/heartbeat.py STAMP START SYNC_RC CHECK_RC SYNC_OUT CHECK_OUT
 
-- `data/logs/ticks.tsv` gains one row: stamp, verdict, seconds, banked or why not. Rows past 90
+- `data/logs/ticks.tsv` gains one row: stamp, verdict, seconds, banked or why not, then the EE
+  of the candidate claim and of its header hosts as the bank holds them (`banked`). Rows past 90
   days go. The verdict is `red` while `bank_red.json` stands, `held` when the recipe printed it,
   `refused` when the lock refused or the sync failed, `banked` when the bank wrote its stamp
   since START, else `idle`.
@@ -330,11 +331,40 @@ def readers() -> list[str]:
         return [f"readers: unreadable, {type(e).__name__}"]
 
 
-def header() -> str:
+def banked() -> list[str]:
+    """The candidate claim's EE and its header hosts', as the bank's last export wrote them
+    (`ark.export`'s two summaries), blank where it wrote none: the tick row's last two columns."""
+    out = []
+    for name in ("candidate_additions", "header_candidates"):
+        try:
+            text = (ROOT / f"output/netnew/{name}_summary.json").read_text()
+            out.append(f"{float(json.loads(text)['equivalent_english']):.4f}")
+        except (OSError, ValueError, KeyError, TypeError):
+            out.append("")
+    return out
+
+
+def header(kept: list[list[str]], now: dt.datetime) -> str:
+    """The lane's own line, its EE named as what it is, a batch priced alone before the bank
+    deduplicates across batches, then the header hosts the bank holds and its gain in 24 h."""
     try:
-        return load("scripts/sources/usenet/run_usenet_header_items.py").summary()
+        line = load("scripts/sources/usenet/run_usenet_header_items.py").summary()
     except Exception as e:  # noqa: BLE001 - the lane's import must not cost the heartbeat
-        return f"header lane: unreadable, {type(e).__name__}"
+        line = f"header lane: unreadable, {type(e).__name__}"
+    read = []
+    for r in kept:
+        try:
+            read.append((utc(r[0]), float(r[5])))
+        except (IndexError, ValueError):
+            continue  # a row from before the column, or a tick the export wrote no summary for
+    if not read:
+        return line
+    old = [ee for at, ee in read if at <= now - dt.timedelta(hours=24)]
+    gain = f"{read[-1][1] - old[-1]:+,.0f} in 24 h" if old else "no reading 24 h back"
+    return (
+        line.replace(" EE candidate;", " EE priced a batch;")
+        + f"; banked {read[-1][1]:,.0f} EE of header candidates, {gain}"
+    )
 
 
 def clean(body: str, name: str) -> str:
@@ -394,7 +424,7 @@ def main(argv: list[str]) -> int:
     check_text = Path(check_out).read_text(errors="replace") if Path(check_out).exists() else ""
     word, why = verdict(int(sync_rc), sync_text, float(start))
     secs = f"{now.timestamp() - float(start):.0f}"
-    kept = append([stamp, word, secs, why.replace("\t", " ")[:200]], now)
+    kept = append([stamp, word, secs, why.replace("\t", " ")[:200], *banked()], now)
     print(f"tick row: {word}, {why}")
     today = now.strftime("%Y-%m-%d")
     day_file = LOGS / ".heartbeat_day"
@@ -463,7 +493,7 @@ def main(argv: list[str]) -> int:
                 "ticks in 24 h: " + ", ".join(f"{n} {w}" for w, n in counts.items()),
                 *(line for _s, line in lanes),
                 *runners,
-                header(),
+                header(kept, now),
                 *readers(),
                 token_line,
                 pre_line,
