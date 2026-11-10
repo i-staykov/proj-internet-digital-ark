@@ -365,7 +365,7 @@ def _write_manifests(conn: duckdb.DuckDBPyConnection, netnew_dir: Path) -> None:
 
 def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path) -> list[Path]:
     """Build `candidate_pool(name, unit)` and return the files of names his candidate files
-    took out of its two store arms. Needs `claim_pair` and `isc_export`."""
+    took out of its two store arms. Needs `claim_pair`, `hy_ships` and `isc_export`."""
     arms = {
         # a registrable we found with no year of ours that ships as a web capture of it
         "registrable": f"""
@@ -380,10 +380,8 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
         # arm is that shape for one source. Same rule as the registrable arm: no web capture
         # of the exact host in any year, then the hostname gate.
         "hostname": f"""
-            SELECT DISTINCT hy.hostname FROM hostname_year hy
-            WHERE NOT EXISTS (SELECT 1 FROM hostname_year hz
-                              WHERE hz.hostname = hy.hostname
-                                AND {web_evidence_exists("hz.evidence_id", "hz.hostname")})
+            SELECT DISTINCT hy.hostname FROM hy_ships hy
+            WHERE hy.hostname NOT IN (SELECT hostname FROM hy_ships WHERE ships)
               AND {HOSTNAME_SHIPPING_FILTER} AND {_claim_filter("hy.evidence_id", "hy.hostname")}
             ORDER BY 1
         """,
@@ -562,14 +560,22 @@ def export_all(
         # these are annual records, not auxiliary seeds.
         if not reuse:
             with _phase("hostnames"):
+                # Each host-year's XIV verdict, read once: the year files below and the candidate
+                # pool's hostname arm each ran the exact-host screen over all of hostname_year.
+                conn.execute(f"""
+                    CREATE OR REPLACE TEMP TABLE hy_ships AS
+                    SELECT hy.hostname, hy.assigned_year, hy.evidence_id,
+                           {web_evidence_exists("hy.evidence_id", "hy.hostname")} AS ships
+                    FROM hostname_year hy
+                """)
                 for year in YEARS:
                     hosts = work / f"host_{year}.txt"
                     held.dump(
                         conn,
                         f"""
-                        SELECT DISTINCT hy.hostname FROM hostname_year hy
-                        WHERE hy.assigned_year = {year} AND {HOSTNAME_SHIPPING_FILTER}
-                          AND {web_evidence_exists("hy.evidence_id", "hy.hostname")}
+                        SELECT DISTINCT hy.hostname FROM hy_ships hy
+                        WHERE hy.assigned_year = {year} AND hy.ships
+                          AND {HOSTNAME_SHIPPING_FILTER}
                         ORDER BY 1
                         """,
                         hosts,
