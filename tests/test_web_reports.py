@@ -107,3 +107,33 @@ def test_wusage_reads_its_sites_table_alone_and_a_row_names_its_page(tmp_path):
     assert [(r["host"], r["year"], r["file"], r["pos"], r["field"]) for r in rows] == [
         ("crawler1.bos2.fast-search.net", 2001, replay, 5, "visitor_rdns")
     ]
+
+
+WEEK = """<H2>Week of Sun Nov  3 00:00:00 1996
+</H2>
+<LI>2 sites accessing server most:
+<UL>
+<LI>e659229.boeing.com 632
+<LI>10.1.2.3 357
+</UL>
+<LI>8 items accessed most:
+<UL>
+<LI>index.example.org 15
+</UL>
+"""
+
+
+def test_an_old_wusage_week_is_read_and_a_page_from_an_arc_file_names_its_record(tmp_path):
+    site = tmp_path / "raw" / "arc"
+    (site / "h").mkdir(parents=True)
+    (site / "h" / "week60.html").write_text(WEEK)
+    receipt = {"path": "h/week60.html", "arc": "ITEM/part.arc.gz", "offset": 7, "size": 535}
+    receipt["replay"] = "https://web.archive.org/web/19961213201156id_/http://h/week60.html"
+    (site / "receipts.receipts").write_text(json.dumps(receipt))
+    reports._STAMPS.clear()
+    reports._URLS.clear()
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert [(r["host"], r["year"], r["file"], r["arc_offset"], r["arc_size"]) for r in rows] == [
+        ("e659229.boeing.com", 1996, "https://archive.org/download/ITEM/part.arc.gz", 7, 535)
+    ]

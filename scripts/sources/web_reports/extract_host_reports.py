@@ -26,7 +26,7 @@ import html
 import json
 import re
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from ark.delegation import existed
@@ -171,10 +171,12 @@ def getstats(lines, text, path):
 
 _STAMPS: dict[Path, dict | None] = {}
 _URLS: dict[Path, dict] = {}
+_ARCS: dict[str, dict] = {}
 
 
 def page_url(path: Path) -> str:
-    """Where a page was fetched: its Wayback replay URL with the capture's stamp, or the
+    """Where a page was fetched: its Wayback replay URL with the capture's stamp, the public
+    ARC file that holds it (the row then carries offset, size and the replay URL too), or the
     site's own URL, as the fetch receipts at the tree root record it; "" when they do not."""
     for root in path.parents:
         receipts = root / "receipts.receipts"
@@ -188,7 +190,12 @@ def page_url(path: Path) -> str:
                 except json.JSONDecodeError:
                     continue
                 where = r.get("path") or ""
-                if r.get("replay"):
+                if r.get("arc") and where:  # read out of a public ARC file by byte range
+                    _ARCS[str(root / where)] = {
+                        "arc_offset": r["offset"], "arc_size": r["size"], "replay": r["replay"]
+                    }  # fmt: skip
+                    found[str(root / where)] = "https://archive.org/download/" + r["arc"]
+                elif r.get("replay"):
                     found[str(root / where)] = r["replay"]
                 elif r.get("bytes") and "/raw/" in where:
                     found[str(root / where.split("/raw/", 1)[1])] = r.get("url", "")
@@ -382,6 +389,41 @@ def wusage(lines, text, path):
             yield cell.group(1), year, False, n, stamp, html.unescape(TAG.sub(" ", line)), False
 
 
+WUSAGE_WEEK = re.compile(
+    r"Week of [A-Z][a-z]{2} ([A-Z][a-z]{2})\s+(\d{1,2}) \d\d:\d\d:\d\d (\d{4})"
+)
+WUSAGE_WEEK_ROW = re.compile(r"^\s*<LI>\s*(\S+)\s+\d+\s*$", re.I)
+
+
+def wusage_week(lines, text, path):
+    """wusage 1 to 3 heads a page "Week of Sun Sep 18 00:00:00 1994" and lists its busiest
+    clients as `<LI>host count` under "N sites accessing server most"; a week that leans over
+    New Year dates no year."""
+    m = WUSAGE_WEEK.search(text[:2000])
+    if not m or m.group(1).lower() not in MONTHS:
+        return
+    try:
+        start = date(int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2)))
+    except ValueError:
+        return
+    year, straddle = period_year(start, start + timedelta(days=6))
+    if year is None:
+        return
+    stamp = " ".join(m.group(0).split())
+    inside = False
+    for n, line in enumerate(lines, 1):
+        if "sites accessing server most" in line:
+            inside = True
+            continue
+        if inside and re.search(r"</UL>", line, re.I):
+            inside = False
+        if not inside:
+            continue
+        r = WUSAGE_WEEK_ROW.match(line)
+        if r:
+            yield r.group(1), year, straddle, n, stamp, TAG.sub(" ", line), False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -391,6 +433,7 @@ GENERATORS = (
     ("webstat", webstat),
     ("webalizer", webalizer),
     ("wusage", wusage),
+    ("wusage-week", wusage_week),
 )
 
 
@@ -452,6 +495,7 @@ def main(argv: list[str] | None = None) -> int:
                         "raw_line": n,
                         "generator": name,
                     }
+                    row.update(_ARCS.get(str(path), {}))
                     if straddle:
                         row["straddle"] = True
                     if rev:
