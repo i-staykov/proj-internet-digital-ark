@@ -781,6 +781,22 @@ Decision: master
 - the artifact FineWeb 2013 (#612): Hugging Face `HuggingFaceFW/fineweb`, its CC-MAIN-2013-20 and CC-MAIN-2013-48 parts (205 and 212), read by range by `scripts/sources/crawl_lists/fineweb.py`, each row a page a Common Crawl 2013 crawl fetched; one row per host new to 2013, its stamp the page's own `date`, its node the CC WARC; the `fineweb_2013` row of sources.md (`just find fineweb`)
 Decision: master
 
+### usenet_message_id_hostnames / link_source
+- the artifact: the archive.org Usenet mbox exports the header lane reads, in its own pass and with no further request: `scripts/sources/usenet/build_usenet_header_pool.py` writes the host right of the `@` in `Message-ID:` to its `msgid/` side journal, `{item, year, text}`, and `ark ingest-usenet-field-hostnames msgid` reads it
+- what dates one item: the post's own `Date:` header; the row is the pointer `<group>.mbox.zip#<n>`, the year and the host, and nothing else of the post
+- **the reading: client-written, so a candidate source for 1996 to 2001 and never an annual record.** Turnpike and Demon's clients stamp the field from a configured nodename. A candidate is a hostname with provenance and needs no year proof (the brief: delivery headers are source-specific candidate assets with provenance). Its method `usenet_message_id_host` is outside `WEB_METHODS`, so a row reaches the candidate claim under this source and no annual file; the word below is the one the `link_source` gate takes, as for `usenet_header_fqdn_hostnames`
+- screened out: a lease (`is_ephemeral`), a munged or placeholder host (`MUNGED`: nospam, invalid, example, remove) and a name with no real public suffix
+- measured: 4,054 EE beside 2,823 EE of server-written fields on 55.3 MB of demon.*, and 134 and 293 EE beside 2,537.3 EE on two uk.* groups, each against a synced held set, so a ceiling; the bank ingests it after the header hosts, so the claim's `by_source` is its figure net of them
+Decision: master
+
+### usenet_from_hostnames / link_source
+- the artifact: the same posts in the same pass: the host of the `From:` address, the bracketed address where there is one, written to the `from/` side journal and read by `ark ingest-usenet-field-hostnames from`. The mailbox and the display name reach no journal, log or counter
+- what dates one item: the post's own `Date:` header; the row is the pointer `<group>.mbox.zip#<n>`, the year and the host
+- **the reading: poster-written, so a candidate source for 1996 to 2001 and never an annual record**, on the grounds `usenet_message_id_hostnames` states. Its method `usenet_from_host` is outside `WEB_METHODS`; the word below is the one the `link_source` gate takes
+- screened out: a lease, a munged or placeholder host (`MUNGED`) and a name with no real public suffix; a registrable name is no hostname row, as in every `{item, year, text}` lane
+- measured: nowhere yet; the bank ingests it last, so the claim's `by_source` is its figure net of the header and Message-ID hosts
+Decision: master
+
 ## Pending requests
 
 None.

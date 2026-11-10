@@ -598,6 +598,32 @@ def ingest_usenet_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
 
 
+@app.command(name="ingest-usenet-field-hostnames")
+def ingest_usenet_field_hostnames_cmd(
+    field: Annotated[str, typer.Argument(help="`msgid` or `from`.")],
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="The field's `{item, year, text}` side journals from "
+            "build_usenet_header_pool.py, or directories of them.",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the `Message-ID` or `From` hosts of dated Usenet posts.
+
+    Client-written, so candidates only, each under its own source. Idempotent per shard.
+    Example: ark ingest-usenet-field-hostnames msgid data/raw/usenet_header_items/*/msgid
+    """
+    from ark.hostnames import USENET_FIELD_FAMILIES, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_FIELD_FAMILIES[field])))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

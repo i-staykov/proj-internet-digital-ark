@@ -38,7 +38,8 @@ def main() -> int:
     from ark.db import connect_read_only_patiently
     from ark.evidence_types import qualifies_sql
 
-    shards = [str(p) for p in sorted(JOURNALS.rglob("*.jsonl.gz"))]
+    # one level down: a batch's side journals sit a level deeper and are other sources'
+    shards = [str(p) for p in sorted(JOURNALS.glob("*/*.jsonl.gz"))]
     if not shards:
         print(f"no header journals in {JOURNALS}", file=sys.stderr)
         return 1
