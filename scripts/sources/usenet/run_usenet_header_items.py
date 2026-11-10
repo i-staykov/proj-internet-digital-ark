@@ -6,8 +6,10 @@ JSON list seeded once by hand; an item that is one of them or the parent of one 
 listing, `items.json`: every top of an unread item, the largest first), `screen.tsv` (each top's
 30 MB screen, `screen_usenet_header_items.py`) and `log.tsv` (every file run whole, every
 strike, drop and back-off). A top's rate is its screen's EE per GB, and its running mean over
-its batches once two are priced. The tops at FLOOR or above read first in `tops.txt`'s order,
-then the unscreened are screened, then the rest; none under EXCLUDE is read. A top runs whole:
+its batches once two are priced. The screened tops read first, those at FLOOR or above ahead of
+the rest and none under EXCLUDE, then the unscreened, each in `tops.txt`'s order: one whose
+items list no more than the screen's sample runs whole unscreened, its batch its measure, and a
+larger one is screened, its sample banked as a batch of its own. A top runs whole:
 every unread item under it, every `.mbox.zip` it holds, PARALLEL downloads at once, their
 starts 1 s apart, above the collectors' floor (`ark.disk`) and a file kept only when it came
 whole, about 1 GB a batch, extracted by `build_usenet_header_pool.py`, priced on the candidate
@@ -67,7 +69,7 @@ from sample_usenet_header_items import (  # noqa: E402
     price,
     unread,
 )
-from screen_usenet_header_items import screen  # noqa: E402
+from screen_usenet_header_items import SAMPLE, screen  # noqa: E402
 
 from ark.disk import trim  # noqa: E402
 
@@ -118,13 +120,14 @@ def struck(row: list[str]) -> bool:
 
 def todo() -> list[str]:
     """The tops left in reading order, none struck three times, run out or under EXCLUDE: those
-    at FLOOR or above, then the unscreened, then the rest, each in `tops.txt`'s order."""
+    at FLOOR or above, then the other screened, then the unscreened, each in `tops.txt`'s
+    order, so a top measured to pay never waits behind a screen."""
     log, rate = rows("log.tsv"), rates()
     strikes = Counter(r[1] for r in log if struck(r))
     out = {r[1] for r in log if r[0] == "ran"}
     tops = [t for t in (WORK / "tops.txt").read_text().split() if strikes[t] < 3]
     left = [t for t in tops if t not in out and rate.get(t, EXCLUDE) >= EXCLUDE]
-    return sorted(left, key=lambda t: 1 if t not in rate else 2 * (rate[t] < FLOOR))
+    return sorted(left, key=lambda t: 2 if t not in rate else rate[t] < FLOOR)
 
 
 def left() -> int:
@@ -329,24 +332,28 @@ def start() -> float:
             raise why if isinstance(why, End) else End(why) from exc
         listed = items(WORK / "items.json", held)
         size = {x["identifier"][7:]: int(x["item_size"]) for x in listed if x.get("item_size")}
+        by_top = Counter()
+        for i in todo_items:
+            by_top[i.split(".")[0]] += size[i]
         if not (WORK / "tops.txt").exists():
-            by_top = Counter()
-            for i in todo_items:
-                by_top[i.split(".")[0]] += size[i]
             write(WORK / "tops.txt", "".join(f"{t}\n" for t, _ in by_top.most_common()))
         while queue := todo():
             if held():
                 raise End("held")
             top = queue[0]
-            if top in rates():
+            # a top the screen would read whole is read whole once, not sampled and read again
+            if top in rates() or by_top[top] <= SAMPLE:
                 run(top, todo_items)
                 continue
-            if isinstance(row := screen(WORK, top, todo_items, size, held), str):
+            tmp = OUT / time.strftime(".hl_%Y%m%dT%H%M%S", time.gmtime())
+            if isinstance(row := screen(WORK, top, todo_items, size, held, tmp), str):
                 note("stop", top, "screen", row)
                 raise End("strike")
             with open(WORK / "screen.tsv", "a") as fh:
                 print(*row, sep="\t", file=fh, flush=True)
             progress()
+            if tmp.exists():  # the sample's journals, side journals included, reach the bank
+                tmp.rename(OUT / tmp.name[1:])
     except End as e:
         if e.code == "held":
             progress()
@@ -363,7 +370,7 @@ def start() -> float:
             note("stop", top, e.file, "outage")
         say(f"{e.code} in {top}, waits until {until}")
         return wait
-    say(f"every top screened and every one at {EXCLUDE} EE per GB or above run whole")
+    say(f"every top measured and every one at {EXCLUDE} EE per GB or above run whole")
     return 0
 
 
