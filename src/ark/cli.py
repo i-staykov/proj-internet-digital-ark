@@ -598,6 +598,33 @@ def ingest_usenet_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
 
 
+@app.command(name="ingest-received-rdns-hostnames")
+def ingest_received_rdns_hostnames_cmd(
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="`{item, year, text}` shards from build_received_rdns_pool.py, or "
+            "directories of them (`data/raw/received_rdns_items/`).",
+            exists=True,
+            readable=True,
+        ),
+    ],
+) -> None:
+    """Fill hostname_year with the reverse-DNS hosts of dated `Received: from` lines.
+
+    The name a receiving MTA looked up for the machine it accepted a message from, in
+    `from <helo> (<rdns.host> [<address>])`; the HELO name is not read. A non-web
+    observation, so its hosts ship as candidates. Idempotent per shard.
+    Example: ark ingest-received-rdns-hostnames data/raw/received_rdns_items
+    """
+    from ark.hostnames import RECEIVED_FAMILY, ingest_usenet_item_dir
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    for path in paths:
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=RECEIVED_FAMILY)))
+
+
 @app.command(name="seed-pool")
 def seed_pool(
     source: Annotated[

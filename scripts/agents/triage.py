@@ -31,7 +31,7 @@ from pathlib import Path
 ACTS = Path(os.environ.get("ARK_TRIAGE_ACTS", "data/logs/triage_acts.tsv"))
 QUEUE = Path(os.environ.get("ARK_AGENT_QUEUE", "data/queue/agent_work.jsonl"))
 # The transient readers `scripts/harness/scheduled_sync.sh` starts.
-READERS = ("ark-eot", "ark-har", "ark-clueweb", "ark-fineweb", "ark-header")
+READERS = ("ark-eot", "ark-har", "ark-clueweb", "ark-fineweb", "ark-header", "ark-received")
 TICK_TIMER = "ark-sync.timer"
 DAY = dt.timedelta(hours=24)
 NEAR_TICK = dt.timedelta(minutes=10)

@@ -24,6 +24,7 @@ IETF, MAILLISTS = f"{M}collect_ietf_mail_archive.py", f"{M}collect_mailing_lists
 ENRON, MAILLIST = f"{M}build_enron_pool.py", f"{M}build_maillist_pool.py"
 POLAND, CONVERT = "sources/poland/poland_pl_hostgrain.py", "engines/cdx_suffix_convert.py"
 USENET_HEADER = "sources/usenet/build_usenet_header_pool.py"
+RECEIVED = f"{M}build_received_rdns_pool.py"
 
 
 script = functools.cache(script)
@@ -87,6 +88,12 @@ FAMILIES = [
            (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
            ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
            [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], "usenet_header"),
+    # an item is the Apache lane's pointer or the pipermail lane's, and resolves as that lane's
+    family(hn.RECEIVED_FAMILY, "received_rdns_hostnames", "received header",
+           (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
+           (f"{GTK}#3", 1999, "mail.example.org", "example.org"), f"{UK}#12",
+           [f"{MBOX}dev&domain=httpd.apache.org&d=1999-01",
+            "https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz"], "received_rdns"),
     # `#12` sorts below `#99`; the identifier follows the group, not the pool; `www.` is a record
     family(hn.USENET_FAMILY, "usenet_body_url_hostnames", "usenet post",
            (f"{UK}#12", f"{UK}#99", 1997, "www.demon.co.uk"),
@@ -143,6 +150,7 @@ def usenet_hosts(lines: list[str], keep_ephemeral: bool = False) -> list[str]:
 
 READ = {
     "apache_header": lambda lines: script(APACHE).by_hosts(script(APACHE).unfold(lines)),
+    "received_rdns": lambda lines: script(RECEIVED).rdns_hosts(script(APACHE).unfold(lines), 1999),
     "usenet_header": lambda lines: (usenet_hosts(lines), usenet_hosts(lines, keep_ephemeral=True)),
     # field 3, the original URL: the SURT key in field 1 drops `www` and reverses the labels
     "poland_pl": lambda url: script(POLAND).host_of(url),
@@ -150,6 +158,7 @@ READ = {
     "host_rule": lambda hosts: [h for h in hosts if hn._VALID_HOST.match(h)],
 }
 TAZ, POSTED = "taz.hyperreal.org", "news2-win.server.ntlworld.com"
+WHEN, OLD = "; 2 Jan 1999 01:00:00 +0000", "; 31 Dec 1998 23:59:00 +0000"
 FOLDED = ["Received: from slarti.muc.de (192.0.2.10)", f"  by {TAZ} with SMTP; 1 Jan"]
 LATE = ["Received: by wrong.example.org (x)", "Date: Wed, 01 Jan 1997 09:00:00 +0000", ""]
 KEPT = [
@@ -176,6 +185,23 @@ FIELD = [
         "Received: from blonville.caii (ecstasy.localnet [192.0.2.19]) by mx.serv.net",
         "Received: by 192.0.2.19 with SMTP", "Subject: patch by someone.example.org for review",
     ], [TAZ, "mx.serv.net"]),
+    ("received_rdns", [
+        # the HELO name is the sender's word; the name in the parentheses is the receiver's lookup
+        "Received: from blonville.caii (slarti.muc.de [192.0.2.10])",
+        f"  by {TAZ} with SMTP; Fri, 1 Jan 1999 19:30:08 -0800",
+        f"Received: from helo.example.net (ident@Relay.Example.NET [198.51.100.7]) by {TAZ}{WHEN}",
+        # no lookup, sendmail's doubt, a private address, a local name, a lease, another year,
+        # no stamp
+        f"Received: from a.example.org ([192.0.2.11]) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (ppp12.example.net [192.0.2.18]) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (unknown [192.0.2.12]) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (b.example.org [192.0.2.13] (may be forged)) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (inside.example.org [10.1.2.3]) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (pc.ecstasy.localnet [192.0.2.14]) by {TAZ}{WHEN}",
+        f"Received: from a.example.org (late.example.org [192.0.2.15]) by {TAZ}{OLD}",
+        f"Received: from a.example.org (undated.example.org [192.0.2.16]) by {TAZ}",
+        f"X-Note: from a.example.org (other.example.org [192.0.2.17]){WHEN}",
+    ], ["slarti.muc.de", "relay.example.net"]),
     ("usenet_header", [
         "X-Trace: mail2news.demon.co.uk 894324354 19133 faqs pcserv.demon.co.uk",
         "X-Trace: posting.google.com 1340536695 5508 127.0.0.1",

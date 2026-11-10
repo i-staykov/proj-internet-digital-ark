@@ -781,6 +781,16 @@ Decision: master
 - the artifact FineWeb 2013 (#612): Hugging Face `HuggingFaceFW/fineweb`, its CC-MAIN-2013-20 and CC-MAIN-2013-48 parts (205 and 212), read by range by `scripts/sources/crawl_lists/fineweb.py`, each row a page a Common Crawl 2013 crawl fetched; one row per host new to 2013, its stamp the page's own `date`, its node the CC WARC; the `fineweb_2013` row of sources.md (`just find fineweb`)
 Decision: master
 
+### received_rdns_hostnames / link_source
+- the artifact: the month files two banked lanes hold, the `lists.apache.org` mbox exports (`data/raw/apache_lists`) and the `mail.gnome.org` and `mail.python.org` pipermail files (`data/raw/maillists`), 4,596 files, under the terms `apache_list_header_hostnames` and `maillist_body_url_hostnames` record. No request is made
+- **the field, and only this field: the reverse-DNS name in `Received: from <helo> (<rdns.host> [<address>])`.** The receiving MTA looks that name up for the machine it accepted the message from and writes it beside the machine's address: the mail twin of the `NNTP-Posting-Host` a news server logs, which `usenet_header_fqdn_hostnames` reads as server-written. The HELO name is the sender's word and is not read; a clause with an address alone, `unknown`, a name sendmail marks `(may be forged)`, a private address, a local name and a dial-up lease (`is_ephemeral`, that lane's filter) date nothing
+- what dates one item: the line's own stamp after its last `;`, written by the same server, kept only when its year is the month file's. Message 2 of `httpd.apache.org/dev__1999-01` gives the evidence row `received header 1999 httpd.apache.org/dev__1999-01#2 horus.mch.sni.de`
+- a non-web observation, so every host ships as a candidate in `server_header_hostnames/` and none enters an annual file
+- measured 2026-11-10 on the whole corpus against merge261104, candidate track: 1,388,002 messages, 400,037 with a host, 34,198 names over 39,901 host-years (26,837 of them 2000 or 2001), **13,592 net-new names, 6,856.10 EE**; 14,508 names are held and 7,875 sit in our candidate pool. Of the 15,325 names in none of his 1996 to 2001 or candidate files, 320 (2.1%) are in his 2002 to 2013 files and 11,886 (77.6%) carry a digit in the first label
+- ingest spec: `ark ingest-received-rdns-hostnames data/raw/received_rdns_items`, the shard written once by `scripts/sources/mail_corpora/build_received_rdns_pool.py` as the tick's unit `ark-received`
+- potential: 6856
+Decision: master
+
 ## Pending requests
 
 None.

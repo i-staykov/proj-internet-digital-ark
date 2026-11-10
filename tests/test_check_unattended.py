@@ -223,6 +223,7 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     (tmp_path / "local.env").write_text("ARK_HOSTS=local:2\n")
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "inactive"))
     left = {"ark-eot": 0, "ark-har": 3, "ark-clueweb": 2, "ark-fineweb": 0, "ark-header": 5}
+    left["ark-received"] = 0
     monkeypatch.setattr(check, "left", left.get)
     stalls = {}
     monkeypatch.setattr(check, "stalled", lambda unit: stalls.get(unit, ""))
@@ -240,11 +241,12 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
         ("ark-clueweb", True, "not started yet, 2 parts left"),
         ("ark-fineweb", True, "finished"),
         ("ark-header", True, "inactive, 5 parts left, waits until 29991231T000000Z"),
+        ("ark-received", True, "finished"),
     ]
     (logs / "usenet_header.log").write_text("header: 429 in x, waits until 20001231T000000Z\n")
     (logs / "har.log").write_text("har: held\n")
     os.utime(clueweb, (0, 0))  # its code arrived long ago, and the tick never started it
-    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, True, False]
+    assert [ok for _u, ok, _w in check.readers()] == [True, True, False, True, False, True]
     stalls["ark-header"] = "stalled at a"  # a day without progress fails even an active unit
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
     assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")

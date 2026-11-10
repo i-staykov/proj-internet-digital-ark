@@ -274,6 +274,9 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # article, about itself or the machine it came from, in a transaction it completed.
         # Same reading as the `Received: ... by` clause, different protocol.
         "usenet_header_fqdn_hostnames",
+        # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
+        # receiving MTA looked up for the machine it accepted a message from.
+        "received_rdns_hostnames",
     }
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
@@ -1525,6 +1528,25 @@ USENET_HEADER_SOURCE = "usenet_header_fqdn_hostnames"
 USENET_HEADER_METHOD = "usenet_server_written_header"
 USENET_HEADER_FAMILY = ItemFamily(
     USENET_HEADER_SOURCE, USENET_HEADER_METHOD, "usenet header", _USENET_ITEM, _usenet_url
+)
+
+# The seventh member: the reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`,
+# which the receiving MTA looked up itself. `build_received_rdns_pool.py` writes the shards
+# over the Apache and pipermail month files, so an item is either lane's pointer and resolves
+# as that lane's does.
+RECEIVED_SOURCE = "received_rdns_hostnames"
+RECEIVED_METHOD = "received_from_rdns"
+_RECEIVED_ITEM = re.compile(
+    "|".join(re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM))
+)
+
+
+def _received_url(item: str) -> str:
+    return _maillist_url(item) if _MAILLIST_ITEM.match(item) else _apache_url(item)
+
+
+RECEIVED_FAMILY = ItemFamily(
+    RECEIVED_SOURCE, RECEIVED_METHOD, "received header", _RECEIVED_ITEM, _received_url
 )
 
 
