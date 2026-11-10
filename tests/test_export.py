@@ -525,3 +525,18 @@ def test_every_spec_that_dates_a_year_is_ingested_by_a_recipe_that_exists() -> N
     assert not missing, f"no justfile recipe ingests these, though they date a year: {missing}"
     unknown = sorted(documented - set(SOURCES))
     assert not unknown, f"the justfile ingests specs that are not in the registry: {unknown}"
+
+
+def test_a_suffix_written_twice_never_ships() -> None:
+    """The brief's quarantine, `x.example.com.example.com`, on the hostname side of the claim."""
+    import duckdb
+
+    from ark.delegation import shipping_filter_for
+
+    conn = duckdb.connect()
+    conn.execute("CREATE TABLE t (h VARCHAR, y INTEGER)")
+    names = ["host.example.org.example.org", "x.com.com", "a.b.co.uk.b.co.uk"]
+    names += ["com.com", "www.example.com"]
+    conn.executemany("INSERT INTO t VALUES (?, 1999)", [[n] for n in names])
+    kept = conn.execute(f"SELECT h FROM t WHERE {shipping_filter_for('h', 'y')} ORDER BY 1")
+    assert kept.fetchall() == [("com.com",), ("www.example.com",)]
