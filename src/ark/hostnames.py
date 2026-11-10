@@ -18,9 +18,10 @@ The evidence wall is the registrable unit's, unchanged:
   belongs to `domain_year`;
 - **the observation must show the host IN USE**, a capture of a URL on it or a URL listing
   naming it. A DNS listing (a reverse walk, an `nserver:`, an NS target) proves a machine
-  answered, not a site, so those lanes keep their evidence and write no hostname year.
-  Server-written headers are admitted by name: a dated message's `Received: ... by` clause
-  and its news-server twin. Spec XIV narrows what such a record may ENTER an annual file
+  answered, not a site: the NS-target and `nserver:` lanes write hostname years that only
+  ever ship as candidates, and the ISC walk ships through its own arm. Server-written
+  headers are admitted by name: a dated message's `Received: ... by` clause and its
+  news-server twin. Spec XIV narrows what such a record may ENTER an annual file
   with: only exact-host year-specific web evidence, the rest being candidates;
 - **a host dates itself, never its registrable**: `www.<parent>` and every other host below
   a registrable is its own record, so no lane here writes `domain_year`;
@@ -287,6 +288,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
         # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
+        # XIV's "DNS observations", stored as candidate assets: the 1997 zones' NS targets
+        # (`ZONE_SOURCE_NAME`) and RIPE's `nserver:` hosts (`RIPE_NS_SOURCE`). Neither method
+        # is a web method, so the claim never takes them.
+        "internic_zone_hostnames",
+        "ripe_nserver_hostnames",
     }
 )
 # The generic dated-message lane (`ingest_staged_messages`): one source per staged folder and
@@ -415,6 +421,25 @@ def _date_hosts(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> int:
         ).fetchone()[0]
     finally:
         conn.unregister("fresh_hosts")
+
+
+def _date_banked(conn: duckdb.DuckDBPyConnection, source_name: str, file_name: str) -> int:
+    """The hostname years of a file read before its lane wrote them: a lane admitted later
+    dates the evidence it holds, without reading the file again; one already held keeps its
+    row."""
+    if not writes_hostname_years(source_name):
+        return 0
+    return conn.execute(
+        """
+        INSERT OR IGNORE INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id)
+        SELECT lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1)), e.domain,
+               e.evidence_year, e.evidence_id
+        FROM evidence e JOIN source s ON s.source_id = e.source_id
+        WHERE s.name = ? AND e.source_file = ?
+          AND NOT EXISTS (SELECT 1 FROM hostname_year hy WHERE hy.evidence_id = e.evidence_id)
+        """,
+        [source_name, file_name],
+    ).fetchone()[0]
 
 
 def _stage_hosts(
@@ -816,11 +841,12 @@ def ingest_zone_hostnames(
 
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     already = conn.execute(
-        "SELECT count(*) FROM ingested_file WHERE source_name LIKE ? AND file_name = ?",
+        "SELECT min(source_name) FROM ingested_file WHERE source_name LIKE ? AND file_name = ?",
         [ZONE_SOURCE_NAME + "%", path.name],
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
+        stats["hostname_year_rows"] = _date_banked(conn, already, path.name)
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     header = _internic_zone_header(path)
@@ -1248,6 +1274,7 @@ def ingest_ripe_nserver_hostnames(
     ).fetchone()[0]
     if already:
         stats["skipped"] = True
+        stats["hostname_year_rows"] = _date_banked(conn, RIPE_NS_SOURCE, path.name)
         logger.debug(f"{path.name}: already ingested, skipping")
         return stats
     approvals.check(RIPE_NS_SOURCE, "artifact_listing")
