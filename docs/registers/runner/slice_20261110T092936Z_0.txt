@@ -3,8 +3,6 @@ co.uk 1000 2911 1996 2013 p1
 co.uk 1000 1720 1996 2013 p1
 co.uk 1000 895 1996 2013 p1
 co.uk 1000 685 1996 2013 p1
-co.uk 1000 2349 1996 2013 p1
-co.uk 1000 967 1996 2013 p1
 co.uk 1000 51 1996 2013 p1
 co.uk 1000 3011 1996 2013 p1
 co.uk 1000 3070 1996 2013 p1
@@ -199,14 +197,6 @@ co.uk 1000 314 1996 2013 p1
 co.uk 1000 2972 1996 2013 p1
 co.uk 1000 514 1996 2013 p1
 co.uk 1000 1489 1996 2013 p1
-co.uk 1000 1259 1996 2013 p1
-co.uk 1000 3069 1996 2013 p1
-co.uk 1000 2641 1996 2013 p1
-co.uk 1000 2941 1996 2013 p1
-co.uk 1000 3460 1996 2013 p1
-co.uk 1000 1492 1996 2013 p1
-co.uk 1000 2157 1996 2013 p1
-co.uk 1000 2855 1996 2013 p1
 ask-gap 1 nativitydisplays.com 1996 2013 ask
 ask-gap 1 travel-cards.com 1996 2013 ask
 ask-gap 1 wiktors.com 1996 2013 ask
@@ -299,3 +289,13 @@ ask-gap 1 liberty-press.com 1996 2013 ask
 ask-gap 1 digimatics.com 1996 2013 ask
 ask-gap 1 gutjahr.com 1996 2013 ask
 ask-gap 1 intermarry.com 1996 2013 ask
+ask-gap 1 cityhomesofhouston.com 1996 2013 ask
+ask-gap 1 ownyourhome.com 1996 2013 ask
+ask-gap 1 secointernational.com 1996 2013 ask
+ask-gap 1 faircar.com 1996 2013 ask
+ask-gap 1 jamont.com 1996 2013 ask
+ask-gap 1 dyneticscorp.com 1996 2013 ask
+ask-gap 1 longislandrealestate.com 1996 2013 ask
+ask-gap 1 oahuhawaii.com 1996 2013 ask
+ask-gap 1 4thworld.com 1996 2013 ask
+ask-gap 1 dateseek.com 1996 2013 ask
