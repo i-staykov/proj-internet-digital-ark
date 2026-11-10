@@ -274,8 +274,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # article, about itself or the machine it came from, in a transaction it completed.
         # Same reading as the `Received: ... by` clause, different protocol.
         "usenet_header_fqdn_hostnames",
+        # The same posts' client-written fields (`USENET_FIELD_FAMILIES`), candidates only.
+        "usenet_message_id_hostnames",
+        "usenet_from_hostnames",
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
-        # receiving MTA looked up for the machine it accepted a message from.
+        # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
     }
 )
@@ -1518,8 +1521,8 @@ IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _i
 # **Three fields, all written by a news server about a transaction it completed**, the
 # reading the Apache lane takes for a `Received: ... by` clause: the trailing hostname of
 # `X-Trace:`, the `NNTP-Posting-Host:` the accepting server logged, and the final `Path:`
-# hop, the site that injected the article. `Message-ID` is NOT read: Turnpike and Demon
-# clients stamp it from a configured nodename, so it is client-written and needs its own ruling.
+# hop, the site that injected the article. `Message-ID` is NOT read here: Turnpike and Demon
+# clients stamp it from a configured nodename, so it is client-written (`USENET_FIELD_FAMILIES`).
 # `build_usenet_header_pool.py` writes the shards and carries the parsing traps.
 #
 # The item is `<group>.mbox.zip#<n>`, the same pointer shape and archive as the body-URL
@@ -1530,10 +1533,27 @@ USENET_HEADER_FAMILY = ItemFamily(
     USENET_HEADER_SOURCE, USENET_HEADER_METHOD, "usenet header", _USENET_ITEM, _usenet_url
 )
 
-# The seventh member: the reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`,
-# which the receiving MTA looked up itself. `build_received_rdns_pool.py` writes the shards
-# over the Apache and pipermail month files, so an item is either lane's pointer and resolves
-# as that lane's does.
+# The same posts' client-written fields, each its own source and a candidate only: the host
+# right of the `@` in `Message-ID:` and the host of the `From:` address, never the mailbox.
+# Neither method is in `WEB_METHODS`, so a row reaches the candidate claim and no annual
+# file. `build_usenet_header_pool.py` writes them as side journals, keyed by its folder names.
+USENET_FIELD_FAMILIES = {
+    "msgid": ItemFamily(
+        "usenet_message_id_hostnames",
+        "usenet_message_id_host",
+        "usenet message-id",
+        _USENET_ITEM,
+        _usenet_url,
+    ),
+    "from": ItemFamily(
+        "usenet_from_hostnames", "usenet_from_host", "usenet from", _USENET_ITEM, _usenet_url
+    ),
+}
+
+# The reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`, which the
+# receiving MTA looked up itself: its own source and a candidate only, its method outside
+# `WEB_METHODS`. `build_received_rdns_pool.py` writes the shards over the Apache and pipermail
+# month files, so an item is either lane's pointer and resolves as that lane's does.
 RECEIVED_SOURCE = "received_rdns_hostnames"
 RECEIVED_METHOD = "received_from_rdns"
 _RECEIVED_ITEM = re.compile(

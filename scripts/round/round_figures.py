@@ -3,7 +3,9 @@
 Lines 1 and 2 are the state of HIS merged database before our increment,
 lines 3 and 4 are what we add, and line 5 is 4 divided by 2. They are the core, 1996 to
 2001; the extended block beneath prices `output/extended_years/additions/` against his 2002
-to 2013 files, and the two GATE lines score each part over his EE for its years, never summed.
+to 2013 files, and the two GATE lines score each part over his EE for its years, never summed:
+1996 to 2001 as the increment plus the candidate claim, and beside it that sum net of the
+candidates his 2002 to 2013 files list (`candidate_net`).
 Keeping his convention in code rather than in someone's head is the only way the growth rate
 stays comparable between rounds, because the obvious alternative, dividing by the
 post-increment total, is wrong by about 2% of itself and looks right.
@@ -29,7 +31,9 @@ lines, read-only.
 
 import argparse
 import functools
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -59,6 +63,13 @@ from ark.db import DB_TEMP_DIR  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
 from ark.figures import now_in_his_clock, score_line, t_days_assignment  # noqa: E402
 
+_spec = importlib.util.spec_from_file_location(
+    "extended_export", Path(__file__).with_name("extended_export.py")
+)
+extended = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(extended)
+
+_C = {**os.environ, "LC_ALL": "C"}
 STORE = Path("data/ark.duckdb")
 YEARS = range(1996, 2002)
 NETNEW = REPO / "output/netnew"
@@ -338,6 +349,39 @@ def candidate_track() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def his_extended(year: int) -> Path | None:
+    """His file for a 2002 to 2013 year, sorted as the extended export checked it (its cache
+    answers while the file stands), or None when his release has none."""
+    if not (baseline_dir() / f"{year}.txt").is_file():
+        return None
+    return extended.his_file(year)[0]
+
+
+def candidate_net() -> tuple[int, Decimal]:
+    """Names and EE of the candidate claim that none of his 2002 to 2013 files lists, by exact
+    name: his round 13 credit left out the candidates a later year of his already held. One
+    `comm` per file of his, piped, so the claim is read once and nothing is written."""
+    names = NETNEW / "candidate_additions.txt"
+    if not names.is_file():
+        return 0, Decimal(0)
+    weights = english_weights()
+    chain: list[subprocess.Popen] = []
+    for his in [path for year in EXTENDED_YEARS if (path := his_extended(year))]:
+        feed = chain[-1].stdout if chain else None
+        args = ["comm", "-23", "-" if chain else str(names), str(his)]
+        chain.append(subprocess.Popen(args, stdin=feed, stdout=subprocess.PIPE, env=_C))
+        if feed:
+            feed.close()
+    count, ee = 0, Decimal(0)
+    with chain[-1].stdout if chain else names.open("rb") as left:
+        for line in left:
+            count += 1
+            ee += weights.get(line.strip().rsplit(b".", 1)[-1].decode(), Decimal(0))
+    if any(step.wait() for step in chain):
+        raise SystemExit("comm failed on the candidate claim against his 2002 to 2013 files")
+    return count, ee
+
+
 def common_lines(sorted_a: Path, sorted_b: Path) -> set[str]:
     """Lines two LC_ALL=C sorted files share, by `comm` on files checked for order first."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -440,9 +484,21 @@ def main() -> None:
     (xr_pairs, xr_ee), (xh_pairs, xh_ee) = extended_split()
     print(f"     registrable domains                       : {xr_pairs:,} records  {xr_ee:,.4f}")
     print(f"     hostnames                                 : {xh_pairs:,} records  {xh_ee:,.4f}")
+    # The 1996 to 2001 gate counts the candidate claim beside the annual increment
+    # (`AGENTS.md`, The window); fields 3 to 5 stay the annual increment alone.
+    track = candidate_track()
+    track_ee = Decimal(track["equivalent_english"])
+    gate_ee = all_ee + track_ee
+    gate_growth = gate_ee / BASELINE_EE * 100
+    try:
+        net_ee = all_ee + candidate_net()[1]
+        net = f"{net_ee:,.4f} = {net_ee / BASELINE_EE * 100:.6f}% net of"
+    except (SystemExit, held.HeldError, OSError) as why:
+        net = f"not measured ({why}) net of"
     print(
-        f"GATE. 1996-2001                               : {all_ee:,.4f} = {growth:.6f}% of "
-        f"{BASELINE_EE:,.4f}, {score_line(growth, t)}"
+        f"GATE. 1996-2001                               : {gate_ee:,.4f} = {gate_growth:.6f}% of "
+        f"{BASELINE_EE:,.4f} with the candidate claim, {net} the candidates his 2002 to 2013 "
+        f"files list, {score_line(gate_growth, t)}"
     )
     print(
         f"GATE. 2002-2013                               : {x_ee:,.4f} = {x_growth:.6f}% of "
@@ -474,11 +530,9 @@ def main() -> None:
             f"\n  candidate pool (candidates.txt), the working set: "
             f"{c_names:,} names, {c_ee:,.4f} EE if every one were later dated"
         )
-    track = candidate_track()
     if track["candidates"]:
-        # Its own name, never `ee`: `mean weight` under --full divides `ee` by `pairs`, so a
+        # `track_ee`, never `ee`: `mean weight` under --full divides `ee` by `pairs`, so a
         # candidate EE bound to `ee` prints candidate EE over annual records under that label.
-        track_ee = Decimal(track["equivalent_english"])
         print(
             f"  CANDIDATE TRACK CLAIM (candidate_additions.txt), scored separately at the "
             f"same rate: {track['candidates']:,} names, {track_ee:,.4f} EE, "

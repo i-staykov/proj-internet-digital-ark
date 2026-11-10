@@ -58,9 +58,10 @@ REVIEWER_EXTENDED_EE_BY_YEAR = {
     int(year): Decimal(value) for year, value in _CURRENT["reviewer_extended_ee_by_year"].items()
 }
 
-# The gate: this much EE growth in one part, 1996 to 2001 over REVIEWER_BASELINE_EE or 2002 to
-# 2013 over REVIEWER_EXTENDED_EE. The parts are never summed.
-GATE_PCT = Decimal(3)
+# The gate: this much EE growth in one part, 1996 to 2001 over REVIEWER_BASELINE_EE, the candidate
+# claim counted beside the annual increment, or 2002 to 2013 over REVIEWER_EXTENDED_EE. The parts
+# are never summed.
+GATE_PCT = Decimal(1)
 GATE_EE = {
     "1996-2001": REVIEWER_BASELINE_EE * GATE_PCT / 100,
     "2002-2013": REVIEWER_EXTENDED_EE * GATE_PCT / 100,

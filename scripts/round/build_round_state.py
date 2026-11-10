@@ -14,7 +14,7 @@ and `just state` runs the same. `--full` adds the two store sections, read-only.
 
 The brief takes fields 3 to 5 and the two GATE lines as the very strings ROUND.md prints, so
 every reader quotes one gate figure: the part, 1996 to 2001 or 2002 to 2013, with the smaller
-EE gap to its 3%. `just brief` prints it from a session-start hook, so it stays small.
+EE gap to its gate. `just brief` prints it from a session-start hook, so it stays small.
 
 **Staleness is detectable rather than prevented.** The footer holds his release's marker and
 the sha256 of every claim file, and `--check` re-hashes them, with no store, and exits 1 on any
@@ -73,11 +73,13 @@ FIELD_RE = {
     "3": re.compile(r"^3\. .*: ([0-9,]+) records$", re.M),
     "4": re.compile(r"^4\. .*: ([0-9,.]+)$", re.M),
     "5": re.compile(r"^5\. .*: ([0-9.]+)%$", re.M),
-    "core_ee": re.compile(r"^GATE\. 1996-2001 .*: ([0-9,.]+) = ", re.M),
-    "core": re.compile(r"^GATE\. 1996-2001 .*= ([0-9.]+)% of ", re.M),
+    "core_ee": re.compile(r"^GATE\. 1996-2001 [^:]*: ([0-9,.]+) = ", re.M),
+    "core": re.compile(r"^GATE\. 1996-2001 [^:]*: [0-9,.]+ = ([0-9.]+)% of ", re.M),
     "ext_ee": re.compile(r"^GATE\. 2002-2013 .*: ([0-9,.]+) = ", re.M),
     "ext": re.compile(r"^GATE\. 2002-2013 .*= ([0-9.]+)% of ", re.M),
 }
+# The 1996 to 2001 line's second figure, absent when round_figures could not measure it.
+NET_RE = re.compile(r"^GATE\. 1996-2001 .*, [0-9,.]+ = ([0-9.]+)% net of ", re.M)
 STALE = "docs/ROUND.md is stale: the next bank rewrites it, or run `just state`"
 
 
@@ -158,14 +160,17 @@ def parse_fields(figures: str) -> dict[str, str] | None:
     found = {key: rx.search(figures) for key, rx in FIELD_RE.items()}
     if not all(found.values()):
         return None
-    return {key: m.group(1) for key, m in found.items()}
+    net = NET_RE.search(figures)
+    return {key: m.group(1) for key, m in found.items()} | ({"net": net.group(1)} if net else {})
 
 
 def brief(fields: dict[str, str] | None, asks: list, as_of: str | None = None) -> dict:
     """The snapshot `scripts/agents/brief.py` prints. Without the five fields and the gate lines
     it carries no `gate_percent`, and every reader refuses rather than quote a figure of its own.
-    `gate_part` is the part with the smaller EE gap to its 3%, so `gate_percent >= gate_pct`
-    still means crossed; `field5_percent` and `extended_percent` are the two parts."""
+    `gate_part` is the part with the smaller EE gap to its gate, so `gate_percent >= gate_pct`
+    still means crossed. `core_percent` (1996 to 2001, the increment plus the candidate claim)
+    and `extended_percent` are the two parts; `core_net_percent` is the first net of the
+    candidates his 2002 to 2013 files list, `field5_percent` the increment alone."""
     snapshot = {
         "written_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "baseline": CURRENT_BASELINE_MARKER,
@@ -183,6 +188,8 @@ def brief(fields: dict[str, str] | None, asks: list, as_of: str | None = None) -
             "netnew_ee": float(ee),
             # strings, so the trailing zeros ROUND.md prints survive `jq -r`
             "field5_percent": fields["5"],
+            "core_percent": fields["core"],
+            **({"core_net_percent": fields["net"]} if "net" in fields else {}),
             "extended_percent": fields["ext"],
             "gate_part": part,
             "gate_percent": fields["core" if part == "1996-2001" else "ext"],
@@ -351,7 +358,8 @@ def main() -> None:
     gap = snapshot["distance_to_gate_ee"]
     print(
         f"wrote {OUT.relative_to(ROOT)}: field 3 {snapshot['netnew_pairs']:,} records, "
-        f"field 4 {snapshot['netnew_ee']:,.4f} EE, 1996-2001 {snapshot['field5_percent']}%, "
+        f"field 4 {snapshot['netnew_ee']:,.4f} EE, 1996-2001 {snapshot['core_percent']}% with "
+        f"candidates ({snapshot.get('core_net_percent', '?')}% net of his 2002 to 2013 names), "
         f"2002-2013 {snapshot['extended_percent']}%, {abs(gap):,.4f} EE "
         f"{'short of' if gap > 0 else 'past'} {GATE_PCT}% on {snapshot['gate_part']}"
     )

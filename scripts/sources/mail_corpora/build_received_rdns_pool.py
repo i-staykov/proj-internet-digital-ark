@@ -32,6 +32,7 @@ import sys
 from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
+from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
@@ -82,33 +83,37 @@ def rdns_hosts(header_block: str, partition_year: int) -> list[str]:
     return out
 
 
-def headers(path: Path) -> Iterator[str]:
-    """Each message's unfolded header block, in the order both lanes number them from 1."""
+def headers(path: Path, lane: ModuleType) -> Iterator[str]:
+    """Each message's unfolded header block, split as `lane` splits the file, so `#n` is the
+    message its lane numbers n: the Apache lane reads text, the pipermail lane bytes, and a
+    lone `\\r` or a Unicode space moves a boundary between the two."""
     block: list[str] | None = None
     in_headers = False
     opener = gzip.open if path.suffix == ".gz" else open
-    with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
+    text = isinstance(lane.BOUNDARY.pattern, str)
+    mode = {"mode": "rt", "encoding": "utf-8", "errors": "replace"} if text else {"mode": "rb"}
+    with opener(path, **mode) as fh:
         for raw in fh:
-            line = raw.rstrip("\r\n")
-            if not in_headers and apache.BOUNDARY.match(line):
+            line = raw.rstrip("\r\n" if text else b"\r\n")
+            if not in_headers and lane.BOUNDARY.match(line):
                 if block is not None:
                     yield apache.unfold(block)
                 in_headers, block = True, []
             elif in_headers:
                 if line.strip():
-                    block.append(line)
+                    block.append(line if text else line.decode("utf-8", "replace"))
                 else:
                     in_headers = False
     if block is not None:
         yield apache.unfold(block)
 
 
-def month_files() -> list[tuple[Path, str]]:
-    """Every month file with its lane's item stem: `<domain>/<list>__<YYYY-MM>` for an Apache
-    mbox, `<host>/<list>__<YYYY-Month>.txt` for a pipermail file."""
+def month_files() -> list[tuple[Path, str, ModuleType]]:
+    """Every month file with its lane's item stem and the lane: `<domain>/<list>__<YYYY-MM>`
+    for an Apache mbox, `<host>/<list>__<YYYY-Month>.txt` for a pipermail file."""
     mboxes = sorted(APACHE.glob("*/*.mbox.gz"))
-    files = [(p, f"{p.parent.name}/{p.name.removesuffix('.mbox.gz')}") for p in mboxes]
-    return files + [(p, maillist.item_stem(p)) for p in maillist.month_files(MAILLISTS)]
+    files = [(p, f"{p.parent.name}/{p.name.removesuffix('.mbox.gz')}", apache) for p in mboxes]
+    return files + [(p, maillist.item_stem(p), maillist) for p in maillist.month_files(MAILLISTS)]
 
 
 def left() -> int:
@@ -127,14 +132,14 @@ def main() -> int:
     SHARD.parent.mkdir(parents=True, exist_ok=True)
     partial = SHARD.with_name(".shard_000.tmp")
     with gzip.open(partial, "wt") as out:
-        for path, stem in month_files():
+        for path, stem, lane in month_files():
             year = PARTITION.search(path.name)
             if year is None:
                 stats["bad_name"] += 1
                 continue
             stats["files"] += 1
             try:
-                for n, block in enumerate(headers(path), 1):
+                for n, block in enumerate(headers(path, lane), 1):
                     stats["messages"] += 1
                     if hosts := sorted(set(rdns_hosts(block, int(year[1])))):
                         stats["with_hosts"] += 1

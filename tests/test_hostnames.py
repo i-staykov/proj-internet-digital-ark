@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import tarfile
+import zipfile
 from collections import Counter
 from pathlib import Path
 
@@ -88,6 +89,12 @@ FAMILIES = [
            (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
            ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
            [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], "usenet_header"),
+    # the same posts' client-written fields, each its own source
+    *(family(hn.USENET_FIELD_FAMILIES[key], f"usenet_{name}_hostnames", f"usenet {noun}",
+             (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
+             ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
+             [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], f"usenet_{key}")
+      for key, name, noun in (("msgid", "message_id", "message-id"), ("from", "from", "from"))),
     # an item is the Apache lane's pointer or the pipermail lane's, and resolves as that lane's
     family(hn.RECEIVED_FAMILY, "received_rdns_hostnames", "received header",
            (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
@@ -152,6 +159,9 @@ READ = {
     "apache_header": lambda lines: script(APACHE).by_hosts(script(APACHE).unfold(lines)),
     "received_rdns": lambda lines: script(RECEIVED).rdns_hosts(script(APACHE).unfold(lines), 1999),
     "usenet_header": lambda lines: (usenet_hosts(lines), usenet_hosts(lines, keep_ephemeral=True)),
+    "usenet_side": lambda lines: [
+        script(USENET_HEADER).side_hosts([s.encode()], Counter(), False) for s in lines
+    ],
     # field 3, the original URL: the SURT key in field 1 drops `www` and reverses the labels
     "poland_pl": lambda url: script(POLAND).host_of(url),
     "maillist": lambda lines: [s for s in lines if script(MAILLIST).BOUNDARY.match(s)],
@@ -175,7 +185,9 @@ SENDERS = [b"From " + s for s in (
 LEASES = [
     "1cust104.tnt8.redondo-beach.ca.da.uu.net", "man-s286.dialup.zetnet.co.uk",
     "001-067.den1.da.amisp.net", "0addba1d.news.tdin.com", "pc-192-168-0-1.isp.com",
+    "host81-135-2-3.range81-135.isp.com",
 ]  # fmt: skip
+ZET = "mail.zetnet.co.uk"
 # fmt: off
 FIELD = [
     ("apache_header", [
@@ -215,6 +227,15 @@ FIELD = [
         "NNTP-Posting-Host:", "NNTP-Posting-Host: 192.0.2.1",
         *(f"NNTP-Posting-Host: {h}" for h in [*LEASES, *KEPT[-2:]]),
     ], (sorted(KEPT), sorted(KEPT + LEASES))),
+    # only the host leaves: the bracketed address wins, and a munged or leased one is dropped
+    ("usenet_side", [
+        "Message-ID: <q1@pcserv.demon.co.uk>", f"From: A Poster <box@{ZET.title()}>",
+        f"From: box@{ZET} (a@b Poster)", f'From: "box@elsewhere.org" <box@{ZET}>',
+        "From: box@nospam.zetnet.co.uk", "From: box@zetnet.co.uk.invalid",
+        "From: box@remove-this.zetnet.co.uk", "From: box@mail.example.com",
+        f"Message-ID: <q1@{LEASES[-1]}>", "Message-ID: <q1@192.0.2.1>", "From: A Poster",
+        f"Subject: box@{ZET}",
+    ], [{"msgid": "pcserv.demon.co.uk"}, *[{"from": ZET}] * 3, *[{}] * 8]),
     ("poland_pl", "http://www.zsp.busko-zdroj.com.pl:80/~ak/k.htm", "www.zsp.busko-zdroj.com.pl"),
     ("maillist", [*SENDERS, b"From RFC 2396:", b">" + SENDERS[1]], SENDERS),
     # his rule: letters, digits, interior hyphens, an alphabetic TLD, RFC 1035's lengths
@@ -229,6 +250,28 @@ FIELD = [
 # fmt: on
 def test_field_chosen(reader, given, want) -> None:
     assert READ[reader](given) == want
+
+
+def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_path) -> None:
+    """Body URL, Message-ID and From hosts leave the header pass as pools of their own, named by
+    the batch, where the header ingest's glob never looks; no mailbox, name or text leaves."""
+    b, pool, out = script(USENET_HEADER), tmp_path / "pool", tmp_path / ".hl_1"
+    post = [
+        "From 1", "Path: news.zetnet.co.uk!not-for-mail", f"From: A Poster <box@{ZET}>",
+        "Message-ID: <q1@pcserv.demon.co.uk>", "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
+        "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "",
+    ]  # fmt: skip
+    pool.mkdir()
+    out.mkdir()
+    with zipfile.ZipFile(pool / "uk.test.mbox.zip", "w") as z:
+        z.writestr("uk.test.mbox", "\n".join(post) + "\n")
+    b.worker((0, [pool / "uk.test.mbox.zip"], out, False))
+    assert [p.name for p in out.glob("*.jsonl.gz")] == ["shard_000.jsonl.gz"]
+    got = {}
+    for kind in b.SIDE:
+        with gzip.open(out / kind / "hl_1_000.jsonl.gz", "rt") as fh:
+            got[kind] = [json.loads(line)["text"] for line in fh]
+    assert got == {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
 
 
 # fmt: off
@@ -361,6 +404,18 @@ def test_field_maillist_header_urls_and_a_gatewayed_list_stay_out_and_gzip_is_on
     write(tmp_path / "python/python-list__2001-June.txt", raw)
     assert script(MAILLIST).month_files(tmp_path) == [path]
     assert script(MAILLIST).SKIP_LISTS == script(MAILLISTS).SKIP_LISTS
+
+
+def test_field_received_rdns_numbers_a_message_as_the_lane_that_holds_its_file_does(tmp_path):
+    """A lone `\\r` ends a line for the Apache lane's text read and none for the pipermail lane's
+    bytes, so `#n` is counted the way the file's own lane counts it."""
+    sent = "From a at example.org  Fri Jun  1 17:26:3{} 2001\nReceived: from h ({}.example.net"
+    sent += " [198.51.100.7]) by x.example.org; 2 Jun 2001 01:00:00 +0000\n\n"
+    raw = sent.format(5, "one") + "body\r" + sent.format(6, "two") + sent.format(7, "three")
+    path, reader = write(tmp_path / "python/doc-sig__2001-June.txt", raw), script(RECEIVED)
+    one, two, three = (f"{n}.example.net" for n in ("one", "two", "three"))
+    for lane, want in ((MAILLIST, [[one], [three]]), (APACHE, [[one], [two], [three]])):
+        assert [reader.rdns_hosts(b, 2001) for b in reader.headers(path, script(lane))] == want
 
 
 GW, ZSP = "http://gwx.gazeta.pl:80/", "http://www.zsp.busko-zdroj.com.pl:80/~ak/k.htm"

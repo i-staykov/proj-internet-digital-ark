@@ -33,6 +33,7 @@ merges each additions file with his (`package_delivery.sh`):
 
 import argparse
 import ast
+import contextlib
 import csv
 import functools
 import glob
@@ -40,6 +41,7 @@ import gzip
 import hashlib
 import importlib.metadata
 import importlib.util
+import io
 import json
 import os
 import re
@@ -49,9 +51,11 @@ import sys
 import tempfile
 import zlib
 from collections import Counter
+from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import IO
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
@@ -122,6 +126,7 @@ RULE = (
 )
 _STATUS = re.compile(r"[2-5][0-9][0-9]")
 _C = {**os.environ, "LC_ALL": "C"}
+SORT_MEMORY = "2G"  # sort's buffer: what it holds over this goes to its runs on the disk
 
 
 def rel(path: Path) -> str:
@@ -248,25 +253,73 @@ def screened(path: Path) -> tuple[dict, bytes]:
     return cache(path, key, facts | ({"refused": refused} if refused else {}), data), data
 
 
-def read_rows(inputs: list[tuple[str, Path]], rows_out: Path, drops: Counter) -> list[dict]:
-    """Every kept capture as `year<TAB>host<TAB>ts<TAB>input<TAB>line`, and each input
+def read_rows(inputs: list[tuple[str, Path]], out: IO[bytes], drops: Counter) -> list[dict]:
+    """Every kept capture to `out` as `year<TAB>host<TAB>ts<TAB>input<TAB>line`, and each input
     as the manifest records it."""
     described = []
-    with rows_out.open("wb") as out:
-        for index, (source, path) in enumerate(inputs):
-            facts, data = screened(path)
-            out.write(data.replace(b"\x01", b"\t%d\t" % index))
-            drops.update(facts["drops"])
-            if refused := facts.get("refused"):
-                print(f"{rel(path)}: refused, {refused}", file=sys.stderr)
-            method, replay = capture(source, path)
-            described.append(
-                {"source": source, "method": method, "path": rel(path), "replay": replay}
-                | {"sha256": facts["sha256"], "kept": facts["kept"]}
-                | ({"refused": refused} if refused else {})
-                | facts["key"][0]
-            )
+    for index, (source, path) in enumerate(inputs):
+        facts, data = screened(path)
+        out.write(data.replace(b"\x01", b"\t%d\t" % index))
+        drops.update(facts["drops"])
+        if refused := facts.get("refused"):
+            print(f"{rel(path)}: refused, {refused}", file=sys.stderr)
+        method, replay = capture(source, path)
+        described.append(
+            {"source": source, "method": method, "path": rel(path), "replay": replay}
+            | {"sha256": facts["sha256"], "kept": facts["kept"]}
+            | ({"refused": refused} if refused else {})
+            | facts["key"][0]
+        )
     return described
+
+
+@contextlib.contextmanager
+def sorting(work: Path) -> Iterator[subprocess.Popen]:
+    """`sort` under LC_ALL=C, fed on its stdin and read off its stdout, killed if the block
+    raises and an error if it fails. The rows touch the disk only as its runs in `work`,
+    compressed where zstd is installed, and as one year's two files (`by_year`): written whole
+    beside a sorted copy, they took free space under the collectors' floor
+    (`ark.disk.below_floor`) for minutes of every export."""
+    cmd = ["sort", "-S", SORT_MEMORY, "-T", str(work)]
+    cmd += ["--compress-program=zstd"] if shutil.which("zstd") else []
+    with subprocess.Popen(cmd, env=_C, stdin=subprocess.PIPE, stdout=subprocess.PIPE) as sort:
+        try:
+            yield sort
+        except BaseException:
+            sort.kill()
+            raise
+    if sort.returncode:
+        raise subprocess.CalledProcessError(sort.returncode, cmd)
+
+
+def by_year(rows: Iterable[str], work: Path, drops: Counter) -> Iterator[tuple[int, Path, Path]]:
+    """Each year off the sorted rows, once its last row is read: the year, its names, and each
+    name's row. Sorted by year, host, status-less flag, then stamp, the first row of each
+    host-year is its earliest capture with a status, else its earliest status-less row."""
+
+    def done() -> tuple[int, Path, Path]:
+        names.close()
+        evidence.close()
+        return int(year), Path(names.name), Path(evidence.name)
+
+    year = last = None
+    for line in rows:
+        this, host, rest = line.split("\t", 2)
+        if this != year:
+            if year is not None:
+                yield done()
+            year, last = this, None
+            names, evidence = (
+                (work / f"{kind}_{year}.txt").open("w", encoding="utf-8") for kind in ("ours", "ev")
+            )
+        if host == last:
+            drops["duplicate"] += 1
+            continue
+        last = host
+        names.write(f"{host}\n")
+        evidence.write(f"{host}\t{rest}")
+    if year is not None:
+        yield done()
 
 
 def screen(line: bytes, strict: bool) -> tuple[str | None, tuple | None]:
@@ -332,45 +385,23 @@ def export(globs: dict[str, str], out: Path) -> dict:
     ledger_fh = (out / "evidence_ledger.csv").open("w", newline="", encoding="utf-8")
     ledger = csv.writer(ledger_fh, lineterminator="\n")
     ledger.writerow(LEDGER)
-    with tempfile.TemporaryDirectory(dir=out) as tmp, ledger_fh:
-        work, rows, ordered = Path(tmp), Path(tmp) / "rows.tsv", Path(tmp) / "sorted.tsv"
+    with tempfile.TemporaryDirectory(dir=out) as tmp, ledger_fh, sorting(Path(tmp)) as sort:
+        work = Path(tmp)
         inputs = resolve_inputs(globs)
-        described = read_rows(inputs, rows, drops)
-        sort = ["sort", "-S", "2G", "-T", str(work), "-o", str(ordered), str(rows)]
-        subprocess.run(sort, env=_C, check=True)
-        # Sorted by year, host, status-less flag, then stamp: the first row of each host-year is
-        # its earliest capture with a status, else its earliest status-less row.
-        ours: dict[int, tuple] = {}
-        last = None
-        with ordered.open(encoding="utf-8") as fh:
-            for line in fh:
-                year, host, rest = line.split("\t", 2)
-                if (year, host) == last:
-                    drops["duplicate"] += 1
-                    continue
-                last = (year, host)
-                if int(year) not in ours:
-                    ours[int(year)] = tuple(
-                        (work / f"{kind}_{year}.txt").open("w", encoding="utf-8")
-                        for kind in ("ours", "ev")
-                    )
-                ours[int(year)][0].write(f"{host}\n")
-                ours[int(year)][1].write(f"{host}\t{rest}")
-        for names, evidence in ours.values():
-            names.close()
-            evidence.close()
-
+        described = read_rows(inputs, sort.stdin, drops)
+        sort.stdin.close()
+        ordered = io.TextIOWrapper(sort.stdout, encoding="utf-8")
         years, report = {}, []
-        for year in sorted(ours):
+        for year, mine, evidence in by_year(ordered, work, drops):
             his, facts = his_file(year)
-            mine, adds = work / f"ours_{year}.txt", out / "additions" / f"{year}.txt"
+            adds = out / "additions" / f"{year}.txt"
             submitted = held.lines(mine)
-            already = held.intersect(mine, his, work / f"held_{year}.txt")
             accepted = held.minus(mine, his, adds)
+            mine.unlink()
+            already = submitted - accepted  # each name of ours is his or an addition
             baseline = facts["lines"]
             tlds: Counter = Counter()
             by_method: Counter = Counter()
-            evidence = work / f"ev_{year}.txt"
             with adds.open(encoding="utf-8") as a, evidence.open(encoding="utf-8") as ev:
                 for host in (h.rstrip("\n") for h in a):
                     tlds[host.rsplit(".", 1)[-1]] += 1
@@ -382,6 +413,7 @@ def export(globs: dict[str, str], out: Path) -> dict:
                     source = described[int(index)]
                     by_method[source["method"]] += 1
                     ledger.writerow((year, host, source["method"], source["path"], lineno, ts))
+            evidence.unlink()
             ee = sum((weights.get(t, Decimal(0)) * n for t, n in tlds.items()), Decimal(0))
             his_ee = REVIEWER_EXTENDED_EE_BY_YEAR[year]
             growth = ee / his_ee * 100 if his_ee else Decimal(0)
@@ -410,7 +442,7 @@ def export(globs: dict[str, str], out: Path) -> dict:
 
     if globs == INPUTS:  # a scratch `--in` run leaves the release's entries be
         used = {cache_entry(p) for _, p in inputs} | {
-            cache_entry(baseline_dir() / f"{y}.txt") for y in ours
+            cache_entry(baseline_dir() / f"{y}.txt") for y in years
         }
         for unused in set(CACHE.glob("*.gz")) - used:
             unused.unlink()

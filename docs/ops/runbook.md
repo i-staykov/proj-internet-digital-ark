@@ -147,9 +147,9 @@ and every collector stops asking within a page or a file. A dry run's hand tick 
 ## Figures
 
 `docs/ROUND.md` field 4 is the headline: the equivalent-English of the registrables and hostnames
-that ship net-new against his 1996 to 2001 files, field 5 its percent of them. The gate's figures,
-each over his EE for its years: field 4 plus the `CANDIDATE TRACK CLAIM` beneath, and the second
-GATE line (`output/extended_years/`). The bank re-runs `scripts/round/extended_export.py` when
+that ship net-new against his 1996 to 2001 files, field 5 its percent of them. The gate's figures
+are the two GATE lines, each over his EE for its years: field 4 plus the candidate claim, beside it
+that sum net of the candidates his 2002 to 2013 files list, and `output/extended_years/`. The bank re-runs `scripts/round/extended_export.py` when
 `data/raw/extended/<source>/` or his release moves, and a stale export withholds both. `just price
 --items <f.jsonl>` is the snapshot's figure on both parts, from `output/price_snapshot`, which the bank
 rebuilds; it reads no store, where `scripts/pricing/price_items.py` gives registrable grain and `just price-hosts <dir>` hostname grain. `LC_ALL=C comm -23` of a sorted corpus against `data/held/<marker>/all.txt` diffs against his
