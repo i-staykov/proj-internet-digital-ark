@@ -810,9 +810,21 @@ Decision: master
 ### staged_messages / link_source
 - the class: dated message archives, ruled by the owner the class Usenet is: mailing-list month files, mbox exports and NNTP list articles, each message dated by its own `Date:` header as its collector checked it (against the month file it is filed under, or, with no month file, against each `Received:` line's own stamp)
 - the standing rule: any `staged/<source>/` folder of rows `{host, year, file, pos, field}` banks through `ark ingest-staged-messages` with no new code; `file` is the archive URL a reviewer fetches, `pos` the message in it; each field banks under `msg_<folder>__<field>`
-- the fields: `received_by` (the `by` clause, the relay-host rule of `apache_list_header_hostnames`), `rdns` (as `received_rdns_hostnames`), `body_url` (as `maillist_body_url_hostnames`), `from` and `message_id` (as `usenet_from_hostnames`, `usenet_message_id_hostnames`); no method is in `WEB_METHODS`, so every row is a candidate
+- the fields: `received_by` (the `by` clause, the relay-host rule of `apache_list_header_hostnames`), `rdns` (as `received_rdns_hostnames`), `body_url` (as `maillist_body_url_hostnames`), `from` and `message_id` (as `usenet_from_hostnames`, `usenet_message_id_hostnames`), a news post's `news_header`, `lease`, `header_more` and `body_mention` (as the `usenet_header_*` and `usenet_body_mention_hostnames` families), and the two classes below, `visitor_rdns` and `trace_hop`; no method is in `WEB_METHODS`, so every row is a candidate
 - hygiene at ingest: a name with no public suffix or an internal label (`localhost`, `local`, `lan`, `localdomain`, `internal`, `intranet`) is dropped, a registrable belongs to `domain_year`, a year outside 1996 to 2001 is refused
 - terms: each folder's README names its host's terms and robots reading; the collector honours them
+Decision: master
+
+### msg_visitor_rdns_host / link_source
+- the class: a web server's dated usage report (analog, webalizer, getstats, wwwstat pages) naming the client hosts its own reverse lookup resolved, banked through `staged_messages` with the field `visitor_rdns`
+- what dates one item: the report's own period or last-access stamp; `file` is the report page or its Wayback replay URL, `pos` the raw line
+- the reading: a server-written observation of a host in use that period, a candidate for 1996 to 2001 and never an annual record
+Decision: master
+
+### msg_trace_hop_host / link_source
+- the class: a dated traceroute run's hop names, the router name each hop's reverse lookup gave, banked through `staged_messages` with the field `trace_hop`
+- what dates one item: the run's own date; `file` is the archive the trace is in, `pos` the member and line
+- the reading: an observation of a router in use that year, a candidate for 1996 to 2001 and never an annual record
 Decision: master
 
 ### usenet_header_lease_hostnames / link_source
