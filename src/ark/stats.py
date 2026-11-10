@@ -142,6 +142,7 @@ PROVENANCE_LINEAGE = {
     # The reverse-DNS reading of the same pipermail files and of the Apache lane's messages,
     # so that lane files here too: one message is one witness, whichever clause is read.
     "received_rdns_hostnames": "mailing_list",
+    "received_rdns_lease_hostnames": "mailing_list",
     "apache_list_header_hostnames": "mailing_list",
     # Two readings of one spool, not two witnesses: hosts people TYPED into posts, and
     # the ones news servers WROTE into the same posts' headers.
@@ -149,6 +150,7 @@ PROVENANCE_LINEAGE = {
     "usenet_header_fqdn_hostnames": "usenet",
     "usenet_message_id_hostnames": "usenet",
     "usenet_from_hostnames": "usenet",
+    "usenet_header_lease_hostnames": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",

@@ -252,7 +252,7 @@ bank *args:
                 uv run ark ingest-usenet-hostnames data/raw/usenet_header_items/*/url/ | tail -1 \
                     || C_FAIL="$C_FAIL usenet_header_url"
             fi
-            for field in msgid from; do
+            for field in msgid from lease; do
                 fold "data/raw/usenet_header_items/*/$field/*.jsonl.gz" || continue
                 C_RAN="$C_RAN usenet_header_$field"
                 uv run ark ingest-usenet-field-hostnames "$field" data/raw/usenet_header_items/*/"$field"/ \
@@ -272,6 +272,11 @@ bank *args:
                 C_RAN="$C_RAN received_rdns_items"
                 uv run ark ingest-received-rdns-hostnames data/raw/received_rdns_items | tail -1 \
                     || C_FAIL="$C_FAIL received_rdns_items"
+            fi
+            if fold "data/raw/received_rdns_items/lease/*.jsonl.gz"; then
+                C_RAN="$C_RAN received_rdns_lease"
+                uv run ark ingest-received-rdns-hostnames --lease data/raw/received_rdns_items/lease \
+                    | tail -1 || C_FAIL="$C_FAIL received_rdns_lease"
             fi
         fi
         uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
