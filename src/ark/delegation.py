@@ -110,11 +110,11 @@ def shipping_filter_for(column: str, year_column: str) -> str:
     `hostname_year` is the case that needs it: a hostname under a TLD that did not exist in
     its year is the same error as a domain under one, and gets the `.arpa` rule too. So does
     the brief's quarantine of a suffix of 1 to 3 labels written twice in a row
-    (`x.example.com.example.com`), as the staged-message lane screens it at ingest.
+    (`x.example.com.example.com`), the whole name included (`ph.org.ph.org`).
     """
     labels = f"string_split({column}, '.')"
     doubled = " OR ".join(
-        f"(len({labels}) > {2 * k} AND {labels}[-{k}:] = {labels}[-{2 * k}:-{k + 1}])"
+        f"(len({labels}) >= {2 * k} AND {labels}[-{k}:] = {labels}[-{2 * k}:-{k + 1}])"
         for k in (1, 2, 3)
     )
     return (
