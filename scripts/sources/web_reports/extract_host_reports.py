@@ -14,8 +14,9 @@ and marked `reversed`, and a name WebStat cut on the left (`...`) is refused.
 
 raw_root holds one directory per site with the fetched pages (and the fetcher's receipts).
 Writes rows.jsonl and witness.txt.gz under out_dir:
-  rows.jsonl      {host, year, source_file: "witness.txt.gz", line, site, raw_file, raw_line,
-                   generator[, straddle][, reversed]}
+  rows.jsonl      {host, year, file, pos, field: "visitor_rdns", source_file: "witness.txt.gz",
+                   line, site, raw_file, raw_line, generator[, straddle][, reversed]}; file is
+                   the page's own URL or its Wayback replay URL, pos the line in that page
   witness.txt.gz  "<year> <site>/<file> line <n> [<generator>] <host> | <stamp> | <verbatim row>"
 One row per distinct (host, year): the first report that names it.
 """
@@ -169,6 +170,31 @@ def getstats(lines, text, path):
 
 
 _STAMPS: dict[Path, dict | None] = {}
+_URLS: dict[Path, dict] = {}
+
+
+def page_url(path: Path) -> str:
+    """Where a page was fetched: its Wayback replay URL with the capture's stamp, or the
+    site's own URL, as the fetch receipts at the tree root record it; "" when they do not."""
+    for root in path.parents:
+        receipts = root / "receipts.receipts"
+        if not receipts.exists():
+            continue
+        if root not in _URLS:
+            found = {}
+            for line in receipts.read_text().splitlines():
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                where = r.get("path") or ""
+                if r.get("replay"):
+                    found[str(root / where)] = r["replay"]
+                elif r.get("bytes") and "/raw/" in where:
+                    found[str(root / where.split("/raw/", 1)[1])] = r.get("url", "")
+            _URLS[root] = found
+        return _URLS[root].get(str(path), "")
+    return ""
 
 
 def capture_stamps(path: Path) -> dict | None:
@@ -325,6 +351,37 @@ def webalizer(lines, text, path):
             yield parts[-1], year, False, n, stamp, flat, False
 
 
+WUSAGE_TITLE = re.compile(
+    r"(?:Week|Month|Day|Year|Woche|Monat|Tag) (?:of|vom) (\d\d)[/.](\d\d)[/.](\d\d)"
+    r" (?:to|bis) (\d\d)[/.](\d\d)[/.](\d\d)"
+)
+WUSAGE_SITES = re.compile(r"Top \d+ (?:of|von) \d+ Sites|Top \d+ Sites by Access Count", re.I)
+WUSAGE_CELL = re.compile(r"<td[^>]*>\s*([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,})\s*(?=<|$)", re.I)
+
+
+def wusage(lines, text, path):
+    """Classic wusage prints its busiest sites, up to a hundred, under "Top N of M Sites by
+    Access Count"; the period is the page title, day and month in either order, the year last."""
+    m = WUSAGE_TITLE.search(text[:2000])
+    if not m:
+        return
+    y1, y2 = int(m.group(3)), int(m.group(6))
+    if y1 != y2:
+        return
+    year = (1900 if y1 >= 90 else 2000) + y1
+    stamp = " ".join(m.group(0).split())
+    inside = False
+    for n, line in enumerate(lines, 1):
+        if re.search(r"<h3", line, re.I):
+            inside = bool(WUSAGE_SITES.search(TAG.sub(" ", line)))
+            if not inside:
+                continue
+        if not inside:
+            continue
+        for cell in WUSAGE_CELL.finditer(line):
+            yield cell.group(1), year, False, n, stamp, html.unescape(TAG.sub(" ", line)), False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -333,6 +390,7 @@ GENERATORS = (
     ("wwwusage", wwwusage),
     ("webstat", webstat),
     ("webalizer", webalizer),
+    ("wusage", wusage),
 )
 
 
@@ -384,6 +442,9 @@ def main(argv: list[str] | None = None) -> int:
                     row = {
                         "host": host,
                         "year": year,
+                        "file": page_url(path),
+                        "pos": n,
+                        "field": "visitor_rdns",
                         "source_file": "witness.txt.gz",
                         "line": wline,
                         "site": site_dir.name,
