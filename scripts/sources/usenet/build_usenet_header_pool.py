@@ -25,13 +25,26 @@ the record is machine-written and self-dating in the sense the relay-host rule t
                         whoever archived it. Taking the leftmost would bank
                         `nntp.google.com` several million times.
 
-**`Message-ID:` is deliberately not read.** Turnpike and Demon's clients stamp it from a
-configured nodename, so it is client-written, and it needs its own ruling before it counts
-at all. A probe priced it separately at 4,054 EE and it is excluded here.
+**Three side journals leave the same pass**, because the lane deletes each zip after its
+extract and no later pass has the bytes. Each is its own `{item, year, text}` pool under
+`OUTDIR/<name>/`, never beside the header shards, which the header ingest globs, and its
+shard carries the batch's name so the ingest key is the batch's:
+
+  `url/`    the host of each `http://`, `https://` or `ftp://` URL in the post body,
+            `build_usenet_pool.py`'s reading, banked as `usenet_body_url_hostnames`.
+  `msgid/`  the host right of the `@` in `Message-ID:`. Turnpike and Demon's clients stamp
+            it from a configured nodename, so it is client-written and a candidate only,
+            `usenet_message_id_hostnames`.
+  `from/`   the host of the `From:` address, a candidate only, `usenet_from_hostnames`.
+
+**Only the host leaves a header.** The mailbox, the display name and the message text
+reach no journal, log or counter. A `Message-ID` or `From` host is dropped when it is a
+lease or `MUNGED`, and the ingest refuses one with no real public suffix (`.invalid`,
+`.nospam`).
 
 **Ephemeral pool shapes are dropped**, about 6.9% of novel rows in the probe. A name that
 encodes its own address, or announces itself as a dial-up pool slot, dates a lease and not
-a host: it was a different machine last week and will be another next week. `EPHEMERAL`
+a host: it was a different machine last week and will be another next week. `is_ephemeral`
 below is that filter, and `--keep-ephemeral` turns it off for a measured comparison.
 
     uv run python scripts/sources/usenet/build_usenet_header_pool.py data/raw/usenet_uk OUTDIR 8
@@ -40,12 +53,18 @@ below is that filter, and `--keep-ephemeral` turns it off for a measured compari
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import json
 import multiprocessing as mp
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from build_usenet_pool import hosts_of  # noqa: E402
 
 YEAR = re.compile(rb"(19|20)\d{2}")
 # Shared verbatim with `build_usenet_pool.py`: Google Groups exports separate posts with
@@ -62,9 +81,10 @@ VALID_HOST = re.compile(
     r"[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,63}$"
 )
 
-# A name that carries its own address in its leftmost labels is a lease, not a host:
-# `1-2-3-4.dialup.example.net`, `pc-192-168-0-1.isp.com`, `host81-135-2-3.range81-135.isp.com`.
-_ADDRESS_IN_NAME = re.compile(r"(^|[.-])\d{1,3}[-.]\d{1,3}[-.]\d{1,3}[-.]\d{1,3}([.-]|$)")
+# A name that carries its own address is a lease, not a host: `1-2-3-4.dialup.example.net`,
+# `pc-192-168-0-1.isp.com`, `host81-135-2-3.range81-135.isp.com`. Four numbers of one to three
+# digits joined by `-` or `.`, a letter on either side allowed, a fifth digit not.
+_ADDRESS_IN_NAME = re.compile(r"(?<!\d)\d{1,3}[-.]\d{1,3}[-.]\d{1,3}[-.]\d{1,3}(?!\d)")
 # And a name whose first label announces the pool it was drawn from is the same thing said
 # in words. Anchored to the FIRST label only: `dialup.example.com` as a whole name is a real
 # host, `dialup-217.example.com` is a slot in it.
@@ -100,6 +120,47 @@ def is_ephemeral(host: str) -> bool:
         or _SLOT_LABEL.match(first)
         or _HEX_LABEL.match(first)
     )
+
+
+# The side journals, in the order the bank ingests them.
+SIDE = ("url", "msgid", "from")
+# An address munged against harvesters, or a placeholder nobody could reach, the word in any
+# label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
+MUNGED = re.compile(
+    r"spam|invalid|example|remove|delete|nowhere|bogus|fake|munge|junk|devnull|localhost"
+    r"|localdomain|yourdomain|xxx|(^|\.)(no|not|none|null|dont|anti|domain|somewhere)\."
+)
+# The address in angle brackets where there is one (`Name <box@host>`), else the first one
+# (`box@host (Name)`); the group is the host and nothing left of the `@` is kept.
+_BRACKETED = re.compile(r"<[^<>\s]*@([^<>\s@]+)>")
+_BARE = re.compile(r"@([A-Za-z0-9.-]+)")
+
+
+def address_host(value: str) -> str:
+    """The host of the address in a `From:` or `Message-ID:` value, "" when it names none
+    that is a hostname."""
+    m = _BRACKETED.search(value) or _BARE.search(value)
+    host = _clean(m.group(1)) if m else ""
+    return host if VALID_HOST.match(host) else ""
+
+
+def side_hosts(headers: list[bytes], stats: dict, keep_ephemeral: bool) -> dict[str, str]:
+    """One post's `Message-ID` and `From` hosts by journal, a lease or a munged one dropped."""
+    out: dict[str, str] = {}
+    for raw in headers:
+        low = raw[:11].lower()
+        kind = "msgid" if low == b"message-id:" else "from" if low[:5] == b"from:" else ""
+        if not kind or kind in out:
+            continue
+        host = address_host(raw.decode("ascii", "replace").split(":", 1)[1])
+        if not host:
+            continue
+        if MUNGED.search(host) or (not keep_ephemeral and is_ephemeral(host)):
+            stats[f"{kind}_dropped"] += 1
+            continue
+        stats[kind] += 1
+        out[kind] = host
+    return out
 
 
 def year_of(line: bytes) -> int | None:
@@ -177,25 +238,36 @@ def hosts_of_headers(headers: list[bytes], stats: dict, keep_ephemeral: bool) ->
     return sorted(set(out))
 
 
-def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool) -> None:
+def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None = None) -> None:
+    """One archive's posts into `out`, and into `side` (a journal by `SIDE` name) when given."""
     proc = subprocess.Popen(["unzip", "-p", str(zp)], stdout=subprocess.PIPE)
     in_headers = False
     prev_blank = True
     year: int | None = None
     headers: list[bytes] = []
+    urls: set[str] = set()
     n = 0
+
+    def row(hosts: list[str]) -> str:
+        return json.dumps({"item": f"{zp.name}#{n}", "year": year, "text": " ".join(hosts)}) + "\n"
 
     def flush() -> None:
         if year is None:
             return
         stats["in_window"] += 1
+        if side is not None:
+            found = {"url": sorted(urls)} | {
+                k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()
+            }
+            stats["url_rows"] += bool(urls)
+            for kind, named in found.items():
+                if named:
+                    side[kind].write(row(named))
         hosts = hosts_of_headers(headers, stats, keep_ephemeral)
         if not hosts:
             return
         stats["with_hosts"] += 1
-        out.write(
-            json.dumps({"item": f"{zp.name}#{n}", "year": year, "text": " ".join(hosts)}) + "\n"
-        )
+        out.write(row(hosts))
 
     for raw in proc.stdout:
         line = raw.rstrip(b"\r\n")
@@ -205,6 +277,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool) -> None:
             n += 1
             stats["posts"] += 1
             in_headers, year, headers, prev_blank = True, None, [], False
+            urls = set()
             continue
         blank = not line.strip()
         if in_headers:
@@ -214,6 +287,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool) -> None:
                 headers.append(line)
                 if line[:5].lower() == b"date:":
                     year = year_of(line)
+        elif side is not None and year is not None and b"://" in line:
+            urls.update(h for h in hosts_of(line) if VALID_HOST.match(h))
         prev_blank = blank
     if n:
         flush()
@@ -235,18 +310,30 @@ FIELDS = (
     "path_hop",
     "path_hop_seen",
     "ephemeral_dropped",
+    "url_rows",
+    "msgid",
+    "msgid_dropped",
+    "from",
+    "from_dropped",
 )
 
 
 def worker(args) -> dict:
     index, paths, outdir, keep_ephemeral = args
     stats = dict.fromkeys(FIELDS, 0)
-    dest = Path(outdir) / f"shard_{index:03d}.jsonl.gz"
-    with gzip.open(dest, "wt") as out:
+    outdir = Path(outdir)
+    dest = outdir / f"shard_{index:03d}.jsonl.gz"
+    # every batch's shard would be `shard_000`, and the ingest keys a file on its folder and name
+    name = f"{outdir.name.lstrip('.')}_{index:03d}.jsonl.gz"
+    for kind in SIDE:
+        (outdir / kind).mkdir(exist_ok=True)
+    with contextlib.ExitStack() as stack:
+        out = stack.enter_context(gzip.open(dest, "wt"))
+        side = {k: stack.enter_context(gzip.open(outdir / k / name, "wt")) for k in SIDE}
         for p in paths:
             stats["bytes"] += p.stat().st_size
             try:
-                one_zip(p, out, stats, keep_ephemeral)
+                one_zip(p, out, stats, keep_ephemeral, side)
             except Exception as exc:  # a corrupt member must not lose the shard
                 print(f"  {p.name}: {type(exc).__name__} {exc}", flush=True)
     print(f"shard {index:03d}: {json.dumps(stats)}", flush=True)

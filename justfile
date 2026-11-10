@@ -245,6 +245,19 @@ bank *args:
                 uv run ark ingest-usenet-header-hostnames data/raw/usenet_header_items/*/ | tail -1 \
                     || C_FAIL="$C_FAIL usenet_header_items"
             fi
+            # Its side journals, after it, so each source banks net of the header hosts: body
+            # URLs under their approved ingest, then the Message-ID and From hosts, candidates.
+            if fold "data/raw/usenet_header_items/*/url/*.jsonl.gz"; then
+                C_RAN="$C_RAN usenet_header_url"
+                uv run ark ingest-usenet-hostnames data/raw/usenet_header_items/*/url/ | tail -1 \
+                    || C_FAIL="$C_FAIL usenet_header_url"
+            fi
+            for field in msgid from; do
+                fold "data/raw/usenet_header_items/*/$field/*.jsonl.gz" || continue
+                C_RAN="$C_RAN usenet_header_$field"
+                uv run ark ingest-usenet-field-hostnames "$field" data/raw/usenet_header_items/*/"$field"/ \
+                    | tail -1 || C_FAIL="$C_FAIL usenet_header_$field"
+            done
             if fold "data/raw/maillists_items/*.jsonl.gz"; then
                 C_RAN="$C_RAN maillists_items"
                 uv run ark ingest-maillist-hostnames data/raw/maillists_items | tail -1 \

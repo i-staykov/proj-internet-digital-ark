@@ -143,6 +143,8 @@ PROVENANCE_LINEAGE = {
     # the ones news servers WROTE into the same posts' headers.
     "usenet_body_url_hostnames": "usenet",
     "usenet_header_fqdn_hostnames": "usenet",
+    "usenet_message_id_hostnames": "usenet",
+    "usenet_from_hostnames": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
