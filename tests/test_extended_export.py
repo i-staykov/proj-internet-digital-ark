@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -146,6 +147,62 @@ def test_a_second_export_reads_only_the_inputs_that_moved(exported, monkeypatch)
     assert ext.cached(journal, ext.entry_key(journal)) is None
 
 
+def test_the_rows_reach_the_disk_a_year_at_a_time_and_the_output_is_what_it_was(
+    tmp_path, monkeypatch
+):
+    ext = script("round/extended_export.py")
+    span = range(2002, 2014)
+    rows = [
+        {"url": f"http://h{i % 1009}.{('com', 'org', 'info')[i % 3]}/"}
+        | {"timestamp": f"{2002 + i % 12}{1 + i // 12 % 12:02}{1 + i // 7 % 28:02}{i % 24:02}0000"}
+        | ({} if i % 5 == 0 else {"status": "404" if i % 5 == 1 else "200"})
+        for i in range(60000)
+    ]
+    held = [f"h{k}.{tld}" for k in range(0, 1009, 2) for tld in ("com", "info", "org")]
+    his = stage(tmp_path, {f"{y}.txt": text(sorted([*held, f"only-his-{y}.net"])) for y in span})
+    monkeypatch.setattr(ext, "baseline_dir", lambda: his)
+    monkeypatch.setattr(ext, "REVIEWER_EXTENDED_EE_BY_YEAR", {y: D(1000 + y) for y in span})
+    monkeypatch.setattr(ext, "english_weights", lambda: {"com": D("0.5"), "info": D("0.25")})
+    monkeypatch.setattr(ext, "CACHE", tmp_path / "cache")
+    ext.SORT_MEMORY = "1M"  # under the rows' size, so sort's runs reach the disk
+    (tmp_path / "raw/ia_cdx_hostnames").mkdir(parents=True)
+    for part in range(3):
+        (tmp_path / f"raw/ia_cdx_hostnames/m{part}.jsonl.gz").write_bytes(_journal(rows[part::3]))
+    globs, out = {"*": str(tmp_path / "raw/*/*.jsonl*")}, tmp_path / "out"
+    turns, his_file = {}, ext.his_file
+
+    def at_its_turn(year: int):
+        (work,) = out.glob("tmp*")
+        turns[year] = set(os.listdir(work))
+        if len(turns) == 1:
+            turns["runs"] = {(work / n).read_bytes()[:4] for n in turns[year] if "_" not in n}
+        return his_file(year)
+
+    monkeypatch.setattr(ext, "his_file", at_its_turn)
+    manifest = ext.export(globs, out)
+    digest = hashlib.sha256(
+        json.dumps([manifest["years"], manifest["dropped"]], sort_keys=True).encode()
+    )
+    for name in ("evidence_ledger.csv", "dedup_report.csv"):
+        digest.update((out / name).read_bytes())
+    was = "06234d133bc9f6febb5dd6fd1b769c3e700194ff8e42e965ecdb9ce06d352f17"
+    assert digest.hexdigest() == was, "what the export wrote with its rows whole on the disk"
+    zstd = {b"\x28\xb5\x2f\xfd"} if shutil.which("zstd") else turns["runs"]
+    assert turns.pop("runs") == zstd, "sort's runs are compressed"
+    assert list(turns) == list(span)
+    for year, files in turns.items():
+        ours = {n for n in files if "_" in n}
+        assert ours == {f"ours_{year}.txt", f"ev_{year}.txt"}, "no other year's rows beside it"
+    # a sort that fails after part of its output is an error, never a short export
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin/sort").write_text('#!/bin/sh\n/usr/bin/sort "$@" | head -n 1000\nexit 1\n')
+    (tmp_path / "bin/sort").chmod(0o755)
+    monkeypatch.setitem(ext._C, "PATH", f"{tmp_path / 'bin'}:{os.environ['PATH']}")
+    with pytest.raises(subprocess.CalledProcessError):
+        ext.export(globs, out)
+    assert not (out / "manifest.json").exists() and not list(out.glob("tmp*"))
+
+
 def test_a_killed_exports_temp_directory_goes_once_still_and_the_next_export_is_whole(
     exported, tmp_path
 ):
@@ -156,7 +213,7 @@ def test_a_killed_exports_temp_directory_goes_once_still_and_the_next_export_is_
     ext.export(globs, out)
     kept = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
     orphan = Path(tempfile.mkdtemp(dir=out))  # as export() makes it
-    (orphan / "rows.tsv").write_text("left by a kill\n")
+    (orphan / "ev_2012.txt").write_text("left by a kill\n")
     (out / "tmp_ours").mkdir()  # no name tempfile gives: never listed
     (root / "data").mkdir()
     (root / "data/baseline.json").write_text('{"current": {"directory": "ding/x"}}')
