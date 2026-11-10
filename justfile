@@ -252,7 +252,7 @@ bank *args:
                 uv run ark ingest-usenet-hostnames data/raw/usenet_header_items/*/url/ | tail -1 \
                     || C_FAIL="$C_FAIL usenet_header_url"
             fi
-            for field in msgid from lease; do
+            for field in msgid from lease more body; do
                 fold "data/raw/usenet_header_items/*/$field/*.jsonl.gz" || continue
                 C_RAN="$C_RAN usenet_header_$field"
                 uv run ark ingest-usenet-field-hostnames "$field" data/raw/usenet_header_items/*/"$field"/ \

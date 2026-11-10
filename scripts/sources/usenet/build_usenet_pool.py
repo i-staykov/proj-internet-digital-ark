@@ -33,7 +33,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-URL = re.compile(rb"(?:https?|ftp)://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
+URL = re.compile(
+    rb"(?:https?|ftp|gopher|telnet|wais)://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+", re.I
+)
 YEAR = re.compile(rb"(19|20)\d{2}")
 # Google Groups exports separate posts with `From <signed 64-bit id>` and about half
 # the ids are negative. Without the sign, half the boundaries are missed and every
@@ -54,9 +56,11 @@ def hosts_of(body: bytes) -> list[str]:
     out = []
     for m in URL.finditer(body):
         url = m.group(0).decode("ascii", "replace")
-        host = url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].strip().lower()
+        # the authority, less a `user:pass@` and a port, less the prose around it: `(http://x.org)`
+        authority = url.split("://", 1)[-1].split("/", 1)[0].rsplit("@", 1)[-1]
+        host = authority.split(":", 1)[0].strip().lower().strip(".,;!?'()[]*")
         if host and "." in host:
-            out.append(host.rstrip("."))
+            out.append(host)
     return out
 
 
