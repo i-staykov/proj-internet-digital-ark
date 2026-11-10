@@ -65,6 +65,8 @@ CDX_JOURNAL_DIR = Path("data/raw/cdx")
 CDX_JOURNAL_PREFIX = "cdx"
 EXPAND_JOURNAL_DIR = Path("data/raw/expand")
 EXPAND_JOURNAL_PREFIX = "expand"
+# where an ingest keeps its shards' digests, so an unmoved shard is not hashed every bank
+LOGS = Path("data/logs")
 
 
 @contextmanager
@@ -475,7 +477,7 @@ def ingest_usenet_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS)))
 
 
 @app.command(name="ingest-maillist-hostnames")
@@ -502,7 +504,7 @@ def ingest_maillist_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=MAILLIST_FAMILY)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=MAILLIST_FAMILY)))
 
 
 @app.command(name="ingest-enron-hostnames")
@@ -529,7 +531,7 @@ def ingest_enron_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=ENRON_FAMILY)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=ENRON_FAMILY)))
 
 
 @app.command(name="ingest-apache-header-hostnames")
@@ -559,7 +561,7 @@ def ingest_apache_header_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=APACHE_FAMILY)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=APACHE_FAMILY)))
 
 
 @app.command(name="ingest-ietf-header-hostnames")
@@ -588,7 +590,7 @@ def ingest_ietf_header_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=IETF_FAMILY)))
 
 
 @app.command(name="ingest-staged-messages")
@@ -642,7 +644,9 @@ def ingest_usenet_header_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_HEADER_FAMILY)))
+        typer.echo(
+            str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=USENET_HEADER_FAMILY))
+        )
 
 
 @app.command(name="ingest-usenet-field-hostnames")
@@ -667,7 +671,13 @@ def ingest_usenet_field_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=USENET_FIELD_FAMILIES[field])))
+        typer.echo(
+            str(
+                ingest_usenet_item_dir(
+                    conn, path, digests=LOGS, family=USENET_FIELD_FAMILIES[field]
+                )
+            )
+        )
 
 
 @app.command(name="ingest-received-rdns-hostnames")
@@ -698,7 +708,7 @@ def ingest_received_rdns_hostnames_cmd(
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=family)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, digests=LOGS, family=family)))
 
 
 @app.command(name="seed-pool")
