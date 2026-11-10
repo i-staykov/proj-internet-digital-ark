@@ -134,9 +134,11 @@ SIDE = ("url", "msgid", "from", "lease", "more", "body")
 # `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`. A word inside a
 # real name stays: `spamcop.net` and `junkbusters.com` are hosts, and his files hold such names.
 MUNGED = re.compile(
-    r"(^|\.)(no-?spam[a-z-]*|anti-?spam[a-z-]*|spam|remove[a-z-]*|delete[a-z-]*|invalid|example"
-    r"|nowhere|bogus|fake|munged?|junk|devnull|localhost|localdomain|yourdomain|xxx|no|not|none"
-    r"|null|dont|anti|domain|somewhere)(\.|$)"
+    r"(^|\.)(spam|invalid|example|nowhere|bogus|fake|munged?|junk|devnull|localhost|localdomain"
+    r"|yourdomain|xxx|no|not|none|null|dont|anti|domain|somewhere)(\.|$)"
+    # and a munge phrase anywhere in the name: `sparkesnospam.demon.co.uk`, `n0spam.freeuk.net`
+    r"|n[o0]-?spam|anti-?spam|kill-?spam|hate-?spam|spam-?(block|free|trap|guard|filter)"
+    r"|no-?junk|remove-?(this|me)|delete-?this|take-?out|xxx-"
 )
 # The address in angle brackets where there is one (`Name <box@host>`), else the first one
 # (`box@host (Name)`); the group is the host and nothing left of the `@` is kept.
