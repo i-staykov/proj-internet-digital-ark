@@ -48,6 +48,10 @@ PWEB_STAMP = re.compile(
 )
 PWEB_ROW = re.compile(r"^\s*(\S+)\s+:\s+[\d,]+\s+:\s+[\d,]+\s*$")
 WEBALIZER_STAMP = re.compile(r"Summary Period:\s*([A-Za-z]+)\s+(\d{4})")
+WEBALIZER_OTHER = (
+    r"Total (URLs?|Referrers|Search Strings|User Agents|Countries|Usernames|Entry|Exit)"
+)
+WEBALIZER_CELL = re.compile(r"<TD ALIGN=left[^>]*>(?:<FONT[^>]*>)?([^<\s]+)</FONT></TD></TR>", re.I)
 HA_STAMP = re.compile(r"Summary period:\s*([A-Za-z]+)\s+(\d{4})")
 HA_TITLE = re.compile(r"<TITLE>[^<]*\(([A-Za-z]+) (\d{4})\)\s*</TITLE>", re.I)
 HA_ROW = re.compile(r"^\s*\d+\s+[\d.]+%\s+\d+\s+[\d.]+%\s+\d+\s+[\d.]+%\s+\|\s+(\S+)\s*$")
@@ -102,6 +106,11 @@ def host_of(token: str, year: int) -> str | None:
     if not h or IPV4.match(h) or "." not in h:
         return None
     if not _VALID_HOST.match(h) or not existed(h.rsplit(".", 1)[-1], year):
+        return None
+    labels = h.split(".")
+    # the brief's quarantine: a suffix of 1 to 3 labels written twice in a row is a
+    # misconfigured resolver's name (`x.example.com.example.com`), not a host
+    if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) > 2 * k):
         return None
     return h
 
@@ -254,6 +263,8 @@ def webstat(lines, text, path):
 
 
 def webalizer(lines, text, path):
+    """Webalizer's monthly page prints its top sites as a table, one cell a line, the hostname
+    in the row's last cell; its all-sites page prints every site as one text line."""
     m = WEBALIZER_STAMP.search(TAG.sub(" ", text))
     if not m or m.group(1)[:3].lower() not in MONTHS:
         return
@@ -265,16 +276,18 @@ def webalizer(lines, text, path):
         if re.search(r"Total Sites|Hostname", flat):
             inside = True
             continue
-        if re.search(
-            r"Total (URLs?|Referrers|Search Strings|User Agents|Countries|Usernames|Entry|Exit)",
-            flat,
-        ):
+        if re.search(WEBALIZER_OTHER, flat):
             inside = False
             continue
-        if inside:
-            parts = flat.split()
-            if len(parts) >= 3 and parts[0].isdigit():
-                yield parts[-1], year, False, n, stamp, flat, False
+        if not inside:
+            continue
+        cell = WEBALIZER_CELL.search(line)
+        if cell:
+            yield cell.group(1), year, False, n, stamp, flat, False
+            continue
+        parts = flat.split()
+        if len(parts) >= 3 and parts[0].isdigit():
+            yield parts[-1], year, False, n, stamp, flat, False
 
 
 GENERATORS = (

@@ -22,6 +22,7 @@ import hashlib
 import http.client
 import importlib.util
 import json
+import os
 import posixpath
 import re
 import sys
@@ -39,7 +40,7 @@ THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else 3
 INTERVAL = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 SHARD = tuple(int(x) for x in sys.argv[5].split("/")) if len(sys.argv) > 5 else (0, 1)
 STAMP = "2001"
-PROBES = 3
+PROBES = int(os.environ.get("ARK_PROBES", "3"))  # asks before a tree with no capture is left
 
 _spec = importlib.util.spec_from_file_location("hf", ROOT / "scripts/harness/fetch.py")
 hf = importlib.util.module_from_spec(_spec)
@@ -55,7 +56,9 @@ robots_cache: dict = {}
 
 def local_name(url: str) -> str:
     parts = urllib.parse.urlsplit(url)
-    path = posixpath.normpath(parts.path or "/").lstrip("/") or "index.html"
+    path = posixpath.normpath(parts.path or "/").lstrip("/")
+    if "." not in path.rsplit("/", 1)[-1]:
+        path = (path + "/_index.html").lstrip("/")  # a directory URL, with or without its slash
     if parts.query:
         path += "_" + parts.query
     return f"{parts.netloc.lower()}/{SAFE.sub('_', path)}"[:240]
@@ -160,8 +163,15 @@ def ask(url: str, rec) -> bool | None:
         if hit:
             name = local_name(url)
             out = DEST / name
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(body)
+            try:
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(body)
+            except OSError:  # a page already sits where this one needs a directory
+                host, _, rest = name.partition("/")
+                name = f"{host}/{rest.replace('/', '__')}"
+                out = DEST / name
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(body)
             receipt.update(bytes=len(body), sha256=hashlib.sha256(body).hexdigest(), path=name)
         with lock:
             state["strikes"] = state["errors"] = 0
