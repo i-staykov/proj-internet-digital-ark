@@ -249,7 +249,8 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
     assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")
     # the tick: eot and har with every part read, clueweb and fineweb with parts left, the header
-    # lane with its list and every top screened, one under the floor and one run out
+    # lane with its list and every top screened, one under 50 EE per GB and one run out; its code
+    # is new to this clone, so the tick stops the unit before the loop that starts it
     repo, env = clone
     (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
     eot = repo / "data/raw/extended/eot_cdxj"
@@ -264,13 +265,16 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     header.mkdir(parents=True)
     (header / "seen.json").write_text("[]")
     (header / "tops.txt").write_text("cheap\nrich\n")
-    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 8.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
+    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 1.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
     (header / "screen.tsv").write_text("".join("\t".join(map(str, r)) + "\n" for r in screens))
     (header / "log.tsv").write_text("ran\trich\n")
     rc, last = tick(repo, env)
     started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
     units = [ln.split()[3] for ln in started]
     assert rc == 0 and units == ["ark-clueweb", "ark-fineweb"], (last, started)
+    assert (tmp_path / "calls").read_text().count("systemctl --user stop ark-header") == 1
+    assert tick(repo, env)[0] == 0  # the code is the same now: no second stop
+    assert (tmp_path / "calls").read_text().count("systemctl --user stop ark-header") == 1
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
     assert "ok   ark-header: finished" in log, log

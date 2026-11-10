@@ -24,6 +24,7 @@ import os
 import random
 import subprocess
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -34,17 +35,22 @@ from pathlib import Path
 from ark.disk import below_floor
 from ark.hostnames import USENET_HEADER_FAMILY, usenet_item_rows
 
-UA = "ark-research (header-lane measurement)"
+UA = "internet-digital-ark/1.0 (usenet header lane)"  # the tool and its version, as the host asks
 BUILD = Path(__file__).with_name("build_usenet_header_pool.py")
 SNAPSHOT = Path(__file__).resolve().parents[3] / "output/price_snapshot"
 # every transfer bounded: no connection in 60 s, or under 1 KB/s for 300 s, is an outage
 CURL = ["curl", "-sSL", "--connect-timeout", "60", "--speed-time", "300", "--speed-limit", "1024"]
 FAILED = (OSError, ValueError, http.client.HTTPException)
+BUSY = ("429", "503")  # the host asks for a pause: never asked twice, its Retry-After kept
+LOCK = threading.Lock()
+FLYING: dict[Path, int] = {}  # the bytes each download in flight holds against the floor
+NEXT = [0.0]  # when the next request may start
 
 
 class End(Exception):
-    """A run's end that strikes nothing: a 429 (`retry`, its Retry-After seconds), an outage
-    (no answer, a 5xx, a cut or stalled transfer) or the hold; `file`, the download it cut."""
+    """A run's end that strikes nothing: a 429 or a 503 (`retry`, its Retry-After seconds), an
+    outage (no answer, a 5xx, a cut or stalled transfer) or the hold; `file`, the download it
+    cut."""
 
     def __init__(self, code: str, retry: int = 0) -> None:
         super().__init__(code)
@@ -64,7 +70,7 @@ def outage(code: str) -> bool:
 def failure(exc: BaseException) -> End | str:
     """A failed request's End, or the 4xx (not 429) it answered."""
     code = str(getattr(exc, "code", "") or type(exc).__name__)
-    if code == "429":
+    if code in BUSY:
         headers = getattr(exc, "headers", None)
         return End(code, seconds(headers.get("Retry-After") if headers else None))
     return End(code) if outage(code) else code
@@ -96,8 +102,8 @@ def pause(held) -> None:
 
 
 def listing(item: str, held=never) -> list[dict] | str:
-    """An item's files, or the 4xx (not 429) it answered twice, 120 s apart; a 429, an outage
-    or the hold raises End, the hold read before each request."""
+    """An item's files, or the 4xx (not 429) it answered twice, 120 s apart; a 429, a 503, an
+    outage or the hold raises End, the hold read before each request."""
     for again in (True, False):
         if held():
             raise End("held")
@@ -105,7 +111,7 @@ def listing(item: str, held=never) -> list[dict] | str:
             return get(f"https://archive.org/metadata/usenet-{item}/files").get("result", [])
         except FAILED as exc:
             why = failure(exc)
-        if isinstance(why, End) and why.code == "429":
+        if isinstance(why, End) and why.code in BUSY:
             raise why
         if again:
             pause(held)
@@ -151,19 +157,33 @@ def unread(work: Path, read: list[str], held=never) -> list[str]:
 def fetch(url: str, dst: Path, size: int, held=never) -> str:
     """ "200" once the file came whole, else the code (not 429, no outage) it answered twice,
     120 s apart, "size" for a whole transfer of the wrong size;
-    a 429, an outage or the hold raises End, the hold read before each request and while it
-    waits above the collectors' floor (`ark.disk`). The file is kept only when it came whole."""
+    a 429, a 503, an outage or the hold raises End, the hold read before each request and while
+    it waits above the collectors' floor (`ark.disk`), which every download in flight in this
+    process counts against; requests start 1 s apart, whatever thread asks. The file is kept
+    only when it came whole."""
     for again in (True, False):
-        while below_floor(dst.parent, 2 * size):
+        while True:
+            with LOCK:
+                if not below_floor(dst.parent, 2 * size + sum(FLYING.values())):
+                    FLYING[dst] = 2 * size
+                    break
             if held():
                 raise End("held")
             time.sleep(60)
-        if held():
-            raise End("held")
-        w = "%{http_code} %header{retry-after}"
-        r = subprocess.run(
-            [*CURL, "-A", UA, "-o", dst, "-w", w, url], capture_output=True, text=True
-        )
+        try:
+            if held():
+                raise End("held")
+            with LOCK:
+                wait = NEXT[0] - time.monotonic()
+                NEXT[0] = max(NEXT[0], time.monotonic()) + 1
+            time.sleep(max(0.0, wait))
+            w = "%{http_code} %header{retry-after}"
+            r = subprocess.run(
+                [*CURL, "-A", UA, "-o", dst, "-w", w, url], capture_output=True, text=True
+            )
+        finally:
+            with LOCK:
+                del FLYING[dst]
         code, _, retry = r.stdout.strip().partition(" ")
         if code == "200" and (r.returncode or not dst.exists()):
             code = "cut"
@@ -172,7 +192,7 @@ def fetch(url: str, dst: Path, size: int, held=never) -> str:
         if code == "200":
             return code
         dst.unlink(missing_ok=True)
-        if code == "429":
+        if code in BUSY:
             raise End(code, seconds(retry))
         if again:
             pause(held)

@@ -118,8 +118,14 @@ fi
 # it outlives this one, never two at once, and started only while its reader has a part under
 # three strikes left, so a finished reader costs no request (scripts/sources/eot/eot_cdxj.py,
 # httparchive/har_year.py, crawl_lists/clueweb.py, crawl_lists/fineweb.py,
-# usenet/run_usenet_header_items.py; the count is check_unattended.py's).
+# usenet/run_usenet_header_items.py; the count is check_unattended.py's). The header lane sleeps
+# its back-offs out and never exits with tops left, so it follows its code as the walk does: once
+# that changed, the unit is stopped (its start lands what a kill left) and started below.
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
+    HEADER=$(cat scripts/sources/usenet/*usenet_header*.py src/ark/disk.py src/ark/hostnames.py | cksum)
+    if [ "$HEADER" != "$(cat data/logs/.header_code 2>/dev/null)" ]; then
+        systemctl --user stop ark-header >/dev/null 2>&1; echo "$HEADER" > data/logs/.header_code
+    fi
     for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
         clueweb:crawl_lists/clueweb.py:clueweb fineweb:crawl_lists/fineweb.py:fineweb \
         header:usenet/run_usenet_header_items.py:usenet_header; do
