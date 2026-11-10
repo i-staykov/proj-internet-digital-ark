@@ -1705,9 +1705,13 @@ def usenet_item_rows(
 
 
 def ingest_usenet_item_journal(
-    conn: duckdb.DuckDBPyConnection, path: Path, family: ItemFamily = USENET_FAMILY
+    conn: duckdb.DuckDBPyConnection,
+    path: Path,
+    family: ItemFamily = USENET_FAMILY,
+    digest: str | None = None,
 ) -> dict[str, int | str | bool]:
-    """One `{item, year, text}` shard into hostname_year, idempotently.
+    """One `{item, year, text}` shard into hostname_year, idempotently; `digest` is its sha256
+    when the caller already knows it.
 
     The idempotence key carries the pool, because every pool names its shards
     `shard_000.jsonl.gz` and a bare filename would mark twelve of the thirteen as done.
@@ -1716,7 +1720,7 @@ def ingest_usenet_item_journal(
 
     stats: dict[str, int | str | bool] = {"file": path.name, "skipped": False}
     file_key = f"{path.parent.name}/{path.name}"
-    digest = _sha256(path)
+    digest = digest or _sha256(path)
     # **The key is the name AND the digest, because one lane's shard GROWS.** Most pools
     # write a shard once, but the IETF collector appends every month of a list to that
     # list's one shard, so a name key would mark it done at its first length and skip every
@@ -1776,13 +1780,15 @@ def ingest_usenet_item_dir(
     root: Path,
     pattern: str | None = None,
     family: ItemFamily = USENET_FAMILY,
+    digests: Path | None = None,
 ) -> dict[str, int]:
     """Every `{item, year, text}` shard under `root`, or `root` itself when it is a file.
 
     **Both `.jsonl.gz` and plain `.jsonl` are read** unless the caller names a pattern,
     because `collect_ietf_mail_archive.py` appends an uncompressed shard per list directory
     and a gz-only glob reports success over `files_seen: 0`. `usenet_item_rows` picks its
-    opener off the suffix.
+    opener off the suffix. `digests`, a folder, keeps each shard's size, mtime and sha256 in
+    `<source>.digests.tsv`, so a shard that kept both is not hashed again every bank.
     """
     totals: Counter[str] = Counter()
     if root.is_dir():
@@ -1790,8 +1796,19 @@ def ingest_usenet_item_dir(
         files = sorted({p for pat in patterns for p in root.glob(pat)})
     else:
         files = [root]
+    cache = digests / f"{family.source}.digests.tsv" if digests else None
+    known: dict[str, tuple[int, int, str]] = {}
+    if cache and cache.is_file():
+        for line in cache.read_text(encoding="utf-8").splitlines():
+            name, size, mtime, sha = (line.split("\t") + ["", "", ""])[:4]
+            if size.isdigit() and mtime.isdigit() and len(sha) == 64:  # else it is hashed again
+                known[name] = (int(size), int(mtime), sha)
     for i, path in enumerate(files, 1):
-        stats = ingest_usenet_item_journal(conn, path, family)
+        name, st = str(path.resolve()), path.stat()
+        old = known.get(name)
+        digest = old[2] if old and old[:2] == (st.st_size, st.st_mtime_ns) else _sha256(path)
+        known[name] = (st.st_size, st.st_mtime_ns, digest)
+        stats = ingest_usenet_item_journal(conn, path, family, digest)
         for key, value in stats.items():
             if isinstance(value, int) and not isinstance(value, bool):
                 totals[key] += value
@@ -1799,6 +1816,12 @@ def ingest_usenet_item_dir(
                 totals["files_skipped"] += 1
         said = logger.debug if stats.get("skipped") else logger.info
         said(f"[{i}/{len(files)}] {path.name} done")
+    if cache:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        part = cache.with_name(cache.name + ".part")
+        rows = (f"{n}\t{s}\t{m}\t{h}\n" for n, (s, m, h) in sorted(known.items()))
+        part.write_text("".join(rows), encoding="utf-8")
+        part.replace(cache)
     totals["files_seen"] = len(files)
     logger.info(f"usenet hostnames: {dict(totals)}")
     return dict(totals)

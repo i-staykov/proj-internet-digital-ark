@@ -707,3 +707,17 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
     assert "received_by_rows" not in again and q(conn, "SELECT count(*) FROM hostname_year") == [
         (3,)
     ]
+
+
+def test_an_unmoved_shard_is_not_hashed_again(tmp_path, monkeypatch):
+    path = journal(tmp_path, [("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk")])
+    conn, fam = store(), hn.USENET_HEADER_FAMILY
+    assert (
+        hn.ingest_usenet_item_dir(conn, path.parent, family=fam, digests=tmp_path)[
+            "hostname_year_rows"
+        ]
+        == 1
+    )
+    monkeypatch.setattr(hn, "_sha256", lambda _: pytest.fail("an unmoved shard was hashed"))
+    again = hn.ingest_usenet_item_dir(conn, path.parent, family=fam, digests=tmp_path)
+    assert again["files_skipped"] == 1
