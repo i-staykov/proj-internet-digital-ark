@@ -168,6 +168,11 @@ if names - claim:
     problems.append(f"{len(names - claim)} names outside candidate_additions.txt")
 if not (d / "header_candidates_exclusions.csv").is_file():
     problems.append("no exclusion ledger")
+classes = {p.stem: {l for l in p.read_text().splitlines() if l} for p in (d / "by_class").glob("*.txt")}
+if classes.keys() != summary.get("by_class", {}).keys():
+    problems.append("by_class files and summary name other classes")
+if set().union(*classes.values()) != names:
+    problems.append("the class files do not union to the names")
 if problems:
     say("header candidates", "FAIL  " + "; ".join(problems)); sys.exit(1)
 say("header candidates", f"PASS  {len(names)} names, each with a provenance row, each in the claim")

@@ -248,6 +248,8 @@ mkdir -p "$STAGE/server_header_hostnames"
 cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
     output/netnew/header_candidates_summary.json output/netnew/header_candidates_exclusions.csv \
     "$STAGE/server_header_hostnames/"
+# one file per class beside them, so a class he declines drops alone
+cp -R output/netnew/header_candidates_by_class "$STAGE/server_header_hostnames/by_class"
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
