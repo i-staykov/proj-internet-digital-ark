@@ -1588,15 +1588,20 @@ USENET_FIELD_FAMILIES = {
 # The reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`, which the
 # receiving MTA looked up itself: its own source and a candidate only, its method outside
 # `WEB_METHODS`. `build_received_rdns_pool.py` writes the shards over the Apache and pipermail
-# month files, so an item is either lane's pointer and resolves as that lane's does.
+# month files, so an item is either lane's pointer and resolves as that lane's does; a Gmane
+# article's pointer resolves as `GMANE_HEADER_FAMILY`'s.
 RECEIVED_SOURCE = "received_rdns_hostnames"
 RECEIVED_METHOD = "received_from_rdns"
 _RECEIVED_ITEM = re.compile(
-    "|".join(re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM))
+    "|".join(
+        re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM, _GMANE_ITEM)
+    )
 )
 
 
 def _received_url(item: str) -> str:
+    if _GMANE_ITEM.match(item):
+        return _gmane_url(item)
     return _maillist_url(item) if _MAILLIST_ITEM.match(item) else _apache_url(item)
 
 

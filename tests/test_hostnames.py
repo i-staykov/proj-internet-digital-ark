@@ -650,3 +650,9 @@ def test_cdx_suffix_convert_dates_a_registrable_by_its_earliest_exact_2xx_or_3xx
         ("x.com", 200, x),
     ]  # fmt: skip
     assert claim == {r["domain"]: set(r["years"]) for r in fresh}
+
+
+def test_received_rdns_takes_a_gmane_pointer_and_resolves_it_as_gmane() -> None:
+    item = "gmane/gmane.emacs.gnus.general#4578"
+    assert hn.RECEIVED_FAMILY.item_re.match(item)
+    assert hn.RECEIVED_FAMILY.url_of(item) == "nntp://news.gmane.io/gmane.emacs.gnus.general/4578"
