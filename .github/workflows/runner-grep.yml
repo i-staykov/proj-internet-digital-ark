@@ -1,0 +1,80 @@
+name: runner-grep
+
+# A public index or URL list read once through a grep, on a runner's line: the lines naming a
+# web server's usage report (scripts/sources/web_reports/report_urls.ere) and nothing else are
+# kept. A plain download of a file its host publishes, as ranges on a few connections
+# (fetch_ranges.py); no CDX query, no model, no secret. What it found so far uploads after 20
+# and 40 minutes and at the end, so the reader starts on the first part.
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: files to read, space separated (.gz, .bz2 or plain), a job each
+        required: true
+      connections:
+        description: ranges asked at once on one file
+        default: "4"
+      parallel:
+        description: jobs at once
+        default: "4"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      urls: ${{ steps.m.outputs.urls }}
+    steps:
+      - id: m
+        env:
+          URLS: ${{ inputs.urls }}
+        run: echo "urls=$(printf '%s\n' $URLS | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  grep:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
+      matrix:
+        url: ${{ fromJSON(needs.plan.outputs.urls) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # The stream runs behind the steps below; `out/done` holds its exit codes.
+      - env:
+          URL: ${{ matrix.url }}
+          CONNECTIONS: ${{ inputs.connections }}
+        run: |
+          mkdir -p out
+          case "$URL" in *.gz) OPEN="gzip -dc" ;; *.bz2) OPEN="bzip2 -dc" ;; *) OPEN=cat ;; esac
+          export OPEN
+          nohup bash scripts/sources/web_reports/grep_stream.sh > /dev/null 2>&1 &
+
+      - run: for i in $(seq 120); do [ -e out/done ] && break; sleep 10; done; tail -1 out/progress.txt || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: grep_${{ github.run_id }}_${{ strategy.job-index }}_p1
+          path: out
+          retention-days: 3
+
+      - run: for i in $(seq 120); do [ -e out/done ] && break; sleep 10; done; tail -1 out/progress.txt || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: grep_${{ github.run_id }}_${{ strategy.job-index }}_p2
+          path: out
+          retention-days: 3
+
+      - run: for i in $(seq 1800); do [ -e out/done ] && break; sleep 10; done; cat out/done; tail -1 out/progress.txt || true
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: grep_${{ github.run_id }}_${{ strategy.job-index }}_end
+          path: out
+          retention-days: 3

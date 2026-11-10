@@ -1,0 +1,1 @@
+/l?sites(0[1-9]|1[0-2])(9[5-9]|0[0-2])\.html?|total-(remote-)?hosts\.html?|site_(199[6-9]|200[01])[01][0-9]\.html?|usage_(199[6-9]|200[01])[01][0-9]\.html?|/www(199[5-9]|200[01])/|accesswatch|/wusage|wwwstat|getstats|http-analyze|pwebstats|/analog[^a-z]|webalizer|w3perl|mkstats|access_?log|xferlog|referer_?log|/stats/[^ ]*(199[6-9]|200[01])|/usage/[^ ]*(199[6-9]|200[01])
