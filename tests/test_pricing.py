@@ -352,6 +352,16 @@ def test_the_candidate_track_and_how_much_of_it_is_hostname_grain(tmp_path: Path
     assert priced["by_year"] == {}, "a candidate claims no year, even when an item had one"
     registrable = ps.price(snapshot, _items(tmp_path, "one.com", "two.com"), track="candidate")
     assert registrable["ee_hostname"] == "0.0000"
+    with pytest.raises(ps.SnapshotError, match="none of his 2002 to 2013 files"):
+        ps.price(snapshot, _items(tmp_path, "one.com"), track="candidate", extended=True)
+    late = {2005: ["one.com", "sub.two.com"], 2013: ["one.com", "three.com"]}
+    late = ps.price(
+        _snapshot(tmp_path / "late", held=late, last=2013),
+        _items(tmp_path, "one.com", "two.com", "www.three.com"),
+        track="candidate",
+        extended=True,
+    )
+    _check(late, netnew_pairs=3, in_his_2002_2013=1)  # the exact name, once however many years
 
 
 def _emptied(snapshot: Path) -> None:

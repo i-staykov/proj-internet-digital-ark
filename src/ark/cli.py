@@ -864,6 +864,13 @@ def price_snapshot_cmd(
             "takes no split.",
         ),
     ] = None,
+    extended: Annotated[
+        bool,
+        typer.Option(
+            "--extended",
+            help="On the candidate track, also count the priced names in his 2002 to 2013 files.",
+        ),
+    ] = False,
     out: Annotated[Path | None, typer.Option(help="Also write the JSON here.")] = None,
 ) -> None:
     """Price items against a staged snapshot and print one JSON object.
@@ -874,7 +881,7 @@ def price_snapshot_cmd(
     """
     try:
         priced = price_against_snapshot(
-            snapshot, items, track, split=split, evidence_class=evidence_class
+            snapshot, items, track, split=split, evidence_class=evidence_class, extended=extended
         )
     except SnapshotError as exc:
         logger.error(str(exc))

@@ -20,8 +20,8 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
-# No pull here: the recipe's preflight pulls under the sync lock, so a merged PR never swaps
-# scripts under a running bank.
+# No pull here: a merged PR swaps scripts only under the sync lock, at the recipe's preflight and
+# at the bank's push, between steps that are each their own process.
 
 # The recipes' own `local.env`: without its ARK_DB_MEMORY_LIMIT the bank dies at DuckDB's 40%
 # cap, and the floor the collectors read is the bank's (src/ark/disk.py). It assigns without
@@ -117,11 +117,17 @@ fi
 # the lanes walk, the Usenet header lane and the held mail's Received lines, every part left after
 # the bank, each its own unit so it outlives this one, never two at once, and started only while
 # its reader has a part under three strikes left, so a finished reader costs no request
-# (scripts/sources/eot/eot_cdxj.py,
-# httparchive/har_year.py, crawl_lists/clueweb.py, crawl_lists/fineweb.py,
-# usenet/run_usenet_header_items.py, mail_corpora/build_received_rdns_pool.py; the count is
-# check_unattended.py's).
+# (scripts/sources/eot/eot_cdxj.py, httparchive/har_year.py, crawl_lists/clueweb.py,
+# crawl_lists/fineweb.py, usenet/run_usenet_header_items.py,
+# mail_corpora/build_received_rdns_pool.py; the count is check_unattended.py's). The header lane
+# sleeps its back-offs out and never exits with tops left, so it follows its code as the walk
+# does: once that changed, the unit is stopped (its start lands what a kill left) and started
+# below.
 if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then
+    HEADER=$(cat scripts/sources/usenet/*usenet_header*.py src/ark/disk.py src/ark/hostnames.py | cksum)
+    if [ "$HEADER" != "$(cat data/logs/.header_code 2>/dev/null)" ]; then
+        systemctl --user stop ark-header >/dev/null 2>&1; echo "$HEADER" > data/logs/.header_code
+    fi
     for reader in eot:eot/eot_cdxj.py:eot_cdxj har:httparchive/har_year.py:har \
         clueweb:crawl_lists/clueweb.py:clueweb fineweb:crawl_lists/fineweb.py:fineweb \
         header:usenet/run_usenet_header_items.py:usenet_header \

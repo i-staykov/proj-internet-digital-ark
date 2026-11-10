@@ -251,7 +251,8 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     monkeypatch.setattr(check, "run", lambda *cmd: (0, "active"))
     assert check.reader("ark-header") == (False, "active, 5 parts left, stalled at a")
     # the tick: eot and har with every part read, clueweb and fineweb with parts left, the header
-    # lane with its list and every top screened, one under the floor and one run out
+    # lane with its list and every top screened, one under 50 EE per GB and one run out; its code
+    # is new to this clone, so the tick stops the unit before the loop that starts it
     repo, env = clone
     (repo / "local.env").write_text("ARK_HOSTS=local:2\n")
     eot = repo / "data/raw/extended/eot_cdxj"
@@ -266,13 +267,16 @@ def test_a_finished_reader_reads_finished_and_is_not_started(clone, tmp_path, mo
     header.mkdir(parents=True)
     (header / "seen.json").write_text("[]")
     (header / "tops.txt").write_text("cheap\nrich\n")
-    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 8.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
+    screens = ("cheap", 30_000_000, 9, 1, 1, 1, 1.0), ("rich", 30_000_000, 9, 1, 1, 1, 90.0)
     (header / "screen.tsv").write_text("".join("\t".join(map(str, r)) + "\n" for r in screens))
     (header / "log.tsv").write_text("ran\trich\n")
     rc, last = tick(repo, env)
     started = [ln for ln in (tmp_path / "calls").read_text().splitlines() if "systemd-run" in ln]
     units = [ln.split()[3] for ln in started]
     assert rc == 0 and units == ["ark-clueweb", "ark-fineweb"], (last, started)
+    assert (tmp_path / "calls").read_text().count("systemctl --user stop ark-header") == 1
+    assert tick(repo, env)[0] == 0  # the code is the same now: no second stop
+    assert (tmp_path / "calls").read_text().count("systemctl --user stop ark-header") == 1
     log = (repo / "data/logs/scheduled_sync.log").read_text()
     assert "ok   ark-eot: finished" in log and "ok   ark-har: finished" in log, log
     assert "ok   ark-header: finished" in log, log
@@ -328,6 +332,28 @@ def test_a_conflicting_rebase_aborts_and_the_tick_names_the_divergence(clone):
     assert not (repo / ".git/rebase-merge").exists()
     assert "the clone has diverged" in (repo / "data/logs/ticks.tsv").read_text()
     assert "rebase aborted" in (repo / "data/logs/scheduled_sync.log").read_text()
+
+
+@pytest.mark.parametrize("clash", [False, True])
+def test_a_merge_under_the_bank_is_rebased_over_and_pushed_or_refused(clone, clash):
+    """The bank's push, `live` moved since its preflight and not fetched: the tick's commit lands
+    on the PR's without force, or on a conflict stays, the rebase aborted and origin untouched."""
+    repo, env = clone
+    head = diverge(repo, env, "Sync fleet findings round 9", clash=clash)
+    stale = ["git", "update-ref", "refs/remotes/origin/live", "HEAD~1"]
+    subprocess.run(stale, cwd=repo, env=env, check=True)
+    cmd = [sys.executable, "scripts/harness/bank_hygiene.py", "push"]
+    done = subprocess.run(cmd, cwd=repo, env=env, capture_output=True, text=True)
+    origin = ["--git-dir", str(repo.parent / "origin.git")]
+    pushed = git_out(repo, env, *origin, "log", "--format=%s", "-2", "live").splitlines()
+    if clash:
+        assert done.returncode == 2 and "rebase aborted" in done.stdout, done
+        assert pushed[0] == "a merged PR" and git_out(repo, env, "rev-parse", "HEAD") == head
+        assert not (repo / ".git/rebase-merge").exists()
+        assert git_out(repo, env, "status", "--porcelain", "-uno") == ""
+    else:
+        assert done.returncode == 0 and "[rejected]" in done.stdout, done
+        assert pushed == ["Sync fleet findings round 9", "a merged PR"]
 
 
 @pytest.mark.parametrize("dirty", [False, True])
