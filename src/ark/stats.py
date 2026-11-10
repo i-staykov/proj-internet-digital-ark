@@ -90,6 +90,8 @@ PROVENANCE_LINEAGE = {
     "granitecanyon_zone_mention": "hosted_dns",
     "cctld_register_listing_capture": "registry",
     "cctld_register_listing_mention": "registry",
+    "nz_dns_walk_list_mention": "dns_survey",
+    "ca_registrar_registration_mention": "registry",
     "mynic_my_change_report": "registry",
     "coza_deletion_listing": "registry",
     "fac_single_audit": "federal_filing",
