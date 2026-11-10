@@ -94,13 +94,19 @@ FAMILIES = [
              (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
              ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
              [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], f"usenet_{key}")
-      for key, name, noun in (("msgid", "message_id", "message-id"), ("from", "from", "from"))),
+      for key, name, noun in (("msgid", "message_id", "message-id"), ("from", "from", "from"),
+                              ("lease", "header_lease", "lease"))),
     # an item is the Apache lane's pointer or the pipermail lane's, and resolves as that lane's
     family(hn.RECEIVED_FAMILY, "received_rdns_hostnames", "received header",
            (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
            (f"{GTK}#3", 1999, "mail.example.org", "example.org"), f"{UK}#12",
            [f"{MBOX}dev&domain=httpd.apache.org&d=1999-01",
             "https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz"], "received_rdns"),
+    family(hn.RECEIVED_LEASE_FAMILY, "received_rdns_lease_hostnames", "received lease",
+           (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
+           (f"{GTK}#3", 1999, "mail.example.org", "example.org"), f"{UK}#12",
+           [f"{MBOX}dev&domain=httpd.apache.org&d=1999-01",
+            "https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz"], "received_lease"),
     # `#12` sorts below `#99`; the identifier follows the group, not the pool; `www.` is a record
     family(hn.USENET_FAMILY, "usenet_body_url_hostnames", "usenet post",
            (f"{UK}#12", f"{UK}#99", 1997, "www.demon.co.uk"),
@@ -253,12 +259,14 @@ def test_field_chosen(reader, given, want) -> None:
 
 
 def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_path) -> None:
-    """Body URL, Message-ID and From hosts leave the header pass as pools of their own, named by
-    the batch, where the header ingest's glob never looks; no mailbox, name or text leaves."""
+    """Body URL, Message-ID, From and lease hosts leave the header pass as pools of their own,
+    named by the batch, where the header ingest's glob never looks; no mailbox, name or text
+    leaves."""
     b, pool, out = script(USENET_HEADER), tmp_path / "pool", tmp_path / ".hl_1"
     post = [
         "From 1", "Path: news.zetnet.co.uk!not-for-mail", f"From: A Poster <box@{ZET}>",
-        "Message-ID: <q1@pcserv.demon.co.uk>", "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
+        "Message-ID: <q1@pcserv.demon.co.uk>", f"NNTP-Posting-Host: {LEASES[0]}",
+        "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
         "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "",
     ]  # fmt: skip
     pool.mkdir()
@@ -271,7 +279,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
     for kind in b.SIDE:
         with gzip.open(out / kind / "hl_1_000.jsonl.gz", "rt") as fh:
             got[kind] = [json.loads(line)["text"] for line in fh]
-    assert got == {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
+    want = {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
+    assert got == want | {"lease": [LEASES[0]]}
 
 
 # fmt: off
@@ -654,12 +663,15 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
         dict(host="mx.example.org", year=1998, file=art, pos=12, field="subject"),
         dict(host="mx.example.org", year=2004, file=art, pos=12, field="received_by"),
         dict(host="mx.example.org", year=1998, file="/tmp/x", pos=1, field="received_by"),
+        dict(host="a.example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
+        dict(host="smtp.mail.com.com", year=1998, file=art, pos=12, field="rdns"),
     ]
     folder = tmp_path / "php_list_header"
     write(folder / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
     conn = store()
     got = hn.ingest_staged_messages(conn, folder)
     assert (got["received_by_rows"], got["rdns_rows"], got["registrable_row"]) == (1, 1, 1)
+    assert got["duplicated_suffix"] == 2
     assert (got["rejected_host"], got["bad_field"], got["out_of_window"], got["bad_file"]) == (
         1,
         1,

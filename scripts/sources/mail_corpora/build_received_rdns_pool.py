@@ -4,8 +4,8 @@ A receiving MTA that looks its peer up writes `from <helo> (<rdns.host> [<addres
 in the parentheses is the server's own lookup of the machine it accepted the message from, the
 mail twin of a news server's `NNTP-Posting-Host`. Only that name is read. The HELO token is the
 sender's word. A clause with an address alone, `unknown`, a name sendmail marks `(may be
-forged)`, a private or loopback address, a local name and a dial-up lease (the Usenet header
-lane's `is_ephemeral`) date nothing.
+forged)`, a private or loopback address and a local name date nothing. A dial-up lease (the
+Usenet header lane's `is_ephemeral`) goes to `lease/shard_000.jsonl.gz`, its own family.
 
 **What dates one item** is the line's own stamp, which the same server wrote after its last
 `;`. A line whose year is not its month file's is dropped, as `build_apache_header_pool.py`
@@ -54,6 +54,7 @@ is_ephemeral = _script("usenet/build_usenet_header_pool.py").is_ephemeral
 
 APACHE, MAILLISTS = ROOT / "data/raw/apache_lists", ROOT / "data/raw/maillists"
 SHARD = ROOT / "data/raw/received_rdns_items/shard_000.jsonl.gz"
+LEASE = SHARD.parent / "lease" / SHARD.name
 # `from <helo> (<ident>@<rdns> [<address>]`, the ident optional, then sendmail's own doubt.
 RDNS = re.compile(
     r"^received:\s*from\s+\S+\s+\((?:[^\s()\[\]@]+@)?(" + apache._HOST + r")\.?\s+"
@@ -67,19 +68,24 @@ LOCAL = frozenset(
 PARTITION = re.compile(r"__(\d{4})-")
 
 
-def rdns_hosts(header_block: str, partition_year: int) -> list[str]:
+def rdns_hosts(
+    header_block: str, partition_year: int, leased: list[str] | None = None
+) -> list[str]:
     """The reverse-DNS host of every `Received: from` line of one UNFOLDED header block that
-    its server stamped in the partition's year."""
+    its server stamped in the partition's year; a lease goes to `leased` when given."""
     out = []
     for line in header_block.split("\n"):
         match = RDNS.match(line)
         if match is None or match[3] or PRIVATE.match(match[2]):
             continue
         host = match[1].lower()
-        if host.rsplit(".", 1)[1] in LOCAL or host.startswith("localhost.") or is_ephemeral(host):
+        if host.rsplit(".", 1)[1] in LOCAL or host.startswith("localhost."):
             continue
         if message_year(line.rsplit(";", 1)[1] if ";" in line else "") == partition_year:
-            out.append(host)
+            if not is_ephemeral(host):
+                out.append(host)
+            elif leased is not None:
+                leased.append(host)
     return out
 
 
@@ -117,8 +123,8 @@ def month_files() -> list[tuple[Path, str, ModuleType]]:
 
 
 def left() -> int:
-    """1 while a corpus is here and its shard is not."""
-    return int(not SHARD.exists() and (APACHE.is_dir() or MAILLISTS.is_dir()))
+    """1 while a corpus is here and its lease shard is not."""
+    return int(not LEASE.exists() and (APACHE.is_dir() or MAILLISTS.is_dir()))
 
 
 def main() -> int:
@@ -129,9 +135,11 @@ def main() -> int:
         print("received: held", flush=True)
         return 0
     stats: Counter[str] = Counter()
-    SHARD.parent.mkdir(parents=True, exist_ok=True)
-    partial = SHARD.with_name(".shard_000.tmp")
-    with gzip.open(partial, "wt") as out:
+    LEASE.parent.mkdir(parents=True, exist_ok=True)
+    # a shard already banked is not rewritten: only the leases are read again
+    again = not SHARD.exists()
+    partial, lease_partial = SHARD.with_name(".shard_000.tmp"), LEASE.with_name(".shard_000.tmp")
+    with gzip.open(partial, "wt") as out, gzip.open(lease_partial, "wt") as lease_out:
         for path, stem, lane in month_files():
             year = PARTITION.search(path.name)
             if year is None:
@@ -141,14 +149,25 @@ def main() -> int:
             try:
                 for n, block in enumerate(headers(path, lane), 1):
                     stats["messages"] += 1
-                    if hosts := sorted(set(rdns_hosts(block, int(year[1])))):
-                        stats["with_hosts"] += 1
-                        row = {"item": f"{stem}#{n}", "year": int(year[1]), "text": " ".join(hosts)}
-                        out.write(json.dumps(row) + "\n")
+                    leased: list[str] = []
+                    hosts = sorted(set(rdns_hosts(block, int(year[1]), leased)))
+                    for sink, named in ((out, hosts), (lease_out, sorted(set(leased)))):
+                        if named:
+                            stats["with_hosts" if sink is out else "with_leases"] += 1
+                            row = {
+                                "item": f"{stem}#{n}",
+                                "year": int(year[1]),
+                                "text": " ".join(named),
+                            }
+                            sink.write(json.dumps(row) + "\n")
             except (OSError, EOFError) as exc:  # one cut month must not lose the shard
                 stats["unreadable"] += 1
                 print(f"received: {stem}: {type(exc).__name__}", flush=True)
-    partial.rename(SHARD)
+    if again:
+        partial.rename(SHARD)
+    else:
+        partial.unlink()
+    lease_partial.rename(LEASE)
     print(f"received: {json.dumps(stats)}", flush=True)
     return 0
 

@@ -29,6 +29,7 @@ from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
+from ark.hostnames import LEASE_SOURCES
 from ark.ingest import YEARS
 from ark.provenance import ISC_SOURCE, PROVENANCE_DIR, write_provenance
 
@@ -54,6 +55,16 @@ CLAIM_COPY_DIR = Path("data/exports/claim")
 # model's maximum. Filtered here rather than deleted from the store, which would be a
 # destructive migration. `ark.delegation` owns the years, so the rule is in one place.
 HOSTNAME_SHIPPING_FILTER = _shipping_filter_for("hy.hostname", "hy.assigned_year")
+
+
+def _lease_filter(evidence_id: str) -> str:
+    """TRUE unless the row is a dial-up lease (`LEASE_SOURCES`) and `ARK_SHIP_LEASES` is 0,
+    the one switch that takes the lease families out of the claim."""
+    if os.environ.get("ARK_SHIP_LEASES", "1") != "0":
+        return "TRUE"
+    names = ", ".join(f"'{name}'" for name in LEASE_SOURCES)
+    return f"""{evidence_id} NOT IN (SELECT ev.evidence_id FROM evidence ev
+                JOIN source sv ON sv.source_id = ev.source_id WHERE sv.name IN ({names}))"""
 
 
 # DNS observations are candidates only. Annual promotion requires exact-host web evidence
@@ -334,7 +345,7 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
             WHERE NOT EXISTS (SELECT 1 FROM hostname_year hz
                               WHERE hz.hostname = hy.hostname
                                 AND {web_evidence_exists("hz.evidence_id", "hz.hostname")})
-              AND {HOSTNAME_SHIPPING_FILTER}
+              AND {HOSTNAME_SHIPPING_FILTER} AND {_lease_filter("hy.evidence_id")}
             ORDER BY 1
         """,
     }
@@ -381,6 +392,7 @@ def export_header_candidates(
         JOIN source s ON s.source_id = e.source_id
         WHERE c.unit = 'hostname' AND NOT ({web_evidence_sql("e")})
           AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
+          AND {_lease_filter("e.evidence_id")}
     """)
     stats["header_candidates"] = held.dump(
         conn,

@@ -267,3 +267,33 @@ def test_a_kill_after_the_log_lands_the_batch_and_drops_the_unlogged(lane):
     (work / "log.tsv").write_text("hl_1\ta\ta.x\tg.mbox.zip\t10\t1\t1\t9.0\n")
     m.start()
     assert sorted(p.name for p in m.OUT.iterdir()) == ["hl_1"]
+
+
+def test_a_runner_job_reads_its_share_once_and_names_what_it_read(tmp_path, monkeypatch):
+    m = script("sources/usenet/runner_header_items.py")
+    sizes = {"a": 9, "a.x": 5, "ab": 7, "b.y": 3, "c": 1}
+    listing = [{"identifier": f"usenet-{i}", "item_size": s} for i, s in sizes.items()]
+    assert m.picked({"a", "b.y"}, listing) == ["a", "a.x", "b.y"]  # `ab` is not under `a`
+    assert m.picked({"=a", "c"}, listing) == ["a", "c"]  # `=a`: the item alone
+    monkeypatch.setattr(m, "listed", lambda: listing)
+    files = [{"name": "g.mbox.zip", "size": "4"}, {"name": "g.txt", "size": "4"}]
+    monkeypatch.setattr(m, "get", lambda url: {"result": files})
+
+    def fetch(item, name, size, pool):
+        (pool / name).write_bytes(b"x" * size)
+        return "200"
+
+    monkeypatch.setattr(m, "fetch", fetch)
+    monkeypatch.setattr(m, "BUILD", tmp_path / "build.py")
+    stub = "import sys, pathlib; d = pathlib.Path(sys.argv[2]); d.mkdir()"
+    m.BUILD.write_text(stub + "; (d / 'shard_000.jsonl.gz').touch()")
+    for shard in (0, 1):
+        monkeypatch.setattr(sys, "argv", ["x", str(tmp_path / "out"), "--names", "a b.y"])
+        sys.argv += ["--shard", str(shard), "--of", "2"]
+        m.main()
+    rows = [ln.split("\t") for ln in (tmp_path / "out/read_0.tsv").read_text().splitlines()]
+    # `a` and `b.y` are shard 0's items, and the group both hold is read once
+    assert [r[1:] for r in rows if r[0].startswith("hr_")] == [["a", "g.mbox.zip", "4", "200"]]
+    assert rows[-1] == ["end", "read out", "1", "4"]
+    built = [p.name for p in (tmp_path / "out").iterdir() if p.is_dir()]
+    assert len(built) == 2 and all(n.startswith("hr_") for n in built)  # shard 1 read a.x's copy
