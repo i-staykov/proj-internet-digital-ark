@@ -151,3 +151,20 @@ def test_pages_from_an_arc_file_cite_their_replay_and_a_failed_digest_is_left(tm
         ("widow.av.pa-x.dec.com", 1997, receipts[1]["replay"], arc, 7),
         ("e659229.boeing.com", 1996, receipts[2]["replay"], arc, 7),
     ]
+
+
+def test_a_dns_cache_and_a_raw_log_date_each_line_by_itself(tmp_path):
+    site = tmp_path / "raw" / "s"
+    site.mkdir(parents=True)
+    cache = [f"8538912{i:02d} 10.1.2.3 ppp{i}.kwic.com\n" for i in range(30)]
+    (site / "dnscache").write_text("".join(cache) + "853891299 10.1.2.3 *\n")
+    hit = '{} - - [10/Oct/1998:13:55:36 -0700] "GET / HTTP/1.0" 200 1\n'
+    (site / "access_log").write_text("".join(hit.format(f"h{i}.isp.net") for i in range(12)))
+    reports._URLS.clear()
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert len(rows) == 42, "the unresolved `*` line gives nothing"
+    assert [(r["host"], r["year"], r["generator"]) for r in (rows[0], rows[12])] == [
+        ("h0.isp.net", 1998, "raw-log"),
+        ("ppp0.kwic.com", 1997, "analog-dnscache"),
+    ]
