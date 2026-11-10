@@ -62,18 +62,20 @@ def _lease_filter(evidence_id: str) -> str:
     the one switch that takes the lease families out of the claim."""
     if os.environ.get("ARK_SHIP_LEASES", "1") != "0":
         return "TRUE"
-    return _not_from(evidence_id, LEASE_SOURCES)
+    return _not_from(evidence_id, LEASE_SOURCES, r"msg_[a-z0-9_]+__lease")
 
 
-def _not_from(evidence_id: str, sources: tuple[str, ...]) -> str:
+def _not_from(evidence_id: str, sources: tuple[str, ...], staged: str) -> str:
+    """Not a row of `sources` or of a staged-message source matching `staged`."""
     names = ", ".join(f"'{name}'" for name in sources)
     return f"""{evidence_id} NOT IN (SELECT ev.evidence_id FROM evidence ev
-                JOIN source sv ON sv.source_id = ev.source_id WHERE sv.name IN ({names}))"""
+                JOIN source sv ON sv.source_id = ev.source_id
+                WHERE sv.name IN ({names}) OR regexp_full_match(sv.name, '{staged}'))"""
 
 
-# A poster-typed name of home-row keys, `alskdjfasld.com`: a label of 5 or more letters from
-# `asdfghjkl` holding 4 consonants in a row. It is 0.15 to 0.26% of Usenet From hosts and none
-# of the server-written ones; one of 48 matches in the samples was plausibly real.
+# A typed name of home-row keys in a news post or message, `alskdjfasld.com`: a label of 5 or
+# more letters from `asdfghjkl` holding 4 consonants in a row. It is 0.15 to 0.26% of Usenet
+# From hosts and none of the server-written ones; one of 48 matches was plausibly real.
 MASHED = r"(^|\.)([asdfghjkl]+[sdfghjkl]{4}[asdfghjkl]*|[sdfghjkl]{4}[asdfghjkl]+)\."
 TYPED_SOURCES = (
     "usenet_from_hostnames",
@@ -83,11 +85,23 @@ TYPED_SOURCES = (
 )
 
 
+# A name typed into a body ships only when a source that is not a body names the same host: a
+# hand read found 8 of 30 Usenet body addresses and 7 to 9 of 30 bare `www.` names invented
+# (`your-house.net`, `www.sales.domain.com`).
+BODY_SOURCES = ("usenet_body_mention_hostnames",)
+BODY_STAGED = r"msg_[a-z0-9_]+__(body_mention|body_url)"
+
+
 def _claim_filter(evidence_id: str, hostname: str) -> str:
-    """The lease switch, and no keyboard-mashed name a poster typed."""
-    typed = _not_from(evidence_id, TYPED_SOURCES)
+    """The lease switch, no keyboard-mashed name a poster typed, and no body name alone."""
+    staged = r"msg_[a-z0-9_]+__(from|message_id|header_more|body_mention)"
+    typed = _not_from(evidence_id, TYPED_SOURCES, staged)
+    not_body = _not_from(evidence_id, BODY_SOURCES, BODY_STAGED)
+    named = _not_from("h2.evidence_id", BODY_SOURCES, BODY_STAGED)
+    seconded = f"EXISTS (SELECT 1 FROM hostname_year h2 WHERE h2.hostname = {hostname} AND {named})"
     return (
         f"{_lease_filter(evidence_id)} AND (NOT regexp_matches({hostname}, '{MASHED}') OR {typed})"
+        f" AND ({not_body} OR {seconded})"
     )
 
 
