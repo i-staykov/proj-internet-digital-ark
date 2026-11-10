@@ -274,6 +274,7 @@ def test_a_runner_job_reads_its_share_once_and_names_what_it_read(tmp_path, monk
     sizes = {"a": 9, "a.x": 5, "ab": 7, "b.y": 3, "c": 1}
     listing = [{"identifier": f"usenet-{i}", "item_size": s} for i, s in sizes.items()]
     assert m.picked({"a", "b.y"}, listing) == ["a", "a.x", "b.y"]  # `ab` is not under `a`
+    assert m.picked({"=a", "c"}, listing) == ["a", "c"]  # `=a`: the item alone
     monkeypatch.setattr(m, "listed", lambda: listing)
     files = [{"name": "g.mbox.zip", "size": "4"}, {"name": "g.txt", "size": "4"}]
     monkeypatch.setattr(m, "get", lambda url: {"result": files})

@@ -1,7 +1,8 @@
 """The header lane's share on a runner's own address: the `.mbox.zip` files of the usenet-*
 items a name list picks, extracted to the header journals the bank folds.
 
-A name picks the item it is and every item under it (`fido7` picks `usenet-fido7.ru.anime`).
+A name picks the item it is and every item under it (`fido7` picks `usenet-fido7.ru.anime`),
+`=fido7` that item alone: a hierarchy's own item holds every group its sub-items hold again.
 Archive.org's scrape API lists the items; dealt largest first, every `--of`-th from `--shard`
 is this job's, and `--split files` deals files by their name's CRC instead, every job listing
 every item, for an item too large for one job. PARALLEL downloads at once, their starts 1 s
@@ -65,12 +66,13 @@ def listed() -> list[dict]:
 
 
 def picked(names: set[str], items: list[dict]) -> list[str]:
-    """The items a name is or is above, largest first."""
+    """The items a name is or is above, and those `=name` names, largest first."""
     keep = []
     for x in items:
         item = x["identifier"][7:]
         parts = item.split(".")
-        if x.get("item_size") and any(".".join(parts[: i + 1]) in names for i in range(len(parts))):
+        above = any(".".join(parts[: i + 1]) in names for i in range(len(parts)))
+        if x.get("item_size") and (above or f"={item}" in names):
             keep.append((-int(x["item_size"]), item))
     return [item for _, item in sorted(keep)]
 
