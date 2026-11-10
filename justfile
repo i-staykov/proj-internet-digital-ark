@@ -915,6 +915,13 @@ ship stage="all" *args:
         hold_lock
         # A bank handed the lock skips its preflight, so ship runs it, as a bank by hand does.
         uv run python scripts/harness/bank_hygiene.py preflight
+        # A capture banked before the fold repointed can still sit behind a non-web row of its
+        # host-year; one that moves leaves the ledger as it was, so the claim is written again.
+        MOVED=$(uv run ark repoint-stranded --write)
+        echo "ship prep: $MOVED"
+        if ! grep -q '^repointed: 0 host-years 1996 to 2001, 0 later' <<<"$MOVED"; then
+            uv run ark export --claim >/dev/null
+        fi
         # A bank runs only when something arrived since the last one; otherwise its claim
         # export stands, and build's full export is the ship's only export.
         if WHY=$(uv run python scripts/harness/bank_trigger.py check); then
