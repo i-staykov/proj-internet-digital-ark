@@ -56,3 +56,29 @@ def test_only_host_tables_are_read_and_a_cut_name_is_refused(tmp_path):
     with gzip.open(tmp_path / "out" / "witness.txt.gz", "rt") as fh:
         witness = fh.read().splitlines()
     assert "at.ac.uni-linz.info-pc1" in witness[rows[0]["line"] - 1], "the printed form is kept"
+
+
+HOSTS = "<title>x: Frequency of Access: Hosts</title>\nppp12.isp.net   :   19 :   205,741\n"
+PERIOD = "Period covered by these statistics:  7 days  (29 Aug 1999 - 04 Sep 1999)\n"
+
+
+def staged(tmp_path, period_capture):
+    tree = tmp_path / "raw" / "wayback" / "h" / "weeks"
+    (tree / "hosts").mkdir(parents=True)
+    (tree / "hosts" / "s.9.total-hosts.html").write_text(HOSTS)
+    (tree / "s.9.html").write_text(PERIOD)
+    receipts = [
+        {"path": "h/weeks/hosts/s.9.total-hosts.html", "replay": "x/web/20000110000000id_/u"},
+        {"path": "h/weeks/s.9.html", "replay": f"x/web/{period_capture}id_/u"},
+    ]
+    (tmp_path / "raw" / "wayback" / "receipts.receipts").write_text(
+        "".join(json.dumps(r) + "\n" for r in receipts)
+    )
+    reports._STAMPS.clear()
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    return (tmp_path / "out" / "rows.jsonl").read_text().splitlines()
+
+
+def test_an_archived_host_page_takes_its_period_only_from_a_capture_of_the_same_week(tmp_path):
+    assert len(staged(tmp_path / "near", "20000112000000")) == 1
+    assert staged(tmp_path / "far", "20010601000000") == []
