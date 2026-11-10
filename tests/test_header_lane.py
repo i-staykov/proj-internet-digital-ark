@@ -84,6 +84,25 @@ def test_the_floor_orders_tops_and_only_a_running_mean_under_50_excludes(lane):
     assert m.rates()["sour"] == 45.0 and m.rates()["once"] > 899
 
 
+def test_a_top_drops_on_its_running_mean_not_on_its_first_batch(lane, monkeypatch):
+    m, work, _ = lane
+    asked, stamps = [], iter("123")
+    (work / "seen.json").write_text("[]")
+    (work / "tops.txt").write_text("a\n")
+    (work / "screen.tsv").write_text("a\t30000000\t9\t1\t1\t1\t90.0\n")
+    files = [{"name": f"{n}.mbox.zip", "size": "1000000000"} for n in "ghi"]  # a batch each
+    monkeypatch.setattr(m, "listing", lambda item, held: files)
+    monkeypatch.setattr(m, "fetch", lambda url, dst, size, held: asked.append(url) or "200")
+    monkeypatch.setattr(m, "build", lambda pool, out: out.mkdir(parents=True) or 0)
+    monkeypatch.setattr(m, "price", lambda work, out: 0.0)
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    monkeypatch.setattr(m.time, "strftime", lambda *a: next(stamps))
+    assert m.start() == 0
+    # the first batch at 0 EE reads on, the second puts the mean under 50: the third is not read
+    assert [r[0] for r in m.rows("log.tsv")] == ["hl_1", "hl_2", "drop"]
+    assert len(asked) == 2 and m.left() == 0
+
+
 def running(m, work, monkeypatch, fetch, parallel=1) -> list[list[str]]:
     """Top a screened above the floor with two files, each batch priced at 0 EE; the log."""
     (work / "seen.json").write_text("[]")
