@@ -545,3 +545,20 @@ def test_a_suffix_written_twice_never_ships() -> None:
     conn.executemany("INSERT INTO t VALUES (?, 1999)", [[n] for n in names])
     kept = conn.execute(f"SELECT h FROM t WHERE {shipping_filter_for('h', 'y')} ORDER BY 1")
     assert kept.fetchall() == [("example.co.uk",), ("www.example.com",)]
+
+
+def test_a_repoint_moves_the_store_ledger() -> None:
+    """A full export reuses the claim only on an equal ledger, and a repoint adds no row."""
+    import duckdb
+
+    from ark.db import init_db
+    from ark.export import store_ledger
+
+    init_db(conn := duckdb.connect())
+    conn.execute(
+        "INSERT INTO hostname_year (hostname, parent_domain, assigned_year, evidence_id) "
+        "VALUES ('a.example.com', 'example.com', 1999, 1)"
+    )
+    before = store_ledger(conn)
+    conn.execute("UPDATE hostname_year SET evidence_id = 2")
+    assert store_ledger(conn) != before
