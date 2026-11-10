@@ -4,8 +4,8 @@
 
 The Internet Digital Ark competition asks for the web's hostnames of 1996 to 2013, 1996 to
 2001 first, each with item-level evidence for its year. A hostname-year the reviewer's files lack
-scores its top-level domain's English share, in equivalent-English (EE); a round ships at 3% EE
-growth over those files in 1996 to 2001 or 2002 to 2013 ([the metric](metric-explained.md)).
+scores its top-level domain's English share, in equivalent-English (EE); a round ships at 1% of
+their EE in 1996 to 2001, candidates counted, or 2002 to 2013 ([the metric](metric-explained.md)).
 
 ## The method
 
@@ -46,7 +46,7 @@ EE a day in 2026 from the VM's address unless named; 11-09 to 10:05 UTC, GitHub'
 | 11-09 | 169 | 53,770 |
 | 11-09, runners | 77 | 5,636 |
 
-1996 to 2001 yields hundreds to a few thousand EE a day against a gate of 2.23M (3% of the
-reviewer's 74.25M), four times the Archive's ceiling, with 12.2k banked; 2002 to 2013 has 3.60M
-banked of a 9.45M gate. A day's EE prices each output file alone, an upper bound before
-deduplication across files; banked is the VM heartbeat's.
+1996 to 2001 yields hundreds to a few thousand direct EE a day against a gate of 0.74M (1% of the
+reviewer's 74.25M), above the Archive's ceiling, with 12.4k direct and 257k candidate EE banked;
+2002 to 2013 has 3.95M banked, past its 3.15M gate. A day's EE prices each output file alone, an
+upper bound before deduplication across files; banked is the export's of 2026-11-09 23:25 UTC.

@@ -20,8 +20,8 @@
 
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 1
-# No pull here: the recipe's preflight pulls under the sync lock, so a merged PR never swaps
-# scripts under a running bank.
+# No pull here: a merged PR swaps scripts only under the sync lock, at the recipe's preflight and
+# at the bank's push, between steps that are each their own process.
 
 # The recipes' own `local.env`: without its ARK_DB_MEMORY_LIMIT the bank dies at DuckDB's 40%
 # cap, and the floor the collectors read is the bank's (src/ark/disk.py). It assigns without

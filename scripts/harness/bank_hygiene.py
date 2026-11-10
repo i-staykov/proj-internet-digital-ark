@@ -10,7 +10,7 @@ them. So their failures are the quiet kind:
    so `live` moves without this machine. A fast-forward-only pull takes the merge and
    refuses to invent one; a clone ahead only by the tick's own register commits rebases
    them, and a conflict aborts the rebase and refuses. Either way a commit it would push signed
-   outside the identity allowlist refuses.
+   outside the identity allowlist refuses. A push `live` moved under takes the same road.
 3. **A second notification for the same crossing.** The gate issue says the round
    is over the gate. Opened once it is information; opened hourly it is noise, and the
    latch is deliberately two independent checks, a local ledger and the open-issue
@@ -20,6 +20,7 @@ them. So their failures are the quiet kind:
 Preflight also enforces the free-space floor and write budget before the bank starts.
 
     uv run python scripts/harness/bank_hygiene.py preflight   # before the bank works
+    uv run python scripts/harness/bank_hygiene.py push        # after its commit
     uv run python scripts/harness/bank_hygiene.py gate --write # after the gate ran
 """
 
@@ -192,6 +193,13 @@ def preflight(
 
     if not pull:
         return 0, lines
+    return catch_up(root, branch, remote, run, lines)
+
+
+def catch_up(
+    root: Path, branch: str, remote: str, run: Callable, lines: list[str]
+) -> tuple[int, list[str]]:
+    """Fast-forward to the remote's branch, or rebase the tick's own commits onto it."""
     code, out = run(["pull", "--ff-only", remote, branch], root)
     if code == 0:
         lines.append(f"fast-forwarded from {remote}/{branch}")
@@ -212,6 +220,29 @@ def preflight(
     else:
         lines.append("  the clone has diverged. Reconcile by hand; the bank never force-pushes.")
     return 2, lines
+
+
+def push(root: Path = ROOT, tries: int = 3) -> tuple[int, list[str]]:
+    """Push the commits only this clone holds to `live`, never with force.
+
+    A PR merged while the bank ran rejects the push. `catch_up` then replays the tick's own
+    commits onto the moved `live` and the push goes again, `tries` in all. A replay that
+    conflicts is aborted and refuses, the commits kept for the next tick's preflight. The code
+    on disk is the PR's from the replay on: every step after it is a new process.
+    """
+    lines: list[str] = []
+    for _ in range(tries):
+        code, ahead = git(["rev-list", "-1", "origin/live..live"], root)
+        if code or not ahead:
+            return 0, lines
+        code, out = git(["push", "-q", "origin", "live"], root)
+        if code == 0:
+            return 0, lines
+        lines.extend(out.splitlines())
+        code, lines = catch_up(root, "live", "origin", git, lines)
+        if code:
+            return code, lines
+    return 2, [*lines, f"REFUSED: {tries} pushes failed; the commits wait for the next tick"]
 
 
 def signed(root: Path, upstream: str, lines: list[str]) -> tuple[int, list[str]]:
@@ -395,10 +426,15 @@ def main() -> None:
     ga.add_argument("--repo", default=FLEET_REPO)
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
 
+    sub.add_parser("push", help="push the clone's own commits, rebased onto a moved live")
+
     args = ap.parse_args()
 
-    if args.what == "preflight":
-        code, lines = preflight(branch=args.branch, remote=args.remote, pull=not args.no_pull)
+    if args.what in ("preflight", "push"):
+        if args.what == "push":
+            code, lines = push()
+        else:
+            code, lines = preflight(branch=args.branch, remote=args.remote, pull=not args.no_pull)
         for line in lines:
             print(f"  {line}")
         raise SystemExit(code)

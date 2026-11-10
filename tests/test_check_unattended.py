@@ -328,6 +328,28 @@ def test_a_conflicting_rebase_aborts_and_the_tick_names_the_divergence(clone):
     assert "rebase aborted" in (repo / "data/logs/scheduled_sync.log").read_text()
 
 
+@pytest.mark.parametrize("clash", [False, True])
+def test_a_merge_under_the_bank_is_rebased_over_and_pushed_or_refused(clone, clash):
+    """The bank's push, `live` moved since its preflight and not fetched: the tick's commit lands
+    on the PR's without force, or on a conflict stays, the rebase aborted and origin untouched."""
+    repo, env = clone
+    head = diverge(repo, env, "Sync fleet findings round 9", clash=clash)
+    stale = ["git", "update-ref", "refs/remotes/origin/live", "HEAD~1"]
+    subprocess.run(stale, cwd=repo, env=env, check=True)
+    cmd = [sys.executable, "scripts/harness/bank_hygiene.py", "push"]
+    done = subprocess.run(cmd, cwd=repo, env=env, capture_output=True, text=True)
+    origin = ["--git-dir", str(repo.parent / "origin.git")]
+    pushed = git_out(repo, env, *origin, "log", "--format=%s", "-2", "live").splitlines()
+    if clash:
+        assert done.returncode == 2 and "rebase aborted" in done.stdout, done
+        assert pushed[0] == "a merged PR" and git_out(repo, env, "rev-parse", "HEAD") == head
+        assert not (repo / ".git/rebase-merge").exists()
+        assert git_out(repo, env, "status", "--porcelain", "-uno") == ""
+    else:
+        assert done.returncode == 0 and "[rejected]" in done.stdout, done
+        assert pushed == ["Sync fleet findings round 9", "a merged PR"]
+
+
 @pytest.mark.parametrize("dirty", [False, True])
 def test_a_hand_commit_or_a_dirty_tree_still_refuses(clone, dirty):
     repo, env = clone
