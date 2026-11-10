@@ -1,0 +1,104 @@
+name: runner-pages
+
+# Report pages read on runners' own addresses, a share a job: the hits of a runner-grep run or
+# a dispatch's own lines (scripts/sources/web_reports/page_lines.py), each capture a byte range
+# of its public ARC file (arc_pages.py) or a Wayback replay (wayback_trees.py). The readers
+# never ask the CDX, read robots, keep one connection a thread and one start an interval, and
+# a 429 or a 503 rests and then ends the job. The lines come from public indexes and lists
+# only: a dispatch's inputs are public. No model, no secret.
+on:
+  workflow_dispatch:
+    inputs:
+      reader:
+        description: arc (byte ranges of public ARC files) or replay (Wayback replays)
+        default: replay
+      run:
+        description: the runner-grep run whose hits are read
+        default: ""
+      list:
+        description: lines read beside them (CDX lines or URLs), plain or gzip then base64
+        default: ""
+      want:
+        description: an ERE a line must match
+        default: "."
+      shards:
+        description: jobs, each on its own address
+        default: "4"
+      parallel:
+        description: jobs at once
+        default: "4"
+      only:
+        description: the job indexes to run, as JSON; empty for all
+        default: ""
+      threads:
+        description: connections a job keeps
+        default: "3"
+      interval:
+        description: seconds between a job's asks
+        default: "1.0"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+          ONLY: ${{ inputs.only }}
+        run: echo "index=${ONLY:-[$(seq -s, 0 $((SHARDS - 1)))]}" >> "$GITHUB_OUTPUT"
+
+  read:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # A reader's early end is in its receipts, never a red run: the next dispatch asks what
+      # has none.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          READER: ${{ inputs.reader }}
+          RUN: ${{ inputs.run }}
+          LIST: ${{ inputs.list }}
+          WANT: ${{ inputs.want }}
+          SHARDS: ${{ inputs.shards }}
+          THREADS: ${{ inputs.threads }}
+          INTERVAL: ${{ inputs.interval }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          mkdir -p in
+          [ -z "$RUN" ] || gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --pattern 'grep_*_end' --dir in
+          cd scripts/sources/web_reports
+          if [ "$READER" = arc ]; then
+            python3 page_lines.py arc "$OLDPWD/in" "$OLDPWD/lines.cdx" 0/1
+            python3 arc_pages.py "$OLDPWD/out" "$OLDPWD/lines.cdx" "$THREADS" "$INTERVAL" "$INDEX/$SHARDS" \
+              || echo "reader exit $?"
+          else
+            python3 page_lines.py replay "$OLDPWD/in" "$OLDPWD/trees.json" "$INDEX/$SHARDS"
+            ARK_PROBES=100000 python3 wayback_trees.py "$OLDPWD/out" "$OLDPWD/trees.json" "$THREADS" "$INTERVAL" \
+              || echo "reader exit $?"
+          fi
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pages_${{ github.run_id }}_${{ matrix.index }}
+          path: out
+          retention-days: 3
+          compression-level: 9
+          if-no-files-found: ignore
