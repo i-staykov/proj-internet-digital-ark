@@ -797,6 +797,16 @@ Decision: master
 - measured: nowhere yet; the bank ingests it last, so the claim's `by_source` is its figure net of the header and Message-ID hosts
 Decision: master
 
+### received_rdns_hostnames / link_source
+- the artifact: the month files two banked lanes hold, the `lists.apache.org` mbox exports (`data/raw/apache_lists`) and the `mail.gnome.org` and `mail.python.org` pipermail files (`data/raw/maillists`), 4,596 files, under the terms `apache_list_header_hostnames` and `maillist_body_url_hostnames` record. No request is made
+- **the field, and only this field: the reverse-DNS name in `Received: from <helo> (<rdns.host> [<address>])`.** The receiving MTA looks that name up for the machine it accepted the message from and writes it beside the machine's address, as a news server logs `NNTP-Posting-Host`. The HELO name is the sender's word and is not read; a clause with an address alone, `unknown`, a name sendmail marks `(may be forged)`, a private address, a local name and a lease (`is_ephemeral`, the Usenet header lane's filter) date nothing
+- **the reading: a candidate source for 1996 to 2001 and never an annual record.** The `by` clause's ruling (`apache_list_header_hostnames`) left this field outside its approval and no ruling on it is quoted here. It rests on the brief's class alone: email delivery headers are source-specific candidate assets with provenance. Its method `received_from_rdns` is outside `WEB_METHODS`, so a row reaches the candidate claim under this source, in `server_header_hostnames/`, and no annual file; the word below is the one the `link_source` gate takes, as for `usenet_message_id_hostnames`
+- what dates one item: the line's own stamp after its last `;`, written by the same server, kept only when its year is the month file's; the row is the message's pointer in the lane that holds its file, the year and the hosts, and nothing else of the message. The evidence row of one host: `received header 1999 httpd.apache.org/dev__1999-01#189 horus.mch.sni.de`
+- measured 2026-11-10 on the whole corpus against merge261104, candidate track: 1,388,003 messages, 394,477 with a host, 33,747 names over 39,426 host-years (26,416 of them 2000 or 2001), **13,258 net-new names, 6,665.82 EE**; 14,417 names are held and 7,849 sit in our candidate pool. Of the 14,973 names in none of his 1996 to 2001 or candidate files, 320 (2.1%) are in his 2002 to 2013 files and 11,534 (77.0%) carry a digit in the first label
+- ingest spec: `ark ingest-received-rdns-hostnames data/raw/received_rdns_items`, the shard written once by `scripts/sources/mail_corpora/build_received_rdns_pool.py` as the tick's unit `ark-received`
+- potential: 6666
+Decision: master
+
 ## Pending requests
 
 None.

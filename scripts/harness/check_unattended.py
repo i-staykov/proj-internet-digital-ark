@@ -49,6 +49,7 @@ READERS = {  # the tick's transient units, their readers and logs (scheduled_syn
     "ark-clueweb": ("scripts/sources/crawl_lists/clueweb.py", "clueweb"),
     "ark-fineweb": ("scripts/sources/crawl_lists/fineweb.py", "fineweb"),
     "ark-header": ("scripts/sources/usenet/run_usenet_header_items.py", "usenet_header"),
+    "ark-received": ("scripts/sources/mail_corpora/build_received_rdns_pool.py", "received"),
 }
 START_S = 2 * 3600
 WAITS = re.compile(r"waits until (\d{8}T\d{6}Z)")

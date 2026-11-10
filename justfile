@@ -268,6 +268,11 @@ bank *args:
                 uv run ark ingest-enron-hostnames data/raw/enron_items | tail -1 \
                     || C_FAIL="$C_FAIL enron_items"
             fi
+            if fold "data/raw/received_rdns_items/*.jsonl.gz"; then
+                C_RAN="$C_RAN received_rdns_items"
+                uv run ark ingest-received-rdns-hostnames data/raw/received_rdns_items | tail -1 \
+                    || C_FAIL="$C_FAIL received_rdns_items"
+            fi
         fi
         uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes

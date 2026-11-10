@@ -139,6 +139,10 @@ PROVENANCE_LINEAGE = {
     "maillist_archive": "mailing_list",
     "maillist_archive_mention": "mailing_list",
     "maillist_body_url_hostnames": "mailing_list",
+    # The reverse-DNS reading of the same pipermail files and of the Apache lane's messages,
+    # so that lane files here too: one message is one witness, whichever clause is read.
+    "received_rdns_hostnames": "mailing_list",
+    "apache_list_header_hostnames": "mailing_list",
     # Two readings of one spool, not two witnesses: hosts people TYPED into posts, and
     # the ones news servers WROTE into the same posts' headers.
     "usenet_body_url_hostnames": "usenet",
