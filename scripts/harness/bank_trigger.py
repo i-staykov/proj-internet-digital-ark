@@ -77,6 +77,13 @@ FOLD = (
     "data/raw/received_rdns_items/lease/*.jsonl.gz",
     "data/raw/staged_messages/*/*.jsonl.gz",
     "data/raw/staged_messages/*/*.jsonl",
+    # the DNS and registry lists that bank as candidates: the 1997 zones' NS targets, RIPE's
+    # `nserver:` hosts and the list journals
+    "data/raw/internic_zones/*.zone.gz",
+    "data/raw/ripe_funet/ripe.db.gz",
+    "data/raw/ripe_funet_split/ripe.db.domain.gz",
+    "data/raw/registry_lists/nz_dns_walk_lists_*.jsonl",
+    "data/raw/registry_lists/ca_registrar_recent_registrations_*.jsonl",
     # read by `scripts/round/extended_export.py` in the bank's last step
     "data/raw/extended/*/*.jsonl*",
 )
