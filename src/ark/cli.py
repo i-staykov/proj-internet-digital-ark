@@ -324,6 +324,27 @@ def retract_status_cmd(
         )
 
 
+@app.command(name="repoint-stranded")
+def repoint_stranded_cmd(
+    write: Annotated[
+        bool, typer.Option("--write", help="Repoint; without it, count only.")
+    ] = False,
+) -> None:
+    """Point every host-year a non-web class dated first at a capture of that host and year
+    the store already holds, so it ships instead of standing as a candidate."""
+    from ark.hostnames import repoint_stranded_captures
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    by_year = repoint_stranded_captures(conn, write=write)
+    core = sum(n for y, n in by_year.items() if y <= 2001)
+    typer.echo(
+        f"{'repointed' if write else 'stranded'}: {core:,} host-years 1996 to 2001, "
+        f"{sum(by_year.values()) - core:,} later; "
+        + ", ".join(f"{y} {n:,}" for y, n in by_year.items())
+    )
+
+
 @app.command(name="ingest-zone-hostnames")
 def ingest_zone_hostnames_cmd(
     paths: Annotated[
