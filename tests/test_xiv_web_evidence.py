@@ -326,3 +326,26 @@ def test_a_parent_year_moves_only_onto_a_master_row_and_a_same_second_capture_re
     method = "SELECT acquisition_method FROM hostname_year JOIN evidence USING (evidence_id)"
     assert _q(conn, f"{method} WHERE hostname = 'a.example.com'") == [("early_web_hostgrain",)]
     assert ("a.example.com", 1999) in _shipped(conn) and not _failing(conn, audit=audit)
+
+
+def test_a_capture_banked_after_a_usenet_header_ships_and_a_stranded_one_is_repaired(tmp_path):
+    """A header row dates its host-year first; a capture of that host and year banked later
+    takes it, and one a store banked before the fold repointed is repaired, once."""
+    (shard := tmp_path / "pool" / "shard_000.jsonl.gz").parent.mkdir()
+    posts = [
+        {"item": f"uk.comp.misc.mbox.zip#{n}", "year": 1999, "text": host}
+        for n, host in enumerate(("shop.example.com", "www.example.com"), 1)
+    ]
+    shard.write_bytes(gzip.compress("".join(json.dumps(p) + "\n" for p in posts).encode()))
+    init_db(conn := duckdb.connect())
+    hostnames.ingest_usenet_item_journal(conn, shard, hostnames.USENET_HEADER_FAMILY)
+    assert not _shipped(conn)
+    _read(conn, tmp_path, [("http://shop.example.com/", OK)])
+    assert _shipped(conn) == [("shop.example.com", 1999)]
+    header = "SELECT evidence_id FROM evidence WHERE evidence_value LIKE 'usenet header %shop%'"
+    conn.execute(f"UPDATE hostname_year SET evidence_id = ({header}) WHERE hostname LIKE 'shop%'")
+    assert not _shipped(conn)
+    assert hostnames.repoint_stranded_captures(conn) == {1999: 1} and not _shipped(conn)
+    assert hostnames.repoint_stranded_captures(conn, write=True) == {1999: 1}
+    assert _shipped(conn) == [("shop.example.com", 1999)]
+    assert hostnames.repoint_stranded_captures(conn) == {} and not _failing(conn)
