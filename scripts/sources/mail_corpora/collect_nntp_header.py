@@ -1,11 +1,12 @@
-"""Relay hosts from `Received: ... by <host>` (Gmane: `Original-Received:`) of 1996-2001
+"""Relay and rDNS hosts from `Received:` (Gmane: `Original-Received:`) of 1996-2001
 list articles on a public NNTP server, one connection, HEAD commands pipelined in batches.
 
     NNTP_SERVER=news.php.net NNTP_TAG=php \
       uv run python scripts/sources/mail_corpora/collect_nntp_header.py GROUPS OUT [GROUP ...]
 
 GROUPS is a JSONL of rows {g, n, lo, hi, y} (`scan_nntp_groups.py`): each group's range and
-its first article's year. Item: <tag>/<group>#<article>, archive nntp://<server>/<group>/<n>.
+its first article's year. Writes rows `{host, year, file, pos, field}` for
+`ark ingest-staged-messages`: file `nntp://<server>/<group>`, pos the article.
 A message is dated by its own Date: header; the Apache lane's `by_hosts` reads the unfolded
 block after `Original-Received:` is renamed back to `Received:`, each line only when its own
 `;` stamp is in the Date year: an NNTP group has no month file to cross-check against.
@@ -34,6 +35,12 @@ _spec = importlib.util.spec_from_file_location(
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 unfold, by_hosts, IN_WINDOW = _mod.unfold, _mod.by_hosts, _mod.IN_WINDOW
+_rd = importlib.util.spec_from_file_location(
+    "rd", REPO / "scripts/sources/mail_corpora/build_received_rdns_pool.py"
+)
+_rdm = importlib.util.module_from_spec(_rd)
+_rd.loader.exec_module(_rdm)
+rdns_hosts = _rdm.rdns_hosts
 BATCH = 100
 
 
@@ -78,7 +85,7 @@ def main() -> int:
     done = set(done_p.read_text().split()) if done_p.exists() else set()
     st = dict.fromkeys(["articles", "in_window", "with_hosts", "no_by_host", "undated"], 0)
     nn = NNTP()
-    shard = open(OUT / f"{TAG}_received.jsonl", "a")
+    shard = open(OUT / f"{TAG}_messages.jsonl", "a")
     donef = open(done_p, "a")
     for d in sorted(groups, key=lambda d: d["g"]):
         g = d["g"]
@@ -142,16 +149,16 @@ def main() -> int:
                                 and message_year(x.rsplit(";", 1)[1]) == year
                             )
                         )
-                        if not hosts:
+                        rd = rdns_hosts(block, year)
+                        if not hosts and not rd:
                             st["no_by_host"] += 1
                             continue
                         st["with_hosts"] += 1
-                        row = {
-                            "item": f"{TAG}/{g}#{n}",
-                            "year": year,
-                            "text": " ".join(sorted(set(hosts))),
-                        }
-                        shard.write(json.dumps(row) + "\n")
+                        for f, hs in (("received_by", hosts), ("rdns", rd)):
+                            for h in sorted(set(hs)):
+                                row = {"host": h, "year": year, "file": f"nntp://{SERVER}/{g}"}
+                                row |= {"pos": n, "field": f}
+                                shard.write(json.dumps(row) + "\n")
                 shard.flush()
                 donef.write(g + "\n")
                 donef.flush()

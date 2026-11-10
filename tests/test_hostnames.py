@@ -85,18 +85,6 @@ FAMILIES = [
            (f"www.ietf.org/{IE}#1", f"www.ietf.org/{IE}#7", 1996, "cnri.reston.va.us"),
            (f"www.ietf.org/{SIEVE}#3", 1997, "mail.example.org", "example.org"), f"{AP}#1",
            [f"{FTP}{IE}", f"{FTP}{SIEVE}"], "ietf_header"),
-    family(hn.GNOME_HEADER_FAMILY, "gnome_list_header_hostnames", "list header",
-           (f"{GTK}#367", f"{GTK}#400", 1999, "wugate.wustl.edu"),
-           ("gnome/gnome-list__2001-June.txt#7", 2001, "mail.example.org", "example.org"),
-           f"{AP}#1", ["https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz",
-                       "https://mail.gnome.org/archives/gnome-list/2001-June.txt.gz"],
-           "gnome_header"),
-    family(hn.NNTP_HEADER_FAMILY, "nntp_list_header_hostnames", "list header",
-           ("gmane/gmane.emacs.gnus.general#4578", "gmane/gmane.emacs.gnus.general#4600", 1996,
-            "jazz.cs.tu-berlin.de"),
-           ("php/php.dev#12", 1998, "mail.example.org", "example.org"),
-           f"{AP}#1", ["nntp://news.gmane.io/gmane.emacs.gnus.general/4578",
-                       "nntp://news.php.net/php.dev/12"], "nntp_header"),
     family(hn.USENET_HEADER_FAMILY, "usenet_header_fqdn_hostnames", "usenet header",
            (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
            ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
@@ -652,7 +640,48 @@ def test_cdx_suffix_convert_dates_a_registrable_by_its_earliest_exact_2xx_or_3xx
     assert claim == {r["domain"]: set(r["years"]) for r in fresh}
 
 
-def test_received_rdns_takes_an_nntp_pointer_and_resolves_it_as_nntp() -> None:
-    item = "gmane/gmane.emacs.gnus.general#4578"
-    assert hn.RECEIVED_FAMILY.item_re.match(item)
-    assert hn.RECEIVED_FAMILY.url_of(item) == "nntp://news.gmane.io/gmane.emacs.gnus.general/4578"
+def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) -> None:
+    gz, art = (
+        "https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz",
+        "nntp://news.php.net/php.dev",
+    )
+    rows = [
+        dict(host="wugate.wustl.edu", year=1999, file=gz, pos=9, field="received_by"),
+        dict(host="wugate.wustl.edu", year=1999, file=gz, pos=3, field="received_by"),
+        dict(host="pool-7.dial.example.net", year=1998, file=art, pos=12, field="rdns"),
+        dict(host="example.net", year=1998, file=art, pos=12, field="rdns"),  # a registrable
+        dict(host="mail.office.local", year=1998, file=art, pos=12, field="rdns"),  # internal
+        dict(host="mx.example.org", year=1998, file=art, pos=12, field="subject"),
+        dict(host="mx.example.org", year=2004, file=art, pos=12, field="received_by"),
+        dict(host="mx.example.org", year=1998, file="/tmp/x", pos=1, field="received_by"),
+    ]
+    folder = tmp_path / "php_list_header"
+    write(folder / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in rows))
+    conn = store()
+    got = hn.ingest_staged_messages(conn, folder)
+    assert (got["received_by_rows"], got["rdns_rows"], got["registrable_row"]) == (1, 1, 1)
+    assert (got["rejected_host"], got["bad_field"], got["out_of_window"], got["bad_file"]) == (
+        1,
+        1,
+        1,
+        1,
+    )
+    sql = "SELECT name, acquisition_method, evidence_value FROM evidence JOIN source USING "
+    assert q(conn, sql + "(source_id) ORDER BY 1") == [
+        (
+            "msg_php_list_header__rdns",
+            "msg_received_rdns",
+            f"list message 1998 {art}#12 pool-7.dial.example.net",
+        ),
+        (
+            "msg_php_list_header__received_by",
+            "msg_received_by",
+            f"list message 1999 {gz}#3 wugate.wustl.edu",
+        ),
+    ]
+    assert q(conn, SERVED) == [(0,)]
+    assert hn.writes_hostname_years("msg_php_list_header__rdns")
+    again = hn.ingest_staged_messages(conn, folder)
+    assert "received_by_rows" not in again and q(conn, "SELECT count(*) FROM hostname_year") == [
+        (2,)
+    ]

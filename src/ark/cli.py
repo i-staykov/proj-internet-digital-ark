@@ -591,54 +591,30 @@ def ingest_ietf_header_hostnames_cmd(
         typer.echo(str(ingest_usenet_item_dir(conn, path, family=IETF_FAMILY)))
 
 
-@app.command(name="ingest-gnome-header-hostnames")
-def ingest_gnome_header_hostnames_cmd(
-    paths: Annotated[
+@app.command(name="ingest-staged-messages")
+def ingest_staged_messages_cmd(
+    dirs: Annotated[
         list[Path],
         typer.Argument(
-            help="`{item, year, text}` shards of mail.gnome.org `by` hosts, or their directories.",
+            help="`staged/<source>/` folders of dated message rows "
+            "`{host, year, file, pos, field}`.",
             exists=True,
-            readable=True,
+            file_okay=False,
         ),
     ],
 ) -> None:
-    """Fill hostname_year with the relay hosts of dated mail.gnome.org list messages.
+    """Bank any dated message archive (list mail, NNTP list articles) with no new code.
 
-    The Apache class at a third host: the `Received: ... by <host>` clause, the item the
-    pipermail pointer `gnome/<list>__<YYYY-Month>.txt#<n>`. Idempotent per shard.
-    Example: ark ingest-gnome-header-hostnames data/raw/gnome_header_items
+    One standing-rule approval, `staged_messages / link_source`; each field banks under
+    `msg_<folder>__<field>` and every row is a candidate. Idempotent per file.
+    Example: ark ingest-staged-messages staged/gmane_list_header
     """
-    from ark.hostnames import GNOME_HEADER_FAMILY, ingest_usenet_item_dir
+    from ark.hostnames import ingest_staged_messages
 
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
-    for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=GNOME_HEADER_FAMILY)))
-
-
-@app.command(name="ingest-nntp-header-hostnames")
-def ingest_nntp_header_hostnames_cmd(
-    paths: Annotated[
-        list[Path],
-        typer.Argument(
-            help="`{item, year, text}` shards of NNTP list-article `by` hosts, or directories.",
-            exists=True,
-            readable=True,
-        ),
-    ],
-) -> None:
-    """Fill hostname_year with the relay hosts of dated list articles on NNTP servers.
-
-    The Apache class again: the `(Original-)Received: ... by <host>` clause, the item
-    `<server>/<group>#<article>` (news.gmane.io, news.php.net). Idempotent per shard.
-    Example: ark ingest-nntp-header-hostnames data/raw/nntp_header_items
-    """
-    from ark.hostnames import NNTP_HEADER_FAMILY, ingest_usenet_item_dir
-
-    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
-    init_db(conn)
-    for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=NNTP_HEADER_FAMILY)))
+    for path in dirs:
+        typer.echo(str(ingest_staged_messages(conn, path)))
 
 
 @app.command(name="ingest-usenet-header-hostnames")

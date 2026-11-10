@@ -269,10 +269,6 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "apache_list_header_hostnames",
         # The same clause in the IETF mail archive (`IETF_FAMILY`).
         "ietf_list_header_hostnames",
-        # And in the mail.gnome.org month files (`GNOME_HEADER_FAMILY`).
-        "gnome_list_header_hostnames",
-        # And in list articles on public NNTP servers (`NNTP_HEADER_FAMILY`).
-        "nntp_list_header_hostnames",
         # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
         # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
         # article, about itself or the machine it came from, in a transaction it completed.
@@ -286,6 +282,11 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "received_rdns_hostnames",
     }
 )
+# The generic dated-message lane (`ingest_staged_messages`): one source per staged folder and
+# field, `msg_<folder>__<field>`, so a new list banks without a new family.
+STAGED_MESSAGE_SOURCE = re.compile(
+    r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id)$"
+)
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
 # evidence"). The shape is native to his own corpus: 1,450,310 of his names begin `www.`,
@@ -297,7 +298,11 @@ def writes_hostname_years(source_name: str) -> bool:
 
     A fleet read's source is, because `source_for` gives one only to a web method's parts.
     """
-    return source_name in WEB_FACING_HOST_SOURCES or bool(FLEETREAD_SOURCE.match(source_name))
+    return (
+        source_name in WEB_FACING_HOST_SOURCES
+        or bool(FLEETREAD_SOURCE.match(source_name))
+        or bool(STAGED_MESSAGE_SOURCE.match(source_name))
+    )
 
 
 # His structural rule, verbatim: "A valid annual hostname must have dot-separated labels, use
@@ -1529,39 +1534,6 @@ def _ietf_url(item: str) -> str:
 
 IETF_FAMILY = ItemFamily(IETF_SOURCE, IETF_METHOD, "list header", _IETF_ITEM, _ietf_url)
 
-# The Apache class at a third host: the same `by` clause in the
-# mail.gnome.org month files, which kept their full `Received:` chains where python's and
-# zope's strip them. The item is the pipermail lane's gnome pointer, so `_maillist_url`
-# resolves it; `collect_gnome_header.py` writes the shard with the Apache lane's parser.
-GNOME_HEADER_SOURCE = "gnome_list_header_hostnames"
-GNOME_HEADER_METHOD = "gnome_list_received_by"
-_GNOME_ITEM = re.compile(
-    r"^gnome/[a-z0-9][a-z0-9._+-]*__(?:199[6-9]|200[01])-[A-Z][a-z]+\.txt#\d+$"
-)
-GNOME_HEADER_FAMILY = ItemFamily(
-    GNOME_HEADER_SOURCE, GNOME_HEADER_METHOD, "list header", _GNOME_ITEM, _maillist_url
-)
-
-# The same clause in the articles of public NNTP servers that carry mailing lists:
-# news.gmane.io keeps each message's chain as `Original-Received:` and backfilled many
-# groups from archives older than Gmane; news.php.net serves the PHP lists from 1998 with
-# their `Received:` lines. The item is `<server>/<group>#<article>`, reopened by `ARTICLE <n>`.
-NNTP_SERVERS = {"gmane": "news.gmane.io", "php": "news.php.net"}
-NNTP_HEADER_SOURCE = "nntp_list_header_hostnames"
-NNTP_HEADER_METHOD = "nntp_list_received_by"
-_NNTP_ITEM = re.compile(r"^(?P<server>gmane|php)/(?P<group>[a-z0-9][a-z0-9._+-]*)#(?P<n>\d+)$")
-
-
-def _nntp_url(item: str) -> str:
-    m = _NNTP_ITEM.match(item)
-    assert m is not None  # the caller matched it already
-    return f"nntp://{NNTP_SERVERS[m['server']]}/{m['group']}/{m['n']}"
-
-
-NNTP_HEADER_FAMILY = ItemFamily(
-    NNTP_HEADER_SOURCE, NNTP_HEADER_METHOD, "list header", _NNTP_ITEM, _nntp_url
-)
-
 # The sixth member: the server-written header fields of a dated Usenet post.
 #
 # **Three fields, all written by a news server about a transaction it completed**, the
@@ -1599,18 +1571,15 @@ USENET_FIELD_FAMILIES = {
 # The reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`, which the
 # receiving MTA looked up itself: its own source and a candidate only, its method outside
 # `WEB_METHODS`. `build_received_rdns_pool.py` writes the shards over the Apache and pipermail
-# month files, so an item is either lane's pointer and resolves as that lane's does; an NNTP
-# article's pointer resolves as `NNTP_HEADER_FAMILY`'s.
+# month files, so an item is either lane's pointer and resolves as that lane's does.
 RECEIVED_SOURCE = "received_rdns_hostnames"
 RECEIVED_METHOD = "received_from_rdns"
 _RECEIVED_ITEM = re.compile(
-    "|".join(re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM, _NNTP_ITEM))
+    "|".join(re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM))
 )
 
 
 def _received_url(item: str) -> str:
-    if _NNTP_ITEM.match(item):
-        return _nntp_url(item)
     return _maillist_url(item) if _MAILLIST_ITEM.match(item) else _apache_url(item)
 
 
@@ -1794,6 +1763,124 @@ def ingest_usenet_item_dir(
         said(f"[{i}/{len(files)}] {path.name} done")
     totals["files_seen"] = len(files)
     logger.info(f"usenet hostnames: {dict(totals)}")
+    return dict(totals)
+
+
+# **The dated message archive class, one lane for every list.** The owner ruled list mail the
+# class Usenet is, so a staged folder needs rows, not code. A row is
+# `{"host", "year", "file", "pos", "field"}`: `file` the archive URL a reviewer fetches
+# (month file, mbox, article), `pos` the message inside it, `year` the message's own date as
+# its collector checked it, `field` one of `MESSAGE_FIELDS`. Each field banks under its own
+# source and method, none in `WEB_METHODS`, so every row is a candidate. The approval is the
+# one standing-rule entry `staged_messages / link_source`, not one per folder.
+MESSAGE_FIELDS = {
+    "received_by": "msg_received_by",  # `Received: ... by <host>`, the receiving MTA's name
+    "rdns": "msg_received_rdns",  # the receiver's own lookup in `Received: from x (<host> [ip])`
+    "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
+    "from": "msg_from_host",  # host right of the `@` in `From:`
+    "message_id": "msg_message_id_host",  # host right of the `@` in `Message-ID:`
+}
+STAGED_MESSAGES_APPROVAL = "staged_messages"
+_STAGED_FOLDER = re.compile(r"^[a-z0-9][a-z0-9_]*$")
+# Internal names a mail system writes about itself: no public registrable, never a site.
+_INTERNAL_LABELS = frozenset({"localhost", "localdomain", "local", "lan", "internal", "intranet"})
+
+
+def staged_message_rows(
+    path: Path, counts: Counter[str]
+) -> dict[str, list[tuple[str, str, int, str, str, str]]]:
+    """Per field, (hostname, parent, year, evidence value, location, archive URL) for one
+    staged file: one row per (host, year), the lowest (file, pos) naming it."""
+    seen: dict[tuple[str, str, int], tuple[str, str, int]] = {}
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
+        for number, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            counts["lines"] += 1
+            try:
+                row = json.loads(line)
+                host = str(row["host"]).strip().lower().rstrip(".")
+                year, field = row["year"], str(row["field"])
+                file, pos = str(row["file"]), str(row["pos"])
+            except (ValueError, KeyError, TypeError):
+                counts["unparseable"] += 1
+                continue
+            if field not in MESSAGE_FIELDS:
+                counts["bad_field"] += 1
+                continue
+            if not isinstance(year, int) or year not in YEARS:
+                counts["out_of_window"] += 1
+                continue
+            if not file.startswith(("http://", "https://", "nntp://")):
+                counts["bad_file"] += 1
+                continue
+            labels = host.split(".")
+            if not _VALID_HOST.match(host) or _INTERNAL_LABELS & set(labels):
+                counts["rejected_host"] += 1
+                continue
+            key = (field, host, year)
+            if key not in seen or (file, pos) < seen[key][:2]:
+                seen[key] = (file, pos, number)
+    out: dict[str, list[tuple[str, str, int, str, str, str]]] = {}
+    for (field, host, year), (file, pos, number) in sorted(seen.items()):
+        reg = to_registrable(host)
+        if reg is None:
+            counts["rejected_host"] += 1  # no public suffix: internal or never delegated
+            continue
+        if reg == host:
+            counts["registrable_row"] += 1  # belongs to domain_year, not here
+            continue
+        value = f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
+        out.setdefault(field, []).append((host, reg, year, value, f"line {number}", file))
+    return out
+
+
+def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[str, int]:
+    """Every `*.jsonl` and `*.jsonl.gz` in one `staged/<source>/` folder, idempotently per
+    (source, file, digest), each field under `msg_<folder>__<field>`."""
+    from ark import approvals
+
+    folder = root.name
+    if not _STAGED_FOLDER.match(folder):
+        raise ValueError(f"{folder}: a staged folder is named [a-z0-9_]")
+    approvals.check(STAGED_MESSAGES_APPROVAL, "link_source")
+    totals: Counter[str] = Counter()
+    for path in sorted({*root.glob("*.jsonl"), *root.glob("*.jsonl.gz")}):
+        totals["files_seen"] += 1
+        digest = _sha256(path)
+        counts: Counter[str] = Counter()
+        per_field = staged_message_rows(path, counts)
+        totals.update(counts)
+        with _one_transaction(conn):
+            for field, method in MESSAGE_FIELDS.items():
+                source = f"msg_{folder}__{field}"
+                key = f"{folder}/{path.name}"
+                previous = conn.execute(
+                    "SELECT sha256, record_rows FROM ingested_file "
+                    "WHERE source_name = ? AND file_name = ?",
+                    [source, key],
+                ).fetchone()
+                rows = per_field.get(field, [])
+                if (previous is not None and previous[0] == digest) or not rows:
+                    continue
+                source_id = ensure_source(conn, source, "timestamped")
+                _stage_hosts(conn, "msghost", rows, source_id)
+                fresh = _insert_host_rows(
+                    conn,
+                    "msghost",
+                    {"source_id": source_id, "type": "link_source", "method": method, "file": key},
+                    url_sql="t.url",
+                )
+                dated = _date_hosts(conn, fresh)
+                conn.execute("DELETE FROM msghost")
+                totals[f"{field}_rows"] += dated
+                conn.execute(
+                    "INSERT OR REPLACE INTO ingested_file "
+                    "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
+                    [source, key, digest, (previous[1] if previous else 0) + dated],
+                )
+    logger.info(f"staged messages {folder}: {dict(totals)}")
     return dict(totals)
 
 

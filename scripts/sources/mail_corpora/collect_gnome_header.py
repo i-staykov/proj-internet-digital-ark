@@ -1,14 +1,12 @@
-"""Relay hostnames from `Received: ... by <host>` in mail.gnome.org pipermail month files.
+"""Relay and rDNS hosts from `Received:` lines of mail.gnome.org pipermail month files.
 
-The Apache/IETF relay-host lane at a third host: same `by`-clause rule, same parser
-(imported from build_apache_header_pool.py), same {item, year, text} shard shape.
-A message's own Date: year must equal the year of the month file it is filed under,
-else it is dropped. Item: gnome/<list>__<YYYY-Month>.txt#<n>, n = nth mbox message.
-Month files are read off the socket, never kept. One connection, a pause per request.
+The relay-host rule at another host: the `by` clause with the Apache lane's parser, the
+reverse-DNS name with `build_received_rdns_pool.py`'s. A message's own Date: year must equal
+its month file's year, else it is dropped. Writes rows `{host, year, file, pos, field}` for
+`ark ingest-staged-messages`, pos the nth mbox message. Month files are read off the socket,
+never kept; one connection, a pause per request; `swept.txt` makes it resumable.
 
-    uv run python scripts/sources/mail_corpora/collect_gnome_header.py data/raw/gnome_header_items
-
-`ark ingest-gnome-header-hostnames` reads the shard. Resumable: `swept.txt` names each done file.
+    uv run python scripts/sources/mail_corpora/collect_gnome_header.py staged/gnome_list_header
 """
 
 import gzip
@@ -32,6 +30,13 @@ _spec = importlib.util.spec_from_file_location(
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 BOUNDARY, unfold, by_hosts, IN_WINDOW = _mod.BOUNDARY, _mod.unfold, _mod.by_hosts, _mod.IN_WINDOW
+_rd = importlib.util.spec_from_file_location(
+    "rd", REPO / "scripts/sources/mail_corpora/build_received_rdns_pool.py"
+)
+_rdm = importlib.util.module_from_spec(_rd)
+_rd.loader.exec_module(_rdm)
+rdns_hosts = _rdm.rdns_hosts
+FILE = [""]  # the month file being read, the `file` of its rows
 
 BASE = "https://mail.gnome.org/archives/"
 UA = "ark-research/1.0 (internet history project; contact via repository)"
@@ -79,12 +84,16 @@ def rows(text: str, stem: str, part_year: int, st: dict):
         if year != part_year:
             st["year_disagrees"] += 1
             return None
-        hosts = by_hosts(block)
-        if not hosts:
+        hosts, rd = by_hosts(block), rdns_hosts(block, year)
+        if not hosts and not rd:
             st["no_by_host"] += 1
             return None
         st["with_hosts"] += 1
-        return {"item": f"{stem}#{idx}", "year": year, "text": " ".join(sorted(set(hosts)))}
+        return [
+            {"host": h, "year": year, "file": FILE[0], "pos": idx, "field": f}
+            for f, hs in (("received_by", hosts), ("rdns", rd))
+            for h in sorted(set(hs))
+        ]
 
     for raw in io.StringIO(text):
         line = raw.rstrip("\r\n")
@@ -92,7 +101,7 @@ def rows(text: str, stem: str, part_year: int, st: dict):
             if idx:
                 r = flush()
                 if r:
-                    yield r
+                    yield from r
             idx += 1
             st["messages"] += 1
             in_h, header = True, []
@@ -105,7 +114,7 @@ def rows(text: str, stem: str, part_year: int, st: dict):
     if idx:
         r = flush()
         if r:
-            yield r
+            yield from r
 
 
 def main() -> int:
@@ -127,7 +136,7 @@ def main() -> int:
     index = get(BASE)
     lists = sorted(set(LIST_LINK.findall(index.decode("utf-8", "replace"))))
     print(f"{len(lists)} lists", flush=True)
-    shard = open(OUT / "gnome_received.jsonl", "a")
+    shard = open(OUT / "gnome_messages.jsonl", "a")
     with open(done_path, "a") as donef:
         for lst in lists:
             page = get(f"{BASE}{lst}/")
@@ -138,7 +147,8 @@ def main() -> int:
                 stem = f"gnome/{lst}__{year}-{month}.txt"
                 if stem in done:
                     continue
-                data = get(f"{BASE}{lst}/{fname}")
+                FILE[0] = f"{BASE}{lst}/{fname}"
+                data = get(FILE[0])
                 if data is None:
                     continue
                 try:
