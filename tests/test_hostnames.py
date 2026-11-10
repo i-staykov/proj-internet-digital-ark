@@ -91,12 +91,12 @@ FAMILIES = [
            f"{AP}#1", ["https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz",
                        "https://mail.gnome.org/archives/gnome-list/2001-June.txt.gz"],
            "gnome_header"),
-    family(hn.GMANE_HEADER_FAMILY, "gmane_list_header_hostnames", "list header",
+    family(hn.NNTP_HEADER_FAMILY, "nntp_list_header_hostnames", "list header",
            ("gmane/gmane.emacs.gnus.general#4578", "gmane/gmane.emacs.gnus.general#4600", 1996,
             "jazz.cs.tu-berlin.de"),
-           ("gmane/gmane.games.freeciv.devel#12", 1998, "mail.example.org", "example.org"),
+           ("php/php.dev#12", 1998, "mail.example.org", "example.org"),
            f"{AP}#1", ["nntp://news.gmane.io/gmane.emacs.gnus.general/4578",
-                       "nntp://news.gmane.io/gmane.games.freeciv.devel/12"], "gmane_header"),
+                       "nntp://news.php.net/php.dev/12"], "nntp_header"),
     family(hn.USENET_HEADER_FAMILY, "usenet_header_fqdn_hostnames", "usenet header",
            (f"{DEMON}#7", f"{DEMON}#91", 1998, "pcserv.demon.co.uk"),
            ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
@@ -652,7 +652,7 @@ def test_cdx_suffix_convert_dates_a_registrable_by_its_earliest_exact_2xx_or_3xx
     assert claim == {r["domain"]: set(r["years"]) for r in fresh}
 
 
-def test_received_rdns_takes_a_gmane_pointer_and_resolves_it_as_gmane() -> None:
+def test_received_rdns_takes_an_nntp_pointer_and_resolves_it_as_nntp() -> None:
     item = "gmane/gmane.emacs.gnus.general#4578"
     assert hn.RECEIVED_FAMILY.item_re.match(item)
     assert hn.RECEIVED_FAMILY.url_of(item) == "nntp://news.gmane.io/gmane.emacs.gnus.general/4578"

@@ -271,8 +271,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         "ietf_list_header_hostnames",
         # And in the mail.gnome.org month files (`GNOME_HEADER_FAMILY`).
         "gnome_list_header_hostnames",
-        # And in news.gmane.io's backfilled list archives (`GMANE_HEADER_FAMILY`).
-        "gmane_list_header_hostnames",
+        # And in list articles on public NNTP servers (`NNTP_HEADER_FAMILY`).
+        "nntp_list_header_hostnames",
         # And the news-server twin (`USENET_HEADER_FAMILY`). An `X-Trace`,
         # `NNTP-Posting-Host` or final `Path` hop is written by the server that accepted the
         # article, about itself or the machine it came from, in a transaction it completed.
@@ -1533,22 +1533,24 @@ GNOME_HEADER_FAMILY = ItemFamily(
     GNOME_HEADER_SOURCE, GNOME_HEADER_METHOD, "list header", _GNOME_ITEM, _maillist_url
 )
 
-# The same clause in news.gmane.io articles, which keep each list message's chain as
-# `Original-Received:`; many groups were backfilled from list archives older than Gmane.
-# The item is `gmane/<group>#<article>`, reopened by `ARTICLE <n>` in that group.
-GMANE_HEADER_SOURCE = "gmane_list_header_hostnames"
-GMANE_HEADER_METHOD = "gmane_list_received_by"
-_GMANE_ITEM = re.compile(r"^gmane/(?P<group>gmane\.[a-z0-9][a-z0-9._+-]*)#(?P<n>\d+)$")
+# The same clause in the articles of public NNTP servers that carry mailing lists:
+# news.gmane.io keeps each message's chain as `Original-Received:` and backfilled many
+# groups from archives older than Gmane; news.php.net serves the PHP lists from 1998 with
+# their `Received:` lines. The item is `<server>/<group>#<article>`, reopened by `ARTICLE <n>`.
+NNTP_SERVERS = {"gmane": "news.gmane.io", "php": "news.php.net"}
+NNTP_HEADER_SOURCE = "nntp_list_header_hostnames"
+NNTP_HEADER_METHOD = "nntp_list_received_by"
+_NNTP_ITEM = re.compile(r"^(?P<server>gmane|php)/(?P<group>[a-z0-9][a-z0-9._+-]*)#(?P<n>\d+)$")
 
 
-def _gmane_url(item: str) -> str:
-    m = _GMANE_ITEM.match(item)
+def _nntp_url(item: str) -> str:
+    m = _NNTP_ITEM.match(item)
     assert m is not None  # the caller matched it already
-    return f"nntp://news.gmane.io/{m['group']}/{m['n']}"
+    return f"nntp://{NNTP_SERVERS[m['server']]}/{m['group']}/{m['n']}"
 
 
-GMANE_HEADER_FAMILY = ItemFamily(
-    GMANE_HEADER_SOURCE, GMANE_HEADER_METHOD, "list header", _GMANE_ITEM, _gmane_url
+NNTP_HEADER_FAMILY = ItemFamily(
+    NNTP_HEADER_SOURCE, NNTP_HEADER_METHOD, "list header", _NNTP_ITEM, _nntp_url
 )
 
 # The sixth member: the server-written header fields of a dated Usenet post.
@@ -1588,20 +1590,18 @@ USENET_FIELD_FAMILIES = {
 # The reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`, which the
 # receiving MTA looked up itself: its own source and a candidate only, its method outside
 # `WEB_METHODS`. `build_received_rdns_pool.py` writes the shards over the Apache and pipermail
-# month files, so an item is either lane's pointer and resolves as that lane's does; a Gmane
-# article's pointer resolves as `GMANE_HEADER_FAMILY`'s.
+# month files, so an item is either lane's pointer and resolves as that lane's does; an NNTP
+# article's pointer resolves as `NNTP_HEADER_FAMILY`'s.
 RECEIVED_SOURCE = "received_rdns_hostnames"
 RECEIVED_METHOD = "received_from_rdns"
 _RECEIVED_ITEM = re.compile(
-    "|".join(
-        re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM, _GMANE_ITEM)
-    )
+    "|".join(re.sub(r"\?P<\w+>", "", p.pattern) for p in (_APACHE_ITEM, _MAILLIST_ITEM, _NNTP_ITEM))
 )
 
 
 def _received_url(item: str) -> str:
-    if _GMANE_ITEM.match(item):
-        return _gmane_url(item)
+    if _NNTP_ITEM.match(item):
+        return _nntp_url(item)
     return _maillist_url(item) if _MAILLIST_ITEM.match(item) else _apache_url(item)
 
 

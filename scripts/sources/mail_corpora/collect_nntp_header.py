@@ -1,18 +1,19 @@
 """Relay hosts from `Received: ... by <host>` (Gmane: `Original-Received:`) of 1996-2001
-articles on news.gmane.io, one connection, HEAD commands pipelined in batches.
+list articles on a public NNTP server, one connection, HEAD commands pipelined in batches.
 
-    uv run python scripts/sources/mail_corpora/collect_gmane_header.py GROUPS OUT [GROUP ...]
+    NNTP_SERVER=news.php.net NNTP_TAG=php \
+      uv run python scripts/sources/mail_corpora/collect_nntp_header.py GROUPS OUT [GROUP ...]
 
-GROUPS is a JSONL of rows {g, n, lo, hi, y}: each group's range and its first article's year.
-
-Item: gmane/<group>#<article>, archive nntp://news.gmane.io/<group>/<article>.
-A message is dated by its own Date: header; the Apache lane's `by_hosts` reads the
-unfolded block after `Original-Received:` is renamed back to `Received:`, each line only
-when its own `;` stamp is in the Date year: Gmane has no month file to cross-check against.
+GROUPS is a JSONL of rows {g, n, lo, hi, y} (`scan_nntp_groups.py`): each group's range and
+its first article's year. Item: <tag>/<group>#<article>, archive nntp://<server>/<group>/<n>.
+A message is dated by its own Date: header; the Apache lane's `by_hosts` reads the unfolded
+block after `Original-Received:` is renamed back to `Received:`, each line only when its own
+`;` stamp is in the Date year: an NNTP group has no month file to cross-check against.
 """
 
 import importlib.util
 import json
+import os
 import socket
 import sys
 import time
@@ -20,6 +21,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 GROUPS, OUT = Path(sys.argv[1]), Path(sys.argv[2])
+
+SERVER = os.environ.get("NNTP_SERVER", "news.gmane.io")
+TAG = os.environ.get("NNTP_TAG", "gmane")
 ONLY = set(sys.argv[3:])
 sys.path.insert(0, str(REPO / "src"))
 from ark.usenet import message_year  # noqa: E402
@@ -38,7 +42,7 @@ class NNTP:
         self.connect()
 
     def connect(self):
-        self.s = socket.create_connection(("news.gmane.io", 119), timeout=120)
+        self.s = socket.create_connection((SERVER, 119), timeout=120)
         self.f = self.s.makefile("rwb")
         self.line()
 
@@ -74,7 +78,7 @@ def main() -> int:
     done = set(done_p.read_text().split()) if done_p.exists() else set()
     st = dict.fromkeys(["articles", "in_window", "with_hosts", "no_by_host", "undated"], 0)
     nn = NNTP()
-    shard = open(OUT / "gmane_received.jsonl", "a")
+    shard = open(OUT / f"{TAG}_received.jsonl", "a")
     donef = open(done_p, "a")
     for d in sorted(groups, key=lambda d: d["g"]):
         g = d["g"]
@@ -90,7 +94,7 @@ def main() -> int:
                 step = 20000
                 stop = False
                 for a in range(lo, hi + 1, step):
-                    nn.send([f"OVER {a}-{min(a + step - 1, hi)}"])
+                    nn.send([f"XOVER {a}-{min(a + step - 1, hi)}"])
                     _, rows = nn.multi()
                     for r in rows:
                         p = r.split("\t")
@@ -143,7 +147,7 @@ def main() -> int:
                             continue
                         st["with_hosts"] += 1
                         row = {
-                            "item": f"gmane/{g}#{n}",
+                            "item": f"{TAG}/{g}#{n}",
                             "year": year,
                             "text": " ".join(sorted(set(hosts))),
                         }

@@ -1,7 +1,7 @@
-"""Every news.gmane.io group with its range and first article year: the GROUPS file of
-`collect_gmane_header.py`. One connection, resumable.
+"""Every group of an NNTP server (news.gmane.io by default) with its range and first
+article year: the GROUPS file of `collect_nntp_header.py`. One connection, resumable.
 
-    uv run python scripts/sources/mail_corpora/scan_gmane_groups.py OUT
+    uv run python scripts/sources/mail_corpora/scan_nntp_groups.py OUT [SERVER]
 """
 
 import email.utils
@@ -10,7 +10,8 @@ import socket
 import sys
 
 OUT = sys.argv[1]
-sock = socket.create_connection(("news.gmane.io", 119), timeout=60)
+SERVER = sys.argv[2] if len(sys.argv) > 2 else "news.gmane.io"
+sock = socket.create_connection((SERVER, 119), timeout=60)
 f = sock.makefile("rwb")
 
 
@@ -29,7 +30,7 @@ def cmd(c: str, multi: bool = False) -> list[str]:
 
 
 def first_year(lo: int) -> int | None:
-    for row in cmd(f"OVER {lo}-{lo + 5}", True)[1:]:
+    for row in cmd(f"XOVER {lo}-{lo + 5}", True)[1:]:
         parts = row.split("\t")
         if len(parts) > 3:
             try:
