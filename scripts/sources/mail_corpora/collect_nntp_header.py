@@ -99,8 +99,8 @@ def main() -> int:
                 want = []
                 lo, hi = d["lo"], d["hi"]
                 step = 20000
-                stop = False
                 for a in range(lo, hi + 1, step):
+                    inside = late = 0
                     nn.send([f"XOVER {a}-{min(a + step - 1, hi)}"])
                     _, rows = nn.multi()
                     for r in rows:
@@ -110,9 +110,12 @@ def main() -> int:
                         y = message_year(p[3])
                         if y in IN_WINDOW:
                             want.append(int(p[0]))
+                            inside += 1
                         elif y and y > 2003:
-                            stop = True
-                    if stop:
+                            late += 1
+                    # stop only on a whole chunk past the window: lore's LKML interleaves
+                    # imported years, and stopping at the first late article read 20,000 of it
+                    if inside == 0 and late > 0.9 * max(1, len(rows)):
                         break
                 for i in range(0, len(want), BATCH):
                     chunk = want[i : i + BATCH]
