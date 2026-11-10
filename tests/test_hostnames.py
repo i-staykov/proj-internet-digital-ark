@@ -663,6 +663,7 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
         dict(host="mx.example.org", year=1998, file=art, pos=12, field="subject"),
         dict(host="mx.example.org", year=2004, file=art, pos=12, field="received_by"),
         dict(host="mx.example.org", year=1998, file="/tmp/x", pos=1, field="received_by"),
+        dict(host="bugs.example.org", year=2000, file="rsync://x.org/bugs/1", pos=1, field="from"),
         dict(host="a.example.com.example.com", year=1998, file=art, pos=12, field="rdns"),
         dict(host="smtp.mail.com.com", year=1998, file=art, pos=12, field="rdns"),
     ]
@@ -671,7 +672,7 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
     conn = store()
     got = hn.ingest_staged_messages(conn, folder)
     assert (got["received_by_rows"], got["rdns_rows"], got["registrable_row"]) == (1, 1, 1)
-    assert got["duplicated_suffix"] == 2
+    assert (got["duplicated_suffix"], got["from_rows"]) == (2, 1)
     assert (got["rejected_host"], got["bad_field"], got["out_of_window"], got["bad_file"]) == (
         1,
         1,
@@ -680,6 +681,11 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
     )
     sql = "SELECT name, acquisition_method, evidence_value FROM evidence JOIN source USING "
     assert q(conn, sql + "(source_id) ORDER BY 1") == [
+        (
+            "msg_php_list_header__from",
+            "msg_from_host",
+            "list message 2000 rsync://x.org/bugs/1#1 bugs.example.org",
+        ),
         (
             "msg_php_list_header__rdns",
             "msg_received_rdns",
@@ -695,5 +701,5 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
     assert hn.writes_hostname_years("msg_php_list_header__rdns")
     again = hn.ingest_staged_messages(conn, folder)
     assert "received_by_rows" not in again and q(conn, "SELECT count(*) FROM hostname_year") == [
-        (2,)
+        (3,)
     ]
