@@ -104,13 +104,18 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
     return "\n      AND ".join(clauses)
 
 
+# the brief's quarantine of `www.` over a single label (`www.cz`), a name and never a host
+BARE_WWW = "NOT regexp_full_match({}, 'www\\.[^.]+')"
+
+
 def shipping_filter_for(column: str, year_column: str) -> str:
     """The same rule for a table whose name column is not called `domain`.
 
     `hostname_year` is the case that needs it: a hostname under a TLD that did not exist in
     its year is the same error as a domain under one, and gets the `.arpa` rule too. So does
     the brief's quarantine of a suffix of 1 to 3 labels written twice in a row
-    (`x.example.com.example.com`), the whole name included (`ph.org.ph.org`).
+    (`x.example.com.example.com`), the whole name included (`ph.org.ph.org`), and of a bare
+    `www.<single label>` (`BARE_WWW`).
     """
     labels = f"string_split({column}, '.')"
     doubled = " OR ".join(
@@ -122,6 +127,7 @@ def shipping_filter_for(column: str, year_column: str) -> str:
         f"\n      AND {existed_predicate(column, year_column)}"
         f"\n      AND {sql_predicate(column, year_column)}"
         f"\n      AND NOT ({doubled})"
+        f"\n      AND {BARE_WWW.format(column)}"
     )
 
 
@@ -137,10 +143,14 @@ def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
         # The candidate pool claims no year, so "the TLD did not exist YET" cannot apply to
         # it. But "the TLD never existed in the window at all" still can: a candidate under
         # `.sucks` can never be dated 1996-2001, so it is noise wherever it sits.
-        return f"{dom} NOT LIKE '%.arpa'\n      AND {existed_predicate(dom)}"
+        return (
+            f"{dom} NOT LIKE '%.arpa'\n      AND {existed_predicate(dom)}"
+            f"\n      AND {BARE_WWW.format(dom)}"
+        )
     year = f"{prefix}assigned_year" if prefix else "assigned_year"
     return (
         f"{dom} NOT LIKE '%.arpa'"
         f"\n      AND {existed_predicate(dom, year)}"
         f"\n      AND {sql_predicate(dom, year)}"
+        f"\n      AND {BARE_WWW.format(dom)}"
     )
