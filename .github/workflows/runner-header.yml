@@ -1,0 +1,76 @@
+name: runner-header
+
+# The header lane's stock from runners' own addresses: a dispatch names usenet-* tops or items,
+# each job reads its share (scripts/sources/usenet/runner_header_items.py) and uploads the
+# header journals as an artifact for the bank host's data/raw/usenet_header_items/. Pure
+# scripted requests: no model, no secret, nothing here knows the VM. Archive.org is asked as
+# the bank host asks it, three downloads a job; a 429 or a 503 ends a job.
+on:
+  workflow_dispatch:
+    inputs:
+      names:
+        description: usenet-* tops or items, space separated
+        required: true
+      shards:
+        description: jobs, each on its own address
+        default: "4"
+      split:
+        description: items (dealt largest first) or files (one item too large for a job)
+        default: items
+      seconds:
+        description: a job stops asking after this many
+        default: "19800"
+      runs_on:
+        description: the runner label, as JSON
+        default: '"ubuntu-latest"'
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: echo "index=[$(seq -s, 0 $((SHARDS - 1)))]" >> "$GITHUB_OUTPUT"
+
+  read:
+    needs: plan
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # Its end is in read_<index>.tsv, never a red run: a failed run's mail is not one about
+      # the runners.
+      - env:
+          NAMES: ${{ inputs.names }}
+          SHARDS: ${{ inputs.shards }}
+          SPLIT: ${{ inputs.split }}
+          SECONDS_: ${{ inputs.seconds }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          rm -rf runner-out
+          python3 scripts/sources/usenet/runner_header_items.py runner-out --names "$NAMES" \
+            --shard "$INDEX" --of "$SHARDS" --split "$SPLIT" --seconds "$SECONDS_" \
+            || echo "reader exit $?"
+
+      # Dot folders (a torn extract, zips in flight) are excluded by default.
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: header_${{ github.run_id }}_${{ matrix.index }}
+          path: runner-out
+          retention-days: 3
+          if-no-files-found: ignore
