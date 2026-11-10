@@ -25,7 +25,7 @@ import html
 import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from ark.delegation import existed
@@ -48,6 +48,10 @@ PWEB_STAMP = re.compile(
 )
 PWEB_ROW = re.compile(r"^\s*(\S+)\s+:\s+[\d,]+\s+:\s+[\d,]+\s*$")
 WEBALIZER_STAMP = re.compile(r"Summary Period:\s*([A-Za-z]+)\s+(\d{4})")
+WEBALIZER_OTHER = (
+    r"Total (URLs?|Referrers|Search Strings|User Agents|Countries|Usernames|Entry|Exit)"
+)
+WEBALIZER_CELL = re.compile(r"<TD ALIGN=left[^>]*>(?:<FONT[^>]*>)?([^<\s]+)</FONT></TD></TR>", re.I)
 HA_STAMP = re.compile(r"Summary period:\s*([A-Za-z]+)\s+(\d{4})")
 HA_TITLE = re.compile(r"<TITLE>[^<]*\(([A-Za-z]+) (\d{4})\)\s*</TITLE>", re.I)
 HA_ROW = re.compile(r"^\s*\d+\s+[\d.]+%\s+\d+\s+[\d.]+%\s+\d+\s+[\d.]+%\s+\|\s+(\S+)\s*$")
@@ -102,6 +106,11 @@ def host_of(token: str, year: int) -> str | None:
     if not h or IPV4.match(h) or "." not in h:
         return None
     if not _VALID_HOST.match(h) or not existed(h.rsplit(".", 1)[-1], year):
+        return None
+    labels = h.split(".")
+    # the brief's quarantine: a suffix of 1 to 3 labels written twice in a row is a
+    # misconfigured resolver's name (`x.example.com.example.com`), not a host
+    if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) > 2 * k):
         return None
     return h
 
@@ -159,6 +168,32 @@ def getstats(lines, text, path):
             )
 
 
+_STAMPS: dict[Path, dict | None] = {}
+
+
+def capture_stamps(path: Path) -> dict | None:
+    """Capture instants by page for a tree read out of the Wayback Machine, None for a tree
+    fetched from its own site: the reader's receipts sit at the tree root and name each
+    page's replay URL."""
+    for root in path.parents:
+        receipts = root / "receipts.receipts"
+        if not receipts.exists():
+            continue
+        if root not in _STAMPS:
+            found = {}
+            for line in receipts.read_text().splitlines():
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                m = re.search(r"/web/(\d{14})", r.get("replay") or "")
+                if m and r.get("path"):
+                    found[str(root / r["path"])] = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+            _STAMPS[root] = found or None
+        return _STAMPS[root]
+    return None
+
+
 def pwebstats(lines, text, path):
     """A pwebstats host page carries no period; its summary page roger.<N>.html beside the
     hosts/ directory does, so the stamp is read there and the witness names both."""
@@ -167,6 +202,15 @@ def pwebstats(lines, text, path):
     sibling = path.parent.parent / path.name.replace(".total-hosts", "")
     if not sibling.exists():
         return
+    paired = ""
+    stamps = capture_stamps(path)
+    if stamps is not None:
+        # two Wayback captures: the period page must have been taken within a week of the
+        # host page, or a renumbered series could lend one week's dates to another's hosts
+        a, b = stamps.get(str(path)), stamps.get(str(sibling))
+        if not a or not b or abs((a - b).days) > 7:
+            return
+        paired = f" (captures {a:%Y%m%d} and {b:%Y%m%d})"
     m = PWEB_STAMP.search(TAG.sub(" ", sibling.read_bytes().decode("latin-1")))
     if not m:
         return
@@ -178,7 +222,7 @@ def pwebstats(lines, text, path):
     year, straddle = period_year(start, end)
     if year is None:
         return
-    stamp = f"{sibling.name}: " + " ".join(m.group(0).split())
+    stamp = f"{sibling.name}: " + " ".join(m.group(0).split()) + paired
     for n, line in enumerate(lines, 1):
         flat = html.unescape(TAG.sub(" ", line))
         r = PWEB_ROW.match(flat)
@@ -254,6 +298,8 @@ def webstat(lines, text, path):
 
 
 def webalizer(lines, text, path):
+    """Webalizer's monthly page prints its top sites as a table, one cell a line, the hostname
+    in the row's last cell; its all-sites page prints every site as one text line."""
     m = WEBALIZER_STAMP.search(TAG.sub(" ", text))
     if not m or m.group(1)[:3].lower() not in MONTHS:
         return
@@ -265,16 +311,18 @@ def webalizer(lines, text, path):
         if re.search(r"Total Sites|Hostname", flat):
             inside = True
             continue
-        if re.search(
-            r"Total (URLs?|Referrers|Search Strings|User Agents|Countries|Usernames|Entry|Exit)",
-            flat,
-        ):
+        if re.search(WEBALIZER_OTHER, flat):
             inside = False
             continue
-        if inside:
-            parts = flat.split()
-            if len(parts) >= 3 and parts[0].isdigit():
-                yield parts[-1], year, False, n, stamp, flat, False
+        if not inside:
+            continue
+        cell = WEBALIZER_CELL.search(line)
+        if cell:
+            yield cell.group(1), year, False, n, stamp, flat, False
+            continue
+        parts = flat.split()
+        if len(parts) >= 3 and parts[0].isdigit():
+            yield parts[-1], year, False, n, stamp, flat, False
 
 
 GENERATORS = (

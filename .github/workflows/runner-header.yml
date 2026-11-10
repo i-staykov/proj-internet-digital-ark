@@ -14,6 +14,9 @@ on:
       shards:
         description: jobs, each on its own address
         default: "4"
+      parallel:
+        description: jobs at once, so CI and the other lanes keep their runner slots
+        default: "8"
       split:
         description: items (dealt largest first) or files (one item too large for a job)
         default: items
@@ -48,6 +51,7 @@ jobs:
     timeout-minutes: 350
     strategy:
       fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
       matrix:
         index: ${{ fromJSON(needs.plan.outputs.index) }}
     steps:

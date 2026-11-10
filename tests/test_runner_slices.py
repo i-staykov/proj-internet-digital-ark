@@ -155,7 +155,7 @@ def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypat
     b.state_dir.mkdir(parents=True)
     assert walk(b) == tasks, "the job walks the slice in its order"
     blob = zipped({str(p.relative_to(job)): p.read_bytes() for p in job.rglob("*") if p.is_file()})
-    listing = json.dumps({"artifacts": [art(1, "slice_20261109T120000Z_0_r0")]}).encode()
+    listing = json.dumps(art(1, "slice_20261109T120000Z_0_r0")).encode()
     monkeypatch.setattr(rs, "gh", lambda *call, timeout: blob if "zip" in call[1] else listing)
     assert rs.pull(data).startswith("runner slices: 1 artifacts banked")
     (data / "baseline.json").write_text('{"current": {"directory": "his", "marker": "m"}}')
@@ -200,7 +200,7 @@ def test_a_slice_s_blocked_questions_are_booked_done_and_write_no_stop(tmp_path,
     assert not rs.walker.STOP.is_set() and lane.refusal_end == 0, "no pause"
     assert rs.keys(b.state_dir / "done.txt") == {rs.walker.key_of(t) for t in tasks}
     blob = zipped({str(p.relative_to(job)): p.read_bytes() for p in job.rglob("*") if p.is_file()})
-    listing = json.dumps({"artifacts": [art(1, NAME)]}).encode()
+    listing = json.dumps(art(1, NAME)).encode()
     monkeypatch.setattr(rs, "gh", lambda *call, timeout: blob if "zip" in call[1] else listing)
     assert rs.pull(data).startswith("runner slices: 1 artifacts banked")
     pool = "".join(f"gap\t{d}\n" for d in [*names, "y.com"])
@@ -319,9 +319,19 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
         "../evil.txt": b"x",
         "cdx_walk/lane0/pages.json": b"{}",
     }
+    batch = "hr_20261110T163801_0"
+    read = {
+        f"{batch}/shard_000.jsonl.gz": b"h",
+        f"{batch}/shard_001.jsonl.gz": b"i",
+        f"{batch}/lease/{batch}_000.jsonl.gz": b"l",
+        f"{batch}/lease/other_000.jsonl.gz": b"x",
+        "read_0.tsv": b"end\tread out\n",
+        "cdx_suffix/" + journal: b"x",
+    }
     zips = {
         "1": zipped(walked),
         "5": zipped({state + "log.tsv": b"# order 0 priced, 1 exploring\n"}),
+        "6": zipped(read),
     }
     listing = [
         art(1, NAME),
@@ -329,6 +339,7 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
         art(3, "slice_20261109T110000Z_2_r0", head="main"),
         art(4, "ci-logs"),
         art(5, "slice_20261109T113000Z_0_r1"),
+        art(6, "header_42_0"),
     ]
     calls = []
 
@@ -336,10 +347,14 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
         calls.append(args[1])
         if args[1].endswith("/zip"):
             return zips[args[1].split("/")[-2]]
-        return json.dumps({"artifacts": listing}).encode()
+        return "\n".join(json.dumps(a) for a in listing).encode()  # every page, a row a line
 
     monkeypatch.setattr(rs, "gh", gh)
-    assert rs.pull(data) == "runner slices: 2 artifacts banked, 3 members dropped"
+    assert rs.pull(data) == "runner slices: 3 artifacts banked, 5 members dropped"
+    header = data / "raw/usenet_header_items/hr_42_0"  # the job's batches as one
+    assert (header / "shard_000.jsonl.gz").read_bytes() == b"hi"
+    assert [p.name for p in header.glob("*/*")] == ["hr_42_0_000.jsonl.gz"]
+    assert (data / "logs/runner_header/6_header_42_0.tsv").exists()
     assert (core / journal).read_bytes() == b"new" and (ext / journal).read_bytes() == b"kept"
     assert not (data / "raw/cdx_suffix/evil.sh").exists() and not (tmp_path / "evil.txt").exists()
     runner0 = data / "raw/cdx_walk/runner0"
@@ -359,10 +374,11 @@ def test_pull_banks_an_own_live_artifact_once_through_the_allowlist(tmp_path, mo
     assert rs.lines(data / "raw/cdx_walk/runner/banked.txt") == [
         f"1\t{NAME}",
         "5\tslice_20261109T113000Z_0_r1",
+        "6\theader_42_0",
     ]
     assert not list((data / "raw/cdx_walk/runner").glob("pull_*"))
     assert rs.pull(data) == "runner slices: 0 artifacts banked, 0 members dropped"
     assert [c for c in calls if c.endswith("/zip")] == [
-        f"repos/{rs.GITHUB}/actions/artifacts/{i}/zip" for i in (1, 5)
+        f"repos/{rs.GITHUB}/actions/artifacts/{i}/zip" for i in (1, 5, 6)
     ]
     assert (runner0 / "log.tsv").read_text().splitlines() == log, "banked once"

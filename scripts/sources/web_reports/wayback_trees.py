@@ -1,6 +1,7 @@
 """Read report trees out of the Wayback Machine, a tree at a time, giving up on a tree it lacks.
 
-Input: a JSON object {tree: {"urls": [original URL, ...]}}, each list in probe order. For a
+Input: a JSON object {tree: {"urls": [original URL, ...]}}, each list in probe order; a URL may
+carry "\t<14-digit stamp>" to ask for the capture nearest that instant. For a
 tree the first PROBES URLs are asked; if none has a capture the tree is left, else every URL is
 asked. Each ask is `https://web.archive.org/web/<stamp>id_/<url>`, the unmodified capture
 nearest <stamp>; the CDX, timemap and availability endpoints are never asked. The archive's
@@ -22,6 +23,7 @@ import hashlib
 import http.client
 import importlib.util
 import json
+import os
 import posixpath
 import re
 import sys
@@ -39,7 +41,7 @@ THREADS = int(sys.argv[3]) if len(sys.argv) > 3 else 3
 INTERVAL = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 SHARD = tuple(int(x) for x in sys.argv[5].split("/")) if len(sys.argv) > 5 else (0, 1)
 STAMP = "2001"
-PROBES = 3
+PROBES = int(os.environ.get("ARK_PROBES", "3"))  # asks before a tree with no capture is left
 
 _spec = importlib.util.spec_from_file_location("hf", ROOT / "scripts/harness/fetch.py")
 hf = importlib.util.module_from_spec(_spec)
@@ -55,7 +57,9 @@ robots_cache: dict = {}
 
 def local_name(url: str) -> str:
     parts = urllib.parse.urlsplit(url)
-    path = posixpath.normpath(parts.path or "/").lstrip("/") or "index.html"
+    path = posixpath.normpath(parts.path or "/").lstrip("/")
+    if "." not in path.rsplit("/", 1)[-1]:
+        path = (path + "/_index.html").lstrip("/")  # a directory URL, with or without its slash
     if parts.query:
         path += "_" + parts.query
     return f"{parts.netloc.lower()}/{SAFE.sub('_', path)}"[:240]
@@ -95,7 +99,8 @@ def ask(url: str, rec) -> bool | None:
     neither: it rests every thread and is asked again, and ten in a row end the run."""
     while not state["stop"]:
         wait_turn()
-        path = f"/web/{STAMP}id_/{url}"
+        url, _, near = url.partition("\t")  # "<url>\t<14-digit stamp>" asks the capture nearest it
+        path = f"/web/{near or STAMP}id_/{url}"
         with lock:
             verdict, _, why = hf.read_robots("https://web.archive.org" + path, 60, robots_cache)
         if verdict != "allowed":
@@ -160,8 +165,15 @@ def ask(url: str, rec) -> bool | None:
         if hit:
             name = local_name(url)
             out = DEST / name
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(body)
+            try:
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(body)
+            except OSError:  # a page already sits where this one needs a directory
+                host, _, rest = name.partition("/")
+                name = f"{host}/{rest.replace('/', '__')}"
+                out = DEST / name
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(body)
             receipt.update(bytes=len(body), sha256=hashlib.sha256(body).hexdigest(), path=name)
         with lock:
             state["strikes"] = state["errors"] = 0
@@ -203,7 +215,7 @@ def main() -> int:
                 return
             if i >= PROBES and hits == 0:
                 break
-            if url in known:
+            if url.partition("\t")[0] in known:
                 continue
             got = ask(url, rec)
             if got is None:

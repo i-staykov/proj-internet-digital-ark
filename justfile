@@ -347,8 +347,13 @@ bank *args:
     #    docs/ROUND.md, which git ignores because it names the collecting machine.
     # The 2002 to 2013 additions, re-exported when a journal or his release changed, so the GATE
     # lines price what is on disk; an export that cannot run leaves the round state withholding them.
-    uv run python scripts/round/extended_export.py --check >/dev/null \
-        || nice -n 10 uv run python scripts/round/extended_export.py || true
+    # A walk journal lands every tick and the export holds the lock most of an hour on one core,
+    # so it runs at most every ARK_EXTENDED_EVERY_H hours (local.env); ship always runs it.
+    EXT=output/extended_years/manifest.json
+    if [ ! -f "$EXT" ] || [ -n "$(find "$EXT" -mmin +$(( ${ARK_EXTENDED_EVERY_H:-6} * 60 )))" ]; then
+        uv run python scripts/round/extended_export.py --check >/dev/null \
+            || nice -n 10 uv run python scripts/round/extended_export.py || true
+    fi
     uv run python scripts/round/build_round_state.py | tail -1 || true
     # The runners' slices and STOP, cut where the lanes walk (scripts/engines/runner_slices.py).
     if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then uv run python scripts/engines/runner_slices.py write || true; fi

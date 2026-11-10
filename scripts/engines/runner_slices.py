@@ -27,13 +27,16 @@ more requests, is IA refusing the runners, written with its counts as
 `docs/registers/runner/STOP`, every slice deleted; a job finding STOP makes no request, and a PR
 lifts it.
 
-`pull`, the tick's first step, touches only `data/`: one artifact listing, a row of another head
-repository or branch skipped (a fork's PR run), each new zip unzipped through an allowlist into a
-staging folder, its id written to `banked.txt`, then banked: journals under `data/raw/` where the
-name is absent, done keys to `runner<index>/done.txt` less the parents whose subpages the job's
-pending.txt still owes (a lane re-asks a page the runner cut and did not finish), the log rows
-once, under a `# artifact <id> <name>` marker. A staged folder a crash left banks first. Any
-failure is one line and exit 0.
+`pull`, the tick's first step, touches only `data/`: the artifact listing, every page, a row of
+another head repository or branch skipped (a fork's PR run), each new zip unzipped through an
+allowlist into a staging folder, its id written to `banked.txt`, then banked: journals under
+`data/raw/` where the name is absent, done keys to `runner<index>/done.txt` less the parents whose
+subpages the job's pending.txt still owes (a lane re-asks a page the runner cut and did not
+finish), the log rows once, under a `# artifact <id> <name>` marker. A `runner-header.yml` job's
+artifact (`header_<run>_<index>`) banks its `hr_*` batches as one, a file a journal family, into
+`data/raw/usenet_header_items/hr_<run>_<index>/`, which the bank folds at about 2 s a file
+whatever its size, and its read log into `data/logs/runner_header/`. A staged folder a crash
+left banks first. Any failure is one line and exit 0.
 
 `dispatch`, after the bank's push: one run per workflow while its slice is on `live`, none while
 STOP or a zeroed knob holds or a run is queued or in progress; the workflow's schedule, which
@@ -77,6 +80,10 @@ ARTIFACT = re.compile(r"^((?:slice|long)_\d{8}T\d{6}Z_\d+)_r(\d+)$")
 STATE = ("cdx_walk/lane0/log.tsv", "cdx_walk/lane0/done.txt", "cdx_walk/lane0/pending.txt")
 JOURNAL = re.compile(r"^(cdx_suffix|extended/ia_cdx_hostnames)/walk_[\w.-]+\.jsonl\.gz$")
 MEMBER_CAP = 64 << 20
+HEADER = re.compile(r"^header_\d+_\d+$")
+BATCH = re.compile(r"^(hr_\d{8}T\d{6}_\d+)/(shard_\d+|[a-z]+/\1_\d+)\.jsonl\.gz$")
+READ = re.compile(r"^read_\d+\.tsv$")
+HEADER_CAP = 1 << 30
 
 
 class Lane(NamedTuple):
@@ -285,21 +292,28 @@ def write(data: Path = DATA, register: Path = REGISTER, now: dt.datetime | None 
 
 
 def accepted(art: dict) -> bool:
-    """An unexpired artifact of this repository's own `live` run, named like a slice."""
+    """An unexpired artifact of this repository's own `live` run, named like a slice or a
+    header job's."""
     run = art.get("workflow_run") or {}
     own = run.get("head_repository_id") is not None
     own = own and run.get("head_repository_id") == run.get("repository_id")
     own = own and run.get("head_branch") == "live" and not art.get("expired")
-    return own and bool(ARTIFACT.match(art.get("name", "")))
+    name = art.get("name", "")
+    return own and bool(ARTIFACT.match(name) or HEADER.match(name))
 
 
-def unzip(archive: Path, into: Path) -> int:
-    """The allowed members under `into`; how many were dropped."""
+def unzip(archive: Path, into: Path, header: bool = False) -> int:
+    """The allowed members under `into`, a header job's its batches and read log; how many
+    were dropped."""
     dropped = 0
     with zipfile.ZipFile(archive) as zf:
         for info in zf.infolist():
             name = info.filename
-            if (name in STATE or JOURNAL.match(name)) and info.file_size <= MEMBER_CAP:
+            if header:
+                ok = (BATCH.match(name) or READ.match(name)) and info.file_size <= HEADER_CAP
+            else:
+                ok = (name in STATE or JOURNAL.match(name)) and info.file_size <= MEMBER_CAP
+            if ok:
                 (into / name).parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(info) as src, open(into / name, "wb") as dst:
                     shutil.copyfileobj(src, dst)
@@ -311,6 +325,25 @@ def unzip(archive: Path, into: Path) -> int:
 def bank(stage: Path, data: Path) -> None:
     """A staged artifact into `data/`, then the stage gone; a crash's retry books the log once."""
     _, aid, name = stage.name.split("_", 2)
+    if HEADER.match(name):
+        out, logs = data / "raw/usenet_header_items", data / "logs/runner_header"
+        out.mkdir(parents=True, exist_ok=True)
+        final = out / f"hr_{name[7:]}"  # a job's batches as one: the fold costs seconds a file
+        tmp = out / f".{final.name}"  # a dot name first: the fold's glob skips it
+        shutil.rmtree(tmp, ignore_errors=True)
+        for src in [] if final.exists() else sorted(stage.glob("hr_*/**/*.jsonl.gz")):
+            side = src.parent.name if src.parent.parent != stage else ""
+            dst = tmp / side / (f"{final.name}_000.jsonl.gz" if side else "shard_000.jsonl.gz")
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            with open(src, "rb") as one, open(dst, "ab") as whole:  # gzip members concatenate
+                shutil.copyfileobj(one, whole)
+        if tmp.exists():
+            os.replace(tmp, final)
+        for log in stage.glob("read_*.tsv"):
+            logs.mkdir(parents=True, exist_ok=True)
+            shutil.move(log, logs / f"{aid}_{name}.tsv")
+        shutil.rmtree(stage)
+        return
     lane = data / "raw/cdx_walk" / f"runner{ARTIFACT.match(name)[2]}"
     log, marker = lane / "log.tsv", f"# artifact {aid} {name}"
     if not (log.exists() and marker in log.read_text(errors="replace").splitlines()):
@@ -348,9 +381,10 @@ def pull(data: Path = DATA) -> str:
     ids = {ln.split("\t")[0] for ln in lines(banked)}
     for stage in sorted(runner.glob("pull_*")):
         shutil.rmtree(stage) if stage.suffix == ".tmp" else bank(stage, data)
-    listing = json.loads(gh("api", f"repos/{GITHUB}/actions/artifacts?per_page=100", timeout=60))
+    url = f"repos/{GITHUB}/actions/artifacts?per_page=100"
+    listing = gh("api", url, "--paginate", "--jq", ".artifacts[]", timeout=300).splitlines()
     n = dropped = 0
-    for art in listing.get("artifacts", []):
+    for art in (json.loads(ln) for ln in listing if ln.strip()):
         aid = str(art.get("id", ""))
         if not (aid and accepted(art)) or aid in ids:
             continue
@@ -359,8 +393,12 @@ def pull(data: Path = DATA) -> str:
         shutil.rmtree(tmp, ignore_errors=True)
         tmp.mkdir()
         archive = tmp / "artifact.zip"
-        archive.write_bytes(gh("api", f"repos/{GITHUB}/actions/artifacts/{aid}/zip", timeout=300))
-        dropped += unzip(archive, tmp)
+        header = bool(HEADER.match(art["name"]))
+        zipped = gh(
+            "api", f"repos/{GITHUB}/actions/artifacts/{aid}/zip", timeout=1800 if header else 300
+        )
+        archive.write_bytes(zipped)
+        dropped += unzip(archive, tmp, header)
         archive.unlink()
         os.replace(tmp, stage)
         with open(banked, "a") as fh:
