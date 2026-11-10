@@ -498,6 +498,9 @@ reproduce stage="all":
         uv run python scripts/sources/registries/split_cctld_capture.py --write
         uv run ark ingest cctld_capture_dated      data/raw/cctld_capture/cctldcap-dated.*.txt
         uv run ark ingest cctld_capture_candidates data/raw/cctld_capture/cctldcap-cand.*.txt
+        # A DNS walk and a registrar's notices posted to Usenet, candidates only.
+        uv run ark ingest nz_dns_walk_candidates      data/raw/registry_lists/nz_dns_walk_lists_1996_1999.jsonl
+        uv run ark ingest ca_registrations_candidates data/raw/registry_lists/ca_registrar_recent_registrations_1999_2000.jsonl
         # Neither takes the split: both are a registry reading out its own register.
         uv run python scripts/sources/registries/collect_mynic_coza.py
         uv run ark ingest mynic_change_report data/raw/mynic/*.htm
