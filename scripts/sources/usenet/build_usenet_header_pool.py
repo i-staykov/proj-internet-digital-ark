@@ -42,10 +42,12 @@ reach no journal, log or counter. A `Message-ID` or `From` host is dropped when 
 lease or `MUNGED`, and the ingest refuses one with no real public suffix (`.invalid`,
 `.nospam`).
 
-**Ephemeral pool shapes are dropped**, about 6.9% of novel rows in the probe. A name that
-encodes its own address, or announces itself as a dial-up pool slot, dates a lease and not
-a host: it was a different machine last week and will be another next week. `is_ephemeral`
-below is that filter, and `--keep-ephemeral` turns it off for a measured comparison.
+**A dial-up lease leaves the header shards for its own journal**, `lease/`. A name that
+encodes its own address or announces a pool slot (`is_ephemeral`) names a lease, not a
+machine, yet his own files bank the shape: merge261104's 2001 file holds 12,224
+`dip.t-dialin.net` names. So the lane keeps each server-written lease under its own
+family, a candidate only, which `ARK_SHIP_LEASES=0` holds out of the claim. `--keep-ephemeral`
+puts them back in the header shards for a measured comparison.
 
     uv run python scripts/sources/usenet/build_usenet_header_pool.py data/raw/usenet_uk OUTDIR 8
 """
@@ -123,7 +125,7 @@ def is_ephemeral(host: str) -> bool:
 
 
 # The side journals, in the order the bank ingests them.
-SIDE = ("url", "msgid", "from")
+SIDE = ("url", "msgid", "from", "lease")
 # An address munged against harvesters, or a placeholder nobody could reach, the word in any
 # label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
 MUNGED = re.compile(
@@ -191,8 +193,11 @@ def _clean_path_element(element: str) -> str:
     return _MARKER.sub("", host)
 
 
-def hosts_of_headers(headers: list[bytes], stats: dict, keep_ephemeral: bool) -> list[str]:
-    """The server-written hostnames of one post's header block, at most one per field."""
+def hosts_of_headers(
+    headers: list[bytes], stats: dict, keep_ephemeral: bool, leased: list[str] | None = None
+) -> list[str]:
+    """The server-written hostnames of one post's header block, at most one per field; a
+    lease goes to `leased` when given."""
     out: list[str] = []
     for raw in headers:
         line = raw.decode("ascii", "replace")
@@ -232,6 +237,8 @@ def hosts_of_headers(headers: list[bytes], stats: dict, keep_ephemeral: bool) ->
         stats[f"{field}_seen"] += 1
         if not keep_ephemeral and is_ephemeral(found):
             stats["ephemeral_dropped"] += 1
+            if leased is not None and not MUNGED.search(found):
+                leased.append(found)
             continue
         stats[field] += 1
         out.append(found)
@@ -255,15 +262,16 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
         if year is None:
             return
         stats["in_window"] += 1
+        leased: list[str] = []
+        hosts = hosts_of_headers(headers, stats, keep_ephemeral, leased)
         if side is not None:
-            found = {"url": sorted(urls)} | {
+            found = {"url": sorted(urls), "lease": sorted(set(leased))} | {
                 k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()
             }
             stats["url_rows"] += bool(urls)
             for kind, named in found.items():
                 if named:
                     side[kind].write(row(named))
-        hosts = hosts_of_headers(headers, stats, keep_ephemeral)
         if not hosts:
             return
         stats["with_hosts"] += 1

@@ -621,7 +621,7 @@ def ingest_usenet_header_hostnames_cmd(
 
 @app.command(name="ingest-usenet-field-hostnames")
 def ingest_usenet_field_hostnames_cmd(
-    field: Annotated[str, typer.Argument(help="`msgid` or `from`.")],
+    field: Annotated[str, typer.Argument(help="`msgid`, `from` or `lease`.")],
     paths: Annotated[
         list[Path],
         typer.Argument(
@@ -632,9 +632,8 @@ def ingest_usenet_field_hostnames_cmd(
         ),
     ],
 ) -> None:
-    """Fill hostname_year with the `Message-ID` or `From` hosts of dated Usenet posts.
-
-    Client-written, so candidates only, each under its own source. Idempotent per shard.
+    """Fill hostname_year with the `Message-ID`, `From` or dial-up lease hosts of dated
+    Usenet posts. Candidates only, each under its own source. Idempotent per shard.
     Example: ark ingest-usenet-field-hostnames msgid data/raw/usenet_header_items/*/msgid
     """
     from ark.hostnames import USENET_FIELD_FAMILIES, ingest_usenet_item_dir
@@ -656,6 +655,9 @@ def ingest_received_rdns_hostnames_cmd(
             readable=True,
         ),
     ],
+    lease: Annotated[
+        bool, typer.Option("--lease", help="The `lease/` journal of dial-up names.")
+    ] = False,
 ) -> None:
     """Fill hostname_year with the reverse-DNS hosts of dated `Received: from` lines.
 
@@ -664,12 +666,13 @@ def ingest_received_rdns_hostnames_cmd(
     observation, so its hosts ship as candidates. Idempotent per shard.
     Example: ark ingest-received-rdns-hostnames data/raw/received_rdns_items
     """
-    from ark.hostnames import RECEIVED_FAMILY, ingest_usenet_item_dir
+    from ark.hostnames import RECEIVED_FAMILY, RECEIVED_LEASE_FAMILY, ingest_usenet_item_dir
 
+    family = RECEIVED_LEASE_FAMILY if lease else RECEIVED_FAMILY
     conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
     init_db(conn)
     for path in paths:
-        typer.echo(str(ingest_usenet_item_dir(conn, path, family=RECEIVED_FAMILY)))
+        typer.echo(str(ingest_usenet_item_dir(conn, path, family=family)))
 
 
 @app.command(name="seed-pool")

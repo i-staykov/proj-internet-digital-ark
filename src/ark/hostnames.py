@@ -277,6 +277,10 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # The same posts' client-written fields (`USENET_FIELD_FAMILIES`), candidates only.
         "usenet_message_id_hostnames",
         "usenet_from_hostnames",
+        # The dial-up leases those three fields name (`USENET_FIELD_FAMILIES["lease"]`) and
+        # their mail twin (`RECEIVED_LEASE_FAMILY`): candidates, `ARK_SHIP_LEASES=0` holds them.
+        "usenet_header_lease_hostnames",
+        "received_rdns_lease_hostnames",
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
         # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
@@ -1557,6 +1561,14 @@ USENET_FIELD_FAMILIES = {
     "from": ItemFamily(
         "usenet_from_hostnames", "usenet_from_host", "usenet from", _USENET_ITEM, _usenet_url
     ),
+    # a server-written header host that `is_ephemeral` calls a dial-up lease
+    "lease": ItemFamily(
+        "usenet_header_lease_hostnames",
+        "usenet_header_lease_host",
+        "usenet lease",
+        _USENET_ITEM,
+        _usenet_url,
+    ),
 }
 
 # The reverse-DNS host of `Received: from <helo> (<rdns.host> [<address>])`, which the
@@ -1577,6 +1589,15 @@ def _received_url(item: str) -> str:
 RECEIVED_FAMILY = ItemFamily(
     RECEIVED_SOURCE, RECEIVED_METHOD, "received header", _RECEIVED_ITEM, _received_url
 )
+RECEIVED_LEASE_FAMILY = ItemFamily(
+    "received_rdns_lease_hostnames",
+    "received_from_rdns_lease",
+    "received lease",
+    _RECEIVED_ITEM,
+    _received_url,
+)
+# The dial-up lease families, which the export leaves out with `ARK_SHIP_LEASES=0`.
+LEASE_SOURCES = (USENET_FIELD_FAMILIES["lease"].source, RECEIVED_LEASE_FAMILY.source)
 
 
 def usenet_item_rows(
