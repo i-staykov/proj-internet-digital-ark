@@ -78,6 +78,8 @@ def ask(out: Path, fetch: Callable[[str], tuple[int, str]], gov: RateGovernor, p
     with receipts.open("a", encoding="utf-8") as log:
         for _ in range(passes):
             todo = [r for r in sample if (r["hostname"], r["target_year"]) not in final]
+            if not todo:
+                break
             for row in todo:
                 gov.wait()
                 url = ask_url(row["hostname"])
@@ -101,15 +103,14 @@ def ask(out: Path, fetch: Callable[[str], tuple[int, str]], gov: RateGovernor, p
                 log.flush()
                 if got != "error":
                     final[row["hostname"], row["target_year"]] = got
-            if len(final) == len(sample):
-                break
-    captures = sum(v == "capture" for v in final.values())
+    got = [final.get((r["hostname"], r["target_year"])) for r in sample]  # one result a row
     summary = {
         "sampled": len(sample),
-        "capture": captures,
-        "no_capture": len(final) - captures,
-        "unresolved": len(sample) - len(final),
-        "share": round(captures / len(sample), 6) if sample else 0.0,
+        "capture": got.count("capture"),
+        "no_capture": got.count("no_capture"),
+        "unresolved": got.count(None),
+        # a share only of a fully answered sample
+        "share": round(got.count("capture") / len(got), 6) if got and None not in got else None,
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8")
     hits = sorted({h for (h, _y), v in final.items() if v == "capture"})

@@ -117,8 +117,9 @@ def test_class_validation_draws_by_seed_and_never_counts_an_error_as_a_miss(tmp_
         return answers[url.split("url=")[1].split(".")[0]].pop(0)
 
     gov = val.RateGovernor(delay=0, min_delay=0, sleep=lambda s: None)
-    assert val.ask(tmp_path, fetch, gov, passes=1)["unresolved"] == 1  # the 503 is not a miss
     got = val.ask(tmp_path, fetch, gov, passes=1)
-    assert (got["capture"], got["no_capture"], got["unresolved"]) == (1, 1, 0)
+    assert (got["unresolved"], got["share"]) == (1, None)  # the 503 is not a miss, so no share
+    got = val.ask(tmp_path, fetch, gov, passes=1)
+    assert (got["capture"], got["no_capture"], got["unresolved"], got["share"]) == (1, 1, 0, 0.5)
     assert (tmp_path / "captured_hosts.txt").read_text() == "hit.example.net\n"
     assert "limit=1" in val.ask_url("a.b") and "from=1996&to=2013" in val.ask_url("a.b")
