@@ -1,7 +1,4 @@
 # scripts/engines/runner_slices.py
-co.uk 1000 789 1996 2013 p1
-co.uk 1000 2409 1996 2013 p1
-co.uk 1000 33 1996 2013 p1
 co.uk 1000 2777 1996 2013 p1
 co.uk 1000 944 1996 2013 p1
 co.uk 1000 3464 1996 2013 p1
@@ -297,5 +294,8 @@ co.uk 1000 451 1996 2013 p1
 co.uk 1000 2723 1996 2013 p1
 co.uk 1000 2711 1996 2013 p1
 co.uk 1000 273 1996 2013 p1
-co.uk 1000 3192 1996 2013 p1
-co.uk 1000 604 1996 2013 p1
+ask-gap 1 pcmagazines.com 1996 2013 ask
+ask-gap 1 amalgaway.com 1996 2013 ask
+ask-gap 1 ngcd.com 1996 2013 ask
+ask-gap 1 radiosports.com 1996 2013 ask
+ask-gap 1 replacing.com 1996 2013 ask
