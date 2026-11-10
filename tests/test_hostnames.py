@@ -260,9 +260,9 @@ def test_field_chosen(reader, given, want) -> None:
 
 
 def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_path) -> None:
-    """Body URL, Message-ID, From and lease hosts leave the header pass as pools of their own,
-    named by the batch, where the header ingest's glob never looks; no mailbox, name or text
-    leaves."""
+    """Body URL, Message-ID, From, lease and host-list hosts leave the header pass as pools of
+    their own, named by the batch, where the header ingest's glob never looks; no mailbox, name
+    or text leaves but a host list's subject."""
     b, pool, out = script(USENET_HEADER), tmp_path / "pool", tmp_path / ".hl_1"
     post = [
         "From 1", "Path: feed.demon.co.uk!news.zetnet.co.uk!not-for-mail",
@@ -271,6 +271,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
         "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "mail box@Mail.Pipex.net or",
         "WWW.Zetnet.co.uk.", "",
+        "From 2", "Subject: nz walk", "Date: Thu, 02 Jan 1997 09:00:00 +0000", "",
+        *(f"h{i}.custard.co.nz. 3600 IN A" for i in range(100)), "",
     ]  # fmt: skip
     pool.mkdir()
     out.mkdir()
@@ -284,7 +286,9 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
             got[kind] = [json.loads(line)["text"] for line in fh]
     want = {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
     body = ["mail.pipex.net www.zetnet.co.uk"]
-    assert got == want | {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body}
+    walk = [" ".join(sorted(f"h{i}.custard.co.nz" for i in range(100)))]
+    side = {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body, "lists": walk}
+    assert got == want | side
 
 
 # fmt: off
