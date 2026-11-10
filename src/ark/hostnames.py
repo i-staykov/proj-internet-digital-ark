@@ -1833,7 +1833,7 @@ def staged_message_rows(
             if not isinstance(year, int) or year not in YEARS:
                 counts["out_of_window"] += 1
                 continue
-            if not file.startswith(("http://", "https://", "nntp://")):
+            if not file.startswith(("http://", "https://", "nntp://", "rsync://")):
                 counts["bad_file"] += 1
                 continue
             labels = host.split(".")
