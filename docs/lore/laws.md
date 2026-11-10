@@ -110,10 +110,10 @@ The rules these facts support live in AGENTS.md; `just find <term>` opens a regi
 - P(lacks 1999, 2000, 2001 | held), against merged260827: com 0.644 0.340 0.639; net 0.769 0.531 0.765; org 0.715 0.470 0.691; uk 0.769 0.454 0.382; de 0.457 0.259 0.866; au 0.637 0.399 0.502; ca 0.630 0.491 0.606 (`src/ark/english_share.py` weighs each).
 - A 1999-dated artifact is worth at least a 2001 one per held name in every TLD but `.de` (`.uk` 2.01x, 0.7546 against 0.3749 EE); headroom still uses the adjacent year (`src/ark/english_share.py`).
 - Public direct `.uk` registration opened in 2014, so a queued direct `.uk` name has no 2001 capture: 150 asks returned 0 hits; `just find Nominet`.
-- An ingested corpus whose names show P(store lacks Y given attested) under about 0.05, against `com` at 0.611, pays for no new extraction signature (`scripts/sources/usenet/`).
 - Usenet spool census (456.82 GB, 178,700,605 messages): P(store lacks Y given named) is 0.0051 to 0.0151 in each window year; 682 of 45,147 at 2001 (`scripts/sources/usenet/`).
 - 65,101 host-dense recurring Usenet posting families, priced as a union: 2,207 net-new post-split pairs, 780.1 EE at mean weight 0.3535; 62.7% one edit from a held name (`scripts/sources/usenet/`).
-- No extraction over that spool can beat 780 EE: none of its 65,101 families reaches 10,000 distinct in-window domains (`scripts/sources/usenet/`).
+- The dial-up leases a header lane drops are most of a read top's yield: on 441 MB of nine read tops they priced 20,208 candidate EE against 5,932 for the kept header hosts, two samples of different tops sharing 0.2% of their names; 18 seeded uk, rec, comp, sci, soc and misc groups paid 12,700 EE per GB in leases, Message-ID and From, alt 870 and the body-URL-only hierarchies 0 to 300 but freeserve 210,000, against merge261104 (`scripts/sources/usenet/build_usenet_header_pool.py`).
+- The 1996 to 2001 Usenet stock on archive.org is its `.mbox.zip` items: the 25,175 `.mbox.gz` usenet-* items (4,037 GB) and FULL-USENET-BACKUP-2020-Oct (52,800 items, 3.75 TB) start in 2003, and usenet-uat-pl keeps its headers in a binary container (`scripts/sources/usenet/`).
 - The typo bound in `price_items.py` counts a name one edit from a held one as junk, which on a typosquat source is the signal: UDRP dockets, 5,306 proceedings, 8,800 pairs, 87.7% net-new (`scripts/pricing/price_items.py`).
 - 12.8% of qualifying Usenet rows were the same post, by `Message-ID`, in a second group's archive (`scripts/sources/usenet/build_usenet_pool.py`).
 
