@@ -75,6 +75,8 @@ FOLD = (
     "data/raw/enron_items/*.jsonl",
     "data/raw/received_rdns_items/*.jsonl.gz",
     "data/raw/received_rdns_items/lease/*.jsonl.gz",
+    "data/raw/staged_messages/*/*.jsonl.gz",
+    "data/raw/staged_messages/*/*.jsonl",
     # read by `scripts/round/extended_export.py` in the bank's last step
     "data/raw/extended/*/*.jsonl*",
 )
