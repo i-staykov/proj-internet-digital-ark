@@ -111,7 +111,9 @@ def host_of(token: str, year: int) -> str | None:
     labels = h.split(".")
     # the brief's quarantine: a suffix of 1 to 3 labels written twice in a row is a
     # misconfigured resolver's name (`x.example.com.example.com`), not a host
-    if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) > 2 * k):
+    if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) >= 2 * k):
+        return None
+    if len(labels) == 2 and labels[0] == "www":  # a bare www.<tld>, quarantined by the brief
         return None
     return h
 
@@ -174,10 +176,11 @@ _URLS: dict[Path, dict] = {}
 _ARCS: dict[str, dict] = {}
 
 
-def page_url(path: Path) -> str:
-    """Where a page was fetched: its Wayback replay URL with the capture's stamp, the public
-    ARC file that holds it (the row then carries offset, size and the replay URL too), or the
-    site's own URL, as the fetch receipts at the tree root record it; "" when they do not."""
+def page_url(path: Path) -> str | None:
+    """Where a page was fetched: its Wayback replay URL with the capture's stamp, or the
+    site's own URL, as the fetch receipts at the tree root record it; "" when they do not. A
+    page read out of a public ARC file names the same capture's replay URL, and its row carries
+    the ARC file, offset and size beside it."""
     for root in path.parents:
         receipts = root / "receipts.receipts"
         if not receipts.exists():
@@ -191,10 +194,15 @@ def page_url(path: Path) -> str:
                     continue
                 where = r.get("path") or ""
                 if r.get("arc") and where:  # read out of a public ARC file by byte range
+                    if r.get("sha1_ok") is False:
+                        found[str(root / where)] = None  # not the bytes its CDX line names
+                        continue
                     _ARCS[str(root / where)] = {
-                        "arc_offset": r["offset"], "arc_size": r["size"], "replay": r["replay"]
-                    }  # fmt: skip
-                    found[str(root / where)] = "https://archive.org/download/" + r["arc"]
+                        "arc": "https://archive.org/download/" + r["arc"],
+                        "arc_offset": r["offset"],
+                        "arc_size": r["size"],
+                    }
+                    found[str(root / where)] = r["replay"]
                 elif r.get("replay"):
                     found[str(root / where)] = r["replay"]
                 elif r.get("bytes") and "/raw/" in where:
@@ -263,26 +271,52 @@ def pwebstats(lines, text, path):
             yield r.group(1), year, straddle, n, stamp, flat, False
 
 
+HA_SPAN = re.compile(
+    r"Summary period:\s*(\d\d)/([A-Za-z]{3})/(\d\d)\s+to\s+(\d\d)/([A-Za-z]{3})/(\d\d)"
+)
+
+
 def http_analyze(lines, text, path):
-    """http-analyze 1.9 lists hosts under "Total Transfers by Client Domain"; 2.x lists them only
-    on its `lsites` page, whose column is headed Hostname, while its `sites` page (Overview)
-    lists domains and is not read. The period is the month in the page title."""
+    """http-analyze 1.9 and 2.0 list hosts under "Total Transfers by Client Domain"; 2.01 on
+    lists them only on its `lsites` page, whose column is headed Hostname, while its `sites`
+    page (Overview) lists domains and is not read. A list not headed Hostname is taken as hosts
+    only when most of its names have three labels or more, which a list of domains never has.
+    The period is the month in the page title, or 1.9's "Summary period: 01/Nov/97 to 24/Nov/97"."""
     if "http-analyze" not in text or "(Overview)" in text:
         return
-    m = HA_TITLE.search(text) or HA_STAMP.search(TAG.sub(" ", text))
-    if not m or m.group(1)[:3].lower() not in MONTHS:
-        return
-    if not re.search(r"\|\s*Hostname", text) and not re.search(r"http-analyze 1\.", text):
-        return
-    year = int(m.group(2))
+    flat_text = TAG.sub(" ", text[:4000])
+    m = HA_TITLE.search(text) or HA_STAMP.search(flat_text)
+    straddle = False
+    if m and m.group(1)[:3].lower() in MONTHS:
+        year = int(m.group(2))
+    else:
+        m = HA_SPAN.search(flat_text)
+        if not m or m.group(2).lower() not in MONTHS or m.group(5).lower() not in MONTHS:
+            return
+        try:
+            ends = [
+                date((1900 if int(y) >= 90 else 2000) + int(y), MONTHS[mon.lower()], int(d))
+                for d, mon, y in (m.group(1, 2, 3), m.group(4, 5, 6))
+            ]
+        except ValueError:
+            return
+        year, straddle = period_year(*ends)
+        if year is None:
+            return
     stamp = " ".join(TAG.sub(" ", m.group(0)).split())
+    found = []
     for n, line in enumerate(lines, 1):
         if "<A " in line.upper() and "HREF" in line.upper():
             continue
         flat = html.unescape(TAG.sub("", line))
         r = HA_ROW.match(flat)
         if r:
-            yield r.group(1), year, False, n, stamp, flat, False
+            found.append((r.group(1), year, straddle, n, stamp, flat, False))
+    if not re.search(r"\|\s*Hostname", text):
+        dotted = [row[0] for row in found if "." in row[0] and not IPV4.match(row[0])]
+        if 2 * sum(name.count(".") >= 2 for name in dotted) < len(dotted):
+            return
+    yield from found
 
 
 def wwwusage(lines, text, path):
@@ -463,6 +497,9 @@ def main(argv: list[str] | None = None) -> int:
             for p in site_dir.rglob("*")
             if p.is_file() and not p.name.startswith(("receipts.", "trees.", "live."))
         ):
+            where = page_url(path)
+            if where is None:
+                continue  # an ARC record that failed its digest
             raw = path.read_bytes().decode("latin-1")
             lines = re.split(r"\r\n|\r|\n", raw)
             st["files"] += 1
@@ -485,7 +522,7 @@ def main(argv: list[str] | None = None) -> int:
                     row = {
                         "host": host,
                         "year": year,
-                        "file": page_url(path),
+                        "file": where,
                         "pos": n,
                         "field": "visitor_rdns",
                         "source_file": "witness.txt.gz",

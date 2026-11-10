@@ -52,6 +52,7 @@ lock = threading.Lock()
 gate = threading.Lock()
 state = {"next": 0.0, "strikes": 0, "errors": 0, "stop": False, "got": 0, "miss": 0}
 robots_cache: dict = {}
+sick: dict[str, int] = {}  # item -> reads failed in a row
 where: dict[str, str] = {}  # ARC file -> the data node URL its redirect named
 local = threading.local()
 
@@ -157,7 +158,10 @@ def payload(member: bytes) -> tuple[bytes, bytes, str]:
 
 def read(job, rec) -> None:
     url, stamp, digest, size, offset, arc, name = job
+    item = arc.split("/")[0]
     while not state["stop"]:
+        if sick.get(item, 0) >= 10:
+            return  # its data node is failing: the rest of the item waits for the next run
         wait_turn()
         receipt = {
             "url": url, "stamp": stamp, "replay": f"https://web.archive.org/web/{stamp}id_/{url}",
@@ -213,6 +217,7 @@ def read(job, rec) -> None:
         with lock:
             state["strikes"] = state["errors"] = 0
             state["got" if hit else "miss"] += 1
+            sick[item] = 0 if hit else sick.get(item, 0) + 1
             rec.write(json.dumps(receipt) + "\n")
             rec.flush()
             if (state["got"] + state["miss"]) % 200 == 0:

@@ -123,17 +123,31 @@ WEEK = """<H2>Week of Sun Nov  3 00:00:00 1996
 """
 
 
-def test_an_old_wusage_week_is_read_and_a_page_from_an_arc_file_names_its_record(tmp_path):
+SPAN = """<TITLE>Access statistics for h (01/Nov/97 to 24/Nov/97)</TITLE>
+<B>Summary period: 01/Nov/97 to 24/Nov/97
+<H3>Total Transfers by Client Domain</H3>
+   8142   4.1%   4261  14.4%    133780080   5.6%   | widow.av.pa-x.dec.com
+<A HREF="http://www.netstore.de/Supply/http-analyze/">http-analyze 1.9d</A>
+"""
+
+
+def test_pages_from_an_arc_file_cite_their_replay_and_a_failed_digest_is_left(tmp_path):
     site = tmp_path / "raw" / "arc"
     (site / "h").mkdir(parents=True)
-    (site / "h" / "week60.html").write_text(WEEK)
-    receipt = {"path": "h/week60.html", "arc": "ITEM/part.arc.gz", "offset": 7, "size": 535}
-    receipt["replay"] = "https://web.archive.org/web/19961213201156id_/http://h/week60.html"
-    (site / "receipts.receipts").write_text(json.dumps(receipt))
+    pages = {"sites1097.html": SPAN, "sites1197.html": SPAN, "week60.html": WEEK}
+    receipts = []
+    for name, text in pages.items():
+        (site / "h" / name).write_text(text)
+        replay = f"https://web.archive.org/web/19980130211959id_/http://h/{name}"
+        receipts.append({"path": f"h/{name}", "arc": "ITEM/part.arc.gz", "offset": 7, "size": 535})
+        receipts[-1].update(replay=replay, sha1_ok=name != "sites1097.html")
+    (site / "receipts.receipts").write_text("".join(json.dumps(r) + "\n" for r in receipts))
     reports._STAMPS.clear()
     reports._URLS.clear()
     reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
     rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
-    assert [(r["host"], r["year"], r["file"], r["arc_offset"], r["arc_size"]) for r in rows] == [
-        ("e659229.boeing.com", 1996, "https://archive.org/download/ITEM/part.arc.gz", 7, 535)
+    arc = "https://archive.org/download/ITEM/part.arc.gz"
+    assert [(r["host"], r["year"], r["file"], r["arc"], r["arc_offset"]) for r in rows] == [
+        ("widow.av.pa-x.dec.com", 1997, receipts[1]["replay"], arc, 7),
+        ("e659229.boeing.com", 1996, receipts[2]["replay"], arc, 7),
     ]
