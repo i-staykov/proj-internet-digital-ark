@@ -21,7 +21,8 @@ def lane(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(m, "LOG", tmp_path / "lane.log")
     monkeypatch.setattr(m, "held", lambda: False)
     monkeypatch.setattr(m, "unread", lambda *a: ["a.x", "b.x"])
-    monkeypatch.setattr(m, "items", lambda *a: [{"identifier": "usenet-a.x", "item_size": 9}])
+    big = [{"identifier": f"usenet-{t}.x", "item_size": 40_000_000} for t in "ab"]
+    monkeypatch.setattr(m, "items", lambda *a: big)  # each top above the screen's sample
     work.mkdir()
     return m, work, lambda: capsys.readouterr().out.strip().splitlines()[-1]
 
@@ -79,9 +80,37 @@ def test_the_floor_orders_tops_and_only_a_running_mean_under_50_excludes(lane):
         "".join(f"{b}\t{t}\t{t}.x\tg.zip\t1000000000\t1\t1\t{ee}\n" for b, t, ee in batches)
         + "drop\trich\tb0\t290.0\t1000000000\n"  # one batch under the floor drops nothing
     )
-    # at the floor or above, then the unscreened (a row cut short is no screen), then the rest
-    assert m.todo() == ["rich", "once", "new", "old", "mid"]
+    # at the floor or above, then the other screened, then the unscreened (a row cut short)
+    assert m.todo() == ["rich", "once", "mid", "new", "old"]
     assert m.rates()["sour"] == 45.0 and m.rates()["once"] > 899
+
+
+def test_a_top_within_the_sample_runs_whole_unscreened_and_a_screen_banks_its_sample(
+    lane, monkeypatch
+):
+    m, work, _ = lane
+    (work / "seen.json").write_text("[]")
+    (work / "tops.txt").write_text("b\na\n")
+    sizes = (("a", 30_000_000), ("b", 30_000_001))
+    listed = [{"identifier": f"usenet-{t}.x", "item_size": n} for t, n in sizes]
+    monkeypatch.setattr(m, "items", lambda *a: listed)
+    screened, stamps = [], iter((".hl_1", "2"))
+
+    def screen(work, top, todo, size, held, keep):
+        screened.append(top)
+        (keep / "url").mkdir(parents=True)
+        return [top, 30000000, 9, 1, 1, 1, 0.0]
+
+    monkeypatch.setattr(m, "screen", screen)
+    monkeypatch.setattr(m, "listing", lambda item, held: [{"name": "g.mbox.zip", "size": "10"}])
+    monkeypatch.setattr(m, "fetch", lambda url, dst, size, held: "200")
+    monkeypatch.setattr(m, "build", lambda pool, out: out.mkdir(parents=True) or 0)
+    monkeypatch.setattr(m, "price", lambda work, out: 0.0)
+    monkeypatch.setattr(m.time, "sleep", lambda s: None)
+    monkeypatch.setattr(m.time, "strftime", lambda *a: next(stamps))
+    assert m.start() == 0 and screened == ["b"]
+    assert [(r[0], r[1]) for r in m.rows("log.tsv")] == [("hl_2", "a"), ("ran", "a")]
+    assert sorted(p.name for p in m.OUT.iterdir()) == ["hl_1", "hl_2"]
 
 
 def test_a_top_drops_on_its_running_mean_not_on_its_first_batch(lane, monkeypatch):

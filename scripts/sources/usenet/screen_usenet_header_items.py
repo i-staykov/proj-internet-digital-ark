@@ -1,9 +1,10 @@
 """Screen one usenet-* top outside the group catalogue by a 30 MB price before any whole run.
 
 Its top-level item (the one named as the top, which holds every group under it) and its largest
-other unread item, the three largest `.mbox.zip` under 20 MB they hold, at most 30 MB, extracted
-by `build_usenet_header_pool.py` into WORKDIR/out (outside the bank), priced on the candidate
-track through the ingest's own reader, then deleted. The row keeps bytes, seconds, posts, posts
+other unread item, the three largest `.mbox.zip` under 20 MB they hold, at most 30 MB (SAMPLE),
+extracted by `build_usenet_header_pool.py`, priced on the candidate track through the ingest's
+own reader, then deleted, or left in `keep` when the caller banks it, so the sample's side
+journals are not lost with its zips. The row keeps bytes, seconds, posts, posts
 dated 1996 to 2001, those with a host and the EE; a top with no such file is a row of zeros. A
 429, a 503, an outage or the hold raises `End`; a 4xx that left nothing read, a failed extract
 or a failed price is returned as the failure, never a row. The header lane
@@ -24,11 +25,18 @@ from pathlib import Path
 
 from sample_usenet_header_items import BUILD, End, fetch, listing, price
 
+SAMPLE = 3e7  # bytes
+
 
 def screen(
-    work: Path, top: str, todo: list[str], size: dict[str, int], held: Callable[[], bool]
+    work: Path,
+    top: str,
+    todo: list[str],
+    size: dict[str, int],
+    held: Callable[[], bool],
+    keep: Path | None = None,
 ) -> list | str:
-    """The top's row, or the failure that strikes it."""
+    """The top's row, or the failure that strikes it; a priced extract stays in `keep`."""
     files, failed = [], ""
     under = (i for i in todo if i.split(".")[0] == top)
     for item in sorted(under, key=lambda i: (i != top, -size[i]))[:2]:
@@ -43,12 +51,12 @@ def screen(
         time.sleep(1)
     pick, total = [], 0
     for f in sorted(files, key=lambda f: -f[2]):  # a group sits in both items: read once
-        if len(pick) < 3 and total + f[2] <= 3e7 and f[1] not in {p[1] for p in pick}:
+        if len(pick) < 3 and total + f[2] <= SAMPLE and f[1] not in {p[1] for p in pick}:
             pick.append(f)
             total += f[2]
     if not pick and not failed:
         return [top, 0, 0, 0, 0, 0, 0.0]
-    pool, out, t0, got = work / "pool", work / "out" / top, time.time(), 0
+    pool, out, t0, got = work / "pool", keep or work / "out" / top, time.time(), 0
     pool.mkdir(parents=True, exist_ok=True)
     try:
         for item, name, fsize in pick:
@@ -72,7 +80,8 @@ def screen(
         shutil.rmtree(out, ignore_errors=True)
         return f"build {r.returncode}"
     ee = price(work, out)
-    shutil.rmtree(out, ignore_errors=True)
+    if not keep or math.isnan(ee):
+        shutil.rmtree(out, ignore_errors=True)
     if math.isnan(ee):
         return "price"
     totals = [json.loads(line[6:]) for line in r.stdout.splitlines() if line.startswith("TOTAL ")]
