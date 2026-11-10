@@ -36,14 +36,10 @@ from __future__ import annotations
 
 import gzip
 import hashlib
-import itertools
 import json
-import multiprocessing
-import os
 import re
-from collections import Counter, deque
+from collections import Counter
 from collections.abc import Callable, Iterator
-from concurrent.futures import ProcessPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -1733,41 +1729,15 @@ def _usenet_file(
         stats["skipped"] = True
         logger.debug(f"{file_key}: already ingested, skipping")
         return stats, None
-    return stats, (file_key, digest, previous[1] if previous else 0, None)
-
-
-def _read_shard(path: Path, family: ItemFamily) -> tuple[Counter[str], list[tuple]]:
-    """A shard's counts and rows, each row's location its shard line. Top level, so a worker
-    process can run it."""
     counts: Counter[str] = Counter()
     lines: dict[tuple[str, int], int] = {}
     rows = [
         (h, p, y, v, f"line {lines[(h, y)]}", u)
         for h, p, y, v, u in usenet_item_rows(path, counts, family, lines)
     ]
-    return counts, rows
-
-
-def _read_shards(paths: list[Path], family: ItemFamily) -> Iterator[tuple[Counter[str], list]]:
-    """Each shard's `_read_shard`, in order, read by `ARK_FOLD_WORKERS` processes (4 by default):
-    one core parses a shard at about 42,000 lines a second, most of it the registrable lookup.
-    One shard a worker is read ahead, so the rows held stay near a GB. Spawned, not
-    forked, because the parent holds the store's threads."""
-    workers = int(os.environ.get("ARK_FOLD_WORKERS", "4"))
-    if workers <= 1 or len(paths) <= 1:
-        yield from (_read_shard(path, family) for path in paths)
-        return
-    context = multiprocessing.get_context("spawn")
-    with ProcessPoolExecutor(max_workers=min(workers, len(paths)), mp_context=context) as pool:
-        ahead: deque = deque()
-        queue = iter(paths)
-        for path in itertools.islice(queue, workers):
-            ahead.append(pool.submit(_read_shard, path, family))
-        while ahead:
-            result = ahead.popleft().result()
-            if (path := next(queue, None)) is not None:
-                ahead.append(pool.submit(_read_shard, path, family))
-            yield result
+    stats.update(counts)
+    stats["hostname_year_candidates"] = len(rows)
+    return stats, (file_key, digest, previous[1] if previous else 0, rows)
 
 
 def _bank_usenet_files(
@@ -1836,10 +1806,7 @@ def ingest_usenet_item_journal(
     when the caller already knows it."""
     stats, entry = _usenet_file(conn, path, family, digest)
     if entry is not None:
-        counts, rows = _read_shard(path, family)
-        stats.update(counts)
-        stats["hostname_year_candidates"] = len(rows)
-        stats.update(_bank_usenet_files(conn, family, [(*entry[:3], rows)]))
+        stats.update(_bank_usenet_files(conn, family, [entry]))
         logger.info(str(stats))
     return stats
 
@@ -1886,29 +1853,23 @@ def ingest_usenet_item_dir(
             logger.info(f"banked {len(batch)} shards")
             batch.clear()
 
-    pending: list[tuple[Path, tuple]] = []
-    for path in files:
+    for i, path in enumerate(files, 1):
         name, st = str(path.resolve()), path.stat()
         old = known.get(name)
         digest = old[2] if old and old[:2] == (st.st_size, st.st_mtime_ns) else _sha256(path)
         known[name] = (st.st_size, st.st_mtime_ns, digest)
         stats, entry = _usenet_file(conn, path, family, digest)
-        if entry is None:
-            totals["files_skipped"] += 1
-        else:
-            pending.append((path, entry))
-    staged = 0
-    for i, ((path, entry), (counts, rows)) in enumerate(
-        zip(pending, _read_shards([p for p, _ in pending], family), strict=True), 1
-    ):
-        totals.update(counts)
-        totals["hostname_year_candidates"] += len(rows)
-        logger.info(f"[{i}/{len(pending)}] {path.name} read")
-        batch.append((*entry[:3], rows))
-        staged += len(rows)
-        if staged >= _USENET_BATCH_ROWS:
-            flush()
-            staged = 0
+        for key, value in stats.items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                totals[key] += value
+            elif key == "skipped" and value:
+                totals["files_skipped"] += 1
+        said = logger.debug if stats.get("skipped") else logger.info
+        said(f"[{i}/{len(files)}] {path.name} read")
+        if entry is not None:
+            batch.append(entry)
+            if sum(len(e[3]) for e in batch) >= _USENET_BATCH_ROWS:
+                flush()
     flush()
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
