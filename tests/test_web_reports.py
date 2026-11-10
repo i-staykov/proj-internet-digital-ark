@@ -30,6 +30,12 @@ at.ac.uni-linz.info-pc1               4         20618      0.01        0.01
 ...ddr.200.255.205.oplkrj033          1         60646      0.00        0.02
 <hr><h2><a name=archive>Total Transfers from each Archive Section</a></h2>
 """
+WWWSTAT = """<H2>Totals for Summary Period:  Jun  1 2001 to Jun 30 2001</H2>
+<H2><A NAME="Subdomain">Total Transfers by Reversed Subdomain</A></H2>
+ 0.00  0.00        14751        4 | ac.bonet.glassen
+ 0.11  0.11     47670323     5959 | Unresolved
+<H2><A NAME="Archive">Total Transfers from each Archive Section</A></H2>
+"""
 
 
 def test_a_period_dates_one_year_or_nothing():
@@ -47,10 +53,12 @@ def test_only_host_tables_are_read_and_a_cut_name_is_refused(tmp_path):
     (site / "lsites0500.html").write_text(LIST)
     (site / "sites0500.html").write_text(OVERVIEW)
     (site / "199606.html").write_text(WEBSTAT)
+    (site / "Jun.wwwstats.html").write_text(WWWSTAT)
     reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
     rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
     assert [(r["host"], r["year"], r["raw_line"]) for r in rows] == [
         ("info-pc1.uni-linz.ac.at", 1996, 3),
+        ("glassen.bonet.ac", 2001, 3),
         ("cache-rl02.proxy.aol.com", 2000, 3),
     ]
     with gzip.open(tmp_path / "out" / "witness.txt.gz", "rt") as fh:

@@ -60,6 +60,8 @@ _DAY = r"([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})"
 SPAN_STAMP = re.compile(rf"Summary (?:for )?Period:\s*{_DAY}\s+to\s+{_DAY}", re.I)
 WWWUSAGE_ROW = re.compile(r"ALIGN=LEFT><B>([^<]+)</B>", re.I)
 WEBSTAT_ROW = re.compile(r"^(\S+)\s+\d+\s+\d+\s+[\d.]+\s+[\d.]+\s*$")
+# wwwstat prints the same table with its counts first: "%Reqs %Byte  Bytes Sent  Requests | name"
+WWWSTAT_ROW = re.compile(r"^\s*[\d.]+\s+[\d.]+\s+\d+\s+\d+\s+\|\s+(\S+)\s*$")
 
 
 def a_date(text: str) -> date | None:
@@ -359,7 +361,7 @@ def webstat(lines, text, path):
         if not inside:
             continue
         flat = html.unescape(TAG.sub("", line))
-        r = WEBSTAT_ROW.match(flat)
+        r = WEBSTAT_ROW.match(flat) or WWWSTAT_ROW.match(flat)
         if r and not r.group(1).startswith("..."):
             yield turned(r.group(1)), year, straddle, n, stamp, flat, True
 
