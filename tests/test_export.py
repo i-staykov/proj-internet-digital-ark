@@ -533,7 +533,7 @@ def test_every_spec_that_dates_a_year_is_ingested_by_a_recipe_that_exists() -> N
 
 
 def test_a_suffix_written_twice_never_ships() -> None:
-    """The brief's quarantine, `x.example.com.example.com`, on the hostname side of the claim."""
+    """The brief's quarantines, `x.example.com.example.com` and a bare `www.cz`, in the claim."""
     import duckdb
 
     from ark.delegation import shipping_filter_for
@@ -541,7 +541,7 @@ def test_a_suffix_written_twice_never_ships() -> None:
     conn = duckdb.connect()
     conn.execute("CREATE TABLE t (h VARCHAR, y INTEGER)")
     names = ["host.example.org.example.org", "x.com.com", "a.b.co.uk.b.co.uk", "ph.org.ph.org"]
-    names += ["com.com", "a.b.c.a.b.c", "www.example.com", "example.co.uk"]
+    names += ["com.com", "a.b.c.a.b.c", "www.example.com", "example.co.uk", "www.cz"]
     conn.executemany("INSERT INTO t VALUES (?, 1999)", [[n] for n in names])
     kept = conn.execute(f"SELECT h FROM t WHERE {shipping_filter_for('h', 'y')} ORDER BY 1")
     assert kept.fetchall() == [("example.co.uk",), ("www.example.com",)]
