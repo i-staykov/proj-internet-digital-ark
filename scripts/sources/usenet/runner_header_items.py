@@ -11,7 +11,7 @@ extracted by `build_usenet_header_pool.py` into `OUT/hr_<UTC stamp>_<shard>/` on
 while the next one downloads, and no zip outlives its extract. `OUT/read_<shard>.tsv` keeps
 each file's batch, item, name, bytes and answer, and each batch's download and extract seconds.
 A 429 or a 503 is never asked twice and ends the job, as `--seconds` does; any other failure
-is asked once more after 120 s, then logged and its file left. Stdlib, curl and unzip alone,
+is asked once more after 120 s, then logged and its file or item left. Stdlib, curl and unzip alone,
 and no price: a runner installs nothing and holds no snapshot.
 
     python3 scripts/sources/usenet/runner_header_items.py OUT --names "fido7 relcom" --of 4
@@ -45,9 +45,17 @@ LOCK, NEXT, STOP = threading.Lock(), [0.0], threading.Event()
 
 
 def get(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r)
+    """The JSON a URL answers, asked once more after 120 s unless the host asks for a pause."""
+    for again in (True, False):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.load(r)
+        except (OSError, ValueError) as exc:
+            if not again or str(getattr(exc, "code", "")) in BUSY:
+                raise
+        STOP.wait(120)
+    raise AssertionError
 
 
 def listed() -> list[dict]:
@@ -127,14 +135,16 @@ class Reader:
         """The extract in flight, awaited: its journals take their name, a failed one is gone."""
         if not self.building:
             return
-        proc, name, t0 = self.building
+        proc, name, took = self.building
         rc, self.building = proc.wait(), None
         shutil.rmtree(self.out / f".pool_{name}", ignore_errors=True)
         if rc == 0:
             (self.out / f".{name}").rename(self.out / name)
         else:
             shutil.rmtree(self.out / f".{name}", ignore_errors=True)
-        self.note("built", name, rc, round(time.time() - t0))
+        while not took:  # the extract's own seconds, not the download it ran beside
+            time.sleep(0.1)
+        self.note("built", name, rc, took[0])
 
     def batch(self, rows: list[tuple[str, str, int]]) -> None:
         name = f"hr_{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}_{self.shard}"
@@ -156,7 +166,11 @@ class Reader:
         cmd = [sys.executable, str(BUILD), str(pool), str(self.out / f".{name}")]
         workers = min(got, os.cpu_count() or 1)  # a shard a worker: none left empty
         proc = subprocess.Popen([*cmd, str(workers)], stdout=subprocess.DEVNULL)
-        self.building = (proc, name, time.time())
+        t1, took = time.time(), []
+        threading.Thread(
+            target=lambda: took.append(proc.wait() * 0 + round(time.time() - t1))
+        ).start()
+        self.building = (proc, name, took)
 
 
 def files(a: argparse.Namespace, note) -> Iterator[tuple[str, str, int]]:
@@ -168,11 +182,11 @@ def files(a: argparse.Namespace, note) -> Iterator[tuple[str, str, int]]:
             continue
         try:
             meta = get(f"https://archive.org/metadata/usenet-{item}/files").get("result", [])
-        except urllib.error.HTTPError as exc:
-            if str(exc.code) in BUSY:
+        except (OSError, ValueError) as exc:  # one item's listing never ends the job
+            if str(getattr(exc, "code", "")) in BUSY:
                 STOP.set()
                 return
-            note("unlisted", item, exc.code)
+            note("unlisted", item, getattr(exc, "code", type(exc).__name__))
             continue
         for f in meta:
             name, size = f["name"], int(f.get("size", 0))

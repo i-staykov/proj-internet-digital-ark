@@ -20,6 +20,9 @@ on:
       seconds:
         description: a job stops asking after this many
         default: "19800"
+      only:
+        description: the job indexes to run, as JSON; empty for all
+        default: ""
       runs_on:
         description: the runner label, as JSON
         default: '"ubuntu-latest"'
@@ -36,7 +39,8 @@ jobs:
       - id: m
         env:
           SHARDS: ${{ inputs.shards }}
-        run: echo "index=[$(seq -s, 0 $((SHARDS - 1)))]" >> "$GITHUB_OUTPUT"
+          ONLY: ${{ inputs.only }}
+        run: echo "index=${ONLY:-[$(seq -s, 0 $((SHARDS - 1)))]}" >> "$GITHUB_OUTPUT"
 
   read:
     needs: plan

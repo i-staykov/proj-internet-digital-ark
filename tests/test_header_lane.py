@@ -277,7 +277,13 @@ def test_a_runner_job_reads_its_share_once_and_names_what_it_read(tmp_path, monk
     assert m.picked({"=a", "c"}, listing) == ["a", "c"]  # `=a`: the item alone
     monkeypatch.setattr(m, "listed", lambda: listing)
     files = [{"name": "g.mbox.zip", "size": "4"}, {"name": "g.txt", "size": "4"}]
-    monkeypatch.setattr(m, "get", lambda url: {"result": files})
+
+    def get(url):  # one item's listing fails: its job reads on
+        if url.endswith("usenet-b.y/files"):
+            raise OSError
+        return {"result": files}
+
+    monkeypatch.setattr(m, "get", get)
 
     def fetch(item, name, size, pool):
         (pool / name).write_bytes(b"x" * size)
@@ -294,6 +300,6 @@ def test_a_runner_job_reads_its_share_once_and_names_what_it_read(tmp_path, monk
     rows = [ln.split("\t") for ln in (tmp_path / "out/read_0.tsv").read_text().splitlines()]
     # `a` and `b.y` are shard 0's items, and the group both hold is read once
     assert [r[1:] for r in rows if r[0].startswith("hr_")] == [["a", "g.mbox.zip", "4", "200"]]
-    assert rows[-1] == ["end", "read out", "1", "4"]
+    assert ["unlisted", "b.y", "OSError"] in rows and rows[-1] == ["end", "read out", "1", "4"]
     built = [p.name for p in (tmp_path / "out").iterdir() if p.is_dir()]
     assert len(built) == 2 and all(n.startswith("hr_") for n in built)  # shard 1 read a.x's copy
