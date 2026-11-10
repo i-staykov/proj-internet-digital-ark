@@ -218,10 +218,13 @@ def write_items(shards: list[Path], path: Path) -> None:
 
 
 def price(work: Path, out: Path) -> float:
-    """Candidate EE of one extract's journals against the price snapshot, nan when unpriced;
-    a snapshot that cannot be read (exit 2: no manifest, or one mid-restage) is an outage."""
+    """Candidate EE of one extract's header and lease journals against the price snapshot, nan
+    when unpriced; a snapshot that cannot be read (exit 2: no manifest, or one mid-restage) is
+    an outage. The leases count because they are most of a top's yield (3.4x its header hosts
+    on nine read tops) and fall where the header hosts are already his, so a floor that saw only
+    the header would drop the tops richest in them."""
     path = work / "batch.items.jsonl"
-    write_items(sorted(out.glob("*.jsonl.gz")), path)
+    write_items(sorted(out.glob("*.jsonl.gz")) + sorted(out.glob("lease/*.jsonl.gz")), path)
     ark = Path(sys.executable).with_name("ark")
     cmd = ["nice", ark, "price-snapshot", "--snapshot", SNAPSHOT, "--items", path]
     cmd += ["--track", "candidate", "--out", work / "batch.c.json"]
