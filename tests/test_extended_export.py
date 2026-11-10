@@ -172,10 +172,9 @@ def test_the_rows_reach_the_disk_a_year_at_a_time_and_the_output_is_what_it_was(
     turns, his_file = {}, ext.his_file
 
     def at_its_turn(year: int):
-        (work,) = out.glob("tmp*")
-        turns[year] = set(os.listdir(work))
-        if len(turns) == 1:
-            turns["runs"] = {(work / n).read_bytes()[:4] for n in turns[year] if "_" not in n}
+        files = [p for p in out.glob("tmp*/**/*") if p.is_file()]
+        ours = {p.name for p in files if p.name.startswith(("ours_", "ev_"))}
+        turns[year] = ours, {p.read_bytes()[:4] for p in files if p.name not in ours and not turns}
         return his_file(year)
 
     monkeypatch.setattr(ext, "his_file", at_its_turn)
@@ -187,11 +186,10 @@ def test_the_rows_reach_the_disk_a_year_at_a_time_and_the_output_is_what_it_was(
         digest.update((out / name).read_bytes())
     was = "06234d133bc9f6febb5dd6fd1b769c3e700194ff8e42e965ecdb9ce06d352f17"
     assert digest.hexdigest() == was, "what the export wrote with its rows whole on the disk"
-    zstd = {b"\x28\xb5\x2f\xfd"} if shutil.which("zstd") else turns["runs"]
-    assert turns.pop("runs") == zstd, "sort's runs are compressed"
+    runs = turns[2002][1]
+    assert runs and (runs == {b"\x28\xb5\x2f\xfd"} or not shutil.which("zstd")), "zstd's runs"
     assert list(turns) == list(span)
-    for year, files in turns.items():
-        ours = {n for n in files if "_" in n}
+    for year, (ours, _) in turns.items():
         assert ours == {f"ours_{year}.txt", f"ev_{year}.txt"}, "no other year's rows beside it"
     # a sort that fails after part of its output is an error, never a short export
     (tmp_path / "bin").mkdir()
