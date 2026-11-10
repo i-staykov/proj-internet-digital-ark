@@ -97,3 +97,28 @@ def test_the_unparsed_pool_reads_no_walk_journal(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", [*sys.argv, "--incremental"])
     assert pool.main() == 0
     assert out.read_text().splitlines()[1:] == [f"bad_{n}.com\tnot_rfc1123" for n in ("3", "one")]
+
+
+def test_class_validation_draws_by_seed_and_never_counts_an_error_as_a_miss(tmp_path):
+    val = script("round/class_validation.py")
+    rows = [{"hostname": f"h{i}.example.net", "target_year": "1999", "source": s} for i in range(50)
+            for s in ("usenet_header_lease_hostnames", "msg_x__visitor_rdns")]  # fmt: skip
+    kept, seen = val.draw(rows, "_lease_", n=5)
+    assert seen == 50 and kept == val.draw(rows, "_lease_", n=5)[0] and len(kept) == 5
+    assert {r["source"] for r in kept} == {"usenet_header_lease_hostnames"}
+    with (tmp_path / "sample_manifest.csv").open("w") as fh:
+        fh.write("hostname,target_year\nhit.example.net,1999\nmiss.example.net,1999\n")
+    answers = {
+        "hit": [(503, "1"), (200, '[["timestamp"],["19990101000000"]]')],
+        "miss": [(200, "[]")],
+    }
+
+    def fetch(url: str) -> tuple[int, str]:
+        return answers[url.split("url=")[1].split(".")[0]].pop(0)
+
+    gov = val.RateGovernor(delay=0, min_delay=0, sleep=lambda s: None)
+    assert val.ask(tmp_path, fetch, gov, passes=1)["unresolved"] == 1  # the 503 is not a miss
+    got = val.ask(tmp_path, fetch, gov, passes=1)
+    assert (got["capture"], got["no_capture"], got["unresolved"]) == (1, 1, 0)
+    assert (tmp_path / "captured_hosts.txt").read_text() == "hit.example.net\n"
+    assert "limit=1" in val.ask_url("a.b") and "from=1996&to=2013" in val.ask_url("a.b")
