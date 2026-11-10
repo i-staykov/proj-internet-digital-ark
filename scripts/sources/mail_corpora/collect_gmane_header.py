@@ -7,7 +7,8 @@ GROUPS is a JSONL of rows {g, n, lo, hi, y}: each group's range and its first ar
 
 Item: gmane/<group>#<article>, archive nntp://news.gmane.io/<group>/<article>.
 A message is dated by its own Date: header; the Apache lane's `by_hosts` reads the
-unfolded block after `Original-Received:` is renamed back to `Received:`.
+unfolded block after `Original-Received:` is renamed back to `Received:`, each line only
+when its own `;` stamp is in the Date year: Gmane has no month file to cross-check against.
 """
 
 import importlib.util
@@ -65,6 +66,8 @@ def main() -> int:
     groups = []
     for raw in open(GROUPS):
         d = json.loads(raw)
+        if d["g"].startswith("gwene."):
+            continue  # RSS feeds turned into articles: no mail, no Received
         if d.get("y") and d["y"] < 2002 and (not ONLY or d["g"] in ONLY):
             groups.append(d)
     done_p = OUT / "swept.txt"
@@ -124,7 +127,17 @@ def main() -> int:
                             st["undated"] += 1
                             continue
                         st["in_window"] += 1
-                        hosts = by_hosts(block)
+                        # a by host counts only on a line its own server stamped in the
+                        # Date year, so a client clock set years wrong dates nothing
+                        hosts = by_hosts(
+                            "\n".join(
+                                x
+                                for x in block.split("\n")
+                                if x[:9].lower() == "received:"
+                                and ";" in x
+                                and message_year(x.rsplit(";", 1)[1]) == year
+                            )
+                        )
                         if not hosts:
                             st["no_by_host"] += 1
                             continue
