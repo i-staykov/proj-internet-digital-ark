@@ -114,7 +114,9 @@ fi
 # compare a freshly measured baseline against `src/ark/baseline.py`, so a round being
 # measured against a release he has already replaced fails loudly instead of shipping.
 echo "merging against the baseline and reconciling"
-if ! uv run python scripts/round/merge_against_baseline.py --stamp "$(date -u +%Y%m%d)" \
+# One read of the date: the copy below finds the merge by it, also across 00:00 UTC.
+MERGE_STAMP="$(date -u +%Y%m%d)"
+if ! uv run python scripts/round/merge_against_baseline.py --stamp "$MERGE_STAMP" \
         --out output/merge > output/merge/merge_run.log 2>&1; then
     echo "refusing to package: the merge reconciliation failed. Its log:" >&2
     cat output/merge/merge_run.log >&2
@@ -185,7 +187,6 @@ fi
 # The merge audit, produced before the report figures so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
-MERGE_STAMP="$(date -u +%Y%m%d)"
 cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
 cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
 cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
