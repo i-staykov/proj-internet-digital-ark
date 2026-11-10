@@ -36,6 +36,10 @@ shard carries the batch's name so the ingest key is the batch's:
             it from a configured nodename, so it is client-written and a candidate only,
             `usenet_message_id_hostnames`.
   `from/`   the host of the `From:` address, a candidate only, `usenet_from_hostnames`.
+  `more/`   every other header host (`more_hosts`): each `Path` hop, each `X-Trace` host,
+            the address fields and the `References` ids, `usenet_header_more_hostnames`.
+  `body/`   the host of each `user@host` and bare `www.` name in the body, a textual
+            mention and a candidate only, `usenet_body_mention_hostnames`.
 
 **Only the host leaves a header.** The mailbox, the display name and the message text
 reach no journal, log or counter. A `Message-ID` or `From` host is dropped when it is a
@@ -125,12 +129,14 @@ def is_ephemeral(host: str) -> bool:
 
 
 # The side journals, in the order the bank ingests them.
-SIDE = ("url", "msgid", "from", "lease")
-# An address munged against harvesters, or a placeholder nobody could reach, the word in any
-# label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
+SIDE = ("url", "msgid", "from", "lease", "more", "body")
+# An address munged against harvesters, or a placeholder nobody could reach, as a whole label:
+# `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`. A word inside a
+# real name stays: `spamcop.net` and `junkbusters.com` are hosts, and his files hold such names.
 MUNGED = re.compile(
-    r"spam|invalid|example|remove|delete|nowhere|bogus|fake|munge|junk|devnull|localhost"
-    r"|localdomain|yourdomain|xxx|(^|\.)(no|not|none|null|dont|anti|domain|somewhere)\."
+    r"(^|\.)(no-?spam[a-z-]*|anti-?spam[a-z-]*|spam|remove[a-z-]*|delete[a-z-]*|invalid|example"
+    r"|nowhere|bogus|fake|munged?|junk|devnull|localhost|localdomain|yourdomain|xxx|no|not|none"
+    r"|null|dont|anti|domain|somewhere)(\.|$)"
 )
 # The address in angle brackets where there is one (`Name <box@host>`), else the first one
 # (`box@host (Name)`); the group is the host and nothing left of the `@` is kept.
@@ -163,6 +169,59 @@ def side_hosts(headers: list[bytes], stats: dict, keep_ephemeral: bool) -> dict[
         stats[kind] += 1
         out[kind] = host
     return out
+
+
+# Header fields whose every host is read for `more/`: the address fields by their address,
+# the id lists by each id's host, the rest by every token that is a hostname.
+_ADDRESSES = (b"sender", b"reply-to", b"approved", b"x-complaints-to", b"errors-to", b"return-path")
+_IDS = (b"references", b"in-reply-to")
+_NAMED_FIELDS = (b"x-trace", b"x-nntp-posting-host", b"nntp-posting-host", b"organization")
+_ARCHIVER = re.compile(r"(^|\.)(google|giganews)\.com$")
+_ID_HOST = re.compile(r"@([A-Za-z0-9.-]+)>")
+_NAMED = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63}")
+_MAIL = re.compile(rb"[A-Za-z0-9._%+=-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)")
+_WWW = re.compile(
+    rb"(?<![A-Za-z0-9./@-])(www\d*\.[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)", re.IGNORECASE
+)
+
+
+def _kept(hosts) -> list[str]:
+    out = {_clean(h) for h in hosts}
+    return sorted(h for h in out if VALID_HOST.match(h) and not MUNGED.search(h))
+
+
+def more_hosts(headers: list[bytes]) -> list[str]:
+    """Every host of one post's header block that the header shards and the `msgid` and
+    `from` journals do not take, folded lines joined."""
+    fields: list[list[bytes]] = []
+    for raw in headers:
+        if raw[:1] in (b" ", b"\t") and fields:
+            fields[-1][1] += b" " + raw.strip()
+        else:
+            name, _, value = raw.partition(b":")
+            fields.append([name.strip().lower(), value])
+    found: list[str] = []
+    for name, value in fields:
+        text = value.decode("ascii", "replace")
+        if name == b"path":
+            # the archive's own hops, added when Google and Giganews took the post in years
+            # later, would date their hosts to the post's year
+            hops = (_clean_path_element(e) for e in text.split("!"))
+            found += (h for h in hops if not _ARCHIVER.search(h))
+        elif name in _ADDRESSES:
+            found.append(address_host(text))
+        elif name in _IDS:
+            found += _ID_HOST.findall(text)
+        elif name in _NAMED_FIELDS:
+            found += _NAMED.findall(text)
+    return _kept(found)
+
+
+def body_hosts(line: bytes) -> list[str]:
+    """The `user@host` and bare `www.` hosts of one body line."""
+    named = _MAIL.findall(line) if b"@" in line else []
+    named += _WWW.findall(line) if b"ww" in line.lower() else []
+    return _kept(h.decode("ascii", "replace") for h in named)
 
 
 def year_of(line: bytes) -> int | None:
@@ -253,6 +312,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
     year: int | None = None
     headers: list[bytes] = []
     urls: set[str] = set()
+    mentioned: set[str] = set()
     n = 0
 
     def row(hosts: list[str]) -> str:
@@ -265,7 +325,9 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
         leased: list[str] = []
         hosts = hosts_of_headers(headers, stats, keep_ephemeral, leased)
         if side is not None:
-            found = {"url": sorted(urls), "lease": sorted(set(leased))} | {
+            found = {"url": sorted(urls), "lease": sorted(set(leased))}
+            more = sorted(set(more_hosts(headers)) - {*hosts, *leased})
+            found |= {"more": more, "body": sorted(mentioned)} | {
                 k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()
             }
             stats["url_rows"] += bool(urls)
@@ -285,7 +347,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
             n += 1
             stats["posts"] += 1
             in_headers, year, headers, prev_blank = True, None, [], False
-            urls = set()
+            urls, mentioned = set(), set()
             continue
         blank = not line.strip()
         if in_headers:
@@ -295,8 +357,10 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
                 headers.append(line)
                 if line[:5].lower() == b"date:":
                     year = year_of(line)
-        elif side is not None and year is not None and b"://" in line:
-            urls.update(h for h in hosts_of(line) if VALID_HOST.match(h))
+        elif side is not None and year is not None:
+            if b"://" in line:
+                urls.update(h for h in hosts_of(line) if VALID_HOST.match(h))
+            mentioned.update(body_hosts(line))
         prev_blank = blank
     if n:
         flush()

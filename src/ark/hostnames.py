@@ -281,6 +281,9 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # their mail twin (`RECEIVED_LEASE_FAMILY`): candidates, `ARK_SHIP_LEASES=0` holds them.
         "usenet_header_lease_hostnames",
         "received_rdns_lease_hostnames",
+        # The other header fields and the body's addresses and `www.` names, candidates.
+        "usenet_header_more_hostnames",
+        "usenet_body_mention_hostnames",
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
         # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
@@ -1575,6 +1578,20 @@ USENET_FIELD_FAMILIES = {
         "usenet_header_lease_hostnames",
         "usenet_header_lease_host",
         "usenet lease",
+        _USENET_ITEM,
+        _usenet_url,
+    ),
+    "more": ItemFamily(
+        "usenet_header_more_hostnames",
+        "usenet_header_more_host",
+        "usenet more",
+        _USENET_ITEM,
+        _usenet_url,
+    ),
+    "body": ItemFamily(
+        "usenet_body_mention_hostnames",
+        "usenet_body_mention_host",
+        "usenet mention",
         _USENET_ITEM,
         _usenet_url,
     ),

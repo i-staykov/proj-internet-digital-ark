@@ -95,7 +95,8 @@ FAMILIES = [
              ("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk", "zetnet.co.uk"), f"{AP}#1",
              [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], f"usenet_{key}")
       for key, name, noun in (("msgid", "message_id", "message-id"), ("from", "from", "from"),
-                              ("lease", "header_lease", "lease"))),
+                              ("lease", "header_lease", "lease"), ("more", "header_more", "more"),
+                              ("body", "body_mention", "mention"))),
     # an item is the Apache lane's pointer or the pipermail lane's, and resolves as that lane's
     family(hn.RECEIVED_FAMILY, "received_rdns_hostnames", "received header",
            (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
@@ -264,10 +265,12 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
     leaves."""
     b, pool, out = script(USENET_HEADER), tmp_path / "pool", tmp_path / ".hl_1"
     post = [
-        "From 1", "Path: news.zetnet.co.uk!not-for-mail", f"From: A Poster <box@{ZET}>",
+        "From 1", "Path: feed.demon.co.uk!news.zetnet.co.uk!not-for-mail",
+        f"From: A Poster <box@{ZET}>",
         "Message-ID: <q1@pcserv.demon.co.uk>", f"NNTP-Posting-Host: {LEASES[0]}",
         "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
-        "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "",
+        "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "mail box@Mail.Pipex.net or",
+        "WWW.Zetnet.co.uk.", "",
     ]  # fmt: skip
     pool.mkdir()
     out.mkdir()
@@ -280,7 +283,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         with gzip.open(out / kind / "hl_1_000.jsonl.gz", "rt") as fh:
             got[kind] = [json.loads(line)["text"] for line in fh]
     want = {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
-    assert got == want | {"lease": [LEASES[0]]}
+    body = ["mail.pipex.net www.zetnet.co.uk"]
+    assert got == want | {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body}
 
 
 # fmt: off

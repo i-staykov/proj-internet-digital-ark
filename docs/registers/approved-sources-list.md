@@ -829,6 +829,18 @@ Decision: master
 - measured: nowhere yet
 Decision: master
 
+### usenet_header_more_hostnames / link_source
+- the artifact: the posts `usenet_header_fqdn_hostnames` reads, in the same pass: every `Path` hop but the archive's own (`google.com`, `giganews.com`), every hostname in `X-Trace`, `X-NNTP-Posting-Host` and a dotted `Organization`, the address host of `Sender`, `Reply-To`, `Approved`, `X-Complaints-To`, `Errors-To` and `Return-Path`, and each `References` and `In-Reply-To` id's host, less the post's header and lease hosts; `build_usenet_header_pool.py` writes the `more/` journal, `ark ingest-usenet-field-hostnames more` reads it
+- what dates one item and the reading: the post's own `Date:`; a candidate source for 1996 to 2001, never an annual record; method `usenet_header_more_host` is outside `WEB_METHODS`
+- measured 2026-11-10 against merge261104, candidate track, net of every other journal of the same bytes: 36 EE on 107 MB of three vendor tops, 360 EE on 246 MB of 18 uk, rec, comp, sci, soc and misc groups
+Decision: master
+
+### usenet_body_mention_hostnames / link_source
+- the artifact: the same posts' bodies: the host of each `user@host` and each bare `www.` name, written to `body/` and read by `ark ingest-usenet-field-hostnames body`; no mailbox or text is kept
+- what dates one item and the reading: the post's own `Date:`; a textual mention, so a candidate source for 1996 to 2001, never an annual record; method `usenet_body_mention_host` is outside `WEB_METHODS`
+- measured 2026-11-10 as `usenet_header_more_hostnames`: 54 EE on the vendor tops, 68 EE on the 18 groups
+Decision: master
+
 ## Pending requests
 
 None.
