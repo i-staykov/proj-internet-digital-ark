@@ -263,7 +263,12 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     )
     now = dt.datetime.now(dt.UTC)
     (tmp_path / "data/logs/.offsite_listed").write_text(stamp(now) + "\n")
+    (tmp_path / "output/netnew").mkdir(parents=True)
+    for name, ee in (("candidate_additions", "258352.9591"), ("header_candidates", "190026.3446")):
+        summary = json.dumps({"equivalent_english": ee})
+        (tmp_path / f"output/netnew/{name}_summary.json").write_text(summary)
     run(hb, tmp_path, now.strftime("%Y%m%dT0505Z"))
+    assert hb.TICKS.read_text().endswith("\t258352.9591\t190026.3446\n")
     assert not [c for c in hb.calls if c[:2] == ("issue", "create")] and not hb.DISK.exists()
     run(hb, tmp_path, now.strftime("%Y%m%dT0605Z"))
     assert hb.DISK.read_text().startswith(f"{now.date()}\t")
@@ -273,6 +278,11 @@ def test_heartbeat_once_at_six(hb, tmp_path):
     assert lines[1:3] == ["GATE. 1996-2001 : a", "GATE. 2002-2013 : b"]
     assert {"unattended: ok", "hold: none", "scout: no scout yet"} <= set(lines)
     assert any(ln.startswith("ticks in 24 h: 0 banked, 0 refused") for ln in lines)
+    # the bank's header candidates, not the lane log's batches priced alone
+    banked = "; banked 190,026 EE of header candidates, no reading 24 h back"
+    assert [ln for ln in lines if ln.startswith("header lane: ")][0].endswith(banked)
+    day_old = [stamp(now - dt.timedelta(hours=25)), "banked", "9", "banked", "9", "100000.5"]
+    assert hb.header([day_old, *hb.rows()], now).endswith(", +90,026 in 24 h")
     assert any(ln.startswith("agent: 1 runs, 1 succeeded, windows 2.0% of 5 h") for ln in lines)
     hb.issues = [{"number": 7, "title": "VM heartbeat", "state": "OPEN"}]
     hb.calls.clear()

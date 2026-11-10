@@ -136,7 +136,7 @@ def rank(
     paying more a start outranks a question paying less however quick the question; a unit's own
     seconds (`s`, its silences and failures too) over the `workers` streaming at once when they
     are longer, so only a page longer than `workers` starts sinks; 1996 to 2001 the tiebreak,
-    since the gate is 3% on either window. The unpriced ones still owed `explore` pages; the
+    since the gate is 1% on either window. The unpriced ones still owed `explore` pages; the
     explored ones, and a question tier measured at nothing, waiting for a price; and the units
     paying 1996 to 2001 by that EE a start alone, which `EARLY` starts of four take ahead of owed
     subpages (laws). A unit priced at nothing over `DROP_AFTER` answered requests is dropped;

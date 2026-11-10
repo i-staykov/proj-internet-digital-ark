@@ -67,7 +67,8 @@ def brief_lines(snapshot: dict | None, now: datetime) -> list[str]:
         f"brief written {age:.1f} h ago ({snapshot['written_at']})",
         f"round {snapshot['round']} against {snapshot['baseline']}: "
         f"field 3 {snapshot['netnew_pairs']:,} records, field 4 {snapshot['netnew_ee']:,.4f} EE, "
-        f"1996-2001 {snapshot['field5_percent']}%, "
+        f"1996-2001 {snapshot.get('core_percent', '?')}% with candidates "
+        f"({snapshot.get('core_net_percent', '?')}% net of his 2002 to 2013 names), "
         f"2002-2013 {snapshot.get('extended_percent', '?')}%, "
         f"{standing} on {snapshot.get('gate_part', 'one part')}"
         + (f", as of the export at {snapshot['gate_as_of']}" if "gate_as_of" in snapshot else ""),

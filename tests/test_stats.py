@@ -205,6 +205,23 @@ def test_the_default_figures_read_files_and_never_the_store(tmp_path, monkeypatc
     }
     # a.com is his 2001 and c.net is attested 2001; b.com is held only in 2000
     assert ": 2 records  0.7500  (60.0% of the hostname half)" in out
+    # the first gate line counts the candidate claim, and beside it the sum net of the
+    # candidates a 2002 to 2013 file of his lists; fields 3 to 5 stay the increment alone
+    claim = json.dumps({"candidates": 3, "equivalent_english": "1.25"})
+    _write(netnew, {"candidate_additions.txt": "c1.com\nc2.com\nlater.net\n"})
+    _write(netnew, {"candidate_additions_summary.json": claim})
+    _write(his, {"2002.txt": "a.org\nlater.net\n", "2003.txt": "b.org\n"})
+    later = lambda year: his / f"{year}.txt" if year < 2004 else None  # noqa: E731
+    monkeypatch.setattr(rf, "his_extended", later)
+    rf.main()
+    out = capsys.readouterr().out
+    net = f"with the candidate claim, 2.7500 = {D('2.75') / rf.BASELINE_EE * 100:.6f}% net of"
+    assert "GATE. 1996-2001                               : 3.0000 = " in out and net in out
+    assert "\n4. Equivalent-English increment               : 1.7500\n" in out
+    brs = _script("build_round_state", monkeypatch)
+    percents = (f"{D(3) / rf.BASELINE_EE * 100:.6f}", f"{D('2.75') / rf.BASELINE_EE * 100:.6f}")
+    fields = brs.parse_fields(out)
+    assert (fields["core_ee"], fields["core"], fields["net"]) == ("3.0000", *percents)
     (netnew / "1996.txt").unlink()
     with pytest.raises(SystemExit, match="lacks 1996.txt: run ark export --claim"):
         rf.main()
@@ -268,7 +285,8 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     tmp_path, monkeypatch, capsys
 ) -> None:
     figures = "3. Increment : 1,234 records\n4. EE : 3,456.7800\n5. EE growth : 0.252350%\n"
-    figures += "GATE. 1996-2001 : 3,456.7800 = 0.252350% of 1,369,820.3417, S = 0.28\n"
+    figures += "GATE. 1996-2001 : 4,456.7800 = 0.325355% of 1,369,820.3417 with the candidate "
+    figures += "claim, 3,956.7800 = 0.288854% net of the candidates his files list, S = 0.28\n"
     figures += "GATE. 2002-2013 : 9,000,000.0000 = 4.590366% of 196,062,811.5051, S = 5.1\n"
     calls = []
     paths = dict(ROOT=tmp_path, OUT=tmp_path / "ROUND.md", BRIEF=tmp_path / "brief.json")
@@ -287,7 +305,8 @@ def test_the_round_state_quotes_field_5_from_files_and_never_opens_the_store(
     assert calls == [["uv", "run", "python", "scripts/round/round_figures.py"]]
     waiting = {"approvals": 0, "ee": 0, "gate_ee": float(GATE_EE["1996-2001"])}
     assert (brief["field5_percent"], brief["waiting_on_human"]) == ("0.252350", waiting)
-    # the part nearer its 3% in EE, so `gate_percent >= gate_pct` still means crossed
+    assert (brief["core_percent"], brief["core_net_percent"]) == ("0.325355", "0.288854")
+    # the part nearer its gate in EE, so `gate_percent >= gate_pct` still means crossed
     assert (brief["extended_percent"], brief["gate_part"]) == ("4.590366", "2002-2013")
     assert (brief["gate_percent"], "gate_ee" in brief) == ("4.590366", False)
     assert brief["distance_to_gate_ee"] == round(float(brs.GATE_EE["2002-2013"]) - 9e6, 4)

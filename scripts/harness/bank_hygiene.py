@@ -12,7 +12,7 @@ them. So their failures are the quiet kind:
    them, and a conflict aborts the rebase and refuses. Either way a commit it would push signed
    outside the identity allowlist refuses.
 3. **A second notification for the same crossing.** The gate issue says the round
-   is over 3%. Opened once it is information; opened hourly it is noise, and the
+   is over the gate. Opened once it is information; opened hourly it is noise, and the
    latch is deliberately two independent checks, a local ledger and the open-issue
    query, because either alone has a hole: the ledger cannot see an issue somebody
    closed by hand, and the query cannot see one that has been closed after shipping.
@@ -285,7 +285,7 @@ def gate(
     """Open the gate issue on a crossing, once, and say what it did. With `ship` it also
     carries `ship-now`, so the next tick runs `just ship all` unattended.
 
-    The figure is the gate line of `data/brief.json`, the part nearest its 3%, 1996 to 2001 or
+    The figure is the gate line of `data/brief.json`, the part nearest its gate, 1996 to 2001 or
     2002 to 2013, which `build_round_state.py` writes at the end of the bank, quoted as ROUND.md
     prints it rather than measured a second time.
     """
@@ -293,7 +293,7 @@ def gate(
     # The gate counts against his release, so a shipped round reads over it until the next
     # release, and the latch below keys on the release alone: one crossing per release.
     percent = brief["gate_percent"]
-    target = float(brief.get("gate_pct", 3.0))
+    target = float(brief["gate_pct"])
     label = str(brief.get("round", "?"))
     # The brief carries the round number as a bare label ("8"), and the open-issue
     # query keys on the title, so the word belongs here and only here.
@@ -335,7 +335,9 @@ def gate(
     body = "\n".join(
         [
             f"{round_name} crossed the {target:g}% gate on {part}: "
-            f"{brief.get('field5_percent', '?')}% in 1996 to 2001 and "
+            f"{brief.get('core_percent', '?')}% in 1996 to 2001 with the candidate claim "
+            f"({brief.get('core_net_percent', '?')}% net of the candidates his 2002 to 2013 files "
+            f"list, {brief.get('field5_percent', '?')}% the annual increment alone) and "
             f"{brief.get('extended_percent', '?')}% in 2002 to 2013, each over his EE for those "
             f"years, against `{marker}`{since}, read off the last bank at "
             f"{now.isoformat(timespec='seconds')}.",
@@ -389,7 +391,7 @@ def main() -> None:
     pre.add_argument("--remote", default="origin")
     pre.add_argument("--no-pull", action="store_true", help="check only, stay offline")
 
-    ga = sub.add_parser("gate", help="open the gate issue once when the round crosses 3%%")
+    ga = sub.add_parser("gate", help="open the gate issue once when the round crosses it")
     ga.add_argument("--repo", default=FLEET_REPO)
     ga.add_argument("--write", action="store_true", help="open the issue rather than say so")
 
