@@ -315,7 +315,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
 # field, `msg_<folder>__<field>`, so a new list banks without a new family.
 STAGED_MESSAGE_SOURCE = re.compile(
     r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
-    r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop|page_link)$"
+    r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop|page_link|bookmark_entry)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
@@ -2004,6 +2004,10 @@ MESSAGE_FIELDS = {
     # a captured page's `A` or `AREA` link to the host: `file` the page's ARC file, `pos`
     # `arc <offset> <length> #<capture stamp> <page URL>`, the stamp inside the row's year
     "page_link": "page_link_host",
+    # a captured Netscape bookmark file's `A` entry for the host: `file` the file's Wayback
+    # capture, `pos` `replay #<capture stamp> line <n> ADD_DATE <epoch> <yyyymmdd>`, the
+    # browser's ADD_DATE inside the row's year
+    "bookmark_entry": "bookmark_entry_host",
     "received_by": "msg_received_by",  # `Received: ... by <host>`, the receiving MTA's name
     "rdns": "msg_received_rdns",  # the receiver's own lookup in `Received: from x (<host> [ip])`
     "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
@@ -2067,6 +2071,10 @@ def _staged_lines(
             if field == "page_link" and not re.match(rf"arc \d+ \d+ #{year}\d{{10}} \S+$", pos):
                 counts["bad_pos"] += 1
                 continue
+            mark = rf"replay #\d{{14}} line \d+ ADD_DATE \d+ {year}\d{{4}}$"
+            if field == "bookmark_entry" and not re.match(mark, pos):
+                counts["bad_pos"] += 1
+                continue
             labels = host.split(".")
             if not _VALID_HOST.match(host) or _INTERNAL_LABELS & set(labels):
                 counts["rejected_host"] += 1
@@ -2127,7 +2135,7 @@ def _staged_batch(
 
 
 def _staged_value(year: int, file: str, pos: str, host: str, field: str = "") -> str:
-    kind = "page link" if field == "page_link" else "list message"
+    kind = {"page_link": "page link", "bookmark_entry": "bookmark entry"}.get(field, "list message")
     return f"{kind} {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
 
 
