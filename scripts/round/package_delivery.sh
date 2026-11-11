@@ -300,6 +300,7 @@ from 1. A post opens at a line matching ^From (-?[0-9]+|[^ ]+@[^ ]+) that is the
 follows a line that is empty or only white space, outside a header block (a header block ends
 at its first such line). So a body line "From 8 to Infinity" after such a line opens a post
 too, and n can run a few ahead of a reader that counts posts another way.
+A line ends at a line feed only: the zips hold lone carriage returns, which do not end one.
 by_class/ holds the same names, one file per evidence class.
 HDR
 
