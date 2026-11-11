@@ -43,6 +43,8 @@ shard carries the batch's name so the ingest key is the batch's:
   `lists/`  a body that IS a host list (`LIST_MIN` lines or more open with a bare name, half
             its lines at least) with its `subject`: a DNS walk, a registrar's notices or sale
             spam, classed by its own text before anything banks; no family reads it.
+  `paired/` a body name written with its address, `host (1.2.3.4)` or `host [1.2.3.4]`: a
+            traceroute hop, a ping, a pasted `Received` line; no family reads it yet.
 
 **Only the host leaves a header.** The mailbox, the display name and the message text
 reach no journal, log or counter, a host list's `Subject` aside. A `Message-ID` or `From`
@@ -132,7 +134,7 @@ def is_ephemeral(host: str) -> bool:
 
 
 # The side journals, in the order the bank ingests them.
-SIDE = ("url", "msgid", "from", "lease", "more", "body", "lists")
+SIDE = ("url", "msgid", "from", "lease", "more", "body", "lists", "paired")
 # An address munged against harvesters, or a placeholder nobody could reach, the word in any
 # label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
 MUNGED = re.compile(
@@ -193,6 +195,9 @@ _LISTED = re.compile(
     rb"^\s*([A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9][A-Za-z0-9-]*)*\.[A-Za-z]{2,4})\.?(?:\s|$)"
 )
 LIST_MIN = 100
+_PAIRED = re.compile(
+    rb"([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63})\.? ?[\[(]\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[\])]"
+)
 
 
 def _kept(hosts) -> list[str]:
@@ -324,6 +329,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
     urls: set[str] = set()
     mentioned: set[str] = set()
     listed: list[bytes] = []
+    paired: list[bytes] = []
     lines = 0
     n = 0
 
@@ -339,7 +345,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
         if side is not None:
             found = {"url": sorted(urls), "lease": sorted(set(leased))}
             more = sorted(set(more_hosts(headers)) - {*hosts, *leased})
-            found |= {"more": more, "body": sorted(mentioned)} | {
+            found |= {"more": more, "body": sorted(mentioned)}
+            found |= {"paired": _kept(h.decode("ascii", "replace") for h in paired)} | {
                 k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()
             }
             stats["url_rows"] += bool(urls)
@@ -368,7 +375,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
             n += 1
             stats["posts"] += 1
             in_headers, year, headers, prev_blank = True, None, [], False
-            urls, mentioned, listed, lines = set(), set(), [], 0
+            urls, mentioned, listed, paired, lines = set(), set(), [], [], 0
             continue
         blank = not line.strip()
         if in_headers:
@@ -382,6 +389,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
             if b"://" in line:
                 urls.update(h for h in hosts_of(line) if VALID_HOST.match(h))
             mentioned.update(body_hosts(line))
+            if b"." in line and (b"(" in line or b"[" in line):
+                paired += _PAIRED.findall(line)
             if not blank:
                 lines += 1
                 listed += _LISTED.findall(line)

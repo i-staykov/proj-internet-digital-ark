@@ -271,7 +271,7 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         "X-Http-Proxy: 1.0 cache.pipex.net:8080 (Squid/2.1)",
         "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
         "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "mail box@Mail.Pipex.net or",
-        "WWW.Zetnet.co.uk.", "",
+        "WWW.Zetnet.co.uk.", " 5  core1.pipex.net (192.0.2.1)  12 ms", "",
         "From 2", "Subject: nz walk", "Date: Thu, 02 Jan 1997 09:00:00 +0000", "",
         *(f"h{i}.custard.co.nz. 3600 IN A" for i in range(100)), "",
     ]  # fmt: skip
@@ -290,6 +290,7 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
     walk = [" ".join(sorted(f"h{i}.custard.co.nz" for i in range(100)))]
     more = ["cache.pipex.net feed.demon.co.uk"]
     side = {"lease": [LEASES[0]], "more": more, "body": body, "lists": walk}
+    side["paired"] = ["core1.pipex.net"]
     assert got == want | side
 
 
