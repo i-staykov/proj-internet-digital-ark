@@ -27,8 +27,8 @@ _JSON_WHERE = re.compile(r'"(filename|offset|length)": ?"([^"]+)"')
 
 
 def host_of(url: str) -> str:
-    rest = url.split("://", 1)[-1]
-    return rest.split("/", 1)[0].split("@")[-1].split(":", 1)[0].strip().lower().rstrip(".")
+    rest = re.split("[/?#]", url.split("://", 1)[-1], maxsplit=1)[0]
+    return rest.split("@")[-1].split(":", 1)[0].strip().lower().rstrip(".")
 
 
 def reduce(lines, out) -> dict[str, int]:

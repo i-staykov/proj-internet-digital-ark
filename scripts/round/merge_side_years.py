@@ -24,7 +24,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
+from ark import approvals  # noqa: E402
 from ark.english_share import english_weights  # noqa: E402
+
+sys.path.insert(0, str(REPO / "scripts/round"))
+import extended_export as ext  # noqa: E402
 
 _C = {"LC_ALL": "C", "PATH": "/usr/bin:/bin"}
 
@@ -67,6 +71,24 @@ def merge_ledgers(ours: Path, side: Path, out: Path) -> None:
                 y = next(b, None)
 
 
+def refuse(side: Path, theirs: dict) -> None:
+    """A side run merges only as the export here would have run it: by code on this checkout's
+    history, and each source a capture source the register approves now."""
+    commit = theirs.get("commit") or ""
+    known = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, "HEAD"], cwd=REPO, capture_output=True
+    )
+    if not commit or known.returncode:
+        raise SystemExit(f"{side}: screened by {commit or 'no commit'}, not on this checkout")
+    for source in sorted({i["source"] for i in theirs["inputs"]}):
+        if source not in ext.SOURCES or ext.SOURCES[source][0] not in ext.WEB_METHODS:
+            raise SystemExit(f"{side}: {source} is not a capture source in SOURCES")
+        try:
+            approvals.check(source, ext.EVIDENCE_TYPE)
+        except approvals.NotApproved as exc:
+            raise SystemExit(f"{side}: {source}: {exc}") from None
+
+
 def merge(out: Path, side_root: Path) -> list[str]:
     manifest_path = out / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -79,6 +101,7 @@ def merge(out: Path, side_root: Path) -> list[str]:
             continue
         if theirs["baseline"] != manifest["baseline"]:
             raise SystemExit(f"{side} was screened against {theirs['baseline']}")
+        refuse(side, theirs)
         part = out / "evidence_ledger.csv.part"
         merge_ledgers(out / "evidence_ledger.csv", side / "evidence_ledger.csv", part)
         part.replace(out / "evidence_ledger.csv")

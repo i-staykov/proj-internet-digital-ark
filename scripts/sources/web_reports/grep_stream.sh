@@ -8,7 +8,10 @@ here=$(dirname "$0")
 if [ -n "$REDUCE" ]; then
   for u in $URL; do
     name=$(printf '%s' "${u#*://*/}" | tr -c 'A-Za-z0-9.-' '_' | tail -c 100)
-    python3 "$here/fetch_ranges.py" "$u" "${CONNECTIONS:-4}" 2>> out/progress.txt \
+    # CONNECTIONS 0: the fetcher itself, the whole file in one request (a host with a crawl delay).
+    read="$here/fetch_ranges.py $u ${CONNECTIONS:-4}"
+    [ "$CONNECTIONS" = 0 ] && read="$here/../../harness/fetch.py --max-bytes 1T --to - $u"
+    python3 $read 2>> out/progress.txt \
       | ${OPEN:-cat} 2> /dev/null \
       | python3 "$here/host_years.py" "out/$name.jsonl.gz" 2>> out/counts.txt
     echo "$name ${PIPESTATUS[*]}" >> out/codes.txt

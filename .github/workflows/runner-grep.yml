@@ -12,7 +12,7 @@ on:
         description: files to read, space separated (.gz, .bz2 or plain), a job each
         required: true
       connections:
-        description: ranges asked at once on one file
+        description: ranges asked at once on one file (0 with reduce is one request a file)
         default: "4"
       parallel:
         description: jobs at once

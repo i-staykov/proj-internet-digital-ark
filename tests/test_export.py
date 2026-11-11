@@ -131,6 +131,9 @@ def _store(reverse: bool) -> duckdb.DuckDBPyConnection:
         partial(host, "example.org", 2000, "capture-ark-test.example.org"),
         partial(header, "mail.org", "news.mail.org", 1999),
         partial(header, "mail.org", "relay.mail.org", 2000),
+        # a name only a message body types ships in neither arm (`mach1.domain.com`)
+        partial(header, "typed-body.com", "www.typed-body.com", 1999, "usenet_body_url_hostnames"),
+        partial(header, "your-domain.pt", "www.your-domain.pt", 2000, "usenet_mention"),
         *(partial(header, "example.net", h, y, "usenet") for h, y in (("news.example.net", 2000),
           ("news.example.net", 2001), ("mail.example.net", 1998))),
         *(partial(_isc, conn, "survey.net", h, "1996-07") for h in ("keep.survey.net",
@@ -308,8 +311,9 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(run) -> N
     assert (run.root / "claim/netnew" / ATTESTED).read_text() == (
         "1997\tnew.com\n1998\tdir.com\n1998\texample.net\n1998\timpossible.biz\n1998\treal.com\n"
         "1999\tboth.com\n1999\texample.org\n1999\theld.com\n1999\tignore.arpa\n1999\tmail.org\n"
-        "1999\trolled.com\n1999\tsub.com\n1999\tweb.com\n2000\texample.net\n2000\texample.org\n"
-        "2000\tmail.org\n2001\texample.net\n2001\texample.org\n2001\tzone-only.dk\n"
+        "1999\trolled.com\n1999\tsub.com\n1999\ttyped-body.com\n1999\tweb.com\n2000\texample.net\n"
+        "2000\texample.org\n2000\tmail.org\n2000\tyour-domain.pt\n2001\texample.net\n"
+        "2001\texample.org\n2001\tzone-only.dk\n"
     )
 
 
@@ -603,6 +607,7 @@ def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_fo
             "Usenet server header host"
         ),
         ("msg_debbugs_received__received_by", "msg_received_by", "x"): "mail Received header host",
+        ("received_rdns_hostnames", "received_from_rdns", "x"): "mail Received header host",
         ("msg_innreport_hosts__visitor_rdns", "msg_visitor_rdns_host", "x"): (
             "news-server report host"
         ),
