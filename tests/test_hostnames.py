@@ -676,7 +676,9 @@ def test_cdx_suffix_convert_dates_a_registrable_by_its_earliest_exact_2xx_or_3xx
     assert claim == {r["domain"]: set(r["years"]) for r in fresh}
 
 
-def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) -> None:
+def test_staged_messages_bank_each_field_under_its_folder_source_once(
+    tmp_path, monkeypatch
+) -> None:
     gz, art = (
         "https://mail.gnome.org/archives/gtk-list/1999-May.txt.gz",
         "nntp://news.php.net/php.dev",
@@ -730,6 +732,12 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(tmp_path) 
     assert "received_by_rows" not in again and q(conn, "SELECT count(*) FROM hostname_year") == [
         (3,)
     ]
+    assert again["files_skipped"] == 1 and "lines" not in again  # banked: not read again
+    monkeypatch.setattr(hn, "_STAGED_BATCH_LINES", 2)  # a file longer than a batch banks the same
+    hn.ingest_staged_messages(small := store(), folder)
+    assert q(small, sql + "(source_id) ORDER BY 1") == q(conn, sql + "(source_id) ORDER BY 1")
+    ledger = "SELECT source_name, file_name, record_rows FROM ingested_file ORDER BY 1"
+    assert q(small, ledger) == q(conn, ledger)
 
 
 def test_an_unmoved_shard_is_not_hashed_again(tmp_path, monkeypatch):

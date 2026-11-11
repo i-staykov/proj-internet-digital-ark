@@ -42,6 +42,7 @@ import json
 import multiprocessing
 import os
 import re
+import sys
 from collections import Counter, deque
 from collections.abc import Callable, Iterator
 from concurrent.futures import ProcessPoolExecutor
@@ -2009,11 +2010,19 @@ _STAGED_FOLDER = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 _INTERNAL_LABELS = frozenset({"localhost", "localdomain", "local", "lan", "internal", "intranet"})
 
 
+# The lines of a staged file read before its rows are banked: a visitor-report file runs to
+# millions of rows, and one held whole took the bank past the VM's memory.
+_STAGED_BATCH_LINES = 500_000
+
+
 def staged_message_rows(
-    path: Path, counts: Counter[str]
-) -> dict[str, list[tuple[str, str, int, str, str, str]]]:
+    path: Path, counts: Counter[str], batch: int | None = None
+) -> Iterator[dict[str, list[tuple[str, str, int, str, str, str]]]]:
     """Per field, (hostname, parent, year, evidence value, location, archive URL) for one
-    staged file: one row per (host, year), the lowest (file, pos) naming it."""
+    staged file, `batch` lines at a time: one row per (host, year) of a batch, the lowest
+    (file, pos) naming it. The insert keeps the first row a host-year gets, so the first batch
+    naming one keeps it."""
+    batch = batch or _STAGED_BATCH_LINES
     seen: dict[tuple[str, str, int], tuple[str, str, int]] = {}
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
@@ -2049,7 +2058,18 @@ def staged_message_rows(
                 continue
             key = (field, host, year)
             if key not in seen or (file, pos) < seen[key][:2]:
-                seen[key] = (file, pos, number)
+                seen[key] = (sys.intern(file), pos, number)
+            if number % batch == 0:
+                yield _staged_batch(seen, counts)
+                seen = {}
+    if seen:
+        yield _staged_batch(seen, counts)
+
+
+def _staged_batch(
+    seen: dict[tuple[str, str, int], tuple[str, str, int]], counts: Counter[str]
+) -> dict[str, list[tuple[str, str, int, str, str, str]]]:
+    """One batch's rows by field, the registrable looked up once a host."""
     out: dict[str, list[tuple[str, str, int, str, str, str]]] = {}
     for (field, host, year), (file, pos, number) in sorted(seen.items()):
         reg = to_registrable(host)
@@ -2074,40 +2094,51 @@ def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[
         raise ValueError(f"{folder}: a staged folder is named [a-z0-9_]")
     approvals.check(STAGED_MESSAGES_APPROVAL, "link_source")
     totals: Counter[str] = Counter()
+    sources = {field: f"msg_{folder}__{field}" for field in MESSAGE_FIELDS}
     for path in sorted({*root.glob("*.jsonl"), *root.glob("*.jsonl.gz")}):
         totals["files_seen"] += 1
-        digest = _sha256(path)
+        digest, key = _sha256(path), f"{folder}/{path.name}"
+        previous = {
+            name: (sha, rows)
+            for name, sha, rows in conn.execute(
+                "SELECT source_name, sha256, record_rows FROM ingested_file "
+                "WHERE file_name = ? AND list_contains(?, source_name)",
+                [key, list(sources.values())],
+            ).fetchall()
+        }
+        # a file banks in one transaction, so any field's row at this digest means it is done
+        if any(sha == digest for sha, _ in previous.values()):
+            totals["files_skipped"] += 1
+            continue
         counts: Counter[str] = Counter()
-        per_field = staged_message_rows(path, counts)
-        totals.update(counts)
+        dated: Counter[str] = Counter()
         with _one_transaction(conn):
-            for field, method in MESSAGE_FIELDS.items():
-                source = f"msg_{folder}__{field}"
-                key = f"{folder}/{path.name}"
-                previous = conn.execute(
-                    "SELECT sha256, record_rows FROM ingested_file "
-                    "WHERE source_name = ? AND file_name = ?",
-                    [source, key],
-                ).fetchone()
-                rows = per_field.get(field, [])
-                if (previous is not None and previous[0] == digest) or not rows:
-                    continue
-                source_id = ensure_source(conn, source, "timestamped")
-                _stage_hosts(conn, "msghost", rows, source_id)
-                fresh = _insert_host_rows(
-                    conn,
-                    "msghost",
-                    {"source_id": source_id, "type": "link_source", "method": method, "file": key},
-                    url_sql="t.url",
-                )
-                dated = _date_hosts(conn, fresh)
-                conn.execute("DELETE FROM msghost")
-                totals[f"{field}_rows"] += dated
+            for per_field in staged_message_rows(path, counts):
+                for field, rows in per_field.items():
+                    source_id = ensure_source(conn, sources[field], "timestamped")
+                    _stage_hosts(conn, "msghost", rows, source_id)
+                    fresh = _insert_host_rows(
+                        conn,
+                        "msghost",
+                        {
+                            "source_id": source_id,
+                            "type": "link_source",
+                            "method": MESSAGE_FIELDS[field],
+                            "file": key,
+                        },
+                        url_sql="t.url",
+                    )
+                    dated[field] += _date_hosts(conn, fresh)
+                    conn.execute("DELETE FROM msghost")
+            for field, n in dated.items():
+                totals[f"{field}_rows"] += n
+                before = previous[sources[field]][1] if sources[field] in previous else 0
                 conn.execute(
                     "INSERT OR REPLACE INTO ingested_file "
                     "(source_name, file_name, sha256, record_rows) VALUES (?, ?, ?, ?)",
-                    [source, key, digest, (previous[1] if previous else 0) + dated],
+                    [sources[field], key, digest, before + n],
                 )
+        totals.update(counts)
     logger.info(f"staged messages {folder}: {dict(totals)}")
     return dict(totals)
 
