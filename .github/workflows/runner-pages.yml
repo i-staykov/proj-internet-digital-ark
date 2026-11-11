@@ -36,6 +36,9 @@ on:
       interval:
         description: seconds between a job's asks
         default: "1.0"
+      strikes:
+        description: 429s or 503s in a row that end a replay job
+        default: "4"
 
 permissions:
   actions: read
@@ -79,6 +82,7 @@ jobs:
           SHARDS: ${{ inputs.shards }}
           THREADS: ${{ inputs.threads }}
           INTERVAL: ${{ inputs.interval }}
+          ARK_STRIKES: ${{ inputs.strikes }}
           INDEX: ${{ matrix.index }}
         run: |
           mkdir -p in
