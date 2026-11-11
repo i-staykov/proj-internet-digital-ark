@@ -14,8 +14,8 @@ A page lands at <dest_root>/<host>/<path>; each ask leaves one JSON line in
 <dest_root>/receipts.receipts (url, replay with its 14-digit stamp, memento, status, bytes,
 sha256, path), and a URL with a receipt is not asked again. Each thread keeps one connection
 open, since the archive refuses an address that connects too often. A 429 or 503 rests every
-thread (60 s, 180 s, 600 s) and the fourth in a row ends the run; a failed connect rests them
-too and is asked again, ten in a row ending the run.
+thread (60 s, 180 s, 600 s) and the fourth in a row (`ARK_STRIKES`) ends the run; a failed
+connect rests them too and is asked again, ten in a row ending the run.
 """
 
 import concurrent.futures as cf
@@ -42,6 +42,7 @@ INTERVAL = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 SHARD = tuple(int(x) for x in sys.argv[5].split("/")) if len(sys.argv) > 5 else (0, 1)
 STAMP = "2001"
 PROBES = int(os.environ.get("ARK_PROBES", "3"))  # asks before a tree with no capture is left
+STRIKES = min(4, int(os.environ.get("ARK_STRIKES", "4")))  # 429s or 503s in a row that end the run
 
 _spec = importlib.util.spec_from_file_location("hf", ROOT / "scripts/harness/fetch.py")
 hf = importlib.util.module_from_spec(_spec)
@@ -154,7 +155,7 @@ def ask(url: str, rec) -> bool | None:
         if status in (429, 503):
             with lock:
                 state["strikes"] += 1
-                if state["strikes"] >= 4:
+                if state["strikes"] >= STRIKES:
                     state["stop"] = True
                     print(json.dumps({"stopped": "throttled", "status": status}), flush=True)
                     return None
