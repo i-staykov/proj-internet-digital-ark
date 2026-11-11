@@ -311,6 +311,34 @@ def test_weblog_dates_a_visitor_by_the_span_its_log_prints(tmp_path):
     }, "5 March lies in neither year of the span and is left"
 
 
+FTPWEBLOG = """<h2><a name="summary">Summary</a></h2>
+<strong>Period Covered:</strong> 10:56:45 25 November 1997 to 04:20:48 07 February 1998<br>
+<h2><a name="files">Complete file statistics</a></h2>
+<pre>
+19:25:54 01 Dec 1997       12       49169 /pub/not.a.host.edu
+</pre>
+<h2><a name="domains">Complete domains statistics</a></h2>
+<pre>
+Last Access               Hits       Bytes Domain
+19:25:54 01 Dec 1997       12       49169 dl0192-gyn.gyn.nutecnet.com.br
+02:00:26 05 Feb 1998       45      517770 impala.unza.zm
+02:00:26 05 Mar 1998        1         100 late.unza.zm
+</pre>
+"""
+
+
+def test_ftpweblog_dates_a_client_by_its_last_request_inside_the_printed_span(tmp_path):
+    site = tmp_path / "raw" / "s"
+    site.mkdir(parents=True)
+    (site / "stats.html").write_text(FTPWEBLOG)
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert {(r["host"], r["year"]) for r in rows} == {
+        ("dl0192-gyn.gyn.nutecnet.com.br", 1997),
+        ("impala.unza.zm", 1998),
+    }, "a file row and a request after the span are left"
+
+
 def test_an_index_page_s_links_inside_its_own_directory_become_asks_near_its_capture(tmp_path):
     page = '<a href="1999/">y</a> <a href="/other/x.html">o</a> <img src="g.gif"> http-analyze'
     (tmp_path / "h" / "stats").mkdir(parents=True)
