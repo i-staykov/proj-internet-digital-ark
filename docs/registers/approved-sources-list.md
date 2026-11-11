@@ -872,4 +872,4 @@ Decision: master
 - what dates one item: the 14-digit capture stamp CDXJ carries between the SURT key and the JSON body, written by Common Crawl's crawler, with the JSON's `status` 2xx or 3xx; 2002 to 2013 only, one row per host-year, into `data/raw/extended/commoncrawl_cdx/` for the extended export (`bulk_cdx_file`, an existing class at a new custodian). No Wayback replays these captures: the row's `filename`, `offset` and `length` are a byte range of the crawl's own ARC or WARC file on the same host
 - measured 2026-11-11 on index part 150 of 300 of each crawl, by exact name against merge261104: 2008-2009 115,555 host-years, 81,415 net-new, 51,462.4 EE; 2009-2010 214,853, 159,121, 100,494.4; 2012 268,344, 117,245, 74,110.6, before our WDC 2012 rows; 2013-20 68,236, 18,081, 11,429.0
 - potential: 30000000
-Decision: pending
+Decision: master
