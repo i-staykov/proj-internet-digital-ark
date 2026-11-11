@@ -778,6 +778,44 @@ def statbot(lines, text, path):
         yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
 
 
+FW_END = r"[\d:]+ (\d\d) ([A-Z][a-z]+) (\d{4})"
+FW_SPAN = re.compile(r"Period Covered:</strong>\s*" + FW_END + " to " + FW_END)
+FW_HEAD = re.compile(r'<a name="domains">Complete domains? statistics</a>', re.I)
+FW_ROW = re.compile(r"^\d\d:\d\d:\d\d (\d\d) ([A-Z][a-z]{2}) (\d{4})\s+\d+\s+\d+\s+(\S+)\s*$")
+
+
+def ftpweblog(lines, text, path):
+    """FTPWebLog's report prints the span of its log, `Period Covered: 10:56:45 25 November 1997
+    to 04:20:48 07 February 1998`, and ends in "Complete domains statistics": one client a line
+    under the instant of its last request, `19:25:54 01 Dec 1997  12  49169  host`. A client
+    takes that instant's year, and only when the day lies inside the span the page prints."""
+    m = FW_SPAN.search(text[:6000])
+    if not m:
+        return
+    g = m.groups()
+    try:
+        ends = [date(int(g[i + 2]), MONTHS[g[i + 1][:3].lower()], int(g[i])) for i in (0, 3)]
+    except (KeyError, ValueError):
+        return
+    inside = False
+    for n, line in enumerate(lines, 1):
+        if not inside:
+            inside = bool(FW_HEAD.search(line))
+            continue
+        if "</pre>" in line.lower():
+            return
+        r = FW_ROW.match(line)
+        if not r:
+            continue
+        try:
+            day = date(int(r.group(3)), MONTHS[r.group(2).lower()], int(r.group(1)))
+        except (KeyError, ValueError):
+            continue
+        if ends[0] <= day <= ends[1]:
+            stamp = f"log of {ends[0]} to {ends[1]}; last request {day}"
+            yield r.group(4), day.year, False, n, stamp, line, False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -794,6 +832,7 @@ GENERATORS = (
     ("usage-log", usage_log_by_ip),
     ("statbot", statbot),
     ("weblog", weblog_details),
+    ("ftpweblog", ftpweblog),
 )
 
 
