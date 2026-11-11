@@ -2135,9 +2135,35 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
     listing) got its own evidence row, but `_date_hosts` kept the first row, so the export
     shipped the host as a candidate. The fold now repoints on arrival; this repairs a store
     banked before it. Idempotent: a second run finds nothing.
-    """
-    from ark.evidence_types import exact_host_expr, web_evidence_sql
 
+    The row taken is one a hostname lane wrote, its value ending in the host, as `ark check`
+    asks of every hostname record: a registrable-grain capture whose URL names the host passes
+    XIV and still fails those two checks. `write` first returns any host-year standing on such
+    a row to the earliest hostname-lane row of that host and year.
+    """
+    from ark.evidence_types import WEB_METHODS, exact_host_expr, web_evidence_sql
+
+    lanes = ", ".join(f"'{name}'" for name in sorted(WEB_FACING_HOST_SOURCES))
+    methods = ", ".join(f"'{method}'" for method in sorted(WEB_METHODS))
+    host_lane = f"""(s.name IN ({lanes})
+        OR regexp_matches(s.name, '{STAGED_MESSAGE_SOURCE.pattern}')
+        OR (regexp_matches(s.name, '{FLEETREAD_SOURCE.pattern}')
+            AND x.acquisition_method IN ({methods})))"""
+    if write:
+        conn.execute(f"""
+            UPDATE hostname_year SET evidence_id = o.evidence_id FROM (
+                SELECT hy.hostname, hy.assigned_year, min(x.evidence_id) AS evidence_id
+                FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
+                JOIN evidence x ON x.domain = hy.parent_domain
+                 AND x.evidence_year = hy.assigned_year
+                 AND ends_with(x.evidence_value, ' ' || hy.hostname)
+                JOIN source s ON s.source_id = x.source_id
+                WHERE NOT ends_with(e.evidence_value, ' ' || hy.hostname) AND {host_lane}
+                GROUP BY 1, 2
+            ) o
+            WHERE hostname_year.hostname = o.hostname
+              AND hostname_year.assigned_year = o.assigned_year
+        """)
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE stranded AS
         WITH weak AS MATERIALIZED (
@@ -2145,16 +2171,18 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
             FROM hostname_year hy JOIN evidence e ON e.evidence_id = hy.evidence_id
             WHERE NOT {qualifies_sql("e", "hy.hostname")}
         ), web AS MATERIALIZED (
-            SELECT x.evidence_id, x.domain, x.evidence_year, {exact_host_expr("x")} AS host
-            FROM evidence x
+            SELECT x.evidence_id, x.domain, x.evidence_year, {exact_host_expr("x")} AS host,
+                   x.evidence_value
+            FROM evidence x JOIN source s ON s.source_id = x.source_id
             WHERE x.domain IN (SELECT parent_domain FROM weak) AND {web_evidence_sql("x")}
+              AND {host_lane}
               -- a row with no locator (a mirror listing) cannot be reopened, so it moves nothing
               AND coalesce(x.record_location, '') <> ''
         )
         SELECT w.hostname, w.assigned_year, min(v.evidence_id) AS evidence_id
         FROM weak w JOIN web v
           ON v.domain = w.parent_domain AND v.evidence_year = w.assigned_year
-         AND v.host = w.hostname
+         AND v.host = w.hostname AND ends_with(v.evidence_value, ' ' || w.hostname)
         GROUP BY 1, 2
     """)
     stats = dict(

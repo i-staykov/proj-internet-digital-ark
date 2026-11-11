@@ -349,3 +349,12 @@ def test_a_capture_banked_after_a_usenet_header_ships_and_a_stranded_one_is_repa
     assert hostnames.repoint_stranded_captures(conn, write=True) == {1999: 1}
     assert _shipped(conn) == [("shop.example.com", 1999)]
     assert hostnames.repoint_stranded_captures(conn) == {} and not _failing(conn)
+    # a host-year standing on a row whose value does not end in the host goes back to its own
+    conn.execute(
+        "UPDATE evidence SET evidence_value = 'nypw timemap capture 19990101000000' WHERE "
+        "evidence_id = (SELECT evidence_id FROM hostname_year WHERE hostname LIKE 'shop%')"
+    )
+    assert hostnames.repoint_stranded_captures(conn, write=True) == {}
+    assert conn.execute(
+        f"SELECT ({header}) = evidence_id FROM hostname_year WHERE hostname LIKE 'shop%'"
+    ).fetchone()[0]
