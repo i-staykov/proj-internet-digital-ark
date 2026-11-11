@@ -2,6 +2,7 @@
 
 import gzip
 import importlib.util
+import io
 import json
 import subprocess
 import sys
@@ -323,3 +324,26 @@ def test_an_index_page_s_links_inside_its_own_directory_become_asks_near_its_cap
     urls = json.loads(out.read_text())["h"]["urls"]
     assert "http://h/stats/1999/\t20010203040506" in urls and len(urls) == 1 + 144
     assert "http://h/stats/www1999/lsites0599.html\t20010203040506" in urls, "a framed month"
+
+
+def test_an_index_keeps_one_2xx_or_3xx_capture_per_host_and_year_in_cdx_and_cdxj():
+    spec = importlib.util.spec_from_file_location(
+        "host_years", ROOT / "scripts/sources/web_reports/host_years.py"
+    )
+    host_years = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(host_years)
+    lines = [
+        " CDX N b a m s k r M S V g\n",
+        "pl,biz)/ 20010202033400 http://www.biz.pl:80/ text/html 302 X - - 1 2 f.arc.gz\n",
+        "pl,biz)/a 20010302015003 http://WWW.biz.pl:80/a text/html 200 X - - 1 2 f.arc.gz\n",
+        "pl,biz)/b 20010105000000 http://biz.pl/b text/html 404 X - - 1 2 f.arc.gz\n",
+        "pl,biz)/c 19950101000000 http://biz.pl/c text/html 200 X - - 1 2 f.arc.gz\n",
+        'org,x)/ 20130102030405 {"url": "http://x.org/", "mime": "text/html", "status": "200"}\n',
+        "42,lab)/ 20010101000000 http://lab.42/ text/html 200 X - - 1 2 f.arc.gz\n",
+    ]
+    out = io.StringIO()
+    assert host_years.reduce(lines, out) == {"rows": 6, "kept": 2}
+    assert [json.loads(row) for row in out.getvalue().splitlines()] == [
+        {"url": "http://WWW.biz.pl:80/a", "timestamp": "20010302015003", "status": "200"},
+        {"url": "http://x.org/", "timestamp": "20130102030405", "status": "200"},
+    ]
