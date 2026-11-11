@@ -536,11 +536,24 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
         ELSE coalesce({method}, {source}) END)"""
 
 
-# **A dated candidate ships only with a file to open**: a name whose every row lacks its source
-# file (a zone list read before rows kept their capture, a mention from bytes we no longer
-# hold) cites nothing a reader can open, so it leaves the list.
 REPLAY_CLASS = "web capture that does not replay"
-NO_FILE = "year IS NOT NULL AND coalesce(source_file, '') = ''"
+# **A candidate ships only as a name its row can stand for.** It leaves the list when:
+# - its every row lacks its source file (a zone list read before rows kept their capture, a
+#   mention from bytes we no longer hold, a name found with no dated record at all): it cites
+#   nothing a reader can open;
+# - it sits under a placeholder domain a misconfigured machine was left with (`mydomain.com`,
+#   `nodomain.net`, `testdomain.com`);
+# - its From or Message-ID row names an anti-spam munge, a first label starting `spam` or
+#   `nospam` (`spammidway.uchicago.edu`, `nospamhowl.demon.co.uk`);
+# - a Gmane row dates a `gmane.org` name before 2002: Gmane began in 2002 and stamped its own
+#   Message-IDs on what it imported.
+NO_FILE = (
+    "(coalesce(source_file, '') = '' OR year IS NOT NULL AND ("
+    "regexp_matches(name, '(^|[.])(my|no|test|dummy|any|some|fake|local)domain[.][a-z.]+$')"
+    " OR (class = 'mail or news From or Message-ID host' AND regexp_matches(name, '^(no)?spam'))"
+    " OR (starts_with(source, 'msg_gmane_lists') AND year < 2002"
+    " AND (name = 'gmane.org' OR ends_with(name, '.gmane.org')))))"
+)
 
 
 def candidate_rows(conn: duckdb.DuckDBPyConnection) -> int:
