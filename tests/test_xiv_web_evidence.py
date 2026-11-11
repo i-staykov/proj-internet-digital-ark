@@ -389,6 +389,12 @@ def test_every_web_method_names_one_evidence_kind() -> None:
         for m in sorted(WEB_METHODS | {REDIRECT_METHOD, "usenet_from_host"})
     }
     assert kinds.pop("usenet_from_host") is None, "a non-web method names no kind"
-    assert set(kinds.values()) == {"capture", "link graph", "dataset", "dated bookmark entry"}
+    assert set(kinds.values()) == {
+        "capture",
+        "link graph",
+        "dataset",
+        "dated bookmark entry",
+        "referrer",
+    }
     assert kinds["page_link_host"] == "link graph" and kinds["crawl_list_node"] == "dataset"
     assert kinds["ia_cdx_domain_sweep"] == kinds[REDIRECT_METHOD] == "capture"

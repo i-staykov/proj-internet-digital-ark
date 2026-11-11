@@ -887,3 +887,10 @@ Decision: master
 - what dates one item: the entry's `ADD_DATE`, the epoch second the browser wrote when the user saved the link, inside the row's year and not after the file's capture; `file` is the file's Wayback capture, `pos` is `replay #<capture stamp> line <n> ADD_DATE <epoch> <yyyymmdd>`
 - measured 2026-11-11 on 4,297 of 22,651 URLs: 1,535 host-years named by him in another year, 754.2 EE against merge261104
 Decision: master
+
+### page_referrer_host / link_source
+- the class: the source side of a dated link graph: a web server's own usage report printed a URL on the exact host as the referrer of a request it logged, so a page on that host linked to the server inside the report's period; banked through `staged_messages` with the field `page_referrer`, the method in `WEB_METHODS`, an addition of kind `referrer`
+- the artifact: the dated usage report pages S5 read (Analog, Webalizer, http-analyze, wusage referrer sections), Wayback captures
+- what dates one item: the report's own period, one month or year inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` the line the URL is printed on
+- measured 2026-11-11 on all 36,722 rows: his year file lacks 1,993 host-years, 1,099.0 EE against merge261104
+Decision: master

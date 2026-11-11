@@ -4,11 +4,12 @@ Two sets, and a labelled third part outside both and outside the growth figure.
 
 - `additions/`: hostnames and registrable domains for your annual files, 1996 to 2013, one file
   a year, none in your file for that year. Each name has its own web evidence of exactly that
-  name in that year, of one of four kinds: a capture (1996 to 2001 a 2xx or 3xx capture that
+  name in that year, of one of five kinds: a capture (1996 to 2001 a 2xx or 3xx capture that
   replays; 2002 to 2013 a 2xx or 3xx capture where the capture index records a status, else a
   capture from an index that records none, never a 4xx or 5xx), a dated link graph that names
-  it, a custodian dataset's dated record of it, or a captured bookmark file's entry for it
-  dated by the browser's own `ADD_DATE`.
+  it, a custodian dataset's dated record of it, a captured bookmark file's entry for it
+  dated by the browser's own `ADD_DATE`, or a dated usage report that logged a request
+  referred from a page on it.
 - `candidates/`: every other name we hold for 1996 to 2001, as one list, `candidates.txt`. None is
   in any file of your release or a 1996 to 2001 addition; one can be an addition of a later year. `provenance.csv` has one row a name: `name, year, class, source, source_file,
   position`, `source_file` the public file the name was read from and `position` the record
