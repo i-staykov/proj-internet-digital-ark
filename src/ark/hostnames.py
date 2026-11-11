@@ -2023,9 +2023,13 @@ _STAGED_BATCH_ROWS = 500_000
 
 
 def _staged_lines(
-    path: Path, counts: Counter[str]
+    path: Path, counts: Counter[str], arcs: bool = True
 ) -> Iterator[tuple[int, str, str, int, str, str]]:
-    """(line number, field, host, year, file, pos) of each row of a staged file that may bank."""
+    """(line number, field, host, year, file, pos) of each row of a staged file that may bank.
+
+    **A page read from an ARC file is cited as that record**, `arc <offset> <length> #<pos>` in
+    the `.arc.gz` its row names: the Wayback may hold no capture of the page, and the record is
+    what was read. `arcs` false keeps the row's own file and pos, as rows banked before did."""
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
         for number, line in enumerate(fh, 1):
@@ -2037,6 +2041,9 @@ def _staged_lines(
                 host = str(row["host"]).strip().lower().rstrip(".")
                 year, field = row["year"], str(row["field"])
                 file, pos = str(row["file"]), str(row["pos"])
+                if arcs and "arc" in row:
+                    pos = f"arc {int(row['arc_offset'])} {int(row['arc_size'])} #{pos}"
+                    file = str(row["arc"])
             except (ValueError, KeyError, TypeError):
                 counts["unparseable"] += 1
                 continue
@@ -2103,9 +2110,90 @@ def _staged_batch(
         if reg == host:
             counts["registrable_row"] += 1  # belongs to domain_year, not here
             continue
-        value = f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
-        out.append((host, reg, year, value, f"line {number}", file))
+        out.append((host, reg, year, _staged_value(year, file, pos, host), f"line {number}", file))
     return out
+
+
+def _staged_value(year: int, file: str, pos: str, host: str) -> str:
+    return f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
+
+
+# a page's URL with its Wayback prefix, scheme and default port taken off, so one page's rows
+# meet whatever capture stamp each restage quoted it by
+_PAGE_SQL = (
+    r"regexp_replace(regexp_replace(lower({u}),"
+    r" '^https?://web\.archive\.org/web/[0-9]+(id_)?/', ''),"
+    r" '^(https?://)?([^/:]+)(:80)?', '\2')"
+)
+
+
+def recite_staged_arcs(
+    conn: duckdb.DuckDBPyConnection, root: Path, write: bool = False
+) -> dict[str, int]:
+    """The held rows of one staged folder that cite a page read from an ARC file by the page's
+    URL, re-cited as the ARC record, as `_staged_lines` writes them now. **A held row is matched
+    by its page, host and year**, since a restage may have moved its line or the capture stamp
+    it quoted. A row keeps its id, so every record standing on it stands. `write` false counts
+    and changes nothing."""
+    names = [f"msg_{root.name}__{field}" for field in MESSAGE_FIELDS]
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE recite_rows "
+        "(year INTEGER, host VARCHAR, page VARCHAR, new VARCHAR, url VARCHAR)"
+    )
+    keys = ("year", "host", "page", "new", "url")
+
+    def stage(batch: list[tuple[int, str, str, str, str]]) -> None:
+        columns = {name: [row[i] for row in batch] for i, name in enumerate(keys)}
+        columns["year"] = pa.array(columns["year"], type=pa.int32())
+        conn.register("recite_batch", pa.table(columns))
+        try:
+            page = _PAGE_SQL.format(u="page")
+            conn.execute(
+                f"INSERT INTO recite_rows SELECT year, host, {page}, new, url FROM recite_batch"
+            )
+        finally:
+            conn.unregister("recite_batch")
+
+    for path in sorted({*root.glob("*.jsonl"), *root.glob("*.jsonl.gz")}):
+        batch: list[tuple[int, str, str, str, str]] = []
+        pages, records = _staged_lines(path, Counter(), arcs=False), _staged_lines(path, Counter())
+        for (_, _, host, year, file, _), (*_, arc, at) in zip(pages, records, strict=True):
+            if arc == file:
+                continue
+            batch.append((year, host, file, _staged_value(year, arc, at, host), arc))
+            if len(batch) >= _STAGED_BATCH_ROWS:
+                stage(batch)
+                batch = []
+        if batch:
+            stage(batch)
+    # a page line two records hold is cited by the first of them
+    conn.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE recite AS
+        SELECT e.evidence_id, min(r.new) AS new, min_by(r.url, r.new) AS url FROM evidence e
+        JOIN source s ON s.source_id = e.source_id AND list_contains(?, s.name)
+        JOIN recite_rows r
+          ON r.year = e.evidence_year
+         AND r.host = lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))
+         AND r.page = {_PAGE_SQL.format(u="e.evidence_url")}
+        WHERE NOT ends_with(e.evidence_url, '.arc.gz')
+        GROUP BY 1
+        """,
+        [names],
+    )
+    staged, held = conn.execute(
+        "SELECT (SELECT count(*) FROM (SELECT DISTINCT year, host, page FROM recite_rows)), "
+        "(SELECT count(*) FROM recite)"
+    ).fetchone()
+    if write:
+        with _one_transaction(conn):
+            conn.execute("""
+                UPDATE evidence SET evidence_value = r.new, evidence_url = r.url
+                FROM recite r WHERE evidence.evidence_id = r.evidence_id
+            """)
+    conn.execute("DROP TABLE recite")
+    conn.execute("DROP TABLE recite_rows")
+    return {"staged_arc_rows": staged, "held_rows": held}
 
 
 def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[str, int]:

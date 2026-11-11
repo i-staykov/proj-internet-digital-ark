@@ -614,6 +614,29 @@ def ingest_staged_messages_cmd(
         typer.echo(str(ingest_staged_messages(conn, path)))
 
 
+@app.command(name="recite-staged-arcs")
+def recite_staged_arcs_cmd(
+    folder: Annotated[
+        Path,
+        typer.Argument(help="A banked `staged/<source>/` folder.", exists=True, file_okay=False),
+    ],
+    write: Annotated[
+        bool, typer.Option("--write", help="Re-cite; without it, count only.")
+    ] = False,
+) -> None:
+    """Cite the held rows of a staged folder read from ARC files as their ARC records.
+
+    Rows banked before the ingest cited the record name the page's Wayback URL, which the
+    Wayback may never have captured. Idempotent.
+    Example: ark recite-staged-arcs staged/web_host_reports --write
+    """
+    from ark.hostnames import recite_staged_arcs
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    typer.echo(str(recite_staged_arcs(conn, folder, write=write)))
+
+
 @app.command(name="ingest-usenet-header-hostnames")
 def ingest_usenet_header_hostnames_cmd(
     paths: Annotated[
