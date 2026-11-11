@@ -315,7 +315,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
 # field, `msg_<folder>__<field>`, so a new list banks without a new family.
 STAGED_MESSAGE_SOURCE = re.compile(
     r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
-    r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop)$"
+    r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop|page_link)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific

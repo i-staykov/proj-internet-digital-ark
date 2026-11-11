@@ -767,6 +767,11 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
     cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
     assert q(conn, cited + ships) == [(f"page link 1999 {arc}#{pos} {host}",)]
+    # the store's own checks pass on the banked row, and every staged field is a host lane
+    from ark.checks import collect_checks
+
+    assert [r["name"] for r in collect_checks(conn, tmp_path) if r.get("offending")] == []
+    assert all(hn.STAGED_MESSAGE_SOURCE.match(f"msg_x__{field}") for field in hn.MESSAGE_FIELDS)
 
 
 def test_a_page_read_from_an_arc_file_is_cited_as_its_record_and_held_rows_follow(tmp_path):
