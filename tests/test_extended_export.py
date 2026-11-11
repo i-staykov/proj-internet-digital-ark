@@ -762,6 +762,20 @@ def test_a_side_run_merges_into_ours_once_and_verify_still_checks_the_years(expo
     ext.export({"*": str(tmp_path / "side_raw/*/*.jsonl*")}, tmp_path / "side_years/cc")
     merge = script("round/merge_side_years.py")
     merge.english_weights = lambda: {"com": D("0.5"), "info": D("0.25")}
+    side = tmp_path / "side_years/cc/manifest.json"
+    good = side.read_text()
+    side.write_text(good.replace(json.loads(good)["commit"], "0" * 40))
+    with pytest.raises(SystemExit, match="not on this checkout"):
+        merge.merge(out, tmp_path / "side_years")
+    side.write_text(good)
+
+    def pending(source: str, evidence_type: str) -> None:
+        raise approvals.NotApproved("pending")
+
+    merge.approvals.check, approve = pending, merge.approvals.check
+    with pytest.raises(SystemExit, match="ia_cdx_hostnames: pending"):
+        merge.merge(out, tmp_path / "side_years")
+    merge.approvals.check = approve
     assert merge.merge(out, tmp_path / "side_years") == ["cc"]
     assert merge.merge(out, tmp_path / "side_years") == []  # once
     assert (out / "additions/2002.txt").read_text() == "new.com\nside.com\n"
