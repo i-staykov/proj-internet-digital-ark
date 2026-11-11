@@ -84,6 +84,31 @@ def test_an_archived_host_page_takes_its_period_only_from_a_capture_of_the_same_
     assert staged(tmp_path / "far", "20010601000000") == []
 
 
+def test_far_captures_pair_only_when_the_summary_lists_this_page_s_busiest_hosts(tmp_path):
+    busiest = "".join(f"ppp{i}.isp.net   :   {19 - i} :   205,74{i}\n" for i in range(6))
+    got = {}
+    for case, listed in (("same", busiest), ("other", busiest.replace("205,740", "9"))):
+        raw = tmp_path / case / "raw"
+        hosts, weeks = raw / "a" / "h" / "weeks" / "hosts", raw / "b" / "h" / "weeks"
+        hosts.mkdir(parents=True)
+        weeks.mkdir(parents=True)
+        (hosts / "s.9.total-hosts.html").write_text(HOSTS.split("\n")[0] + "\n" + busiest)
+        (weeks / "s.9.html").write_text(PERIOD + listed)
+        for tree, stamp, page in (
+            ("a", "2000", "hosts/s.9.total-hosts.html"),
+            ("b", "2004", "s.9.html"),
+        ):
+            receipt = {"path": f"h/weeks/{page}", "url": f"http://h:80/weeks/{page}"}
+            receipt["replay"] = f"x/web/{stamp}0601000000id_/http://h/weeks/{page}"
+            (raw / tree / "receipts.receipts").write_text(json.dumps(receipt))
+        reports._STAMPS.clear()
+        reports._URLS.clear()
+        reports._PAGES.clear()
+        reports.main([str(raw), str(tmp_path / case / "out")])
+        got[case] = len((tmp_path / case / "out" / "rows.jsonl").read_text().splitlines())
+    assert got == {"same": 6, "other": 0}, "the summary sits in another tree, four years apart"
+
+
 WUSAGE = """<html><head><title>Week of 01/14/01 to 01/20/01
 </title></head><h3>Top 50 of 2669 Documents Sorted by Access Count</h3>
 <td>index.example.org</td><td align="right">9</td>
