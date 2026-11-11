@@ -772,15 +772,20 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     entry = "replay #20011206010804 line 79 ADD_DATE 842626679 19960913"
     marks = [dict(host="www.saved.example.net", year=1996, file=bm, pos=entry, field=f)
              for f in ("bookmark_entry", "page_link")]  # fmt: skip
+    marks.append(
+        dict(host="www.ref.example.net", year=1996, file=bm, pos=392, field="page_referrer")
+    )
     write(tmp_path / "bookmarks" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in marks))
     got = hn.ingest_staged_messages(conn, tmp_path / "bookmarks")
-    assert asked[-1] == ("bookmark_entry_host", "link_source") and got["bad_pos"] == 1
+    assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 1
+    assert asked[-1] == ("page_referrer_host", "link_source")
     ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
     cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
     assert q(conn, cited + ships + " ORDER BY 1") == [
         (f"bookmark entry 1996 {bm}#{entry} www.saved.example.net",),
         (f"page link 1999 {arc}#{pos} {host}",),
         (f"page link 1999 {replay}#{seen} www.other.example.org",),
+        (f"page referrer 1996 {bm}#392 www.ref.example.net",),
     ]
     # the store's own checks pass on the banked row, and every staged field is a host lane
     from ark.checks import collect_checks

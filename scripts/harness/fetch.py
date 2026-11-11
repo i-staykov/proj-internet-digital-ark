@@ -101,13 +101,15 @@ OUR_ROBOT_NAMES = frozenset(
 
 # **A robots file alone does not close these hosts.** Each publishes the data for download
 # (Common Crawl's and Arquivo.pt's index files, FreeBSD's list archive, whose raw week
-# files sit under `/cgi`, and public Mailman list archives) and its `*` group only keeps
+# files sit under `/cgi`, public Mailman list archives, and Mozilla's bug tracker, whose
+# documented REST API under `/rest` is its integration route) and its `*` group only keeps
 # crawlers at large out. A group that names us still refuses, as do the host's terms, a
 # 401, a 403 and a 429. The file's crawl delay is kept between requests.
 ROBOTS_ALONE = frozenset(
     {
         "data.commoncrawl.org",
         "arquivo.pt",
+        "bugzilla.mozilla.org",
         "mail-archive.freebsd.org",
         "listas.nodo50.org",
         "lists.fsfe.org",

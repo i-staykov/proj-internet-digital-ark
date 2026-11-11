@@ -475,6 +475,18 @@ def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():
             "link": "HTTP://WWW.X.ORG:80/b",
         }
     ]
+    # `modified`: the same links dated by the page's earlier Last-Modified year, none without one
+    dated = json.loads(lines[2])
+    http = dated["Envelope"]["Payload-Metadata"]["HTTP-Response-Metadata"]
+    http["Headers"] = {"Last-Modified": "Tue, 04 Jun 1996 10:00:00 GMT"}
+    out = io.StringIO()
+    assert wat_links.reduce([json.dumps(dated), lines[1]], out, modified=True)["kept"] == 1
+    (row,) = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert (row["host"], row["year"], row["modified"]) == (
+        "www.x.org",
+        "1996",
+        "Tue, 04 Jun 1996 10:00:00 GMT",
+    )
 
 
 def test_a_wat_file_gives_one_capture_per_host_and_earlier_last_modified_year(tmp_path):
