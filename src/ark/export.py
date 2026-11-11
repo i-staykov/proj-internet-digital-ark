@@ -86,11 +86,27 @@ TYPED_SOURCES = (
 )
 
 
-# A name typed into a body ships only when a source that is not a body names the same host: a
-# hand read found 8 of 30 Usenet body addresses and 7 to 9 of 30 bare `www.` names invented
-# (`your-house.net`, `www.sales.domain.com`).
-BODY_SOURCES = ("usenet_body_mention_hostnames",)
+# A name typed into a body ships only when a source that is not a body names the same host or,
+# for a registrable, the same domain: a hand read found 8 of 30 Usenet body addresses and 7 to 9
+# of 30 bare `www.` names invented (`your-house.net`, `www.sales.domain.com`), and 5 of 30 body
+# URLs (`mach1.domain.com`, `wwww.pizzaonline.nl`).
+BODY_SOURCES = (
+    "usenet_body_mention_hostnames",
+    "usenet_body_url_hostnames",
+    "maillist_body_url_hostnames",
+    "usenet_mention",
+    "usenet_address_mention",
+    "usenet_bare_mention",
+)
 BODY_STAGED = r"msg_[a-z0-9_]+__(body_mention|body_url)"
+
+
+def _body_only_domains() -> str:
+    """Registrables some body names and no other source does."""
+    names = ", ".join(f"'{name}'" for name in BODY_SOURCES)
+    body = f"(s.name IN ({names}) OR regexp_full_match(s.name, '{BODY_STAGED}'))"
+    rows = "SELECT e.domain FROM evidence e JOIN source s ON s.source_id = e.source_id"
+    return f"({rows} WHERE {body} EXCEPT {rows} WHERE NOT {body})"
 
 
 def _claim_filter(evidence_id: str, hostname: str) -> str:
@@ -373,6 +389,7 @@ def _candidate_pool(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path)
             SELECT d.domain FROM domain d
             WHERE d.domain NOT IN (SELECT domain FROM claim_pair)
               AND {_shipping_filter("d.", with_year=False)}
+              AND d.domain NOT IN {_body_only_domains()}
             ORDER BY 1
         """,
         # **A hostname whose every year fails XIV is a candidate too.** XIV names the
