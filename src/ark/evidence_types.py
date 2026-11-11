@@ -136,8 +136,8 @@ def web_evidence_sql(alias: str = "e") -> str:
 _TS = "[0-9]{14}"
 _CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?(replay failed )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
-# the linking page as its ARC record, its capture stamp and URL, then the linked host
-_PAGE_LINK = "^page link [0-9]{4} https?://[^ ]+#arc [0-9]+ [0-9]+ #[0-9]{14} [^ ]+ [^ ]+$"
+# the linking page as its ARC record or its replay, its capture stamp and URL, the linked host
+_PAGE_LINK = "^page link [0-9]{4} https?://[^ ]+#(arc [0-9]+ [0-9]+|replay) #[0-9]{14} [^ ]+ [^ ]+$"
 # the bookmark file's capture, the entry's line and its ADD_DATE (epoch, then yyyymmdd), the host
 _BOOKMARK_ENTRY = (
     "^bookmark entry [0-9]{4} https?://[^ ]+#replay #[0-9]{14} line [0-9]+"

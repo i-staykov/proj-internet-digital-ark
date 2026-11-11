@@ -2002,7 +2002,8 @@ def ingest_usenet_item_dir(
 # other row is a candidate under the one standing-rule entry `staged_messages / link_source`.
 MESSAGE_FIELDS = {
     # a captured page's `A` or `AREA` link to the host: `file` the page's ARC file, `pos`
-    # `arc <offset> <length> #<capture stamp> <page URL>`, the stamp inside the row's year
+    # `arc <offset> <length> #<capture stamp> <page URL>`, or `file` its Wayback replay, `pos`
+    # `replay #<capture stamp> <page URL>`; the stamp inside the row's year
     "page_link": "page_link_host",
     # a captured Netscape bookmark file's `A` entry for the host: `file` the file's Wayback
     # capture, `pos` `replay #<capture stamp> line <n> ADD_DATE <epoch> <yyyymmdd>`, the
@@ -2068,7 +2069,9 @@ def _staged_lines(
             if not file.startswith(("http://", "https://", "nntp://", "rsync://")):
                 counts["bad_file"] += 1
                 continue
-            if field == "page_link" and not re.match(rf"arc \d+ \d+ #{year}\d{{10}} \S+$", pos):
+            if field == "page_link" and not re.match(
+                rf"(arc \d+ \d+|replay) #{year}\d{{10}} \S+$", pos
+            ):
                 counts["bad_pos"] += 1
                 continue
             mark = rf"replay #\d{{14}} line \d+ ADD_DATE \d+ {year}\d{{4}}$"

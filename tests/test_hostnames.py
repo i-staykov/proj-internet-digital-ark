@@ -748,12 +748,16 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
 
     arc = "https://archive.org/download/X-1999/X-1999-PART-00005-000002.arc.gz"
     pos = "arc 5949 420 #19990302101500 http://www.example.gov/links.html"
+    replay = "https://web.archive.org/web/19990302101500id_/http://www.example.gov/links.html"
+    seen = "replay #19990302101500 http://www.example.gov/links.html"
     host = "www.linked.example.org"
     mail = dict(host=host, year=1999, file="nntp://news.php.net/php.dev", pos=3, field="from")
     write(tmp_path / "a_list" / "rows.jsonl", json.dumps(mail) + "\n")
     links = [
         dict(host=host, year=1999, file=arc, pos=pos, field="page_link"),
         dict(host=host, year=1998, file=arc, pos=pos, field="page_link"),  # stamped 1999
+        # the same link cited by the page's Wayback replay
+        dict(host="www.other.example.org", year=1999, file=replay, pos=seen, field="page_link"),
     ]
     write(tmp_path / "gov_links" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in links))
     asked: list[tuple] = []
@@ -763,7 +767,7 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     assert asked == [("staged_messages", "link_source")]
     got = hn.ingest_staged_messages(conn, tmp_path / "gov_links")
     assert asked[-1] == ("page_link_host", "link_source")
-    assert (got["page_link_rows"], got["bad_pos"], got["repointed"]) == (0, 1, 1)
+    assert (got["page_link_rows"], got["bad_pos"], got["repointed"]) == (1, 1, 1)
     bm = "https://web.archive.org/web/20011206010804id_/http://a.edu/bookmarks.html"
     entry = "replay #20011206010804 line 79 ADD_DATE 842626679 19960913"
     marks = [dict(host="www.saved.example.net", year=1996, file=bm, pos=entry, field=f)
@@ -776,6 +780,7 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     assert q(conn, cited + ships + " ORDER BY 1") == [
         (f"bookmark entry 1996 {bm}#{entry} www.saved.example.net",),
         (f"page link 1999 {arc}#{pos} {host}",),
+        (f"page link 1999 {replay}#{seen} www.other.example.org",),
     ]
     # the store's own checks pass on the banked row, and every staged field is a host lane
     from ark.checks import collect_checks
