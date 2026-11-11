@@ -69,6 +69,8 @@ FOLD = (
     "data/raw/usenet_header_items/*/lease/*.jsonl.gz",
     "data/raw/usenet_header_items/*/more/*.jsonl.gz",
     "data/raw/usenet_header_items/*/body/*.jsonl.gz",
+    "data/raw/usenet_header_items/*/hop/*.jsonl.gz",
+    "data/raw/usenet_header_items/*/relay/*.jsonl.gz",
     "data/raw/maillists_items/*.jsonl.gz",
     "data/raw/maillists_items/*.jsonl",
     "data/raw/enron_items/*.jsonl.gz",

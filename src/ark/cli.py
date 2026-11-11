@@ -645,7 +645,9 @@ def ingest_usenet_header_hostnames_cmd(
 
 @app.command(name="ingest-usenet-field-hostnames")
 def ingest_usenet_field_hostnames_cmd(
-    field: Annotated[str, typer.Argument(help="`msgid`, `from`, `lease`, `more` or `body`.")],
+    field: Annotated[
+        str, typer.Argument(help="`msgid`, `from`, `lease`, `more`, `body`, `hop` or `relay`.")
+    ],
     paths: Annotated[
         list[Path],
         typer.Argument(

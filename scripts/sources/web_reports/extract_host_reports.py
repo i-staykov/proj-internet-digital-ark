@@ -275,8 +275,8 @@ def pwebstats(lines, text, path):
             yield r.group(1), year, straddle, n, stamp, flat, False
 
 
-HA_SPAN = re.compile(
-    r"Summary period:\s*(\d\d)/([A-Za-z]{3})/(\d\d)\s+to\s+(\d\d)/([A-Za-z]{3})/(\d\d)"
+HA_SPAN = re.compile(  # 1.9e prints the year 2000 as "0"
+    r"Summary period:\s*(\d\d)/([A-Za-z]{3})/(\d{1,3})\s+to\s+(\d\d)/([A-Za-z]{3})/(\d{1,3})\b"
 )
 
 
@@ -530,6 +530,7 @@ NCSA_ERR_ROW = re.compile(
     r"([A-Za-z0-9.-]+\.[A-Za-z]{2,})[\],]"
 )
 NODE_ROW = re.compile(r"^(\S+)\t(\d{9,10})$")
+GUEST_ROW = re.compile(r"^(\S+) - \[\d\d/\d\d/(\d{2,5}) \d\d:\d\d:\d\d[^\]]*\]")
 RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the client)
     (CLF_ROW, 2, 1),
     (XFER_ROW, 1, 2),
@@ -538,6 +539,7 @@ RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the c
     (NS_ERR_ROW, 1, 2),
     (NCSA_ERR_ROW, 1, 2),
     (NODE_ROW, 2, 1),
+    (GUEST_ROW, 2, 1),
 )
 
 
@@ -545,15 +547,18 @@ def _line_year(token: str) -> int:
     n = int(token)
     if n > 100_000_000:  # seconds since 1970
         return datetime.fromtimestamp(n, UTC).year
+    if 19100 <= n < 19200:  # a script printing "19" before years-since-1900
+        return n - 17100
     return n if n > 1000 else (1900 if n >= 90 else 2000) + n
 
 
 def raw_log(lines, text, path):
     """A server's own log left public, each line dating itself: Common Log Format, a wu-ftpd
     xferlog, an error log naming the client, a page counter's visit log (`[07:27:45 08/13/97
-    Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), or a list of
-    `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line dated
-    after the archive captured the file takes the capture's year, and its stamp says so."""
+    Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), a guestbook's log
+    of signings (`host - [09/04/99 21:43:49 MDT]`, the year also as 100 or 19100 for 2000), or a
+    list of `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line
+    dated after the archive captured the file takes the capture's year, and its stamp says so."""
     head = [x for x in lines[:400] if x.strip()][:300]
     if sum(any(rx.match(x) for rx, _, _ in RAW_ROWS) for x in head) < 5:
         return
@@ -617,6 +622,60 @@ def accesswatch(lines, text, path):
             yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
 
 
+SB_DATE = r"<B>\w+, ([A-Z][a-z]{2}) (\d{1,2}), (\d{4}) - "
+SB_SINCE = re.compile(r"include all Sites logged since:\s*" + SB_DATE)
+SB_UPDATED = re.compile(r"statistics last updated on:\s*" + SB_DATE)
+SB_HEAD = re.compile(r"^<B>([^<]+):</B>\s*$")
+SB_ROW = re.compile(r"^<LI><B>([A-Za-z0-9.-]+)(?: \([^)]*\))?:?</B>(.*)$")
+SB_VISIT = re.compile(r"(?:First Visit|occurred) (\w+), ([A-Z][a-z]{2}) (\d{1,2})\b")
+WEEKDAYS = "monday tuesday wednesday thursday friday saturday sunday".split()
+
+
+def statbot(lines, text, path):
+    """Statbot prints the two dates its log runs between and lists the sites: today's visitors,
+    and a comprehensive list whose rows say "First Visit Sunday, Mar 17". Today is the update's
+    year; a dated visit takes the one year of the span in which that date fell on that weekday;
+    a row saying neither is read only when the span lies in one year."""
+    a, b = SB_SINCE.search(text[:8000]), SB_UPDATED.search(text[:8000])
+    if not a or not b:
+        return
+    try:
+        since, upd = (
+            date(int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2))) for m in (a, b)
+        )
+    except (KeyError, ValueError):
+        return
+    stamp, section = f"sites logged {since} to {upd}", ""
+    for n, line in enumerate(lines, 1):
+        h = SB_HEAD.match(line)
+        if h:
+            section = h.group(1)
+            continue
+        r = SB_ROW.match(line) if section.endswith("Visitor List") else None
+        if not r:
+            continue
+        v = SB_VISIT.search(r.group(2))
+        if section.startswith("Today") or "Today" in r.group(2):
+            year = upd.year
+        elif v:
+            fits = []
+            for y in range(since.year, upd.year + 1):
+                try:
+                    d = date(y, MONTHS[v.group(2).lower()], int(v.group(3)))
+                except (KeyError, ValueError):
+                    continue
+                if since <= d <= upd and WEEKDAYS[d.weekday()] == v.group(1).lower():
+                    fits.append(y)
+            if len(fits) != 1:
+                continue
+            year = fits[0]
+        elif since.year == upd.year:
+            year = upd.year
+        else:
+            continue
+        yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -631,6 +690,7 @@ GENERATORS = (
     ("raw-log", raw_log),
     ("accesswatch", accesswatch),
     ("usage-log", usage_log_by_ip),
+    ("statbot", statbot),
 )
 
 

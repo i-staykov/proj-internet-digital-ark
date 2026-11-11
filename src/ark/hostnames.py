@@ -289,6 +289,10 @@ WEB_FACING_HOST_SOURCES = frozenset(
         # The other header fields and the body's addresses and `www.` names, candidates.
         "usenet_header_more_hostnames",
         "usenet_body_mention_hostnames",
+        # A name beside its public address in the same posts' bodies: a traceroute or ping hop,
+        # and the receiver's own lookup in a pasted `Received` line (`hop/`, `relay/`).
+        "usenet_body_hop_hostnames",
+        "usenet_body_relay_hostnames",
         # The mail twin of `NNTP-Posting-Host` (`RECEIVED_FAMILY`): the reverse-DNS name a
         # receiving MTA looked up for the machine it accepted a message from. Candidates only.
         "received_rdns_hostnames",
@@ -1624,6 +1628,17 @@ USENET_FIELD_FAMILIES = {
         "usenet_body_mention_hostnames",
         "usenet_body_mention_host",
         "usenet mention",
+        _USENET_ITEM,
+        _usenet_url,
+    ),
+    # a pasted traceroute or ping line's name, and a pasted `Received` line's `(name [ip])`
+    "hop": ItemFamily(
+        "usenet_body_hop_hostnames", "usenet_body_hop_host", "usenet hop", _USENET_ITEM, _usenet_url
+    ),
+    "relay": ItemFamily(
+        "usenet_body_relay_hostnames",
+        "usenet_body_relay_host",
+        "usenet relay",
         _USENET_ITEM,
         _usenet_url,
     ),
