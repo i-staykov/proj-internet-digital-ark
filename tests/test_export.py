@@ -140,6 +140,8 @@ def _store(reverse: bool) -> duckdb.DuckDBPyConnection:
         partial(header, "your-domain.pt", "www.your-domain.pt", 2000, "usenet_mention"),
         *(partial(header, "example.net", h, y, "usenet") for h, y in (("news.example.net", 2000),
           ("news.example.net", 2001), ("mail.example.net", 1998))),
+        # a PTR record whose zone lost its final dot names no host
+        partial(header, "example.net", "4.3.2.1.in-addr.arpa.example.net", 1998, "usenet"),
         *(partial(_isc, conn, "survey.net", h, "1996-07") for h in ("keep.survey.net",
           "his.survey.net")),
         partial(_isc, conn, "isc.net", "Mail.isc.net", "1999-01"),
@@ -224,7 +226,7 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filters_still_bite(run) -> Non
         cited = capture(r["hostname"], int(r["assigned_year"]))
         assert (r["source"], r["evidence_value"]) == ("ia_cdx", cited), r
     names = _words(run, "candidates.txt") + _words(run, "netnew/candidate_additions.txt")
-    assert not [name for name in names if name.endswith((".arpa", ".site"))]
+    assert not [name for name in names if name.endswith((".arpa", ".site")) or ".arpa." in name]
 
 
 def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run) -> None:
