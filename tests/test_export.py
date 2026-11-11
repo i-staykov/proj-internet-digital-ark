@@ -234,6 +234,17 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     assert (summary["candidates"], summary["track"]) == (13, "candidate")
     assert {u: v["names"] for u, v in summary["by_unit"].items()} == dict(hostname=6, registrable=7)
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
+    # one provenance row a name, whose classes partition the claim and its EE
+    rows = _rows(run, "netnew/candidate_provenance.csv")
+    assert [r["name"] for r in rows] == claim
+    assert [r["name"] for r in rows if not r["position"]] == ["cand.org"]  # found, undated
+    classes = {r["name"]: r["class"] for r in rows}
+    assert classes["news.example.org"] == "Usenet server header host"
+    assert {classes[n] for n in isc} == {"ISC Internet Domain Survey host"}
+    by_class = summary["by_class"]
+    assert sum(c["names"] for c in by_class.values()) == len(claim)
+    total = sum(Decimal(c["equivalent_english"]) for c in by_class.values())
+    assert total == Decimal(summary["equivalent_english"])
     his = ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
     his += [f"isc_survey_hostnames/{year}-ISC.txt" for year in (1996, 1997)]
     assert summary["held_by_him"] == {"names": 6, "files": his}
