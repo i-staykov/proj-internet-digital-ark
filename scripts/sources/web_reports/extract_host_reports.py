@@ -47,7 +47,7 @@ GETSTATS_ROW = re.compile(r"^\s*(\d+)\s*:\s*(\d\d)/(\d\d)/(\d\d)\s*:\s*(?:\d+\s*
 PWEB_STAMP = re.compile(
     r"[^\n(]{0,80}\((\d{1,2}) ([A-Za-z]{3}) (\d{4})\s*-\s*(\d{1,2}) ([A-Za-z]{3}) (\d{4})\)"
 )
-PWEB_ROW = re.compile(r"^\s*(\S+)\s+:\s+[\d,]+\s+:\s+[\d,]+\s*$")
+PWEB_ROW = re.compile(r"^\s*(\S+)\s+:\s+([\d,]+)\s+:\s+([\d,]+)\s*$")
 WEBALIZER_STAMP = re.compile(r"Summary Period:\s*([A-Za-z]+)\s+(\d{4})")
 WEBALIZER_OTHER = (
     r"Total (URLs?|Referrers|Search Strings|User Agents|Countries|Usernames|Entry|Exit)"
@@ -239,24 +239,73 @@ def capture_stamps(path: Path) -> dict | None:
     return None
 
 
+_PAGES: dict[str, list[Path]] = {}
+
+
+def _bare(url: str) -> str:
+    return re.sub(r"^https?://([^/:]+)(?::80)?", lambda m: m.group(1).lower(), url)
+
+
+def held_pages(raw_root: Path, url: str) -> list[Path]:
+    """Every held file of one archived URL, in whichever tree under the raw root holds it."""
+    if not _PAGES:
+        _PAGES[""] = []
+        for receipts in sorted(raw_root.glob("*/receipts.receipts")):
+            for line in receipts.read_text(errors="replace").splitlines():
+                try:
+                    r = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if r.get("path") and r.get("replay"):
+                    _PAGES.setdefault(_bare(r["url"]), []).append(receipts.parent / r["path"])
+    return [p for p in _PAGES.get(_bare(url), []) if p.exists()]
+
+
 def pwebstats(lines, text, path):
     """A pwebstats host page carries no period; its summary page roger.<N>.html beside the
-    hosts/ directory does, so the stamp is read there and the witness names both."""
+    hosts/ directory does, so the stamp is read there and the witness names both. Two Wayback
+    captures must be shown to be one period, since a renumbered series could lend one week's
+    dates to another's hosts: either the summary's own table of its busiest hosts stands on the
+    host page row for row, requests and bytes alike, or, when the summary lists under five,
+    the two were captured within a week.
+    The summary may sit in another tree of the raw root, read by another list."""
     if "Frequency of Access: Hosts" not in text:
         return
-    sibling = path.parent.parent / path.name.replace(".total-hosts", "")
-    if not sibling.exists():
-        return
-    paired = ""
+    name = path.name.replace(".total-hosts", "")
+    siblings = [s for s in [path.parent.parent / name] if s.exists()]
     stamps = capture_stamps(path)
-    if stamps is not None:
-        # two Wayback captures: the period page must have been taken within a week of the
-        # host page, or a renumbered series could lend one week's dates to another's hosts
-        a, b = stamps.get(str(path)), stamps.get(str(sibling))
-        if not a or not b or abs((a - b).days) > 7:
-            return
-        paired = f" (captures {a:%Y%m%d} and {b:%Y%m%d})"
-    m = PWEB_STAMP.search(TAG.sub(" ", sibling.read_bytes().decode("latin-1")))
+    replay = (page_url(path) or "") if stamps is not None and not siblings else ""
+    if "id_/" in replay:
+        tree = next(p for p in path.parents if (p / "receipts.receipts").exists())
+        there = replay.split("id_/", 1)[1].rsplit("/", 2)[0]
+        siblings = held_pages(tree.parent, f"{there}/{name}")
+    mine = None
+    for sibling in siblings:
+        paired = ""
+        summary = TAG.sub(" ", sibling.read_bytes().decode("latin-1"))
+        if stamps is not None:
+            if mine is None:
+                flat = html.unescape(TAG.sub(" ", text)).splitlines()
+                mine = {r.groups() for r in map(PWEB_ROW.match, flat) if r}
+            a, b = stamps.get(str(path)), (capture_stamps(sibling) or {}).get(str(sibling))
+            top = [
+                r.groups() for r in map(PWEB_ROW.match, html.unescape(summary).splitlines()) if r
+            ]
+            top = [t for t in top[:10] if "/" not in t[0]]
+            if len(top) >= 5:  # the rows decide alone; under five the captures' week does
+                if not all(t in mine for t in top):
+                    continue
+                paired = (
+                    f" (its {len(top)} busiest hosts stand on this page, requests and bytes alike)"
+                )
+            elif a and b and abs((a - b).days) <= 7:
+                paired = f" (captures {a:%Y%m%d} and {b:%Y%m%d})"
+            else:
+                continue
+        break
+    else:
+        return
+    m = PWEB_STAMP.search(summary)
     if not m:
         return
     try:
