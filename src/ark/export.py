@@ -546,13 +546,23 @@ REPLAY_CLASS = "web capture that does not replay"
 # - its From or Message-ID row names an anti-spam munge, a first label starting `spam` or
 #   `nospam` (`spammidway.uchicago.edu`, `nospamhowl.demon.co.uk`);
 # - a Gmane row dates a `gmane.org` name before 2002: Gmane began in 2002 and stamped its own
-#   Message-IDs on what it imported.
+#   Message-IDs on what it imported;
+# - before 2002 it is a name no registry then issued: a `.co`, `.ne` or `.om` name outside
+#   com/net/org/edu/gov (`1stnet.co`, `austin.rr.om`: a `.com` or `.net` cut short), or two
+#   labels under a ccTLD that issued only third-level names (`aspirin.uk`, `rapina.br`), the
+#   legacy `.uk` second levels aside.
+_CUT_TLD = "[.](co|ne|om)$"
+_THIRD_LEVEL_CC = "^[^.]+[.](uk|au|nz|br|kr|sg|my|il|mx|ar|pe|th|ve)$"
 NO_FILE = (
     "(coalesce(source_file, '') = '' OR year IS NOT NULL AND ("
     "regexp_matches(name, '(^|[.])(my|no|test|dummy|any|some|fake|local)domain[.][a-z.]+$')"
     " OR (class = 'mail or news From or Message-ID host' AND regexp_matches(name, '^(no)?spam'))"
     " OR (starts_with(source, 'msg_gmane_lists') AND year < 2002"
-    " AND (name = 'gmane.org' OR ends_with(name, '.gmane.org')))))"
+    " AND (name = 'gmane.org' OR ends_with(name, '.gmane.org')))"
+    f" OR (year < 2002 AND (regexp_matches(name, '{_CUT_TLD}')"
+    f" AND NOT regexp_matches(name, '(^|[.])(com|net|org|edu|gov){_CUT_TLD}')"
+    f" OR regexp_matches(name, '{_THIRD_LEVEL_CC}')"
+    " AND NOT regexp_matches(name, '^(bl|jet|mod|nhs|parliament|police)[.]uk$')))))"
 )
 
 
