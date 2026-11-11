@@ -1,0 +1,78 @@
+name: runner-available
+
+# (year, host) rows screened by the Wayback availability API on runners' own addresses, a share
+# a job (scripts/engines/wayback_available.py): each worker one client, one ask at a time, its own
+# back-off. The list is a dispatch input, so public: a host only his files name never goes in it.
+# No model, no secret. The hit journals bank as the walker's do.
+on:
+  workflow_dispatch:
+    inputs:
+      list:
+        description: "year host" rows, one a line, plain or gzip then base64
+        required: true
+      shards:
+        description: jobs, each on its own address
+        default: "4"
+      parallel:
+        description: jobs at once
+        default: "4"
+      workers:
+        description: clients a job, each its own share
+        default: "2"
+      seconds:
+        description: a job's asking time
+        default: "3300"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: echo "index=[$(seq -s, 0 $((SHARDS - 1)))]" >> "$GITHUB_OUTPUT"
+
+  ask:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # A client's early end is in its log, never a red run.
+      - env:
+          LIST: ${{ inputs.list }}
+          SHARDS: ${{ inputs.shards }}
+          WORKERS: ${{ inputs.workers }}
+          SECONDS_: ${{ inputs.seconds }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          case "$LIST" in H4sI*) printf '%s' "$LIST" | base64 -d | gunzip > list.txt ;; *) printf '%s\n' "$LIST" > list.txt ;; esac
+          n=$((SHARDS * WORKERS))
+          for w in $(seq 0 $((WORKERS - 1))); do
+            python3 scripts/engines/wayback_available.py list.txt --share "$((INDEX * WORKERS + w))/$n" \
+              --data out --seconds "$SECONDS_" &
+            sleep 5
+          done
+          wait || true
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: available_${{ github.run_id }}_${{ matrix.index }}
+          path: out/raw
+          retention-days: 3
+          if-no-files-found: ignore
