@@ -84,7 +84,7 @@ class Client:
         done = self.state / "done.txt"
         self.done = set(done.read_text().split()) if done.exists() else set()
         self.log = open(self.state / "log.tsv", "a", buffering=1)
-        self.last, self.refused = 0.0, 0
+        self.last, self.refused, self.end = 0.0, 0, float("inf")
 
     def rest(self, seconds: float, why: str) -> None:
         self.log.write(f"# pause {round(seconds)} s: {why}\n")
@@ -94,7 +94,7 @@ class Client:
         """Ask one registrable to its end or `CAP`; False once the address is refused."""
         keep: dict = {}
         key, tries, throttled, requests, status = None, 0, 0, 0, "200"
-        while requests < CAP:
+        while requests < CAP and time.time() < self.end:  # a deadline ends a big domain too
             time.sleep(max(0.0, self.last + self.a.interval - time.time()))
             self.last, t0 = time.time(), time.time()
             requests += 1
@@ -186,9 +186,10 @@ def main() -> None:
     a.name = a.name or f"{a.list.stem}_{i}of{n}"
     regs = [ln.split("#")[0].strip().lower() for ln in a.list.read_text().splitlines()]
     regs = [r for k, r in enumerate(x for x in regs if x) if k % n == i]
-    client, end = Client(a), time.time() + a.seconds if a.seconds else float("inf")
+    client = Client(a)
+    client.end = time.time() + a.seconds if a.seconds else float("inf")
     for reg in regs:
-        if time.time() >= end:
+        if time.time() >= client.end:
             break
         if reg not in client.done and not client.domain(reg):
             client.log.write("# exit: the address is refused\n")
