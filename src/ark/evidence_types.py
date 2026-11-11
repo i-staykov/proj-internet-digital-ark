@@ -72,6 +72,25 @@ WEB_METHODS = frozenset(
 )
 
 
+# **What kind of web evidence a method is, as the delivery names it per row**: a dated web
+# link graph naming the host, a dated dataset record (a crawl list's fetched page, an HTTP
+# Archive request), else a capture of the host from an archive's index or extract.
+_LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract")
+_DATASET = ("crawl_list_node", "httparchive_har_entry")
+
+
+def evidence_kind_sql(method: str) -> str:
+    """`capture`, `link graph` or `dataset` for a web method, NULL for any other."""
+    graph = ", ".join(f"'{m}'" for m in _LINK_GRAPH)
+    dataset = ", ".join(f"'{m}'" for m in _DATASET)
+    web = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS | {REDIRECT_METHOD}))
+    return (
+        f"(CASE WHEN {method} IN ({graph}) THEN 'link graph'"
+        f" WHEN {method} IN ({dataset}) THEN 'dataset'"
+        f" WHEN {method} IN ({web}) THEN 'capture' END)"
+    )
+
+
 # **The one method admitted by its STATUS rather than by its name.** XIV's "non-error"
 # qualifier attaches to the custodian-extract pattern, not to the IA CDX pattern beside it,
 # and a NYPW TimeMap row IS the IA index read through Memento. So the status alone does not

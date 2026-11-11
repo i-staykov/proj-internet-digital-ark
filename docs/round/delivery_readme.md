@@ -3,10 +3,11 @@
 Two sets.
 
 - `additions/`: hostnames and registrable domains for your annual files, 1996 to 2013, one file
-  a year, none in your file for that year. Each name has its own web capture of exactly that name
-  in that year: 1996 to 2001 a 2xx or 3xx capture; 2002 to 2013 a 2xx or 3xx capture where the
-  capture index records a status, else a capture from an index that records none, never a 4xx or
-  5xx.
+  a year, none in your file for that year. Each name has its own web evidence of exactly that
+  name in that year, of one of three kinds: a capture (1996 to 2001 a 2xx or 3xx capture that
+  replays; 2002 to 2013 a 2xx or 3xx capture where the capture index records a status, else a
+  capture from an index that records none, never a 4xx or 5xx), a dated link graph that names
+  it, or a custodian dataset's dated record of it.
 - `candidates/`: every other name we hold for 1996 to 2001, as one list, `candidates.txt`. None is
   in any file of your release or a 1996 to 2001 addition; one can be an addition of a later year. `provenance.csv` has one row a name: `name, year, class, source, source_file,
   position`, `source_file` the public file the name was read from and `position` the record
@@ -103,7 +104,7 @@ uv run --with duckdb --no-project python additions/provenance/trace.py "$(head -
 | Path | Contents |
 |---|---|
 | `<year>.txt` | ours for that year, none in your file for it |
-| `provenance/` | `evidence_manifest.csv` and `hostnames_evidence_manifest.csv`, one capture per 1996 to 2001 addition; `evidence_ledger.csv`, the journal line of one capture per 2002 to 2013 addition, with `dedup_report.csv` and `manifest.json` (inputs, your files' sha256); the evidence graph as Parquet with `trace.py` |
+| `provenance/` | `evidence_manifest.csv` and `hostnames_evidence_manifest.csv`, one evidence row per 1996 to 2001 addition, its `evidence_kind` last; `evidence_ledger.csv`, the journal line of one capture per 2002 to 2013 addition, with `dedup_report.csv` and `manifest.json` (inputs, your files' sha256); the evidence graph as Parquet with `trace.py` |
 | `support/` | `verify.sh`; `audit/` (the merge against your release, report figures, per-source tables); `source/` (the code at `COMMIT.txt`, the agents at `FLEET_COMMIT.txt`); `journals/`, `seeds/`; `baseline/README.txt`; your calculator, unmodified; `experience-summary.md`, `metric-explained.md`, `sources.md`, `sources-closed.md`; `Open Research Questions/` |
 
 Name lists are one lowercase name per line, `LC_ALL=C` sorted, without a header. Your file for a
