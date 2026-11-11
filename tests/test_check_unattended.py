@@ -7,6 +7,7 @@ recipe's shebang body from the justfile.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import shutil
 import subprocess
@@ -395,3 +396,17 @@ def test_the_tick_pulls_only_under_the_lock(clone):
     head = git_out(repo, env, "rev-parse", "HEAD")
     tick(repo, env)  # the fixture's lock is held: the sync stops before its preflight
     assert git_out(repo, env, "rev-parse", "HEAD") == head
+
+
+def test_a_lane_lock_held_by_another_job_names_it(tmp_path, monkeypatch):
+    check = script("harness/check_unattended.py")
+    monkeypatch.setattr(check, "ROOT", tmp_path)
+    monkeypatch.setattr(check, "STATE", tmp_path / "state")
+    (tmp_path / "data").mkdir()
+    with open(tmp_path / "data/lane7.lock", "w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)  # this test is the other job
+        ok, line = check.lane(7)
+        fcntl.flock(held, fcntl.LOCK_UN)
+    assert not ok
+    assert f"lane7.lock held by another job (pid {os.getpid()}: " in line
+    assert check.lane(7) == (False, "stopped, never ran")

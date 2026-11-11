@@ -11,7 +11,8 @@ line per check, `ok` or `FAIL`, then the verdict; exit 1 on any FAIL.
   holds it, the flag file present).
 - login: `gh auth status` succeeds.
 - space: free space clears the bank's floor plus its write budget (`ark.disk.space`).
-- lanes: a lane under no pause flag runs, or wrote its log within cron's restart period. Its
+- lanes: a lane under no pause flag runs, or wrote its log within cron's restart period; a lock
+  held by any other job names that job, since cron's `flock -n` then never starts the lane. Its
   `# exit ... pending=0` row is no proof of an empty queue (a stopped lane writes it too), and
   cron restarts a finished lane, which writes that row again, every period.
 - readers, only where `local.env` ARK_HOSTS runs here: a reader (`READERS`) with parts under
@@ -126,6 +127,15 @@ def lane(n: int) -> tuple[bool, str]:
         return True, "paused"
     if run("pgrep", "-f", f"cdx_extended_walk[.]py --lane {n} ")[0] == 0:
         return True, "running"
+    lock = ROOT / f"data/lane{n}.lock"
+    if lock.exists() and run("flock", "-n", str(lock), "true")[0] == 1:
+        pid = (run("fuser", str(lock))[1].split() or ["?"])[-1]  # the innermost holder
+        try:
+            cmd = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ")
+        except OSError:
+            cmd = b""
+        what = cmd.decode(errors="replace").strip()[:120]
+        return False, f"stopped, lane{n}.lock held by another job (pid {pid}: {what})"
     log = ROOT / f"data/raw/cdx_walk/lane{n}/log.tsv"
     if not log.exists():
         return False, "stopped, never ran"
