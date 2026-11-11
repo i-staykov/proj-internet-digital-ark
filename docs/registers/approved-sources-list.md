@@ -867,4 +867,9 @@ Decision: master
 
 ## Pending requests
 
-None.
+### commoncrawl_cdx / cdx_timestamp
+- the artifact: Common Crawl's index parts for its five crawls inside 2002 to 2013 (`index.commoncrawl.org/collinfo.json`: CC-MAIN-2008-2009, CC-MAIN-2009-2010, CC-MAIN-2012, CC-MAIN-2013-20, CC-MAIN-2013-48), `data.commoncrawl.org/cc-index/collections/<crawl>/indexes/cdx-00000.gz` to `cdx-00299.gz`, under Common Crawl's terms of use (robots refuse `*` alone, `scripts/harness/fetch.py` `ROBOTS_ALONE`), read on runners by `runner-grep` with `reduce` (`scripts/sources/web_reports/host_years.py`)
+- what dates one item: the 14-digit capture stamp CDXJ carries between the SURT key and the JSON body, written by Common Crawl's crawler, with the JSON's `status` 2xx or 3xx; 2002 to 2013 only, one row per host-year, into `data/raw/extended/commoncrawl_cdx/` for the extended export (`bulk_cdx_file`, an existing class at a new custodian). No Wayback replays these captures: the row's `filename`, `offset` and `length` are a byte range of the crawl's own ARC or WARC file on the same host
+- measured 2026-11-11 on index part 150 of 300 of each crawl, by exact name against merge261104: 2008-2009 115,555 host-years, 81,415 net-new, 51,462.4 EE; 2009-2010 214,853, 159,121, 100,494.4; 2012 268,344, 117,245, 74,110.6, before our WDC 2012 rows; 2013-20 68,236, 18,081, 11,429.0
+- potential: 30000000
+Decision: pending
