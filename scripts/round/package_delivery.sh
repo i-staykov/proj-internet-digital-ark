@@ -178,6 +178,15 @@ cp docs/brief/metric-explained.md "$S/metric-explained.md"
 # theirs by reference). The open research questions folder is built from that commit.
 git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$S/source/fleet.tar.gz"
 git -C "$FLEET" rev-parse HEAD > "$S/source/FLEET_COMMIT.txt"
+# The refused-values pool the research questions read (q2), no longer shipped. **Kept in
+# `output/netnew/`, and only the journals newer than it are read and merged in**: the scan is
+# exhaustive over 23 GB of gzip, and a journal is written once, so the merge is what a full scan
+# would write. Only the three DEFAULT_DIRS of unparsed_pool.py can stale it, no walk journal.
+UNPARSED="output/netnew/candidates_unparsed.txt"
+if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw/cdx_suffix data/raw/cdx_gap_hostgrain data/raw/nypw_hostgrain \
+        -name '*.jsonl.gz' ! -name 'walk_*' -newer "$UNPARSED" -print -quit 2>/dev/null)" ]; then
+    uv run python scripts/round/unparsed_pool.py --incremental --out "$UNPARSED" || true
+fi
 if ! uv run python scripts/round/orq.py --stage "$S" --fleet "$FLEET"; then
     echo "refusing to package: the open research questions did not build" >&2
     exit 1
@@ -437,7 +446,8 @@ from pathlib import Path
 
 root, marker = Path(sys.argv[1]), sys.argv[2]
 names = [f"{y}.txt" for y in range(1996, 2014)]
-names += ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
+# his candidate files as this release has them: merge261104 has no unparsed-format file
+names += [n for n in ("candidate_pool.txt", "candidate_pool_unparsed_format.txt") if (root / n).is_file()]
 names += sorted(f"isc_survey_hostnames/{p.name}" for p in (root / "isc_survey_hostnames").glob("*.txt"))
 
 
