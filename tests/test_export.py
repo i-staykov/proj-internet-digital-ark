@@ -234,6 +234,17 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     assert (summary["candidates"], summary["track"]) == (13, "candidate")
     assert {u: v["names"] for u, v in summary["by_unit"].items()} == dict(hostname=6, registrable=7)
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
+    # one provenance row a name, whose classes partition the claim and its EE
+    rows = _rows(run, "netnew/candidate_provenance.csv")
+    assert [r["name"] for r in rows] == claim
+    assert [r["name"] for r in rows if not r["position"]] == ["cand.org"]  # found, undated
+    classes = {r["name"]: r["class"] for r in rows}
+    assert classes["news.example.org"] == "Usenet server header host"
+    assert {classes[n] for n in isc} == {"ISC Internet Domain Survey host"}
+    by_class = summary["by_class"]
+    assert sum(c["names"] for c in by_class.values()) == len(claim)
+    total = sum(Decimal(c["equivalent_english"]) for c in by_class.values())
+    assert total == Decimal(summary["equivalent_english"])
     his = ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
     his += [f"isc_survey_hostnames/{year}-ISC.txt" for year in (1996, 1997)]
     assert summary["held_by_him"] == {"names": 6, "files": his}
@@ -488,24 +499,38 @@ def test_the_audit_refuses_a_delivery_that_drifted(delivery, file, old, new, ref
 
 
 @pytest.mark.parametrize("omit_provenance", [False, True])
-def test_packaging_requires_and_copies_the_complete_collection(tmp_path, delivery, omit_provenance):
-    collection, root = delivery[0], tmp_path / "root"
-    links = {"output/netnew": collection, "src/ark/data/" + WEIGHTS.name: delivery[3]}
-    links |= {"src/ark/english_share.py": SHARE, "scripts/round/verify_isc_candidates.py": AUDIT}
-    for link, target in links.items():
-        (root / link).parent.mkdir(parents=True, exist_ok=True)
-        (root / link).symlink_to(target)
-    if omit_provenance:
-        (collection / PROV).unlink()
+def test_packaging_ships_the_candidates_with_their_provenance_and_class_table(
+    tmp_path, omit_provenance
+):
+    """Candidates ship as one list and one provenance file; the README's class table sums to
+    the export's summary, and a missing provenance file refuses."""
+    netnew, stage = tmp_path / "output/netnew", tmp_path / "stage"
+    netnew.mkdir(parents=True)
+    (stage / "candidates").mkdir(parents=True)
+    (stage / "README.md").write_text("top\n[CLASS TABLE]\nend\n")
+    (netnew / "candidate_additions.txt").write_text("a.com\nb.de\n")
+    if not omit_provenance:
+        (netnew / "candidate_provenance.csv").write_text(
+            "name,year,class\na.com,1999,x\nb.de,2000,y\n"
+        )
+    summary = {"candidates": 2, "equivalent_english": "1.5",
+               "by_class": {"x": {"names": 1, "equivalent_english": "1"},
+                            "y": {"names": 1, "equivalent_english": "0.5"}}}  # fmt: skip
+    (netnew / "candidate_additions_summary.json").write_text(json.dumps(summary))
+    (tmp_path / "docs/round").mkdir(parents=True)
+    (tmp_path / "docs/round/candidate_classes.tsv").write_text("class\tsentence\nx\this rule\n")
     text = (ROOT / "scripts/round/package_delivery.sh").read_text()
-    cut = r"# ISC candidates must stay separate.*?\n(.*?)# The source-saturation ledger"
-    block = 'STAGE="stage"\n' + re.search(cut, text, re.S)[1]
-    run = subprocess.run(["bash", "-e"], input=block, cwd=root, text=True, capture_output=True)
+    cut = r"(# THE CANDIDATE SET.*?)# `additions_english/`"
+    block = "STAGE=stage C=stage/candidates\n" + re.search(cut, text, re.S)[1]
+    run = subprocess.run(["bash", "-e"], input=block, cwd=tmp_path, text=True, capture_output=True)
     assert (run.returncode != 0) is omit_provenance, run.stderr
     if not omit_provenance:
-        shipped = {p.name for p in (root / "stage/isc_survey_hostnames").iterdir()}
-        assert shipped == {*(p.name for p in collection.iterdir()), "english_share.py"}
-        assert (root / "stage/verify_isc_candidates.py").is_file()
+        assert (stage / "candidates/candidates.txt").read_text() == "a.com\nb.de\n"
+        readme = (stage / "README.md").read_text()
+        assert (
+            "| x | his rule | 1 | 1.0 |" in readme and "| **all** | | **2** | **1.5** |" in readme
+        )
+        assert "no sentence of his for ['y']" in run.stderr
 
 
 def test_the_arpa_export_filter_names_the_whole_tld_and_costs_nothing_outside_it() -> None:
@@ -562,3 +587,37 @@ def test_a_repoint_moves_the_store_ledger() -> None:
     before = store_ledger(conn)
     conn.execute("UPDATE hostname_year SET evidence_id = 2")
     assert store_ledger(conn) != before
+
+
+def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_folders() -> None:
+    """A staged row's folder name never decides its class (debbugs_received holds body URLs),
+    except a news server's report, filed under the visitor field."""
+    from ark.export import _class_sql
+
+    cases = {
+        ("msg_debbugs_received__body_url", "msg_body_url", "x"): "message body URL or mention",
+        ("msg_debbugs_received__header_more", "msg_header_more_host", "x"): (
+            "other server-written header host"
+        ),
+        ("msg_debbugs_received__news_header", "msg_news_header_host", "x"): (
+            "Usenet server header host"
+        ),
+        ("msg_debbugs_received__received_by", "msg_received_by", "x"): "mail Received header host",
+        ("msg_innreport_hosts__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "news-server report host"
+        ),
+        ("msg_web_host_reports__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "web usage report: visitor host"
+        ),
+        ("usenet_header_fqdn_hostnames", "usenet_server_written_header", "x"): (
+            "Usenet server header host"
+        ),
+        ("ia_cdx", "ia_cdx_domain_sweep", "cdx capture 19990101000000 status 404 a.com"): (
+            "web capture with an error status"
+        ),
+    }
+    conn = duckdb.connect()
+    for (source, method, value), want in cases.items():
+        sql = _class_sql("$s", "$m", "$v", "false")
+        got = conn.execute(f"SELECT {sql}", {"s": source, "m": method, "v": value}).fetchone()[0]
+        assert got == want, (source, got)

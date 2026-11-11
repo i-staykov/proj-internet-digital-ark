@@ -132,14 +132,17 @@ STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.7z"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
-mkdir -p "$STAGE"/{additions,audit,source,seeds,journals,provenance,baseline}
+# Two sets and nothing else at the top: additions/ (the year files, their provenance and every
+# supporting file under support/) and candidates/ (one list and one provenance file).
+A="$STAGE/additions" P="$STAGE/additions/provenance" S="$STAGE/additions/support" C="$STAGE/candidates"
+mkdir -p "$P" "$C" "$S"/{audit,source,seeds,journals,baseline}
 
 # The report's figures, from the store after this run's merge audit, so the two agree. The
 # report itself is filled from them on the laptop and never ships here: a wording edit then
 # needs no repackage. A bank holding the write lock is a wait, never a refusal.
 FILL_OUT=""
 for _ in $(seq 1 60); do
-    if FILL_OUT=$(uv run python scripts/round/fill_report.py --write-figures "$STAGE/audit/report_figures.json" 2>&1); then
+    if FILL_OUT=$(uv run python scripts/round/fill_report.py --write-figures "$S/audit/report_figures.json" 2>&1); then
         break
     fi
     case "$FILL_OUT" in
@@ -149,17 +152,17 @@ for _ in $(seq 1 60); do
            exit 1 ;;
     esac
 done
-[ -f "$STAGE/audit/report_figures.json" ] || { echo "refusing to package: no report figures" >&2; echo "$FILL_OUT" >&2; exit 1; }
+[ -f "$S/audit/report_figures.json" ] || { echo "refusing to package: no report figures" >&2; echo "$FILL_OUT" >&2; exit 1; }
 # the reviewer's own check, runnable from inside the unpacked folder
-cp scripts/round/verify_delivery.sh "$STAGE/verify.sh"
-chmod +x "$STAGE/verify.sh"
+cp scripts/round/verify_delivery.sh "$S/verify.sh"
+chmod +x "$S/verify.sh"
 # The archive name carries the packaging minute, so the README's checksum command
 # is filled in here; a hard-coded name went stale the round the name changed.
 sed "s/\[ARCHIVE\]/$RELEASE/g" docs/round/delivery_readme.md > "$STAGE/README.md"
-cp docs/registers/sources.md "$STAGE/sources.md"
+cp docs/registers/sources.md "$S/sources.md"
 # The register is two pages: closed families moved to sources-closed.md and shipping
 # sources.md alone would hand him an incomplete register.
-cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
+cp docs/registers/sources-closed.md "$S/sources-closed.md"
 
 # D2 and D4 of the submission standard, at the archive ROOT rather than inside
 # `source/source.tar.gz`. He asked for a CONCISE experience summary and a clear
@@ -167,29 +170,29 @@ cp docs/registers/sources-closed.md "$STAGE/sources-closed.md"
 # The two register pages above are the full register those two distil; both are
 # needed, because the rejected families with their measurements are the evidence and
 # two pages are the summary.
-cp docs/round/experience-summary.md "$STAGE/experience-summary.md"
-cp docs/brief/metric-explained.md "$STAGE/metric-explained.md"
+cp docs/round/experience-summary.md "$S/experience-summary.md"
+cp docs/brief/metric-explained.md "$S/metric-explained.md"
 
 # The research loop itself, from the fleet checkout checked at the top: workflows, prompts,
 # policy and leads, tracked files only so no secret can ride along (the workflows name
 # theirs by reference). The open research questions folder is built from that commit.
-git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$STAGE/source/fleet.tar.gz"
-git -C "$FLEET" rev-parse HEAD > "$STAGE/source/FLEET_COMMIT.txt"
-if ! uv run python scripts/round/orq.py --stage "$STAGE" --fleet "$FLEET"; then
+git -C "$FLEET" archive --format=tar HEAD | gzip -c > "$S/source/fleet.tar.gz"
+git -C "$FLEET" rev-parse HEAD > "$S/source/FLEET_COMMIT.txt"
+if ! uv run python scripts/round/orq.py --stage "$S" --fleet "$FLEET"; then
     echo "refusing to package: the open research questions did not build" >&2
     exit 1
 fi
-if [ ! -f "$STAGE/Open Research Questions/Open Research Questions.docx" ]; then
-    echo "refusing to package: $STAGE/Open Research Questions/Open Research Questions.docx is missing" >&2
+if [ ! -f "$S/Open Research Questions/Open Research Questions.docx" ]; then
+    echo "refusing to package: $S/Open Research Questions/Open Research Questions.docx is missing" >&2
     exit 1
 fi
 
 # The merge audit, produced before the report figures so the two agree. Copied by
 # exact stamp rather than by glob: `output/merge/` is never pruned, and a glob plus
 # the consumers' `sorted()[-1]` would ship every past stamp and then pick by filename.
-cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$STAGE/audit/"
-cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$STAGE/audit/"
-cp output/merge/merge_run.log "$STAGE/audit/merge_run.log"
+cp "output/merge/merge_stats_ark_${MERGE_STAMP}.csv" "$S/audit/"
+cp "output/merge/merge_audit_ark_${MERGE_STAMP}.json" "$S/audit/"
+cp output/merge/merge_run.log "$S/audit/merge_run.log"
 
 # Nothing ships that his baseline already holds. The export diffs every list against his
 # own annual files, so a non-zero overlap here means that diff did not run or ran against
@@ -214,122 +217,56 @@ except held.HeldError as error:
     sys.exit(f"refusing to package: {error}")
 bad = [y for y, path in his.years.items() if path != his.baseline / f"{y}.txt"]
 sys.exit(f"refusing to package: his {bad} not sorted, unique and lowercase" if bad else 0)' || exit 1
-cp output/netnew/199[6-9].txt output/netnew/200[01].txt "$STAGE/additions/" 2>/dev/null || true
-cp output/netnew/evidence_manifest.csv "$STAGE/additions/" 2>/dev/null || true
-# The second output unit (his acceptance of 2026-09-01): hostname records per year,
-# separate files he can merge or discard, with their own evidence manifest.
-mkdir -p "$STAGE/hostnames"
-cp output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt "$STAGE/hostnames/" 2>/dev/null || true
-cp output/netnew/hostnames_evidence_manifest.csv "$STAGE/hostnames/" 2>/dev/null || true
-# extended_years/: the additions as the brief names them, YYYY.txt, once, with the ledger, dedup
-# report and manifest. His 2002 to 2013 files do not ship back to him; manifest.json names their sha256.
+# One file a year, as his: 1996 to 2001 the registrable and the hostname additions merged (the
+# export keeps them disjoint), 2002 to 2013 the extended export's. Each manifest in provenance/.
+for y in 1996 1997 1998 1999 2000 2001; do
+    LC_ALL=C sort -m -u "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt" > "$A/$y.txt"
+    [ "$(wc -l < "$A/$y.txt")" -eq "$(cat "output/netnew/$y.txt" "output/netnew/${y}_hostnames.txt" | wc -l)" ] \
+        || { echo "refusing to package: $y registrable and hostname additions overlap" >&2; exit 1; }
+done
+cp output/netnew/evidence_manifest.csv output/netnew/hostnames_evidence_manifest.csv "$P/"
 EXT=output/extended_years
 if ls "$EXT"/additions/*.txt >/dev/null 2>&1; then
     uv run python scripts/round/extended_export.py --check --allow-added \
         || { echo "refusing to package: $EXT is stale" >&2; exit 1; }
-    mkdir -p "$STAGE/extended_years"
-    cp "$EXT"/additions/*.txt "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" \
-        "$EXT/manifest.json" "$STAGE/extended_years/"
+    cp "$EXT"/additions/*.txt "$A/"
+    cp "$EXT/evidence_ledger.csv" "$EXT/dedup_report.csv" "$EXT/manifest.json" "$P/"
 else
-    echo "no extended additions: packaging without extended_years/"
+    echo "no extended additions: packaging 1996 to 2001 only"
 fi
-# Labelled folders, data/labelled/<name>/: year evidence of a class his annual files do not take,
-# each shipped under its own name by the owner's ruling and never merged into additions/. A name
-# additions/ or hostnames/ holds for a year is an annual record, so it leaves the folder's file
-# for that year and its provenance.csv rows (columns year, host) go with it.
-for dir in data/labelled/*/; do
-    [ -d "$dir" ] || continue
-    name=$(basename "$dir")
-    [ -f "$dir/README.md" ] || { echo "refusing to package: $dir has no README.md" >&2; exit 1; }
-    [ -e "$STAGE/$name" ] && { echo "refusing to package: $name/ is taken in the archive" >&2; exit 1; }
-    cp -R "$dir" "$STAGE/$name"
-    python3 - "$STAGE" "$name" <<'PY'
-import csv
+# The source-saturation ledger his 0901 update requires, regenerated at packaging.
+uv run python scripts/round/saturation_ledger.py --out "$S/audit/source_saturation_ledger.csv"
+
+# THE CANDIDATE SET: every candidate collection we hold in one list, net of every name his
+# release holds as a candidate or in any annual file, and one provenance row a name naming its
+# class, its source file and the position in it. No `|| true`: the export writes both.
+cp output/netnew/candidate_additions.txt "$C/candidates.txt"
+cp output/netnew/candidate_provenance.csv "$C/provenance.csv"
+# The README's one table of classes: names and EE from the export's summary, so its total is the
+# bank's, and the sentence of his brief that makes each class a candidate.
+python3 - "$STAGE/README.md" output/netnew/candidate_additions_summary.json \
+    docs/round/candidate_classes.tsv <<'PY' || { echo "refusing to package: no class table" >&2; exit 1; }
+import json
 import sys
+from decimal import Decimal
 from pathlib import Path
 
-stage, folder = Path(sys.argv[1]), Path(sys.argv[1]) / sys.argv[2]
-taken = {}
-for f in sorted(folder.glob("[12][0-9][0-9][0-9].txt")):
-    annual = (stage / "additions" / f.name, stage / "hostnames" / f"{f.stem}_hostnames.txt")
-    ours = {n for g in annual if g.is_file() for n in g.read_text(encoding="utf-8").splitlines()}
-    names = f.read_text(encoding="utf-8").splitlines()
-    taken[f.stem] = ours.intersection(names)
-    f.write_text("".join(n + "\n" for n in names if n not in ours), encoding="utf-8")
-prov = folder / "provenance.csv"
-if prov.is_file() and any(taken.values()):
-    with prov.open(newline="", encoding="utf-8") as fh:
-        head, *rows = fh.readlines()  # one record a line, kept byte for byte
-    cols = next(csv.reader([head]))
-    year, host = cols.index("year"), cols.index("host")
-    with prov.open("w", newline="", encoding="utf-8") as fh:
-        fh.write(head)
-        for row in rows:
-            r = next(csv.reader([row]))
-            if r[host] not in taken.get(r[year], ()):
-                fh.write(row)
-print(f"{sys.argv[2]}/: {sum(map(len, taken.values()))} names left to additions/ and hostnames/")
+readme, summary, rules = Path(sys.argv[1]), json.loads(Path(sys.argv[2]).read_text()), Path(sys.argv[3])
+why = dict(line.split("\t", 1) for line in rules.read_text(encoding="utf-8").splitlines()[1:] if "\t" in line)
+rows = ["| class | why it is a candidate, in your brief's words | names | equivalent-English |",
+        "|---|---|---:|---:|"]
+names, ee = 0, Decimal(0)
+for label, entry in sorted(summary["by_class"].items(), key=lambda kv: -Decimal(kv[1]["equivalent_english"])):
+    rows.append(f"| {label} | {why.get(label, '').strip()} | {entry['names']:,} | {Decimal(entry['equivalent_english']):,.1f} |")
+    names, ee = names + entry["names"], ee + Decimal(entry["equivalent_english"])
+if (names, ee) != (summary["candidates"], Decimal(summary["equivalent_english"])):
+    sys.exit(f"the classes sum to {names} names and {ee} EE, the summary says otherwise")
+rows.append(f"| **all** | | **{names:,}** | **{ee:,.1f}** |")
+if missing := [label for label in summary["by_class"] if not why.get(label, "").strip()]:
+    print(f"warning: no sentence of his for {missing}", file=sys.stderr)
+text = readme.read_text(encoding="utf-8")
+readme.write_text(text.replace("[CLASS TABLE]", "\n".join(rows)), encoding="utf-8")
 PY
-done
-# ISC candidates must stay separate from annual records and carry per-host provenance.
-mkdir -p "$STAGE/isc_survey_hostnames"
-cp output/netnew/199[6-9]-ISC.txt output/netnew/200[01]-ISC.txt \
-    output/netnew/isc_candidates.txt output/netnew/isc_candidates_summary.json \
-    output/netnew/isc_survey_provenance.csv "$STAGE/isc_survey_hostnames/"
-cp src/ark/data/tld_english_share.json "$STAGE/isc_survey_hostnames/"
-cp src/ark/english_share.py "$STAGE/isc_survey_hostnames/"
-cp scripts/round/verify_isc_candidates.py "$STAGE/"
-# The source-saturation ledger his 0901 update requires, regenerated at packaging.
-uv run python scripts/round/saturation_ledger.py --out "$STAGE/audit/source_saturation_ledger.csv"
-# Section XIV's second source-specific candidate collection: hosts whose only dated evidence
-# is a server-written header or another non-web class, with provenance and the run's ledger.
-mkdir -p "$STAGE/server_header_hostnames"
-cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenance.csv \
-    output/netnew/header_candidates_summary.json output/netnew/header_candidates_exclusions.csv \
-    "$STAGE/server_header_hostnames/"
-# one file per class beside them, so a class he declines drops alone
-cp -R output/netnew/header_candidates_by_class "$STAGE/server_header_hostnames/by_class"
-# How a row is reopened, in the folder his sample test reads.
-cat > "$STAGE/server_header_hostnames/README.txt" <<'HDR'
-header_candidates_provenance.csv, one row per candidate host-year:
-  source_url       the archive file the row was read from
-  record_location  "<class> <year> <item> <hostname>"; <year> is the message's own Date year
-
-A Usenet <item> is "<file>.mbox.zip#<n>": post n of the zip's unpacked text (unzip -p), counted
-from 1. A post opens at a line matching ^From (-?[0-9]+|[^ ]+@[^ ]+) that is the first line or
-follows a line that is empty or only white space, outside a header block (a header block ends
-at its first such line). So a body line "From 8 to Infinity" after such a line opens a post
-too, and n can run a few ahead of a reader that counts posts another way.
-A line ends at a line feed only: the zips hold lone carriage returns, which do not end one.
-by_class/ holds the same names, one file per evidence class.
-HDR
-
-# No `|| true` here: the candidate pool is a named deliverable, and swallowing a
-# missing result file shipped an archive without it once, silently. `ark export`
-# writes it, so a failure here means the export was not run.
-cp output/candidate_unverified.txt "$STAGE/candidates.txt"
-# THE CANDIDATE-TRACK CLAIM: every candidate collection we hold in ONE pool, minus every
-# name his release holds as a candidate (pool, ISC collection, unparsed names) or lists in
-# any annual file. He scores candidates
-# separately and at the same rate as annual records, so the claim is held to the same
-# net-new standard the annual files are. Provenance for each name is in `provenance/` and
-# in `isc_survey_hostnames/isc_survey_provenance.csv`, not in this list.
-cp output/netnew/candidate_additions.txt "$STAGE/candidate_additions.txt"
-cp output/netnew/candidate_additions_summary.json "$STAGE/candidate_additions_summary.json"
-# The separately labelled unparsed pool of his section XII: "Retain malformed but potentially
-# recoverable values only in a separately labeled unparsed or normalization-review file." Each
-# row carries the reason the funnel refused it, and none of it counts toward any figure.
-#
-# **Kept in `output/netnew/`, and only the journals newer than it are read and merged in.** The
-# scan is exhaustive by design over 23 GB of gzip; a journal is written once, so the merge is the
-# file a full scan would write.
-UNPARSED="output/netnew/candidates_unparsed.txt"
-# Only what the scan reads can stale it: the three DEFAULT_DIRS of unparsed_pool.py, no walk journal.
-if [ ! -f "$UNPARSED" ] || [ -n "$(find data/raw/cdx_suffix data/raw/cdx_gap_hostgrain data/raw/nypw_hostgrain \
-        -name '*.jsonl.gz' ! -name 'walk_*' -newer "$UNPARSED" -print -quit 2>/dev/null)" ]; then
-    uv run python scripts/round/unparsed_pool.py --incremental --out "$UNPARSED" || true
-fi
-cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
 # neither is the language rejection register. They implemented the page-level
@@ -345,7 +282,7 @@ cp "$UNPARSED" "$STAGE/candidates_unparsed.txt" 2>/dev/null || true
 
 # the auxiliary seed pool: hostnames and URLs, the granularity the registered
 # domain counting unit necessarily drops
-cp output/seeds/download_seeds.csv "$STAGE/seeds/" 2>/dev/null || true
+cp output/seeds/download_seeds.csv "$S/seeds/" 2>/dev/null || true
 
 # the raw responses of every archive and registry query, so both network stages
 # replay from bytes rather than from a service whose answers change. `find`, not
@@ -425,12 +362,12 @@ uv run python -c 'import sys
 from pathlib import Path
 from ark.provenance import write_shipped
 print("provenance:", write_shipped(Path("output/provenance"), Path("output/netnew"),
-      Path("output/candidate_unverified.txt"), Path(sys.argv[1])))' "$STAGE/provenance"
+      Path("output/candidate_unverified.txt"), Path(sys.argv[1])))' "$P"
 
 # Of journal_paths, only those a shipped row cites by file name: a shipped evidence row's
 # source_file or an extended ledger row's. The rest back nothing in the archive.
 CITED=$(mktemp)
-uv run python - "$STAGE/provenance" > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from the shipped provenance and the extended ledger" >&2; exit 1; }
+uv run python - "$P" > "$CITED" <<'PY' || { echo "refusing to package: the cited journals could not be read from the shipped provenance and the extended ledger" >&2; exit 1; }
 import csv
 import sys
 from pathlib import Path
@@ -451,8 +388,8 @@ cited_journals() { journal_paths | awk -F/ 'NR == FNR { cited[$0]; next } $NF in
 if [ -z "${ARK_SLIM:-}" ]; then
     cited_journals \
         | tar -cf - -T - 2>/dev/null \
-        | ( cd "$STAGE/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
-    cat > "$STAGE/journals/README.txt" <<'EXCL'
+        | ( cd "$S/journals" && tar xf - --strip-components=2 2>/dev/null ) || true
+    cat > "$S/journals/README.txt" <<'EXCL'
 Only the journals a shipped evidence row or extended_years/evidence_ledger.csv names are here.
 
 Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on disk,
@@ -476,8 +413,8 @@ EXCL
 fi
 
 # the seed lists those page fetches ran against, so page expansion is repeatable
-mkdir -p "$STAGE/seeds/expansion"
-cp seeds/expansion/*.txt "$STAGE/seeds/expansion/" 2>/dev/null || true
+mkdir -p "$S/seeds/expansion"
+cp seeds/expansion/*.txt "$S/seeds/expansion/" 2>/dev/null || true
 
 # His release does not ship back to him: baseline/README.txt names it and gives the sha256 and
 # line count of each file of his the checks read, and verify.sh reads his copy from HIS.
@@ -492,12 +429,7 @@ if [ ! -f "$MERGED/1996.txt" ]; then
     exit 1
 fi
 
-uv run python scripts/round/verify_isc_candidates.py \
-    --collection "$STAGE/isc_survey_hostnames" --baseline "$MERGED" \
-    --annual-dirs "$STAGE/additions" "$STAGE/hostnames" \
-    --weights "$STAGE/isc_survey_hostnames/tld_english_share.json"
-
-python3 - "$MERGED" "$MARKER" > "$STAGE/baseline/README.txt" <<'PY'
+python3 - "$MERGED" "$MARKER" > "$S/baseline/README.txt" <<'PY'
 import hashlib
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -534,7 +466,7 @@ PY
 #
 # It is his file coming back to him: a reviewer should be able to check the arithmetic
 # without fetching anything, and the whole thing is a few tens of kilobytes.
-mkdir -p "$STAGE/equivalent_english_domain_calculator"
+mkdir -p "$S/equivalent_english_domain_calculator"
 CALC_SRC="$(dirname "$MERGED")/equivalent_english_domain_calculator"
 if [ -d "$CALC_SRC" ]; then
     # A tar pipe rather than `cp -R`, to drop `__pycache__`: shipping compiled
@@ -542,7 +474,7 @@ if [ -d "$CALC_SRC" ]; then
     # archive checksum would never settle. `--exclude` works in both BSD and GNU tar,
     # unlike `cp --parents`, which is GNU only and would have failed on this machine.
     ( cd "$CALC_SRC" && tar cf - --exclude '__pycache__' . ) \
-        | ( cd "$STAGE/equivalent_english_domain_calculator" && tar xf - )
+        | ( cd "$S/equivalent_english_domain_calculator" && tar xf - )
 else
     echo "warning: no calculator beside $MERGED, archive will not self-score" >&2
 fi
@@ -554,22 +486,22 @@ LAST_BUILT=$(awk -v own="$ROUND_DIR/MANIFEST.txt" 'FILENAME != own && $1 == "bui
     submissions/*/MANIFEST.txt 2>/dev/null | sort | tail -1)
 SINCE="$STAGE/.since"
 TZ=UTC touch -t "$(printf '%s' "${LAST_BUILT:-1970-01-01T00:00:00Z}" | tr -d ':TZ-' | sed 's/\(..\)$/.\1/')" "$SINCE"
-find data/reports -maxdepth 1 -name '*.csv' -newer "$SINCE" -exec cp {} "$STAGE/audit/" \; 2>/dev/null || true
+find data/reports -maxdepth 1 -name '*.csv' -newer "$SINCE" -exec cp {} "$S/audit/" \; 2>/dev/null || true
 rm "$SINCE"
 
 # source-code snapshot (tracked files at HEAD) + the commit it came from
-git archive --format=tar HEAD | gzip -c > "$STAGE/source/source.tar.gz"
-git rev-parse HEAD > "$STAGE/source/COMMIT.txt"
+git archive --format=tar HEAD | gzip -c > "$S/source/source.tar.gz"
+git rev-parse HEAD > "$S/source/COMMIT.txt"
 
 # Every cited journal on disk must be in the archive; the count catches a directory no glob names.
 ON_DISK=$(cited_journals | wc -l | tr -d ' ')
-SHIPPED_JOURNALS=$(find "$STAGE/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
+SHIPPED_JOURNALS=$(find "$S/journals" -name '*.jsonl.gz' | wc -l | tr -d ' ')
 if [ -n "${ARK_SLIM:-}" ]; then
     if [ "$SHIPPED_JOURNALS" != "0" ]; then
         echo "refusing to package: ARK_SLIM set but $SHIPPED_JOURNALS journals staged" >&2
         exit 1
     fi
-    cat > "$STAGE/journals/README.txt" <<'SLIM'
+    cat > "$S/journals/README.txt" <<'SLIM'
 The raw per-source journals are deliberately not in this archive.
 
 They are 4.85 GB and exist only for tier-3 reproduction, which re-parses the raw sources
@@ -582,7 +514,7 @@ elif [ "$ON_DISK" != "$SHIPPED_JOURNALS" ]; then
     echo "refusing to package: $ON_DISK journals on disk, $SHIPPED_JOURNALS in the archive" >&2
     echo "a source's journals are missing, so tier 3 cannot replay it. Compare:" >&2
     cited_journals | sed 's|.*/||' | sort > /tmp/ark_on_disk.txt
-    find "$STAGE/journals" -name '*.jsonl.gz' -exec basename {} \; \
+    find "$S/journals" -name '*.jsonl.gz' -exec basename {} \; \
         | sort > /tmp/ark_shipped.txt
     comm -23 /tmp/ark_on_disk.txt /tmp/ark_shipped.txt >&2
     exit 1
@@ -635,7 +567,8 @@ ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.7z.sha256")
     echo "netnew_pairs $STORED"
     # The second output unit ships in its own files, so the manifest names it too:
     # netnew_pairs alone reads as the whole round and has not been since 2026-09-01.
-    echo "netnew_hostnames $(cat "$STAGE"/hostnames/*_hostnames.txt 2>/dev/null | wc -l | tr -d ' ')"
+    echo "netnew_hostnames $(cat output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt | wc -l | tr -d ' ')"
+    echo "candidates   $(wc -l < "$C/candidates.txt" | tr -d ' ')"
 } > "$ROUND_DIR/MANIFEST.txt"
 
 # Everything needed to hand the archive over by link, in one block to copy.

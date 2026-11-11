@@ -5,17 +5,12 @@
 # dependencies live inside source/ and are not available until a reviewer has
 # already decided to trust the contents.
 #
-# The verdicts, in the order printed: checksums; the annual addition files and their counts;
-# an evidence row for every addition; the hostname files, disjoint from the registrable files,
-# and an evidence row for each; the ISC candidate collection reconciled against the reference
-# release; the header candidate collection complete and inside the claim; the evidence wall
-# (every provenance assignment cites an evidence row shipped here); the 2002 to 2013 extended
-# years, additions none of his files for that year holds; then the four deliverables
-# D1 to D4: the code snapshot carries its lockfile, the experience summary covers what was
-# asked, every merge reconciliation check passed and agrees with the shipped files, and the
-# reviewer's own calculator reproduces the audit's baseline figure; last, E1, both open
-# research questions folders, their questions, headings, labels and files; then the report, in
-# the folder or beside it, carries every figure of audit/report_figures.json.
+# The verdicts, in the order printed: checksums; the 1996 to 2001 additions, each traced to a
+# capture of exactly that name in that year; the candidates, one provenance row a name, none an
+# addition and, with HIS, none in any file of his release; the evidence wall (every provenance
+# assignment cites an evidence row shipped here); the 2002 to 2013 additions, none in his file for
+# that year; then the four deliverables D1 to D4, run inside additions/support/, the open research
+# questions folder, and the report's figures.
 #
 # Checks 5 to 8 police the four deliverables he added, called D1 to D4 throughout
 # this project. They are checks rather than a checklist because a requirement that
@@ -26,7 +21,7 @@
 #
 # Exit status is non-zero if any check fails, so it can gate a script.
 set -uo pipefail
-cd "${1:-$(dirname "$0")}"
+cd "${1:-$(dirname "$0")/../..}"  # the archive top: this file is additions/support/verify.sh
 
 fail=0
 say() { printf '%-46s %s\n' "$1" "$2"; }
@@ -44,7 +39,7 @@ else
     say "checksums" "SKIP  no SHA256SUMS here"
 fi
 
-# --- 2 and 3. the result, and the evidence behind it -------------------------
+# --- 2 and 3. the additions, and the capture behind each ---------------------
 python3 - <<'PY' || fail=1
 import csv
 import sys
@@ -57,154 +52,87 @@ for year in years:
     if not path.exists():
         print(f"{'annual additions':<46} FAIL  additions/{year}.txt is missing")
         sys.exit(1)
-    additions[year] = {line.strip() for line in path.read_text().splitlines() if line.strip()}
-
+    lines = path.read_text().splitlines()
+    if lines != sorted(set(lines)):
+        print(f"{'annual additions':<46} FAIL  additions/{year}.txt is not sorted and unique")
+        sys.exit(1)
+    additions[year] = set(lines)
 total = sum(len(v) for v in additions.values())
 per_year = ", ".join(f"{y}:{len(additions[y]):,}" for y in years)
-print(f"{'annual additions':<46} PASS  {total:,} pairs ({per_year})")
+print(f"{'annual additions 1996 to 2001':<46} PASS  {total:,} records ({per_year})")
 
-manifest = Path("additions/evidence_manifest.csv")
-if not manifest.exists():
-    print(f"{'evidence for every addition':<46} FAIL  manifest is missing")
-    sys.exit(1)
-
-# One row per (domain, year) with the observation behind it. Reading it as a set
-# and differencing is the whole check: a pair with no row would be a domain in an
-# annual file that nothing supports, which is the one thing that must never ship.
+# One row per (name, year) with the capture behind it, registrables in one manifest and hostnames
+# in the other. A name in a year file with no row is a record nothing supports.
 covered = set()
-with manifest.open(newline="", encoding="utf-8") as fh:
-    for row in csv.DictReader(fh):
-        try:
-            covered.add((row["domain"], int(row["assigned_year"])))
-        except (KeyError, ValueError, TypeError):
-            continue
-
-claimed = {(d, y) for y, names in additions.items() for d in names}
-missing = claimed - covered
+for name, column in (("evidence_manifest.csv", "domain"), ("hostnames_evidence_manifest.csv", "hostname")):
+    path = Path("additions/provenance") / name
+    if not path.exists():
+        print(f"{'evidence for every addition':<46} FAIL  additions/provenance/{name} is missing")
+        sys.exit(1)
+    with path.open(newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            try:
+                covered.add((row[column], int(row["assigned_year"])))
+            except (KeyError, ValueError, TypeError):
+                continue
+missing = {(d, y) for y, names in additions.items() for d in names} - covered
 if missing:
     sample = ", ".join(f"{d} ({y})" for d, y in sorted(missing)[:3])
     print(f"{'evidence for every addition':<46} FAIL  {len(missing):,} unsupported, e.g. {sample}")
     sys.exit(1)
-print(f"{'evidence for every addition':<46} PASS  all {len(claimed):,} traced to an observation")
-
-# The second output unit: hostnames/NNNN_hostnames.txt, each line a
-# valid hostname beneath a registrable, each traced to its own capture in the hostname
-# manifest, and none of them repeating a line of the registrable file for that year.
-hostnames = {}
-for year in years:
-    path = Path("hostnames") / f"{year}_hostnames.txt"
-    hostnames[year] = (
-        {line.strip() for line in path.read_text().splitlines() if line.strip()}
-        if path.exists()
-        else set()
-    )
-h_total = sum(len(v) for v in hostnames.values())
-if h_total:
-    per_year = ", ".join(f"{y}:{len(hostnames[y]):,}" for y in years)
-    overlap = sum(len(hostnames[y] & additions[y]) for y in years)
-    if overlap:
-        print(f"{'hostname additions':<46} FAIL  {overlap:,} lines repeat the registrable file")
-        sys.exit(1)
-    print(f"{'hostname additions':<46} PASS  {h_total:,} records ({per_year}), disjoint from additions/")
-    h_manifest = Path("hostnames/hostnames_evidence_manifest.csv")
-    if not h_manifest.exists():
-        print(f"{'evidence for every hostname':<46} FAIL  hostname manifest is missing")
-        sys.exit(1)
-    h_covered = set()
-    with h_manifest.open(newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            try:
-                h_covered.add((row["hostname"], int(row["assigned_year"])))
-            except (KeyError, ValueError, TypeError):
-                continue
-    h_claimed = {(d, y) for y, names in hostnames.items() for d in names}
-    h_missing = h_claimed - h_covered
-    if h_missing:
-        sample = ", ".join(f"{d} ({y})" for d, y in sorted(h_missing)[:3])
-        print(f"{'evidence for every hostname':<46} FAIL  {len(h_missing):,} unsupported, e.g. {sample}")
-        sys.exit(1)
-    print(f"{'evidence for every hostname':<46} PASS  all {len(h_claimed):,} traced to a capture")
-else:
-    print(f"{'hostname additions':<46} SKIP  no hostnames/ in this archive")
-
+print(f"{'evidence for every addition':<46} PASS  all {total:,} traced to a capture")
 PY
 
-# ISC candidates require complete provenance and exact-name reconciliation across all years.
-if [ -d isc_survey_hostnames ]; then
-    if [ -z "${HIS:-}" ]; then
-        say "ISC candidates" "SKIP  set HIS to the release folder to diff against its pool"
-    elif command -v uv >/dev/null 2>&1; then
-        uv run --with duckdb --no-project python verify_isc_candidates.py \
-            --collection isc_survey_hostnames --baseline "$HIS" \
-            --annual-dirs additions hostnames \
-            --weights isc_survey_hostnames/tld_english_share.json || fail=1
-    else
-        say "ISC candidates" "FAIL  needs uv (https://docs.astral.sh/uv/)"; fail=1
-    fi
-else
-    say "ISC candidates" "SKIP  no isc_survey_hostnames/ in this archive"
-fi
-
-# The header candidate collection: its count matches its summary, every name has a provenance
-# row, every name sits inside the candidate-track claim that counts it, and the exclusion
-# ledger of its validation run is here.
-if [ -d server_header_hostnames ]; then
+# --- the candidates: one list, one provenance row a name, none an addition or his ---
 python3 - <<'PY' || fail=1
-import csv, json, sys
+import csv
+import os
+import re
+import subprocess
+import sys
 from pathlib import Path
-def say(k, v): print(f"{k:<46} {v}")
-d = Path("server_header_hostnames")
-names = {l.strip() for l in (d / "header_candidates.txt").read_text().splitlines() if l.strip()}
-summary = json.loads((d / "header_candidates_summary.json").read_text())
-with (d / "header_candidates_provenance.csv").open(newline="") as f:
-    prov = {r["hostname"] for r in csv.DictReader(f)}
-claim = {l.strip() for l in Path("candidate_additions.txt").read_text().splitlines() if l.strip()}
+
+label = "candidates"
+d = Path("candidates")
+if not (d / "candidates.txt").is_file():
+    print(f"{label:<46} SKIP  no candidates/ in this archive")
+    sys.exit(0)
+names = (d / "candidates.txt").read_text(encoding="utf-8").splitlines()
 problems = []
-if len(names) != summary["candidates"]:
-    problems.append(f"{len(names)} names, summary says {summary['candidates']}")
-if names - prov:
-    problems.append(f"{len(names - prov)} names without a provenance row")
-if names - claim:
-    problems.append(f"{len(names - claim)} names outside candidate_additions.txt")
-if not (d / "header_candidates_exclusions.csv").is_file():
-    problems.append("no exclusion ledger")
-classes = {p.stem: {l for l in p.read_text().splitlines() if l} for p in (d / "by_class").glob("*.txt")}
-if classes.keys() != summary.get("by_class", {}).keys():
-    problems.append("by_class files and summary name other classes")
-if set().union(*classes.values()) != names:
-    problems.append("the class files do not union to the names")
+if names != sorted(set(names)):
+    problems.append("candidates.txt is not sorted and unique")
+host = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$")
+if bad := [n for n in names if not host.match(n)]:
+    problems.append(f"{len(bad)} lines are not a name, e.g. {bad[0]!r}")
+with (d / "provenance.csv").open(newline="", encoding="utf-8") as fh:
+    rows = list(csv.DictReader(fh))
+if [r["name"] for r in rows] != names:
+    problems.append(f"provenance.csv has {len(rows):,} rows for {len(names):,} names, or another order")
+if unclassed := sum(1 for r in rows if not r["class"].strip()):
+    problems.append(f"{unclassed} rows have no class")
+ours = {n for f in Path("additions").glob("[12][0-9][0-9][0-9].txt") for n in f.read_text().splitlines()}
+if both := ours.intersection(names):
+    problems.append(f"{len(both)} names are also additions")
+his = os.environ.get("HIS")
+if his and not problems:
+    files = sorted(Path(his).glob("*.txt")) + sorted(Path(his).glob("isc_survey_hostnames/*.txt"))
+    env = {**os.environ, "LC_ALL": "C"}
+    tmp = os.environ.get("TMPDIR") or ".."  # where sort spills: beside the archive, not a RAM /tmp
+    held = 0
+    for f in files:  # each file of his, CRs dropped and sorted, against ours: the lines both hold
+        sh = 'tr -d "\\r" < "$1" | sort -u -S 256M -T "$2" | comm -12 - "$3" | wc -l'
+        run = ["bash", "-o", "pipefail", "-c", sh, "_", str(f), tmp, str(d / "candidates.txt")]
+        out = subprocess.run(run, env=env, capture_output=True, text=True)
+        if out.returncode:
+            problems.append(f"{f} could not be compared")
+        held += int(out.stdout.strip() or 0)
+    if held:
+        problems.append(f"{held:,} names are in a file of his release")
 if problems:
-    say("header candidates", "FAIL  " + "; ".join(problems)); sys.exit(1)
-say("header candidates", f"PASS  {len(names)} names, each with a provenance row, each in the claim")
-PY
-else
-    say "header candidates" "SKIP  no server_header_hostnames/ in this archive"
-fi
-
-# Labelled folders: a README and year files in your format, none of their names also an addition.
-python3 - <<'PY' || fail=1
-import re, sys
-from pathlib import Path
-host = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]+$")
-fixed = {"additions", "hostnames", "extended_years"}
-for d in sorted(p for p in Path(".").iterdir() if p.is_dir() and p.name not in fixed):
-    years = sorted(d.glob("[12][0-9][0-9][0-9].txt"))
-    if not years or not (d / "README.md").is_file():
-        continue
-    problems = []
-    for f in years:
-        names = f.read_text(encoding="utf-8").splitlines()
-        if names != sorted(set(names)):
-            problems.append(f"{f.name} is not sorted and unique")
-        if bad := [n for n in names if not host.match(n)]:
-            problems.append(f"{f.name}: {len(bad)} lines not a hostname, e.g. {bad[0]!r}")
-        ours = {n for g in (Path("additions") / f.name, Path("hostnames") / f"{f.stem}_hostnames.txt")
-                if g.is_file() for n in g.read_text(encoding="utf-8").splitlines()}
-        if both := ours & set(names):
-            problems.append(f"{f.name}: {len(both)} names also in additions/ or hostnames/")
-    print(f"{d.name + '/':<46} {'FAIL  ' + '; '.join(problems) if problems else f'PASS  {len(years)} year files'}")
-    if problems:
-        sys.exit(1)
+    print(f"{label:<46} FAIL  {'; '.join(problems[:4])}")
+    sys.exit(1)
+against = "none in any file of HIS" if his else "set HIS to check them against his release"
+print(f"{label:<46} PASS  {len(names):,} names, one provenance row each, none an addition; {against}")
 PY
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
@@ -216,21 +144,21 @@ PY
 # `uv` is optional here on purpose: the rest of this script needs only coreutils and
 # python3, and a reviewer who has not installed uv should still get the first three
 # checks rather than an error.
-if [ -f provenance/evidence.parquet ] && [ -f provenance/domain_year.parquet ]; then
+if [ -f additions/provenance/evidence.parquet ] && [ -f additions/provenance/domain_year.parquet ]; then
     if command -v uv >/dev/null 2>&1; then
         orphans=$(uv run --with duckdb --no-project python -c "
 import duckdb
 c = duckdb.connect()
 import os
 n = c.execute('''
-    SELECT count(*) FROM read_parquet('provenance/domain_year.parquet') dy
-    WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
+    SELECT count(*) FROM read_parquet('additions/provenance/domain_year.parquet') dy
+    WHERE NOT EXISTS (SELECT 1 FROM read_parquet('additions/provenance/evidence.parquet') e
                       WHERE e.evidence_id = dy.evidence_id)
 ''').fetchone()[0]
-if os.path.exists('provenance/hostname_year.parquet'):
+if os.path.exists('additions/provenance/hostname_year.parquet'):
     n += c.execute('''
-        SELECT count(*) FROM read_parquet('provenance/hostname_year.parquet') hy
-        WHERE NOT EXISTS (SELECT 1 FROM read_parquet('provenance/evidence.parquet') e
+        SELECT count(*) FROM read_parquet('additions/provenance/hostname_year.parquet') hy
+        WHERE NOT EXISTS (SELECT 1 FROM read_parquet('additions/provenance/evidence.parquet') e
                           WHERE e.evidence_id = hy.evidence_id)
     ''').fetchone()[0]
 print(n)
@@ -270,16 +198,16 @@ def sha256(path, each=lambda chunk: None):
     return digest.hexdigest()
 
 
-root = Path("extended_years")
-if not (root / "manifest.json").is_file():
-    print(f"{'extended years':<46} SKIP  no extended_years/ in this archive")
+root, prov = Path("additions"), Path("additions/provenance")
+if not (prov / "manifest.json").is_file():
+    print(f"{'extended years':<46} SKIP  no 2002 to 2013 additions in this archive")
     sys.exit(0)
 his_dir = os.environ.get("HIS")
 env = {**os.environ, "LC_ALL": "C"}
 tmp = os.environ.get("TMPDIR") or ".."  # where sort spills: beside the archive, not a RAM /tmp
-manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+manifest = json.loads((prov / "manifest.json").read_text(encoding="utf-8"))
 rows, hosts = Counter(), defaultdict(hashlib.sha256)  # a year's ledger rows, sha256 of its hosts
-with (root / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
+with (prov / "evidence_ledger.csv").open(newline="", encoding="utf-8") as fh:
     for row in csv.DictReader(fh):
         rows[row["year"]] += 1
         hosts[row["year"]].update(f"{row['host']}\n".encode())
@@ -325,7 +253,8 @@ if not his_dir:
 print(f"{'extended years':<46} PASS  {shipped:,} additions, none in his file for its year")
 PY
 
-# --- 5 to 8. the four added deliverables -------------------------------------
+# --- 5 to 8. the four added deliverables, inside additions/support/ ------------
+cd additions/support || exit 1
 python3 - <<'PY' || fail=1
 import json
 import os
@@ -434,17 +363,14 @@ else:
         # or the audit describes a different round than the one in the box.
         shipped = 0
         for year in range(1996, 2002):
-            for path in (
-                Path("additions") / f"{year}.txt",
-                Path("hostnames") / f"{year}_hostnames.txt",
-            ):
-                if path.is_file():
-                    shipped += len({x.strip() for x in path.read_text().splitlines() if x.strip()})
+            path = Path("../..") / f"{year}.txt"
+            if path.is_file():
+                shipped += len({x.strip() for x in path.read_text().splitlines() if x.strip()})
         claimed = int(totals["submitted_records"])
         if shipped != claimed:
             say(
                 "D3 audit agrees with the shipped files",
-                f"FAIL  audit says {claimed:,} submitted, additions/ and hostnames/ hold {shipped:,}",
+                f"FAIL  audit says {claimed:,} submitted, additions/ holds {shipped:,}",
             )
             fail = True
         else:
@@ -586,7 +512,7 @@ python3 - <<'PY' || fail=1
 import json, sys
 from pathlib import Path
 figures = Path("audit/report_figures.json")
-report = next((p for p in (Path("report.md"), Path("../report.md")) if p.is_file()), None)
+report = next((p for p in (Path("../../report.md"), Path("../../../report.md")) if p.is_file()), None)
 if report is None or not figures.is_file():
     print(f"{'report figures':<46} SKIP  no report.md or audit/report_figures.json")
     sys.exit(0)

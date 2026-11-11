@@ -358,3 +358,21 @@ def test_a_capture_banked_after_a_usenet_header_ships_and_a_stranded_one_is_repa
     assert conn.execute(
         f"SELECT ({header}) = evidence_id FROM hostname_year WHERE hostname LIKE 'shop%'"
     ).fetchone()[0]
+
+
+def test_a_defacement_mirror_dates_the_host_its_path_names(tmp_path) -> None:
+    """The registrable lane's mirror row gives `www.` its own record, once; junk and the
+    registrable itself get none."""
+    rows = [
+        {"domain": host.split(".", 1)[1].split("-")[0], "year": 1999, "url": f"{MIRROR}/{host}/"}
+        for host in ("www.example.com", "www.example.org-2")
+    ] + [{"domain": "example.net", "year": 1999, "url": f"{MIRROR}/example.net/"}]
+    (journal := tmp_path / "attrition_dated.jsonl.gz").write_bytes(
+        gzip.compress("".join(json.dumps(r) + "\n" for r in rows).encode())
+    )
+    init_db(conn := duckdb.connect())
+    ingest_files(conn, SOURCES["attrition_dated"], [journal], report_dir=tmp_path)
+    assert not _shipped(conn)
+    assert hostnames.repoint_stranded_captures(conn, write=True) == {1999: 1}
+    assert _shipped(conn) == [("www.example.com", 1999)]
+    assert hostnames.repoint_stranded_captures(conn, write=True) == {} and not _failing(conn)
