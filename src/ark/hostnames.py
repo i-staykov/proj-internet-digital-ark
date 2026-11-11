@@ -2148,6 +2148,8 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
             SELECT x.evidence_id, x.domain, x.evidence_year, {exact_host_expr("x")} AS host
             FROM evidence x
             WHERE x.domain IN (SELECT parent_domain FROM weak) AND {web_evidence_sql("x")}
+              -- a row with no locator (a mirror listing) cannot be reopened, so it moves nothing
+              AND coalesce(x.record_location, '') <> ''
         )
         SELECT w.hostname, w.assigned_year, min(v.evidence_id) AS evidence_id
         FROM weak w JOIN web v
