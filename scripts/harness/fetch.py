@@ -99,6 +99,12 @@ OUR_ROBOT_NAMES = frozenset(
     }
 )
 
+# **A robots file alone does not close these hosts.** Each publishes the data for download
+# (Common Crawl's index files) and its `*` group only keeps crawlers at large out. A group
+# that names us still refuses, as do the host's terms, a 401, a 403 and a 429. The file's
+# crawl delay is kept between requests.
+ROBOTS_ALONE = frozenset({"data.commoncrawl.org"})
+
 # Types a leg may write to disk unattended. Everything here is either text or a stream
 # format Python reads without unpacking it first.
 ALLOWED_TYPES = (
@@ -323,7 +329,7 @@ def _matches(pattern: str, path: str) -> bool:
     return re.match(expr + ("$" if anchored else ""), path) is not None
 
 
-def robots_verdict(text: str, path: str) -> tuple[str, float, str]:
+def robots_verdict(text: str, path: str, host: str = "") -> tuple[str, float, str]:
     """`allowed` or `refused` for this path, the crawl delay, and the reason in words.
 
     **Stricter than the standard on purpose.** RFC 9309 says the most specific matching
@@ -354,6 +360,8 @@ def robots_verdict(text: str, path: str) -> tuple[str, float, str]:
                 if best is None or rank > best[0]:
                     best = (rank, field, value)
         if best and best[1] == "disallow":
+            if not named and host in ROBOTS_ALONE:
+                continue
             who = ", ".join(sorted(named)) if named else "*"
             worst = ("refused", f"`User-agent: {who}` has `Disallow: {best[2]}`")
     return worst[0], delay, worst[1]
@@ -406,7 +414,7 @@ def read_robots(url: str, timeout: float, cache: dict | None = None) -> tuple[st
         return "unknown", 0.0, why
     if not text:
         return "allowed", 0.0, why
-    return robots_verdict(text, path)
+    return robots_verdict(text, path, parts.hostname or "")
 
 
 # ---------------------------------------------------------------- destination

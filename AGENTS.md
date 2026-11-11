@@ -29,8 +29,9 @@ Rebuild 1996 to 2013's hostnames, 1996 to 2001 first, for Prof. Ding, scored in 
   year, 1996 to 2013 (2002 on in `extended_years/YYYY.txt`; 2014 on is not hunted). Nothing ships
   under the gate: 1% of his EE for 1996 to 2001, candidates counted, or 2002 to 2013. The aim: long
   unattended throughput, not a number.
-- **Channel.** At most three clients an address query `web.archive.org/cdx`, agents only under an
-  owner's contract. Read a host's terms and whole robots.txt first; back off when it asks.
+- **Channel.** As many clients query `web.archive.org/cdx` as raise throughput, each one request at
+  a time and backing off on 429, 503 or a refused connection; agents only under an owner's contract.
+  Read a host's terms and whole robots.txt first; back off when it asks.
 - **Accounts.** Model work runs only in the harness, on the primary token unless an owner-merged PR
   changes ark-fleet `policy.json` `token`.
 - **Frozen.** His files are append-only; `submissions/` and generated pages (their first lines name

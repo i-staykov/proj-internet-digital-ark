@@ -195,6 +195,39 @@ def _merge(parts: list[Path], out: Path) -> None:
         part.unlink(missing_ok=True)
 
 
+def _prepare_one(
+    conn: duckdb.DuckDBPyConnection, baseline: Path, path: Path, out: Path, files: dict
+) -> tuple[Path, dict]:
+    """The file of his `comm` reads for `path`: itself when clean, else a sorted copy under
+    `out`. Its entry goes into `files`, keyed on its path in the release."""
+    rel = path.relative_to(baseline)
+    use, copy = path, None
+    if not _is_clean(conn, path):
+        use = out / rel
+        use.parent.mkdir(parents=True, exist_ok=True)
+        part = use.with_name(use.name + ".part")
+        try:
+            _copy_to(
+                conn,
+                f"SELECT DISTINCT name FROM ({his_lines(repr(str(path)))}) "
+                "WHERE coalesce(name, '') <> '' ORDER BY name",
+                part,
+            )
+            check_sorted(part)
+            os.replace(part, use)
+        finally:
+            part.unlink(missing_ok=True)
+        copy = str(rel)
+        logger.info(f"{rel}: not sorted, unique and lowercase; a sorted copy is held")
+    else:
+        (out / rel).unlink(missing_ok=True)
+    _mark(use)
+    entry = files[str(rel)] = {**_stat(path), "copy": copy}
+    if copy:
+        entry["held"] = _stat(use)
+    return use, entry
+
+
 def _stat(path: Path) -> dict[str, int]:
     st = path.stat()
     return {"size": st.st_size, "mtime_ns": st.st_mtime_ns}
@@ -234,52 +267,19 @@ def prepare(baseline: Path | None = None) -> Held:
     stamp: dict = {"marker": marker, "files": {}}
     prepared: dict[Path, Path] = {}
     for path in files:
-        rel = path.relative_to(baseline)
-        use, copy = path, None
-        if not _is_clean(conn, path):
-            use = out / rel
-            use.parent.mkdir(parents=True, exist_ok=True)
-            part = use.with_name(use.name + ".part")
-            try:
-                _copy_to(
-                    conn,
-                    f"SELECT DISTINCT name FROM ({his_lines(repr(str(path)))}) "
-                    "WHERE coalesce(name, '') <> '' ORDER BY name",
-                    part,
-                )
-                check_sorted(part)
-                os.replace(part, use)
-            finally:
-                part.unlink(missing_ok=True)
-            copy = str(rel)
-            logger.info(f"{rel}: not sorted, unique and lowercase; a sorted copy is held")
-        else:
-            (out / rel).unlink(missing_ok=True)
-        _mark(use)
-        prepared[path] = use
-        stamp["files"][str(rel)] = {**_stat(path), "copy": copy}
-        if copy:
-            stamp["files"][str(rel)]["held"] = _stat(use)
+        prepared[path] = _prepare_one(conn, baseline, path, out, stamp["files"])[0]
     conn.close()
     year_files = [prepared[baseline / f"{year}.txt"] for year in YEARS]
     _merge(year_files, out / ALL)
     _merge([prepared[p] for p in files[len(YEARS) :]], out / CANDIDATES)
     late = [baseline / f"{y}.txt" for y in _baseline.EXTENDED_YEARS]
     if late := [path for path in late if path.is_file()]:
-        part = out / "late.txt.part"
-        try:
-            sources = "[" + ", ".join(repr(str(path)) for path in late) + "]"
-            _copy_to(
-                conn := _connect(),
-                f"SELECT DISTINCT name FROM ({his_lines(sources)}) "
-                "WHERE coalesce(name, '') <> '' ORDER BY name",
-                part,
-            )
-            conn.close()
-            check_sorted(part)
-            _merge([out / ALL, part], out / ANNUAL)
-        finally:
-            part.unlink(missing_ok=True)
+        # each year apart, as his other files, then one streaming merge: a DISTINCT over all
+        # twelve at once (14 GB) ran DuckDB out of memory on a 36 GB laptop
+        conn = _connect()
+        held_late = [_prepare_one(conn, baseline, path, out, {})[0] for path in late]
+        conn.close()
+        _merge([out / ALL, *held_late], out / ANNUAL)
         stamp["late"] = {path.name: _stat(path) for path in late}
     else:
         (out / ANNUAL).unlink(missing_ok=True)
