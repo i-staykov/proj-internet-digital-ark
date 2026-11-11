@@ -165,7 +165,7 @@ ROBOTS = [
 def test_a_refusal_in_any_of_our_groups_refuses_the_path():
     """Every misread case is listed at once."""
     assert [case for case in ROBOTS if fetch.robots_verdict(*case[:2])[:2] != case[2]] == []
-    alone = next(iter(fetch.ROBOTS_ALONE))  # a `*` refusal alone does not close such a host
+    alone = min(fetch.ROBOTS_ALONE)  # a `*` refusal alone does not close such a host
     assert fetch.robots_verdict(STAR, "/private/x", alone)[0] == "allowed"
     assert fetch.robots_verdict(BY_NAME, "/zones/1999.txt", alone)[0] == "refused"
 
