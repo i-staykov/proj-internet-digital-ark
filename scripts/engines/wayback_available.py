@@ -10,7 +10,9 @@ exact index ask instead. 300 rows from one address: 2.6 s an ask, no 429; 14 hit
 A miss says nothing of deeper pages: the root alone is asked. An empty answer after 5 s or more is
 often a false miss (6 of 58 known hits came back so on a re-ask, and the empty answer is cached
 for that date), so it is asked once more for another date; `--date` sets the date of a second
-pass over rows already logged.
+pass over rows already logged. `--index` asks the index once where the API misses or folds: any
+2xx page of the exact host in the year (the root alone misses a host captured only deeper, and a
+folded name needs the index anyway); the log then carries the index's answer and seconds.
 
 One ask at a time; a 429 or 503 rests `Retry-After` or a minute, a failed connection 30 s. Every
 ask is a `log.tsv` row (year, host, verdict, stamp, seconds); a restart skips the rows any client
@@ -28,6 +30,7 @@ import gzip
 import io
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -37,6 +40,7 @@ import urllib.request
 from pathlib import Path
 
 API = "https://archive.org/wayback/available"
+CDX = "https://web.archive.org/cdx/search/cdx"
 UA = "InternetDigitalArk/1.0 (+historical domain research)"
 FIRST, LAST = 1996, 2001
 SLOW = 5.0  # seconds: an empty answer this slow is asked again
@@ -48,6 +52,45 @@ def closest(year: str, host: str, timeout: float, date: str = "0701") -> dict:
     with urllib.request.urlopen(req, timeout=timeout) as fh:
         d = json.loads(fh.read().decode("utf-8", "replace"))
     return (d.get("archived_snapshots") or {}).get("closest") or {}
+
+
+def api(year: str, host: str, a: argparse.Namespace) -> dict:
+    t0 = time.time()
+    c = closest(year, host, a.timeout, a.date)
+    if not c and time.time() - t0 >= SLOW:  # a slow empty answer: once more, another date
+        c = closest(year, host, a.timeout, "0615" if a.date != "0615" else "0715")
+    return c
+
+
+def indexed(year: str, host: str, timeout: float) -> dict:
+    """The index's earliest 2xx capture in the year whose URL names the exact host, any page."""
+    q = [("url", host), ("matchType", "host"), ("from", year), ("to", year), ("limit", "1")]
+    q += [("filter", "statuscode:2[0-9][0-9]"), ("fl", "timestamp,original,statuscode")]
+    q += [("filter", "original:https?://" + re.escape(host) + "(:[0-9]+)?(/.*)?")]
+    req = urllib.request.Request(CDX + "?" + urllib.parse.urlencode(q), headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout) as fh:
+        f = fh.read().decode("utf-8", "replace").strip().split("\n")[0].split(" ")
+    if len(f) != 3:
+        return {}
+    return {"timestamp": f[0], "url": f"http://web.archive.org/web/{f[0]}/{f[1]}", "status": f[2]}
+
+
+def patient(ask, end: float) -> dict | None:
+    """`ask()` through its rests: None at the deadline, {"error": code} on any other status."""
+    while time.time() < end:  # a rest never outlasts the deadline
+        try:
+            return ask()
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 503):
+                return {"error": exc.code}
+            try:
+                wait = min(float(exc.headers.get("Retry-After") or 60), 900.0)
+            except ValueError:
+                wait = 60.0
+            time.sleep(max(0.0, min(wait, end - time.time())))
+        except Exception:  # noqa: BLE001  no connection or a cut answer: rest, ask again
+            time.sleep(max(0.0, min(30.0, end - time.time())))
+    return None
 
 
 def original(replay: str) -> str:
@@ -87,6 +130,7 @@ def main() -> None:
     ap.add_argument("--timeout", type=float, default=60)
     ap.add_argument("--batch", type=int, default=50, help="hits a journal")
     ap.add_argument("--date", default="0701", help="MMDD asked in each row's year")
+    ap.add_argument("--index", action="store_true", help="ask the index where the API misses")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
     i, n = map(int, a.share.split("/"))
@@ -112,30 +156,20 @@ def main() -> None:
     for year, host in rows:
         if time.time() >= end:
             break
-        c = None
-        while c is None and time.time() < end:  # a rest never outlasts the deadline
-            t0 = time.time()
-            try:
-                c = closest(year, host, a.timeout, a.date)
-                if (
-                    not c and time.time() - t0 >= SLOW
-                ):  # a slow empty answer: once more, another date
-                    c = closest(year, host, a.timeout, "0615" if a.date != "0615" else "0715")
-            except urllib.error.HTTPError as exc:
-                if exc.code not in (429, 503):
-                    c = {"error": exc.code}
-                    break
-                try:
-                    wait = min(float(exc.headers.get("Retry-After") or 60), 900.0)
-                except ValueError:
-                    wait = 60.0
-                time.sleep(max(0.0, min(wait, end - time.time())))
-            except Exception:  # noqa: BLE001  no connection or a cut answer: rest, ask again
-                time.sleep(max(0.0, min(30.0, end - time.time())))
+        t0 = time.time()
+        c = patient(lambda: api(year, host, a), end)  # noqa: B023  called at once
         if c is None:
             break
-        v = "error" if "error" in c else verdict(year, host, c)
-        log.write(f"{year}\t{host}\t{v}\t{c.get('timestamp', '')}\t{time.time() - t0:.2f}\n")
+        v, t1, found = "error" if "error" in c else verdict(year, host, c), time.time(), ""
+        if a.index and v in ("miss", "folded"):  # a deeper page, or the name the API folded
+            c2 = patient(lambda: indexed(year, host, a.timeout), end)  # noqa: B023
+            if c2 is None:
+                break
+            found = str(c2.get("error", "none"))
+            if verdict(year, host, c2) == "hit":
+                v, c, found = "hit", c2, "index"
+        log.write(f"{year}\t{host}\t{v}\t{c.get('timestamp', '')}\t{t1 - t0:.2f}")
+        log.write(f"\t{found}\t{time.time() - t1:.2f}\n" if a.index else "\n")
         if v == "hit":
             hits.append(
                 {"url": original(c["url"]), "timestamp": c["timestamp"], "status": c["status"]}
@@ -143,7 +177,7 @@ def main() -> None:
             if len(hits) >= a.batch:
                 flush(a.data / "raw/cdx_suffix", name, hits)
                 del hits[:]
-        elif v == "folded":
+        elif v == "folded" and found != "none":  # the index, asked, settles a folded name
             folded.write(f"{year}\t{host}\t{host_of(original(c.get('url', '')))}\n")
 
 

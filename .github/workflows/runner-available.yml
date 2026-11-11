@@ -22,6 +22,9 @@ on:
       seconds:
         description: a job's asking time
         default: "3300"
+      index:
+        description: non-empty asks the index where the API misses
+        default: ""
 
 permissions:
   contents: read
@@ -58,13 +61,14 @@ jobs:
           SHARDS: ${{ inputs.shards }}
           WORKERS: ${{ inputs.workers }}
           SECONDS_: ${{ inputs.seconds }}
+          ASK_INDEX: ${{ inputs.index }}
           INDEX: ${{ matrix.index }}
         run: |
           case "$LIST" in H4sI*) printf '%s' "$LIST" | base64 -d | gunzip > list.txt ;; *) printf '%s\n' "$LIST" > list.txt ;; esac
           n=$((SHARDS * WORKERS))
           for w in $(seq 0 $((WORKERS - 1))); do
             python3 scripts/engines/wayback_available.py list.txt --share "$((INDEX * WORKERS + w))/$n" \
-              --data out --seconds "$SECONDS_" &
+              --data out --seconds "$SECONDS_" ${ASK_INDEX:+--index} &
             sleep 5
           done
           wait || true
