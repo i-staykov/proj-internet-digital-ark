@@ -21,7 +21,7 @@ on:
         description: an ERE kept in place of report_urls.ere
         default: ""
       reduce:
-        description: any value keeps one capture per host and year; links reads WAT files to one linking capture per linked host and year
+        description: any value keeps one capture per host and year; links reads WAT files to one linking capture per linked host and year, modified to one capture per host and earlier Last-Modified year
         default: ""
       group:
         description: files a job reads in turn
