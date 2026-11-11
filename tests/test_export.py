@@ -230,7 +230,8 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filters_still_bite(run) -> Non
 def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run) -> None:
     """Registrable candidates, ISC survey hosts and header-only hosts in one list, each arm losing
     what any `.txt` list of his names; header-only hosts ship with their provenance."""
-    registrable = ["cand.org", "dir.com", "example.net", "example.org", "isc.net", "sub.com"]
+    # `cand.org` is found with no dated record, so no file to open: it ships in neither set
+    registrable = ["dir.com", "example.net", "example.org", "isc.net", "sub.com"]
     headers = ["mail.example.net", "news.example.net", "news.example.org", "news.mail.org"]
     isc = ["keep.survey.net", "mail.isc.net"]
     claim = sorted([*registrable, "zone-only.dk", *headers, *isc])
@@ -238,13 +239,13 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     assert _words(run, "netnew/isc_candidates.txt") == isc
     assert _words(run, "netnew/header_candidates.txt") == headers
     summary = json.loads((run.root / "full/netnew/candidate_additions_summary.json").read_text())
-    assert (summary["candidates"], summary["track"]) == (13, "candidate")
-    assert {u: v["names"] for u, v in summary["by_unit"].items()} == dict(hostname=6, registrable=7)
+    assert (summary["candidates"], summary["track"]) == (12, "candidate")
+    assert {u: v["names"] for u, v in summary["by_unit"].items()} == dict(hostname=6, registrable=6)
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
     # one provenance row a name, whose classes partition the claim and its EE
     rows = _rows(run, "netnew/candidate_provenance.csv")
     assert [r["name"] for r in rows] == claim
-    assert [r["name"] for r in rows if not r["position"]] == ["cand.org"]  # found, undated
+    assert all(r["position"] and r["source_file"] for r in rows)
     classes = {r["name"]: r["class"] for r in rows}
     assert classes["news.example.org"] == "Usenet server header host"
     assert {classes[n] for n in isc} == {"ISC Internet Domain Survey host"}
@@ -646,6 +647,7 @@ def test_a_candidate_leaves_when_its_row_cannot_stand_for_the_name() -> None:
         ("spam.example.com", 1999, "Usenet server header host", "usenet", "f"),
         ("news.gmane.org", 2003, "mail Received header host", "msg_gmane_lists__x", "f"),
         ("found.example.org", None, "discovered name, no dated record", "list", None),
+        ("host.mydomain.com", 1999, "Usenet server header host", "usenet", "f"),
         ("www.example.com", 2000, "mail or news From or Message-ID host", "usenet", "f"),
     ]
     conn = duckdb.connect()
@@ -662,4 +664,6 @@ def test_a_candidate_leaves_when_its_row_cannot_stand_for_the_name() -> None:
         "spammidway.uchicago.edu",
         "nospamhowl.demon.co.uk",
         "main.gmane.org",
+        "found.example.org",
+        "host.mydomain.com",
     ]
