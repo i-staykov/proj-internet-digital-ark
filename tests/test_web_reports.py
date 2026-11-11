@@ -94,10 +94,9 @@ def test_far_captures_pair_only_when_the_summary_lists_this_page_s_busiest_hosts
         weeks.mkdir(parents=True)
         (hosts / "s.9.total-hosts.html").write_text(HOSTS.split("\n")[0] + "\n" + busiest)
         (weeks / "s.9.html").write_text(PERIOD + listed)
-        for tree, stamp, page in (
-            ("a", "2000", "hosts/s.9.total-hosts.html"),
-            ("b", "2004", "s.9.html"),
-        ):
+        later = "2004" if case == "same" else "2000"  # a differing row refuses the same day too
+        pages = (("a", "2000", "hosts/s.9.total-hosts.html"), ("b", later, "s.9.html"))
+        for tree, stamp, page in pages:
             receipt = {"path": f"h/weeks/{page}", "url": f"http://h:80/weeks/{page}"}
             receipt["replay"] = f"x/web/{stamp}0601000000id_/http://h/weeks/{page}"
             (raw / tree / "receipts.receipts").write_text(json.dumps(receipt))

@@ -266,7 +266,8 @@ def pwebstats(lines, text, path):
     hosts/ directory does, so the stamp is read there and the witness names both. Two Wayback
     captures must be shown to be one period, since a renumbered series could lend one week's
     dates to another's hosts: either the summary's own table of its busiest hosts stands on the
-    host page row for row, requests and bytes alike, or the two were captured within a week.
+    host page row for row, requests and bytes alike, or, when the summary lists under five,
+    the two were captured within a week.
     The summary may sit in another tree of the raw root, read by another list."""
     if "Frequency of Access: Hosts" not in text:
         return
@@ -291,7 +292,9 @@ def pwebstats(lines, text, path):
                 r.groups() for r in map(PWEB_ROW.match, html.unescape(summary).splitlines()) if r
             ]
             top = [t for t in top[:10] if "/" not in t[0]]
-            if len(top) >= 5 and all(t in mine for t in top):
+            if len(top) >= 5:  # the rows decide alone; under five the captures' week does
+                if not all(t in mine for t in top):
+                    continue
                 paired = (
                     f" (its {len(top)} busiest hosts stand on this page, requests and bytes alike)"
                 )
