@@ -361,3 +361,63 @@ def test_the_path_probe_s_shards_split_the_hosts_and_skip_asked_urls():
     assert probe.asks(hosts[:1], (0, 1), {"http://h0.example.edu/stats/"}) == [
         "http://h0.example.edu/usage/"
     ]
+
+
+def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():
+    spec = importlib.util.spec_from_file_location(
+        "wat_links", ROOT / "scripts/sources/web_reports/wat_links.py"
+    )
+    wat_links = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(wat_links)
+
+    def record(page, stamp, status, links, offset):
+        http = {"Response-Message": {"Status": status}, "HTML-Metadata": {"Links": links}}
+        return json.dumps(
+            {
+                "Container": {
+                    "Filename": "p.arc.gz",
+                    "Offset": offset,
+                    "Gzip-Metadata": {
+                        "Header-Length": "10",
+                        "Deflate-Length": "30",
+                        "Footer-Length": "8",
+                    },
+                },
+                "Envelope": {
+                    "ARC-Header-Metadata": {"Target-URI": page, "Date": stamp},
+                    "Payload-Metadata": {"HTTP-Response-Metadata": http},
+                },
+            }
+        )
+
+    a = [
+        {"path": "A@/href", "url": "http://www.x.org/a"},
+        {"path": "IMG@/src", "url": "http://i.org/"},
+    ]
+    b = [{"path": "A@/href", "url": "HTTP://WWW.X.ORG:80/b"}, {"path": "A@/href", "url": "/own"}]
+    lines = [
+        "WARC/1.0",
+        record("http://a.gov:80/", "19970713045543", "200", a, "167"),
+        record(
+            "http://b.gov/",
+            "19970102030405",
+            "200",
+            b + [{"path": "A@/href", "url": "http://b.gov/"}],
+            "9",
+        ),
+        record("http://c.gov/", "19970101000000", "404", a, "5"),
+    ]
+    out = io.StringIO()
+    assert wat_links.reduce(lines, out) == {"records": 3, "kept": 1}
+    assert [json.loads(row) for row in out.getvalue().splitlines()] == [
+        {
+            "host": "www.x.org",
+            "year": "1997",
+            "url": "http://b.gov/",
+            "timestamp": "19970102030405",
+            "file": "p.arc.gz",
+            "offset": "9",
+            "length": 48,
+            "link": "HTTP://WWW.X.ORG:80/b",
+        }
+    ]
