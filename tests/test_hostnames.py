@@ -759,6 +759,10 @@ def test_a_page_read_from_an_arc_file_is_cited_as_its_record_and_held_rows_follo
     assert q(fresh, sql)[0][1:] == cited
     hn.ingest_staged_messages(held, folder)
     assert q(held, sql) == [before], "a restage alone leaves the held row as it was"
+    # a later restage moved the line and quotes the page at another stamp: still that page
+    moved = row | dict(file=page.replace("19980116234353", "19990101000000"), pos=61)
+    write(folder / "rows.jsonl", json.dumps(moved | dict(arc=arc, arc_offset=5949, arc_size=42)))
+    cited = (f"list message 1996 {arc}#arc 5949 42 #61 gate.example.com", arc)
     assert hn.recite_staged_arcs(held, folder) == {"staged_arc_rows": 1, "held_rows": 1}
     assert q(held, sql) == [before], "counting changes nothing"
     hn.recite_staged_arcs(held, folder, write=True)

@@ -2118,50 +2118,72 @@ def _staged_value(year: int, file: str, pos: str, host: str) -> str:
     return f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
 
 
+# a page's URL with its Wayback prefix, scheme and default port taken off, so one page's rows
+# meet whatever capture stamp each restage quoted it by
+_PAGE_SQL = (
+    r"regexp_replace(regexp_replace(lower({u}),"
+    r" '^https?://web\.archive\.org/web/[0-9]+(id_)?/', ''),"
+    r" '^(https?://)?([^/:]+)(:80)?', '\2')"
+)
+
+
 def recite_staged_arcs(
     conn: duckdb.DuckDBPyConnection, root: Path, write: bool = False
 ) -> dict[str, int]:
     """The held rows of one staged folder that cite a page read from an ARC file by the page's
-    URL, re-cited as the ARC record, as `_staged_lines` writes them now. A row keeps its id, so
-    every record standing on it stands. `write` false counts and changes nothing."""
+    URL, re-cited as the ARC record, as `_staged_lines` writes them now. **A held row is matched
+    by its page, host and year**, since a restage may have moved its line or the capture stamp
+    it quoted. A row keeps its id, so every record standing on it stands. `write` false counts
+    and changes nothing."""
     names = [f"msg_{root.name}__{field}" for field in MESSAGE_FIELDS]
-    conn.execute("CREATE OR REPLACE TEMP TABLE recite_rows (old VARCHAR, new VARCHAR, url VARCHAR)")
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE recite_rows "
+        "(year INTEGER, host VARCHAR, page VARCHAR, new VARCHAR, url VARCHAR)"
+    )
+    keys = ("year", "host", "page", "new", "url")
 
-    def stage(batch: list[tuple[str, str, str]]) -> None:
-        columns = {name: [row[i] for row in batch] for i, name in enumerate(("old", "new", "url"))}
+    def stage(batch: list[tuple[int, str, str, str, str]]) -> None:
+        columns = {name: [row[i] for row in batch] for i, name in enumerate(keys)}
+        columns["year"] = pa.array(columns["year"], type=pa.int32())
         conn.register("recite_batch", pa.table(columns))
         try:
-            conn.execute("INSERT INTO recite_rows SELECT * FROM recite_batch")
+            page = _PAGE_SQL.format(u="page")
+            conn.execute(
+                f"INSERT INTO recite_rows SELECT year, host, {page}, new, url FROM recite_batch"
+            )
         finally:
             conn.unregister("recite_batch")
 
     for path in sorted({*root.glob("*.jsonl"), *root.glob("*.jsonl.gz")}):
-        batch: list[tuple[str, str, str]] = []
+        batch: list[tuple[int, str, str, str, str]] = []
         pages, records = _staged_lines(path, Counter(), arcs=False), _staged_lines(path, Counter())
-        both = zip(pages, records, strict=True)
-        for (_, _, host, year, file, pos), (*_, arc, at) in both:
+        for (_, _, host, year, file, _), (*_, arc, at) in zip(pages, records, strict=True):
             if arc == file:
                 continue
-            old, new = _staged_value(year, file, pos, host), _staged_value(year, arc, at, host)
-            batch.append((old, new, arc))
+            batch.append((year, host, file, _staged_value(year, arc, at, host), arc))
             if len(batch) >= _STAGED_BATCH_ROWS:
                 stage(batch)
                 batch = []
         if batch:
             stage(batch)
-    # a page line two records hold is cited by one of them
+    # a page line two records hold is cited by the first of them
     conn.execute(
-        """
+        f"""
         CREATE OR REPLACE TEMP TABLE recite AS
         SELECT e.evidence_id, min(r.new) AS new, min_by(r.url, r.new) AS url FROM evidence e
         JOIN source s ON s.source_id = e.source_id AND list_contains(?, s.name)
-        JOIN recite_rows r ON r.old = e.evidence_value
+        JOIN recite_rows r
+          ON r.year = e.evidence_year
+         AND r.host = lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))
+         AND r.page = {_PAGE_SQL.format(u="e.evidence_url")}
+        WHERE NOT ends_with(e.evidence_url, '.arc.gz')
         GROUP BY 1
         """,
         [names],
     )
     staged, held = conn.execute(
-        "SELECT (SELECT count(DISTINCT old) FROM recite_rows), (SELECT count(*) FROM recite)"
+        "SELECT (SELECT count(*) FROM (SELECT DISTINCT year, host, page FROM recite_rows)), "
+        "(SELECT count(*) FROM recite)"
     ).fetchone()
     if write:
         with _one_transaction(conn):
