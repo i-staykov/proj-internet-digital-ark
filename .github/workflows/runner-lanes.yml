@@ -1,8 +1,9 @@
 name: runner-lanes
 
-# A CDX lane slice an hour from a runner's own address (docs/ops/runbook.md, Collection): the
-# bank cuts docs/registers/runner/slice_*.txt, a job walks the first one no artifact has taken
-# and uploads its journals as an artifact the tick banks. Pure scripted requests: no model, no
+# Seventeen CDX lane slices an hour, each from its runner's own address (docs/ops/runbook.md,
+# Collection): the bank cuts docs/registers/runner/slice_*.txt, job i walks the i-th one no
+# artifact has taken and uploads its journals as an artifact the tick banks as runner0; three of
+# the account's twenty slots stay with CI. Pure scripted requests: no model, no
 # secret, nothing here knows the VM. This rail holds the hard caps; the soft knob is
 # docs/registers/runner/cadence.
 on:
@@ -28,8 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
+      fail-fast: false
       matrix:
-        index: [0]
+        index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -69,7 +71,7 @@ jobs:
       - if: always() && steps.pick.outputs.slice != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ${{ steps.pick.outputs.slice }}_r${{ matrix.index }}
+          name: ${{ steps.pick.outputs.slice }}_r0
           path: runner-data/raw
           retention-days: 2
           if-no-files-found: ignore
