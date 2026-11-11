@@ -339,6 +339,29 @@ def test_ftpweblog_dates_a_client_by_its_last_request_inside_the_printed_span(tm
     }, "a file row and a request after the span are left"
 
 
+SIMPLE_STATS = """<title>Simple Stats for {}</title>
+Stats from log dated:<b> [01/Jun/1997:00:00:50 -0500]</b><P>
+<listing>
+1271 rose.ncsa.uiuc.edu
+ 216 ww-tl02.proxy.aol.com
+</listing>
+   3 after.the.listing.edu
+"""
+
+
+def test_simple_stats_dates_a_month_page_by_its_log_s_first_stamp(tmp_path):
+    site = tmp_path / "raw" / "s"
+    site.mkdir(parents=True)
+    (site / "stats_06.html").write_text(SIMPLE_STATS.format("June"))
+    (site / "stats_07.html").write_text(SIMPLE_STATS.format("July").replace("rose", "lily"))
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert {(r["host"], r["year"]) for r in rows} == {
+        ("rose.ncsa.uiuc.edu", 1997),
+        ("ww-tl02.proxy.aol.com", 1997),
+    }, "a page whose title names another month than its stamp is left"
+
+
 def test_an_index_page_s_links_inside_its_own_directory_become_asks_near_its_capture(tmp_path):
     page = '<a href="1999/">y</a> <a href="/other/x.html">o</a> <img src="g.gif"> http-analyze'
     (tmp_path / "h" / "stats").mkdir(parents=True)
