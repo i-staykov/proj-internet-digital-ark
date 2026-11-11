@@ -6,7 +6,9 @@ named 6 host-years), no collapse (laws), paged by resume key and reduced here to
 each (host, year). The rows go out as the walker's journals,
 `walk_dom-<registrable>_<stamp>.jsonl.gz`, 1996 to 2001 under `<data>/raw/cdx_suffix/` (the hostname
 ingest banks them) and 2002 to 2013 under `<data>/raw/extended/ia_cdx_hostnames/`, so a capture the
-bank lacks ships as an addition.
+bank lacks ships as an addition. A registrable over `--farm` host-years writes under
+`<data>/raw/cdx_domain/farm/` instead: one under the VM's address answered 302,142 for 1996 to 2001,
+a wildcard farm, so a hand read decides before any of it banks.
 
 One request at a time, `--interval` apart. A 429 or 503 rests `Retry-After` or a minute; a refused
 connection or a connect timeout 30 s doubling to 15 min, and a 15 minute rest ends the run, since
@@ -153,10 +155,14 @@ class Client:
         name = f"walk_dom-{reg}_{stamp}"
         core = [v for (_, y), v in keep.items() if y.isdigit() and int(y) < SPLIT]
         ext = [v for (_, y), v in keep.items() if y.isdigit() and SPLIT <= int(y) <= LAST]
+        raw = self.a.data / "raw"
+        if len(keep) > self.a.farm:  # a wildcard farm, not that many sites: a hand read first
+            raw = self.a.data / "raw/cdx_domain/farm"
+            self.log.write(f"# farm {reg} {len(keep)} host-years held\n")
         if core:
-            write(self.a.data / "raw/cdx_suffix", name, core)
+            write(raw / "cdx_suffix", name, core)
         if ext:
-            write(self.a.data / "raw/extended/ia_cdx_hostnames", name, ext)
+            write(raw / "extended/ia_cdx_hostnames", name, ext)
         with open(self.state / "done.txt", "a") as fh:
             fh.write(f"{reg}\n")
         self.log.write(f"# done {reg} {status} {requests} requests {len(core)} {len(ext)}\n")
@@ -172,6 +178,7 @@ def main() -> None:
     ap.add_argument("--interval", type=float, default=3.0, help="seconds between starts")
     ap.add_argument("--timeout", type=float, default=120)
     ap.add_argument("--last", type=int, default=LAST, help="the last year asked")
+    ap.add_argument("--farm", type=int, default=1000, help="host-years a registrable banks")
     ap.add_argument("--any-url", action="store_true", help="every URL, not the roots alone")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
