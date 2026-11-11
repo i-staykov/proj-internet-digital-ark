@@ -502,7 +502,7 @@ CLF_ROW = re.compile(r"^(\S+) \S+ \S+ \[\d\d/[A-Za-z]{3}/(\d{4}):\d\d:\d\d:\d\d"
 XFER_ROW = re.compile(
     r"^[A-Z][a-z]{2} [A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d (\d{4}) \d+ (\S+) \d+ /"
 )
-COUNTER_ROW = re.compile(r"^\[\d\d:\d\d:\d\d \d\d/\d\d/(\d\d) \w{3}\] \S+ - (\S+) - ")
+COUNTER_ROW = re.compile(r"^\[\d\d:\d\d:\d\d \d\d/\d\d/(\d\d)(?: \w{3})?\]\s+(?:\S+ )?- (\S+) - ")
 CAME_ROW = re.compile(r"^At \d\d:\d\d:\d\d \d{1,2}/\d{1,2}/(\d\d), (\S+) came here from ")
 NS_ERR_ROW = re.compile(
     r"^\[\d\d/[A-Za-z]{3}/(\d{4}):[\d:]+\] \w+ \(\s*\d+\): for host (\S+) trying to "
@@ -555,12 +555,12 @@ def raw_log(lines, text, path):
 
 
 BYIP_HEAD = re.compile(r"^Complete \S+\s+usage log\s+([A-Z][a-z]+) (\d{4})\s")
-BYIP_ROW = re.compile(r"^\s*\d+\s+\d{1,3}(?:\.\d{1,3}){3}\s+(\S+)\s*$")
+BYIP_ROW = re.compile(r"^\s*\d+\s+(?:\d{1,3}(?:\.\d{1,3}){3}\s+)?(\S+)\s*$")
 
 
 def usage_log_by_ip(lines, text, path):
     """A monthly "Complete <server> usage log" in plain text: the month on its second line, and
-    under "By ip" one client a line, `count address name`."""
+    under "By ip" one client a line, `count [address] name`."""
     m = BYIP_HEAD.match(" ".join(text[:300].split()) + " ")
     if not m or m.group(1)[:3].lower() not in MONTHS:
         return
