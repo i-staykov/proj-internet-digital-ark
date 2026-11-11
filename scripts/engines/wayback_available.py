@@ -55,7 +55,7 @@ def host_of(url: str) -> str:
 
 def verdict(year: str, host: str, c: dict) -> str:
     ts = c.get("timestamp", "")
-    if ts[:4] != year or not str(c.get("status", "")).startswith(("2", "3")):
+    if ts[:4] != year or not str(c.get("status", "")).startswith("2"):
         return "miss"
     return "hit" if host_of(original(c.get("url", ""))) == host else "folded"
 
@@ -98,21 +98,24 @@ def main() -> None:
     for year, host in rows:
         if time.time() >= end:
             break
-        while True:
+        c = None
+        while c is None and time.time() < end:  # a rest never outlasts the deadline
             t0 = time.time()
             try:
                 c = closest(year, host, a.timeout)
-                break
             except urllib.error.HTTPError as exc:
                 if exc.code not in (429, 503):
                     c = {"error": exc.code}
                     break
                 try:
-                    time.sleep(min(float(exc.headers.get("Retry-After") or 60), 900.0))
+                    wait = min(float(exc.headers.get("Retry-After") or 60), 900.0)
                 except ValueError:
-                    time.sleep(60)
+                    wait = 60.0
+                time.sleep(max(0.0, min(wait, end - time.time())))
             except Exception:  # noqa: BLE001  no connection or a cut answer: rest, ask again
-                time.sleep(30)
+                time.sleep(max(0.0, min(30.0, end - time.time())))
+        if c is None:
+            break
         v = "error" if "error" in c else verdict(year, host, c)
         log.write(f"{year}\t{host}\t{v}\t{c.get('timestamp', '')}\t{time.time() - t0:.2f}\n")
         if v == "hit":
