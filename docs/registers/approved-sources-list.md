@@ -879,4 +879,4 @@ Decision: master
 - the artifact: the WAT link extracts beside the public ARC files of `USFEDGOV-EXTRACT-1996` to `USFEDGOV-EXTRACT-2001` on archive.org (10,555 files, 110.6 GB), read on runners by `runner-grep` with `reduce=links` (`scripts/sources/web_reports/wat_links.py`)
 - what dates one item: the linking page's own 14-digit capture stamp, answered 2xx, inside the row's year; `file` is the page's ARC file, `pos` is `arc <offset> <length> #<stamp> <page URL>`, a byte range that opens the record holding the link
 - measured 2026-11-11 on 30 files drawn by seed (276 MB), by exact name against merge261104: 30,990 linked host-years in 1996 to 2001, 611 net-new, 467.6 EE
-Decision: pending
+Decision: master
