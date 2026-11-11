@@ -2168,6 +2168,53 @@ def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[
     return dict(totals)
 
 
+def mark_replay_failed(
+    conn: duckdb.DuckDBPyConnection, path: Path, write: bool = False
+) -> dict[str, int]:
+    """Mark the row of each record whose capture the replay check could not open, from its
+    `host, year, ts, why` table: a hostname or registrable year standing on a row that quotes
+    that stamp gets `replay failed` before the value's last token, so it fails XIV and ships as
+    a candidate. A row keeps its id. `write` false counts and changes nothing; a marked row is
+    not marked again."""
+    from ark.evidence_types import REPLAY_FAILED
+
+    conn.execute(
+        "CREATE OR REPLACE TEMP TABLE replay_fail AS SELECT lower(host) AS host, "
+        "CAST(year AS INTEGER) AS year, CAST(ts AS VARCHAR) AS ts FROM read_csv(?, "
+        "delim = '\t', header = true, all_varchar = true)",
+        [str(path)],
+    )
+    conn.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE replay_rows AS
+        SELECT DISTINCT e.evidence_id, e.evidence_value FROM replay_fail f
+        JOIN (SELECT hostname AS name, assigned_year, evidence_id FROM hostname_year
+              UNION ALL SELECT domain, assigned_year, evidence_id FROM domain_year) r
+          ON r.name = f.host AND r.assigned_year = f.year
+        JOIN evidence e ON e.evidence_id = r.evidence_id
+        WHERE regexp_matches(e.evidence_value, '(^| )' || f.ts || '( |$)')
+          AND NOT regexp_matches(e.evidence_value, '{REPLAY_FAILED}')
+        """
+    )
+    listed, rows = conn.execute(
+        "SELECT (SELECT count(*) FROM replay_fail), (SELECT count(*) FROM replay_rows)"
+    ).fetchone()
+    if write:
+        with _one_transaction(conn):
+            conn.execute("""
+                UPDATE evidence SET evidence_value = regexp_replace(
+                    r.evidence_value, ' ?([^ ]+)$', ' replay failed \\1')
+                FROM replay_rows r WHERE evidence.evidence_id = r.evidence_id
+            """)
+            conn.execute(
+                "UPDATE evidence SET evidence_value = ltrim(evidence_value) "
+                "WHERE evidence_id IN (SELECT evidence_id FROM replay_rows)"
+            )
+    conn.execute("DROP TABLE replay_rows")
+    conn.execute("DROP TABLE replay_fail")
+    return {"listed": listed, "rows_marked": rows}
+
+
 # **The captures `scripts/round/status_audit.py` read the raw CDX of, by family**: the
 # (source, method) their evidence rows carry, and the group whose raw the audit reads
 # together for a repoint target.
