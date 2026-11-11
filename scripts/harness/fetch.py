@@ -102,7 +102,7 @@ OUR_ROBOT_NAMES = frozenset(
 # **A robots file alone does not close these hosts.** Each publishes the data and documents the
 # programmatic read (Archive-It's CDX API of its public collections), and its `*` group only
 # keeps crawlers at large out. A group that names us still refuses, as do the host's terms, a
-# 403 and a 429. One connection, a second between requests.
+# 401, a 403 and a 429. One connection, the file's crawl delay between requests.
 ROBOTS_ALONE = frozenset({"wayback.archive-it.org"})
 
 # Types a leg may write to disk unattended. Everything here is either text or a stream
