@@ -68,6 +68,8 @@ WEB_METHODS = frozenset(
         "ukwa_host_link_graph",
         "ukwa_hostgrain",
         "bl_geoindex_extract",
+        # a captured page's own link to the host, the page dated by its capture stamp
+        "page_link_host",
     }
 )
 
@@ -75,7 +77,7 @@ WEB_METHODS = frozenset(
 # **What kind of web evidence a method is, as the delivery names it per row**: a dated web
 # link graph naming the host, a dated dataset record (a crawl list's fetched page, an HTTP
 # Archive request), else a capture of the host from an archive's index or extract.
-_LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract")
+_LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract", "page_link_host")
 _DATASET = ("crawl_list_node", "httparchive_har_entry")
 
 
@@ -127,6 +129,8 @@ def web_evidence_sql(alias: str = "e") -> str:
 _TS = "[0-9]{14}"
 _CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?(replay failed )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
+# the linking page as its ARC record, its capture stamp and URL, then the linked host
+_PAGE_LINK = "^page link [0-9]{4} https?://[^ ]+#arc [0-9]+ [0-9]+ #[0-9]{14} [^ ]+ [^ ]+$"
 _HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
 _STAMPED = (
     "^((replay failed )?[0-9]{14}"
@@ -140,10 +144,11 @@ def exact_host_expr(alias: str) -> str:
 
     Chosen by the value's format, one branch per format a web method writes, never by the URL
     alone: a format this does not know names no host, so it fails closed. `cdx capture <ts>
-    [status <nnn>] <host>`, `host_link_graph:<year> <host>` and `har entry <ts> status <2xx or
-    3xx> <host>` name it last; a bare stamp and a TimeMap stamp take the URL's host, only when
-    the URL carries the same stamp; a defacement mirror names it in its path. `cdx capture
-    <year>` and `host_link_graph:<year>` name none.
+    [status <nnn>] <host>`, `host_link_graph:<year> <host>`, `page link <year> <arc>#arc <offset>
+    <length> #<ts> <page> <host>` and `har entry <ts> status <2xx or 3xx> <host>` name it last;
+    a bare stamp and a TimeMap stamp take the URL's host, only when the URL carries the same
+    stamp; a defacement mirror names it in its path. `cdx capture <year>` and
+    `host_link_graph:<year>` name none.
     """
     v, u = f"{alias}.evidence_value", f"lower({alias}.evidence_url)"
     url_host = (
@@ -153,7 +158,7 @@ def exact_host_expr(alias: str) -> str:
     url_ts = f"regexp_extract({u}, '^https?://[^/]+/(web|wayback)/({_TS})/', 2)"
     return f"""(CASE
         WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
-          OR regexp_matches({v}, '{_HAR}')
+          OR regexp_matches({v}, '{_HAR}') OR regexp_matches({v}, '{_PAGE_LINK}')
           THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
         WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
           THEN nullif({url_host}, '')

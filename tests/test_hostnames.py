@@ -742,6 +742,33 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(
     assert q(small, ledger) == q(conn, ledger)
 
 
+def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, monkeypatch):
+    from ark import approvals
+    from ark.evidence_types import web_evidence_exists
+
+    arc = "https://archive.org/download/X-1999/X-1999-PART-00005-000002.arc.gz"
+    pos = "arc 5949 420 #19990302101500 http://www.example.gov/links.html"
+    host = "www.linked.example.org"
+    mail = dict(host=host, year=1999, file="nntp://news.php.net/php.dev", pos=3, field="from")
+    write(tmp_path / "a_list" / "rows.jsonl", json.dumps(mail) + "\n")
+    links = [
+        dict(host=host, year=1999, file=arc, pos=pos, field="page_link"),
+        dict(host=host, year=1998, file=arc, pos=pos, field="page_link"),  # stamped 1999
+    ]
+    write(tmp_path / "gov_links" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in links))
+    asked: list[tuple] = []
+    monkeypatch.setattr(approvals, "check", lambda *a, **k: asked.append(a))
+    conn = store()
+    hn.ingest_staged_messages(conn, tmp_path / "a_list")  # the host-year, held as a candidate
+    assert asked == [("staged_messages", "link_source")]
+    got = hn.ingest_staged_messages(conn, tmp_path / "gov_links")
+    assert asked[-1] == ("page_link_host", "link_source")
+    assert (got["page_link_rows"], got["bad_pos"], got["repointed"]) == (0, 1, 1)
+    ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
+    cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
+    assert q(conn, cited + ships) == [(f"page link 1999 {arc}#{pos} {host}",)]
+
+
 def test_a_page_read_from_an_arc_file_is_cited_as_its_record_and_held_rows_follow(tmp_path):
     page = "https://web.archive.org/web/19980116234353id_/http://stats.example.gov/9601.html"
     arc = "https://archive.org/download/X-1998/X-1998-PART-00005-000002.arc.gz"
