@@ -3,6 +3,8 @@
 import gzip
 import importlib.util
 import json
+import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -306,3 +308,18 @@ def test_weblog_dates_a_visitor_by_the_span_its_log_prints(tmp_path):
         ("a216155.upc-a.chello.nl", 2002),
         ("rv6a2.impsat.net.ar", 1998),
     }, "5 March lies in neither year of the span and is left"
+
+
+def test_an_index_page_s_links_inside_its_own_directory_become_asks_near_its_capture(tmp_path):
+    page = '<a href="1999/">y</a> <a href="/other/x.html">o</a> <img src="g.gif"> http-analyze'
+    (tmp_path / "h" / "stats").mkdir(parents=True)
+    (tmp_path / "h" / "stats" / "_index.html").write_text(page)
+    replay = "https://web.archive.org/web/20010203040506id_/http://h/stats/"
+    receipt = {"url": "http://h/stats/", "path": "h/stats/_index.html", "replay": replay}
+    (tmp_path / "receipts.receipts").write_text(json.dumps(receipt))
+    tool = ROOT / "scripts/sources/web_reports/index_to_trees.py"
+    out = tmp_path / "out.json"
+    subprocess.run([sys.executable, str(tool), str(out), "2004", str(tmp_path)], check=True)
+    urls = json.loads(out.read_text())["h"]["urls"]
+    assert "http://h/stats/1999/\t20010203040506" in urls and len(urls) == 1 + 144
+    assert "http://h/stats/www1999/lsites0599.html\t20010203040506" in urls, "a framed month"
