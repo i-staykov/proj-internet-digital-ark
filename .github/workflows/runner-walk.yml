@@ -1,0 +1,81 @@
+name: runner-walk
+
+# Pages of the CDX index walked on runners' own addresses, a share of the dispatched slice a job
+# (scripts/engines/cdx_extended_walk.py --slice): a unit is a public suffix or one registrable
+# whose hosts are its users' sites (a free host, an ISP's home pages, a dynamic DNS service: 14
+# pages of 1,000 blocks hold all of homestead.com). The slice is a dispatch input, so public: a
+# registrable only his files name never goes in it. No model, no secret. The artifact is not the
+# tick's: a hand read of each service comes before any of it banks.
+on:
+  workflow_dispatch:
+    inputs:
+      list:
+        description: walker slice lines (unit, page size, page, first year, last year, kind), plain or gzip then base64
+        required: true
+      shards:
+        description: jobs, each on its own address
+        default: "4"
+      parallel:
+        description: jobs at once
+        default: "4"
+      workers:
+        description: requests at once in a job's one client
+        default: "2"
+      seconds:
+        description: a job's asking time
+        default: "3300"
+
+permissions:
+  contents: read
+
+env:
+  # the collectors' disk floor (src/ark/disk.py): a hosted runner has under 70 GiB
+  ARK_FREE_SPACE_GIB: 1
+  ARK_WRITE_BUDGET_GIB: 1
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: echo "index=[$(seq -s, 0 $((SHARDS - 1)))]" >> "$GITHUB_OUTPUT"
+
+  ask:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.parallel) }}
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # A client's early end is in its log, never a red run.
+      - env:
+          LIST: ${{ inputs.list }}
+          SHARDS: ${{ inputs.shards }}
+          WORKERS: ${{ inputs.workers }}
+          SECONDS_: ${{ inputs.seconds }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          case "$LIST" in H4sI*) printf '%s' "$LIST" | base64 -d | gunzip > all.txt ;; *) printf '%s\n' "$LIST" > all.txt ;; esac
+          awk -v n="$SHARDS" -v i="$INDEX" 'NF && (k++ % n) == i' all.txt > slice.txt
+          timeout -k 120 "$SECONDS_" python3 scripts/engines/cdx_extended_walk.py --lane 0 --lanes 1 \
+            --workers "$WORKERS" --slice slice.txt --data out || echo "walker exit $?"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: walk_${{ github.run_id }}_${{ matrix.index }}
+          path: out/raw
+          retention-days: 3
+          if-no-files-found: ignore
