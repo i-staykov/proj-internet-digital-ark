@@ -579,6 +579,8 @@ NCSA_ERR_ROW = re.compile(
     r"([A-Za-z0-9.-]+\.[A-Za-z]{2,})[\],]"
 )
 NODE_ROW = re.compile(r"^(\S+)\t(\d{9,10})$")
+HIT_ROW = re.compile(r"^\w+, \d{1,2}[ -]\w{3}[ -](\d{2,4}) \d\d:\d\d:\d\d \w+ - (\S+) - ")
+ON_ROW = re.compile(r"^(\S+) on \w{3} \w{3} [ \d]\d \d\d:\d\d:\d\d (\d{4})\s*$")
 GUEST_ROW = re.compile(r"^(\S+) - \[\d\d/\d\d/(\d{2,5}) \d\d:\d\d:\d\d[^\]]*\]")
 RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the client)
     (CLF_ROW, 2, 1),
@@ -589,6 +591,8 @@ RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the c
     (NCSA_ERR_ROW, 1, 2),
     (NODE_ROW, 2, 1),
     (GUEST_ROW, 2, 1),
+    (HIT_ROW, 1, 2),
+    (ON_ROW, 2, 1),
 )
 
 
@@ -605,9 +609,10 @@ def raw_log(lines, text, path):
     """A server's own log left public, each line dating itself: Common Log Format, a wu-ftpd
     xferlog, an error log naming the client, a page counter's visit log (`[07:27:45 08/13/97
     Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), a guestbook's log
-    of signings (`host - [09/04/99 21:43:49 MDT]`, the year also as 100 or 19100 for 2000), or a
-    list of `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line
-    dated after the archive captured the file takes the capture's year, and its stamp says so."""
+    of signings (`host - [09/04/99 21:43:49 MDT]`, the year also as 100 or 19100 for 2000), a
+    hit log (`Tue, 29 Oct 1996 09:41:38 PST - host - url`, `host on Thu Jul 27 16:53:38 1995`),
+    or a list of `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a
+    line dated after the archive captured the file takes the capture's year, as its stamp says."""
     head = [x for x in lines[:400] if x.strip()][:300]
     if sum(any(rx.match(x) for rx, _, _ in RAW_ROWS) for x in head) < 5:
         return
@@ -669,6 +674,54 @@ def accesswatch(lines, text, path):
         r = AW_ROW.search(line)
         if r:
             yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
+
+
+_WL_END = r"\d\d:\d\d:\d\d (\d{1,2}) ([A-Z][a-z]{2}) (\d{4})"
+WL_SPAN = re.compile(_WL_END + " to " + _WL_END)
+WL_DAY = re.compile(r"^\s*[A-Z][a-z]+day, (\d{1,2}) ([A-Z][a-z]{2}) (\d{4})\s*$")
+WL_HOST = re.compile(r"^([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)\s*$")
+WL_HIT = re.compile(r"^\s*(?:(\d{1,2}) ([A-Z][a-z]{2}) -- )?\d\d:\d\d:\d\d -- ")
+
+
+def weblog_details(lines, text, path):
+    """WebLog's Access Details report prints the span of the log it read, `02:45:33 09 Dec 2001
+    to 03:59:00 10 Dec 2001` (an older version a day, `Wednesday, 13 May 1998`), then each
+    visitor on a line of its own above that visitor's requests, `09 Dec -- 10:23:04 -- ... --
+    /page`. A request takes the one year in which its day lies inside the span, the day heading's
+    year when it prints no day; a request that fits no year, or two, is left."""
+    if "Access Details" not in text[:600]:
+        return
+    span = host = None
+    for n, line in enumerate(lines, 1):
+        flat = html.unescape(TAG.sub("", line)).rstrip()
+        m = WL_SPAN.search(flat) or WL_DAY.match(flat)
+        if m:
+            g = m.groups() if len(m.groups()) == 6 else m.groups() * 2
+            try:
+                ends = [date(int(g[i + 2]), MONTHS[g[i + 1].lower()], int(g[i])) for i in (0, 3)]
+                span = (ends[0], ends[1], " ".join(flat.split()))
+            except (KeyError, ValueError):
+                span = None
+            continue
+        h = WL_HOST.match(flat)
+        if h:
+            host = (h.group(1), n, flat)
+            continue
+        r = WL_HIT.match(flat)
+        if not (r and host and span):
+            continue
+        fits = []
+        for y in range(span[0].year, span[1].year + 1):
+            try:
+                d = date(y, MONTHS[r.group(2).lower()], int(r.group(1))) if r.group(1) else span[0]
+            except (KeyError, ValueError):
+                continue
+            if span[0] <= d <= span[1] and (r.group(1) or span[0] == span[1]):
+                fits.append(y)
+        if len(fits) == 1:
+            stamp = f"log of {span[2]}; {flat.strip()[:40]}"
+            yield host[0], fits[0], False, host[1], stamp, host[2], False
+        host = None
 
 
 SB_DATE = r"<B>\w+, ([A-Z][a-z]{2}) (\d{1,2}), (\d{4}) - "
@@ -740,6 +793,7 @@ GENERATORS = (
     ("accesswatch", accesswatch),
     ("usage-log", usage_log_by_ip),
     ("statbot", statbot),
+    ("weblog", weblog_details),
 )
 
 
