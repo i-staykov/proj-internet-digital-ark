@@ -26,7 +26,7 @@ import html
 import json
 import re
 import sys
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from ark.delegation import existed
@@ -396,7 +396,7 @@ WUSAGE_TITLE = re.compile(
     r"(?:Week|Month|Day|Year|Woche|Monat|Tag) (?:of|vom) (\d\d)[/.](\d\d)[/.](\d\d)"
     r" (?:to|bis) (\d\d)[/.](\d\d)[/.](\d\d)"
 )
-WUSAGE_SITES = re.compile(r"Top \d+ (?:of|von) \d+ Sites|Top \d+ Sites by Access Count", re.I)
+WUSAGE_SITES = re.compile(r"(?:Top \d+ (?:of|von) \d+ Sites|\bSites by Access Count)", re.I)
 WUSAGE_CELL = re.compile(r"<td[^>]*>\s*([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,})\s*(?=<|$)", re.I)
 
 
@@ -413,14 +413,26 @@ def wusage(lines, text, path):
     stamp = " ".join(m.group(0).split())
     inside = False
     for n, line in enumerate(lines, 1):
-        if re.search(r"<h3", line, re.I):
-            inside = bool(WUSAGE_SITES.search(TAG.sub(" ", line)))
-            if not inside:
+        part = line
+        if re.search(r"<h3", line, re.I):  # several sections can share one line
+            pieces = re.split(r"(?i)(?=<h3)", line)
+            keep = [x for x in pieces if WUSAGE_SITES.search(TAG.sub(" ", x[:200]))]
+            part = (pieces[0] if inside else "") + "".join(keep)
+            inside = bool(keep) and pieces[-1] is keep[-1]
+            if not part:
                 continue
-        if not inside:
+        elif not inside:
             continue
-        for cell in WUSAGE_CELL.finditer(line):
-            yield cell.group(1), year, False, n, stamp, html.unescape(TAG.sub(" ", line)), False
+        for cell in WUSAGE_CELL.finditer(part):
+            yield (
+                cell.group(1),
+                year,
+                False,
+                n,
+                stamp,
+                html.unescape(TAG.sub(" ", part))[:300],
+                False,
+            )
 
 
 WUSAGE_WEEK = re.compile(
@@ -458,6 +470,93 @@ def wusage_week(lines, text, path):
             yield r.group(1), year, straddle, n, stamp, TAG.sub(" ", line), False
 
 
+DNS_ROW = re.compile(r"^(\d{7,10}) (\d{1,3}(?:\.\d{1,3}){3}) (\S+)\s*$")
+
+
+def analog_dnscache(lines, text, path):
+    """Analog's DNS cache file, left public beside the reports: one line a lookup, `<time> <address>
+    <name>`, the time in seconds or (later versions) minutes since 1970, `*` for no name. Each
+    line dates itself; a line dated after the archive captured the file takes the capture's
+    year, and its stamp says so."""
+    if sum(bool(DNS_ROW.match(line)) for line in lines[:40]) < min(20, len(lines) // 2):
+        return
+    seen = (capture_stamps(path) or {}).get(str(path))
+    for n, line in enumerate(lines, 1):
+        r = DNS_ROW.match(line)
+        if not r or r.group(3) == "*":
+            continue
+        t = int(r.group(1))
+        when = datetime.fromtimestamp(t if t > 100_000_000 else t * 60, UTC)
+        year, stamp = when.year, f"the line's own lookup time {when:%Y-%m-%d}"
+        if seen is not None and year > seen.year:
+            year, stamp = seen.year, f"{stamp}, after the capture of {seen:%Y-%m-%d}: its year"
+        yield r.group(3), year, False, n, stamp, line, False
+
+
+CLF_ROW = re.compile(r"^(\S+) \S+ \S+ \[\d\d/[A-Za-z]{3}/(\d{4}):\d\d:\d\d:\d\d")
+XFER_ROW = re.compile(
+    r"^[A-Z][a-z]{2} [A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d (\d{4}) \d+ (\S+) \d+ /"
+)
+
+
+def raw_log(lines, text, path):
+    """A raw server log left public: Common Log Format (`host - - [10/Oct/1997:13:55:36 ...`) or
+    a wu-ftpd xferlog (`Thu Oct 10 13:55:36 1997 1 host 1234 /file ...`). Each line dates itself;
+    a log written without name lookups holds addresses only and gives nothing."""
+    head = lines[:60]
+    if sum(bool(CLF_ROW.match(x) or XFER_ROW.match(x)) for x in head) < min(10, len(head) // 2):
+        return
+    for n, line in enumerate(lines, 1):
+        r = CLF_ROW.match(line)
+        if r:
+            yield (
+                r.group(1),
+                int(r.group(2)),
+                False,
+                n,
+                "the line's own request time",
+                line[:300],
+                False,
+            )
+            continue
+        r = XFER_ROW.match(line)
+        if r:
+            yield (
+                r.group(2),
+                int(r.group(1)),
+                False,
+                n,
+                "the line's own transfer time",
+                line[:300],
+                False,
+            )
+
+
+AW_STAMP = re.compile(r"Accesses for [^<]*<BR>\s*(Since\s+)?([A-Z][a-z]+) (\d{1,2}), (\d{4})")
+AW_ROW = re.compile(r"<DT><B>([^<\s]+)</B>", re.I)
+
+
+def accesswatch(lines, text, path):
+    """AccessWatch's details page lists every client of the day under its country, `<DT><B>host
+    </B>`, and prints that day in its heading. A heading that says "Since <date>" is taken only
+    when the archive captured the page in the same year."""
+    if "generated by AccessWatch" not in text[:3000]:
+        return
+    m = AW_STAMP.search(text[:6000])
+    if not m or m.group(2)[:3].lower() not in MONTHS:
+        return
+    year = int(m.group(4))
+    if m.group(1):
+        seen = (capture_stamps(path) or {}).get(str(path))
+        if seen is None or seen.year != year:
+            return
+    stamp = " ".join(TAG.sub(" ", m.group(0)).split())
+    for n, line in enumerate(lines, 1):
+        r = AW_ROW.search(line)
+        if r:
+            yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -468,6 +567,9 @@ GENERATORS = (
     ("webalizer", webalizer),
     ("wusage", wusage),
     ("wusage-week", wusage_week),
+    ("analog-dnscache", analog_dnscache),
+    ("raw-log", raw_log),
+    ("accesswatch", accesswatch),
 )
 
 
