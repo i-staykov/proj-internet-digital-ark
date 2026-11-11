@@ -42,6 +42,9 @@ def test_a_period_dates_one_year_or_nothing():
     assert year(date(1997, 12, 9), date(1998, 1, 1)) == (1997, True), "it ends on New Year"
     assert year(date(1999, 12, 1), date(2000, 1, 31)) == (None, False), "two months, two years"
     assert year(date(1997, 12, 5), date(2003, 1, 25)) == (None, False)
+    assert reports.a_date("Thu-Oct-01-1998 01:01") == date(1998, 10, 1), "month-first stamps"
+    assert reports.a_date("Tue Dec/01/1998 00:00") == date(1998, 12, 1)
+    assert reports.ANALOG_ROW.match(" 1.30%: 1276: 3.53%: 9602: a.aol.com").group(1) == "a.aol.com"
 
 
 def test_only_host_tables_are_read_and_a_cut_name_is_refused(tmp_path):

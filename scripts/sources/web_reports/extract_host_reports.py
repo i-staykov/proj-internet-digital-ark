@@ -39,10 +39,11 @@ ANALOG_STAMP = re.compile(
     r"Analy[sz]ed\s+requests\s+from\s+(.{8,60}?)\s+to\s+(.{8,60}?)\s*(?:\(|<|$)", re.S | re.I
 )
 A_DATE = re.compile(
-    r"(\d{1,2})[ \-/]([A-Za-z]{3})[a-z]*[ \-/,]+(\d{4})|([A-Za-z]{3})[a-z]*\s+(\d{1,2}),?\s+(\d{4})"
+    r"(\d{1,2})[ \-/]([A-Za-z]{3})[a-z]*[ \-/,]+(\d{4})"
+    r"|([A-Za-z]{3})[a-z]*[\s\-/]+(\d{1,2})[,\s\-/]+(\d{4})"
 )
 HOST_INTRO = re.compile(r"\b(?:Listing|Printing)\b[^.]{0,40}\bhosts\b", re.I)
-ANALOG_ROW = re.compile(r"^\s*[\d,]+\s*:.*:\s*(\S+)\s*$")
+ANALOG_ROW = re.compile(r"^\s*[\d,]+(?:\.\d+%)?\s*:.*:\s*(\S+)\s*$")
 GETSTATS_ROW = re.compile(r"^\s*(\d+)\s*:\s*(\d\d)/(\d\d)/(\d\d)\s*:\s*(?:\d+\s*:\s*)?(\S+)\s*$")
 PWEB_STAMP = re.compile(
     r"[^\n(]{0,80}\((\d{1,2}) ([A-Za-z]{3}) (\d{4})\s*-\s*(\d{1,2}) ([A-Za-z]{3}) (\d{4})\)"
