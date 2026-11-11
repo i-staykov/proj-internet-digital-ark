@@ -100,10 +100,13 @@ OUR_ROBOT_NAMES = frozenset(
 )
 
 # **A robots file alone does not close these hosts.** Each publishes the data for download
-# (Common Crawl's and Arquivo.pt's index files) and its `*` group only keeps crawlers at
+# or query (Common Crawl's and Arquivo.pt's index files, the UK Government Web Archive's
+# capture index under the Open Government Licence) and its `*` group only keeps crawlers at
 # large out. A group that names us still refuses, as do the host's terms, a 401, a 403 and
 # a 429. The file's crawl delay is kept between requests.
-ROBOTS_ALONE = frozenset({"data.commoncrawl.org", "arquivo.pt"})
+ROBOTS_ALONE = frozenset(
+    {"data.commoncrawl.org", "arquivo.pt", "webarchive.nationalarchives.gov.uk"}
+)
 
 # Types a leg may write to disk unattended. Everything here is either text or a stream
 # format Python reads without unpacking it first.
