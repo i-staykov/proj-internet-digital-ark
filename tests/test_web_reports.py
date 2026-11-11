@@ -338,12 +338,12 @@ def test_an_index_keeps_one_2xx_or_3xx_capture_per_host_and_year_in_cdx_and_cdxj
         "pl,biz)/a 20010302015003 http://WWW.biz.pl:80/a text/html 200 X - - 1 2 f.arc.gz\n",
         "pl,biz)/b 20010105000000 http://biz.pl/b text/html 404 X - - 1 2 f.arc.gz\n",
         "pl,biz)/c 19950101000000 http://biz.pl/c text/html 200 X - - 1 2 f.arc.gz\n",
-        'org,x)/ 20130102030405 {"url": "http://x.org/", "mime": "text/html", "status": "200"}\n',
+        'org,x)/ 20130102030405 {"url": "http://x.org/", "status": "200", "offset": "7"}\n',
         "42,lab)/ 20010101000000 http://lab.42/ text/html 200 X - - 1 2 f.arc.gz\n",
     ]
     out = io.StringIO()
     assert host_years.reduce(lines, out) == {"rows": 6, "kept": 2}
     assert [json.loads(row) for row in out.getvalue().splitlines()] == [
         {"url": "http://WWW.biz.pl:80/a", "timestamp": "20010302015003", "status": "200"},
-        {"url": "http://x.org/", "timestamp": "20130102030405", "status": "200"},
+        {"url": "http://x.org/", "timestamp": "20130102030405", "status": "200", "offset": "7"},
     ]

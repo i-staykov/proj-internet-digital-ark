@@ -4,9 +4,11 @@ A whole index names each host thousands of times and the record is (host, year),
 host's captures answered 2xx or 3xx in one year only the earliest is kept, a 2xx before a 3xx:
 a `{url, timestamp, status}` journal row, the form the hostname ingest and the extended export
 read. Rows are classic CDX (the ` CDX N b a m s ...` legend places stamp, URL and status;
-without one they are fields 2, 3 and 5) or CDXJ (`key stamp {json}`). The host is the URL's,
-never the key's: a SURT key drops `www`. An index is sorted by key, so a host's rows lie
-together and memory holds one key's hosts; an unsorted one only repeats rows. Stdlib only.
+without one they are fields 2, 3 and 5) or CDXJ (`key stamp {json}`), whose row keeps its
+`filename`, `offset` and `length`: where no Wayback replays the capture, they locate it. The
+host is the URL's, never the key's: a SURT key drops `www`. An index is sorted by key, so a
+host's rows lie together and memory holds one key's hosts; an unsorted one only repeats rows.
+Stdlib only.
 
     gzip -dc index.cdx.gz | python3 scripts/sources/web_reports/host_years.py out.jsonl.gz
 """
@@ -21,6 +23,7 @@ import sys
 YEARS = {str(y) for y in range(1996, 2014)}
 _JSON_URL = re.compile(r'"url": ?"([^"]+)"')
 _JSON_STATUS = re.compile(r'"status": ?"(\d{3})"')
+_JSON_WHERE = re.compile(r'"(filename|offset|length)": ?"([^"]+)"')
 
 
 def host_of(url: str) -> str:
@@ -35,8 +38,9 @@ def reduce(lines, out) -> dict[str, int]:
     seen = {"rows": 0, "kept": 0}
 
     def flush() -> None:
-        for (_host, _year), (_rank, ts, url, status) in sorted(best.items()):
-            out.write(json.dumps({"url": url, "timestamp": ts, "status": status}) + "\n")
+        for (_host, _year), (_rank, ts, url, status, where) in sorted(best.items()):
+            row = {"url": url, "timestamp": ts, "status": status, **where}
+            out.write(json.dumps(row) + "\n")
         seen["kept"] += len(best)
         best.clear()
 
@@ -47,6 +51,7 @@ def reduce(lines, out) -> dict[str, int]:
                 ts_at, url_at, status_at = legend.index("b"), legend.index("a"), legend.index("s")
             continue
         seen["rows"] += 1
+        where = {}
         fields = line.split()
         if len(fields) > 2 and fields[2].startswith("{"):
             blob = line.split(" ", 2)[2]
@@ -54,6 +59,7 @@ def reduce(lines, out) -> dict[str, int]:
             if not url or not status:
                 continue
             ts, url, status = fields[1], url.group(1), status.group(1)
+            where = dict(_JSON_WHERE.findall(blob))
         elif len(fields) > max(ts_at, url_at, status_at):
             ts, url, status = fields[ts_at], fields[url_at], fields[status_at]
         else:
@@ -68,8 +74,8 @@ def reduce(lines, out) -> dict[str, int]:
         if "." not in host or host.rsplit(".", 1)[-1].isdigit():
             continue
         at = (host, ts[:4])
-        cand = (0 if status[0] == "2" else 1, ts, url, status)
-        if at not in best or cand < best[at]:
+        cand = (0 if status[0] == "2" else 1, ts, url, status, where)
+        if at not in best or cand[:2] < best[at][:2]:
             best[at] = cand
     flush()
     return seen
