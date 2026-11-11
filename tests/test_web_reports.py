@@ -347,3 +347,17 @@ def test_an_index_keeps_one_2xx_or_3xx_capture_per_host_and_year_in_cdx_and_cdxj
         {"url": "http://WWW.biz.pl:80/a", "timestamp": "20010302015003", "status": "200"},
         {"url": "http://x.org/", "timestamp": "20130102030405", "status": "200", "offset": "7"},
     ]
+
+
+def test_the_path_probe_s_shards_split_the_hosts_and_skip_asked_urls():
+    spec = importlib.util.spec_from_file_location(
+        "probe38", ROOT / "scripts/sources/web_reports/probe38.py"
+    )
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    hosts = [f"h{i}.example.edu" for i in range(40)]
+    parts = [probe.asks(hosts, (i, 3), set()) for i in range(3)]
+    assert sorted(sum(parts, [])) == sorted(f"http://{h}/{p}/" for h in hosts for p in probe.PATHS)
+    assert probe.asks(hosts[:1], (0, 1), {"http://h0.example.edu/stats/"}) == [
+        "http://h0.example.edu/usage/"
+    ]
