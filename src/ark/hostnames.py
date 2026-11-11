@@ -439,6 +439,50 @@ def _date_hosts(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> int:
         conn.unregister("fresh_hosts")
 
 
+def _repoint_fresh(conn: duckdb.DuckDBPyConnection, fresh: pa.Table) -> int:
+    """The host-years the inserted rows take from the row that held them.
+
+    A 2xx or 3xx takes a host-year an earlier journal, or this batch's dating, gave to an
+    error capture; a row that ships takes one a non-web class dated first (a Usenet or mail
+    header, a DNS listing), which `_date_hosts` keeps, stranding it in the candidates. The rows
+    those host-years cite are read first, so the screen never scans evidence."""
+    conn.register("fresh_hosts", fresh)
+    try:
+        return conn.execute(
+            f"""
+            UPDATE hostname_year SET evidence_id = r.evidence_id
+            FROM (
+                WITH taken AS MATERIALIZED (
+                    SELECT hy.hostname, hy.assigned_year, hy.evidence_id AS held_id,
+                           f.evidence_id
+                    FROM hostname_year hy
+                    JOIN fresh_hosts f
+                      ON f.hostname = hy.hostname AND f.year = hy.assigned_year
+                    WHERE NOT regexp_matches(f.evidence_value, $error)
+                      AND hy.evidence_id <> f.evidence_id
+                ), cited AS MATERIALIZED (
+                    SELECT * FROM evidence
+                    WHERE evidence_id IN (SELECT held_id FROM taken)
+                       OR evidence_id IN (SELECT evidence_id FROM taken)
+                )
+                SELECT t.hostname, t.assigned_year, min(t.evidence_id) AS evidence_id
+                FROM taken t
+                JOIN cited c ON c.evidence_id = t.held_id
+                JOIN cited n ON n.evidence_id = t.evidence_id
+                WHERE regexp_matches(c.evidence_value, $error)
+                   OR (NOT {qualifies_sql("c", "t.hostname")}
+                       AND {qualifies_sql("n", "t.hostname")})
+                GROUP BY 1, 2
+            ) r
+            WHERE hostname_year.hostname = r.hostname
+              AND hostname_year.assigned_year = r.assigned_year
+            """,
+            {"error": ERROR_STATUS},
+        ).fetchone()[0]
+    finally:
+        conn.unregister("fresh_hosts")
+
+
 def _date_banked(conn: duckdb.DuckDBPyConnection, source_name: str, file_name: str) -> int:
     """The hostname years of a file read before its lane wrote them: a lane admitted later
     dates the evidence it holds, without reading the file again; one already held keeps its
@@ -667,46 +711,7 @@ def _fold_journals(
         per_file.update(fresh.column("source_file").to_pylist())
         stats["evidence_rows"] = fresh.num_rows
         stats["hostname_year_rows"] = _date_hosts(conn, fresh)
-        # A 2xx or 3xx takes a host-year an earlier journal, or this batch's dating, gave to an
-        # error capture; a capture that ships takes one a non-web class dated first (a Usenet
-        # or mail header, a DNS listing), which `_date_hosts` keeps, stranding the capture in
-        # the candidates. The rows those host-years cite are read first, so the screen never
-        # scans evidence.
-        conn.register("fresh_hosts", fresh)
-        try:
-            stats["repointed"] = conn.execute(
-                f"""
-                UPDATE hostname_year SET evidence_id = r.evidence_id
-                FROM (
-                    WITH taken AS MATERIALIZED (
-                        SELECT hy.hostname, hy.assigned_year, hy.evidence_id AS held_id,
-                               f.evidence_id
-                        FROM hostname_year hy
-                        JOIN fresh_hosts f
-                          ON f.hostname = hy.hostname AND f.year = hy.assigned_year
-                        WHERE NOT regexp_matches(f.evidence_value, $error)
-                          AND hy.evidence_id <> f.evidence_id
-                    ), cited AS MATERIALIZED (
-                        SELECT * FROM evidence
-                        WHERE evidence_id IN (SELECT held_id FROM taken)
-                           OR evidence_id IN (SELECT evidence_id FROM taken)
-                    )
-                    SELECT t.hostname, t.assigned_year, min(t.evidence_id) AS evidence_id
-                    FROM taken t
-                    JOIN cited c ON c.evidence_id = t.held_id
-                    JOIN cited n ON n.evidence_id = t.evidence_id
-                    WHERE regexp_matches(c.evidence_value, $error)
-                       OR (NOT {qualifies_sql("c", "t.hostname")}
-                           AND {qualifies_sql("n", "t.hostname")})
-                    GROUP BY 1, 2
-                ) r
-                WHERE hostname_year.hostname = r.hostname
-                  AND hostname_year.assigned_year = r.assigned_year
-                """,
-                {"error": ERROR_STATUS},
-            ).fetchone()[0]
-        finally:
-            conn.unregister("fresh_hosts")
+        stats["repointed"] = _repoint_fresh(conn, fresh)
     else:
         stats["hostname_year_rows"] = 0
     if only is None:
@@ -1993,9 +1998,12 @@ def ingest_usenet_item_dir(
 # `{"host", "year", "file", "pos", "field"}`: `file` the archive URL a reviewer fetches
 # (month file, mbox, article), `pos` the message inside it, `year` the message's own date as
 # its collector checked it, `field` one of `MESSAGE_FIELDS`. Each field banks under its own
-# source and method, none in `WEB_METHODS`, so every row is a candidate. The approval is the
-# one standing-rule entry `staged_messages / link_source`, not one per folder.
+# source and method. Only `page_link` is in `WEB_METHODS` and needs its own approval; every
+# other row is a candidate under the one standing-rule entry `staged_messages / link_source`.
 MESSAGE_FIELDS = {
+    # a captured page's `A` or `AREA` link to the host: `file` the page's ARC file, `pos`
+    # `arc <offset> <length> #<capture stamp> <page URL>`, the stamp inside the row's year
+    "page_link": "page_link_host",
     "received_by": "msg_received_by",  # `Received: ... by <host>`, the receiving MTA's name
     "rdns": "msg_received_rdns",  # the receiver's own lookup in `Received: from x (<host> [ip])`
     "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
@@ -2056,6 +2064,9 @@ def _staged_lines(
             if not file.startswith(("http://", "https://", "nntp://", "rsync://")):
                 counts["bad_file"] += 1
                 continue
+            if field == "page_link" and not re.match(rf"arc \d+ \d+ #{year}\d{{10}} \S+$", pos):
+                counts["bad_pos"] += 1
+                continue
             labels = host.split(".")
             if not _VALID_HOST.match(host) or _INTERNAL_LABELS & set(labels):
                 counts["rejected_host"] += 1
@@ -2091,14 +2102,14 @@ def staged_message_rows(
             if key not in seen or (file, pos) < seen[key][:2]:
                 seen[key] = (sys.intern(file), pos, number)
             if len(seen) >= _STAGED_BATCH_ROWS:
-                yield field, _staged_batch(seen, counts)
+                yield field, _staged_batch(seen, counts, field)
                 seen = {}
         if seen:
-            yield field, _staged_batch(seen, counts)
+            yield field, _staged_batch(seen, counts, field)
 
 
 def _staged_batch(
-    seen: dict[tuple[str, int], tuple[str, str, int]], counts: Counter[str]
+    seen: dict[tuple[str, int], tuple[str, str, int]], counts: Counter[str], field: str = ""
 ) -> list[tuple[str, str, int, str, str, str]]:
     """One batch's rows, sorted, the registrable looked up once a host-year."""
     out: list[tuple[str, str, int, str, str, str]] = []
@@ -2110,12 +2121,14 @@ def _staged_batch(
         if reg == host:
             counts["registrable_row"] += 1  # belongs to domain_year, not here
             continue
-        out.append((host, reg, year, _staged_value(year, file, pos, host), f"line {number}", file))
+        value = _staged_value(year, file, pos, host, field)
+        out.append((host, reg, year, value, f"line {number}", file))
     return out
 
 
-def _staged_value(year: int, file: str, pos: str, host: str) -> str:
-    return f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
+def _staged_value(year: int, file: str, pos: str, host: str, field: str = "") -> str:
+    kind = "page link" if field == "page_link" else "list message"
+    return f"{kind} {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
 
 
 # a page's URL with its Wayback prefix, scheme and default port taken off, so one page's rows
@@ -2157,10 +2170,10 @@ def recite_staged_arcs(
     for path in sorted({*root.glob("*.jsonl"), *root.glob("*.jsonl.gz")}):
         batch: list[tuple[int, str, str, str, str]] = []
         pages, records = _staged_lines(path, Counter(), arcs=False), _staged_lines(path, Counter())
-        for (_, _, host, year, file, _), (*_, arc, at) in zip(pages, records, strict=True):
+        for (_, field, host, year, file, _), (*_, arc, at) in zip(pages, records, strict=True):
             if arc == file:
                 continue
-            batch.append((year, host, file, _staged_value(year, arc, at, host), arc))
+            batch.append((year, host, file, _staged_value(year, arc, at, host, field), arc))
             if len(batch) >= _STAGED_BATCH_ROWS:
                 stage(batch)
                 batch = []
@@ -2228,6 +2241,9 @@ def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[
             for field, rows in staged_message_rows(path, counts):
                 if not rows:
                     continue
+                web = MESSAGE_FIELDS[field] in WEB_METHODS
+                if web:  # a row that enters the annual claim: its class has its own decision
+                    approvals.check(MESSAGE_FIELDS[field], "link_source")
                 source_id = ensure_source(conn, sources[field], "timestamped")
                 _stage_hosts(conn, "msghost", rows, source_id)
                 fresh = _insert_host_rows(
@@ -2240,8 +2256,11 @@ def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[
                         "file": key,
                     },
                     url_sql="t.url",
+                    ships=str(web).lower(),
                 )
                 dated[field] += _date_hosts(conn, fresh)
+                if web:
+                    totals["repointed"] += _repoint_fresh(conn, fresh)
                 conn.execute("DELETE FROM msghost")
             for field, n in dated.items():
                 totals[f"{field}_rows"] += n

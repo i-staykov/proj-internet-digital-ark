@@ -390,5 +390,5 @@ def test_every_web_method_names_one_evidence_kind() -> None:
     }
     assert kinds.pop("usenet_from_host") is None, "a non-web method names no kind"
     assert set(kinds.values()) == {"capture", "link graph", "dataset"}
-    assert kinds["ukwa_host_link_graph"] == "link graph" and kinds["crawl_list_node"] == "dataset"
+    assert kinds["page_link_host"] == "link graph" and kinds["crawl_list_node"] == "dataset"
     assert kinds["ia_cdx_domain_sweep"] == kinds[REDIRECT_METHOD] == "capture"

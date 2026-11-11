@@ -810,7 +810,7 @@ Decision: master
 ### staged_messages / link_source
 - the class: dated message archives, ruled by the owner the class Usenet is: mailing-list month files, mbox exports and NNTP list articles, each message dated by its own `Date:` header as its collector checked it (against the month file it is filed under, or, with no month file, against each `Received:` line's own stamp)
 - the standing rule: any `staged/<source>/` folder of rows `{host, year, file, pos, field}` banks through `ark ingest-staged-messages` with no new code; `file` is the archive URL a reviewer fetches, `pos` the message in it; each field banks under `msg_<folder>__<field>`
-- the fields: `received_by` (the `by` clause, the relay-host rule of `apache_list_header_hostnames`), `rdns` (as `received_rdns_hostnames`), `body_url` (as `maillist_body_url_hostnames`), `from` and `message_id` (as `usenet_from_hostnames`, `usenet_message_id_hostnames`), a news post's `news_header`, `lease`, `header_more` and `body_mention` (as the `usenet_header_*` and `usenet_body_mention_hostnames` families), and the two classes below, `visitor_rdns` and `trace_hop`; no method is in `WEB_METHODS`, so every row is a candidate
+- the fields: `received_by` (the `by` clause, the relay-host rule of `apache_list_header_hostnames`), `rdns` (as `received_rdns_hostnames`), `body_url` (as `maillist_body_url_hostnames`), `from` and `message_id` (as `usenet_from_hostnames`, `usenet_message_id_hostnames`), a news post's `news_header`, `lease`, `header_more` and `body_mention` (as the `usenet_header_*` and `usenet_body_mention_hostnames` families), and the two classes below, `visitor_rdns` and `trace_hop`; none of these methods is in `WEB_METHODS`, so each row is a candidate (`page_link` has its own entry, `page_link_host`)
 - hygiene at ingest: a name with no public suffix or an internal label (`localhost`, `local`, `lan`, `localdomain`, `internal`, `intranet`) is dropped, a registrable belongs to `domain_year`, a year outside 1996 to 2001 is refused
 - terms: each folder's README names its host's terms and robots reading; the collector honours them
 Decision: master
@@ -873,3 +873,10 @@ Decision: master
 - measured 2026-11-11 on index part 150 of 300 of each crawl, by exact name against merge261104: 2008-2009 115,555 host-years, 81,415 net-new, 51,462.4 EE; 2009-2010 214,853, 159,121, 100,494.4; 2012 268,344, 117,245, 74,110.6, before our WDC 2012 rows; 2013-20 68,236, 18,081, 11,429.0
 - potential: 30000000
 Decision: master
+
+### page_link_host / link_source
+- the class: the brief's rule 2(2), a dated, traceable web link graph: a captured page's own `A` or `AREA` link to the exact host, banked through `staged_messages` with the field `page_link`; the method is in `WEB_METHODS`, so a row is an addition of kind `link graph`, and a row of any other field stays a candidate
+- the artifact: the WAT link extracts beside the public ARC files of `USFEDGOV-EXTRACT-1996` to `USFEDGOV-EXTRACT-2001` on archive.org (10,555 files, 110.6 GB), read on runners by `runner-grep` with `reduce=links` (`scripts/sources/web_reports/wat_links.py`)
+- what dates one item: the linking page's own 14-digit capture stamp, answered 2xx, inside the row's year; `file` is the page's ARC file, `pos` is `arc <offset> <length> #<stamp> <page URL>`, a byte range that opens the record holding the link
+- measured 2026-11-11 on 30 files drawn by seed (276 MB), by exact name against merge261104: 30,990 linked host-years in 1996 to 2001, 611 net-new, 467.6 EE
+Decision: pending
