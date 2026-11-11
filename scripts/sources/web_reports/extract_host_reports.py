@@ -104,7 +104,7 @@ def span(text: str) -> tuple[int | None, bool, str]:
 
 def host_of(token: str, year: int) -> str | None:
     h = html.unescape(token).strip().rstrip(".").lower()
-    if not h or IPV4.match(h) or "." not in h:
+    if not h or IPV4.match(h) or "." not in h or h.endswith(".arpa"):
         return None
     if not _VALID_HOST.match(h) or not existed(h.rsplit(".", 1)[-1], year):
         return None
@@ -229,7 +229,11 @@ def capture_stamps(path: Path) -> dict | None:
                     continue
                 m = re.search(r"/web/(\d{14})", r.get("replay") or "")
                 if m and r.get("path"):
-                    found[str(root / r["path"])] = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+                    try:
+                        when = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+                    except ValueError:  # an index line with an impossible instant
+                        continue
+                    found[str(root / r["path"])] = when
             _STAMPS[root] = found or None
         return _STAMPS[root]
     return None
@@ -398,6 +402,7 @@ WUSAGE_TITLE = re.compile(
 )
 WUSAGE_SITES = re.compile(r"(?:Top \d+ (?:of|von) \d+ Sites|\bSites by Access Count)", re.I)
 WUSAGE_CELL = re.compile(r"<td[^>]*>\s*([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,})\s*(?=<|$)", re.I)
+WUSAGE_LI = re.compile(r"<li>\d+: ([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}) [\d,]+ accesses", re.I)
 
 
 def wusage(lines, text, path):
@@ -423,7 +428,7 @@ def wusage(lines, text, path):
                 continue
         elif not inside:
             continue
-        for cell in WUSAGE_CELL.finditer(part):
+        for cell in [*WUSAGE_CELL.finditer(part), *WUSAGE_LI.finditer(part)]:
             yield (
                 cell.group(1),
                 year,
@@ -497,39 +502,76 @@ CLF_ROW = re.compile(r"^(\S+) \S+ \S+ \[\d\d/[A-Za-z]{3}/(\d{4}):\d\d:\d\d:\d\d"
 XFER_ROW = re.compile(
     r"^[A-Z][a-z]{2} [A-Z][a-z]{2} [ \d]\d \d\d:\d\d:\d\d (\d{4}) \d+ (\S+) \d+ /"
 )
+COUNTER_ROW = re.compile(r"^\[\d\d:\d\d:\d\d \d\d/\d\d/(\d\d) \w{3}\] \S+ - (\S+) - ")
+CAME_ROW = re.compile(r"^At \d\d:\d\d:\d\d \d{1,2}/\d{1,2}/(\d\d), (\S+) came here from ")
+NS_ERR_ROW = re.compile(
+    r"^\[\d\d/[A-Za-z]{3}/(\d{4}):[\d:]+\] \w+ \(\s*\d+\): for host (\S+) trying to "
+)
+NCSA_ERR_ROW = re.compile(
+    r"^\[\w{3} \w{3} [ \d]\d \d\d:\d\d:\d\d (\d{4})\] .{0,200}?(?:failed for|\[client) "
+    r"([A-Za-z0-9.-]+\.[A-Za-z]{2,})[\],]"
+)
+NODE_ROW = re.compile(r"^(\S+)\t(\d{9,10})$")
+RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the client)
+    (CLF_ROW, 2, 1),
+    (XFER_ROW, 1, 2),
+    (COUNTER_ROW, 1, 2),
+    (CAME_ROW, 1, 2),
+    (NS_ERR_ROW, 1, 2),
+    (NCSA_ERR_ROW, 1, 2),
+    (NODE_ROW, 2, 1),
+)
+
+
+def _line_year(token: str) -> int:
+    n = int(token)
+    if n > 100_000_000:  # seconds since 1970
+        return datetime.fromtimestamp(n, UTC).year
+    return n if n > 1000 else (1900 if n >= 90 else 2000) + n
 
 
 def raw_log(lines, text, path):
-    """A raw server log left public: Common Log Format (`host - - [10/Oct/1997:13:55:36 ...`) or
-    a wu-ftpd xferlog (`Thu Oct 10 13:55:36 1997 1 host 1234 /file ...`). Each line dates itself;
-    a log written without name lookups holds addresses only and gives nothing."""
-    head = lines[:60]
-    if sum(bool(CLF_ROW.match(x) or XFER_ROW.match(x)) for x in head) < min(10, len(head) // 2):
+    """A server's own log left public, each line dating itself: Common Log Format, a wu-ftpd
+    xferlog, an error log naming the client, a page counter's visit log (`[07:27:45 08/13/97
+    Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), or a list of
+    `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line dated
+    after the archive captured the file takes the capture's year, and its stamp says so."""
+    head = [x for x in lines[:400] if x.strip()][:300]
+    if sum(any(rx.match(x) for rx, _, _ in RAW_ROWS) for x in head) < 5:
         return
+    seen = (capture_stamps(path) or {}).get(str(path))
     for n, line in enumerate(lines, 1):
-        r = CLF_ROW.match(line)
-        if r:
-            yield (
-                r.group(1),
-                int(r.group(2)),
-                False,
-                n,
-                "the line's own request time",
-                line[:300],
-                False,
-            )
+        for rx, when, who in RAW_ROWS:
+            r = rx.match(line)
+            if r:
+                year, stamp = _line_year(r.group(when)), "the line's own time"
+                if seen is not None and year > seen.year:
+                    year, stamp = (
+                        seen.year,
+                        f"{stamp}, after the capture of {seen:%Y-%m-%d}: its year",
+                    )
+                yield r.group(who), year, False, n, stamp, line[:300], False
+                break
+
+
+BYIP_HEAD = re.compile(r"^Complete \S+\s+usage log\s+([A-Z][a-z]+) (\d{4})\s")
+BYIP_ROW = re.compile(r"^\s*\d+\s+\d{1,3}(?:\.\d{1,3}){3}\s+(\S+)\s*$")
+
+
+def usage_log_by_ip(lines, text, path):
+    """A monthly "Complete <server> usage log" in plain text: the month on its second line, and
+    under "By ip" one client a line, `count address name`."""
+    m = BYIP_HEAD.match(" ".join(text[:300].split()) + " ")
+    if not m or m.group(1)[:3].lower() not in MONTHS:
+        return
+    year, stamp, inside = int(m.group(2)), m.group(0).strip(), False
+    for n, line in enumerate(lines, 1):
+        if re.match(r"^By \w+\s*$", line):
+            inside = line.split()[1] == "ip"
             continue
-        r = XFER_ROW.match(line)
+        r = BYIP_ROW.match(line) if inside else None
         if r:
-            yield (
-                r.group(2),
-                int(r.group(1)),
-                False,
-                n,
-                "the line's own transfer time",
-                line[:300],
-                False,
-            )
+            yield r.group(1), year, False, n, stamp, line, False
 
 
 AW_STAMP = re.compile(r"Accesses for [^<]*<BR>\s*(Since\s+)?([A-Z][a-z]+) (\d{1,2}), (\d{4})")
@@ -570,6 +612,7 @@ GENERATORS = (
     ("analog-dnscache", analog_dnscache),
     ("raw-log", raw_log),
     ("accesswatch", accesswatch),
+    ("usage-log", usage_log_by_ip),
 )
 
 
