@@ -259,6 +259,8 @@ WEB_FACING_HOST_SOURCES = frozenset(
         POLAND_SOURCE,
         DARTMOUTH_ARCS_SOURCE,
         HOSTCDX_SOURCE,
+        # its registrable rows date no host; `date_mirror_hosts` writes the host rows
+        "attrition_defacement",
         "squidguard_2001_hostnames",
         "chastity_list_hostnames",
         # `USENET_SOURCE`, spelled out because it is defined with its own ingest further down.
@@ -2191,6 +2193,58 @@ OTHER_WEB_JOURNALS = tuple(
 )
 
 
+MIRROR_SOURCE, MIRROR_METHOD = "attrition_defacement", "attrition_defacement_mirror_index"
+_MIRROR_PATH = re.compile(r"/mirror/(\d{4})/(\d{2})/(\d{2})/([^/]+)/?$")
+
+
+def date_mirror_hosts(conn: duckdb.DuckDBPyConnection) -> dict[int, int]:
+    """The host-years attrition's mirror rows name below their registrable, by year.
+
+    The lane banks at registrable grain while its URL path names the defaced host and day, so
+    `www.` and deeper hosts got no record. Each gets its own row, the mirror URL kept and the
+    value ending in the host. Idempotent: a held row of that host and year adds nothing.
+    """
+    rows = []
+    for parent, year, url, file, location in conn.execute(
+        """SELECT e.domain, e.evidence_year, e.evidence_url, e.source_file,
+                  coalesce(e.record_location, '')
+           FROM evidence e JOIN source s ON s.source_id = e.source_id
+           WHERE s.name = ? AND e.acquisition_method = ?""",
+        [MIRROR_SOURCE, MIRROR_METHOD],
+    ).fetchall():
+        found = _MIRROR_PATH.search(url or "")
+        host = found[4].lower().rstrip(".") if found else ""
+        if not host or host == parent or int(found[1]) != year:
+            continue
+        if not _VALID_HOST.match(host) or to_registrable(host) != parent:
+            continue
+        day = f"{found[1]}-{found[2]}-{found[3]}"
+        rows.append((host, parent, year, f"attrition defacement {day} {host}", location, url, file))
+    if not rows:
+        return {}
+    source_id = ensure_source(conn, MIRROR_SOURCE, "timestamped")
+    _stage_hosts(conn, "mirrored", rows, source_id)
+    fresh = _insert_host_rows(
+        conn,
+        "mirrored",
+        {"source_id": source_id, "type": "artifact_listing", "method": MIRROR_METHOD},
+        url_sql="t.url",
+        ships="true",
+        file_sql="t.file",
+    )
+    _date_hosts(conn, fresh)
+    conn.register("mirrored_fresh", fresh)
+    try:
+        return dict(
+            conn.execute(
+                "SELECT assigned_year, count(*) FROM hostname_year WHERE evidence_id IN "
+                "(SELECT evidence_id FROM mirrored_fresh) GROUP BY 1 ORDER BY 1"
+            ).fetchall()
+        )
+    finally:
+        conn.unregister("mirrored_fresh")
+
+
 def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = False) -> dict:
     """Every host-year whose row fails XIV while the store holds a row that passes it for that
     exact host and year, by year; `write` points the host-year at the earliest such row.
@@ -2203,7 +2257,8 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
     The row taken is one a hostname lane wrote, its value ending in the host, as `ark check`
     asks of every hostname record: a registrable-grain capture whose URL names the host passes
     XIV and still fails those two checks. `write` first returns any host-year standing on such
-    a row to the earliest hostname-lane row of that host and year.
+    a row to the earliest hostname-lane row of that host and year, after `date_mirror_hosts`
+    gives the mirror's hosts their rows; the counts include the host-years it dates.
     """
     from ark.evidence_types import WEB_METHODS, exact_host_expr, web_evidence_sql
 
@@ -2213,6 +2268,7 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
         OR regexp_matches(s.name, '{STAGED_MESSAGE_SOURCE.pattern}')
         OR (regexp_matches(s.name, '{FLEETREAD_SOURCE.pattern}')
             AND x.acquisition_method IN ({methods})))"""
+    mirrored = date_mirror_hosts(conn) if write else {}
     if write:
         conn.execute(f"""
             UPDATE hostname_year SET evidence_id = o.evidence_id FROM (
@@ -2261,7 +2317,9 @@ def repoint_stranded_captures(conn: duckdb.DuckDBPyConnection, write: bool = Fal
               AND hostname_year.assigned_year = s.assigned_year
         """)
     conn.execute("DROP TABLE stranded")
-    return stats
+    for year, n in mirrored.items():
+        stats[year] = stats.get(year, 0) + n
+    return dict(sorted(stats.items()))
 
 
 def retract_error_captures(
