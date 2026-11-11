@@ -27,6 +27,7 @@ line ends at a line feed only unless the row says otherwise.
 | `<month>.mail#<n>` (IETF) | the month file | in message n; a message ends at a line of four `\x01` (MMDF) or at such an envelope line outside a header, and only a message with a header counts |
 | `rsync://.../<number>.log#<n>` (Debian bugs) | the bug log | in record n, opened by a line holding only `\x07` and closed by one holding only `\x03` |
 | `.../web/<stamp>id_/<url>#<n>` or `<url>#<n>` (a usage or news-server report) | the Wayback page, or the page on its own site | on line n of the page as served, read as Latin-1, lines ending at CR LF, a lone CR or LF; a WebStat or WWWusage page prints it with its labels reversed (`com.example.www`) |
+| `arc <offset> <length> #<n> <host>` (a report page read from an ARC file) | the `.arc.gz` file | in the ARC record at bytes offset to offset + length - 1, one gzip member, on line n of its HTTP body, lines ending at CR LF, a lone CR or LF |
 | `<file>.tgz#<member>#<n>` (a traceroute set) | the archive | on line n of that member |
 | `cdx capture <stamp> ...` or a 14-digit stamp | a Wayback URL | the capture at that stamp; a status 4xx or 5xx is why it is a candidate |
 | `isc survey <edition> host <name>` | the survey file of that edition | on the line naming it |
