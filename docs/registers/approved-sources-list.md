@@ -880,3 +880,10 @@ Decision: master
 - what dates one item: the linking page's own 14-digit capture stamp, answered 2xx, inside the row's year; `file` is the page's ARC file, `pos` is `arc <offset> <length> #<stamp> <page URL>`, a byte range that opens the record holding the link
 - measured 2026-11-11 on 30 files drawn by seed (276 MB), by exact name against merge261104: 30,990 linked host-years in 1996 to 2001, 611 net-new, 467.6 EE
 Decision: master
+
+### bookmark_entry_host / link_source
+- the class: the brief's rule 2(2), a dated, traceable listing of the exact host: a captured Netscape bookmark file's own entry for it, banked through `staged_messages` with the field `bookmark_entry`; the method is in `WEB_METHODS`, so a row is an addition of kind `dated bookmark entry` under the second-source rule (he names the host in another year, or a second source does)
+- the artifact: bookmark-named pages of the Stanford WebBase 2001 URL list, replayed from the Wayback on runners (`runner-pages`, `reader=replay`)
+- what dates one item: the entry's `ADD_DATE`, the epoch second the browser wrote when the user saved the link, inside the row's year and not after the file's capture; `file` is the file's Wayback capture, `pos` is `replay #<capture stamp> line <n> ADD_DATE <epoch> <yyyymmdd>`
+- measured 2026-11-11 on 4,297 of 22,651 URLs: 1,535 host-years named by him in another year, 754.2 EE against merge261104
+Decision: master

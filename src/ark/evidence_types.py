@@ -70,6 +70,8 @@ WEB_METHODS = frozenset(
         "bl_geoindex_extract",
         # a captured page's own link to the host, the page dated by its capture stamp
         "page_link_host",
+        # a captured bookmark file's entry for the host, dated by the browser's own ADD_DATE
+        "bookmark_entry_host",
     }
 )
 
@@ -79,16 +81,19 @@ WEB_METHODS = frozenset(
 # Archive request), else a capture of the host from an archive's index or extract.
 _LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract", "page_link_host")
 _DATASET = ("crawl_list_node", "httparchive_har_entry")
+_BOOKMARK = ("bookmark_entry_host",)
 
 
 def evidence_kind_sql(method: str) -> str:
-    """`capture`, `link graph` or `dataset` for a web method, NULL for any other."""
+    """`capture`, `link graph`, `dataset` or `dated bookmark entry` for a web method, else NULL."""
     graph = ", ".join(f"'{m}'" for m in _LINK_GRAPH)
     dataset = ", ".join(f"'{m}'" for m in _DATASET)
+    bookmark = ", ".join(f"'{m}'" for m in _BOOKMARK)
     web = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS | {REDIRECT_METHOD}))
     return (
         f"(CASE WHEN {method} IN ({graph}) THEN 'link graph'"
         f" WHEN {method} IN ({dataset}) THEN 'dataset'"
+        f" WHEN {method} IN ({bookmark}) THEN 'dated bookmark entry'"
         f" WHEN {method} IN ({web}) THEN 'capture' END)"
     )
 
@@ -133,6 +138,11 @@ _CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?(replay failed )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
 # the linking page as its ARC record, its capture stamp and URL, then the linked host
 _PAGE_LINK = "^page link [0-9]{4} https?://[^ ]+#arc [0-9]+ [0-9]+ #[0-9]{14} [^ ]+ [^ ]+$"
+# the bookmark file's capture, the entry's line and its ADD_DATE (epoch, then yyyymmdd), the host
+_BOOKMARK_ENTRY = (
+    "^bookmark entry [0-9]{4} https?://[^ ]+#replay #[0-9]{14} line [0-9]+"
+    " ADD_DATE [0-9]+ [0-9]{8} [^ ]+$"
+)
 _HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
 _STAMPED = (
     "^((replay failed )?[0-9]{14}"
@@ -161,6 +171,7 @@ def exact_host_expr(alias: str) -> str:
     return f"""(CASE
         WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
           OR regexp_matches({v}, '{_HAR}') OR regexp_matches({v}, '{_PAGE_LINK}')
+          OR regexp_matches({v}, '{_BOOKMARK_ENTRY}')
           THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
         WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
           THEN nullif({url_host}, '')
