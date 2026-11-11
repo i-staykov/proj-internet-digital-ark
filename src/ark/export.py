@@ -33,6 +33,7 @@ from ark.evidence_types import (
     ERROR_STATUS,
     REPLAY_FAILED,
     WEB_METHODS,
+    evidence_kind_sql,
     web_evidence_exists,
     web_evidence_sql,
 )
@@ -353,24 +354,26 @@ def _write_attested(conn: duckdb.DuckDBPyConnection, his: held.Held, work: Path,
 def _write_manifests(conn: duckdb.DuckDBPyConnection, netnew_dir: Path) -> None:
     """One row per shipped line, read back from the written files, so a manifest describes no
     line that does not ship and misses none that does. Each cites the row its record cites,
-    which qualifies. Needs `netnew_pair`."""
+    which qualifies, and names its kind: capture, link graph or dataset. Needs `netnew_pair`."""
+    kind = evidence_kind_sql("e.acquisition_method")
     conn.execute("CREATE OR REPLACE TEMP TABLE shipped_hostname (name VARCHAR, year INTEGER)")
     for year in YEARS:
         held.read_names(conn, "_shipped", netnew_dir / f"{year}_hostnames.txt", year)
         conn.execute("INSERT INTO shipped_hostname SELECT name, year FROM _shipped")
     conn.execute("DROP TABLE _shipped")
-    hostnames = """
+    hostnames = f"""
         SELECT hy.hostname, hy.parent_domain, hy.assigned_year, e.evidence_type,
-               e.evidence_value, s.name AS source, e.acquisition_method, e.evidence_url
+               e.evidence_value, s.name AS source, e.acquisition_method, e.evidence_url,
+               {kind} AS evidence_kind
         FROM shipped_hostname n
         JOIN hostname_year hy ON hy.hostname = n.name AND hy.assigned_year = n.year
         JOIN evidence e ON e.evidence_id = hy.evidence_id
         JOIN source s ON s.source_id = e.source_id
         ORDER BY hy.hostname, hy.assigned_year
     """
-    registrables = """
+    registrables = f"""
         SELECT n.domain, n.year AS assigned_year, e.evidence_type, e.evidence_value,
-               s.name AS source, e.acquisition_method, e.evidence_url
+               s.name AS source, e.acquisition_method, e.evidence_url, {kind} AS evidence_kind
         FROM netnew_pair n
         JOIN evidence e ON e.evidence_id = n.evidence_id
         JOIN source s ON s.source_id = e.source_id

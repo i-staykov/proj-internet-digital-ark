@@ -21,7 +21,7 @@ on:
         description: an ERE kept in place of report_urls.ere
         default: ""
       reduce:
-        description: any value keeps one capture per host and year (host_years.py), no grep
+        description: any value keeps one capture per host and year; links reads WAT files to one linking capture per linked host and year
         default: ""
       group:
         description: files a job reads in turn
