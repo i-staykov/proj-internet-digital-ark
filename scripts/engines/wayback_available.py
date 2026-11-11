@@ -7,7 +7,10 @@ names the exact host, it is a same-year capture of that host, written as a walke
 the hostname ingest banks it and the bank decides whether it is new. The API folds `www.` and
 `www1.` into one name, so an in-year capture under another spelling goes to `folded.txt` for an
 exact index ask instead. 300 rows from one address: 2.6 s an ask, no 429; 14 hits and 12 folded.
-A miss says nothing of deeper pages: the root alone is asked.
+A miss says nothing of deeper pages: the root alone is asked. An empty answer after 5 s or more is
+often a false miss (6 of 58 known hits came back so on a re-ask, and the empty answer is cached
+for that date), so it is asked once more for another date; `--date` sets the date of a second
+pass over rows already logged.
 
 One ask at a time; a 429 or 503 rests `Retry-After` or a minute, a failed connection 30 s. Every
 ask is a `log.tsv` row (year, host, verdict, stamp, seconds); a restart skips the rows any client
@@ -36,10 +39,11 @@ from pathlib import Path
 API = "https://archive.org/wayback/available"
 UA = "InternetDigitalArk/1.0 (+historical domain research)"
 FIRST, LAST = 1996, 2001
+SLOW = 5.0  # seconds: an empty answer this slow is asked again
 
 
-def closest(year: str, host: str, timeout: float) -> dict:
-    q = urllib.parse.urlencode({"url": host, "timestamp": year + "0701"})
+def closest(year: str, host: str, timeout: float, date: str = "0701") -> dict:
+    q = urllib.parse.urlencode({"url": host, "timestamp": year + date})
     req = urllib.request.Request(API + "?" + q, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=timeout) as fh:
         d = json.loads(fh.read().decode("utf-8", "replace"))
@@ -82,6 +86,7 @@ def main() -> None:
     ap.add_argument("--name", default="", help="state folder; the list's stem and share if empty")
     ap.add_argument("--timeout", type=float, default=60)
     ap.add_argument("--batch", type=int, default=50, help="hits a journal")
+    ap.add_argument("--date", default="0701", help="MMDD asked in each row's year")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
     i, n = map(int, a.share.split("/"))
@@ -111,7 +116,11 @@ def main() -> None:
         while c is None and time.time() < end:  # a rest never outlasts the deadline
             t0 = time.time()
             try:
-                c = closest(year, host, a.timeout)
+                c = closest(year, host, a.timeout, a.date)
+                if (
+                    not c and time.time() - t0 >= SLOW
+                ):  # a slow empty answer: once more, another date
+                    c = closest(year, host, a.timeout, "0615" if a.date != "0615" else "0715")
             except urllib.error.HTTPError as exc:
                 if exc.code not in (429, 503):
                     c = {"error": exc.code}
