@@ -853,6 +853,18 @@ Decision: master
 - measured 2026-11-10 as `usenet_header_more_hostnames`: 54 EE on the vendor tops, 68 EE on the 18 groups
 Decision: master
 
+### usenet_body_hop_hostnames / link_source
+- the artifact: the same posts' bodies: a name written beside a real public address, `host (1.2.3.4)` or `host [1.2.3.4]`, on a traceroute or ping line (a hop number, `ms`, `icmp`, `ping`, `traceroute`); `build_usenet_header_pool.py` writes the `hop/` journal, `ark ingest-usenet-field-hostnames hop` reads it; no text is kept
+- what dates one item and the reading: the post's own `Date:`; the tool's output names a machine that answered, the trace-hop class; a candidate source for 1996 to 2001, never an annual record; method `usenet_body_hop_host` is outside `WEB_METHODS`
+- measured 2026-11-11 against merge261104 and the 2002 to 2013 files, candidate track: 868 hosts and 425 EE on 155 mbox zips (2.1 GB, nine hierarchies); a hand read found 30 of 30 real
+Decision: master
+
+### usenet_body_relay_hostnames / link_source
+- the artifact: the same posts' bodies: the receiver's own lookup `(name [1.2.3.4])` in a pasted `Received` line, the address real and public; never the HELO name, never a dial-up lease; the `relay/` journal, read by `ark ingest-usenet-field-hostnames relay`
+- what dates one item and the reading: the post's own `Date:`; the rdns reading of `received_rdns_hostnames`, the line quoted in a news post; a candidate source for 1996 to 2001, never an annual record; method `usenet_body_relay_host` is outside `WEB_METHODS`
+- measured 2026-11-11 on the same zips: 56 hosts and 39 EE; a hand read found 30 of 30 real
+Decision: master
+
 ## Pending requests
 
 None.

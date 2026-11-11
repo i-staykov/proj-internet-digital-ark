@@ -96,7 +96,8 @@ FAMILIES = [
              [f"{IA}usenet-demon/{DEMON}", f"{IA}usenet-uk/uk.comp.misc.mbox.zip"], f"usenet_{key}")
       for key, name, noun in (("msgid", "message_id", "message-id"), ("from", "from", "from"),
                               ("lease", "header_lease", "lease"), ("more", "header_more", "more"),
-                              ("body", "body_mention", "mention"))),
+                              ("body", "body_mention", "mention"), ("hop", "body_hop", "hop"),
+                              ("relay", "body_relay", "relay"))),
     # an item is the Apache lane's pointer or the pipermail lane's, and resolves as that lane's
     family(hn.RECEIVED_FAMILY, "received_rdns_hostnames", "received header",
            (f"{AP}#1", f"{AP}#9", 1999, "slarti.muc.de"),
