@@ -292,36 +292,25 @@ def _cut(script_name: str, start: str, end: str) -> str:
 
 def test_the_package_ships_ours_alone_and_verify_checks_it_against_his(exported, tmp_path):
     his, out = exported[1], exported[2]
-    pack = _cut("package_delivery.sh", "# extended_years/: the", "# ISC candidates must stay")
+    pack = _cut("package_delivery.sh", "EXT=output/extended_years", "# The source-saturation")
     check = _cut("verify_delivery.sh", "# --- the extended years", "# --- 5 to 8")
     (tmp_path / "output").mkdir()
     out.rename(tmp_path / "output/extended_years")
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin/uv").write_text("#!/bin/sh\n")  # `--check` is the test above's
     (tmp_path / "bin/uv").chmod(0o755)
-    env = {"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", "STAGE": "stage"}
+    shipped, prov = tmp_path / "stage/additions", tmp_path / "stage/additions/provenance"
+    prov.mkdir(parents=True)
+    env = {"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", "A": str(shipped), "P": str(prov)}
     run = lambda body, cwd, **more: subprocess.run(  # noqa: E731
         ["bash", "-c", body], cwd=cwd, env=env | more, capture_output=True, text=True
     )
-    lab, ours = tmp_path / "data/labelled/nonweb_years", tmp_path / "stage/additions"
-    lab.mkdir(parents=True)
-    ours.mkdir(parents=True)
-    (lab / "README.md").write_text("year evidence\n")
-    (lab / "1999.txt").write_text("held.com\nours.com\n")
-    (lab / "provenance.csv").write_text("year,host,class\n1999,held.com,a\n1999,ours.com,a\n")
-    (ours / "1999.txt").write_text("ours.com\n")
     done = run(pack, tmp_path)
     assert done.returncode == 0, done.stderr
-    # a labelled name that is our addition for the year leaves the folder, with its provenance
-    assert (tmp_path / "stage/nonweb_years/1999.txt").read_text() == "held.com\n"
-    kept = (tmp_path / "stage/nonweb_years/provenance.csv").read_text()
-    assert kept == "year,host,class\n1999,held.com,a\n"
-    shipped = tmp_path / "stage/extended_years"
-    for f in (tmp_path / "output/extended_years/additions").glob(
-        "*.txt"
-    ):  # once, as the brief names it
+    # one file a year beside 1996 to 2001's, the ledger and manifest in provenance/
+    for f in (tmp_path / "output/extended_years/additions").glob("*.txt"):
         assert f.read_bytes() == (shipped / f.name).read_bytes()
-    assert list(shipped.glob("*.txt")) and not (shipped / "additions").exists()
+    assert (prov / "manifest.json").is_file() and (prov / "evidence_ledger.csv").is_file()
     done = run(check, tmp_path / "stage")
     assert "SKIP  2 additions" in done.stdout and "HIS" in done.stdout, done.stdout + done.stderr
     done = run(check, tmp_path / "stage", HIS=str(his))
