@@ -464,8 +464,8 @@ def _class_files(conn: duckdb.DuckDBPyConnection, out: Path, weights: dict) -> d
 CANDIDATE_CLASSES = (
     ("isc_survey", "ISC Internet Domain Survey host"),
     ("lease|ephemeral", "dial-up or address-pool name"),
+    ("innreport|inn_report|news_report", "news-server report host"),  # filed as visitor_rdns
     ("visitor", "web usage report: visitor host"),
-    ("innreport|inn_report|news_report", "news-server report host"),
     ("trace_hop|path_hop|_hop_|hop_host", "traceroute or relay hop name"),
     ("message_id|msgid|_from_|from_host", "mail or news From or Message-ID host"),
     ("received|_relay|rdns", "mail Received header host"),
