@@ -379,6 +379,8 @@ bank *args:
         uv run python scripts/round/extended_export.py --check >/dev/null \
             || nice -n 10 uv run python scripts/round/extended_export.py || true
     fi
+    # Sources screened elsewhere join the 2002 to 2013 additions; a merged run is skipped.
+    uv run python scripts/round/merge_side_years.py || true
     uv run python scripts/round/build_round_state.py | tail -1 || true
     # The runners' slices and STOP, cut where the lanes walk (scripts/engines/runner_slices.py).
     if grep -q 'local:' <<<"${ARK_HOSTS:-}"; then uv run python scripts/engines/runner_slices.py write || true; fi
@@ -991,6 +993,7 @@ ship stage="all" *args:
         echo "== the 2002 to 2013 additions =="
         uv run python scripts/round/extended_export.py --check 2>/dev/null \
             || nice -n 10 uv run python scripts/round/extended_export.py
+        uv run python scripts/round/merge_side_years.py
         echo "== the data invariants =="
         uv run ark check
         echo "== the round state, with the store sections =="

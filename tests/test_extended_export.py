@@ -741,3 +741,59 @@ def test_the_end_of_term_reader_counts_what_is_left_by_its_journals_and_strikes(
     assert eot.left() == 1
     (tmp_path / f".eot_{first}.failed").write_text("x\n" * 3)
     assert eot.left() == 0
+
+
+def test_a_side_run_merges_into_ours_once_and_verify_still_checks_the_years(exported, tmp_path):
+    """A source screened on another machine joins the year files and the ledger one row a
+    name, ours where both hold it, and the shipped check passes on the merged set."""
+    ext, his, out, _, _, _ = exported
+    side_raw = tmp_path / "side_raw/ia_cdx_hostnames/b.jsonl.gz"
+    side_raw.parent.mkdir(parents=True)
+    side_raw.write_bytes(
+        _journal(
+            [
+                {"url": "http://new.com/", "timestamp": "20020901000000", "status": "200"},
+                {"url": "http://side.com/", "timestamp": "20020701000000", "status": "200"},
+                {"url": "http://his.org/", "timestamp": "20030601000000", "status": "200"},
+                {"url": "http://zz.info/", "timestamp": "20030601000000", "status": "200"},
+            ]
+        )
+    )
+    ext.export({"*": str(tmp_path / "side_raw/*/*.jsonl*")}, tmp_path / "side_years/cc")
+    merge = script("round/merge_side_years.py")
+    merge.english_weights = lambda: {"com": D("0.5"), "info": D("0.25")}
+    assert merge.merge(out, tmp_path / "side_years") == ["cc"]
+    assert merge.merge(out, tmp_path / "side_years") == []  # once
+    assert (out / "additions/2002.txt").read_text() == "new.com\nside.com\n"
+    assert (out / "additions/2003.txt").read_text() == "fine.info\nzz.info\n"
+    with (out / "evidence_ledger.csv").open() as fh:
+        ledger = [(r["year"], r["host"], r["timestamp"]) for r in csv.DictReader(fh)]
+    assert ledger == [
+        ("2002", "new.com", "20020301000000"),  # ours, not the side run's
+        ("2002", "side.com", "20020701000000"),
+        ("2003", "fine.info", "20030601000000"),
+        ("2003", "zz.info", "20030601000000"),
+    ]
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert (manifest["accepted_new"], manifest["increment_ee"]) == (4, "1.5000")
+    assert manifest["years"]["2002"]["submitted_unique"] == 3  # already.com, and the two
+    pack = _cut("package_delivery.sh", "EXT=output/extended_years", "# The source-saturation")
+    check = _cut("verify_delivery.sh", "# --- the extended years", "# --- 5 to 8")
+    (tmp_path / "output").mkdir()
+    out.rename(tmp_path / "output/extended_years")
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin/uv").write_text("#!/bin/sh\n")
+    (tmp_path / "bin/uv").chmod(0o755)
+    stage_top, prov = tmp_path / "stage", tmp_path / "stage/additions/provenance"
+    prov.mkdir(parents=True)
+    env = {"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", "A": str(prov.parent), "P": str(prov)}
+    done = subprocess.run(["bash", "-c", pack], cwd=tmp_path, env=env, capture_output=True)
+    assert done.returncode == 0, done.stderr
+    done = subprocess.run(
+        ["bash", "-c", check],
+        cwd=stage_top,
+        env=env | {"HIS": str(his)},
+        capture_output=True,
+        text=True,
+    )
+    assert "PASS  4 additions" in done.stdout, done.stdout + done.stderr
