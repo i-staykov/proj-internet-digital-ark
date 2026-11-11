@@ -43,8 +43,11 @@ shard carries the batch's name so the ingest key is the batch's:
   `lists/`  a body that IS a host list (`LIST_MIN` lines or more open with a bare name, half
             its lines at least) with its `subject`: a DNS walk, a registrar's notices or sale
             spam, classed by its own text before anything banks; no family reads it.
-  `paired/` a body name written with its address, `host (1.2.3.4)` or `host [1.2.3.4]`: a
-            traceroute hop, a ping, a pasted `Received` line; no family reads it yet.
+  `hop/`, `relay/`, `paired/`  a body name written with its address, `host (1.2.3.4)` or
+            `host [1.2.3.4]`, by the line's shape: a traceroute or ping line (`_HOP`); the
+            receiver's own lookup `(name [ip])` in a pasted `Received` line (`_RELAY`), never
+            the HELO name the client gave, nor a lease; anything else, and any name whose
+            address is not a real public one; no family reads them yet.
 
 **Only the host leaves a header.** The mailbox, the display name and the message text
 reach no journal, log or counter, a host list's `Subject` aside. A `Message-ID` or `From`
@@ -66,6 +69,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import gzip
+import ipaddress
 import json
 import multiprocessing as mp
 import re
@@ -134,7 +138,7 @@ def is_ephemeral(host: str) -> bool:
 
 
 # The side journals, in the order the bank ingests them.
-SIDE = ("url", "msgid", "from", "lease", "more", "body", "lists", "paired")
+SIDE = ("url", "msgid", "from", "lease", "more", "body", "lists", "hop", "relay", "paired")
 # An address munged against harvesters, or a placeholder nobody could reach, the word in any
 # label: `nospam.isp.com`, `isp.com.invalid`, `remove-this.isp.net`, `mail.domain.com`.
 MUNGED = re.compile(
@@ -195,9 +199,26 @@ _LISTED = re.compile(
     rb"^\s*([A-Za-z0-9][A-Za-z0-9-]*(?:\.[A-Za-z0-9][A-Za-z0-9-]*)*\.[A-Za-z]{2,4})\.?(?:\s|$)"
 )
 LIST_MIN = 100
-_PAIRED = re.compile(
-    rb"([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63})\.? ?[\[(]\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[\])]"
+_HOP = re.compile(
+    rb"^[>|:\s]*\d{1,2}\s|\sms\b|icmp|bytes from|reply from"
+    rb"|^[>|:\s]*(ping|pinging|traceroute|tracing route)\b"
 )
+_RELAY = re.compile(rb"received:|^[>|:\s]*from\s|\sby\s|helo|smtp")
+_PAIR = rb"([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63})\.? ?", rb"(\d{1,3}(?:\.\d{1,3}){3})"
+_LOOKUP = re.compile(rb"\(" + _PAIR[0] + rb"\[" + _PAIR[1] + rb"\]\)")
+_PAIRED = re.compile(_PAIR[0] + rb"[\[(]" + _PAIR[1] + rb"[\])]")
+
+
+def _global(address: bytes) -> bool:
+    """A real public address: `165.874.194.259` and `10.0.0.1` pair no name with the network."""
+    try:
+        return ipaddress.ip_address(address.decode("ascii")).is_global
+    except ValueError:
+        return False
+
+
+def _leased(name: bytes) -> bool:
+    return is_ephemeral(_clean(name.decode("ascii", "replace")))
 
 
 def _kept(hosts) -> list[str]:
@@ -329,7 +350,7 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
     urls: set[str] = set()
     mentioned: set[str] = set()
     listed: list[bytes] = []
-    paired: list[bytes] = []
+    paired: dict[str, list[bytes]] = {"hop": [], "relay": [], "paired": []}
     lines = 0
     n = 0
 
@@ -346,9 +367,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
             found = {"url": sorted(urls), "lease": sorted(set(leased))}
             more = sorted(set(more_hosts(headers)) - {*hosts, *leased})
             found |= {"more": more, "body": sorted(mentioned)}
-            found |= {"paired": _kept(h.decode("ascii", "replace") for h in paired)} | {
-                k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()
-            }
+            found |= {k: _kept(h.decode("ascii", "replace") for h in v) for k, v in paired.items()}
+            found |= {k: [h] for k, h in side_hosts(headers, stats, keep_ephemeral).items()}
             stats["url_rows"] += bool(urls)
             if len(listed) >= LIST_MIN and 2 * len(listed) >= lines:
                 stats["list_posts"] += 1
@@ -375,7 +395,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
             n += 1
             stats["posts"] += 1
             in_headers, year, headers, prev_blank = True, None, [], False
-            urls, mentioned, listed, paired, lines = set(), set(), [], [], 0
+            urls, mentioned, listed, lines = set(), set(), [], 0
+            paired = {"hop": [], "relay": [], "paired": []}
             continue
         blank = not line.strip()
         if in_headers:
@@ -390,7 +411,18 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
                 urls.update(h for h in hosts_of(line) if VALID_HOST.match(h))
             mentioned.update(body_hosts(line))
             if b"." in line and (b"(" in line or b"[" in line):
-                paired += _PAIRED.findall(line)
+                pairs = _PAIRED.findall(line)
+                if pairs:
+                    low = line.lower()
+                    if _HOP.search(low):
+                        good = [n for n, a in pairs if _global(a)]
+                        paired["hop"] += good
+                    else:
+                        found = _LOOKUP.findall(line) if _RELAY.search(low) else []
+                        # a lease among the lookups stays held: the lease switch names sources
+                        good = [n for n, a in found if _global(a) and not _leased(n)]
+                        paired["relay"] += good
+                    paired["paired"] += (n for n, _ in pairs if n not in good)
             if not blank:
                 lines += 1
                 listed += _LISTED.findall(line)
