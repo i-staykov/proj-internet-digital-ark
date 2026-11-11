@@ -31,6 +31,7 @@ from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
 from ark.evidence_types import (
     ERROR_STATUS,
+    LINK_WITHDRAWN,
     REPLAY_FAILED,
     WEB_METHODS,
     evidence_kind_sql,
@@ -526,6 +527,7 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
         for pattern, label in CANDIDATE_CLASSES
     )
     return f"""(CASE
+        WHEN regexp_matches({value}, '{LINK_WITHDRAWN}') THEN '{LINK_WITHDRAWN_CLASS}'
         WHEN regexp_matches({value}, '{REPLAY_FAILED}') THEN '{REPLAY_CLASS}'
         WHEN {method} IN ({_WEB_METHOD_LIST}) AND regexp_matches({value}, '{ERROR_STATUS}')
           THEN 'web capture with an error status'
@@ -537,6 +539,7 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
 
 
 REPLAY_CLASS = "web capture that does not replay"
+LINK_WITHDRAWN_CLASS = "link-graph target withdrawn on review"
 # **A candidate ships only as a name its row can stand for.** It leaves the list when:
 # - its every row lacks its source file (a zone list read before rows kept their capture, a
 #   mention from bytes we no longer hold, a name found with no dated record at all): it cites

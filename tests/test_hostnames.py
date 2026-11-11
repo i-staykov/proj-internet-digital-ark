@@ -855,14 +855,17 @@ def test_a_capture_that_does_not_replay_leaves_the_masters_as_a_candidate(tmp_pa
     sid = ensure_source(conn, "ia_cdx", "timestamped")
     add_candidate(conn, "example.com", sid)
     url = "https://web.archive.org/web/20010520154251/http://example.com/"
-    rows = {  # a host's capture, a registrable's bare stamp, and one that replays
+    page = "page link 2001 https://a.org/f.arc.gz#arc 1 2 #20010101000000 http://a.gov/"
+    rows = {  # a host's capture, a registrable's bare stamp, one that replays, a link taken back
         "www.example.com": ("cdx capture 20010520154251 www.example.com", None),
         "example.com": ("20010520154251", url),
         "ok.example.com": ("cdx capture 20010601000000 ok.example.com", None),
+        "link.example.com": (f"{page} link.example.com", None),
     }
     for name, (value, link) in rows.items():
+        method = "page_link_host" if name == "link.example.com" else "ia_cdx_domain_sweep"
         eid = record_evidence(conn, "example.com", sid, 2001, "cdx_timestamp", value, link,
-                              "ia_cdx_domain_sweep")  # fmt: skip
+                              method)  # fmt: skip
         if name == "example.com":
             assign_year(conn, eid)
         else:
@@ -870,21 +873,23 @@ def test_a_capture_that_does_not_replay_leaves_the_masters_as_a_candidate(tmp_pa
             conn.execute(f"{sql} VALUES (?, 'example.com', 2001, ?)", [name, eid])
     fails = write(tmp_path / "fail.tsv", "host\tyear\tts\twhy\n" + "".join(
         f"{h}\t2001\t20010520154251\treplay moved\n" for h in ("www.example.com", "example.com")
-    ))  # fmt: skip
+    ) + "link.example.com\t2001\t\tdoubled name\n")  # fmt: skip
     ships = f"""SELECT r.name, {qualifies_sql("e", "r.name")} FROM (
         SELECT hostname AS name, evidence_id FROM hostname_year
         UNION ALL SELECT domain, evidence_id FROM domain_year) r
         JOIN evidence e USING (evidence_id) ORDER BY 1"""
-    assert [ok for _, ok in q(conn, ships)] == [True, True, True]
-    assert hn.mark_replay_failed(conn, fails) == {"listed": 2, "rows_marked": 2}
+    assert [ok for _, ok in q(conn, ships)] == [True, True, True, True]
+    assert hn.mark_replay_failed(conn, fails) == {"listed": 3, "rows_marked": 3}
     hn.mark_replay_failed(conn, fails, write=True)
     assert q(conn, ships) == [
-        ("example.com", False), ("ok.example.com", True), ("www.example.com", False)
+        ("example.com", False), ("link.example.com", False), ("ok.example.com", True),
+        ("www.example.com", False),
     ]  # fmt: skip
     values = q(conn, "SELECT evidence_value FROM evidence ORDER BY 1")
     assert [v for (v,) in values] == [
         "cdx capture 20010520154251 replay failed www.example.com",
         "cdx capture 20010601000000 ok.example.com",
+        f"{page} link withdrawn link.example.com",
         "replay failed 20010520154251",
     ]
     assert hn.mark_replay_failed(conn, fails, write=True)["rows_marked"] == 0

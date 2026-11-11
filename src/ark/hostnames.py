@@ -2281,8 +2281,9 @@ def mark_replay_failed(
     """Mark the row of each record whose capture the replay check could not open, from its
     `host, year, ts, why` table: a hostname or registrable year standing on a row that quotes
     that stamp gets `replay failed` before the value's last token, so it fails XIV and ships as
-    a candidate. A row keeps its id. `write` false counts and changes nothing; a marked row is
-    not marked again."""
+    a candidate. A table row with no stamp marks that host-year's page-link row `link
+    withdrawn`: a link target a review took back. A row keeps its id. `write` false counts and
+    changes nothing; a marked row is not marked again."""
     from ark.evidence_types import REPLAY_FAILED
 
     conn.execute(
@@ -2299,7 +2300,8 @@ def mark_replay_failed(
               UNION ALL SELECT domain, assigned_year, evidence_id FROM domain_year) r
           ON r.name = f.host AND r.assigned_year = f.year
         JOIN evidence e ON e.evidence_id = r.evidence_id
-        WHERE regexp_matches(e.evidence_value, '(^| )' || f.ts || '( |$)')
+        WHERE (coalesce(f.ts, '') = '' AND starts_with(e.evidence_value, 'page link ')
+               OR f.ts <> '' AND regexp_matches(e.evidence_value, '(^| )' || f.ts || '( |$)'))
           AND NOT regexp_matches(e.evidence_value, '{REPLAY_FAILED}')
         """
     )
@@ -2309,8 +2311,9 @@ def mark_replay_failed(
     if write:
         with _one_transaction(conn):
             conn.execute("""
-                UPDATE evidence SET evidence_value = regexp_replace(
-                    r.evidence_value, ' ?([^ ]+)$', ' replay failed \\1')
+                UPDATE evidence SET evidence_value = regexp_replace(r.evidence_value,
+                    ' ?([^ ]+)$', CASE WHEN starts_with(r.evidence_value, 'page link ')
+                    THEN ' link withdrawn \\1' ELSE ' replay failed \\1' END)
                 FROM replay_rows r WHERE evidence.evidence_id = r.evidence_id
             """)
             conn.execute(
