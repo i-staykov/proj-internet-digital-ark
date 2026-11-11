@@ -446,7 +446,8 @@ from pathlib import Path
 
 root, marker = Path(sys.argv[1]), sys.argv[2]
 names = [f"{y}.txt" for y in range(1996, 2014)]
-names += ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
+# his candidate files as this release has them: merge261104 has no unparsed-format file
+names += [n for n in ("candidate_pool.txt", "candidate_pool_unparsed_format.txt") if (root / n).is_file()]
 names += sorted(f"isc_survey_hostnames/{p.name}" for p in (root / "isc_survey_hostnames").glob("*.txt"))
 
 
