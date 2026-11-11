@@ -155,6 +155,8 @@ PROVENANCE_LINEAGE = {
     "usenet_header_lease_hostnames": "usenet",
     "usenet_header_more_hostnames": "usenet",
     "usenet_body_mention_hostnames": "usenet",
+    "usenet_body_hop_hostnames": "usenet",
+    "usenet_body_relay_hostnames": "usenet",
     "odp": "editorial_directory",
     "internet_scout": "editorial_directory",
     "ncsa_whats_new": "editorial_directory",
