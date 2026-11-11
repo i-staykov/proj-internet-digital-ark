@@ -604,6 +604,60 @@ def accesswatch(lines, text, path):
             yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
 
 
+SB_DATE = r"<B>\w+, ([A-Z][a-z]{2}) (\d{1,2}), (\d{4}) - "
+SB_SINCE = re.compile(r"include all Sites logged since:\s*" + SB_DATE)
+SB_UPDATED = re.compile(r"statistics last updated on:\s*" + SB_DATE)
+SB_HEAD = re.compile(r"^<B>([^<]+):</B>\s*$")
+SB_ROW = re.compile(r"^<LI><B>([A-Za-z0-9.-]+)(?: \([^)]*\))?:?</B>(.*)$")
+SB_VISIT = re.compile(r"(?:First Visit|occurred) (\w+), ([A-Z][a-z]{2}) (\d{1,2})\b")
+WEEKDAYS = "monday tuesday wednesday thursday friday saturday sunday".split()
+
+
+def statbot(lines, text, path):
+    """Statbot prints the two dates its log runs between and lists the sites: today's visitors,
+    and a comprehensive list whose rows say "First Visit Sunday, Mar 17". Today is the update's
+    year; a dated visit takes the one year of the span in which that date fell on that weekday;
+    a row saying neither is read only when the span lies in one year."""
+    a, b = SB_SINCE.search(text[:8000]), SB_UPDATED.search(text[:8000])
+    if not a or not b:
+        return
+    try:
+        since, upd = (
+            date(int(m.group(3)), MONTHS[m.group(1).lower()], int(m.group(2))) for m in (a, b)
+        )
+    except (KeyError, ValueError):
+        return
+    stamp, section = f"sites logged {since} to {upd}", ""
+    for n, line in enumerate(lines, 1):
+        h = SB_HEAD.match(line)
+        if h:
+            section = h.group(1)
+            continue
+        r = SB_ROW.match(line) if section.endswith("Visitor List") else None
+        if not r:
+            continue
+        v = SB_VISIT.search(r.group(2))
+        if section.startswith("Today") or "Today" in r.group(2):
+            year = upd.year
+        elif v:
+            fits = []
+            for y in range(since.year, upd.year + 1):
+                try:
+                    d = date(y, MONTHS[v.group(2).lower()], int(v.group(3)))
+                except (KeyError, ValueError):
+                    continue
+                if since <= d <= upd and WEEKDAYS[d.weekday()] == v.group(1).lower():
+                    fits.append(y)
+            if len(fits) != 1:
+                continue
+            year = fits[0]
+        elif since.year == upd.year:
+            year = upd.year
+        else:
+            continue
+        yield r.group(1), year, False, n, stamp, TAG.sub(" ", line), False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -618,6 +672,7 @@ GENERATORS = (
     ("raw-log", raw_log),
     ("accesswatch", accesswatch),
     ("usage-log", usage_log_by_ip),
+    ("statbot", statbot),
 )
 
 

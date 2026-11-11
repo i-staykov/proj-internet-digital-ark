@@ -203,3 +203,27 @@ def test_self_dating_files_a_dns_cache_logs_a_monthly_log_and_an_accesswatch_day
         ("ppp0.kwic.com", 1997, "analog-dnscache"),
         ("late.kwic.com", 1997, "analog-dnscache"),
     }, "a lookup dated 1998 in a file captured in 1997 takes 1997"
+
+
+STATBOT = """These statistics include all Sites logged since: <B>Monday, Apr 1, 1996 - 13:13:41</B>
+These statistics last updated on: <B>Wednesday, May 14, 1997 - 14:20:23</B>
+<B>Individual Web Page Visits:</B>
+<LI><B>page.example.org:</B> 3 Visits Today (9 Total)
+<B>Today's Visitor List:</B>
+<LI><B>today.dial.xs4all.nl (Netherlands)</B>
+<B>Comprehensive Visitor List:</B>
+<LI><B>softair.mipnet.fr (France):</B> First Visit Tuesday, May 21
+<LI><B>undated.isp.net</B>
+"""
+
+
+def test_statbot_dates_a_site_by_today_or_by_the_weekday_of_its_visit(tmp_path):
+    site = tmp_path / "raw" / "s"
+    site.mkdir(parents=True)
+    (site / "ps.html").write_text(STATBOT)
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert {(r["host"], r["year"]) for r in rows} == {
+        ("today.dial.xs4all.nl", 1997),
+        ("softair.mipnet.fr", 1996),
+    }, "21 May was a Tuesday in 1996 alone; a site with no date in a two-year span is left"
