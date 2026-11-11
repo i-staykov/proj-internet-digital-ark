@@ -17,7 +17,8 @@ gateway, not the address (homestead.com, kataweb.it and uku.fi cut at 75 to 135 
 addresses while the next one answered): asked again twice, then booked as `heavy.txt` for a paged
 walk, as is a domain that drew six 503s. Every request is a `log.tsv` row (stamp, registrable,
 status, seconds, rows, host-years 1996 to 2001, 2002 to 2013), so a rate carries its waits.
-`done.txt` keeps the answered registrables, so a restart resumes.
+`done.txt` keeps the answered registrables, so a restart resumes; one the deadline cuts banks
+nothing and is asked again.
 
     python3 scripts/engines/cdx_domain_client.py LIST --share 0/8 --data DIR [--seconds 3300]
 """
@@ -151,6 +152,9 @@ class Client:
                 if wait >= 900:
                     return False
                 self.rest(wait, status)
+        if time.time() >= self.end and (key or status != "200"):  # cut by the deadline: none banks
+            self.log.write(f"# cut {reg} {requests} requests\n")
+            return True
         stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         name = f"walk_dom-{reg}_{stamp}"
         core = [v for (_, y), v in keep.items() if y.isdigit() and int(y) < SPLIT]
