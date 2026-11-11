@@ -8,8 +8,8 @@ Two sets.
 - `candidates/`: every other name we hold, as one list, `candidates.txt`. None is in any file of
   your release. `provenance.csv` has one row a name: `name, year, class, source, source_file,
   position`, `source_file` the public file the name was read from and `position` the record
-  naming it there. A candidate enters an annual file only with a 2xx or 3xx capture of that exact
-  host in that year.
+  naming it there. As your brief says: "When a candidate later has qualifying evidence, move only
+  the verified hostname-year record into the relevant annual file."
 
 [CLASS TABLE]
 

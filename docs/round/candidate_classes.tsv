@@ -1,1 +1,17 @@
 class	sentence
+Usenet server header host	"email or Usenet delivery headers ... do not by themselves establish a website" (XIV)
+mail Received header host	"email or Usenet delivery headers ... do not by themselves establish a website" (XIV)
+mail or news From or Message-ID host	"email or Usenet delivery headers ... do not by themselves establish a website" (XIV)
+other server-written header host	"email or Usenet delivery headers ... do not by themselves establish a website" (XIV)
+dial-up or address-pool name	"email or Usenet delivery headers ... do not by themselves establish a website" (XIV)
+web usage report: visitor host	"DNS observations ... are valuable discovery or hostname-in-use evidence, but do not by themselves establish a website" (XIV): the client named is a reverse-DNS lookup
+news-server report host	"DNS observations ... are valuable discovery or hostname-in-use evidence, but do not by themselves establish a website" (XIV): the reader named is a reverse-DNS lookup
+traceroute or relay hop name	"DNS observations ... are valuable discovery or hostname-in-use evidence, but do not by themselves establish a website" (XIV)
+nameserver host	"DNS observations ... are valuable discovery or hostname-in-use evidence, but do not by themselves establish a website" (XIV)
+ISC Internet Domain Survey host	"DNS observations ... are valuable discovery or hostname-in-use evidence, but do not by themselves establish a website" (XIV)
+registry list name	"registry/RDAP/WHOIS registration events that do not establish web presence ... do not by themselves establish a website" (XIV)
+message body URL or mention	"textual mentions ... do not by themselves establish a website" (XIV)
+filter list host	"textual mentions ... do not by themselves establish a website" (XIV)
+web capture with an error status	"A hostname-year record may enter 1996.txt through 2001.txt only when the retained evidence establishes the exact hostname's web presence in the target year." An error answer does not establish it.
+web capture of another name	"A hostname-year record may enter 1996.txt through 2001.txt only when the retained evidence establishes the exact hostname's web presence in the target year." The capture is of another host.
+discovered name, no dated record	"Data without item-level year evidence must not be written directly to 1996.txt through 2001.txt. Such data may be placed only in a candidate pool"
