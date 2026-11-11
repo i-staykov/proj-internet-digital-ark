@@ -742,6 +742,35 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(
     assert q(small, ledger) == q(conn, ledger)
 
 
+def test_a_page_read_from_an_arc_file_is_cited_as_its_record_and_held_rows_follow(tmp_path):
+    page = "https://web.archive.org/web/19980116234353id_/http://stats.example.gov/9601.html"
+    arc = "https://archive.org/download/X-1998/X-1998-PART-00005-000002.arc.gz"
+    row = dict(host="gate.example.com", year=1996, file=page, pos=60, field="visitor_rdns")
+    folder = tmp_path / "web_host_reports"
+    write(folder / "rows.jsonl", json.dumps(row) + "\n")
+    held = store()  # banked before the row named its ARC record
+    hn.ingest_staged_messages(held, folder)
+    sql = "SELECT evidence_id, evidence_value, evidence_url FROM evidence"
+    (before,) = q(held, sql)
+    assert before[1:] == (f"list message 1996 {page}#60 gate.example.com", page)
+    write(folder / "rows.jsonl", json.dumps(row | dict(arc=arc, arc_offset=5949, arc_size=42)))
+    cited = (f"list message 1996 {arc}#arc 5949 42 #60 gate.example.com", arc)
+    hn.ingest_staged_messages(fresh := store(), folder)
+    assert q(fresh, sql)[0][1:] == cited
+    hn.ingest_staged_messages(held, folder)
+    assert q(held, sql) == [before], "a restage alone leaves the held row as it was"
+    # a later restage moved the line and quotes the page at another stamp: still that page
+    moved = row | dict(file=page.replace("19980116234353", "19990101000000"), pos=61)
+    write(folder / "rows.jsonl", json.dumps(moved | dict(arc=arc, arc_offset=5949, arc_size=42)))
+    cited = (f"list message 1996 {arc}#arc 5949 42 #61 gate.example.com", arc)
+    assert hn.recite_staged_arcs(held, folder) == {"staged_arc_rows": 1, "held_rows": 1}
+    assert q(held, sql) == [before], "counting changes nothing"
+    hn.recite_staged_arcs(held, folder, write=True)
+    assert q(held, sql) == [(before[0], *cited)], "the row keeps its id"
+    assert q(held, "SELECT evidence_id FROM hostname_year") == [(before[0],)]
+    assert hn.recite_staged_arcs(held, folder, write=True)["held_rows"] == 0
+
+
 def test_an_unmoved_shard_is_not_hashed_again(tmp_path, monkeypatch):
     path = journal(tmp_path, [("uk.comp.misc.mbox.zip#3", 2001, "news.zetnet.co.uk")])
     conn, fam = store(), hn.USENET_HEADER_FAMILY

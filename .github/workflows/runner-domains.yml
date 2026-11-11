@@ -3,7 +3,8 @@ name: runner-domains
 # Registrables asked of the CDX index at domain grain on runners' own addresses, a share a job
 # (scripts/engines/cdx_domain_client.py): each worker one client, one request at a time, its own
 # back-off. The list is a dispatch input, so public: a registrable only his files name never
-# goes in it. No model, no secret. The artifact's journals bank as the walker's do.
+# goes in it. No model, no secret. The artifact's journals bank as the walker's do; with `urlkey`
+# the rows are a page reader's hits and none banks.
 on:
   workflow_dispatch:
     inputs:
@@ -22,6 +23,12 @@ on:
       seconds:
         description: a job's asking time
         default: "3300"
+      urlkey:
+        description: a urlkey pattern asked in place of the roots; its rows go out as hits
+        default: ""
+      last:
+        description: the last year asked
+        default: "2013"
 
 permissions:
   contents: read
@@ -58,13 +65,15 @@ jobs:
           SHARDS: ${{ inputs.shards }}
           WORKERS: ${{ inputs.workers }}
           SECONDS_: ${{ inputs.seconds }}
+          URLKEY: ${{ inputs.urlkey }}
+          LAST: ${{ inputs.last }}
           INDEX: ${{ matrix.index }}
         run: |
           case "$LIST" in H4sI*) printf '%s' "$LIST" | base64 -d | gunzip > list.txt ;; *) printf '%s\n' "$LIST" > list.txt ;; esac
           n=$((SHARDS * WORKERS))
           for w in $(seq 0 $((WORKERS - 1))); do
             python3 scripts/engines/cdx_domain_client.py list.txt --share "$((INDEX * WORKERS + w))/$n" \
-              --data out --seconds "$SECONDS_" &
+              --data out --seconds "$SECONDS_" --last "$LAST" --urlkey "$URLKEY" &
             sleep 5
           done
           wait || true
