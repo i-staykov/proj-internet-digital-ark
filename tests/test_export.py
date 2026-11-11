@@ -234,6 +234,17 @@ def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run
     assert (summary["candidates"], summary["track"]) == (13, "candidate")
     assert {u: v["names"] for u, v in summary["by_unit"].items()} == dict(hostname=6, registrable=7)
     assert Decimal(summary["equivalent_english"]) == sum(weight_of(name) for name in claim)
+    # one provenance row a name, whose classes partition the claim and its EE
+    rows = _rows(run, "netnew/candidate_provenance.csv")
+    assert [r["name"] for r in rows] == claim
+    assert [r["name"] for r in rows if not r["position"]] == ["cand.org"]  # found, undated
+    classes = {r["name"]: r["class"] for r in rows}
+    assert classes["news.example.org"] == "Usenet server header host"
+    assert {classes[n] for n in isc} == {"ISC Internet Domain Survey host"}
+    by_class = summary["by_class"]
+    assert sum(c["names"] for c in by_class.values()) == len(claim)
+    total = sum(Decimal(c["equivalent_english"]) for c in by_class.values())
+    assert total == Decimal(summary["equivalent_english"])
     his = ["candidate_pool.txt", "candidate_pool_unparsed_format.txt"]
     his += [f"isc_survey_hostnames/{year}-ISC.txt" for year in (1996, 1997)]
     assert summary["held_by_him"] == {"names": 6, "files": his}
@@ -562,3 +573,37 @@ def test_a_repoint_moves_the_store_ledger() -> None:
     before = store_ledger(conn)
     conn.execute("UPDATE hostname_year SET evidence_id = 2")
     assert store_ledger(conn) != before
+
+
+def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_folders() -> None:
+    """A staged row's folder name never decides its class (debbugs_received holds body URLs),
+    except a news server's report, filed under the visitor field."""
+    from ark.export import _class_sql
+
+    cases = {
+        ("msg_debbugs_received__body_url", "msg_body_url", "x"): "message body URL or mention",
+        ("msg_debbugs_received__header_more", "msg_header_more_host", "x"): (
+            "other server-written header host"
+        ),
+        ("msg_debbugs_received__news_header", "msg_news_header_host", "x"): (
+            "Usenet server header host"
+        ),
+        ("msg_debbugs_received__received_by", "msg_received_by", "x"): "mail Received header host",
+        ("msg_innreport_hosts__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "news-server report host"
+        ),
+        ("msg_web_host_reports__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "web usage report: visitor host"
+        ),
+        ("usenet_header_fqdn_hostnames", "usenet_server_written_header", "x"): (
+            "Usenet server header host"
+        ),
+        ("ia_cdx", "ia_cdx_domain_sweep", "cdx capture 19990101000000 status 404 a.com"): (
+            "web capture with an error status"
+        ),
+    }
+    conn = duckdb.connect()
+    for (source, method, value), want in cases.items():
+        sql = _class_sql("$s", "$m", "$v", "false")
+        got = conn.execute(f"SELECT {sql}", {"s": source, "m": method, "v": value}).fetchone()[0]
+        assert got == want, (source, got)
