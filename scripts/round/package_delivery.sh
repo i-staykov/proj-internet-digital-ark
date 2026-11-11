@@ -289,6 +289,20 @@ cp output/netnew/header_candidates.txt output/netnew/header_candidates_provenanc
     "$STAGE/server_header_hostnames/"
 # one file per class beside them, so a class he declines drops alone
 cp -R output/netnew/header_candidates_by_class "$STAGE/server_header_hostnames/by_class"
+# How a row is reopened, in the folder his sample test reads.
+cat > "$STAGE/server_header_hostnames/README.txt" <<'HDR'
+header_candidates_provenance.csv, one row per candidate host-year:
+  source_url       the archive file the row was read from
+  record_location  "<class> <year> <item> <hostname>"; <year> is the message's own Date year
+
+A Usenet <item> is "<file>.mbox.zip#<n>": post n of the zip's unpacked text (unzip -p), counted
+from 1. A post opens at a line matching ^From (-?[0-9]+|[^ ]+@[^ ]+) that is the first line or
+follows a line that is empty or only white space, outside a header block (a header block ends
+at its first such line). So a body line "From 8 to Infinity" after such a line opens a post
+too, and n can run a few ahead of a reader that counts posts another way.
+A line ends at a line feed only: the zips hold lone carriage returns, which do not end one.
+by_class/ holds the same names, one file per evidence class.
+HDR
 
 # No `|| true` here: the candidate pool is a named deliverable, and swallowing a
 # missing result file shipped an archive without it once, silently. `ark export`
