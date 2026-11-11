@@ -607,6 +607,7 @@ def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_fo
             "Usenet server header host"
         ),
         ("msg_debbugs_received__received_by", "msg_received_by", "x"): "mail Received header host",
+        ("received_rdns_hostnames", "received_from_rdns", "x"): "mail Received header host",
         ("msg_innreport_hosts__visitor_rdns", "msg_visitor_rdns_host", "x"): (
             "news-server report host"
         ),
