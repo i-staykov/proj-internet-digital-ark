@@ -102,6 +102,11 @@ HOSTCDX_METHOD = DARTMOUTH_ARCS_METHOD
 EOT_SOURCE = "eot_cdxj"
 EOT_METHOD = DARTMOUTH_ARCS_METHOD
 
+# Common Crawl's own capture indexes (CDXJ), 2002 to 2013 only, the same class. No Wayback
+# replays its captures: a journal row keeps the crawl file, offset and length that hold one.
+COMMONCRAWL_SOURCE = "commoncrawl_cdx"
+COMMONCRAWL_METHOD = DARTMOUTH_ARCS_METHOD
+
 # HTTP Archive's request logs, 2002 to 2013 only, their own web method (#449).
 HAR_SOURCE, HAR_METHOD = "httparchive_har", "httparchive_har_entry"
 # Dated crawl lists, status-less: a crawl inside one year whose nodes are fetched pages (#286);

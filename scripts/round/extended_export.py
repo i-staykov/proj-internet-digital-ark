@@ -101,6 +101,8 @@ SOURCES = {
     hn.HOSTCDX_SOURCE: (hn.HOSTCDX_METHOD, _WAYBACK),
     hn.ARQUIVO_SOURCE: (hn.ARQUIVO_METHOD, "https://arquivo.pt/wayback/{ts}/{url}"),
     hn.EOT_SOURCE: (hn.EOT_METHOD, _WAYBACK),  # eotarchive.org replays none at /wayback/
+    # a byte range of the crawl's own file: the journal row's `filename`, `offset`, `length`
+    hn.COMMONCRAWL_SOURCE: (hn.COMMONCRAWL_METHOD, "https://data.commoncrawl.org/{filename}"),
     hn.HAR_SOURCE: (hn.HAR_METHOD, "https://archive.org/details/httparchive_{ts:.4}"),  # the item
     hn.CRAWL_SOURCE: (hn.CRAWL_METHOD, ""),  # status-less; replayed as its list, `capture`
 }
