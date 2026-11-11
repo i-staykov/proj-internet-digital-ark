@@ -549,7 +549,7 @@ def test_the_report_fills_from_the_archive_figures_and_verify_finds_each(
     """No store opens; t and both scores come from the growth figures and the fill date; the
     report verdict passes the filled report and fails it once one figure is changed by hand."""
     stage, growth = (
-        tmp_path / "stage",
+        tmp_path / "archive/additions/support",
         {"GROWTH_CORE": "1.2345678901", "GROWTH_EXT": "0.0000000000"},
     )
     (stage / "audit").mkdir(parents=True)
@@ -567,7 +567,7 @@ def test_the_report_fills_from_the_archive_figures_and_verify_finds_each(
     report = (tmp_path / "docs/report.md").read_text()
     assert report.startswith("1,234.5000 84 S = 10 x (1.2345678901 / 84) = 0.146972368 S = 10 x")
     verdict = block("verify_delivery.sh", "# --- 10.", "\nPY\n", prefix="fail=0\n") + "\nPY\n"
-    shutil.copy(tmp_path / "docs/report.md", stage / "report.md")
+    shutil.copy(tmp_path / "docs/report.md", tmp_path / "archive/report.md")  # at the top
     assert "PASS" in bash(verdict, stage).stdout
-    (stage / "report.md").write_text(report.replace("1,234.5000", "1,234.6000"))
-    assert "FAIL  report.md lacks EE" in bash(verdict + 'exit "$fail"\n', stage).stdout
+    (tmp_path / "archive/report.md").write_text(report.replace("1,234.5000", "1,234.6000"))
+    assert "FAIL  ../../report.md lacks EE" in bash(verdict + 'exit "$fail"\n', stage).stdout

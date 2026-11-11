@@ -499,24 +499,38 @@ def test_the_audit_refuses_a_delivery_that_drifted(delivery, file, old, new, ref
 
 
 @pytest.mark.parametrize("omit_provenance", [False, True])
-def test_packaging_requires_and_copies_the_complete_collection(tmp_path, delivery, omit_provenance):
-    collection, root = delivery[0], tmp_path / "root"
-    links = {"output/netnew": collection, "src/ark/data/" + WEIGHTS.name: delivery[3]}
-    links |= {"src/ark/english_share.py": SHARE, "scripts/round/verify_isc_candidates.py": AUDIT}
-    for link, target in links.items():
-        (root / link).parent.mkdir(parents=True, exist_ok=True)
-        (root / link).symlink_to(target)
-    if omit_provenance:
-        (collection / PROV).unlink()
+def test_packaging_ships_the_candidates_with_their_provenance_and_class_table(
+    tmp_path, omit_provenance
+):
+    """Candidates ship as one list and one provenance file; the README's class table sums to
+    the export's summary, and a missing provenance file refuses."""
+    netnew, stage = tmp_path / "output/netnew", tmp_path / "stage"
+    netnew.mkdir(parents=True)
+    (stage / "candidates").mkdir(parents=True)
+    (stage / "README.md").write_text("top\n[CLASS TABLE]\nend\n")
+    (netnew / "candidate_additions.txt").write_text("a.com\nb.de\n")
+    if not omit_provenance:
+        (netnew / "candidate_provenance.csv").write_text(
+            "name,year,class\na.com,1999,x\nb.de,2000,y\n"
+        )
+    summary = {"candidates": 2, "equivalent_english": "1.5",
+               "by_class": {"x": {"names": 1, "equivalent_english": "1"},
+                            "y": {"names": 1, "equivalent_english": "0.5"}}}  # fmt: skip
+    (netnew / "candidate_additions_summary.json").write_text(json.dumps(summary))
+    (tmp_path / "docs/round").mkdir(parents=True)
+    (tmp_path / "docs/round/candidate_classes.tsv").write_text("class\tsentence\nx\this rule\n")
     text = (ROOT / "scripts/round/package_delivery.sh").read_text()
-    cut = r"# ISC candidates must stay separate.*?\n(.*?)# The source-saturation ledger"
-    block = 'STAGE="stage"\n' + re.search(cut, text, re.S)[1]
-    run = subprocess.run(["bash", "-e"], input=block, cwd=root, text=True, capture_output=True)
+    cut = r"(# THE CANDIDATE SET.*?)# `additions_english/`"
+    block = "STAGE=stage C=stage/candidates\n" + re.search(cut, text, re.S)[1]
+    run = subprocess.run(["bash", "-e"], input=block, cwd=tmp_path, text=True, capture_output=True)
     assert (run.returncode != 0) is omit_provenance, run.stderr
     if not omit_provenance:
-        shipped = {p.name for p in (root / "stage/isc_survey_hostnames").iterdir()}
-        assert shipped == {*(p.name for p in collection.iterdir()), "english_share.py"}
-        assert (root / "stage/verify_isc_candidates.py").is_file()
+        assert (stage / "candidates/candidates.txt").read_text() == "a.com\nb.de\n"
+        readme = (stage / "README.md").read_text()
+        assert (
+            "| x | his rule | 1 | 1.0 |" in readme and "| **all** | | **2** | **1.5** |" in readme
+        )
+        assert "no sentence of his for ['y']" in run.stderr
 
 
 def test_the_arpa_export_filter_names_the_whole_tld_and_costs_nothing_outside_it() -> None:
