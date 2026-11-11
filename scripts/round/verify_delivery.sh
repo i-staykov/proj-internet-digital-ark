@@ -110,9 +110,10 @@ if [r["name"] for r in rows] != names:
     problems.append(f"provenance.csv has {len(rows):,} rows for {len(names):,} names, or another order")
 if unclassed := sum(1 for r in rows if not r["class"].strip()):
     problems.append(f"{unclassed} rows have no class")
-ours = {n for f in Path("additions").glob("[12][0-9][0-9][0-9].txt") for n in f.read_text().splitlines()}
+# candidates are the 1996 to 2001 track: a name can be one and a later year's addition
+ours = {n for y in range(1996, 2002) for n in (Path("additions") / f"{y}.txt").read_text().splitlines()}
 if both := ours.intersection(names):
-    problems.append(f"{len(both)} names are also additions")
+    problems.append(f"{len(both)} names are also 1996 to 2001 additions")
 his = os.environ.get("HIS")
 if his and not problems:
     files = sorted(Path(his).glob("*.txt")) + sorted(Path(his).glob("isc_survey_hostnames/*.txt"))
@@ -132,7 +133,7 @@ if problems:
     print(f"{label:<46} FAIL  {'; '.join(problems[:4])}")
     sys.exit(1)
 against = "none in any file of HIS" if his else "set HIS to check them against his release"
-print(f"{label:<46} PASS  {len(names):,} names, one provenance row each, none an addition; {against}")
+print(f"{label:<46} PASS  {len(names):,} names, one provenance row each, none a 1996 to 2001 addition; {against}")
 PY
 
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
@@ -363,7 +364,7 @@ else:
         # or the audit describes a different round than the one in the box.
         shipped = 0
         for year in range(1996, 2002):
-            path = Path("../..") / f"{year}.txt"
+            path = Path("..") / f"{year}.txt"  # additions/, from additions/support/
             if path.is_file():
                 shipped += len({x.strip() for x in path.read_text().splitlines() if x.strip()})
         claimed = int(totals["submitted_records"])

@@ -7,8 +7,8 @@ Two sets.
   in that year: 1996 to 2001 a 2xx or 3xx capture; 2002 to 2013 a 2xx or 3xx capture where the
   capture index records a status, else a capture from an index that records none, never a 4xx or
   5xx.
-- `candidates/`: every other name we hold, as one list, `candidates.txt`. None is in any file of
-  your release. `provenance.csv` has one row a name: `name, year, class, source, source_file,
+- `candidates/`: every other name we hold for 1996 to 2001, as one list, `candidates.txt`. None is
+  in any file of your release or a 1996 to 2001 addition; one can be an addition of a later year. `provenance.csv` has one row a name: `name, year, class, source, source_file,
   position`, `source_file` the public file the name was read from and `position` the record
   naming it there. As your brief says: "When a candidate later has qualifying evidence, move only
   the verified hostname-year record into the relevant annual file."
