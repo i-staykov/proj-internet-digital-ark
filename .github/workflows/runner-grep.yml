@@ -20,6 +20,12 @@ on:
       pattern:
         description: an ERE kept in place of report_urls.ere
         default: ""
+      reduce:
+        description: any value keeps one capture per host and year (host_years.py), no grep
+        default: ""
+      group:
+        description: files a job reads in turn
+        default: "1"
 
 permissions:
   contents: read
@@ -33,7 +39,8 @@ jobs:
       - id: m
         env:
           URLS: ${{ inputs.urls }}
-        run: echo "urls=$(printf '%s\n' $URLS | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+          GROUP: ${{ inputs.group }}
+        run: echo "urls=$(printf '%s\n' $URLS | xargs -n "$GROUP" | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
 
   grep:
     needs: plan
@@ -55,6 +62,7 @@ jobs:
           URL: ${{ matrix.url }}
           CONNECTIONS: ${{ inputs.connections }}
           PATTERN: ${{ inputs.pattern }}
+          REDUCE: ${{ inputs.reduce }}
         run: |
           mkdir -p out
           case "$URL" in *.gz) OPEN="gzip -dc" ;; *.bz2) OPEN="bzip2 -dc" ;; *) OPEN=cat ;; esac
@@ -65,7 +73,7 @@ jobs:
         run: |
           for i in $(seq 120); do [ -e out/done ] && break; sleep 10; done
           [ -e out/done ] || echo "more=yes" >> "$GITHUB_OUTPUT"
-      - if: steps.w1.outputs.more == 'yes'
+      - if: steps.w1.outputs.more == 'yes' && inputs.reduce == ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: grep_${{ github.run_id }}_${{ strategy.job-index }}_p1
@@ -76,7 +84,7 @@ jobs:
         run: |
           for i in $(seq 120); do [ -e out/done ] && break; sleep 10; done
           [ -e out/done ] || echo "more=yes" >> "$GITHUB_OUTPUT"
-      - if: steps.w2.outputs.more == 'yes'
+      - if: steps.w2.outputs.more == 'yes' && inputs.reduce == ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: grep_${{ github.run_id }}_${{ strategy.job-index }}_p2
