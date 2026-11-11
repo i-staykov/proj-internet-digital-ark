@@ -8,12 +8,17 @@ with an absolute http or https URL to another host, from a capture of 1996 to 20
 answered 2xx. A row is the earliest such capture of a year for the linked host, `{host, year,
 url, timestamp, file, offset, length, link}`, so the link reopens as that byte range of that
 ARC file. Hosts without a dot or with a numeric last label are dropped.
+
+`modified` dates each link instead by the linking page's own `Last-Modified` header, when that
+names a year from 1996 on and before the capture's; a capture without one gives no row, and the
+row carries the header as `modified`. A measure for the labelled year evidence only.
 """
 
 import gzip
 import json
 import re
 import sys
+from email.utils import parsedate
 
 HREF = ("A@/href", "AREA@/href")
 NAME = re.compile(r"^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]*[a-z0-9]$")
@@ -24,7 +29,17 @@ def host_of(url: str) -> str:
     return rest.split("@")[-1].split(":", 1)[0].strip().lower().rstrip(".")
 
 
-def reduce(lines, out) -> dict[str, int]:
+def page_year(http: dict, stamp: str) -> tuple[str, str]:
+    """The year the page's Last-Modified names and the header, or ("", "") unless 1996 to the
+    year before the capture's."""
+    headers = http.get("Headers") or {}
+    header = next((str(v) for k, v in headers.items() if k.lower() == "last-modified"), "")
+    when = parsedate(header) if header else None
+    year = when[0] + (1900 if when[0] < 100 else 0) if when else 0
+    return (str(year), header) if 1996 <= year < int(stamp[:4]) else ("", "")
+
+
+def reduce(lines, out, modified: bool = False) -> dict[str, int]:
     best: dict[tuple[str, str], dict] = {}
     seen = {"records": 0, "kept": 0}
     for line in lines:
@@ -43,6 +58,9 @@ def reduce(lines, out) -> dict[str, int]:
         if not ("1996" <= stamp[:4] <= "2013" and len(stamp) == 14 and status.startswith("2")):
             continue
         own = host_of(page)
+        year, header = page_year(http, stamp) if modified else (stamp[:4], "")
+        if not year:
+            continue
         gz = record["Container"].get("Gzip-Metadata", {})
         length = sum(
             int(gz.get(k, 0)) for k in ("Header-Length", "Deflate-Length", "Footer-Length")
@@ -54,18 +72,18 @@ def reduce(lines, out) -> dict[str, int]:
             host = host_of(url)
             if host == own or not NAME.match(host):
                 continue
-            key = (host, stamp[:4])
+            key = (host, year)
             if key not in best or stamp < best[key]["timestamp"]:
                 best[key] = {
                     "host": host,
-                    "year": stamp[:4],
+                    "year": year,
                     "url": page,
                     "timestamp": stamp,
                     "file": record["Container"]["Filename"],
                     "offset": record["Container"]["Offset"],
                     "length": length,
                     "link": url,
-                }
+                } | ({"modified": header} if modified else {})
     for key in sorted(best):
         out.write(json.dumps(best[key]) + "\n")
     seen["kept"] = len(best)
@@ -75,7 +93,7 @@ def reduce(lines, out) -> dict[str, int]:
 def main() -> int:
     sys.stdin.reconfigure(errors="replace")
     with gzip.open(sys.argv[1], "wt") as out:
-        seen = reduce(sys.stdin, out)
+        seen = reduce(sys.stdin, out, modified=sys.argv[2:] == ["modified"])
     print(f"{seen['records']:,} records -> {seen['kept']:,} linked host-years", file=sys.stderr)
     return 0
 
