@@ -72,6 +72,8 @@ WEB_METHODS = frozenset(
         "page_link_host",
         # a captured bookmark file's entry for the host, dated by the browser's own ADD_DATE
         "bookmark_entry_host",
+        # a dated usage report's referrer line: a logged request came from a page on the host
+        "page_referrer_host",
     }
 )
 
@@ -82,18 +84,21 @@ WEB_METHODS = frozenset(
 _LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract", "page_link_host")
 _DATASET = ("crawl_list_node", "httparchive_har_entry")
 _BOOKMARK = ("bookmark_entry_host",)
+_REFERRER = ("page_referrer_host",)
 
 
 def evidence_kind_sql(method: str) -> str:
-    """`capture`, `link graph`, `dataset` or `dated bookmark entry` for a web method, else NULL."""
+    """`capture`, `link graph`, `dataset`, `dated bookmark entry` or `referrer` for a web method."""
     graph = ", ".join(f"'{m}'" for m in _LINK_GRAPH)
     dataset = ", ".join(f"'{m}'" for m in _DATASET)
     bookmark = ", ".join(f"'{m}'" for m in _BOOKMARK)
+    referrer = ", ".join(f"'{m}'" for m in _REFERRER)
     web = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS | {REDIRECT_METHOD}))
     return (
         f"(CASE WHEN {method} IN ({graph}) THEN 'link graph'"
         f" WHEN {method} IN ({dataset}) THEN 'dataset'"
         f" WHEN {method} IN ({bookmark}) THEN 'dated bookmark entry'"
+        f" WHEN {method} IN ({referrer}) THEN 'referrer'"
         f" WHEN {method} IN ({web}) THEN 'capture' END)"
     )
 
@@ -143,6 +148,8 @@ _BOOKMARK_ENTRY = (
     "^bookmark entry [0-9]{4} https?://[^ ]+#replay #[0-9]{14} line [0-9]+"
     " ADD_DATE [0-9]+ [0-9]{8} [^ ]+$"
 )
+# the usage report page and the line its analyser printed the referring URL on, then the host
+_REFERRER_LINE = "^page referrer [0-9]{4} https?://[^ ]+#[0-9]+ [^ ]+$"
 _HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
 _STAMPED = (
     "^((replay failed )?[0-9]{14}"
@@ -171,7 +178,7 @@ def exact_host_expr(alias: str) -> str:
     return f"""(CASE
         WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
           OR regexp_matches({v}, '{_HAR}') OR regexp_matches({v}, '{_PAGE_LINK}')
-          OR regexp_matches({v}, '{_BOOKMARK_ENTRY}')
+          OR regexp_matches({v}, '{_BOOKMARK_ENTRY}') OR regexp_matches({v}, '{_REFERRER_LINE}')
           THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
         WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
           THEN nullif({url_host}, '')
