@@ -14,4 +14,4 @@ message body URL or mention	"textual mentions ... do not by themselves establish
 filter list host	"textual mentions ... do not by themselves establish a website" (XIV)
 web capture with an error status	"A hostname-year record may enter 1996.txt through 2001.txt only when the retained evidence establishes the exact hostname's web presence in the target year." An error answer does not establish it.
 web capture of another name	"A hostname-year record may enter 1996.txt through 2001.txt only when the retained evidence establishes the exact hostname's web presence in the target year." The capture is of another host.
-discovered name, no dated record	"Data without item-level year evidence must not be written directly to 1996.txt through 2001.txt. Such data may be placed only in a candidate pool"
+discovered name, no dated record	"Data without item-level year evidence must not be written directly to `1996.txt` through `2001.txt`. Such data may be placed only in a candidate pool ..."

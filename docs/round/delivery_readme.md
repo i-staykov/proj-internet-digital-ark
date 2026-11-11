@@ -3,8 +3,10 @@
 Two sets.
 
 - `additions/`: hostnames and registrable domains for your annual files, 1996 to 2013, one file
-  a year. Each name in `<year>.txt` has its own 2xx or 3xx web capture of exactly that name in that
-  year, and none is in your file for that year.
+  a year, none in your file for that year. Each name has its own web capture of exactly that name
+  in that year: 1996 to 2001 a 2xx or 3xx capture; 2002 to 2013 a 2xx or 3xx capture where the
+  capture index records a status, else a capture from an index that records none, never a 4xx or
+  5xx.
 - `candidates/`: every other name we hold, as one list, `candidates.txt`. None is in any file of
   your release. `provenance.csv` has one row a name: `name, year, class, source, source_file,
   position`, `source_file` the public file the name was read from and `position` the record
@@ -13,10 +15,21 @@ Two sets.
 
 [CLASS TABLE]
 
-A Usenet position `<file>.mbox.zip#<n>` is post n of the zip's unpacked text (`unzip -p`), counted
-from 1. A post opens at a line matching `^From (-?[0-9]+|[^ ]+@[^ ]+)` that is the first line or
-follows a line that is empty or only white space, outside a header block (a header block ends at
-its first such line). A line ends at a line feed only: the zips hold lone carriage returns.
+How to find a candidate at its position, by the position's form:
+
+| `position` | `source_file` | the name is |
+|---|---|---|
+| `... <file>.mbox.zip#<n> <name>` | the Usenet zip | in post n, rule below |
+| `... <file>#<n> <name>`, a list or mail archive | the month file, mbox or NNTP group | in message n, counted from 1 by the `From ` line that opens each message |
+| `list message <year> <url>#<n> <name>`, `<url>` a usage or news-server report | the report page | on line n of the page as served (Wayback `id_` capture) |
+| `cdx capture <stamp> ... <name>`, or a 14-digit stamp | a Wayback URL | the capture at that stamp; a status 4xx or 5xx is why it is a candidate |
+| `isc survey <edition> host <name>` | the survey file of that edition | on the line naming it |
+| anything else | the published list or capture | on the line naming it |
+
+A Usenet post n is counted in the zip's unpacked text (`unzip -p`) from 1. A post opens at a line
+matching `^From (-?[0-9]+|[^ ]+@[^ ]+)` that is the first line or follows a line that is empty or
+only white space, outside a header block (a header block ends at its first such line). A line ends
+at a line feed only: the zips hold lone carriage returns.
 
 ## Check
 
