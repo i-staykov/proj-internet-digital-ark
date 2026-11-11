@@ -280,16 +280,22 @@ def test_a_webalizer_page_in_another_language_is_read_by_its_file_name_and_ancho
 
 
 WEBLOG = """<TITLE>Access Details Report: h</TITLE>
-<STRONG>(Accesses Through 03:59:00 02 Jan 2002)</STRONG>
+Log Analyzed on 2 Jan 2002
+02:45:33 30 Dec 2001 to 03:59:00 02 Jan 2002
 dhcp-144-35.resnet.ua.edu
       30 Dec -- 00:30:40 --       -- /a.html
    http://referrer.example.org/
 a216155.upc-a.chello.nl
       01 Jan -- 07:11:48 --       -- /b.html
+outside.isp.net
+      05 Mar -- 07:11:48 --       -- /c.html
+Wednesday, 13 May 1998
+rv6a2.impsat.net.ar
+19:41:11 -- 00:04 -- /d.html
 """
 
 
-def test_weblog_names_each_visitor_above_its_requests_and_december_is_the_year_before(tmp_path):
+def test_weblog_dates_a_visitor_by_the_span_its_log_prints(tmp_path):
     site = tmp_path / "raw" / "s"
     site.mkdir(parents=True)
     (site / "log.details.html").write_text(WEBLOG)
@@ -298,4 +304,5 @@ def test_weblog_names_each_visitor_above_its_requests_and_december_is_the_year_b
     assert {(r["host"], r["year"]) for r in rows} == {
         ("dhcp-144-35.resnet.ua.edu", 2001),
         ("a216155.upc-a.chello.nl", 2002),
-    }
+        ("rv6a2.impsat.net.ar", 1998),
+    }, "5 March lies in neither year of the span and is left"
