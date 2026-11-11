@@ -29,7 +29,7 @@ from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
-from ark.evidence_types import ERROR_STATUS, web_evidence_exists, web_evidence_sql
+from ark.evidence_types import ERROR_STATUS, WEB_METHODS, web_evidence_exists, web_evidence_sql
 from ark.hostnames import LEASE_SOURCES
 from ark.ingest import YEARS
 from ark.provenance import ISC_SOURCE, PROVENANCE_DIR, write_provenance
@@ -458,6 +458,134 @@ def _class_files(conn: duckdb.DuckDBPyConnection, out: Path, weights: dict) -> d
     return by_class
 
 
+# **The class of a candidate, by the row that names it**: ordered rules over its source and
+# method, the first match wins, so the classes partition the list and their EE sums to the
+# claim's. A row no rule names keeps its method, which the summary shows.
+CANDIDATE_CLASSES = (
+    ("isc_survey", "ISC Internet Domain Survey host"),
+    ("lease|ephemeral", "dial-up or address-pool name"),
+    ("visitor", "web usage report: visitor host"),
+    ("innreport|inn_report|news_report", "news-server report host"),
+    ("trace_hop|path_hop|_hop_|hop_host", "traceroute or relay hop name"),
+    ("message_id|msgid|_from_|from_host", "mail or news From or Message-ID host"),
+    ("received|_relay|rdns", "mail Received header host"),
+    ("usenet_header|news_header|server_written", "Usenet server header host"),
+    ("header_more|_more_", "other server-written header host"),
+    ("body|mention", "message body URL or mention"),
+    ("zone|nserver|ripe", "nameserver host"),
+    ("registr|dns_walk|domaincount|edomains|zone_list", "registry list name"),
+    ("squidguard|chastity|blocklist", "filter list host"),
+)
+CANDIDATE_PROVENANCE = "candidate_provenance.csv"
+# a name no dated row of ours names: its year and position are empty, and the summary
+# prices the class so it can be dropped alone
+UNDATED_CLASS = "discovered name, no dated record"
+# a row's content, so the row a name cites never depends on the order rows were written
+_ORDER = "e.evidence_value, e.evidence_url, e.acquisition_method, e.evidence_id"
+_WEB_METHOD_LIST = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS))
+
+
+def _class_sql(source: str, method: str, value: str, exact: str) -> str:
+    """The class of a row, as SQL over its source name, method, value and the exact-host test
+    of its capture."""
+    key = f"lower({source} || ' ' || {method})"
+    rules = "\n".join(
+        f"        WHEN regexp_matches({key}, '{pattern}') THEN '{label}'"
+        for pattern, label in CANDIDATE_CLASSES
+    )
+    return f"""(CASE
+        WHEN {method} IN ({_WEB_METHOD_LIST}) AND regexp_matches({value}, '{ERROR_STATUS}')
+          THEN 'web capture with an error status'
+        WHEN {method} IN ({_WEB_METHOD_LIST}) AND NOT {exact}
+          THEN 'web capture of another name'
+{rules}
+        ELSE coalesce({method}, {source}) END)"""
+
+
+def export_candidate_provenance(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, weights: dict
+) -> dict[str, dict]:
+    """`candidate_provenance.csv`, one row per name of `candidate_additions.txt`: its earliest
+    dated row, as (name, year, class, source, source_file, position), `source_file` the public
+    file and `position` the record naming the name inside it. Returns names and EE by class.
+
+    A hostname takes the row its earliest host-year stands on, an ISC name its earliest survey
+    row, a registrable its earliest row naming it exactly, else its earliest row at all."""
+    conn.execute(f"""
+        CREATE OR REPLACE TEMP TABLE candidate_row AS
+        WITH host AS (
+            SELECT c.name, arg_min(e.evidence_id, (hy.assigned_year, {_ORDER})) AS id
+            FROM candidate_pool c JOIN hostname_year hy ON hy.hostname = c.name
+            JOIN evidence e ON e.evidence_id = hy.evidence_id
+            WHERE c.unit = 'hostname' GROUP BY 1
+        ), isc AS (
+            SELECT i.hostname AS name,
+                   arg_min(e.evidence_id, (e.evidence_year, {_ORDER})) AS id
+            FROM evidence e JOIN source s ON s.source_id = e.source_id
+            JOIN isc_export i
+              ON i.hostname = lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))
+             AND i.assigned_year = e.evidence_year
+            WHERE s.name = '{ISC_SOURCE}'
+              AND i.hostname IN (SELECT name FROM candidate_pool)
+              AND i.hostname NOT IN (SELECT name FROM host)
+            GROUP BY 1
+        ), reg AS (
+            SELECT c.name,
+                   arg_min(e.evidence_id, (NOT ends_with(e.evidence_value, ' ' || c.name),
+                                           e.evidence_year, {_ORDER})) AS id
+            FROM candidate_pool c JOIN evidence e ON e.domain = c.name
+            WHERE c.unit = 'registrable' GROUP BY 1
+        )
+        SELECT r.name, e.evidence_year AS year,
+               {
+        _class_sql(
+            "s.name",
+            "e.acquisition_method",
+            "e.evidence_value",
+            "ends_with(e.evidence_value, ' ' || r.name)",
+        )
+    } AS class,
+               s.name AS source, e.evidence_url AS source_file, e.evidence_value AS position
+        FROM (FROM host UNION ALL FROM isc UNION ALL FROM reg) r
+        JOIN evidence e ON e.evidence_id = r.id
+        JOIN source s ON s.source_id = e.source_id
+        UNION ALL
+        -- a registrable the store holds with no row at all: only the list that found it
+        SELECT c.name, NULL, '{UNDATED_CLASS}', s.name, NULL, NULL
+        FROM candidate_pool c JOIN domain d ON d.domain = c.name
+        JOIN source s ON s.source_id = d.discovered_source
+        WHERE c.unit = 'registrable'
+          AND NOT EXISTS (SELECT 1 FROM evidence e WHERE e.domain = c.name)
+    """)
+    rows, names = conn.execute(
+        "SELECT (SELECT count(*) FROM candidate_row), "
+        "(SELECT count(DISTINCT name) FROM candidate_pool)"
+    ).fetchone()
+    if rows != names:
+        lost = conn.execute(
+            "SELECT DISTINCT name, unit FROM candidate_pool "
+            "WHERE name NOT IN (SELECT name FROM candidate_row) ORDER BY 1 LIMIT 5"
+        ).fetchall()
+        raise ValueError(f"candidate provenance has {rows} rows for {names} names: {lost}")
+    conn.execute(f"""
+        COPY (SELECT * FROM candidate_row ORDER BY name)
+        TO '{netnew_dir / CANDIDATE_PROVENANCE}' (HEADER true)
+    """)
+    by_class: dict[str, dict] = {}
+    for label, tld, n in conn.execute(
+        "SELECT class, regexp_extract(name, '([a-z0-9-]+)$', 1), count(*) "
+        "FROM candidate_row GROUP BY 1, 2 ORDER BY 1, 2"
+    ).fetchall():
+        entry = by_class.setdefault(label, {"names": 0, "equivalent_english": Decimal(0)})
+        entry["names"] += n
+        entry["equivalent_english"] += weights.get(tld, Decimal(0)) * n
+    conn.execute("DROP TABLE candidate_row")
+    return {
+        k: {"names": v["names"], "equivalent_english": str(v["equivalent_english"])}
+        for k, v in sorted(by_class.items())
+    }
+
+
 def export_header_candidates(
     conn: duckdb.DuckDBPyConnection, netnew_dir: Path, stats: dict[str, int]
 ) -> None:
@@ -695,6 +823,8 @@ def export_all(
             with _phase("header candidates"):
                 export_header_candidates(conn, netnew_dir, stats)
             weights = english_weights()
+            with _phase("candidate provenance"):
+                by_class = export_candidate_provenance(conn, netnew_dir, weights)
             counts = conn.execute(
                 """
                 SELECT unit, regexp_extract(name, '([a-z0-9-]+)$', 1) AS tld, count(*)
@@ -716,6 +846,7 @@ def export_all(
                 "by_unit": {
                     u: {"names": n, "equivalent_english": str(ee)} for u, (n, ee) in by_unit.items()
                 },
+                "by_class": by_class,
                 # what his release already held, and so what the claim is net of
                 "held_by_him": {
                     "names": held_names,
@@ -771,7 +902,7 @@ def claim_files(
     """Every file a claim export writes but its stamp. A full export writes each of them byte
     for byte the same, and ROUND.md is built from them."""
     names = [f"{year}{suffix}.txt" for suffix in ("", "_hostnames") for year in YEARS]
-    names += ["candidate_additions.txt", "candidate_additions_summary.json"]
+    names += ["candidate_additions.txt", "candidate_additions_summary.json", CANDIDATE_PROVENANCE]
     names += [
         f"header_candidates{end}"
         for end in (".txt", "_provenance.csv", "_exclusions.csv", "_summary.json")
