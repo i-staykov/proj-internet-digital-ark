@@ -54,7 +54,8 @@ def host_of(original: str) -> str:
 def ask(reg: str, key: str | None, rows: int, a: argparse.Namespace) -> str:
     q = [("url", reg), ("matchType", "domain"), ("from", str(FIRST)), ("to", str(a.last))]
     q += [("filter", "statuscode:[23][0-9][0-9]")]
-    q += [] if a.any_url else [("filter", "urlkey:" + (a.urlkey or ROOT))]
+    # the index matches a filter from the key's start, so a finder's pattern is wrapped
+    q += [] if a.any_url else [("filter", "urlkey:" + (f".*({a.urlkey})" if a.urlkey else ROOT))]
     q += [("fl", "timestamp,original,statuscode")]
     q += [("limit", str(rows)), ("showResumeKey", "true")] + ([("resumeKey", key)] if key else [])
     req = urllib.request.Request(BASE + "?" + urllib.parse.urlencode(q), headers={"User-Agent": UA})
@@ -193,11 +194,11 @@ def main() -> None:
     ap.add_argument("--last", type=int, default=LAST, help="the last year asked")
     ap.add_argument("--farm", type=int, default=1000, help="host-years a registrable banks")
     ap.add_argument("--any-url", action="store_true", help="every URL, not the roots alone")
-    ap.add_argument("--urlkey", default="", help="a urlkey pattern for the roots' place: hits out")
+    ap.add_argument("--urlkey", default="", help="a pattern found anywhere in the urlkey: hits out")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
     i, n = map(int, a.share.split("/"))
-    a.name = a.name or f"{a.list.stem}_{i}of{n}"
+    a.name = a.name or f"{'find_' if a.urlkey else ''}{a.list.stem}_{i}of{n}"
     regs = [ln.split("#")[0].strip().lower() for ln in a.list.read_text().splitlines()]
     regs = [r for k, r in enumerate(x for x in regs if x) if k % n == i]
     client = Client(a)
