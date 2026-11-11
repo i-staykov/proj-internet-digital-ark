@@ -304,9 +304,6 @@ bank *args:
                     | tail -1 || C_FAIL="$C_FAIL ${list%%:*}_candidates"
             done
         fi
-        # A host-year a non-web row took first moves to its own same-year capture when the store
-        # holds one, so it ships direct; idempotent, and a no-op once none is stranded.
-        uv run ark repoint-stranded --write || C_FAIL="$C_FAIL repoint_stranded"
         uv run ark export --claim >/dev/null || C_FAIL="$C_FAIL export"
         EXPORTED=yes
         CHECK_RC=0
