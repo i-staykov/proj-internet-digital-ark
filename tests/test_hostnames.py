@@ -275,6 +275,7 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         " 6  inside.pipex.net (192.0.2.1)  3 ms",
         "> Received: from relay.pipex.net (relay.pipex.net [1.0.0.2])",
         "> Received: from helo.pipex.net [1.0.0.2] by mx",
+        f"> Received: from pc ({LEASES[1]} [1.0.0.2])",
         "the machine ns.pipex.net (192.0.2.1) moves", "",
         "From 2", "Subject: nz walk", "Date: Thu, 02 Jan 1997 09:00:00 +0000", "",
         *(f"h{i}.custard.co.nz. 3600 IN A" for i in range(100)), "",
@@ -295,7 +296,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
     more = ["cache.pipex.net feed.demon.co.uk"]
     side = {"lease": [LEASES[0]], "more": more, "body": body, "lists": walk}
     side |= {"hop": ["core1.pipex.net"], "relay": ["relay.pipex.net"]}
-    side["paired"] = ["helo.pipex.net inside.pipex.net ns.pipex.net"]
+    held = ["helo.pipex.net", "inside.pipex.net", "ns.pipex.net", LEASES[1]]
+    side["paired"] = [" ".join(sorted(held))]
     assert got == want | side
 
 

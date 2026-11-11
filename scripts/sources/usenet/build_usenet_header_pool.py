@@ -46,8 +46,8 @@ shard carries the batch's name so the ingest key is the batch's:
   `hop/`, `relay/`, `paired/`  a body name written with its address, `host (1.2.3.4)` or
             `host [1.2.3.4]`, by the line's shape: a traceroute or ping line (`_HOP`); the
             receiver's own lookup `(name [ip])` in a pasted `Received` line (`_RELAY`), never
-            the HELO name the client gave; anything else, and any name whose address is not
-            a real public one; no family reads them yet.
+            the HELO name the client gave, nor a lease; anything else, and any name whose
+            address is not a real public one; no family reads them yet.
 
 **Only the host leaves a header.** The mailbox, the display name and the message text
 reach no journal, log or counter, a host list's `Subject` aside. A `Message-ID` or `From`
@@ -215,6 +215,10 @@ def _global(address: bytes) -> bool:
         return ipaddress.ip_address(address.decode("ascii")).is_global
     except ValueError:
         return False
+
+
+def _leased(name: bytes) -> bool:
+    return is_ephemeral(_clean(name.decode("ascii", "replace")))
 
 
 def _kept(hosts) -> list[str]:
@@ -415,7 +419,8 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
                         paired["hop"] += good
                     else:
                         found = _LOOKUP.findall(line) if _RELAY.search(low) else []
-                        good = [n for n, a in found if _global(a)]
+                        # a lease among the lookups stays held: the lease switch names sources
+                        good = [n for n, a in found if _global(a) and not _leased(n)]
                         paired["relay"] += good
                     paired["paired"] += (n for n, _ in pairs if n not in good)
             if not blank:
