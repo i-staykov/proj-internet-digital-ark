@@ -376,3 +376,19 @@ def test_a_defacement_mirror_dates_the_host_its_path_names(tmp_path) -> None:
     assert hostnames.repoint_stranded_captures(conn, write=True) == {1999: 1}
     assert _shipped(conn) == [("www.example.com", 1999)]
     assert hostnames.repoint_stranded_captures(conn, write=True) == {} and not _failing(conn)
+
+
+def test_every_web_method_names_one_evidence_kind() -> None:
+    import duckdb
+
+    from ark.evidence_types import REDIRECT_METHOD, evidence_kind_sql
+
+    conn = duckdb.connect()
+    kinds = {
+        m: conn.execute(f"SELECT {evidence_kind_sql('$m')}", {"m": m}).fetchone()[0]
+        for m in sorted(WEB_METHODS | {REDIRECT_METHOD, "usenet_from_host"})
+    }
+    assert kinds.pop("usenet_from_host") is None, "a non-web method names no kind"
+    assert set(kinds.values()) == {"capture", "link graph", "dataset"}
+    assert kinds["ukwa_host_link_graph"] == "link graph" and kinds["crawl_list_node"] == "dataset"
+    assert kinds["ia_cdx_domain_sweep"] == kinds[REDIRECT_METHOD] == "capture"

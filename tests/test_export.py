@@ -200,6 +200,9 @@ def test_the_annual_files_ship_net_of_his_and_the_guard_counts_what_they_write(r
     assert registrables == sorted(SHIPS["1997.txt"] + SHIPS["1998.txt"] + SHIPS["1999.txt"])
     hosts = [r["hostname"] for r in _rows(run, "netnew/hostnames_evidence_manifest.csv")]
     assert sorted(hosts) == sorted(SHIPS["1999_hostnames.txt"] + SHIPS["2000_hostnames.txt"])
+    # and each names its evidence kind
+    for name in ("evidence_manifest.csv", "hostnames_evidence_manifest.csv"):
+        assert {r["evidence_kind"] for r in _rows(run, f"netnew/{name}")} == {"capture"}
 
 
 def test_a_record_ships_only_on_a_capture_of_exactly_its_name(run) -> None:
