@@ -11,11 +11,12 @@ robots.txt is read once with the project fetcher's reader and matched against ev
         [interval_s] [shard i/n]
 
 A page lands at <dest_root>/<host>/<path>; each ask leaves one JSON line in
-<dest_root>/receipts.receipts (url, replay with its 14-digit stamp, memento, status, bytes,
-sha256, path), and a URL with a receipt is not asked again. Each thread keeps one connection
-open, since the archive refuses an address that connects too often. A 429 or 503 rests every
-thread (60 s, 180 s, 600 s) and the fourth in a row (`ARK_STRIKES`) ends the run; a failed
-connect rests them too and is asked again, ten in a row ending the run.
+<dest_root>/receipts.receipts (url, replay with its 14-digit stamp, memento, the origin's
+Last-Modified as the archive kept it, status, bytes, sha256, path), and a URL with a receipt
+is not asked again. Each thread keeps one connection open, since the archive refuses an
+address that connects too often. A 429 or 503 rests every thread (60 s, 180 s, 600 s) and the
+fourth in a row (`ARK_STRIKES`) ends the run; a failed connect rests them too and is asked
+again, ten in a row ending the run.
 """
 
 import concurrent.futures as cf
@@ -166,6 +167,7 @@ def ask(url: str, rec) -> bool | None:
             status=status,
             replay="https://web.archive.org" + path if hit else None,
             memento=headers.get("memento-datetime"),
+            modified=headers.get("x-archive-orig-last-modified"),
         )
         if hit:
             name = local_name(url)
