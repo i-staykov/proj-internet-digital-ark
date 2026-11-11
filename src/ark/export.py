@@ -469,7 +469,7 @@ CANDIDATE_CLASSES = (
     ("lease|ephemeral", "dial-up or address-pool name"),
     ("visitor", "web usage report: visitor host"),
     ("trace_hop|path_hop|_hop_|hop_host", "traceroute or relay hop name"),
-    ("message_id|msgid|_from_|from_host", "mail or news From or Message-ID host"),
+    ("message_id|msgid|_from_|from_host|post_address", "mail or news From or Message-ID host"),
     ("received|_relay|rdns", "mail Received header host"),
     ("usenet_header|news_header|server_written", "Usenet server header host"),
     ("header_more|_more_", "other server-written header host"),
