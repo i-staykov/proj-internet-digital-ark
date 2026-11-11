@@ -816,6 +816,30 @@ def ftpweblog(lines, text, path):
             yield r.group(4), day.year, False, n, stamp, line, False
 
 
+SS_TITLE = re.compile(r"<title>Simple Stats for ([A-Z][a-z]+)</title>")
+SS_STAMP = re.compile(r"Stats from log dated:\s*(?:<b>)?\s*\[\d\d/([A-Z][a-z]{2})/(\d{4}):")
+SS_ROW = re.compile(r"^\s*\d+ (\S+)\s*$")
+
+
+def simple_stats(lines, text, path):
+    """A "Simple Stats" month page prints the stamp of its log's first line, `Stats from log
+    dated: [01/Jun/1997:00:00:50 -0500]`, then one client a line, `count host`, in a `<listing>`.
+    The clients take that stamp's year when its month is the month the title names."""
+    t, m = SS_TITLE.search(text[:300]), SS_STAMP.search(text[:4000])
+    if not (t and m) or t.group(1)[:3] != m.group(1):
+        return
+    inside = False
+    for n, line in enumerate(lines, 1):
+        low = line.lower()
+        if "<listing>" in low:
+            inside = True
+        elif "</listing>" in low:
+            return
+        r = SS_ROW.match(TAG.sub("", line)) if inside else None
+        if r:
+            yield r.group(1), int(m.group(2)), False, n, " ".join(m.group(0).split()), line, False
+
+
 GENERATORS = (
     ("analog", analog),
     ("getstats", getstats),
@@ -833,6 +857,7 @@ GENERATORS = (
     ("statbot", statbot),
     ("weblog", weblog_details),
     ("ftpweblog", ftpweblog),
+    ("simple-stats", simple_stats),
 )
 
 
