@@ -268,6 +268,7 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
         "From 1", "Path: feed.demon.co.uk!news.zetnet.co.uk!not-for-mail",
         f"From: A Poster <box@{ZET}>",
         "Message-ID: <q1@pcserv.demon.co.uk>", f"NNTP-Posting-Host: {LEASES[0]}",
+        "X-Http-Proxy: 1.0 cache.pipex.net:8080 (Squid/2.1)",
         "Date: Wed, 01 Jan 1997 09:00:00 +0000", "",
         "see http://www.demon.co.uk/page and ftp://192.0.2.1/x", "mail box@Mail.Pipex.net or",
         "WWW.Zetnet.co.uk.", "",
@@ -287,7 +288,8 @@ def test_one_pass_writes_the_side_journals_a_level_below_the_header_shard(tmp_pa
     want = {"url": ["www.demon.co.uk"], "msgid": ["pcserv.demon.co.uk"], "from": [ZET]}
     body = ["mail.pipex.net www.zetnet.co.uk"]
     walk = [" ".join(sorted(f"h{i}.custard.co.nz" for i in range(100)))]
-    side = {"lease": [LEASES[0]], "more": ["feed.demon.co.uk"], "body": body, "lists": walk}
+    more = ["cache.pipex.net feed.demon.co.uk"]
+    side = {"lease": [LEASES[0]], "more": more, "body": body, "lists": walk}
     assert got == want | side
 
 
