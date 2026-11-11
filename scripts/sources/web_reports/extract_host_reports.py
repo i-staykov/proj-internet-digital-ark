@@ -275,8 +275,8 @@ def pwebstats(lines, text, path):
             yield r.group(1), year, straddle, n, stamp, flat, False
 
 
-HA_SPAN = re.compile(
-    r"Summary period:\s*(\d\d)/([A-Za-z]{3})/(\d\d)\s+to\s+(\d\d)/([A-Za-z]{3})/(\d\d)"
+HA_SPAN = re.compile(  # 1.9e prints the year 2000 as "0"
+    r"Summary period:\s*(\d\d)/([A-Za-z]{3})/(\d{1,3})\s+to\s+(\d\d)/([A-Za-z]{3})/(\d{1,3})\b"
 )
 
 
@@ -512,6 +512,7 @@ NCSA_ERR_ROW = re.compile(
     r"([A-Za-z0-9.-]+\.[A-Za-z]{2,})[\],]"
 )
 NODE_ROW = re.compile(r"^(\S+)\t(\d{9,10})$")
+GUEST_ROW = re.compile(r"^(\S+) - \[\d\d/\d\d/(\d{2,5}) \d\d:\d\d:\d\d[^\]]*\]")
 RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the client)
     (CLF_ROW, 2, 1),
     (XFER_ROW, 1, 2),
@@ -520,6 +521,7 @@ RAW_ROWS = (  # (a line's shape, the group that dates it, the group naming the c
     (NS_ERR_ROW, 1, 2),
     (NCSA_ERR_ROW, 1, 2),
     (NODE_ROW, 2, 1),
+    (GUEST_ROW, 2, 1),
 )
 
 
@@ -527,15 +529,18 @@ def _line_year(token: str) -> int:
     n = int(token)
     if n > 100_000_000:  # seconds since 1970
         return datetime.fromtimestamp(n, UTC).year
+    if 19100 <= n < 19200:  # a script printing "19" before years-since-1900
+        return n - 17100
     return n if n > 1000 else (1900 if n >= 90 else 2000) + n
 
 
 def raw_log(lines, text, path):
     """A server's own log left public, each line dating itself: Common Log Format, a wu-ftpd
     xferlog, an error log naming the client, a page counter's visit log (`[07:27:45 08/13/97
-    Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), or a list of
-    `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line dated
-    after the archive captured the file takes the capture's year, and its stamp says so."""
+    Wed] url - host - agent`, `At 02:56:28 8/16/96, host came here from`), a guestbook's log
+    of signings (`host - [09/04/99 21:43:49 MDT]`, the year also as 100 or 19100 for 2000), or a
+    list of `host<TAB>seconds since 1970`. A log kept without name lookups gives nothing; a line
+    dated after the archive captured the file takes the capture's year, and its stamp says so."""
     head = [x for x in lines[:400] if x.strip()][:300]
     if sum(any(rx.match(x) for rx, _, _ in RAW_ROWS) for x in head) < 5:
         return
