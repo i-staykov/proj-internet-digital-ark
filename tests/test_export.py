@@ -656,6 +656,12 @@ def test_a_candidate_leaves_when_its_row_cannot_stand_for_the_name() -> None:
         ("found.example.org", None, "discovered name, no dated record", "list", None),
         ("host.mydomain.com", 1999, "Usenet server header host", "usenet", "f"),
         ("www.example.com", 2000, "mail or news From or Message-ID host", "usenet", "f"),
+        ("austin.rr.om", 1999, "client name in a visitor report", "visitor_rdns", "f"),
+        ("aspirin.uk", 2000, "nameserver host", "list", "f"),
+        ("www.uni.com.co", 2000, "nameserver host", "list", "f"),
+        ("nhs.uk", 2000, "nameserver host", "list", "f"),
+        ("news.mail.ru", 2000, "nameserver host", "list", "f"),
+        ("shop.co", 2011, "nameserver host", "list", "f"),
     ]
     conn = duckdb.connect()
     conn.execute(
@@ -673,4 +679,6 @@ def test_a_candidate_leaves_when_its_row_cannot_stand_for_the_name() -> None:
         "main.gmane.org",
         "found.example.org",
         "host.mydomain.com",
+        "austin.rr.om",
+        "aspirin.uk",
     ]
