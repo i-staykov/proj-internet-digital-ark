@@ -44,8 +44,9 @@ shard carries the batch's name so the ingest key is the batch's:
             its lines at least) with its `subject`: a DNS walk, a registrar's notices or sale
             spam, classed by its own text before anything banks; no family reads it.
   `hop/`, `relay/`, `paired/`  a body name written with its address, `host (1.2.3.4)` or
-            `host [1.2.3.4]`, by the line's shape: a traceroute or ping line (`_HOP`), a pasted
-            `Received` line (`_RELAY`), any other line; no family reads them yet.
+            `host [1.2.3.4]`, by the line's shape: a traceroute or ping line (`_HOP`); the
+            receiver's own lookup `(name [ip])` in a pasted `Received` line (`_RELAY`), never
+            the HELO name the client gave; anything else; no family reads them yet.
 
 **Only the host leaves a header.** The mailbox, the display name and the message text
 reach no journal, log or counter, a host list's `Subject` aside. A `Message-ID` or `From`
@@ -201,6 +202,9 @@ _HOP = re.compile(
     rb"|^[>|:\s]*(ping|pinging|traceroute|tracing route)\b"
 )
 _RELAY = re.compile(rb"received:|^[>|:\s]*from\s|\sby\s|helo|smtp")
+_LOOKUP = re.compile(
+    rb"\(([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63})\.? ?\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\]\)"
+)
 _PAIRED = re.compile(
     rb"([A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,63})\.? ?[\[(]\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[\])]"
 )
@@ -399,10 +403,12 @@ def one_zip(zp: Path, out, stats: dict, keep_ephemeral: bool, side: dict | None 
                 names = _PAIRED.findall(line)
                 if names:
                     low = line.lower()
-                    kind = (
-                        "hop" if _HOP.search(low) else "relay" if _RELAY.search(low) else "paired"
-                    )
-                    paired[kind] += names
+                    if _HOP.search(low):
+                        paired["hop"] += names
+                    else:
+                        looked = _LOOKUP.findall(line) if _RELAY.search(low) else []
+                        paired["relay"] += looked
+                        paired["paired"] += (n for n in names if n not in looked)
             if not blank:
                 lines += 1
                 listed += _LISTED.findall(line)
