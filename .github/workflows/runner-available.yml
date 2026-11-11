@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       list:
-        description: "year host" rows, one a line, plain or gzip then base64
+        description: rows of year then host, one a line, plain or gzip then base64
         required: true
       shards:
         description: jobs, each on its own address
