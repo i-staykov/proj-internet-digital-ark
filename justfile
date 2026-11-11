@@ -1170,6 +1170,7 @@ red-clear:
     bash $L take $$ || exit
     trap "bash $L drop" EXIT; set -e
     if [ -f local.env ]; then set -a; . ./local.env; set +a; fi
+    uv run ark repoint-stranded --write  # the bank's repair, so a red it left is undone here
     just run export
     just check data
     uv run python scripts/harness/bank_trigger.py clear

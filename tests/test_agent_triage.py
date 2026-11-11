@@ -123,7 +123,7 @@ def test_red_clear_keeps_the_red_when_the_export_or_the_check_fails(tmp_path, fa
     red.write_text("{}")
     _, run = red_clear(tmp_path, env)
     assert run.returncode != 0 and red.exists() and not (tmp_path / "lock").exists()
-    assert "uv" not in (tmp_path / "calls").read_text()
+    assert "bank_trigger" not in (tmp_path / "calls").read_text()
 
 
 @pytest.mark.skipif(JUST is None, reason="needs just")
