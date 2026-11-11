@@ -587,3 +587,37 @@ def test_a_repoint_moves_the_store_ledger() -> None:
     before = store_ledger(conn)
     conn.execute("UPDATE hostname_year SET evidence_id = 2")
     assert store_ledger(conn) != before
+
+
+def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_folders() -> None:
+    """A staged row's folder name never decides its class (debbugs_received holds body URLs),
+    except a news server's report, filed under the visitor field."""
+    from ark.export import _class_sql
+
+    cases = {
+        ("msg_debbugs_received__body_url", "msg_body_url", "x"): "message body URL or mention",
+        ("msg_debbugs_received__header_more", "msg_header_more_host", "x"): (
+            "other server-written header host"
+        ),
+        ("msg_debbugs_received__news_header", "msg_news_header_host", "x"): (
+            "Usenet server header host"
+        ),
+        ("msg_debbugs_received__received_by", "msg_received_by", "x"): "mail Received header host",
+        ("msg_innreport_hosts__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "news-server report host"
+        ),
+        ("msg_web_host_reports__visitor_rdns", "msg_visitor_rdns_host", "x"): (
+            "web usage report: visitor host"
+        ),
+        ("usenet_header_fqdn_hostnames", "usenet_server_written_header", "x"): (
+            "Usenet server header host"
+        ),
+        ("ia_cdx", "ia_cdx_domain_sweep", "cdx capture 19990101000000 status 404 a.com"): (
+            "web capture with an error status"
+        ),
+    }
+    conn = duckdb.connect()
+    for (source, method, value), want in cases.items():
+        sql = _class_sql("$s", "$m", "$v", "false")
+        got = conn.execute(f"SELECT {sql}", {"s": source, "m": method, "v": value}).fetchone()[0]
+        assert got == want, (source, got)

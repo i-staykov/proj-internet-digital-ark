@@ -460,11 +460,13 @@ def _class_files(conn: duckdb.DuckDBPyConnection, out: Path, weights: dict) -> d
 
 # **The class of a candidate, by the row that names it**: ordered rules over its source and
 # method, the first match wins, so the classes partition the list and their EE sums to the
-# claim's. A row no rule names keeps its method, which the summary shows.
+# claim's. A staged message row is read by its method alone, since its source carries the
+# folder's name (`msg_debbugs_received__body_url`); a news server's report, filed under the
+# visitor field, is the one class its folder names. A row no rule names keeps its method.
+NEWS_REPORT = ("innreport|inn_report|news_report", "news-server report host")
 CANDIDATE_CLASSES = (
     ("isc_survey", "ISC Internet Domain Survey host"),
     ("lease|ephemeral", "dial-up or address-pool name"),
-    ("innreport|inn_report|news_report", "news-server report host"),  # filed as visitor_rdns
     ("visitor", "web usage report: visitor host"),
     ("trace_hop|path_hop|_hop_|hop_host", "traceroute or relay hop name"),
     ("message_id|msgid|_from_|from_host", "mail or news From or Message-ID host"),
@@ -488,7 +490,10 @@ _WEB_METHOD_LIST = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS))
 def _class_sql(source: str, method: str, value: str, exact: str) -> str:
     """The class of a row, as SQL over its source name, method, value and the exact-host test
     of its capture."""
-    key = f"lower({source} || ' ' || {method})"
+    key = (
+        f"lower(CASE WHEN starts_with({method}, 'msg_') THEN {method} "
+        f"ELSE {source} || ' ' || {method} END)"
+    )
     rules = "\n".join(
         f"        WHEN regexp_matches({key}, '{pattern}') THEN '{label}'"
         for pattern, label in CANDIDATE_CLASSES
@@ -498,6 +503,7 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
           THEN 'web capture with an error status'
         WHEN {method} IN ({_WEB_METHOD_LIST}) AND NOT {exact}
           THEN 'web capture of another name'
+        WHEN regexp_matches(lower({source}), '{NEWS_REPORT[0]}') THEN '{NEWS_REPORT[1]}'
 {rules}
         ELSE coalesce({method}, {source}) END)"""
 
