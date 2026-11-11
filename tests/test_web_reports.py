@@ -374,7 +374,15 @@ def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():
         http = {"Response-Message": {"Status": status}, "HTML-Metadata": {"Links": links}}
         return json.dumps(
             {
-                "Container": {"Filename": "p.arc.gz", "Offset": offset},
+                "Container": {
+                    "Filename": "p.arc.gz",
+                    "Offset": offset,
+                    "Gzip-Metadata": {
+                        "Header-Length": "10",
+                        "Deflate-Length": "30",
+                        "Footer-Length": "8",
+                    },
+                },
                 "Envelope": {
                     "ARC-Header-Metadata": {"Target-URI": page, "Date": stamp},
                     "Payload-Metadata": {"HTTP-Response-Metadata": http},
@@ -409,6 +417,7 @@ def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():
             "timestamp": "19970102030405",
             "file": "p.arc.gz",
             "offset": "9",
+            "length": 48,
             "link": "HTTP://WWW.X.ORG:80/b",
         }
     ]

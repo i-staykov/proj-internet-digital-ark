@@ -6,8 +6,8 @@ A WAT record is the metadata of one capture: its URL, its 14-digit date, the ARC
 offset it sits at, and the links its HTML holds. Kept: a hyperlink (`A@/href`, `AREA@/href`)
 with an absolute http or https URL to another host, from a capture of 1996 to 2013 that
 answered 2xx. A row is the earliest such capture of a year for the linked host, `{host, year,
-url, timestamp, file, offset, link}`, so the link reopens as that byte offset of that ARC
-file. Hosts without a dot or with a numeric last label are dropped.
+url, timestamp, file, offset, length, link}`, so the link reopens as that byte range of that
+ARC file. Hosts without a dot or with a numeric last label are dropped.
 """
 
 import gzip
@@ -43,6 +43,10 @@ def reduce(lines, out) -> dict[str, int]:
         if not ("1996" <= stamp[:4] <= "2013" and len(stamp) == 14 and status.startswith("2")):
             continue
         own = host_of(page)
+        gz = record["Container"].get("Gzip-Metadata", {})
+        length = sum(
+            int(gz.get(k, 0)) for k in ("Header-Length", "Deflate-Length", "Footer-Length")
+        )
         for link in links:
             url = str(link.get("url", "")).strip()
             if link.get("path") not in HREF or not url.lower().startswith(("http://", "https://")):
@@ -59,6 +63,7 @@ def reduce(lines, out) -> dict[str, int]:
                     "timestamp": stamp,
                     "file": record["Container"]["Filename"],
                     "offset": record["Container"]["Offset"],
+                    "length": length,
                     "link": url,
                 }
     for key in sorted(best):
