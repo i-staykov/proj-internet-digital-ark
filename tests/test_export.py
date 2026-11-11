@@ -61,11 +61,12 @@ def _write(root: Path, files: dict[str, str]) -> Path:
 
 
 def _web(conn, domain: str, year: int, host="", dates=True, kind="cdx_timestamp", value="", **by):
-    """A capture of `host` (the domain by default) filed under `domain`, by `source`, `method`."""
-    by = {"source": "ia_cdx", "method": WEB_METHOD} | by
+    """A capture of `host` (the domain by default) filed under `domain`, by `source`, `method`,
+    read from `url`."""
+    by = {"source": "ia_cdx", "method": WEB_METHOD, "url": f"https://x.test/{year}.cdx"} | by
     add_candidate(conn, domain, sid := ensure_source(conn, by["source"], "timestamped"))
     value = value or capture(host or domain, year)
-    eid = record_evidence(conn, domain, sid, year, kind, value, None, by["method"])
+    eid = record_evidence(conn, domain, sid, year, kind, value, by["url"], by["method"])
     if dates:
         assign_year(conn, eid)
     return eid
@@ -119,6 +120,9 @@ def _store(reverse: bool) -> duckdb.DuckDBPyConnection:
         # a registry list earns a year by its type that XIV refuses by its method
         partial(web, "zone-only.dk", 2001, kind="artifact_listing", value="20011217: DK Zonen",
                 source="dk_zone_list", method="registry_zone_list_wayback_capture"),
+        # the same, read from no file a reader can open, ships in neither set
+        partial(web, "no-file.dk", 2001, kind="artifact_listing", value="20011217: DK Zonen",
+                source="dk_zone_list", method="registry_zone_list_wayback_capture", url=""),
         # `www.<a name held that year>` is a record of its own; `.site` was delegated in 2015
         *(partial(host, "held.com", y, h) for h, y in (("www.deep.held.com", 1999),
           ("deep.held.com", 1999), ("www.deep.held.com", 2000), ("mail.held.com", 1999))),
@@ -206,7 +210,7 @@ def test_a_record_ships_only_on_a_capture_of_exactly_its_name(run) -> None:
     assert cited["both.com"] == ("ia_cdx", capture("both.com", 1999))
     additions = set(_words(run, "netnew/candidate_additions.txt"))
     assert {"sub.com", "zone-only.dk", "dir.com", "example.org"} <= additions
-    assert not {"new.com", "both.com"} & additions
+    assert not {"new.com", "both.com", "no-file.dk"} & additions
     # every pair of ours is attested, whatever its row captured
     attested = (run.root / "full/netnew" / ATTESTED).read_text().splitlines()
     assert {"1999\tboth.com", "1999\tsub.com", "2001\tzone-only.dk"} <= set(attested)
@@ -313,7 +317,7 @@ def test_a_claim_export_writes_the_full_exports_claim_and_nothing_else(run) -> N
         "1999\tboth.com\n1999\texample.org\n1999\theld.com\n1999\tignore.arpa\n1999\tmail.org\n"
         "1999\trolled.com\n1999\tsub.com\n1999\ttyped-body.com\n1999\tweb.com\n2000\texample.net\n"
         "2000\texample.org\n2000\tmail.org\n2000\tyour-domain.pt\n2001\texample.net\n"
-        "2001\texample.org\n2001\tzone-only.dk\n"
+        "2001\texample.org\n2001\tno-file.dk\n2001\tzone-only.dk\n"
     )
 
 
