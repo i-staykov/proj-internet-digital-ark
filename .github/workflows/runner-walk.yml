@@ -28,6 +28,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # the collectors' disk floor (src/ark/disk.py): a hosted runner has under 70 GiB
+  ARK_FREE_SPACE_GIB: 1
+  ARK_WRITE_BUDGET_GIB: 1
+
 jobs:
   plan:
     runs-on: ubuntu-latest
