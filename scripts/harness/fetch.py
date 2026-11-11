@@ -101,10 +101,32 @@ OUR_ROBOT_NAMES = frozenset(
 
 # **A robots file alone does not close these hosts.** Each publishes the data for download
 # (Common Crawl's and Arquivo.pt's index files, FreeBSD's list archive, whose raw week
-# files sit under `/cgi`) and its `*` group only keeps crawlers at large out. A group that
-# names us still refuses, as do the host's terms, a 401, a 403 and a 429. The file's crawl
-# delay is kept between requests.
-ROBOTS_ALONE = frozenset({"data.commoncrawl.org", "arquivo.pt", "mail-archive.freebsd.org"})
+# files sit under `/cgi`, and public Mailman list archives) and its `*` group only keeps
+# crawlers at large out. A group that names us still refuses, as do the host's terms, a
+# 401, a 403 and a 429. The file's crawl delay is kept between requests.
+ROBOTS_ALONE = frozenset(
+    {
+        "data.commoncrawl.org",
+        "arquivo.pt",
+        "mail-archive.freebsd.org",
+        "listas.nodo50.org",
+        "lists.fsfe.org",
+        "lists.linuxaudio.org",
+        "lists.nasm.us",
+        "lists.ntp.org",
+        "lists.resist.ca",
+        "lists.sandelman.ca",
+        "lists.servus.at",
+        "lists.syslinux.org",
+        "listserv.isdn4linux.de",
+        "mailman.linuxchix.org",
+        "mailman.qth.net",
+        "mailman.rice.edu",
+        "mailman.stanford.edu",
+        "www.phred.org",
+        "www.zytor.com",
+    }
+)
 
 # Types a leg may write to disk unattended. Everything here is either text or a stream
 # format Python reads without unpacking it first.
