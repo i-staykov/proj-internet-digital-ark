@@ -487,7 +487,7 @@ CANDIDATE_CLASSES = (
     ("visitor", "web usage report: visitor host"),
     ("trace_hop|path_hop|_hop_|hop_host", "traceroute or relay hop name"),
     ("received|_relay|rdns", "mail Received header host"),
-    ("message_id|msgid|_from_|from_host", "mail or news From or Message-ID host"),
+    ("message_id|msgid|_from_|from_host|post_address$", "mail or news From or Message-ID host"),
     ("usenet_header|news_header|server_written", "Usenet server header host"),
     ("header_more|_more_", "other server-written header host"),
     ("body|mention", "message body URL or mention"),
@@ -501,6 +501,7 @@ CANDIDATE_PROVENANCE = "candidate_provenance.csv"
 UNDATED_CLASS = "discovered name, no dated record"
 # a row's content, so the row a name cites never depends on the order rows were written
 _ORDER = "e.evidence_value, e.evidence_url, e.acquisition_method, e.evidence_id"
+_NO_URL = "coalesce(e.evidence_url, '') = ''"
 _WEB_METHOD_LIST = ", ".join(f"'{m}'" for m in sorted(WEB_METHODS))
 
 
@@ -525,25 +526,28 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
         ELSE coalesce({method}, {source}) END)"""
 
 
-def export_candidate_provenance(
-    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, weights: dict
-) -> dict[str, dict]:
-    """`candidate_provenance.csv`, one row per name of `candidate_additions.txt`: its earliest
-    dated row, as (name, year, class, source, source_file, position), `source_file` the public
-    file and `position` the record naming the name inside it. Returns names and EE by class.
+# **A dated candidate ships only with a file to open**: a name whose every row lacks its source
+# file (a zone list read before rows kept their capture, a mention from bytes we no longer
+# hold) cites nothing a reader can open, so it leaves the list.
+NO_FILE = "year IS NOT NULL AND coalesce(source_file, '') = ''"
 
-    A hostname takes the row its earliest host-year stands on, an ISC name its earliest survey
-    row, a registrable its earliest row naming it exactly, else its earliest row at all."""
+
+def candidate_rows(conn: duckdb.DuckDBPyConnection) -> int:
+    """`candidate_row`, one per name of `candidate_pool`: its earliest dated row that names a
+    file, as (name, year, class, source, source_file, position). A hostname takes the row its
+    earliest host-year stands on, an ISC name its earliest survey row, a registrable its
+    earliest row naming it exactly, else its earliest row at all. Names left citing no file
+    leave the pool and the rows; returns how many."""
     conn.execute(f"""
         CREATE OR REPLACE TEMP TABLE candidate_row AS
         WITH host AS (
-            SELECT c.name, arg_min(e.evidence_id, (hy.assigned_year, {_ORDER})) AS id
+            SELECT c.name, arg_min(e.evidence_id, ({_NO_URL}, hy.assigned_year, {_ORDER})) AS id
             FROM candidate_pool c JOIN hostname_year hy ON hy.hostname = c.name
             JOIN evidence e ON e.evidence_id = hy.evidence_id
             WHERE c.unit = 'hostname' GROUP BY 1
         ), isc AS (
             SELECT i.hostname AS name,
-                   arg_min(e.evidence_id, (e.evidence_year, {_ORDER})) AS id
+                   arg_min(e.evidence_id, ({_NO_URL}, e.evidence_year, {_ORDER})) AS id
             FROM evidence e JOIN source s ON s.source_id = e.source_id
             JOIN isc_export i
               ON i.hostname = lower(regexp_extract(e.evidence_value, '([^ ]+)$', 1))
@@ -554,7 +558,8 @@ def export_candidate_provenance(
             GROUP BY 1
         ), reg AS (
             SELECT c.name,
-                   arg_min(e.evidence_id, (NOT ends_with(e.evidence_value, ' ' || c.name),
+                   arg_min(e.evidence_id, ({_NO_URL},
+                                           NOT ends_with(e.evidence_value, ' ' || c.name),
                                            e.evidence_year, {_ORDER})) AS id
             FROM candidate_pool c JOIN evidence e ON e.domain = c.name
             WHERE c.unit = 'registrable' GROUP BY 1
@@ -580,6 +585,20 @@ def export_candidate_provenance(
         WHERE c.unit = 'registrable'
           AND NOT EXISTS (SELECT 1 FROM evidence e WHERE e.domain = c.name)
     """)
+    (dropped,) = conn.execute(f"SELECT count(*) FROM candidate_row WHERE {NO_FILE}").fetchone()
+    conn.execute(
+        f"DELETE FROM candidate_pool WHERE name IN (SELECT name FROM candidate_row WHERE {NO_FILE})"
+    )
+    conn.execute(f"DELETE FROM candidate_row WHERE {NO_FILE}")
+    return dropped
+
+
+def export_candidate_provenance(
+    conn: duckdb.DuckDBPyConnection, netnew_dir: Path, weights: dict
+) -> dict[str, dict]:
+    """`candidate_provenance.csv` from `candidate_row`, one row per name of
+    `candidate_additions.txt`, `source_file` the public file and `position` the record naming
+    the name inside it. Returns names and EE by class."""
     rows, names = conn.execute(
         "SELECT (SELECT count(*) FROM candidate_row), "
         "(SELECT count(DISTINCT name) FROM candidate_pool)"
@@ -835,6 +854,7 @@ def export_all(
             # 251,114 rows shipped in neither file.
             with _phase("candidate pool"):
                 taken += _candidate_pool(conn, his, work)
+                stats["candidate_no_source_file"] = candidate_rows(conn)
                 stats["candidate_additions"] = held.dump(
                     conn,
                     "SELECT DISTINCT name FROM candidate_pool ORDER BY name",
