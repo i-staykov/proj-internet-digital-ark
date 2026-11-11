@@ -132,8 +132,9 @@ STAGE="output/$RELEASE"
 ARCHIVE="$ROUND_DIR/$RELEASE.7z"
 mkdir -p "$ROUND_DIR"
 rm -rf "$STAGE"
-# Two sets and nothing else at the top: additions/ (the year files, their provenance and every
-# supporting file under support/) and candidates/ (one list and one provenance file).
+# Two sets and a labelled third part at the top: additions/ (the year files, their provenance and
+# every supporting file under support/), candidates/ (one list and one provenance file), and
+# year_evidence/ (names his release holds, dated by our record in a year his file lacks).
 A="$STAGE/additions" P="$STAGE/additions/provenance" S="$STAGE/additions/support" C="$STAGE/candidates"
 mkdir -p "$P" "$C" "$S"/{audit,source,seeds,journals,baseline}
 
@@ -251,6 +252,12 @@ uv run python scripts/round/saturation_ledger.py --out "$S/audit/source_saturati
 # class, its source file and the position in it. No `|| true`: the export writes both.
 cp output/netnew/candidate_additions.txt "$C/candidates.txt"
 cp output/netnew/candidate_provenance.csv "$C/provenance.csv"
+# THE LABELLED THIRD PART, outside both sets and the growth figure: year_evidence.py's tiers.
+if [ -f output/year_evidence/provenance.csv ]; then
+    cp -R output/year_evidence "$STAGE/year_evidence"
+else
+    echo "no output/year_evidence: packaging the two sets only"
+fi
 # The README's one table of classes: names and EE from the export's summary, so its total is the
 # bank's, and the sentence of his brief that makes each class a candidate.
 python3 - "$STAGE/README.md" output/netnew/candidate_additions_summary.json \

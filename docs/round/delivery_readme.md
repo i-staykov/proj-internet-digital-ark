@@ -1,6 +1,6 @@
 # Internet Digital Ark delivery
 
-Two sets.
+Two sets, and a labelled third part outside both and outside the growth figure.
 
 - `additions/`: hostnames and registrable domains for your annual files, 1996 to 2013, one file
   a year, none in your file for that year. Each name has its own web evidence of exactly that
@@ -13,6 +13,14 @@ Two sets.
   position`, `source_file` the public file the name was read from and `position` the record
   naming it there. As your brief says: "When a candidate later has qualifying evidence, move only
   the verified hostname-year record into the relevant annual file."
+- `year_evidence/`: names your release already holds, for a year your file for it lacks, each
+  dated by our record of that year (a usage report, a message's `Date:`, a dump's stamp). Your
+  second open research question asks: "How can the year in which a website existed be determined
+  more accurately?" One `year,host` file a tier, the strongest first: `1_bracketed` (your files
+  hold the name in a year before and a year after), `2_after_only`, `3_before_only`,
+  `4_pool_only` (only in `candidate_pool.txt`). `provenance.csv` gives each row's class, public
+  source, locator (a message or line in it, counted from 1) and tier; `tiers.csv` the sizes. It
+  asks no credit; you decide.
 
 [CLASS TABLE]
 
