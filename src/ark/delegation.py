@@ -106,6 +106,11 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
 
 # the brief's quarantine of `www.` over a single label (`www.cz`), a name and never a host
 BARE_WWW = "NOT regexp_full_match({}, 'www\\.[^.]+')"
+# the reverse tree is never a website, and a name with a reverse zone inside it is a PTR record
+# whose zone lost its final dot (`1.2.3.4.in-addr.arpa.isp.com.br`), never a host
+NOT_ARPA = (
+    "{0} NOT LIKE '%.arpa' AND {0} NOT LIKE '%.in-addr.arpa.%' AND {0} NOT LIKE '%.ip6.arpa.%'"
+)
 
 
 def shipping_filter_for(column: str, year_column: str) -> str:
@@ -123,7 +128,7 @@ def shipping_filter_for(column: str, year_column: str) -> str:
         for k in (1, 2, 3)
     )
     return (
-        f"{column} NOT LIKE '%.arpa'"
+        f"{NOT_ARPA.format(column)}"
         f"\n      AND {existed_predicate(column, year_column)}"
         f"\n      AND {sql_predicate(column, year_column)}"
         f"\n      AND NOT ({doubled})"
@@ -144,12 +149,12 @@ def shipping_filter(prefix: str = "", with_year: bool = True) -> str:
         # it. But "the TLD never existed in the window at all" still can: a candidate under
         # `.sucks` can never be dated 1996-2001, so it is noise wherever it sits.
         return (
-            f"{dom} NOT LIKE '%.arpa'\n      AND {existed_predicate(dom)}"
+            f"{NOT_ARPA.format(dom)}\n      AND {existed_predicate(dom)}"
             f"\n      AND {BARE_WWW.format(dom)}"
         )
     year = f"{prefix}assigned_year" if prefix else "assigned_year"
     return (
-        f"{dom} NOT LIKE '%.arpa'"
+        f"{NOT_ARPA.format(dom)}"
         f"\n      AND {existed_predicate(dom, year)}"
         f"\n      AND {sql_predicate(dom, year)}"
         f"\n      AND {BARE_WWW.format(dom)}"
