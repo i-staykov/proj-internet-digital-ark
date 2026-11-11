@@ -108,8 +108,10 @@ ERROR_STATUS = r"(^| )status [45][0-9][0-9]( |$)"
 # **A capture whose replay does not open as the exact host in its year is no web presence**:
 # the replay check marks its row `replay failed` before the token it names last (`cdx capture
 # <ts> replay failed <host>`, `replay failed <ts>`), so the record leaves the masters and ships
-# as a candidate, whatever its method or status.
-REPLAY_FAILED = r"(^| )replay failed( |$)"
+# as a candidate, whatever its method or status. A link-graph row a review takes back is marked
+# `link withdrawn` the same way and leaves alike.
+REPLAY_FAILED = r"(^| )(replay failed|link withdrawn)( |$)"
+LINK_WITHDRAWN = r"(^| )link withdrawn( |$)"
 
 
 def web_evidence_sql(alias: str = "e") -> str:
