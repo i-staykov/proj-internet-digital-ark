@@ -229,7 +229,11 @@ def capture_stamps(path: Path) -> dict | None:
                     continue
                 m = re.search(r"/web/(\d{14})", r.get("replay") or "")
                 if m and r.get("path"):
-                    found[str(root / r["path"])] = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+                    try:
+                        when = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+                    except ValueError:  # an index line with an impossible instant
+                        continue
+                    found[str(root / r["path"])] = when
             _STAMPS[root] = found or None
         return _STAMPS[root]
     return None
