@@ -685,3 +685,15 @@ def test_a_unit_measured_under_both_floors_drops_and_the_2002_edge_runs_to_its_m
     for bad in (1, {"1996-2001": "inf"}, {"2002-2013": 10**309}):
         a.order.write_text(json.dumps({"units": prices, "floor": bad}))
         assert lane_asks(), "a bare-number, infinite or overflowing floor is unread, units read"
+
+
+def test_a_urlkey_pattern_s_rows_go_out_as_hits_and_none_banks(tmp_path, monkeypatch) -> None:
+    dom = script("engines/cdx_domain_client.py")
+    hit = "19990101000000 http://www.a.edu/stats/sites0199.html 200\n"
+    monkeypatch.setattr(dom, "ask", lambda *_: hit + "20000101000000 http://b.org/x 200\n")
+    a = SimpleNamespace(data=tmp_path, name="t", interval=0, urlkey=".*sites.*", farm=1000)
+    assert dom.Client(a).domain("a.edu")
+    state = tmp_path / "raw/cdx_domain/t"
+    assert gzip.open(state / "hits/a.edu.txt.gz", "rt").read() == hit
+    assert (state / "done.txt").read_text() == "a.edu\n"
+    assert not (tmp_path / "raw/cdx_suffix").exists()
