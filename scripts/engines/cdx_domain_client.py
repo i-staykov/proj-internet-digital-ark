@@ -6,7 +6,9 @@ named 6 host-years), no collapse (laws), paged by resume key and reduced here to
 each (host, year). The rows go out as the walker's journals,
 `walk_dom-<registrable>_<stamp>.jsonl.gz`, 1996 to 2001 under `<data>/raw/cdx_suffix/` (the hostname
 ingest banks them) and 2002 to 2013 under `<data>/raw/extended/ia_cdx_hostnames/`, so a capture the
-bank lacks ships as an addition.
+bank lacks ships as an addition. A registrable over `--farm` host-years writes under
+`<data>/raw/cdx_domain/farm/` instead: one under the VM's address answered 302,142 for 1996 to 2001,
+a wildcard farm, so a hand read decides before any of it banks.
 
 One request at a time, `--interval` apart. A 429 or 503 rests `Retry-After` or a minute; a refused
 connection or a connect timeout 30 s doubling to 15 min, and a 15 minute rest ends the run, since
@@ -15,7 +17,8 @@ gateway, not the address (homestead.com, kataweb.it and uku.fi cut at 75 to 135 
 addresses while the next one answered): asked again twice, then booked as `heavy.txt` for a paged
 walk, as is a domain that drew six 503s. Every request is a `log.tsv` row (stamp, registrable,
 status, seconds, rows, host-years 1996 to 2001, 2002 to 2013), so a rate carries its waits.
-`done.txt` keeps the answered registrables, so a restart resumes.
+`done.txt` keeps the answered registrables, so a restart resumes; one the deadline cuts banks
+nothing and is asked again.
 
     python3 scripts/engines/cdx_domain_client.py LIST --share 0/8 --data DIR [--seconds 3300]
 """
@@ -82,7 +85,7 @@ class Client:
         done = self.state / "done.txt"
         self.done = set(done.read_text().split()) if done.exists() else set()
         self.log = open(self.state / "log.tsv", "a", buffering=1)
-        self.last, self.refused = 0.0, 0
+        self.last, self.refused, self.end = 0.0, 0, float("inf")
 
     def rest(self, seconds: float, why: str) -> None:
         self.log.write(f"# pause {round(seconds)} s: {why}\n")
@@ -92,7 +95,7 @@ class Client:
         """Ask one registrable to its end or `CAP`; False once the address is refused."""
         keep: dict = {}
         key, tries, throttled, requests, status = None, 0, 0, 0, "200"
-        while requests < CAP:
+        while requests < CAP and time.time() < self.end:  # a deadline ends a big domain too
             time.sleep(max(0.0, self.last + self.a.interval - time.time()))
             self.last, t0 = time.time(), time.time()
             requests += 1
@@ -149,14 +152,21 @@ class Client:
                 if wait >= 900:
                     return False
                 self.rest(wait, status)
+        if time.time() >= self.end and (key or status != "200"):  # cut by the deadline: none banks
+            self.log.write(f"# cut {reg} {requests} requests\n")
+            return True
         stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
         name = f"walk_dom-{reg}_{stamp}"
         core = [v for (_, y), v in keep.items() if y.isdigit() and int(y) < SPLIT]
         ext = [v for (_, y), v in keep.items() if y.isdigit() and SPLIT <= int(y) <= LAST]
+        raw = self.a.data / "raw"
+        if len(keep) > self.a.farm:  # a wildcard farm, not that many sites: a hand read first
+            raw = self.a.data / "raw/cdx_domain/farm"
+            self.log.write(f"# farm {reg} {len(keep)} host-years held\n")
         if core:
-            write(self.a.data / "raw/cdx_suffix", name, core)
+            write(raw / "cdx_suffix", name, core)
         if ext:
-            write(self.a.data / "raw/extended/ia_cdx_hostnames", name, ext)
+            write(raw / "extended/ia_cdx_hostnames", name, ext)
         with open(self.state / "done.txt", "a") as fh:
             fh.write(f"{reg}\n")
         self.log.write(f"# done {reg} {status} {requests} requests {len(core)} {len(ext)}\n")
@@ -172,6 +182,7 @@ def main() -> None:
     ap.add_argument("--interval", type=float, default=3.0, help="seconds between starts")
     ap.add_argument("--timeout", type=float, default=120)
     ap.add_argument("--last", type=int, default=LAST, help="the last year asked")
+    ap.add_argument("--farm", type=int, default=1000, help="host-years a registrable banks")
     ap.add_argument("--any-url", action="store_true", help="every URL, not the roots alone")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
@@ -179,9 +190,10 @@ def main() -> None:
     a.name = a.name or f"{a.list.stem}_{i}of{n}"
     regs = [ln.split("#")[0].strip().lower() for ln in a.list.read_text().splitlines()]
     regs = [r for k, r in enumerate(x for x in regs if x) if k % n == i]
-    client, end = Client(a), time.time() + a.seconds if a.seconds else float("inf")
+    client = Client(a)
+    client.end = time.time() + a.seconds if a.seconds else float("inf")
     for reg in regs:
-        if time.time() >= end:
+        if time.time() >= client.end:
             break
         if reg not in client.done and not client.domain(reg):
             client.log.write("# exit: the address is refused\n")
