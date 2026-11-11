@@ -15,21 +15,26 @@ Two sets.
 
 [CLASS TABLE]
 
-How to find a candidate at its position, by the position's form:
+How to find a candidate at its position, by the position's form. Every count starts at 1, and a
+line ends at a line feed only unless the row says otherwise.
 
-| `position` | `source_file` | the name is |
+| `position` holds | `source_file` | the name is |
 |---|---|---|
-| `... <file>.mbox.zip#<n> <name>` | the Usenet zip | in post n, rule below |
-| `... <file>#<n> <name>`, a list or mail archive | the month file, mbox or NNTP group | in message n, counted from 1 by the `From ` line that opens each message |
-| `list message <year> <url>#<n> <name>`, `<url>` a usage or news-server report | the report page | on line n of the page as served (Wayback `id_` capture) |
-| `cdx capture <stamp> ... <name>`, or a 14-digit stamp | a Wayback URL | the capture at that stamp; a status 4xx or 5xx is why it is a candidate |
+| `<group>.mbox.zip#<n>` | the Usenet zip | in post n of its unpacked text (`unzip -p`), rule below |
+| `<file>.usenet.7z#<n>` | the 7z | in post n of the unpacked mbox, same rule |
+| `nntp://<server>/<group>#<n>` | the newsgroup | in article n on that server (`ARTICLE n`) |
+| `<month>.txt#<n>`, `.txt.gz#<n>`, `mbox.lua?...#<n>`, a list's mbox or text | the month file | in message n, a message opening at each line `From <addr> <Www> <Mmm> <dd> <hh:mm:ss> <yyyy>`; a bare `From ` in a body opens none |
+| `<month>.mail#<n>` (IETF) | the month file | in message n; a message ends at a line of four `\x01` (MMDF) or at such an envelope line outside a header, and only a message with a header counts |
+| `rsync://.../<number>.log#<n>` (Debian bugs) | the bug log | in record n, opened by a line holding only `\x07` and closed by one holding only `\x03` |
+| `.../web/<stamp>id_/<url>#<n>` (a usage or news-server report) | the Wayback page | on line n of the page as served, read as Latin-1, lines ending at CR LF, a lone CR or LF |
+| `<file>.tgz#<member>#<n>` (a traceroute set) | the archive | on line n of that member |
+| `cdx capture <stamp> ...` or a 14-digit stamp | a Wayback URL | the capture at that stamp; a status 4xx or 5xx is why it is a candidate |
 | `isc survey <edition> host <name>` | the survey file of that edition | on the line naming it |
 | anything else | the published list or capture | on the line naming it |
 
-A Usenet post n is counted in the zip's unpacked text (`unzip -p`) from 1. A post opens at a line
-matching `^From (-?[0-9]+|[^ ]+@[^ ]+)` that is the first line or follows a line that is empty or
-only white space, outside a header block (a header block ends at its first such line). A line ends
-at a line feed only: the zips hold lone carriage returns.
+A Usenet post opens at a line matching `^From (-?[0-9]+|[^ ]+@[^ ]+)` that is the first line or
+follows a line that is empty or only white space, outside a header block (a header block ends at
+its first such line). The zips hold lone carriage returns, which do not end a line.
 
 ## Check
 
