@@ -633,3 +633,33 @@ def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_fo
         sql = _class_sql("$s", "$m", "$v", "false")
         got = conn.execute(f"SELECT {sql}", {"s": source, "m": method, "v": value}).fetchone()[0]
         assert got == want, (source, got)
+
+
+def test_a_candidate_leaves_when_its_row_cannot_stand_for_the_name() -> None:
+    from ark.export import NO_FILE
+
+    rows = [  # name, year, class, source, source_file
+        ("dk.example.dk", 2001, "nameserver host", "dk_zone", ""),
+        ("spammidway.uchicago.edu", 1999, "mail or news From or Message-ID host", "list", "f"),
+        ("nospamhowl.demon.co.uk", 1998, "mail or news From or Message-ID host", "usenet", "f"),
+        ("main.gmane.org", 1997, "mail or news From or Message-ID host", "msg_gmane_lists__x", "f"),
+        ("spam.example.com", 1999, "Usenet server header host", "usenet", "f"),
+        ("news.gmane.org", 2003, "mail Received header host", "msg_gmane_lists__x", "f"),
+        ("found.example.org", None, "discovered name, no dated record", "list", None),
+        ("www.example.com", 2000, "mail or news From or Message-ID host", "usenet", "f"),
+    ]
+    conn = duckdb.connect()
+    conn.execute(
+        "CREATE TABLE candidate_row "
+        "(name VARCHAR, year INT, class VARCHAR, source VARCHAR, source_file VARCHAR)"
+    )
+    conn.executemany("INSERT INTO candidate_row VALUES (?, ?, ?, ?, ?)", rows)
+    left = [
+        n for (n,) in conn.execute(f"SELECT name FROM candidate_row WHERE {NO_FILE}").fetchall()
+    ]
+    assert left == [
+        "dk.example.dk",
+        "spammidway.uchicago.edu",
+        "nospamhowl.demon.co.uk",
+        "main.gmane.org",
+    ]
