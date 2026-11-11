@@ -614,6 +614,25 @@ def ingest_staged_messages_cmd(
         typer.echo(str(ingest_staged_messages(conn, path)))
 
 
+@app.command(name="mark-replay-failed")
+def mark_replay_failed_cmd(
+    table: Annotated[
+        Path,
+        typer.Argument(help="The replay check's failures, `host, year, ts, why`.", exists=True),
+    ],
+    write: Annotated[bool, typer.Option("--write", help="Mark; without it, count only.")] = False,
+) -> None:
+    """Take every record whose capture does not replay out of the masters, as a candidate.
+
+    Example: ark mark-replay-failed additions_replay_fail.tsv --write
+    """
+    from ark.hostnames import mark_replay_failed
+
+    conn = connect_patiently(patience_s=INGEST_LOCK_PATIENCE_S)
+    init_db(conn)
+    typer.echo(str(mark_replay_failed(conn, table, write=write)))
+
+
 @app.command(name="recite-staged-arcs")
 def recite_staged_arcs_cmd(
     folder: Annotated[

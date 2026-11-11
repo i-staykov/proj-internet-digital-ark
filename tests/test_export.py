@@ -624,6 +624,9 @@ def test_a_candidate_takes_the_class_of_its_rows_method_and_a_news_report_its_fo
         ("ia_cdx", "ia_cdx_domain_sweep", "cdx capture 19990101000000 status 404 a.com"): (
             "web capture with an error status"
         ),
+        ("ia_cdx", "ia_cdx_domain_sweep", "cdx capture 19990101000000 replay failed a.com"): (
+            "web capture that does not replay"
+        ),
     }
     conn = duckdb.connect()
     for (source, method, value), want in cases.items():

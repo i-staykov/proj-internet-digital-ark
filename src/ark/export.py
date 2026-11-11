@@ -29,7 +29,13 @@ from ark.contribution import DEFAULT_REPORT_DIR, write_contribution_tables
 from ark.delegation import shipping_filter as _shipping_filter
 from ark.delegation import shipping_filter_for as _shipping_filter_for
 from ark.english_share import english_weights
-from ark.evidence_types import ERROR_STATUS, WEB_METHODS, web_evidence_exists, web_evidence_sql
+from ark.evidence_types import (
+    ERROR_STATUS,
+    REPLAY_FAILED,
+    WEB_METHODS,
+    web_evidence_exists,
+    web_evidence_sql,
+)
 from ark.hostnames import LEASE_SOURCES
 from ark.ingest import YEARS
 from ark.provenance import ISC_SOURCE, PROVENANCE_DIR, write_provenance
@@ -517,6 +523,7 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
         for pattern, label in CANDIDATE_CLASSES
     )
     return f"""(CASE
+        WHEN regexp_matches({value}, '{REPLAY_FAILED}') THEN '{REPLAY_CLASS}'
         WHEN {method} IN ({_WEB_METHOD_LIST}) AND regexp_matches({value}, '{ERROR_STATUS}')
           THEN 'web capture with an error status'
         WHEN {method} IN ({_WEB_METHOD_LIST}) AND NOT {exact}
@@ -529,6 +536,7 @@ def _class_sql(source: str, method: str, value: str, exact: str) -> str:
 # **A dated candidate ships only with a file to open**: a name whose every row lacks its source
 # file (a zone list read before rows kept their capture, a mention from bytes we no longer
 # hold) cites nothing a reader can open, so it leaves the list.
+REPLAY_CLASS = "web capture that does not replay"
 NO_FILE = "year IS NOT NULL AND coalesce(source_file, '') = ''"
 
 
@@ -647,6 +655,7 @@ def export_header_candidates(
         JOIN source s ON s.source_id = e.source_id
         WHERE c.unit = 'hostname' AND NOT ({web_evidence_sql("e")})
           AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
+          AND NOT regexp_matches(e.evidence_value, '{REPLAY_FAILED}')
           AND {_claim_filter("e.evidence_id", "hy.hostname")}
     """)
     stats["header_candidates"] = held.dump(
@@ -677,6 +686,7 @@ def export_header_candidates(
             JOIN evidence e ON e.evidence_id = hy.evidence_id
             WHERE NOT ({web_evidence_sql("e")}) AND NOT ({HOSTNAME_SHIPPING_FILTER})
               AND NOT regexp_matches(e.evidence_value, '{ERROR_STATUS}')
+              AND NOT regexp_matches(e.evidence_value, '{REPLAY_FAILED}')
             ORDER BY hy.hostname, e.evidence_url, e.evidence_value
         ) TO '{ledger_path}' (HEADER true)
     """)

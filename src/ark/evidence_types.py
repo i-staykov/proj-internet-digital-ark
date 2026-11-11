@@ -84,6 +84,11 @@ _STATUS_IN_VALUE = r"status (\d{3})"
 # capture keeps its status in `evidence_value` (`cdx capture <ts> status 404 <host>`), so it
 # stays a candidate whatever its method. Python's `re` and DuckDB read the pattern alike.
 ERROR_STATUS = r"(^| )status [45][0-9][0-9]( |$)"
+# **A capture whose replay does not open as the exact host in its year is no web presence**:
+# the replay check marks its row `replay failed` before the token it names last (`cdx capture
+# <ts> replay failed <host>`, `replay failed <ts>`), so the record leaves the masters and ships
+# as a candidate, whatever its method or status.
+REPLAY_FAILED = r"(^| )replay failed( |$)"
 
 
 def web_evidence_sql(alias: str = "e") -> str:
@@ -92,17 +97,22 @@ def web_evidence_sql(alias: str = "e") -> str:
     return (
         f"({alias}.acquisition_method IN ({allowed})"
         f" AND NOT regexp_matches({alias}.evidence_value, '{ERROR_STATUS}')"
+        f" AND NOT regexp_matches({alias}.evidence_value, '{REPLAY_FAILED}')"
         f" OR ({alias}.acquisition_method = '{REDIRECT_METHOD}'"
         f" AND regexp_extract({alias}.evidence_value, '{_STATUS_IN_VALUE}', 1)"
-        " SIMILAR TO '[23]..'))"
+        " SIMILAR TO '[23]..'"
+        f" AND NOT regexp_matches({alias}.evidence_value, '{REPLAY_FAILED}')))"
     )
 
 
 _TS = "[0-9]{14}"
-_CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?[^ ]+$"
+_CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?(replay failed )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
 _HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
-_STAMPED = "^([0-9]{14}|nypw (first capture|timemap capture) (status [0-9]{3} )?[0-9]{14})$"
+_STAMPED = (
+    "^((replay failed )?[0-9]{14}"
+    "|nypw (first capture|timemap capture) (status [0-9]{3} )?(replay failed )?[0-9]{14})$"
+)
 _MIRROR = "/mirror/[0-9]{4}/[0-9]{2}/[0-9]{2}/([^/]+)/?$"
 
 
