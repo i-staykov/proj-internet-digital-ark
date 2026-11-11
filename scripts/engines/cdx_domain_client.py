@@ -18,7 +18,8 @@ addresses while the next one answered): asked again twice, then booked as `heavy
 walk, as is a domain that drew six 503s. Every request is a `log.tsv` row (stamp, registrable,
 status, seconds, rows, host-years 1996 to 2001, 2002 to 2013), so a rate carries its waits.
 `done.txt` keeps the answered registrables, so a restart resumes; one the deadline cuts banks
-nothing and is asked again.
+nothing and is asked again. `--urlkey` asks a pattern in place of the roots, a finder for a page
+reader: its rows go out whole as `hits/<registrable>.txt.gz` beside the log and none banks.
 
     python3 scripts/engines/cdx_domain_client.py LIST --share 0/8 --data DIR [--seconds 3300]
 """
@@ -53,7 +54,8 @@ def host_of(original: str) -> str:
 def ask(reg: str, key: str | None, rows: int, a: argparse.Namespace) -> str:
     q = [("url", reg), ("matchType", "domain"), ("from", str(FIRST)), ("to", str(a.last))]
     q += [("filter", "statuscode:[23][0-9][0-9]")]
-    q += [] if a.any_url else [("filter", "urlkey:" + ROOT)]
+    # the index matches a filter from the key's start, so a finder's pattern is wrapped
+    q += [] if a.any_url else [("filter", "urlkey:" + (f".*({a.urlkey})" if a.urlkey else ROOT))]
     q += [("fl", "timestamp,original,statuscode")]
     q += [("limit", str(rows)), ("showResumeKey", "true")] + ([("resumeKey", key)] if key else [])
     req = urllib.request.Request(BASE + "?" + urllib.parse.urlencode(q), headers={"User-Agent": UA})
@@ -94,6 +96,7 @@ class Client:
     def domain(self, reg: str) -> bool:
         """Ask one registrable to its end or `CAP`; False once the address is refused."""
         keep: dict = {}
+        hits: list = []
         key, tries, throttled, requests, status = None, 0, 0, 0, "200"
         while requests < CAP and time.time() < self.end:  # a deadline ends a big domain too
             time.sleep(max(0.0, self.last + self.a.interval - time.time()))
@@ -118,6 +121,8 @@ class Client:
                     host = host_of(f[1]) if len(f) >= 3 else ""
                     if host == reg or host.endswith("." + reg):
                         n += 1
+                        if self.a.urlkey:
+                            hits.append(" ".join(f[:3]))
                         y = f[0][:4]
                         if (host, y) not in keep or f[0] < keep[(host, y)][0]:
                             keep[(host, y)] = tuple(f[:3])
@@ -160,7 +165,12 @@ class Client:
         core = [v for (_, y), v in keep.items() if y.isdigit() and int(y) < SPLIT]
         ext = [v for (_, y), v in keep.items() if y.isdigit() and SPLIT <= int(y) <= LAST]
         raw = self.a.data / "raw"
-        if len(keep) > self.a.farm:  # a wildcard farm, not that many sites: a hand read first
+        if self.a.urlkey:  # a finder's rows: out whole for the reader, none banks
+            core = ext = []
+            (self.state / "hits").mkdir(exist_ok=True)
+            with gzip.open(self.state / "hits" / f"{reg}.txt.gz", "wt") as fh:
+                fh.writelines(h + "\n" for h in hits)
+        elif len(keep) > self.a.farm:  # a wildcard farm, not that many sites: a hand read first
             raw = self.a.data / "raw/cdx_domain/farm"
             self.log.write(f"# farm {reg} {len(keep)} host-years held\n")
         if core:
@@ -184,10 +194,11 @@ def main() -> None:
     ap.add_argument("--last", type=int, default=LAST, help="the last year asked")
     ap.add_argument("--farm", type=int, default=1000, help="host-years a registrable banks")
     ap.add_argument("--any-url", action="store_true", help="every URL, not the roots alone")
+    ap.add_argument("--urlkey", default="", help="a pattern found anywhere in the urlkey: hits out")
     ap.add_argument("--seconds", type=float, default=0, help="stop after this many; 0 runs out")
     a = ap.parse_args()
     i, n = map(int, a.share.split("/"))
-    a.name = a.name or f"{a.list.stem}_{i}of{n}"
+    a.name = a.name or f"{'find_' if a.urlkey else ''}{a.list.stem}_{i}of{n}"
     regs = [ln.split("#")[0].strip().lower() for ln in a.list.read_text().splitlines()]
     regs = [r for k, r in enumerate(x for x in regs if x) if k % n == i]
     client = Client(a)
