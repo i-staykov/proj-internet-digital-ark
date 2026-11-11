@@ -406,7 +406,6 @@ def test_a_lane_lock_held_by_another_job_names_it(tmp_path, monkeypatch):
     with open(tmp_path / "data/lane7.lock", "w") as held:
         fcntl.flock(held, fcntl.LOCK_EX)  # this test is the other job
         ok, line = check.lane(7)
-        fcntl.flock(held, fcntl.LOCK_UN)
     assert not ok
     assert f"lane7.lock held by another job (pid {os.getpid()}: " in line
     assert check.lane(7) == (False, "stopped, never ran")
