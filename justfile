@@ -994,6 +994,12 @@ ship stage="all" *args:
         uv run python scripts/round/extended_export.py --check 2>/dev/null \
             || nice -n 10 uv run python scripts/round/extended_export.py
         uv run python scripts/round/merge_side_years.py
+        echo "== the labelled year-evidence part =="
+        if [ -f data/labelled/nonweb_years/provenance.csv ]; then
+            uv run python scripts/round/year_evidence.py
+        else
+            rm -rf output/year_evidence; echo "no data/labelled/nonweb_years: two sets only"
+        fi
         echo "== the data invariants =="
         uv run ark check
         echo "== the round state, with the store sections =="

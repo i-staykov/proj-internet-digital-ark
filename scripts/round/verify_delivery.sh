@@ -136,6 +136,54 @@ against = "none in any file of HIS" if his else "set HIS to check them against h
 print(f"{label:<46} PASS  {len(names):,} names, one provenance row each, none a 1996 to 2001 addition; {against}")
 PY
 
+# --- the labelled third part: names of his, dated by our record in a year his file lacks ---
+python3 - <<'PY' || fail=1
+import csv
+import os
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+label = "year evidence, labelled part"
+d = Path("year_evidence")
+if not (d / "provenance.csv").is_file():
+    print(f"{label:<46} SKIP  no year_evidence/ in this archive")
+    sys.exit(0)
+problems, tiers, by_year = [], {}, {}
+with (d / "provenance.csv").open(newline="", encoding="utf-8") as fh:
+    for r in csv.DictReader(fh):
+        tiers.setdefault(r["tier"], []).append((r["year"], r["host"]))
+        by_year.setdefault(r["year"], set()).add(r["host"])
+for tier, rows in tiers.items():
+    with (d / f"{tier}.csv").open(newline="", encoding="utf-8") as fh:
+        if sorted(rows) != sorted(tuple(r) for r in list(csv.reader(fh))[1:]):
+            problems.append(f"{tier}.csv differs from its provenance rows")
+for y, hosts in by_year.items():
+    f = Path("additions") / f"{y}.txt"
+    if f.is_file() and (both := hosts.intersection(f.read_text().splitlines())):
+        problems.append(f"{len(both)} rows of {y} are additions")
+his = os.environ.get("HIS")
+if his and not problems:
+    env = {**os.environ, "LC_ALL": "C"}
+    tmp = os.environ.get("TMPDIR") or ".."  # where sort spills: beside the archive
+    for y, hosts in sorted(by_year.items()):
+        with tempfile.NamedTemporaryFile("w", dir=tmp, suffix=".txt") as ours:
+            ours.write("".join(h + "\n" for h in sorted(hosts)))
+            ours.flush()
+            sh = 'tr -d "\\r" < "$1" | sort -u -S 256M -T "$2" | comm -12 - "$3" | wc -l'
+            run = ["bash", "-o", "pipefail", "-c", sh, "_", f"{his}/{y}.txt", tmp, ours.name]
+            out = subprocess.run(run, env=env, capture_output=True, text=True)
+        if out.returncode or int(out.stdout.strip() or 0):
+            problems.append(f"{y}: {out.stdout.strip() or 'no count'} rows are in his file for that year")
+if problems:
+    print(f"{label:<46} FAIL  {'; '.join(problems[:4])}")
+    sys.exit(1)
+n = sum(len(r) for r in tiers.values())
+against = "none in his file for its year" if his else "set HIS to check them against his release"
+print(f"{label:<46} PASS  {n:,} host-years in {len(tiers)} tiers, none an addition; {against}")
+PY
+
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
 # Every check above reads the additions manifest and none reads the parquet, so a
 # packaging change that filters the evidence table leaves assignments pointing at an

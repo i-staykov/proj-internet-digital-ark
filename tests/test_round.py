@@ -123,3 +123,28 @@ def test_class_validation_draws_by_seed_and_never_counts_an_error_as_a_miss(tmp_
     assert (got["capture"], got["no_capture"], got["unresolved"], got["share"]) == (1, 1, 0, 0.5)
     assert (tmp_path / "captured_hosts.txt").read_text() == "hit.example.net\n"
     assert "limit=1" in val.ask_url("a.b") and "from=1996&to=2013" in val.ask_url("a.b")
+
+
+def test_year_evidence_tiers_each_row_by_where_his_files_hold_the_name(tmp_path):
+    ye = script("round/year_evidence.py")
+    his, src = tmp_path / "his", tmp_path / "src"
+    his.mkdir()
+    src.mkdir()
+    held = {1997: ["both.org"], 1999: ["both.org", "late.com"], 1996: ["early.net"]}
+    for y in range(1996, 2014):
+        (his / f"{y}.txt").write_text("".join(h + "\n" for h in held.get(y, [])))
+    (src / "provenance.csv").write_text(
+        "year,host,class,source,locator\n"
+        "1998,both.org,traceroute hop,s,line 1\n"
+        "1998,late.com,message body: URL host,s,message 2\n"
+        "1998,early.net,mail or news From address host,s,message 3\n"
+        "1998,pool.edu,web usage report: visitor host,s,line 4\n"
+    )
+    rows = ye.build(src, tmp_path / "out", his)
+    assert [r[:2] for r in rows] == [(t, 1) for t in ye.TIERS]
+    assert (tmp_path / "out/1_bracketed.csv").read_text() == "year,host\n1998,both.org\n"
+    prov = (tmp_path / "out/provenance.csv").read_text().splitlines()
+    assert [line.rsplit(",", 1)[1] for line in prov[1:]] == list(ye.TIERS)
+    (src / "provenance.csv").write_text("year,host,class,source,locator\n1999,late.com,c,s,l\n")
+    with pytest.raises(SystemExit, match="1 rows sit in his file"):
+        ye.build(src, tmp_path / "out", his)
