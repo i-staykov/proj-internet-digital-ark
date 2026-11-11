@@ -10,7 +10,8 @@ exact index ask instead. 300 rows from one address: 2.6 s an ask, no 429; 14 hit
 A miss says nothing of deeper pages: the root alone is asked.
 
 One ask at a time; a 429 or 503 rests `Retry-After` or a minute, a failed connection 30 s. Every
-ask is a `log.tsv` row (year, host, verdict, stamp, seconds); a restart skips the rows logged.
+ask is a `log.tsv` row (year, host, verdict, stamp, seconds); a restart skips the rows any client
+logged under `--data`, and a stopped client writes the hits it holds.
 Runs on Python 3.8.
 
     python3 scripts/engines/wayback_available.py ROWS --share 0/2 --data DIR [--seconds 3300]
@@ -19,10 +20,13 @@ Runs on Python 3.8.
 from __future__ import annotations
 
 import argparse
+import atexit
 import gzip
 import io
 import json
 import os
+import signal
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -85,7 +89,10 @@ def main() -> None:
     state = a.data / "raw/wayback_available" / name
     state.mkdir(parents=True, exist_ok=True)
     log_path = state / "log.tsv"
-    seen = {tuple(ln.split("\t")[:2]) for ln in log_path.open()} if log_path.exists() else set()
+    logs = (a.data / "raw/wayback_available").glob(
+        "*/log.tsv"
+    )  # any client's, so shares may change
+    seen = {tuple(ln.split("\t")[:2]) for p in logs for ln in p.open()}
     rows = []
     for k, ln in enumerate(x for x in a.rows.read_text().splitlines() if x.strip()):
         if k % n == i:
@@ -95,6 +102,8 @@ def main() -> None:
     end = time.time() + a.seconds if a.seconds else float("inf")
     log, folded = log_path.open("a", buffering=1), (state / "folded.txt").open("a", buffering=1)
     hits: list = []
+    atexit.register(lambda: hits and flush(a.data / "raw/cdx_suffix", name, hits))
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))  # a stopped client keeps its hits
     for year, host in rows:
         if time.time() >= end:
             break
@@ -124,11 +133,9 @@ def main() -> None:
             )
             if len(hits) >= a.batch:
                 flush(a.data / "raw/cdx_suffix", name, hits)
-                hits = []
+                del hits[:]
         elif v == "folded":
             folded.write(f"{year}\t{host}\t{host_of(original(c.get('url', '')))}\n")
-    if hits:
-        flush(a.data / "raw/cdx_suffix", name, hits)
 
 
 if __name__ == "__main__":
