@@ -684,6 +684,8 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(
         "nntp://news.php.net/php.dev",
     )
     rows = [
+        # named first under a weaker field: the host-year still banks as `received_by`
+        dict(host="wugate.wustl.edu", year=1999, file=gz, pos=1, field="from"),
         dict(host="wugate.wustl.edu", year=1999, file=gz, pos=9, field="received_by"),
         dict(host="wugate.wustl.edu", year=1999, file=gz, pos=3, field="received_by"),
         dict(host="pool-7.dial.example.net", year=1998, file=art, pos=12, field="rdns"),
@@ -733,7 +735,7 @@ def test_staged_messages_bank_each_field_under_its_folder_source_once(
         (3,)
     ]
     assert again["files_skipped"] == 1 and "lines" not in again  # banked: not read again
-    monkeypatch.setattr(hn, "_STAGED_BATCH_LINES", 2)  # a file longer than a batch banks the same
+    monkeypatch.setattr(hn, "_STAGED_BATCH_ROWS", 2)  # a file longer than a batch banks the same
     hn.ingest_staged_messages(small := store(), folder)
     assert q(small, sql + "(source_id) ORDER BY 1") == q(conn, sql + "(source_id) ORDER BY 1")
     ledger = "SELECT source_name, file_name, record_rows FROM ingested_file ORDER BY 1"

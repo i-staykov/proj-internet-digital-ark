@@ -2010,20 +2010,15 @@ _STAGED_FOLDER = re.compile(r"^[a-z0-9][a-z0-9_]*$")
 _INTERNAL_LABELS = frozenset({"localhost", "localdomain", "local", "lan", "internal", "intranet"})
 
 
-# The lines of a staged file read before its rows are banked: a visitor-report file runs to
+# The host-years of a staged file held before they are banked: a visitor-report file runs to
 # millions of rows, and one held whole took the bank past the VM's memory.
-_STAGED_BATCH_LINES = 500_000
+_STAGED_BATCH_ROWS = 500_000
 
 
-def staged_message_rows(
-    path: Path, counts: Counter[str], batch: int | None = None
-) -> Iterator[dict[str, list[tuple[str, str, int, str, str, str]]]]:
-    """Per field, (hostname, parent, year, evidence value, location, archive URL) for one
-    staged file, `batch` lines at a time: one row per (host, year) of a batch, the lowest
-    (file, pos) naming it. The insert keeps the first row a host-year gets, so the first batch
-    naming one keeps it."""
-    batch = batch or _STAGED_BATCH_LINES
-    seen: dict[tuple[str, str, int], tuple[str, str, int]] = {}
+def _staged_lines(
+    path: Path, counts: Counter[str]
+) -> Iterator[tuple[int, str, str, int, str, str]]:
+    """(line number, field, host, year, file, pos) of each row of a staged file that may bank."""
     opener = gzip.open if path.suffix == ".gz" else open
     with opener(path, "rt", encoding="utf-8", errors="replace") as fh:
         for number, line in enumerate(fh, 1):
@@ -2056,22 +2051,44 @@ def staged_message_rows(
             if any(labels[-k:] == labels[-2 * k : -k] for k in (1, 2, 3) if len(labels) >= 2 * k):
                 counts["duplicated_suffix"] += 1
                 continue
-            key = (field, host, year)
+            yield number, field, host, year, file, pos
+
+
+def staged_message_rows(
+    path: Path, counts: Counter[str]
+) -> Iterator[tuple[str, list[tuple[str, str, int, str, str, str]]]]:
+    """(field, rows) for one staged file, a row (hostname, parent, year, evidence value,
+    location, archive URL), at most `_STAGED_BATCH_ROWS` host-years at a time.
+
+    **Every row of a field comes before any row of the next, in `MESSAGE_FIELDS` order**, one
+    pass of the file a field: the insert keeps the first row a host-year gets, so the order
+    decides which class a host named under two fields banks as. A batch holds one row per
+    (host, year), the lowest (file, pos) of the batch; across batches the first one keeps it.
+    """
+    present = {field for _, field, *_ in _staged_lines(path, counts)}
+    for field in MESSAGE_FIELDS:
+        if field not in present:
+            continue
+        seen: dict[tuple[str, int], tuple[str, str, int]] = {}
+        for number, found, host, year, file, pos in _staged_lines(path, Counter()):
+            if found != field:
+                continue
+            key = (host, year)
             if key not in seen or (file, pos) < seen[key][:2]:
                 seen[key] = (sys.intern(file), pos, number)
-            if number % batch == 0:
-                yield _staged_batch(seen, counts)
+            if len(seen) >= _STAGED_BATCH_ROWS:
+                yield field, _staged_batch(seen, counts)
                 seen = {}
-    if seen:
-        yield _staged_batch(seen, counts)
+        if seen:
+            yield field, _staged_batch(seen, counts)
 
 
 def _staged_batch(
-    seen: dict[tuple[str, str, int], tuple[str, str, int]], counts: Counter[str]
-) -> dict[str, list[tuple[str, str, int, str, str, str]]]:
-    """One batch's rows by field, the registrable looked up once a host."""
-    out: dict[str, list[tuple[str, str, int, str, str, str]]] = {}
-    for (field, host, year), (file, pos, number) in sorted(seen.items()):
+    seen: dict[tuple[str, int], tuple[str, str, int]], counts: Counter[str]
+) -> list[tuple[str, str, int, str, str, str]]:
+    """One batch's rows, sorted, the registrable looked up once a host-year."""
+    out: list[tuple[str, str, int, str, str, str]] = []
+    for (host, year), (file, pos, number) in sorted(seen.items()):
         reg = to_registrable(host)
         if reg is None:
             counts["rejected_host"] += 1  # no public suffix: internal or never delegated
@@ -2080,7 +2097,7 @@ def _staged_batch(
             counts["registrable_row"] += 1  # belongs to domain_year, not here
             continue
         value = f"list message {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
-        out.setdefault(field, []).append((host, reg, year, value, f"line {number}", file))
+        out.append((host, reg, year, value, f"line {number}", file))
     return out
 
 
@@ -2113,23 +2130,24 @@ def ingest_staged_messages(conn: duckdb.DuckDBPyConnection, root: Path) -> dict[
         counts: Counter[str] = Counter()
         dated: Counter[str] = Counter()
         with _one_transaction(conn):
-            for per_field in staged_message_rows(path, counts):
-                for field, rows in per_field.items():
-                    source_id = ensure_source(conn, sources[field], "timestamped")
-                    _stage_hosts(conn, "msghost", rows, source_id)
-                    fresh = _insert_host_rows(
-                        conn,
-                        "msghost",
-                        {
-                            "source_id": source_id,
-                            "type": "link_source",
-                            "method": MESSAGE_FIELDS[field],
-                            "file": key,
-                        },
-                        url_sql="t.url",
-                    )
-                    dated[field] += _date_hosts(conn, fresh)
-                    conn.execute("DELETE FROM msghost")
+            for field, rows in staged_message_rows(path, counts):
+                if not rows:
+                    continue
+                source_id = ensure_source(conn, sources[field], "timestamped")
+                _stage_hosts(conn, "msghost", rows, source_id)
+                fresh = _insert_host_rows(
+                    conn,
+                    "msghost",
+                    {
+                        "source_id": source_id,
+                        "type": "link_source",
+                        "method": MESSAGE_FIELDS[field],
+                        "file": key,
+                    },
+                    url_sql="t.url",
+                )
+                dated[field] += _date_hosts(conn, fresh)
+                conn.execute("DELETE FROM msghost")
             for field, n in dated.items():
                 totals[f"{field}_rows"] += n
                 before = previous[sources[field]][1] if sources[field] in previous else 0
