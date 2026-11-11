@@ -208,6 +208,8 @@ def test_self_dating_files_a_dns_cache_logs_a_monthly_log_and_an_accesswatch_day
     (site / "access_log").write_text("".join(hit.format(f"h{i}.isp.net") for i in range(12)))
     visit = "[07:27:45 08/13/97 Wed] http://h/tas/ - v{}.dial.att.net -  Mozilla/3.0\n"
     (site / "counter.txt").write_text("".join(visit.format(i) for i in range(6)))
+    hit = "Tue, 29 Oct 1996 09:41:38 PST - t{}.vip.best.com - http://h/\n"
+    (site / "hits.txt").write_text("".join(hit.format(i) for i in range(6)))
     signing = "g{}.dial.isp.net - [09/04/100 21:43:49 MDT] - ERR: No Name<br>\n"
     (site / "guestlog.html").write_text("".join(signing.format(i) for i in range(6)))
     (site / "details.html").write_text(AW)
@@ -217,11 +219,12 @@ def test_self_dating_files_a_dns_cache_logs_a_monthly_log_and_an_accesswatch_day
     reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
     rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
     got = {(r["host"], r["year"], r["generator"]) for r in rows}
-    assert len(rows) == 57, "the unresolved `*` line and the reverse-zone name give nothing"
+    assert len(rows) == 63, "the unresolved `*` line and the reverse-zone name give nothing"
     assert got >= {
         ("h0.isp.net", 1998, "raw-log"),
         ("v0.dial.att.net", 1997, "raw-log"),
         ("g0.dial.isp.net", 2000, "raw-log"),
+        ("t0.vip.best.com", 1996, "raw-log"),
         ("ppp-syd-238.ca.com.au", 1996, "usage-log"),
         ("cache.tu-graz.ac.at", 1996, "accesswatch"),
         ("ppp0.kwic.com", 1997, "analog-dnscache"),
@@ -274,3 +277,25 @@ def test_a_webalizer_page_in_another_language_is_read_by_its_file_name_and_ancho
     assert [(r["host"], r["year"], r["raw_file"].rsplit("/", 1)[1]) for r in rows] == [
         ("d148179.brg.pt.kpnqwest.net", 2000, "usage_200012.html")
     ], "the same page under a name that carries no month is left"
+
+
+WEBLOG = """<TITLE>Access Details Report: h</TITLE>
+<STRONG>(Accesses Through 03:59:00 02 Jan 2002)</STRONG>
+dhcp-144-35.resnet.ua.edu
+      30 Dec -- 00:30:40 --       -- /a.html
+   http://referrer.example.org/
+a216155.upc-a.chello.nl
+      01 Jan -- 07:11:48 --       -- /b.html
+"""
+
+
+def test_weblog_names_each_visitor_above_its_requests_and_december_is_the_year_before(tmp_path):
+    site = tmp_path / "raw" / "s"
+    site.mkdir(parents=True)
+    (site / "log.details.html").write_text(WEBLOG)
+    reports.main([str(tmp_path / "raw"), str(tmp_path / "out")])
+    rows = [json.loads(line) for line in (tmp_path / "out" / "rows.jsonl").read_text().splitlines()]
+    assert {(r["host"], r["year"]) for r in rows} == {
+        ("dhcp-144-35.resnet.ua.edu", 2001),
+        ("a216155.upc-a.chello.nl", 2002),
+    }
