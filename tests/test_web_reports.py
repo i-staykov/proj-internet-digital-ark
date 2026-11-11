@@ -449,3 +449,41 @@ def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():
             "link": "HTTP://WWW.X.ORG:80/b",
         }
     ]
+
+
+def test_a_wat_file_gives_one_capture_per_host_and_earlier_last_modified_year(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "wat_modified", ROOT / "scripts/sources/web_reports/wat_modified.py"
+    )
+    wat_modified = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(wat_modified)
+
+    def record(page, stamp, status, modified, offset):
+        http = {"Response-Message": {"Status": status}, "Headers": {"last-modified": modified}}
+        return json.dumps(
+            {
+                "Container": {"Filename": "p.arc.gz", "Offset": offset, "Gzip-Metadata": {}},
+                "Envelope": {
+                    "ARC-Header-Metadata": {"Target-URI": page, "Date": stamp},
+                    "Payload-Metadata": {"HTTP-Response-Metadata": http},
+                },
+            }
+        )
+
+    lines = [
+        record("http://a.gov:80/x", "19990713045543", "200", "Tue, 04 Mar 1997 10:00:00 GMT", "7"),
+        record("http://a.gov/y", "19990102030405", "200", "Mon, 01 Dec 1997 10:00:00 GMT", "9"),
+        record("http://a.gov/z", "19990102030405", "200", "Fri, 01 Jan 1999 10:00:00 GMT", "11"),
+        record("http://a.gov/old", "19990102030405", "200", "Sun, 01 Jan 1995 10:00:00 GMT", "13"),
+        record("http://b.gov/", "19990102030405", "404", "Tue, 04 Mar 1997 10:00:00 GMT", "15"),
+        record("http://c.gov/", "19990102030405", "200", "not a date", "17"),
+    ]
+    out = io.StringIO()
+    assert wat_modified.reduce(lines, out) == {"records": 6, "kept": 1}
+    (row,) = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert (row["host"], row["year"], row["timestamp"], row["offset"]) == (
+        "a.gov",
+        "1997",
+        "19990102030405",
+        "9",
+    )
