@@ -226,7 +226,9 @@ def test_a_www_alias_of_a_held_name_ships_and_the_filters_still_bite(run) -> Non
         cited = capture(r["hostname"], int(r["assigned_year"]))
         assert (r["source"], r["evidence_value"]) == ("ia_cdx", cited), r
     names = _words(run, "candidates.txt") + _words(run, "netnew/candidate_additions.txt")
-    assert not [name for name in names if name.endswith((".arpa", ".site")) or ".arpa." in name]
+    assert not [
+        name for name in names if name.endswith((".arpa", ".site")) or ".in-addr.arpa." in name
+    ]
 
 
 def test_the_candidate_claim_is_one_pool_net_of_every_name_his_release_holds(run) -> None:

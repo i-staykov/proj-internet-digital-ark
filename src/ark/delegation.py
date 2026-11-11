@@ -106,9 +106,11 @@ def sql_predicate(column: str = "domain", year_column: str = "assigned_year") ->
 
 # the brief's quarantine of `www.` over a single label (`www.cz`), a name and never a host
 BARE_WWW = "NOT regexp_full_match({}, 'www\\.[^.]+')"
-# the reverse tree is never a website, and a name with `.arpa.` inside it is a PTR record whose
-# zone lost its final dot (`1.2.3.4.in-addr.arpa.isp.com.br`), never a host
-NOT_ARPA = "{0} NOT LIKE '%.arpa' AND {0} NOT LIKE '%.arpa.%'"
+# the reverse tree is never a website, and a name with a reverse zone inside it is a PTR record
+# whose zone lost its final dot (`1.2.3.4.in-addr.arpa.isp.com.br`), never a host
+NOT_ARPA = (
+    "{0} NOT LIKE '%.arpa' AND {0} NOT LIKE '%.in-addr.arpa.%' AND {0} NOT LIKE '%.ip6.arpa.%'"
+)
 
 
 def shipping_filter_for(column: str, year_column: str) -> str:
