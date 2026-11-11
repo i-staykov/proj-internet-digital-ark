@@ -9,11 +9,13 @@ ingest banks them) and 2002 to 2013 under `<data>/raw/extended/ia_cdx_hostnames/
 bank lacks ships as an addition.
 
 One request at a time, `--interval` apart. A 429 or 503 rests `Retry-After` or a minute; a refused
-or dropped connection 30 s doubling to 15 min, and a 15 minute rest ends the run, since the address
-is refused; a domain's 502 or 504 (its scan outlasts the gateway) is asked again twice, then booked
-as `heavy.txt` for a paged walk. Every request is a `log.tsv` row (stamp, registrable, status,
-seconds, rows, host-years 1996 to 2001, 2002 to 2013), so a rate carries its waits. `done.txt` keeps
-the answered registrables, so a restart resumes.
+connection or a connect timeout 30 s doubling to 15 min, and a 15 minute rest ends the run, since
+the address is refused. A domain's 502, 504, cut stream or read timeout is its scan outlasting the
+gateway, not the address (homestead.com, kataweb.it and uku.fi cut at 75 to 135 s on three runner
+addresses while the next one answered): asked again twice, then booked as `heavy.txt` for a paged
+walk, as is a domain that drew six 503s. Every request is a `log.tsv` row (stamp, registrable,
+status, seconds, rows, host-years 1996 to 2001, 2002 to 2013), so a rate carries its waits.
+`done.txt` keeps the answered registrables, so a restart resumes.
 
     python3 scripts/engines/cdx_domain_client.py LIST --share 0/8 --data DIR [--seconds 3300]
 """
@@ -36,6 +38,7 @@ UA = "InternetDigitalArk/1.0 (+historical domain research)"
 FIRST, SPLIT, LAST = 1996, 2002, 2013
 ROOT = r"^[^/]*\)/$"
 ROWS, CAP = 20000, 40  # rows a request, requests a registrable
+HEAVY = {"HTTP502", "HTTP504", "IncompleteRead", "TimeoutError", "RemoteDisconnected"}
 
 
 def host_of(original: str) -> str:
@@ -88,7 +91,7 @@ class Client:
     def domain(self, reg: str) -> bool:
         """Ask one registrable to its end or `CAP`; False once the address is refused."""
         keep: dict = {}
-        key, tries, requests, status = None, 0, 0, "200"
+        key, tries, throttled, requests, status = None, 0, 0, 0, "200"
         while requests < CAP:
             time.sleep(max(0.0, self.last + self.a.interval - time.time()))
             self.last, t0 = time.time(), time.time()
@@ -100,7 +103,9 @@ class Client:
             except urllib.error.HTTPError as exc:
                 status = f"HTTP{exc.code}"
                 after = exc.headers.get("Retry-After") if exc.headers else None
-            except Exception as exc:  # noqa: BLE001  refused or dropped: the address
+            except urllib.error.URLError as exc:  # no connection: the address
+                status = f"URLError:{type(exc.reason).__name__}"
+            except Exception as exc:  # noqa: BLE001  a cut stream or a read timeout: the domain
                 status = type(exc).__name__
             if status == "200":
                 self.refused = 0
@@ -128,14 +133,16 @@ class Client:
                 except ValueError:
                     wait = 60.0
                 self.rest(min(wait, 900.0), status)
-            elif status in ("HTTP502", "HTTP504"):
-                tries += 1
-                if tries >= 3:
+                throttled += 1
+            if status in HEAVY or throttled >= 6:
+                tries += status in HEAVY
+                if tries >= 3 or throttled >= 6:
                     with open(self.state / "heavy.txt", "a") as fh:
                         fh.write(f"{reg}\n")
                     break
             elif status.startswith("HTTP"):
-                break  # the domain's own answer (400, 403, 404, a fourth 504): booked
+                if status not in ("HTTP429", "HTTP503"):
+                    break  # the domain's own answer (400, 403, 404): booked
             else:
                 self.refused += 1
                 wait = min(900.0, 30.0 * 2 ** min(self.refused - 1, 5))
