@@ -110,9 +110,10 @@ def test_a_slice_leaves_the_lanes_their_share_above_the_ask_tier(tmp_path, monke
     )
 
 
-def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypatch):
-    """Pages scarce above the ask tier: the slice carries ask-gap's head, which no lane asks while
-    it is lent; the job walks it in its order, and its rows price as a lane's, kind by kind."""
+def test_a_slice_holds_pages_never_a_question_and_prices_like_a_lane_s(tmp_path, monkeypatch):
+    """Pages scarce above the ask tier: the slice holds them and no question, since a question
+    names a domain of his files and a slice is public; the job walks it in its order, and its
+    rows price as a lane's."""
     order, yields = script("engines/cdx_walk_order.py"), script("agents/lane_yield.py")
     data, register = stage(tmp_path)
     monkeypatch.setattr(rs, "PAGES", 6)
@@ -125,11 +126,10 @@ def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypat
     units = json.loads((data / "queue/cdx_order.json").read_text())["units"]
     units["ask-gap ask"] = {"p1": 0.01, "p2": 2.82, "n": 8651, "s": 2.0}  # under co.uk a start
     (data / "queue/cdx_order.json").write_text(json.dumps({"units": units}))
-    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 6 keys lent"
+    assert rs.write(data, register, NOW) == "runner slices: 1 cut, 0 gone, 2 keys lent"
     slice_ = register / "slice_20261109T120000Z_0.txt"
     tasks = [rs.walker.decode(ln)[0] for ln in rs.lines(slice_)]
-    assert [t[2] for t in tasks[2:]] == ["q1.com", "q2.com", "q3.com", "q4.com"], "q0 is done"
-    assert [t[5] for t in tasks[:2]] == ["all", "all"], "the pages first"
+    assert [t[5] for t in tasks] == ["all", "all"], "the pages, no question"
 
     def answer(task, a, sink):  # a host's root, 1999 and 2005
         host = task[2] if task[5] == "ask" else f"h{task[2]}.co.uk"
@@ -161,15 +161,12 @@ def test_a_slice_of_questions_banks_and_prices_like_a_lane_s(tmp_path, monkeypat
     (data / "baseline.json").write_text('{"current": {"directory": "his", "marker": "m"}}')
     monkeypatch.setattr(order, "DATA", data)
     order.main()
-    priced = json.loads((data / "queue/cdx_order.json").read_text())["units"]
-    assert priced["ask-gap ask"]["n"] == 9, "the job's answers price the tier beside the lane's"
     out, hour = tmp_path / "productivity.tsv", dt.datetime.now(dt.UTC) + dt.timedelta(hours=1)
     yields.write(out, data, f"{hour:%Y-%m-%dT%H00}", hours=48)
     rows = {tuple(r[1:4]): (int(r[5]), float(r[7]) / int(r[5])) for r in yields.read(out)}
-    for kind, n in (("page", 2), ("ask-gap", 4)):
-        for w in yields.WINDOWS:
-            (answered, each), lane = rows["runner0", kind, w], rows["lane0", kind, w][1]
-            assert answered == n and each == pytest.approx(lane, abs=0.01) and each > 0
+    for w in yields.WINDOWS:
+        (answered, each), lane = rows["runner0", "page", w], rows["lane0", "page", w][1]
+        assert answered == 2 and each == pytest.approx(lane, abs=0.01) and each > 0
 
 
 def test_a_slice_s_blocked_questions_are_booked_done_and_write_no_stop(tmp_path, monkeypatch):
@@ -207,7 +204,7 @@ def test_a_slice_s_blocked_questions_are_booked_done_and_write_no_stop(tmp_path,
     (data / "queue/pool_questions.tsv").write_text(pool)
     assert "STOP" not in rs.write(data, register, NOW) and not (register / "STOP").exists()
     cut = [rs.walker.decode(ln)[0] for f in rs.slices(register) for ln in rs.lines(f)]
-    assert {t[2] for t in cut if t[5] == "ask"} == {"y.com"}, "no done question is lent again"
+    assert not [t for t in cut if t[5] == "ask"], "no question is lent"
     lane.excluded, z = rs.walker.EXCLUDED, ("ask-gap", 1, "z.com", 1996, 2013, "ask")
     lane.settle(z, *lane.ask(z))
     assert lane.refusal_end > 0 and rs.walker.key_of(z) not in lane.done, "the cap's 403 is a wall"
