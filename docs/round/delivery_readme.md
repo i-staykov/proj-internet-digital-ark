@@ -20,7 +20,8 @@ Two sets, and a labelled third part outside both and outside the growth figure.
   second open research question asks: "How can the year in which a website existed be determined
   more accurately?" One `year,host` file a tier, the strongest first: `1_bracketed` (your files
   hold the name in a year before and a year after), `2_after_only`, `3_before_only`,
-  `4_pool_only` (only in `candidate_pool.txt`). `provenance.csv` gives each row's class, public
+  `4_pool_only` (only in `candidate_pool.txt`), and `5_last_modified` (a 1996 to 2001 capture of
+  the host whose own `Last-Modified` header dates the page to that earlier year). `provenance.csv` gives each row's class, public
   source, locator (a message or line in it, counted from 1) and tier; `tiers.csv` the sizes. It
   asks no credit; you decide.
 

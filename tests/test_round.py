@@ -1,5 +1,7 @@
 """The shipped saturation ledger, byte for byte the register, and the unparsed pool."""
 
+import gzip
+import json
 import os
 import sys
 from pathlib import Path
@@ -139,8 +141,18 @@ def test_year_evidence_tiers_each_row_by_where_his_files_hold_the_name(tmp_path)
         "1998,late.com,message body: URL host,s,message 2\n"
         "1998,early.net,mail or news From address host,s,message 3\n"
         "1998,pool.edu,web usage report: visitor host,s,line 4\n"
+        "1998,added.org,traceroute hop,s,line 5\n"  # an addition of ours: netted out
     )
-    rows = ye.build(src, tmp_path / "out", his)
+    lm, adds = tmp_path / "lm", tmp_path / "netnew"
+    lm.mkdir()
+    adds.mkdir()
+    (adds / "1998_hostnames.txt").write_text("added.org\n")
+    row = {"file": "https://a.org/f.arc.gz", "pos": "arc 1 2 #19990101000000 u", "modified": "x"}
+    # one new host-year, and one the set already holds, which keeps its own tier
+    lines = [{**row, "host": "lm.gov", "year": 1997}, {**row, "host": "both.org", "year": 1998}]
+    with gzip.open(lm / "rows.jsonl.gz", "wt") as fh:
+        fh.write("".join(json.dumps(r) + "\n" for r in lines))
+    rows = ye.build(src, tmp_path / "out", his, lm, adds)
     assert [r[:2] for r in rows] == [(t, 1) for t in ye.TIERS]
     assert (tmp_path / "out/1_bracketed.csv").read_text() == "year,host\n1998,both.org\n"
     prov = (tmp_path / "out/provenance.csv").read_text().splitlines()
