@@ -2089,7 +2089,7 @@ def _staged_lines(
             if field == "copyright_registration_title" and not re.match(r"[A-Z]{1,4}\d+$", pos):
                 counts["bad_pos"] += 1
                 continue
-            if field == "page_referrer" and not pos.isdigit():
+            if field == "page_referrer" and not re.match(r"(arc \d+ \d+ #)?\d+$", pos):
                 counts["bad_pos"] += 1
                 continue
             span = rf"line \d+ period {year}\d{{4}}-{year}\d{{4}} requests \d+ bytes [1-9]\d*$"

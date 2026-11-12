@@ -772,9 +772,8 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     entry = "replay #20011206010804 line 79 ADD_DATE 842626679 19960913"
     marks = [dict(host="www.saved.example.net", year=1996, file=bm, pos=entry, field=f)
              for f in ("bookmark_entry", "page_link")]  # fmt: skip
-    marks.append(
-        dict(host="www.ref.example.net", year=1996, file=bm, pos=392, field="page_referrer")
-    )
+    ref = dict(host="www.ref.example.net", year=1996, file=bm, pos=392, field="page_referrer")
+    marks.append(ref | dict(arc=arc, arc_offset=5949, arc_size=420))  # read from an ARC record
     reg = "https://data.copyright.gov/Registrations/t.csv"
     field = "copyright_registration_title"
     marks.append(dict(host="www.reg.example.net", year=1996, file=reg, pos="TX12", field=field))
@@ -795,7 +794,7 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
         (f"copyright registration 1996 {reg}#TX12 www.reg.example.net",),
         (f"page link 1999 {arc}#{pos} {host}",),
         (f"page link 1999 {replay}#{seen} www.other.example.org",),
-        (f"page referrer 1996 {bm}#392 www.ref.example.net",),
+        (f"page referrer 1996 {arc}#arc 5949 420 #392 www.ref.example.net",),
         (f"proxy origin 1996 {bm}#{span} www.origin.example.net",),
     ]
     # the store's own checks pass on the banked row, and every staged field is a host lane

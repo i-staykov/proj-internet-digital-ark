@@ -157,7 +157,7 @@ _BOOKMARK_ENTRY = (
     " ADD_DATE [0-9]+ [0-9]{8} [^ ]+$"
 )
 # the usage report page and the line its analyser printed the referring URL on, then the host
-_REFERRER_LINE = "^page referrer [0-9]{4} https?://[^ ]+#[0-9]+ [^ ]+$"
+_REFERRER_LINE = "^page referrer [0-9]{4} https?://[^ ]+#(arc [0-9]+ [0-9]+ #)?[0-9]+ [^ ]+$"
 # the registry's published table, the registration number, then the host
 _COPYRIGHT = "^copyright registration [0-9]{4} https?://[^ ]+#[A-Z]{1,4}[0-9]+ [^ ]+$"
 # the proxy report page, the line, the period it covers, the requests and bytes, then the host

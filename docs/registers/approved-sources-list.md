@@ -891,7 +891,7 @@ Decision: master
 ### page_referrer_host / link_source
 - the class: the source side of a dated link graph: a web server's own usage report printed a URL on the exact host as the referrer of a request it logged, so a page on that host linked to the server inside the report's period; banked through `staged_messages` with the field `page_referrer`, the method in `WEB_METHODS`, an addition of kind `referrer`
 - the artifact: the dated usage report pages S5 read (Analog, Webalizer, http-analyze, wusage referrer sections), Wayback captures
-- what dates one item: the report's own period, one month or year inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` the line the URL is printed on
+- what dates one item: the report's own period, one month or year inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` the line the URL is printed on (a page read from an ARC file: the record, `arc <offset> <length> #<line>`)
 - measured 2026-11-11 on all 36,722 rows: his year file lacks 1,993 host-years, 1,099.0 EE against merge261104
 Decision: master
 
