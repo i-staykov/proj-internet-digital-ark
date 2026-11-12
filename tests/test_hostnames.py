@@ -748,12 +748,16 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
 
     arc = "https://archive.org/download/X-1999/X-1999-PART-00005-000002.arc.gz"
     pos = "arc 5949 420 #19990302101500 http://www.example.gov/links.html"
+    replay = "https://web.archive.org/web/19990302101500id_/http://www.example.gov/links.html"
+    seen = "replay #19990302101500 http://www.example.gov/links.html"
     host = "www.linked.example.org"
     mail = dict(host=host, year=1999, file="nntp://news.php.net/php.dev", pos=3, field="from")
     write(tmp_path / "a_list" / "rows.jsonl", json.dumps(mail) + "\n")
     links = [
         dict(host=host, year=1999, file=arc, pos=pos, field="page_link"),
         dict(host=host, year=1998, file=arc, pos=pos, field="page_link"),  # stamped 1999
+        # the same link cited by the page's Wayback replay
+        dict(host="www.other.example.org", year=1999, file=replay, pos=seen, field="page_link"),
     ]
     write(tmp_path / "gov_links" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in links))
     asked: list[tuple] = []
@@ -763,7 +767,7 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     assert asked == [("staged_messages", "link_source")]
     got = hn.ingest_staged_messages(conn, tmp_path / "gov_links")
     assert asked[-1] == ("page_link_host", "link_source")
-    assert (got["page_link_rows"], got["bad_pos"], got["repointed"]) == (0, 1, 1)
+    assert (got["page_link_rows"], got["bad_pos"], got["repointed"]) == (1, 1, 1)
     bm = "https://web.archive.org/web/20011206010804id_/http://a.edu/bookmarks.html"
     entry = "replay #20011206010804 line 79 ADD_DATE 842626679 19960913"
     marks = [dict(host="www.saved.example.net", year=1996, file=bm, pos=entry, field=f)
@@ -774,18 +778,25 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     reg = "https://data.copyright.gov/Registrations/t.csv"
     field = "copyright_registration_title"
     marks.append(dict(host="www.reg.example.net", year=1996, file=reg, pos="TX12", field=field))
+    span = "line 7 period 19960311-19960312 requests 247 bytes 1409747"
+    for pos_ in (span, span.replace("bytes 1409747", "bytes 0")):  # the second: no bytes, refused
+        marks.append(
+            dict(host="www.origin.example.net", year=1996, file=bm, pos=pos_, field="proxy_origin")
+        )
     write(tmp_path / "bookmarks" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in marks))
     got = hn.ingest_staged_messages(conn, tmp_path / "bookmarks")
-    assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 1
-    assert ("page_referrer_host", "link_source") in asked
-    assert asked[-1] == ("copyright_registration_host", "link_source")
+    assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 2
+    for method in ("page_referrer_host", "copyright_registration_host", "proxy_origin_host"):
+        assert (method, "link_source") in asked
     ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
     cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
     assert q(conn, cited + ships + " ORDER BY 1") == [
         (f"bookmark entry 1996 {bm}#{entry} www.saved.example.net",),
         (f"copyright registration 1996 {reg}#TX12 www.reg.example.net",),
         (f"page link 1999 {arc}#{pos} {host}",),
+        (f"page link 1999 {replay}#{seen} www.other.example.org",),
         (f"page referrer 1996 {bm}#392 www.ref.example.net",),
+        (f"proxy origin 1996 {bm}#{span} www.origin.example.net",),
     ]
     # the store's own checks pass on the banked row, and every staged field is a host lane
     from ark.checks import collect_checks

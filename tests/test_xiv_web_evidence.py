@@ -395,6 +395,7 @@ def test_every_web_method_names_one_evidence_kind() -> None:
         "dataset",
         "dated bookmark entry",
         "referrer",
+        "proxy origin-server list",
     }
     assert kinds["page_link_host"] == "link graph" and kinds["crawl_list_node"] == "dataset"
     assert kinds["ia_cdx_domain_sweep"] == kinds[REDIRECT_METHOD] == "capture"
