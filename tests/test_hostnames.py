@@ -775,10 +775,16 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     marks.append(
         dict(host="www.ref.example.net", year=1996, file=bm, pos=392, field="page_referrer")
     )
+    span = "line 7 period 19960311-19960312 requests 247 bytes 1409747"
+    for pos_ in (span, span.replace("bytes 1409747", "bytes 0")):  # the second: no bytes, refused
+        marks.append(
+            dict(host="www.origin.example.net", year=1996, file=bm, pos=pos_, field="proxy_origin")
+        )
     write(tmp_path / "bookmarks" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in marks))
     got = hn.ingest_staged_messages(conn, tmp_path / "bookmarks")
-    assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 1
-    assert asked[-1] == ("page_referrer_host", "link_source")
+    assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 2
+    assert ("page_referrer_host", "link_source") in asked
+    assert asked[-1] == ("proxy_origin_host", "link_source")
     ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
     cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
     assert q(conn, cited + ships + " ORDER BY 1") == [
@@ -786,6 +792,7 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
         (f"page link 1999 {arc}#{pos} {host}",),
         (f"page link 1999 {replay}#{seen} www.other.example.org",),
         (f"page referrer 1996 {bm}#392 www.ref.example.net",),
+        (f"proxy origin 1996 {bm}#{span} www.origin.example.net",),
     ]
     # the store's own checks pass on the banked row, and every staged field is a host lane
     from ark.checks import collect_checks

@@ -316,7 +316,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
 STAGED_MESSAGE_SOURCE = re.compile(
     r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
     r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop|page_link|bookmark_entry"
-    r"|page_referrer)$"
+    r"|page_referrer|proxy_origin)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
@@ -2013,6 +2013,10 @@ MESSAGE_FIELDS = {
     # a referring URL's host in a dated usage report's referrer section: `file` the report
     # page's capture, `pos` the line the analyser printed it on, the year the report's period
     "page_referrer": "page_referrer_host",
+    # an origin server in a proxy's dated list of all sites it fetched from: `file` the report
+    # page's capture, `pos` `line <n> period <first>-<last> requests <n> bytes <n>`, the period
+    # inside the row's year and the bytes above zero
+    "proxy_origin": "proxy_origin_host",
     "received_by": "msg_received_by",  # `Received: ... by <host>`, the receiving MTA's name
     "rdns": "msg_received_rdns",  # the receiver's own lookup in `Received: from x (<host> [ip])`
     "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
@@ -2082,6 +2086,10 @@ def _staged_lines(
             if field == "page_referrer" and not pos.isdigit():
                 counts["bad_pos"] += 1
                 continue
+            span = rf"line \d+ period {year}\d{{4}}-{year}\d{{4}} requests \d+ bytes [1-9]\d*$"
+            if field == "proxy_origin" and not re.match(span, pos):
+                counts["bad_pos"] += 1
+                continue
             if field == "bookmark_entry" and not re.match(mark, pos):
                 counts["bad_pos"] += 1
                 continue
@@ -2146,7 +2154,8 @@ def _staged_batch(
 
 def _staged_value(year: int, file: str, pos: str, host: str, field: str = "") -> str:
     kinds = {"page_link": "page link", "bookmark_entry": "bookmark entry"}
-    kind = {**kinds, "page_referrer": "page referrer"}.get(field, "list message")
+    kinds |= {"page_referrer": "page referrer", "proxy_origin": "proxy origin"}
+    kind = kinds.get(field, "list message")
     return f"{kind} {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
 
 

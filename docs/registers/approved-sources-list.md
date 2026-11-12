@@ -894,3 +894,10 @@ Decision: master
 - what dates one item: the report's own period, one month or year inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` the line the URL is printed on
 - measured 2026-11-11 on all 36,722 rows: his year file lacks 1,993 host-years, 1,099.0 EE against merge261104
 Decision: master
+
+### proxy_origin_host / link_source
+- the class: a caching proxy's own log analyser printed the exact host as an origin server its clients' requests were fetched from in a stated period, with the requests and the bytes returned; banked through `staged_messages` with the field `proxy_origin`, the method in `WEB_METHODS`, an addition of kind `proxy origin-server list`; a row with no bytes, an ftp or connect row, and a name he never held without an Archive capture in any year stay out
+- the artifact: the dated proxy and cache report pages S5 read (pwebstats "Number of Requests to all sites accessed by Server", squid summaries, cache site tables), Wayback captures
+- what dates one item: the report's own period inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` is `line <n> period <first>-<last> requests <n> bytes <n>`
+- measured 2026-11-12 on 2 pages of one university proxy: 40,335 host-years, his year file lacks 3,259, 1,362.1 EE against merge261104
+Decision: master
