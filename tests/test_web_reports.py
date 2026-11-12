@@ -525,3 +525,55 @@ def test_a_wat_file_gives_one_capture_per_host_and_earlier_last_modified_year(tm
         "19990102030405",
         "9",
     )
+
+
+def test_a_proxy_s_sites_page_is_dated_by_its_summary_or_by_the_series_around_it(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "extract_proxy_sites", ROOT / "scripts/sources/web_reports/extract_proxy_sites.py"
+    )
+    proxy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(proxy)
+    sites = [f"www.site{i}.example.com : {900 - i} : {(900 - i) * 3000}" for i in range(6)]
+    head = "<title>P: Frequency of Access to remote sites</title>\n<pre>\n"
+    extra = [
+        "tiny.example.org : 10 : 900",
+        "none.example.org : 4 : 0",
+        "ftp.example.org : 3 : 9000",
+    ]
+
+    def summary(first, last, rows=()):
+        table = "Remote sites accessed by this server\n" + "\n".join(rows)
+        return (
+            f"Period covered: 1 days ({first} - {last})\n{table}\nProtocols proxied\nhttp : 9 : 9\n"
+        )
+
+    pages = {
+        "days/hosts/p.5.total-remote-hosts.html": head + "\n".join(sites + extra),
+        "days/p.5.html": summary("11 Jan 2001", "12 Jan 2001", sites),
+        "days/hosts/p.7.total-remote-hosts.html": head + "later.example.net : 5 : 50000",
+        "days/p.6.html": summary("13 Jan 2001", "13 Jan 2001"),
+        "days/p.9.html": summary("16 Jan 2001", "16 Jan 2001"),
+        "days/hosts/p.4.total-remote-hosts.html": head + "undated.example.net : 5 : 50000",
+    }
+    store, receipts = tmp_path / "store", []
+    for rel, text in pages.items():
+        (store / "px" / rel).parent.mkdir(parents=True, exist_ok=True)
+        (store / "px" / rel).write_text(text)
+        replay = f"https://web.archive.org/web/20020101000000id_/http://px/{rel}"
+        receipts.append(
+            json.dumps({"url": f"http://px/{rel}", "replay": replay, "path": f"px/{rel}"})
+        )
+    (store / "receipts.receipts").write_text("\n".join(receipts) + "\n")
+    proxy.main([str(tmp_path / "out"), str(store)])
+    rows = {
+        r["host"]: r
+        for r in map(json.loads, (tmp_path / "out/rows.jsonl").read_text().splitlines())
+    }
+    assert set(rows) == {f"www.site{i}.example.com" for i in range(6)} | {
+        "tiny.example.org",
+        "later.example.net",
+    }, "no bytes, an ftp name and a page below its series' first summary give no row"
+    top = rows["www.site0.example.com"]
+    assert top["pos"] == "line 3 period 20010111-20010112 requests 900 bytes 2700000"
+    assert (rows["tiny.example.org"]["tier"], top["tier"]) == ("low_bytes", "answered")
+    assert rows["later.example.net"]["pos"].startswith("line 3 period 20010113-20010116 ")
