@@ -127,9 +127,10 @@ ERROR_STATUS = r"(^| )status [45][0-9][0-9]( |$)"
 # the replay check marks its row `replay failed` before the token it names last (`cdx capture
 # <ts> replay failed <host>`, `replay failed <ts>`), so the record leaves the masters and ships
 # as a candidate, whatever its method or status. A link-graph row a review takes back is marked
-# `link withdrawn` the same way and leaves alike.
-REPLAY_FAILED = r"(^| )(replay failed|link withdrawn)( |$)"
+# `link withdrawn` the same way, a proxy row on a per-session wildcard name `session name`.
+REPLAY_FAILED = r"(^| )(replay failed|link withdrawn|session name)( |$)"
 LINK_WITHDRAWN = r"(^| )link withdrawn( |$)"
+SESSION_NAME = r"(^| )session name( |$)"
 
 
 def web_evidence_sql(alias: str = "e") -> str:

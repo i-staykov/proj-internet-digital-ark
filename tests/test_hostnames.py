@@ -886,14 +886,18 @@ def test_a_capture_that_does_not_replay_leaves_the_masters_as_a_candidate(tmp_pa
     add_candidate(conn, "example.com", sid)
     url = "https://web.archive.org/web/20010520154251/http://example.com/"
     page = "page link 2001 https://a.org/f.arc.gz#arc 1 2 #20010101000000 http://a.gov/"
-    rows = {  # a host's capture, a registrable's bare stamp, one that replays, a link taken back
+    span = "line 7 period 20010311-20010312 requests 247 bytes 1409747"
+    sess = "www-0123456789abcdef.example.com"  # a per-session wildcard name in a proxy list
+    rows = {  # a host's capture, a bare stamp, one that replays, a link and a proxy row taken back
         "www.example.com": ("cdx capture 20010520154251 www.example.com", None),
         "example.com": ("20010520154251", url),
         "ok.example.com": ("cdx capture 20010601000000 ok.example.com", None),
         "link.example.com": (f"{page} link.example.com", None),
+        sess: (f"proxy origin 2001 {url}#{span} {sess}", None),
     }
+    methods = {"link.example.com": "page_link_host", sess: "proxy_origin_host"}
     for name, (value, link) in rows.items():
-        method = "page_link_host" if name == "link.example.com" else "ia_cdx_domain_sweep"
+        method = methods.get(name, "ia_cdx_domain_sweep")
         eid = record_evidence(conn, "example.com", sid, 2001, "cdx_timestamp", value, link,
                               method)  # fmt: skip
         if name == "example.com":
@@ -903,23 +907,24 @@ def test_a_capture_that_does_not_replay_leaves_the_masters_as_a_candidate(tmp_pa
             conn.execute(f"{sql} VALUES (?, 'example.com', 2001, ?)", [name, eid])
     fails = write(tmp_path / "fail.tsv", "host\tyear\tts\twhy\n" + "".join(
         f"{h}\t2001\t20010520154251\treplay moved\n" for h in ("www.example.com", "example.com")
-    ) + "link.example.com\t2001\t\tdoubled name\n")  # fmt: skip
+    ) + "link.example.com\t2001\t\tdoubled name\n" + f"{sess}\t2001\t\thex\n")  # fmt: skip
     ships = f"""SELECT r.name, {qualifies_sql("e", "r.name")} FROM (
         SELECT hostname AS name, evidence_id FROM hostname_year
         UNION ALL SELECT domain, evidence_id FROM domain_year) r
         JOIN evidence e USING (evidence_id) ORDER BY 1"""
-    assert [ok for _, ok in q(conn, ships)] == [True, True, True, True]
-    assert hn.mark_replay_failed(conn, fails) == {"listed": 3, "rows_marked": 3}
+    assert [ok for _, ok in q(conn, ships)] == [True, True, True, True, True]
+    assert hn.mark_replay_failed(conn, fails) == {"listed": 4, "rows_marked": 4}
     hn.mark_replay_failed(conn, fails, write=True)
     assert q(conn, ships) == [
         ("example.com", False), ("link.example.com", False), ("ok.example.com", True),
-        ("www.example.com", False),
+        (sess, False), ("www.example.com", False),
     ]  # fmt: skip
     values = q(conn, "SELECT evidence_value FROM evidence ORDER BY 1")
     assert [v for (v,) in values] == [
         "cdx capture 20010520154251 replay failed www.example.com",
         "cdx capture 20010601000000 ok.example.com",
         f"{page} link withdrawn link.example.com",
+        f"proxy origin 2001 {url}#{span} session name {sess}",
         "replay failed 20010520154251",
     ]
     assert hn.mark_replay_failed(conn, fails, write=True)["rows_marked"] == 0
