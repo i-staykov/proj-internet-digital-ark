@@ -27,7 +27,10 @@ if [ -n "$REDUCE" ]; then
 fi
 pattern="$here/report_urls.ere"
 [ -n "$PATTERN" ] && pattern=pattern.ere && printf '%s\n' "$PATTERN" > pattern.ere
-python3 "$here/fetch_ranges.py" "$URL" "${CONNECTIONS:-4}" ${LAST:+"$LAST"} 2> out/progress.txt \
+# CONNECTIONS 0: the fetcher itself, the whole file in one request (a host with a crawl delay).
+read="$here/fetch_ranges.py $URL ${CONNECTIONS:-4} $LAST"
+[ "$CONNECTIONS" = 0 ] && read="$here/../../harness/fetch.py --max-bytes 1T --to - $URL"
+python3 $read 2> out/progress.txt \
   | ${OPEN:-cat} 2> /dev/null \
   | LC_ALL=C grep -a -i -E --line-buffered -f "$pattern" > out/hits.txt
 echo "${PIPESTATUS[*]}" > out/done
