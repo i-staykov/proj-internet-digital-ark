@@ -775,6 +775,9 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     marks.append(
         dict(host="www.ref.example.net", year=1996, file=bm, pos=392, field="page_referrer")
     )
+    reg = "https://data.copyright.gov/Registrations/t.csv"
+    field = "copyright_registration_title"
+    marks.append(dict(host="www.reg.example.net", year=1996, file=reg, pos="TX12", field=field))
     span = "line 7 period 19960311-19960312 requests 247 bytes 1409747"
     for pos_ in (span, span.replace("bytes 1409747", "bytes 0")):  # the second: no bytes, refused
         marks.append(
@@ -783,12 +786,13 @@ def test_a_page_link_row_enters_the_claim_only_under_its_own_approval(tmp_path, 
     write(tmp_path / "bookmarks" / "rows.jsonl", "".join(json.dumps(r) + "\n" for r in marks))
     got = hn.ingest_staged_messages(conn, tmp_path / "bookmarks")
     assert ("bookmark_entry_host", "link_source") in asked and got["bad_pos"] == 2
-    assert ("page_referrer_host", "link_source") in asked
-    assert asked[-1] == ("proxy_origin_host", "link_source")
+    for method in ("page_referrer_host", "copyright_registration_host", "proxy_origin_host"):
+        assert (method, "link_source") in asked
     ships = web_evidence_exists("hy.evidence_id", "hy.hostname")
     cited = "SELECT evidence_value FROM hostname_year hy JOIN evidence USING (evidence_id) WHERE "
     assert q(conn, cited + ships + " ORDER BY 1") == [
         (f"bookmark entry 1996 {bm}#{entry} www.saved.example.net",),
+        (f"copyright registration 1996 {reg}#TX12 www.reg.example.net",),
         (f"page link 1999 {arc}#{pos} {host}",),
         (f"page link 1999 {replay}#{seen} www.other.example.org",),
         (f"page referrer 1996 {bm}#392 www.ref.example.net",),
