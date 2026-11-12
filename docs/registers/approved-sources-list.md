@@ -894,3 +894,10 @@ Decision: master
 - what dates one item: the report's own period, one month or year inside the row's year; a span across a year end dates nothing; `file` is the page's capture, `pos` the line the URL is printed on
 - measured 2026-11-11 on all 36,722 rows: his year file lacks 1,993 host-years, 1,099.0 EE against merge261104
 Decision: master
+
+### copyright_registration_host / link_source
+- the class: the brief's rule 2(3), a custodian dataset's item-level dated record: a US Copyright Office registration whose title names the exact host, banked through `staged_messages` with the field `copyright_registration_title`, an addition of kind `dataset`; a name he never held ships only with a capture of it in some year (rule d)
+- the artifact: the Office's published machine-readable registration tables at data.copyright.gov
+- what dates one item: the registration's own publication date inside the row's year; `file` is the table, `pos` the registration number
+- measured 2026-11-12: 215 rows, 134.3 EE against merge261104
+Decision: master

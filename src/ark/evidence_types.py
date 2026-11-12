@@ -74,6 +74,8 @@ WEB_METHODS = frozenset(
         "bookmark_entry_host",
         # a dated usage report's referrer line: a logged request came from a page on the host
         "page_referrer_host",
+        # the US Copyright Office's registration record naming the host, dated by its publication
+        "copyright_registration_host",
     }
 )
 
@@ -82,7 +84,7 @@ WEB_METHODS = frozenset(
 # link graph naming the host, a dated dataset record (a crawl list's fetched page, an HTTP
 # Archive request), else a capture of the host from an archive's index or extract.
 _LINK_GRAPH = ("ukwa_host_link_graph", "ukwa_hostgrain", "bl_geoindex_extract", "page_link_host")
-_DATASET = ("crawl_list_node", "httparchive_har_entry")
+_DATASET = ("crawl_list_node", "httparchive_har_entry", "copyright_registration_host")
 _BOOKMARK = ("bookmark_entry_host",)
 _REFERRER = ("page_referrer_host",)
 
@@ -150,6 +152,8 @@ _BOOKMARK_ENTRY = (
 )
 # the usage report page and the line its analyser printed the referring URL on, then the host
 _REFERRER_LINE = "^page referrer [0-9]{4} https?://[^ ]+#[0-9]+ [^ ]+$"
+# the registry's published table, the registration number, then the host
+_COPYRIGHT = "^copyright registration [0-9]{4} https?://[^ ]+#[A-Z]{1,4}[0-9]+ [^ ]+$"
 _HAR = "^har entry [0-9]{14} status [23][0-9]{2} [^ ]+$"
 _STAMPED = (
     "^((replay failed )?[0-9]{14}"
@@ -179,6 +183,7 @@ def exact_host_expr(alias: str) -> str:
         WHEN regexp_matches({v}, '{_CAPTURE}') OR regexp_matches({v}, '{_LINK}')
           OR regexp_matches({v}, '{_HAR}') OR regexp_matches({v}, '{_PAGE_LINK}')
           OR regexp_matches({v}, '{_BOOKMARK_ENTRY}') OR regexp_matches({v}, '{_REFERRER_LINE}')
+          OR regexp_matches({v}, '{_COPYRIGHT}')
           THEN lower(regexp_extract({v}, ' ([^ ]+)$', 1))
         WHEN regexp_matches({v}, '{_STAMPED}') AND {url_ts} = regexp_extract({v}, '({_TS})$', 1)
           THEN nullif({url_host}, '')

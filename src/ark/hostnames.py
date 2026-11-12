@@ -316,7 +316,7 @@ WEB_FACING_HOST_SOURCES = frozenset(
 STAGED_MESSAGE_SOURCE = re.compile(
     r"^msg_[a-z0-9_]+__(?:received_by|rdns|body_url|from|message_id"
     r"|news_header|lease|header_more|body_mention|visitor_rdns|trace_hop|page_link|bookmark_entry"
-    r"|page_referrer)$"
+    r"|page_referrer|copyright_registration_title)$"
 )
 # `www.<parent>` is a record here, per his section XII ("a valid base hostname and
 # distinct valid subdomain hostnames may each be annual records when each has year-specific
@@ -2012,6 +2012,9 @@ MESSAGE_FIELDS = {
     # a referring URL's host in a dated usage report's referrer section: `file` the report
     # page's capture, `pos` the line the analyser printed it on, the year the report's period
     "page_referrer": "page_referrer_host",
+    # a copyright registration whose title names the host: `file` the Copyright Office's
+    # published table, `pos` the registration number, the year its publication date's
+    "copyright_registration_title": "copyright_registration_host",
     "received_by": "msg_received_by",  # `Received: ... by <host>`, the receiving MTA's name
     "rdns": "msg_received_rdns",  # the receiver's own lookup in `Received: from x (<host> [ip])`
     "body_url": "msg_body_url",  # host of an http, https or ftp URL in the body
@@ -2076,6 +2079,9 @@ def _staged_lines(
                 counts["bad_pos"] += 1
                 continue
             mark = rf"replay #\d{{14}} line \d+ ADD_DATE \d+ {year}\d{{4}}$"
+            if field == "copyright_registration_title" and not re.match(r"[A-Z]{1,4}\d+$", pos):
+                counts["bad_pos"] += 1
+                continue
             if field == "page_referrer" and not pos.isdigit():
                 counts["bad_pos"] += 1
                 continue
@@ -2143,7 +2149,11 @@ def _staged_batch(
 
 def _staged_value(year: int, file: str, pos: str, host: str, field: str = "") -> str:
     kinds = {"page_link": "page link", "bookmark_entry": "bookmark entry"}
-    kind = {**kinds, "page_referrer": "page referrer"}.get(field, "list message")
+    kinds |= {
+        "page_referrer": "page referrer",
+        "copyright_registration_title": "copyright registration",
+    }
+    kind = kinds.get(field, "list message")
     return f"{kind} {year} {file}#{pos} {host}"  # the year first, as usenet_item_rows
 
 
