@@ -12,7 +12,9 @@ requests and the bytes. Read:
   summary of the series rises in date with its number and the two fall in one year;
 - the ANU cache software's weekly "Number of Requests by Site" (`09JUL2000 - 15JUL2000`);
 - squid access-summary text: `TIMESTAMP|FIRST`, `TIMESTAMP|LAST` (epoch seconds) and
-  `SE|http://host|COUNT|<code> n`, `SE|http://host|BYTES|<code> n`.
+  `SE|http://host|COUNT|<code> n`, `SE|http://host|BYTES|<code> n`;
+- its HTML form, "Summary of Server Usage" under `Statistics from [<date>] to [<date>]`;
+- prostat's "Remote sites report" under `Statistics from <date> to <date>` (`P&eacute;riode`).
 
     uv run python scripts/sources/web_reports/extract_proxy_sites.py OUT_DIR STORE [STORE ...]
 
@@ -45,6 +47,20 @@ ANU_ROW = re.compile(
 )
 NOT_WEB = re.compile(r":(?:443|21|563)$|^ftp\d*\.", re.I)
 SERIES = re.compile(r"(.+)\.(\d+)(\.html?)$")
+CTIME = r"[A-Z][a-z]{2}\s+([A-Z][a-z]{2})\s+(\d{1,2})\s+\d\d:\d\d:\d\d\s+((?:19|20)\d\d)"
+HTML_STAMP = re.compile(r"Statistics from \[" + CTIME + r"\] to \[" + CTIME + r"\]")
+HTML_ROW = re.compile(r'<a href="http://([^"/\s]+)/?">')
+CELL = re.compile(r"<t[dh][^>]*>\s*([^<]*)", re.I)
+PRO_STAMP = re.compile(
+    r"(?:Statistics from|P(?:&eacute;|\xe9)riode\s*:)\s*(.{8,24}?)\s+(?:to|-&gt;|->)\s+(.{8,24}?)"
+    r"\s*(?:\(|<|$)",
+    re.M,
+)
+PRO_ROW = re.compile(
+    r"<td>\s*([A-Za-z0-9][A-Za-z0-9.\-]*\.[A-Za-z]{2,})\s*<td align=\"right\">\s*([\d .,]+?)\s*"
+    r"<td align=\"right\">\s*[\d.,]+%\s*<td align=\"right\">\s*([\d .,]+?)\s*<td",
+    re.I,
+)
 
 
 def num(text: str) -> int:
@@ -138,10 +154,48 @@ def access_summary(text, lines, path):
         yield host, first, last, got["COUNT"], got["BYTES"], got["origin"], got["n"], stamp
 
 
+def squid_html(text, lines, path):
+    m = HTML_STAMP.search(text[:20000])
+    if not m or "Summary of Server Usage" not in text:
+        return
+    try:
+        start, end = day(*m.group(2, 1, 3)), day(*m.group(5, 4, 6))
+    except (KeyError, ValueError):
+        return
+    inside = False
+    for n, line in enumerate(lines, 1):
+        if "<caption>" in line:
+            inside = "Summary of Server Usage" in line
+        r = HTML_ROW.search(line) if inside else None
+        if r:  # after the server: UDP counts, %all, %hit, TCP counts, %all, %hit, Mbytes
+            cells = [c.strip() for c in CELL.findall(line[r.end() :])]
+            try:
+                count, size = num(cells[3]), int(float(cells[6]) * 1e6)
+            except (IndexError, ValueError):
+                continue
+            hit = cells[5].rstrip("%").strip()
+            yield r.group(1), start, end, count, size, hit.isdigit() and int(hit) > 0, n, m.group(0)
+
+
+def prostat(text, lines, path):
+    head = re.search(r'<a NAME="Request">', text, re.I)
+    m = PRO_STAMP.search(text[:30000])
+    start, end = (ehr.a_date(m.group(i)) for i in (1, 2)) if m else (None, None)
+    if not head or not start or not end:
+        return
+    stop = re.compile(r"<h2", re.I).search(text, head.end() + 10)
+    stamp = " ".join(ehr.TAG.sub(" ", m.group(0)).split()).rstrip("(<").strip()
+    for r in PRO_ROW.finditer(text, head.end(), stop.start() if stop else len(text)):
+        n = len(re.findall(r"\r\n|\r|\n", text[: r.start(1)])) + 1
+        yield r.group(1), start, end, num(r.group(2)), num(r.group(3)), False, n, stamp
+
+
 READERS = {
     "pwebstats-remote-sites": pweb_remote,
     "anu-cache-sites": anu,
     "squid-access-summary": access_summary,
+    "squid-statistics": squid_html,
+    "prostat": prostat,
 }
 
 

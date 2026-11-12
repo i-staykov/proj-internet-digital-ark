@@ -554,6 +554,13 @@ def test_a_proxy_s_sites_page_is_dated_by_its_summary_or_by_the_series_around_it
         "days/p.6.html": summary("13 Jan 2001", "13 Jan 2001"),
         "days/p.9.html": summary("16 Jan 2001", "16 Jan 2001"),
         "days/hosts/p.4.total-remote-hosts.html": head + "undated.example.net : 5 : 50000",
+        "squid.html": "<h2>Statistics from [Fri Dec 25 00:15:04 1998] to [Sat Dec 26 00:14:59 1998]"
+        "</h2>\n<caption><h2>4. Summary of Server Usage</h2></caption>\n"
+        '<td><a href="http://sq.example.jp/">x</a> <td> 0 <td> - <td> - <td> 1714 <td> 3% <td> 25%'
+        " <td> 5.43 <td> 1%\n",
+        "pro.html": "<b>Statistics from Sep 08 1997 00:54 to Sep 14 1997 21:57\n(6.9 days).</b>\n"
+        '<h2><a NAME="Request">Remote sites report</a></h2>\n<tr><td>pro.example.com\n'
+        '<td align="right"> 425<td align="right"> 4.74% <td align="right"> 4.687.259<td> 5%\n<h2>',
     }
     store, receipts = tmp_path / "store", []
     for rel, text in pages.items():
@@ -572,8 +579,18 @@ def test_a_proxy_s_sites_page_is_dated_by_its_summary_or_by_the_series_around_it
     assert set(rows) == {f"www.site{i}.example.com" for i in range(6)} | {
         "tiny.example.org",
         "later.example.net",
+        "sq.example.jp",
+        "pro.example.com",
     }, "no bytes, an ftp name and a page below its series' first summary give no row"
     top = rows["www.site0.example.com"]
     assert top["pos"] == "line 3 period 20010111-20010112 requests 900 bytes 2700000"
     assert (rows["tiny.example.org"]["tier"], top["tier"]) == ("low_bytes", "answered")
     assert rows["later.example.net"]["pos"].startswith("line 3 period 20010113-20010116 ")
+    assert (
+        rows["sq.example.jp"]["pos"]
+        == "line 3 period 19981225-19981226 requests 1714 bytes 5430000"
+    )
+    assert (
+        rows["pro.example.com"]["pos"]
+        == "line 4 period 19970908-19970914 requests 425 bytes 4687259"
+    )
