@@ -2007,8 +2007,8 @@ MESSAGE_FIELDS = {
     # `replay #<capture stamp> <page URL>`; the stamp inside the row's year
     "page_link": "page_link_host",
     # a captured Netscape bookmark file's `A` entry for the host: `file` the file's Wayback
-    # capture, `pos` `replay #<capture stamp> line <n> ADD_DATE <epoch> <yyyymmdd>`, the
-    # browser's ADD_DATE inside the row's year
+    # capture, `pos` `replay #<capture stamp> line <n> ADD_DATE|LAST_VISIT <epoch> <yyyymmdd>`,
+    # the browser's save or last-visit stamp inside the row's year
     "bookmark_entry": "bookmark_entry_host",
     # a referring URL's host in a dated usage report's referrer section: `file` the report
     # page's capture, `pos` the line the analyser printed it on, the year the report's period
@@ -2085,7 +2085,7 @@ def _staged_lines(
             ):
                 counts["bad_pos"] += 1
                 continue
-            mark = rf"replay #\d{{14}} line \d+ ADD_DATE \d+ {year}\d{{4}}$"
+            mark = rf"replay #\d{{14}} line \d+ (ADD_DATE|LAST_VISIT) \d+ {year}\d{{4}}$"
             if field == "copyright_registration_title" and not re.match(r"[A-Z]{1,4}\d+$", pos):
                 counts["bad_pos"] += 1
                 continue

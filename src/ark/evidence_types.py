@@ -70,7 +70,7 @@ WEB_METHODS = frozenset(
         "bl_geoindex_extract",
         # a captured page's own link to the host, the page dated by its capture stamp
         "page_link_host",
-        # a captured bookmark file's entry for the host, dated by the browser's own ADD_DATE
+        # a captured bookmark file's entry for the host, dated by its ADD_DATE or LAST_VISIT
         "bookmark_entry_host",
         # a dated usage report's referrer line: a logged request came from a page on the host
         "page_referrer_host",
@@ -152,10 +152,10 @@ _CAPTURE = "^cdx capture [0-9]{14} (status [0-9]{3} )?(replay failed )?[^ ]+$"
 _LINK = "^host_link_graph:[0-9]{4} [^ ]+$"
 # the linking page as its ARC record or its replay, its capture stamp and URL, the linked host
 _PAGE_LINK = "^page link [0-9]{4} https?://[^ ]+#(arc [0-9]+ [0-9]+|replay) #[0-9]{14} [^ ]+ [^ ]+$"
-# the bookmark file's capture, the entry's line and its ADD_DATE (epoch, then yyyymmdd), the host
+# the bookmark file's capture, the entry's line, ADD_DATE or LAST_VISIT (epoch, yyyymmdd), the host
 _BOOKMARK_ENTRY = (
     "^bookmark entry [0-9]{4} https?://[^ ]+#replay #[0-9]{14} line [0-9]+"
-    " ADD_DATE [0-9]+ [0-9]{8} [^ ]+$"
+    " (ADD_DATE|LAST_VISIT) [0-9]+ [0-9]{8} [^ ]+$"
 )
 # the usage report page and the line its analyser printed the referring URL on, then the host
 _REFERRER_LINE = "^page referrer [0-9]{4} https?://[^ ]+#(arc [0-9]+ [0-9]+ #)?[0-9]+ [^ ]+$"
