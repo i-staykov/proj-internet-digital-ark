@@ -1,5 +1,6 @@
 """The visitor-report extractor: what dates a page, and which tables are hosts."""
 
+import argparse
 import gzip
 import importlib.util
 import io
@@ -594,3 +595,95 @@ def test_a_proxy_s_sites_page_is_dated_by_its_summary_or_by_the_series_around_it
         rows["pro.example.com"]["pos"]
         == "line 4 period 19970908-19970914 requests 425 bytes 4687259"
     )
+
+
+def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes(
+    tmp_path, monkeypatch
+):
+    spec = importlib.util.spec_from_file_location(
+        "wayback_crawl", ROOT / "scripts/sources/web_reports/wayback_crawl.py"
+    )
+    crawl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(crawl)
+    monkeypatch.setattr(crawl, "repo_fetcher", lambda: None)  # its robots reader asks the net
+
+    ask, archive, calls = "/web/19970701000000id_/", {"/robots.txt": (404, {}, b"")}, []
+
+    def capture(url, stamp, real, body=None):
+        final = f"/web/{stamp}id_/{real}"
+        archive[ask + url] = (302, {"location": final}, b"")
+        if body is not None:
+            head = {"content-type": "text/html", "link": f'<{real}>; rel="original", <x>'}
+            archive[final] = (200, head, body.encode())
+
+    # The bare host answers as its www twin; one page links three hosts, one of them twice.
+    capture(
+        "http://a.com/",
+        "19970605000000",
+        "http://www.a.com:80/",
+        '<a href="links.html">Cool Sites</a> <a href="old.html">other</a>'
+        '<A HREF="http://www.b.org/">b</A> <a href="http://A.com/">home</a> <a href="p.gif">x</a>',
+    )
+    capture(
+        "http://www.a.com/links.html",
+        "19970610000000",
+        "http://www.a.com/links.html",
+        '<a href=http://c.edu/x>c</a> <a href="http://www.b.org/y">b</a> <a href="http://d.net">d</a>',
+    )
+    capture("http://www.a.com/old.html", "20010101000000", "http://www.a.com/old.html")  # unread
+    capture("http://www.b.org/", "19990101000000", "http://www.b.org/", "an off-year root")
+    capture("http://d.net/", "19970702000000", "http://d.net/", "no links")
+    archive[ask + "http://c.edu/"] = (404, {}, b"")
+
+    def get(self, path):
+        calls.append(path)
+        return archive[path]
+
+    monkeypatch.setattr(crawl.Crawl, "get", get)
+    mine = crawl.shard_of("a.com", 2)
+    assert crawl.shard_of("www.a.com", 2) == mine, "twins share a job"
+    linked = ["www.b.org", "c.edu", "d.net"]
+    here = [h for h in linked if crawl.shard_of(h, 2) == mine]
+    seeds = tmp_path / "seeds.txt"
+    seeds.write_text("a.com\n")
+    out = tmp_path / "out"
+    args = argparse.Namespace(
+        seeds=[str(seeds)], year=1997, years="", threads=2, interval=0.0, minutes=1.0
+    )
+    args.shard, args.site_pages, args.out = f"{mine}/2", 6, str(out)
+    crawl.Crawl(args).run()
+
+    rows = [
+        json.loads(x)
+        for x in gzip.decompress((out / "rows.jsonl.gz").read_bytes()).split(b"\n")[:-1]
+    ]
+    links = {
+        (r["host"], r["year"], r["source"], r["outbound"]) for r in rows if r["kind"] == "link"
+    }
+    assert links == {
+        ("www.b.org", "1997", "http://www.a.com/", 1),
+        ("c.edu", "1997", "http://www.a.com/links.html", 3),
+        ("d.net", "1997", "http://www.a.com/links.html", 3),
+    }, "one row a linked host and year, dated and sourced by the real capture"
+    captures = {(r["host"], r["year"], r["asked"]) for r in rows if r["kind"] == "capture"}
+    want = {("www.a.com", "1997", "a.com")}
+    want |= {("www.b.org", "1999", "www.b.org")} if "www.b.org" in here else set()
+    want |= {("d.net", "1997", "d.net")} if "d.net" in here else set()
+    assert captures == want, "a root's capture names the real host, in any year"
+    receipts = {
+        r["url"]: r for r in map(json.loads, (out / "receipts.jsonl").read_text().splitlines())
+    }
+    assert set(receipts) == {
+        "http://a.com/",
+        "http://www.a.com/links.html",
+        "http://www.a.com/old.html",
+    } | {f"http://{h}/" for h in here}
+    assert receipts["http://www.a.com/old.html"]["status"] == 302, "an off-year page is not read"
+    assert (out / "frontier_other.txt").read_text().split() == [h for h in linked if h not in here]
+
+    for name in crawl.JOURNALS:  # an artifact holds the packed journals only
+        (out / name).unlink()
+    asked = len(calls)
+    again = crawl.Crawl(args)
+    again.run()
+    assert len(calls) == asked and again.n["asked"] == len(receipts), "nothing is asked twice"

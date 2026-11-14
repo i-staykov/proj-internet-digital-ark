@@ -1,0 +1,115 @@
+name: runner-crawl
+
+# Dated link rows crawled out of Wayback replays on runners' own addresses
+# (scripts/sources/web_reports/wayback_crawl.py). A job owns a shard of the hosts: it starts
+# from its share of the seeds, follows the pages that look like link collections and asks the
+# root of every host they link, so no list of pages is carried in. `run` goes on from an
+# earlier run: a job takes that run's journals for its own shard (asked URLs are skipped, the
+# frontier is kept) and every job's other-shard hosts as seeds. The crawler never asks the
+# CDX, keeps one connection a thread, and a 429, a 503 or a failed connection rests the whole
+# job, ten in a row ending it. Seeds are public names only: a dispatch's inputs are public.
+# An artifact holds hostnames, URLs and stamps of archived pages, no page body. No model, no
+# secret.
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: hostnames or URLs, one a line, plain or gzip then base64
+        default: ""
+      run:
+        description: an earlier runner-crawl run to go on from (same shards)
+        default: ""
+      year:
+        description: the year asked (replays nearest its 1 July)
+        default: "1997"
+      years:
+        description: the capture years a page is kept in, as 1996-1998; empty for the year asked
+        default: ""
+      shards:
+        description: jobs, each on its own address and its own hosts, 20 at most
+        default: "4"
+      threads:
+        description: connections a job keeps
+        default: "4"
+      interval:
+        description: seconds between a thread's asks
+        default: "1.0"
+      minutes:
+        description: a job's time budget, 320 at most
+        default: "300"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      index: ${{ steps.m.outputs.index }}
+      shards: ${{ steps.m.outputs.shards }}
+    steps:
+      - id: m
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          N=$((SHARDS > 20 ? 20 : SHARDS))
+          echo "shards=$N" >> "$GITHUB_OUTPUT"
+          echo "index=[$(seq -s, 0 $((N - 1)))]" >> "$GITHUB_OUTPUT"
+
+  crawl:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        index: ${{ fromJSON(needs.plan.outputs.index) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # A crawler's early end is in its stats, never a red run: the next dispatch goes on.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          SEEDS: ${{ inputs.seeds }}
+          RUN: ${{ inputs.run }}
+          YEAR: ${{ inputs.year }}
+          YEARS: ${{ inputs.years }}
+          SHARDS: ${{ needs.plan.outputs.shards }}
+          THREADS: ${{ inputs.threads }}
+          INTERVAL: ${{ inputs.interval }}
+          MINUTES: ${{ inputs.minutes }}
+          INDEX: ${{ matrix.index }}
+        run: |
+          mkdir -p in out
+          if [ -n "$RUN" ]; then
+            gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --pattern 'crawl_*' --dir in \
+              || echo "no artifacts of run $RUN"
+            cp "in/crawl_${RUN}_${INDEX}"/*.gz out/ 2>/dev/null || true
+          fi
+          find in -name frontier_other.txt.gz | sort > waves.txt
+          python3 scripts/sources/web_reports/wayback_crawl.py env:SEEDS $(cat waves.txt) \
+            --year "$YEAR" --years "${YEARS:-$YEAR}" --threads "$THREADS" --interval "$INTERVAL" \
+            --minutes "$((MINUTES > 320 ? 320 : MINUTES))" --shard "$INDEX/$SHARDS" --out out \
+            || echo "crawler exit $?"
+
+      # A job killed before it packed still leaves its journals.
+      - if: always()
+        run: |
+          mkdir -p up
+          for f in rows.jsonl receipts.jsonl frontier_other.txt frontier.txt; do
+            [ -f "out/$f" ] && gzip -9 -c "out/$f" > "up/$f.gz"
+          done
+          cp out/stats.json up/ 2>/dev/null || true
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crawl_${{ github.run_id }}_${{ matrix.index }}
+          path: up
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: ignore
