@@ -35,8 +35,9 @@ Outputs under --out, no page bodies:
 Shards: a host belongs to shard crc32(host without a leading www.) mod n, so parallel jobs
 never ask the same host and twins share a job.
 
-Politeness: one kept-alive connection a thread, at least --interval seconds between a
-thread's asks, a 429, a 503 or a failed connection rests the whole job (60 s, doubling while
+Politeness: one kept-alive connection a thread, opened a second apart; one start gate over
+every GET of the job, redirect hops included, --interval seconds between starts whatever the
+thread count; a 429, a 503 or a failed connection rests the whole job (60 s, doubling while
 they repeat, 900 s at most) and ten rests in a row end it. The Archive's robots.txt is read
 once and a refusal ends the job. Inside the repo the project fetcher supplies the User-Agent
 and the robots reader; alone, a User-Agent naming a research crawler.
@@ -86,7 +87,10 @@ NOT_PAGE = re.compile(
     r"|class|css|js|doc|xls|ppt)$",
     re.IGNORECASE,
 )
-SEED, WORDY, ROOT, PLAIN = 1, 0, 2, 3  # frontier priorities, lowest first
+# Frontier priorities, lowest first: a link-collection page always goes before a seed or a
+# root, since roots mostly link few hosts and collections are what pays.
+SEED, WORDY, ROOT, PLAIN = 1, 0, 2, 3
+STAGGER = 1.0  # seconds between the threads' first connections: never all at once
 JOURNALS = ("rows.jsonl", "receipts.jsonl", "frontier_other.txt", "frontier.txt")
 
 
@@ -241,6 +245,8 @@ class Crawl:
         self.rows: set[tuple[str, str]] = set()
         self.stop = ""
         self.rest_until = 0.0
+        self.gate = threading.Lock()
+        self.next_start = 0.0
         self.n = {"asked": 0, "kept": 0, "rows": 0, "captures": 0, "rests": 0, "rests_row": 0}
         self.n["other"] = 0
         for name in JOURNALS:  # an earlier job's packed journals: go on from them
@@ -485,14 +491,26 @@ class Crawl:
             }
         )
 
+    def turn(self) -> None:
+        """The one start gate of the job: a GET of any thread, a redirect hop included, starts
+        --interval after the last one and never inside a rest, so the request rate does not
+        grow with the threads. The rest is read again after every sleep: one set meanwhile
+        still binds. A job that ends during a rest sends nothing more."""
+        with self.gate:
+            while True:
+                now = time.time()
+                if now < self.rest_until:
+                    if self.stop or now >= self.deadline:
+                        raise OSError("the job ended during a rest")
+                elif now >= self.next_start:
+                    break
+                time.sleep(min(1.0, max(0.001, max(self.rest_until, self.next_start) - now)))
+            self.next_start = time.time() + self.interval
+
     def fetch(self, path: str) -> tuple[int, dict, bytes]:
-        """A GET that first waits out a rest: a rest binds every request, a redirect hop of an
-        ask under way included. A kept-alive connection gone idle is asked once more on a
-        fresh one; a fresh connection that fails is the Archive refusing, which is a rest."""
-        while time.time() < self.rest_until:
-            if self.stop or time.time() >= self.deadline:
-                raise OSError("the job ended during a rest")
-            time.sleep(min(1.0, max(0.01, self.rest_until - time.time())))
+        """A GET through the start gate. A kept-alive connection gone idle is asked once more
+        on a fresh one; a fresh connection that fails is the Archive refusing, which is a rest."""
+        self.turn()
         reused = getattr(self.local, "conn", None) is not None
         try:
             return self.get(path)
@@ -501,8 +519,8 @@ class Crawl:
                 raise
             return self.get(path)
 
-    def worker(self) -> None:
-        next_start = 0.0
+    def worker(self, k: int = 0) -> None:
+        time.sleep(k * STAGGER)
         while True:
             with self.cond:
                 while True:
@@ -518,11 +536,8 @@ class Crawl:
                         return
                     self.cond.wait(1.0)
             try:
-                while time.time() < max(self.rest_until, next_start) and not self.stop:
-                    if time.time() >= self.deadline:
-                        break
-                    time.sleep(min(1.0, max(0.01, max(self.rest_until, next_start) - time.time())))
-                next_start = time.time() + self.interval
+                while time.time() < min(self.rest_until, self.deadline) and not self.stop:
+                    time.sleep(min(1.0, max(0.01, self.rest_until - time.time())))
                 if not self.stop and time.time() < self.deadline:
                     self.ask(*item)
                 else:
@@ -551,7 +566,10 @@ class Crawl:
             (self.out / "stats.json").write_text(json.dumps(stats) + "\n")
 
     def run(self) -> None:
-        workers = [threading.Thread(target=self.worker, daemon=True) for _ in range(self.threads)]
+        workers = [
+            threading.Thread(target=self.worker, args=(k,), daemon=True)
+            for k in range(self.threads)
+        ]
         for w in workers:
             w.start()
         tick = time.time() + 30

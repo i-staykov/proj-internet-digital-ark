@@ -6,7 +6,7 @@ name: runner-crawl
 # root of every host they link, so no list of pages is carried in. `run` goes on from an
 # earlier run: a job takes that run's journals for its own shard (asked URLs are skipped, the
 # frontier is kept) and every job's other-shard hosts as seeds. The crawler never asks the
-# CDX, keeps one connection a thread, and a 429, a 503 or a failed connection rests the whole
+# CDX, keeps one connection a thread, starts one request an interval over all of them, and a 429, a 503 or a failed connection rests the whole
 # job, ten in a row ending it. Seeds are public names only: a dispatch's inputs are public.
 # An artifact holds hostnames, URLs and stamps of archived pages, no page body. No model, no
 # secret.
@@ -30,10 +30,10 @@ on:
         default: "4"
       threads:
         description: connections a job keeps
-        default: "4"
+        default: "8"
       interval:
-        description: seconds between a thread's asks
-        default: "1.0"
+        description: seconds between a job's requests, over all its threads
+        default: "0.125"
       minutes:
         description: a job's time budget, 320 at most
         default: "300"

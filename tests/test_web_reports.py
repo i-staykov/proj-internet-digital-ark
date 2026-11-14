@@ -7,6 +7,7 @@ import io
 import json
 import subprocess
 import sys
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -606,6 +607,7 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
     crawl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(crawl)
     monkeypatch.setattr(crawl, "repo_fetcher", lambda: None)  # its robots reader asks the net
+    monkeypatch.setattr(crawl, "STAGGER", 0.0)
 
     ask, archive, calls = "/web/19970701000000id_/", {"/robots.txt": (404, {}, b"")}, []
 
@@ -687,6 +689,14 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
     again = crawl.Crawl(args)
     again.run()
     assert len(calls) == asked and again.n["asked"] == len(receipts), "nothing is asked twice"
+
+    again.stop, again.interval, began = "", 0.05, crawl.time.time()  # two threads, three GETs each
+    turns = [threading.Thread(target=lambda: [again.turn() for _ in range(3)]) for _ in range(2)]
+    for t in turns:
+        t.start()
+    for t in turns:
+        t.join(5)
+    assert crawl.time.time() - began >= 0.24, "one start gate: six starts take five intervals"
 
     again.rest_until, again.stop = crawl.time.time() + 60, "ended"
     try:
