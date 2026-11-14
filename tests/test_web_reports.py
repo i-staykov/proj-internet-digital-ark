@@ -6,6 +6,7 @@ import io
 import json
 import subprocess
 import sys
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -415,6 +416,41 @@ def test_the_path_probe_s_shards_split_the_hosts_and_skip_asked_urls():
     assert probe.asks(hosts[:1], (0, 1), {"http://h0.example.edu/stats/"}) == [
         "http://h0.example.edu/usage/"
     ]
+
+
+def test_a_rest_binds_the_thread_asleep_in_a_reader_s_turn_gate(tmp_path, monkeypatch):
+    class Clock:  # a fake time module whose first sleep holds until `wake`
+        def __init__(self):
+            self.now, self.asleep, self.wake = 1000.0, threading.Event(), threading.Event()
+
+        def time(self):
+            return self.now
+
+        def sleep(self, seconds):
+            self.asleep.set()
+            self.wake.wait(5)
+            self.now += seconds
+
+    monkeypatch.setattr(sys, "argv", ["reader", str(tmp_path), str(tmp_path / "in"), "2", "1.0"])
+    for name in ("wayback_trees", "arc_pages"):
+        spec = importlib.util.spec_from_file_location(
+            name, ROOT / f"scripts/sources/web_reports/{name}.py"
+        )
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        clock = Clock()
+        monkeypatch.setattr(reader, "time", clock)
+        reader.state["next"] = clock.now + 1  # a turn one second off: the thread sleeps for it
+        sleeper = threading.Thread(target=reader.wait_turn)
+        sleeper.start()
+        assert clock.asleep.wait(5)
+        with reader.lock:  # a 429 on another thread, set the way `ask` sets it
+            reader.state["next"] = clock.now + 60
+        clock.wake.set()
+        sleeper.join(5)
+        assert not sleeper.is_alive()
+        assert clock.now >= 1060, f"{name}: the sleeper's ask waits out the rest"
+        assert reader.state["next"] >= 1060, f"{name}: so does the next thread's"
 
 
 def test_a_wat_file_gives_one_linking_capture_per_linked_host_and_year():

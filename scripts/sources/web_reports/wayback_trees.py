@@ -68,11 +68,17 @@ def local_name(url: str) -> str:
 
 
 def wait_turn() -> None:
+    """One start an interval. A rest another thread sets while this one sleeps binds it too:
+    the turn is read again after every sleep and taken, under the lock a rest is set under,
+    only once none is left."""
     with gate:
-        now = time.time()
-        if state["next"] > now:
-            time.sleep(state["next"] - now)
-        state["next"] = time.time() + INTERVAL
+        while True:
+            with lock:
+                wait = state["next"] - time.time()
+                if wait <= 0:
+                    state["next"] = time.time() + INTERVAL
+                    return
+            time.sleep(wait)
 
 
 local = threading.local()
