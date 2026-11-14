@@ -53,11 +53,17 @@ def read_robots():
 
 
 def wait_turn():
+    """One start an interval. A rest another thread sets while this one sleeps binds it too:
+    the turn is read again after every sleep and taken, under the lock a rest is set under,
+    only once none is left."""
     with gate:
-        now = time.time()
-        if state["next"] > now:
-            time.sleep(state["next"] - now)
-        state["next"] = time.time() + CFG["interval"]
+        while True:
+            with lock:
+                wait = state["next"] - time.time()
+                if wait <= 0:
+                    state["next"] = time.time() + CFG["interval"]
+                    return
+            time.sleep(wait)
 
 
 def get(path):

@@ -432,7 +432,7 @@ def test_a_rest_binds_the_thread_asleep_in_a_reader_s_turn_gate(tmp_path, monkey
             self.now += seconds
 
     monkeypatch.setattr(sys, "argv", ["reader", str(tmp_path), str(tmp_path / "in"), "2", "1.0"])
-    for name in ("wayback_trees", "arc_pages"):
+    for name in ("wayback_trees", "arc_pages", "probe38"):
         spec = importlib.util.spec_from_file_location(
             name, ROOT / f"scripts/sources/web_reports/{name}.py"
         )
