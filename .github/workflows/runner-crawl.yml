@@ -90,8 +90,8 @@ jobs:
               || echo "no artifacts of run $RUN"
             cp "in/crawl_${RUN}_${INDEX}"/*.gz out/ 2>/dev/null || true
           fi
-          find in -name frontier_other.txt.gz | sort > waves.txt
-          python3 scripts/sources/web_reports/wayback_crawl.py env:SEEDS $(cat waves.txt) \
+          mapfile -t WAVES < <(find in -name frontier_other.txt.gz | sort)
+          python3 scripts/sources/web_reports/wayback_crawl.py env:SEEDS "${WAVES[@]}" \
             --year "$YEAR" --years "${YEARS:-$YEAR}" --threads "$THREADS" --interval "$INTERVAL" \
             --minutes "$((MINUTES > 320 ? 320 : MINUTES))" --shard "$INDEX/$SHARDS" --out out \
             || echo "crawler exit $?"
