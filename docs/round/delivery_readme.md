@@ -8,7 +8,7 @@ Two sets, and a labelled third part outside both and outside the growth figure.
   replays; 2002 to 2013 a 2xx or 3xx capture where the capture index records a status, else a
   capture from an index that records none, never a 4xx or 5xx), a dated link graph that names
   it, a custodian dataset's dated record of it, a captured bookmark file's entry for it
-  dated by the browser's own `ADD_DATE`, a dated usage report that logged a request
+  dated by the browser's own `ADD_DATE` or `LAST_VISIT`, a dated usage report that logged a request
   referred from a page on it, or a proxy's dated list of the origin servers it fetched from,
   with the requests and bytes for it.
 - `candidates/`: every other name we hold for 1996 to 2001, as one list, `candidates.txt`. None is
