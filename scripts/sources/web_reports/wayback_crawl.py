@@ -486,10 +486,19 @@ class Crawl:
         )
 
     def fetch(self, path: str) -> tuple[int, dict, bytes]:
-        """A GET asked once more on a fresh connection: an idle kept-alive one is often gone."""
+        """A GET that first waits out a rest: a rest binds every request, a redirect hop of an
+        ask under way included. A kept-alive connection gone idle is asked once more on a
+        fresh one; a fresh connection that fails is the Archive refusing, which is a rest."""
+        while time.time() < self.rest_until:
+            if self.stop or time.time() >= self.deadline:
+                raise OSError("the job ended during a rest")
+            time.sleep(min(1.0, max(0.01, self.rest_until - time.time())))
+        reused = getattr(self.local, "conn", None) is not None
         try:
             return self.get(path)
         except (http.client.HTTPException, OSError):
+            if not reused:
+                raise
             return self.get(path)
 
     def worker(self) -> None:

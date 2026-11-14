@@ -687,3 +687,10 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
     again = crawl.Crawl(args)
     again.run()
     assert len(calls) == asked and again.n["asked"] == len(receipts), "nothing is asked twice"
+
+    again.rest_until, again.stop = crawl.time.time() + 60, "ended"
+    try:
+        again.fetch(ask + "http://a.com/")
+    except OSError:
+        pass
+    assert len(calls) == asked, "a rest binds a request under way: none goes out during it"
