@@ -33,7 +33,8 @@ Outputs under --out, no page bodies:
                   (an earlier job's artifact) is unpacked first, so a later job goes on from it.
 
 Shards: a host belongs to shard crc32(host without a leading www.) mod n, so parallel jobs
-never ask the same host and twins share a job.
+never ask the same host and twins share a job. `--resplit DIR` goes on from a run of another
+shard count: DIR holds its jobs' folders, whose asked URLs and frontier are split anew.
 
 Politeness: one kept-alive connection a thread, opened a second apart; one start gate over
 every GET of the job, redirect hops included, --interval seconds between starts whatever the
@@ -249,6 +250,16 @@ class Crawl:
         self.next_start = 0.0
         self.n = {"asked": 0, "kept": 0, "rows": 0, "captures": 0, "rests": 0, "rests_row": 0}
         self.n["other"] = 0
+        for name in ("receipts.jsonl", "frontier.txt") if args.resplit else ():
+            # a run of another shard count: this shard's lines of every job's journal
+            waves = sorted(Path(args.resplit).glob(f"*/{name}.gz"))
+            if len(waves) in (0, self.of):
+                continue
+            with open(self.out / name, "w") as out:
+                for line in (x for w in waves for x in gzip.open(w, "rt")):
+                    url = json.loads(line)["url"] if name[0] == "r" else line.partition("\t")[2]
+                    if shard_of(host_of(url.strip()), self.of) == self.shard:
+                        out.write(line.rstrip("\n") + "\n")
         for name in JOURNALS:  # an earlier job's packed journals: go on from them
             plain, packed = self.out / name, self.out / f"{name}.gz"
             if packed.is_file() and not plain.is_file():
@@ -611,6 +622,7 @@ def main() -> None:
     p.add_argument("--shard", default="0/1")
     p.add_argument("--site-pages", type=int, default=6)
     p.add_argument("--out", required=True)
+    p.add_argument("--resplit", default="")
     crawl = Crawl(p.parse_args())
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, lambda *_: setattr(crawl, "stop", crawl.stop or "signal"))

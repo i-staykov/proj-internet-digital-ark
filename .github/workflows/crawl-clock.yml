@@ -3,8 +3,8 @@ name: crawl-clock
 # The Wayback link crawl's waves, a year at a time: once every runner-crawl run of a PLAN year
 # has ended, its next wave is dispatched to go on from the newest of them that left journals.
 # A PLAN item is year:shards:minutes:first, first the run of the year's last wave dispatched
-# by hand. A year's shards stay its first wave's: a job goes on from its own shard's
-# journals. No model, no secret.
+# by hand. A year's shards may change: its next wave splits the last one's journals anew.
+# No model, no secret.
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"

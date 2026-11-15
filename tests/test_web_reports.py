@@ -687,7 +687,7 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
     args = argparse.Namespace(
         seeds=[str(seeds)], year=1997, years="", threads=2, interval=0.0, minutes=1.0
     )
-    args.shard, args.site_pages, args.out = f"{mine}/2", 6, str(out)
+    args.shard, args.site_pages, args.out, args.resplit = f"{mine}/2", 6, str(out), ""
     crawl.Crawl(args).run()
 
     rows = [
