@@ -2,9 +2,9 @@ name: crawl-clock
 
 # The Wayback link crawl's waves, a year at a time: once every runner-crawl run of a PLAN year
 # has ended, its next wave is dispatched to go on from the newest of them that left journals.
-# A PLAN item is year:shards:minutes:first, first the run of the year's first wave, dispatched
-# by hand with its seeds. A year's shards stay its first wave's: a job goes on from its own
-# shard's journals. No model, no secret.
+# A PLAN item is year:shards:minutes:first, first the run of the year's last wave dispatched
+# by hand. A year's shards stay its first wave's: a job goes on from its own shard's
+# journals. No model, no secret.
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
@@ -35,7 +35,7 @@ jobs:
             --json databaseId,displayTitle,status)
           for ITEM in $PLAN; do
             IFS=: read -r YEAR SHARDS MINUTES FIRST <<< "$ITEM"
-            # the first wave carries no year in its title and may be older than the list
+            # first may carry no year in its title and be older than the list
             STATE=$(gh run view "$FIRST" --repo "$GITHUB_REPOSITORY" --json status --jq .status)
             WAVES=$(jq -r --arg t "crawl $YEAR" --arg f "$FIRST $STATE" \
               '(.[] | select(.displayTitle == $t) | "\(.databaseId) \(.status)"), $f' <<< "$RUNS")
