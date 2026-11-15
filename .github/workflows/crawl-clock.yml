@@ -1,0 +1,55 @@
+name: crawl-clock
+
+# The Wayback link crawl's waves, a year at a time: once every runner-crawl run of a PLAN year
+# has ended, its next wave is dispatched to go on from the newest of them that left journals.
+# A PLAN item is year:shards:minutes:first, first the run of the year's first wave, dispatched
+# by hand with its seeds. A year's shards stay its first wave's: a job goes on from its own
+# shard's journals. No model, no secret.
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency: crawl-clock
+
+env:
+  PLAN: >-
+    1998:10:90:43722770804
+    1999:5:170:43737940518
+    2000:5:170:43737957060
+    2001:6:170:43737974902
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUNS=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow runner-crawl.yml --limit 100 \
+            --json databaseId,displayTitle,status)
+          for ITEM in $PLAN; do
+            IFS=: read -r YEAR SHARDS MINUTES FIRST <<< "$ITEM"
+            # the first wave carries no year in its title and may be older than the list
+            STATE=$(gh run view "$FIRST" --repo "$GITHUB_REPOSITORY" --json status --jq .status)
+            WAVES=$(jq -r --arg t "crawl $YEAR" --arg f "$FIRST $STATE" \
+              '(.[] | select(.displayTitle == $t) | "\(.databaseId) \(.status)"), $f' <<< "$RUNS")
+            if grep -qv ' completed$' <<< "$WAVES"; then continue; fi
+            # newest first: a wave that left nothing is never the base of the next one
+            PREV=
+            while read -r ID _; do
+              LEFT=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID/artifacts" \
+                --jq 'any(.artifacts[]; (.name | startswith("crawl_")) and (.expired | not))')
+              if [ "$LEFT" = true ]; then PREV=$ID; break; fi
+            done <<< "$WAVES"
+            if [ -z "$PREV" ]; then echo "$YEAR has no journals to go on from"; continue; fi
+            gh workflow run runner-crawl.yml --repo "$GITHUB_REPOSITORY" --ref live \
+              -f year="$YEAR" -f years=1996-2001 -f shards="$SHARDS" -f minutes="$MINUTES" \
+              -f run="$PREV" -f threads=8 -f interval=0.125
+            echo "$YEAR $PREV"
+          done
