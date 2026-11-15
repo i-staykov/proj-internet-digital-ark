@@ -1,4 +1,5 @@
 name: runner-crawl
+run-name: crawl ${{ inputs.year }} # crawl-clock.yml finds a year's waves by this title
 
 # Dated link rows crawled out of Wayback replays on runners' own addresses
 # (scripts/sources/web_reports/wayback_crawl.py). A job owns a shard of the hosts: it starts
@@ -110,6 +111,6 @@ jobs:
         with:
           name: crawl_${{ github.run_id }}_${{ matrix.index }}
           path: up
-          retention-days: 3
+          retention-days: 7
           compression-level: 0
           if-no-files-found: ignore
