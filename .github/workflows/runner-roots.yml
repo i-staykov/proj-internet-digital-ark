@@ -1,0 +1,103 @@
+name: runner-roots
+run-name: roots ${{ inputs.first }} ${{ inputs.jobs }} # crawl-clock.yml reads the slices asked from this title
+
+# The root lane on our own names, on runners' own addresses
+# (scripts/sources/web_reports/wayback_roots.py): a job takes one slice of hostnames, an asset
+# own_<n>.txt.gz of a release of this repository, and asks the Archive's replay for the capture
+# of each root nearest the stamp, redirects not followed. The CDX is never asked; a 429, a 503
+# or a failed connection rests the job and ten in a row end it. The slices hold names of
+# public sources only: a release is public. An artifact holds hostnames and capture stamps, in
+# the form the stager reads (`own_<n>.<stamp>.roots`, with a `.done` mark when the whole slice
+# was asked). `run` goes on from an earlier run's unfinished slices. No model, no secret.
+on:
+  workflow_dispatch:
+    inputs:
+      first:
+        description: the first slice number
+        required: true
+      jobs:
+        description: slices from there, a job each on its own address, 40 at most
+        default: "1"
+      release:
+        description: the release whose assets are the slices
+        default: own-names
+      run:
+        description: an earlier runner-roots run whose answers for these slices are kept
+        default: ""
+      stamp:
+        description: the day asked, as 19990101
+        default: "19990101"
+      threads:
+        description: connections a job keeps
+        default: "8"
+      interval:
+        description: seconds between a job's asks, over all its threads
+        default: "0.125"
+      minutes:
+        description: a job's time budget, 150 at most
+        default: "150"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      slices: ${{ steps.m.outputs.slices }}
+    steps:
+      - id: m
+        env:
+          FIRST: ${{ inputs.first }}
+          JOBS: ${{ inputs.jobs }}
+        run: |
+          N=$((JOBS > 40 ? 40 : JOBS))
+          echo "slices=[$(seq -s, "$FIRST" $((FIRST + N - 1)))]" >> "$GITHUB_OUTPUT"
+
+  ask:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    strategy:
+      fail-fast: false
+      matrix:
+        slice: ${{ fromJSON(needs.plan.outputs.slices) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: live
+          persist-credentials: false
+
+      # An asker's early end is in its log and a missing .done mark, never a red run.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+          RUN: ${{ inputs.run }}
+          STAMP: ${{ inputs.stamp }}
+          THREADS: ${{ inputs.threads }}
+          INTERVAL: ${{ inputs.interval }}
+          MINUTES: ${{ inputs.minutes }}
+          SLICE: ${{ matrix.slice }}
+        run: |
+          mkdir -p in out
+          gh release download "$RELEASE" --repo "$GITHUB_REPOSITORY" --pattern "own_$SLICE.txt.gz" --dir in
+          gunzip "in/own_$SLICE.txt.gz"
+          if [ -n "$RUN" ]; then
+            gh run download "$RUN" --repo "$GITHUB_REPOSITORY" --name "roots_${RUN}_$SLICE" --dir out \
+              || echo "no answers of run $RUN for slice $SLICE"
+          fi
+          RC=0
+          python3 scripts/sources/web_reports/wayback_roots.py "in/own_$SLICE.txt" \
+            "out/own_$SLICE.$STAMP.roots" --stamp "${STAMP}000000" --threads "$THREADS" \
+            --interval "$INTERVAL" --minutes "$((MINUTES > 150 ? 150 : MINUTES))" || RC=$?
+          if [ "$RC" = 0 ]; then touch "out/own_$SLICE.$STAMP.done"; fi
+          echo "asker exit $RC, answers $(wc -l < "out/own_$SLICE.$STAMP.roots")"
+
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: roots_${{ github.run_id }}_${{ matrix.slice }}
+          path: out
+          retention-days: 7
+          if-no-files-found: ignore

@@ -22,6 +22,7 @@ env:
     1999:9:170:43737940518
     2000:9:170:43737957060
     2001:9:170:43737974902
+  ROOTS: own-names:38
 
 jobs:
   tick:
@@ -33,6 +34,7 @@ jobs:
         run: |
           RUNS=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow runner-crawl.yml --limit 100 \
             --json databaseId,displayTitle,status)
+          SUM=0
           for ITEM in $PLAN; do
             IFS=: read -r YEAR SHARDS MINUTES FIRST <<< "$ITEM"
             # first may carry no year in its title and be older than the list
@@ -52,4 +54,34 @@ jobs:
               -f year="$YEAR" -f years=1996-2001 -f shards="$SHARDS" -f minutes="$MINUTES" \
               -f run="$PREV" -f threads=8 -f interval=0.125
             echo "$YEAR $PREV"
+            SUM=$((SUM + SHARDS))
           done
+          echo "CRAWL_JOBS=$SUM" >> "$GITHUB_ENV"
+
+      # The root lane on our own names (runner-roots.yml). ROOTS is release:slots: the jobs
+      # that keep the repository's unfinished jobs under slots, the waves just dispatched
+      # counted, take the release's next slices, numbered on from the highest a run's title
+      # holds, so no slice is asked twice. Slice 0 is the test slice.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IFS=: read -r TAG SLOTS <<< "$ROOTS"
+          BUSY=$CRAWL_JOBS
+          for STATUS in in_progress queued; do
+            for ID in $(gh run list --repo "$GITHUB_REPOSITORY" --status "$STATUS" --limit 100 \
+              --json databaseId --jq '.[].databaseId'); do
+              BUSY=$((BUSY + $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.status != "completed")] | length')))
+            done
+          done
+          NEXT=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow runner-roots.yml --limit 100 \
+            --json displayTitle --jq '[.[].displayTitle | select(test("^roots [0-9]+ [0-9]+$"))
+            | split(" ") | (.[1] | tonumber) + (.[2] | tonumber)] | max // 1')
+          HELD=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].name
+            | capture("^own_(?<n>[0-9]+)[.]txt[.]gz$").n | tonumber + 1] | max // 0')
+          N=$((SLOTS - BUSY))
+          N=$((HELD - NEXT < N ? HELD - NEXT : N))
+          if [ "$N" -lt 1 ]; then echo "busy $BUSY, next slice $NEXT of $HELD"; exit 0; fi
+          gh workflow run runner-roots.yml --repo "$GITHUB_REPOSITORY" --ref live \
+            -f first="$NEXT" -f jobs="$((N > 40 ? 40 : N))" -f release="$TAG"
+          echo "roots $NEXT $N"
