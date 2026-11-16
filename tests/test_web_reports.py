@@ -688,6 +688,7 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
         seeds=[str(seeds)], year=1997, years="", threads=2, interval=0.0, minutes=1.0
     )
     args.shard, args.site_pages, args.out, args.resplit = f"{mine}/2", 6, str(out), ""
+    args.earn = 0
     crawl.Crawl(args).run()
 
     rows = [
@@ -739,3 +740,11 @@ def test_the_crawler_dates_links_by_the_real_capture_keeps_its_shard_and_resumes
     except OSError:
         pass
     assert len(calls) == asked, "a rest binds a request under way: none goes out during it"
+
+    args.site_pages, args.out = 1, str(tmp_path / "poor")
+    poor = crawl.Crawl(args)
+    poor.run()
+    args.earn, args.out = 1, str(tmp_path / "rich")
+    rich = crawl.Crawl(args)
+    rich.run()
+    assert poor.n["asked"] < rich.n["asked"] == len(receipts), "link rows earn a site its pages"

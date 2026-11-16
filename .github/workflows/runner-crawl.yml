@@ -38,6 +38,12 @@ on:
       minutes:
         description: a job's time budget, 320 at most
         default: "300"
+      pages:
+        description: pages asked a site
+        default: "6"
+      earn:
+        description: link rows a site's pages write for one more page, 0 for none
+        default: "0"
 
 permissions:
   actions: read
@@ -69,7 +75,6 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: live
           persist-credentials: false
 
       # A crawler's early end is in its stats, never a red run: the next dispatch goes on.
@@ -83,6 +88,8 @@ jobs:
           THREADS: ${{ inputs.threads }}
           INTERVAL: ${{ inputs.interval }}
           MINUTES: ${{ inputs.minutes }}
+          PAGES: ${{ inputs.pages }}
+          EARN: ${{ inputs.earn }}
           INDEX: ${{ matrix.index }}
         run: |
           mkdir -p in out
@@ -95,7 +102,7 @@ jobs:
           python3 scripts/sources/web_reports/wayback_crawl.py env:SEEDS "${WAVES[@]}" \
             --year "$YEAR" --years "${YEARS:-$YEAR}" --threads "$THREADS" --interval "$INTERVAL" \
             --minutes "$((MINUTES > 320 ? 320 : MINUTES))" --shard "$INDEX/$SHARDS" --out out \
-            --resplit in || echo "crawler exit $?"
+            --site-pages "$PAGES" --earn "$EARN" --resplit in || echo "crawler exit $?"
 
       # A job killed before it packed still leaves its journals.
       - if: always()

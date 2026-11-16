@@ -7,7 +7,8 @@ follows the same-site links that look like link collections, and asks the root o
 seen outbound host (snowball). Standard library only, one file, so it runs on any machine.
 
     python3 wayback_crawl.py SEEDS [SEEDS ...] --year 1997 --out DIR [--threads 2]
-        [--interval 1.0] [--minutes 30] [--shard 0/1] [--site-pages 6] [--years 1996-1998]
+        [--interval 1.0] [--minutes 30] [--shard 0/1] [--site-pages 6] [--earn 0]
+        [--years 1996-1998]
 
 SEEDS: files of hostnames or URLs, one a line (first field), plain or .gz, or `env:NAME` for
 an environment variable holding the list plain or gzip then base64.
@@ -34,7 +35,12 @@ Outputs under --out, no page bodies:
 
 Shards: a host belongs to shard crc32(host without a leading www.) mod n, so parallel jobs
 never ask the same host and twins share a job. `--resplit DIR` goes on from a run of another
-shard count: DIR holds its jobs' folders, whose asked URLs and frontier are split anew.
+shard count: DIR holds its jobs' folders, whose rows, asked URLs and frontier are split anew.
+
+Pages a site: --site-pages, and with `--earn N` one more for every N link rows its pages wrote,
+since a site that keeps linking new hosts is a directory and the rest stop paying. A page over
+its site's count waits until the site earns it. Among pages of one priority the sites that
+wrote more rows go first, and from four rows on a site's plain pages go before the seeds.
 
 Politeness: one kept-alive connection a thread, opened a second apart; one start gate over
 every GET of the job, redirect hops included, --interval seconds between starts whatever the
@@ -224,7 +230,7 @@ class Crawl:
         self.stamp = f"{args.year}0701000000"
         self.years = years_of(args.years or str(args.year))
         self.shard, self.of = (int(x) for x in args.shard.split("/"))
-        self.interval, self.site_pages = args.interval, args.site_pages
+        self.interval, self.site_pages, self.earn = args.interval, args.site_pages, args.earn
         self.threads = args.threads
         self.started = time.time()
         self.deadline = self.started + args.minutes * 60
@@ -234,13 +240,15 @@ class Crawl:
         self.robots_cache: dict = {}
         self.local = threading.local()
         self.cond = threading.Condition(threading.RLock())
-        self.heap: list[tuple[int, int, str]] = []
+        self.heap: list[tuple[float, int, str, int]] = []
         self.seq = 0
         self.busy = 0
         self.queued: set[str] = set()  # every URL pushed or asked
         self.asked: set[str] = set()
         self.site_asked: dict[str, int] = {}
         self.site_pushed: dict[str, int] = {}
+        self.site_rows: dict[str, int] = {}  # link rows a site's pages wrote
+        self.parked: dict[str, list[tuple[int, str]]] = {}  # pages over their site's count
         self.fails: dict[str, int] = {}
         self.hosts: set[str] = set()  # outbound hosts seen
         self.rows: set[tuple[str, str]] = set()
@@ -250,14 +258,15 @@ class Crawl:
         self.next_start = 0.0
         self.n = {"asked": 0, "kept": 0, "rows": 0, "captures": 0, "rests": 0, "rests_row": 0}
         self.n["other"] = 0
-        for name in ("receipts.jsonl", "frontier.txt") if args.resplit else ():
+        for name in ("rows.jsonl", "receipts.jsonl", "frontier.txt") if args.resplit else ():
             # a run of another shard count: this shard's lines of every job's journal
             waves = sorted(Path(args.resplit).glob(f"*/{name}.gz"))
             if len(waves) in (0, self.of):
                 continue
+            key = {"rows.jsonl": "source", "receipts.jsonl": "url"}.get(name)
             with open(self.out / name, "w") as out:
                 for line in (x for w in waves for x in gzip.open(w, "rt")):
-                    url = json.loads(line)["url"] if name[0] == "r" else line.partition("\t")[2]
+                    url = json.loads(line)[key] if key else line.partition("\t")[2]
                     if shard_of(host_of(url.strip()), self.of) == self.shard:
                         out.write(line.rstrip("\n") + "\n")
         for name in JOURNALS:  # an earlier job's packed journals: go on from them
@@ -294,6 +303,8 @@ class Crawl:
             if r["kind"] == "link":
                 self.rows.add((r["host"], r["year"]))
                 self.hosts.add(r["host"])
+                where = site(host_of(r["source"]))
+                self.site_rows[where] = self.site_rows.get(where, 0) + 1
         for line in self.read("frontier_other.txt"):
             self.hosts.add(line)
             self.n["other"] += 1
@@ -302,12 +313,24 @@ class Crawl:
             mine = shard_of(host_of(url), self.of) == self.shard  # journals of another split
             if url and url not in self.queued and mine:
                 self.queued.add(url)
-                self.seq += 1
-                heapq.heappush(self.heap, (int(priority), self.seq, url))
+                self.queue(int(priority), url)
 
     def read(self, name: str) -> list[str]:
         path = self.out / name
         return path.read_text().splitlines() if path.is_file() else []
+
+    def budget(self, where: str) -> int:
+        """The pages a site may be asked."""
+        return self.site_pages + (self.site_rows.get(where, 0) // self.earn if self.earn else 0)
+
+    def queue(self, priority: int, url: str) -> None:
+        """Onto the heap, lowest first: the priority, then with --earn the richer site."""
+        rich = 0
+        if self.earn and priority in (WORDY, PLAIN):
+            rich = self.site_rows.get(site(host_of(url)), 0).bit_length()
+        rank = (0.5 if priority == PLAIN and rich >= 3 else priority) - rich / 100
+        self.seq += 1
+        heapq.heappush(self.heap, (rank, self.seq, url, priority))
 
     def push(self, priority: int, url: str) -> None:
         """Queue a URL once. A site's unasked links are bounded so one site cannot fill it."""
@@ -315,22 +338,23 @@ class Crawl:
             return
         where = site(host_of(url))
         if priority in (WORDY, PLAIN):
-            if self.site_pushed.get(where, 0) >= 4 * self.site_pages:
+            if self.site_pushed.get(where, 0) >= 4 * self.budget(where):
                 return
             self.site_pushed[where] = self.site_pushed.get(where, 0) + 1
         self.queued.add(url)
-        self.seq += 1
-        heapq.heappush(self.heap, (priority, self.seq, url))
+        self.queue(priority, url)
         self.j_frontier.write(f"{priority}\t{url}\n")
 
     def pop(self) -> tuple[int, str] | None:
-        """The next URL whose site is under --site-pages; a seed is asked whatever the count."""
+        """The next URL whose site is under its count; a seed is asked whatever the count."""
         while self.heap:
-            priority, _, url = heapq.heappop(self.heap)
+            _, _, url, priority = heapq.heappop(self.heap)
             where = site(host_of(url))
             if url in self.asked:
                 continue
-            if priority != SEED and self.site_asked.get(where, 0) >= self.site_pages:
+            if priority != SEED and self.site_asked.get(where, 0) >= self.budget(where):
+                if self.earn:
+                    self.parked.setdefault(where, []).append((priority, url))
                 continue
             self.site_asked[where] = self.site_asked.get(where, 0) + 1
             return priority, url
@@ -401,8 +425,7 @@ class Crawl:
                 return
             where = site(host_of(url))
             self.site_asked[where] = max(0, self.site_asked.get(where, 0) - 1)
-            self.seq += 1
-            heapq.heappush(self.heap, (priority, self.seq, url))
+            self.queue(priority, url)
 
     def receipt(self, row: dict) -> None:
         with self.cond:
@@ -471,6 +494,7 @@ class Crawl:
                 row = {"kind": "capture", "host": host, "year": stamp[:4], "stamp": stamp}
                 row |= {"source": real_url, "asked": host_of(url)}
                 self.j_rows.write(json.dumps(row) + "\n")
+            here, wrote = site(host), self.n["rows"]
             for linked in out:
                 if (linked, stamp[:4]) not in self.rows:
                     self.rows.add((linked, stamp[:4]))
@@ -486,6 +510,13 @@ class Crawl:
                     else:
                         self.n["other"] += 1
                         self.j_other.write(linked + "\n")
+            if self.earn and self.n["rows"] > wrote:  # the site earned pages: its parked go on
+                self.site_rows[here] = self.site_rows.get(here, 0) + self.n["rows"] - wrote
+                held = self.parked.get(here, [])
+                free = max(0, self.budget(here) - self.site_asked.get(here, 0))
+                for item in held[:free]:
+                    self.queue(*item)
+                del held[:free]
             for link, wordy in same:  # a redirect can land on another shard's host
                 if shard_of(host_of(link), self.of) == self.shard:
                     self.push(WORDY if wordy else PLAIN, link)
@@ -571,6 +602,7 @@ class Crawl:
                 "asked_before_restart": self.resumed,
                 "pages_a_second": round((self.n["asked"] - self.resumed) / max(seconds, 1), 2),
                 "frontier": len(self.heap),
+                "parked": sum(map(len, self.parked.values())),
                 "shard": f"{self.shard}/{self.of}",
                 "stopped": self.stop or ("time" if time.time() >= self.deadline else ""),
             }
@@ -621,6 +653,7 @@ def main() -> None:
     p.add_argument("--minutes", type=float, default=30.0)
     p.add_argument("--shard", default="0/1")
     p.add_argument("--site-pages", type=int, default=6)
+    p.add_argument("--earn", type=int, default=0)
     p.add_argument("--out", required=True)
     p.add_argument("--resplit", default="")
     crawl = Crawl(p.parse_args())
