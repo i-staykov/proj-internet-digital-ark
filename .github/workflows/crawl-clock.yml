@@ -6,7 +6,7 @@ name: crawl-clock
 # by hand. A year's shards may change: its next wave splits the last one's journals anew.
 # PAGES is the pages asked a site, EARN the link rows a site's pages write for one more.
 # A wave goes out only while the repository's unfinished jobs and its shards stay within CAP
-# (39), so a PLAN that grows queues nothing; a wave that waits keeps its slots.
+# (40), so a PLAN that grows queues nothing; a wave that waits keeps its slots.
 # No model, no secret.
 on:
   schedule:
@@ -67,7 +67,7 @@ jobs:
             done <<< "$WAVES"
             if [ -z "$PREV" ]; then echo "$YEAR has no journals to go on from"; continue; fi
             SUM=$((SUM + SHARDS))
-            if [ $((BUSY + SUM)) -gt "${CAP:-39}" ]; then echo "$YEAR waits for slots"; continue; fi
+            if [ $((BUSY + SUM)) -gt "${CAP:-40}" ]; then echo "$YEAR waits for slots"; continue; fi
             gh workflow run runner-crawl.yml --repo "$GITHUB_REPOSITORY" --ref live \
               -f year="$YEAR" -f years=1996-2001 -f shards="$SHARDS" -f minutes="$MINUTES" \
               -f run="$PREV" -f threads=8 -f interval=0.125 -f pages="${PAGES:-6}" -f earn="${EARN:-0}"
