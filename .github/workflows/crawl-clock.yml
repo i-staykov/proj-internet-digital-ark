@@ -20,8 +20,8 @@ permissions:
 concurrency: crawl-clock
 
 env:
-  PAGES: 30
-  EARN: 1
+  PAGES: 6
+  EARN: 0
   PLAN: >-
     1996:5:170:43759257480
     1997:6:170:43789004807
