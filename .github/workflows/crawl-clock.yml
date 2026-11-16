@@ -4,6 +4,7 @@ name: crawl-clock
 # has ended, its next wave is dispatched to go on from the newest of them that left journals.
 # A PLAN item is year:shards:minutes:first, first the run of the year's last wave dispatched
 # by hand. A year's shards may change: its next wave splits the last one's journals anew.
+# PAGES is the pages asked a site, EARN the link rows a site's pages write for one more.
 # No model, no secret.
 on:
   schedule:
@@ -52,7 +53,7 @@ jobs:
             if [ -z "$PREV" ]; then echo "$YEAR has no journals to go on from"; continue; fi
             gh workflow run runner-crawl.yml --repo "$GITHUB_REPOSITORY" --ref live \
               -f year="$YEAR" -f years=1996-2001 -f shards="$SHARDS" -f minutes="$MINUTES" \
-              -f run="$PREV" -f threads=8 -f interval=0.125
+              -f run="$PREV" -f threads=8 -f interval=0.125 -f pages="${PAGES:-6}" -f earn="${EARN:-0}"
             echo "$YEAR $PREV"
             SUM=$((SUM + SHARDS))
           done
