@@ -4,10 +4,7 @@ name: crawl-clock
 # has ended, its next wave is dispatched to go on from the newest of them that left journals.
 # A PLAN item is year:shards:minutes:first, first the run of the year's last wave dispatched
 # by hand. A year's shards may change: its next wave splits the last one's journals anew.
-# ROOTS is the root lane on our own names (runner-roots.yml), release:slots: the jobs that
-# keep the repository's unfinished jobs under `slots` take the release's next slices,
-# numbered on from the highest a run's title holds, so no slice is asked twice; slice 0 is
-# the test slice. No model, no secret.
+# No model, no secret.
 on:
   schedule:
     - cron: "7,22,37,52 * * * *"
@@ -61,7 +58,10 @@ jobs:
           done
           echo "CRAWL_JOBS=$SUM" >> "$GITHUB_ENV"
 
-      # The root lane takes the slots the crawl leaves free, the waves just dispatched counted.
+      # The root lane on our own names (runner-roots.yml). ROOTS is release:slots: the jobs
+      # that keep the repository's unfinished jobs under slots, the waves just dispatched
+      # counted, take the release's next slices, numbered on from the highest a run's title
+      # holds, so no slice is asked twice. Slice 0 is the test slice.
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
