@@ -5,6 +5,8 @@ name: crawl-clock
 # A PLAN item is year:shards:minutes:first, first the run of the year's last wave dispatched
 # by hand. A year's shards may change: its next wave splits the last one's journals anew.
 # PAGES is the pages asked a site, EARN the link rows a site's pages write for one more.
+# A wave goes out only while the repository's unfinished jobs and its shards stay within CAP
+# (40), so a PLAN that grows queues nothing; a wave that waits keeps its slots.
 # No model, no secret.
 on:
   schedule:
@@ -39,6 +41,15 @@ jobs:
         run: |
           RUNS=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow runner-crawl.yml --limit 100 \
             --json databaseId,displayTitle,status)
+          BUSY=0 # the repository's unfinished jobs, this one counted
+          for STATUS in in_progress queued; do
+            for ID in $(gh run list --repo "$GITHUB_REPOSITORY" --status "$STATUS" --limit 100 \
+              --json databaseId --jq '.[].databaseId'); do
+              JOBS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID/jobs?per_page=100" \
+                --jq '[.jobs[] | select(.status != "completed")] | length' || true)
+              if [[ $JOBS =~ ^[0-9]+$ ]]; then BUSY=$((BUSY + JOBS)); fi
+            done
+          done
           SUM=0
           for ITEM in $PLAN; do
             IFS=: read -r YEAR SHARDS MINUTES FIRST <<< "$ITEM"
@@ -55,30 +66,23 @@ jobs:
               if [ "$LEFT" = true ]; then PREV=$ID; break; fi
             done <<< "$WAVES"
             if [ -z "$PREV" ]; then echo "$YEAR has no journals to go on from"; continue; fi
+            SUM=$((SUM + SHARDS))
+            if [ $((BUSY + SUM)) -gt "${CAP:-40}" ]; then echo "$YEAR waits for slots"; continue; fi
             gh workflow run runner-crawl.yml --repo "$GITHUB_REPOSITORY" --ref live \
               -f year="$YEAR" -f years=1996-2001 -f shards="$SHARDS" -f minutes="$MINUTES" \
               -f run="$PREV" -f threads=8 -f interval=0.125 -f pages="${PAGES:-6}" -f earn="${EARN:-0}"
             echo "$YEAR $PREV"
-            SUM=$((SUM + SHARDS))
           done
-          echo "CRAWL_JOBS=$SUM" >> "$GITHUB_ENV"
+          echo "BUSY=$((BUSY + SUM))" >> "$GITHUB_ENV"
 
       # The root lane on our own names (runner-roots.yml). ROOTS is release:slots: the jobs
-      # that keep the repository's unfinished jobs under slots, the waves just dispatched
-      # counted, take the release's next slices, numbered on from the highest a run's title
-      # holds, so no slice is asked twice. Slice 0 is the test slice.
+      # that keep the repository's unfinished jobs under slots, the waves just dispatched or
+      # waiting counted, take the release's next slices, numbered on from the highest a run's
+      # title holds, so no slice is asked twice. Slice 0 is the test slice.
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
           IFS=: read -r TAG SLOTS <<< "$ROOTS"
-          BUSY=$CRAWL_JOBS
-          for STATUS in in_progress queued; do
-            for ID in $(gh run list --repo "$GITHUB_REPOSITORY" --status "$STATUS" --limit 100 \
-              --json databaseId --jq '.[].databaseId'); do
-              BUSY=$((BUSY + $(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID/jobs?per_page=100" \
-                --jq '[.jobs[] | select(.status != "completed")] | length')))
-            done
-          done
           NEXT=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow runner-roots.yml --limit 100 \
             --json displayTitle --jq '[.[].displayTitle | select(test("^roots [0-9]+ [0-9]+$"))
             | split(" ") | (.[1] | tonumber) + (.[2] | tonumber)] | max // 1')
