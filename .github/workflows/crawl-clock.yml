@@ -47,7 +47,7 @@ jobs:
               --json databaseId --jq '.[].databaseId'); do
               JOBS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ID/jobs?per_page=100" \
                 --jq '[.jobs[] | select(.status != "completed")] | length' || true)
-              BUSY=$((BUSY + ${JOBS:-0}))
+              if [[ $JOBS =~ ^[0-9]+$ ]]; then BUSY=$((BUSY + JOBS)); fi
             done
           done
           SUM=0
