@@ -13,8 +13,8 @@ The CDX is never asked.
 Politeness, as the link crawl's: one kept-alive connection a thread, one start gate over all
 threads, `--interval` seconds between starts; a 429, a 503 or a failed connection rests every
 thread (60 s, doubling to 960 s) and ten in a row with no answer between end the run; a kept
-connection the far end closed while it idled is neither. A host
-answered 503 twice with a normal answer between is written as 503 and not asked again.
+connection the far end closed while it idled is neither. A host answered 503 twice with a
+normal answer between is written as 503 and not asked again.
 
 Exit 0 all asked, 2 out of minutes, 3 ended by refusals, 4 stopped by a TERM or INT: the asks
 in flight are written and no new one starts. Resumes from OUT, a torn last line cut off and
