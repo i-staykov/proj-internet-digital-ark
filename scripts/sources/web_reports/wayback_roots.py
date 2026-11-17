@@ -12,7 +12,8 @@ The CDX is never asked.
 
 Politeness, as the link crawl's: one kept-alive connection a thread, one start gate over all
 threads, `--interval` seconds between starts; a 429, a 503 or a failed connection rests every
-thread (60 s, doubling to 960 s) and ten in a row with no answer between end the run. A host
+thread (60 s, doubling to 960 s) and ten in a row with no answer between end the run; a kept
+connection the far end closed while it idled is neither. A host
 answered 503 twice with a normal answer between is written as 503 and not asked again.
 
 Exit 0 all asked, 2 out of minutes, 3 ended by refusals, 4 stopped by a TERM or INT: the asks
@@ -100,7 +101,7 @@ def main() -> int:
                 state["stop"] = True
 
     def work() -> None:
-        conn = None
+        conn, used = None, 0.0
         while (host := take()) is not None:
             first = None  # normal answers counted when this host first answered 503
             line = f"{host} 0 - -\n"
@@ -108,12 +109,22 @@ def main() -> int:
                 wait()
                 if halt.is_set():  # not answered and not written: the next run asks it
                     return
+                # The far end closes a kept connection that idles through a rest, and an ask on
+                # it fails at once: that is no refusal. Counted as one it rests every thread
+                # again while the connections that just answered idle in turn, and the run
+                # never comes back. An idle connection is dropped before the ask, and a kept
+                # one that fails is asked again on a new one.
+                if conn is not None and time.time() - used > 20:
+                    conn.close()
+                    conn = None
+                kept = conn is not None
                 try:
                     if conn is None:
                         conn = http.client.HTTPConnection("web.archive.org", 80, timeout=45)
                     path = f"/web/{a.stamp}id_/http://{host}/"
                     conn.request("GET", path, headers={"User-Agent": AGENT})
                     r = conn.getresponse()
+                    used = time.time()
                     loc, mem = r.getheader("Location") or "", r.getheader("Memento-Datetime") or ""
                     st = r.status
                     if st in (301, 302, 404, 403, 400):
@@ -122,8 +133,11 @@ def main() -> int:
                         r.close()
                         conn.close()
                         conn = None
-                except (OSError, http.client.HTTPException):
+                except (OSError, http.client.HTTPException) as e:
                     conn, st = None, 0
+                    gone = (http.client.RemoteDisconnected, ConnectionResetError, BrokenPipeError)
+                    if kept and isinstance(e, gone):
+                        continue
                 own = st == 503 and first is not None and state["ok"] > first
                 if st in (0, 429, 503) and not own:
                     if st == 503 and first is None:
