@@ -12,9 +12,10 @@ The CDX is never asked.
 
 Politeness, as the link crawl's: one kept-alive connection a thread, one start gate over all
 threads, `--interval` seconds between starts; a 429, a 503 or a failed connection rests every
-thread (60 s, doubling to 960 s) and ten in a row with no answer between end the run; a kept
-connection the far end closed while it idled is neither. A host answered 503 twice with a
-normal answer between is written as 503 and not asked again.
+thread (60 s, doubling to 960 s) and ten rests in a row with no answer between end the run;
+threads that fail in the same moment share one rest, and a kept connection the far end closed
+while it idled is no failure. A host answered 503 twice with a normal answer between is written
+as 503 and not asked again.
 
 Exit 0 all asked, 2 out of minutes, 3 ended by refusals, 4 stopped by a TERM or INT: the asks
 in flight are written and no new one starts. Resumes from OUT, a torn last line cut off and
@@ -70,7 +71,7 @@ def main() -> int:
     with open(a.hosts) as fh:
         todo = [h for h in (ln.strip() for ln in fh) if h and h not in done]
     lock, gate, halt = threading.Lock(), threading.Lock(), threading.Event()
-    state = {"i": 0, "next": 0.0, "bad": 0, "ok": 0, "stop": False}
+    state = {"i": 0, "next": 0.0, "bad": 0, "ok": 0, "stop": False, "mark": 0.0}
     end = time.time() + a.minutes * 60 if a.minutes else None
     signal.signal(signal.SIGTERM, lambda *_: halt.set())
     signal.signal(signal.SIGINT, lambda *_: halt.set())
@@ -95,6 +96,9 @@ def main() -> int:
     def trouble(status: int) -> None:
         with lock:
             print(time.strftime("%H:%M:%S"), "rest after", status, "asked", state["i"], flush=True)
+            if time.time() - state["mark"] < 5:  # threads failing in one moment share one rest
+                return
+            state["mark"] = time.time()
             state["bad"] += 1
             state["next"] = time.time() + min(960, 60 * 2 ** min(state["bad"] - 1, 4))
             if state["bad"] >= 10:
@@ -109,12 +113,14 @@ def main() -> int:
                 wait()
                 if halt.is_set():  # not answered and not written: the next run asks it
                     return
-                # The far end closes a kept connection that idles through a rest, and an ask on
-                # it fails at once: that is no refusal. Counted as one it rests every thread
-                # again while the connections that just answered idle in turn, and the run
-                # never comes back. An idle connection is dropped before the ask, and a kept
-                # one that fails is asked again on a new one.
-                if conn is not None and time.time() - used > 20:
+                # The far end closes a kept connection that idles through a long rest (240 s
+                # does it, 60 s does not), and an ask on it fails at once: that is no refusal.
+                # Counted as one it rests every thread again while the connections that just
+                # answered idle in turn, and the run never comes back. A kept connection that
+                # fails is asked again on a new one, and one idle over 200 s is dropped before
+                # the ask. A short rest keeps its connections: every thread opening a new one
+                # after a 60 s rest meets refused connections on all of them at once.
+                if conn is not None and time.time() - used > 200:
                     conn.close()
                     conn = None
                 kept = conn is not None
