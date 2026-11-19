@@ -63,7 +63,7 @@ Beside the download, then inside the extracted folder, with Python 3.10 or newer
 ```
 shasum -a 256 [ARCHIVE].7z
 7z x [ARCHIVE].7z && cd [ARCHIVE]
-B=/path/to/merge261104  # your release, not shipped back; additions/support/baseline/README.txt gives its sha256
+B=/path/to/merge261114  # your release, not shipped back; additions/support/baseline/README.txt gives its sha256
 HIS=$B bash additions/support/verify.sh
 ```
 
@@ -98,7 +98,7 @@ ee candidates/candidates.txt
 ```
 
 Rebuild both sets from the evidence, with no archive queries and no source data. `ark intake`
-checks your release, linked in as `additions/support/baseline/merge261104`, and writes 4.2 GB:
+checks your release, linked in as `additions/support/baseline/merge261114`, and writes 4.2 GB:
 
 ```
 ln -s "$B" additions/support/baseline/ && cd additions/support/source && tar -xzf source.tar.gz
