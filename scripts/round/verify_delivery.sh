@@ -184,6 +184,53 @@ against = "none in his file for its year" if his else "set HIS to check them aga
 print(f"{label:<46} PASS  {n:,} host-years in {len(tiers)} tiers, none an addition; {against}")
 PY
 
+# --- the labelled tiers: web-evidenced host-years set apart by where his files hold the name ---
+python3 - <<'PY' || fail=1
+import csv
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+label = "labelled tiers"
+dirs = [d for d in (Path("tier_c"), Path("tier_d")) if (d / "provenance.csv").is_file()]
+if not dirs:
+    print(f"{label:<46} SKIP  no tier_c/ or tier_d/ in this archive")
+    sys.exit(0)
+problems, seen, n = [], set(), 0
+his = os.environ.get("HIS")
+env = {**os.environ, "LC_ALL": "C"}
+tmp = os.environ.get("TMPDIR") or ".."  # where sort spills: beside the archive
+for d in dirs:
+    with (d / "provenance.csv").open(newline="", encoding="utf-8") as fh:
+        rows = [(r["year"], r["name"]) for r in csv.DictReader(fh)]
+    listed = []
+    for y in range(1996, 2002):
+        names = (d / f"{y}.txt").read_text(encoding="utf-8").splitlines()
+        if names != sorted(set(names)):
+            problems.append(f"{d}/{y}.txt is not sorted and unique")
+        listed += [(str(y), name) for name in names]
+        if both := set(names).intersection((Path("additions") / f"{y}.txt").read_text().splitlines()):
+            problems.append(f"{len(both)} names of {d}/{y}.txt are additions")
+        if his and not problems:
+            sh = 'tr -d "\\r" < "$1" | sort -u -S 256M -T "$2" | comm -12 - "$3" | wc -l'
+            run = ["bash", "-o", "pipefail", "-c", sh, "_", f"{his}/{y}.txt", tmp, str(d / f"{y}.txt")]
+            out = subprocess.run(run, env=env, capture_output=True, text=True)
+            if out.returncode or int(out.stdout.strip() or 0):
+                problems.append(f"{d}/{y}.txt: {out.stdout.strip() or 'no count'} names are in his file for that year")
+    if rows != listed:
+        problems.append(f"{d}/provenance.csv is not one row a listed name, in the files' order")
+    if seen.intersection(listed):
+        problems.append(f"{d} repeats a host-year of the other tier")
+    seen.update(listed)
+    n += len(listed)
+if problems:
+    print(f"{label:<46} FAIL  {'; '.join(problems[:4])}")
+    sys.exit(1)
+against = "none in his file for its year" if his else "set HIS to check them against his release"
+print(f"{label:<46} PASS  {n:,} host-years in {len(dirs)} tiers, one provenance row each, none an addition; {against}")
+PY
+
 # --- 4. the evidence wall, inside the shipped provenance ---------------------
 # Every check above reads the additions manifest and none reads the parquet, so a
 # packaging change that filters the evidence table leaves assignments pointing at an

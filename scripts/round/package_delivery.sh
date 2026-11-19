@@ -258,10 +258,21 @@ if [ -f output/year_evidence/provenance.csv ]; then
 else
     echo "no output/year_evidence: packaging the two sets only"
 fi
+# THE LABELLED TIERS, outside both sets and the growth figure: tiers.py's two folders, netted
+# here against the additions just exported, and its bullet for the README.
+TIERS_BULLET=""
+if ls data/labelled/tiers/*.tsv >/dev/null 2>&1; then
+    uv run python scripts/round/tiers.py
+    cp -R output/tiers/tier_c output/tiers/tier_d "$STAGE/"
+    TIERS_BULLET=$(uv run python scripts/round/tiers.py --readme output/tiers/tiers.csv)
+else
+    rm -rf output/tiers
+    echo "no data/labelled/tiers: no labelled tiers"
+fi
 # The README's one table of classes: names and EE from the export's summary, so its total is the
 # bank's, and the sentence of his brief that makes each class a candidate.
 python3 - "$STAGE/README.md" output/netnew/candidate_additions_summary.json \
-    docs/round/candidate_classes.tsv <<'PY' || { echo "refusing to package: no class table" >&2; exit 1; }
+    docs/round/candidate_classes.tsv "$TIERS_BULLET" <<'PY' || { echo "refusing to package: no class table" >&2; exit 1; }
 import json
 import sys
 from decimal import Decimal
@@ -280,8 +291,8 @@ if (names, ee) != (summary["candidates"], Decimal(summary["equivalent_english"])
 rows.append(f"| **all** | | **{names:,}** | **{ee:,.1f}** |")
 if missing := [label for label in summary["by_class"] if not why.get(label, "").strip()]:
     print(f"warning: no sentence of his for {missing}", file=sys.stderr)
-text = readme.read_text(encoding="utf-8")
-readme.write_text(text.replace("[CLASS TABLE]", "\n".join(rows)), encoding="utf-8")
+text = readme.read_text(encoding="utf-8").replace("[CLASS TABLE]", "\n".join(rows))
+readme.write_text(text.replace("[TIERS]\n", f"{sys.argv[4]}\n" if sys.argv[4] else ""), encoding="utf-8")
 PY
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and

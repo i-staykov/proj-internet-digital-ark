@@ -25,6 +25,7 @@ Two sets, and a labelled third part outside both and outside the growth figure.
   the host whose own `Last-Modified` header dates the page to that earlier year). `provenance.csv` gives each row's class, public
   source, locator (a message or line in it, counted from 1) and tier; `tiers.csv` the sizes. It
   asks no credit; you decide.
+[TIERS]
 
 [CLASS TABLE]
 
