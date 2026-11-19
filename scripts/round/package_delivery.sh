@@ -370,7 +370,8 @@ journal_paths() {
         -not -path 'data/raw/rdap/*' -not -path 'data/raw/rdap_pool/*' \
         -not -path 'data/raw/usenet_addr/*' -not -path 'data/raw/usenet_bare/*' \
         -not -path 'data/raw/usenet/*' -not -path 'data/raw/usenet_hdr/*' \
-        -not -path 'data/raw/usenet_new/*' -not -path 'data/raw/cdx_suffix/*' \
+        -not -path 'data/raw/usenet_new/*' \
+        \( -not -path 'data/raw/cdx_suffix/*' -o -name 'replayroots_*' \) \
         -not -path 'data/raw/nypw_hostgrain/*' -not -path 'data/raw/nypw_firstcdx_hostgrain/*' \
         -not -path 'data/raw/ukwa_hostgrain/*' -not -path 'data/raw/arquivo_hostgrain/*' \
         -not -path 'data/raw/usenet_alt_items/*' -not -path 'data/raw/usenet_alt2_items/*' \
@@ -428,7 +429,8 @@ Only the journals a shipped evidence row or extended_years/evidence_ledger.csv n
 Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on disk,
 2026-09-22): the RDAP walks (rdap/, 3.6 GB), the Usenet extraction and posting journals
 (usenet_addr/ 9.9 GB, usenet_bare/ 2.1 GB, usenet/ 550 MB, usenet_hdr/ 180 MB, usenet_new/
-123 MB), the raw platform-sweep capture journals (cdx_suffix/, 21.6 GB), the NYPW hostname-grain
+123 MB), the raw platform-sweep capture journals (cdx_suffix/ but for its replayroots_* files,
+the root replays, which are here; 21.6 GB), the NYPW hostname-grain
 conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web Archive geoindex
 conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
 the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB)
