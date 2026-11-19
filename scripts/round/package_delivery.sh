@@ -557,8 +557,9 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 
 # Nothing private ships: no staged path names `private`, no staged text names this home.
 # A grep for `private/` alone would refuse archived URLs (`/_private/`) and passed round 12's
-# logs, which named 1,259 `private/` files by their bare names.
-LEAK=$( { find "$STAGE" -iname '*private*'; grep -rlIF -e "$HOME" "$STAGE" || true; } )
+# logs, which named 1,259 `private/` files by their bare names. A shipped journal is named after
+# the name it walked, and a domain can hold the word, so the journals are judged by content alone.
+LEAK=$( { find "$STAGE" -iname '*private*' ! -path "$S/journals/*"; grep -rlIF -e "$HOME" "$STAGE" || true; } )
 if [ -n "$LEAK" ]; then
     echo "refusing to package: private or local paths in:" >&2
     printf '%s\n' "$LEAK" | sed -n 1,10p >&2
