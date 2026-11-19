@@ -163,6 +163,8 @@ for y, hosts in by_year.items():
     f = Path("additions") / f"{y}.txt"
     if f.is_file() and (both := hosts.intersection(f.read_text().splitlines())):
         problems.append(f"{len(both)} rows of {y} are additions")
+    if (d / f"{y}.txt").is_file() and (d / f"{y}.txt").read_text().splitlines() != sorted(hosts):
+        problems.append(f"{y}.txt differs from the year's provenance rows")
 his = os.environ.get("HIS")
 if his and not problems:
     env = {**os.environ, "LC_ALL": "C"}

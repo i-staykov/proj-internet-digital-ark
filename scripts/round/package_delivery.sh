@@ -292,7 +292,13 @@ rows.append(f"| **all** | | **{names:,}** | **{ee:,.1f}** |")
 if missing := [label for label in summary["by_class"] if not why.get(label, "").strip()]:
     print(f"warning: no sentence of his for {missing}", file=sys.stderr)
 text = readme.read_text(encoding="utf-8").replace("[CLASS TABLE]", "\n".join(rows))
-readme.write_text(text.replace("[TIERS]\n", f"{sys.argv[4]}\n" if sys.argv[4] else ""), encoding="utf-8")
+text = text.replace("[TIERS]\n", f"{sys.argv[4]}\n" if sys.argv[4] else "")
+# The labelled third part's size, so it cannot be missed: host-years and EE over its tiers.
+sizes, part = Path("output/year_evidence/tiers.csv"), ""
+if sizes.is_file():
+    tiers = [line.split(",") for line in sizes.read_text().splitlines()[1:]]
+    part = f" In all {sum(int(t[1]) for t in tiers):,} host-years, {sum(Decimal(t[2]) for t in tiers):,.1f} equivalent-English."
+readme.write_text(text.replace("[YEAR EVIDENCE]", part), encoding="utf-8")
 PY
 
 # `additions_english/` and `additions_unverified/` are NOT shipped any more, and
@@ -551,8 +557,9 @@ echo "journals: $SHIPPED_JOURNALS shipped, matching what is on disk"
 
 # Nothing private ships: no staged path names `private`, no staged text names this home.
 # A grep for `private/` alone would refuse archived URLs (`/_private/`) and passed round 12's
-# logs, which named 1,259 `private/` files by their bare names.
-LEAK=$( { find "$STAGE" -iname '*private*'; grep -rlIF -e "$HOME" "$STAGE" || true; } )
+# logs, which named 1,259 `private/` files by their bare names. A shipped journal is named after
+# the name it walked, and a domain can hold the word, so the journals are judged by content alone.
+LEAK=$( { find "$STAGE" -iname '*private*' ! -path "$S/journals/*"; grep -rlIF -e "$HOME" "$STAGE" || true; } )
 if [ -n "$LEAK" ]; then
     echo "refusing to package: private or local paths in:" >&2
     printf '%s\n' "$LEAK" | sed -n 1,10p >&2
@@ -597,6 +604,11 @@ ARCHIVE_SHA=$(cut -d' ' -f1 "$ROUND_DIR/$RELEASE.7z.sha256")
     # netnew_pairs alone reads as the whole round and has not been since 2026-09-01.
     echo "netnew_hostnames $(cat output/netnew/199[6-9]_hostnames.txt output/netnew/200[01]_hostnames.txt | wc -l | tr -d ' ')"
     echo "candidates   $(wc -l < "$C/candidates.txt" | tr -d ' ')"
+    # The labelled parts, outside both sets: host-years, where the stage holds the folder.
+    for part in year_evidence tier_c tier_d; do
+        [ -f "$STAGE/$part/provenance.csv" ] && echo "$part $(($(wc -l < "$STAGE/$part/provenance.csv") - 1))"
+    done
+    true
 } > "$ROUND_DIR/MANIFEST.txt"
 
 # Everything needed to hand the archive over by link, in one block to copy.

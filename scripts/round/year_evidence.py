@@ -14,8 +14,9 @@ The tier says where his own files place the name around that year, the strongest
 Every row is netted against the export's 1996 to 2001 additions (`output/netnew`), so no
 host-year is both an addition and year evidence.
 
-Writes one `year,host` file per tier, `provenance.csv` (the input's columns and the tier, in tier
-order) and `tiers.csv` (host-years, EE, and the share resting on a dated URL or print record).
+Writes one `year,host` file per tier, `<year>.txt` (the year's names over all tiers, in the shape
+of his annual files), `provenance.csv` (the input's columns and the tier, in tier order) and
+`tiers.csv` (host-years, EE, and the share resting on a dated URL or print record).
 Refuses a row his same-year file holds. His files are only read.
 
     uv run python scripts/round/year_evidence.py [--src data/labelled/nonweb_years]
@@ -104,6 +105,11 @@ def build(
             f"COPY (SELECT year, host FROM tiered WHERE tier = '{tier}' ORDER BY year, host) "
             f"TO '{out / (tier + '.csv')}' (HEADER)"
         )
+    for (year,) in conn.execute("SELECT DISTINCT year FROM tiered ORDER BY year").fetchall():
+        hosts = conn.execute(
+            "SELECT DISTINCT host FROM tiered WHERE year = ? ORDER BY host", [year]
+        ).fetchall()
+        (out / f"{year}.txt").write_text("".join(f"{h}\n" for (h,) in hosts))
     conn.execute(
         "COPY (SELECT year, host, class, source, locator, tier FROM tiered "
         f"ORDER BY tier, year, host) TO '{out / 'provenance.csv'}' (HEADER)"
