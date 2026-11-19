@@ -5,7 +5,10 @@ Two sets, and a labelled third part outside both and outside the growth figure.
 - `additions/`: hostnames and registrable domains for your annual files, 1996 to 2013, one file
   a year, none in your file for that year. Each name has its own web evidence of exactly that
   name in that year, of one of six kinds: a capture (1996 to 2001 a 2xx or 3xx capture that
-  replays; 2002 to 2013 a 2xx or 3xx capture where the capture index records a status, else a
+  replays; of the root captures in `journals/cdx_suffix/replayroots_*` also one the host answered
+  401, 403 or 5xx, where a server answered for the exact host and refused or failed the page, and
+  one not asked for its status before this build: the journal row says which, `status`,
+  `answered` or neither; never a 404; 2002 to 2013 a 2xx or 3xx capture where the capture index records a status, else a
   capture from an index that records none, never a 4xx or 5xx), a dated link graph that names
   it, a custodian dataset's dated record of it, a captured bookmark file's entry for it
   dated by the browser's own `ADD_DATE`, a dated usage report that logged a request
