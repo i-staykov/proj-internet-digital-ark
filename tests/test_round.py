@@ -157,6 +157,8 @@ def test_year_evidence_tiers_each_row_by_where_his_files_hold_the_name(tmp_path)
     assert (tmp_path / "out/1_bracketed.csv").read_text() == "year,host\n1998,both.org\n"
     prov = (tmp_path / "out/provenance.csv").read_text().splitlines()
     assert [line.rsplit(",", 1)[1] for line in prov[1:]] == list(ye.TIERS)
+    assert (tmp_path / "out/1998.txt").read_text() == "both.org\nearly.net\nlate.com\npool.edu\n"
+    assert (tmp_path / "out/1997.txt").read_text() == "lm.gov\n"
     (src / "provenance.csv").write_text("year,host,class,source,locator\n1999,late.com,c,s,l\n")
     with pytest.raises(SystemExit, match="1 rows sit in his file"):
         ye.build(src, tmp_path / "out", his)
