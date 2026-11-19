@@ -353,10 +353,11 @@ cp output/seeds/download_seeds.csv "$S/seeds/" 2>/dev/null || true
 # they back are in the provenance Parquet, which `verify.sh` tests (tier 2); the source they
 # parse is linked in `sources.md`; and the parser ships in `source/`, so they re-derive offline
 # and only a tier-3 replay needs them. The RDAP logs fail the second part (the registries' terms
-# forbid re-walking them) and are held out on size alone, sent on request. A set that fails the
-# test ships whatever its size: the two bulk IA CDX reads at hostname grain, whose converter is
-# not in `source/`, and the Usenet header extraction journals, which no register row names. The
-# journals README below carries the sizes, so the archive states its own limitation.
+# forbid re-walking them) and the Usenet header extraction journals the second too (no register
+# row names them); both are held out on size alone, sent on request. Any other set that fails
+# the test ships whatever its size: the two bulk IA CDX reads at hostname grain, whose converter
+# is not in `source/`. The journals README below carries the sizes, so the archive states its
+# own limitation.
 #
 # ARK_SLIM=1 omits ALL raw journals and is not what a submission uses. They exist for
 # tier-3 replay, re-parsing the raw sources offline; tier 2, which reproduces every shipped
@@ -370,7 +371,7 @@ journal_paths() {
         -not -path 'data/raw/rdap/*' -not -path 'data/raw/rdap_pool/*' \
         -not -path 'data/raw/usenet_addr/*' -not -path 'data/raw/usenet_bare/*' \
         -not -path 'data/raw/usenet/*' -not -path 'data/raw/usenet_hdr/*' \
-        -not -path 'data/raw/usenet_new/*' \
+        -not -path 'data/raw/usenet_new/*' -not -path 'data/raw/usenet_header_items/*' \
         \( -not -path 'data/raw/cdx_suffix/*' -o -name 'replayroots_*' \) \
         -not -path 'data/raw/nypw_hostgrain/*' -not -path 'data/raw/nypw_firstcdx_hostgrain/*' \
         -not -path 'data/raw/ukwa_hostgrain/*' -not -path 'data/raw/arquivo_hostgrain/*' \
@@ -433,17 +434,19 @@ Journal sets deliberately not here, on size and nothing else (.jsonl.gz bytes on
 the root replays, which are here; 21.6 GB), the NYPW hostname-grain
 conversions (nypw_hostgrain/ 353 MB, nypw_firstcdx_hostgrain/ 81 MB), the UK Web Archive geoindex
 conversion (ukwa_hostgrain/, 196 MB), the Arquivo.pt CDXJ conversion (arquivo_hostgrain/, 102 MB)
-the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB)
+the fifteen Usenet body-URL pools (usenet_*_items/ other than usenet_header_items/, 542 MB),
+the Usenet header extraction journals (usenet_header_items/, 20.6 GB on 2026-11-19)
 and the bulk capture-index journals an earlier round shipped, which back no record here
-(extended_spent/, 3.9 GB). Together about 43 GB against about 0.9 GB for everything here.
+(extended_spent/, 3.9 GB). Together about 64 GB, many times everything here.
 
 Every assignment they back still ships and is still checkable: each (domain, year) and
 (hostname, year) resolves to its evidence row in provenance/, which is what verify.sh tests
 over every assignment. Each set re-derives from a linked public source named in sources.md
 (archive.org mboxes for the Usenet sets, the NYPW first-capture and TimeMap items, the UK Web
 Archive geoindex, the Arquivo.pt CDXJ dataset, the IA CDX API for cdx_suffix) with the parser
-in source/, so tier 3 can rebuild them; the RDAP logs cannot be re-walked under the registries'
-terms and will be sent on request.
+in source/, so tier 3 can rebuild them. Two sets do not: the RDAP logs cannot be re-walked under
+the registries' terms, and no row of sources.md names the header journals' source (archive.org's
+usenet-* items). Both will be sent on request.
 EXCL
 fi
 
