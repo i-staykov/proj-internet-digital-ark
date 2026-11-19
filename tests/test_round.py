@@ -160,3 +160,43 @@ def test_year_evidence_tiers_each_row_by_where_his_files_hold_the_name(tmp_path)
     (src / "provenance.csv").write_text("year,host,class,source,locator\n1999,late.com,c,s,l\n")
     with pytest.raises(SystemExit, match="1 rows sit in his file"):
         ye.build(src, tmp_path / "out", his)
+
+
+def test_labelled_tiers_are_netted_checked_against_his_files_and_listed_by_year(tmp_path):
+    tiers = script("round/tiers.py")
+    his, src, adds, out = (tmp_path / n for n in ("his", "src", "netnew", "out"))
+    for d in (his, src, adds):
+        d.mkdir()
+    held = {1996: ["early.net", "late.com"], 2005: ["late.com"]}
+    for y in range(1996, 2014):
+        (his / f"{y}.txt").write_text("".join(h + "\n" for h in held.get(y, [])))
+    (adds / "1998_hostnames.txt").write_text("www.added.org\n")
+    page = "https://web.archive.org/web/19980101000000id_/http://a.org/"
+    cap = "http://web.archive.org/web/19980202000000/http://www.early.net/"
+    rows = [
+        ("1998", "early.net", "link", "C", page, "replay #19980101000000 http://a.org/"),
+        ("1998", "early.net", "capture", "C", cap, "19980202000000"),  # the capture wins
+        ("1998", "b.new.org", "link", "D", page, "replay #19980101000000 http://a.org/"),
+        ("1997", "a.new.org", "capture", "D", cap, "19970202000000"),
+        ("1998", "www.added.org", "link", "D", page, "replay #19980101000000 http://a.org/"),
+    ]
+    (src / "t.tsv").write_text("".join("\t".join(r) + "\n" for r in rows))
+    sizes = tiers.build(src, out, his, adds)
+    assert [r[:3] for r in sizes] == [
+        ("tier_c", "capture", 1),
+        ("tier_d", "capture", 1),
+        ("tier_d", "link", 1),
+    ]
+    assert (out / "tier_c/1998.txt").read_text() == "early.net\n"
+    assert (out / "tier_d/1997.txt").read_text() == "a.new.org\n"
+    assert (out / "tier_d/2001.txt").read_text() == ""
+    prov = (out / "tier_d/provenance.csv").read_text().splitlines()
+    assert prov[0] == "name,year,kind,source_file,position" and len(prov) == 3
+    assert prov[1] == f"a.new.org,1997,capture,{cap},19970202000000"
+    assert "`tier_d` in no year\n  (2 host-years" in tiers.readme(out / "tiers.csv")
+    (src / "t.tsv").write_text("\t".join(("1998", "late.com", "link", "D", page, "p")) + "\n")
+    with pytest.raises(SystemExit, match="do not bear out the tier of 1 rows"):
+        tiers.build(src, out, his)
+    (src / "t.tsv").write_text("\t".join(("1996", "late.com", "link", "D", page, "p")) + "\n")
+    with pytest.raises(SystemExit, match="1 rows sit in his file"):
+        tiers.build(src, out, his)
