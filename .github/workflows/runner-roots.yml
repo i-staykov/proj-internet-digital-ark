@@ -34,7 +34,7 @@ on:
         description: seconds between a job's asks, over all its threads
         default: "0.125"
       minutes:
-        description: a job's time budget, 150 at most
+        description: a job's time budget, 320 at most
         default: "150"
 
 permissions:
@@ -58,7 +58,7 @@ jobs:
   ask:
     needs: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 170
+    timeout-minutes: 350
     strategy:
       fail-fast: false
       matrix:
@@ -90,7 +90,7 @@ jobs:
           RC=0
           python3 scripts/sources/web_reports/wayback_roots.py "in/own_$SLICE.txt" \
             "out/own_$SLICE.$STAMP.roots" --stamp "${STAMP}000000" --threads "$THREADS" \
-            --interval "$INTERVAL" --minutes "$((MINUTES > 150 ? 150 : MINUTES))" || RC=$?
+            --interval "$INTERVAL" --minutes "$((MINUTES > 320 ? 320 : MINUTES))" || RC=$?
           if [ "$RC" = 0 ]; then touch "out/own_$SLICE.$STAMP.done"; fi
           echo "asker exit $RC, answers $(wc -l < "out/own_$SLICE.$STAMP.roots")"
 
