@@ -56,4 +56,5 @@ off-site copy is verified against these hashes.
 | `merge261016` | 2026-10-16 | yes | 2,129,183 | 4,107,840 | 6,635,088 | 19,340,638 | 28,924,193 | 71,726,428 | KnowledgeDiscoveryCompetition.7z | 0af8a98e6b0f182eccc53a99d529a29d9785c7a61e041fdbb37ad22fd0fb56c2 |
 | `merge261104` | 2026-11-04 | yes | 2,142,175 | 4,138,174 | 6,689,991 | 19,522,535 | 29,289,005 | 73,941,008 | 1996-2001KnowledgeDiscoveryCompetition.zip | d0f58148b4aecb573db9d0f71f3b4c299107b8a1c865a2f31732566491bad70e |
 | `merge261114` | 2026-11-14 | yes | 2,147,021 | 4,152,023 | 6,704,339 | 19,588,058 | 29,437,276 | 74,230,328 | 1996-2001KnowledgeDiscoveryCompetition.7z | 3c3738b133aa72805b9b3d551bfbb9d24ce27c247ab0c92d3ee2dddddb873d64 |
+| `merge261121` | 2026-11-21 | yes | 2,165,901 | 4,313,271 | 6,894,122 | 19,752,689 | 29,983,215 | 76,272,220 | 1996-2001KnowledgeDiscoveryCompetition.7z | bed530774d29dad1e87384fb9c379ec05cba5f680de85086fb534b2f9289314f |
 <!-- /releases:table -->
